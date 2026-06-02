@@ -8,6 +8,7 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { CommonAuthModule } from './common/auth/auth.module';
 import { AppThrottlerModule } from './common/throttler/throttler.module';
 import { MailerModule } from './common/mailer/mailer.module';
+import { AuditModule } from './common/audit/audit.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
@@ -31,6 +32,7 @@ import { HealthController } from './common/observability/health.controller';
     CommonAuthModule,
     AppThrottlerModule,
     MailerModule,
+    AuditModule,
     // TODO(phase5-8): enable when modules exist
     // AuthModule, IamModule, TenancyModule, BillingModule,
   ],
