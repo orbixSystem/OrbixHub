@@ -1,0 +1,156 @@
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import Redis from 'ioredis';
+import { AppModule } from '../src/app.module';
+import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { REDIS } from '../src/common/redis/redis.module';
+
+describe('Auth flows (e2e)', () => {
+  let app: INestApplication;
+  let redis: Redis;
+  // Both the global ThrottlerGuard (IP tracker) and the strict AuthThrottlerGuard
+  // (IP+email tracker) share one Redis store. @Throttle(STRICT) lowers the limit
+  // to 5/min on register/login/forgot for BOTH guards, and the global guard's
+  // IP-only key is shared across every test (all run from 127.0.0.1). Flush the
+  // store before each test so cross-test accumulation does not bleed into the
+  // next test; criterion 4 still trips its own 5/min within a single test.
+  beforeEach(async () => {
+    await redis.flushall();
+  });
+  beforeAll(async () => {
+    const mod = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = mod.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    app.useGlobalFilters(new AllExceptionsFilter());
+    await app.init();
+    redis = app.get<Redis>(REDIS);
+  });
+  afterAll(async () => app?.close());
+
+  const uniq = () => Math.random().toString(36).slice(2, 8);
+
+  it('criterion 6: register creates tenant+owner+membership+trial atomically', async () => {
+    const slug = `ofc-${uniq()}`;
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Oficina Teste',
+        slug,
+        fullName: 'Dona Maria',
+        email: `${uniq()}@ex.com`,
+        password: 'supersecret1',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.accessToken).toBeTruthy();
+    expect(res.body.refreshToken).toBeTruthy();
+    expect(res.body.tenant.slug).toBe(slug);
+  });
+
+  it('criterion 8: invalid/reserved slug is rejected', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Oficina Reservada',
+        slug: 'api',
+        fullName: 'Ana Souza',
+        email: `${uniq()}@ex.com`,
+        password: 'supersecret1',
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it('criterion 5: login does not reveal whether an email exists', async () => {
+    const unknown = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: `${uniq()}@nope.com`, password: 'whatever1' });
+    // register a user, then wrong password
+    const email = `${uniq()}@ex.com`;
+    await request(app.getHttpServer()).post('/api/auth/register').send({
+      tenantName: 'Zona Oficina',
+      slug: `z-${uniq()}`,
+      fullName: 'Zeca Silva',
+      email,
+      password: 'supersecret1',
+    });
+    const wrong = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password: 'wrongpass1' });
+    expect(unknown.status).toBe(401);
+    expect(wrong.status).toBe(401);
+    expect(unknown.body.message).toBe(wrong.body.message); // identical generic
+  });
+
+  it('criterion 3: refresh rotates; the rotated token works', async () => {
+    const email = `${uniq()}@ex.com`;
+    const reg = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Rede Oficina',
+        slug: `r-${uniq()}`,
+        fullName: 'Rui Mendes',
+        email,
+        password: 'supersecret1',
+      });
+    const first = reg.body.refreshToken;
+    const rot = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refreshToken: first });
+    expect(rot.status).toBe(200);
+    expect(rot.body.refreshToken).not.toBe(first);
+    // The new (rotated) token is usable. Family revocation on out-of-tolerance
+    // reuse is exercised in the RefreshService unit test (Task 5.3).
+    const useNew = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refreshToken: rot.body.refreshToken });
+    expect(useNew.status).toBe(200);
+  });
+
+  it('criterion 4: login is rate-limited after repeated attempts', async () => {
+    const email = `${uniq()}@ex.com`;
+    let last = 200;
+    for (let i = 0; i < 8; i++) {
+      const r = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email, password: 'badpassword1' });
+      last = r.status;
+    }
+    expect([401, 429]).toContain(last);
+    expect(last).toBe(429); // strict limit (5/min) should trip
+  });
+
+  it('criterion 7: register persists user/tenant/membership (re-login proves commit)', async () => {
+    // DevMailer never throws; the verification email is sent post-commit, so
+    // a mailer failure cannot roll back register. NOTE: GET /me does not exist
+    // until Phase 7 — instead we prove persistence by logging in again with the
+    // same credentials, which only succeeds if user+tenant+membership were
+    // committed.
+    const email = `${uniq()}@ex.com`;
+    const password = 'supersecret1';
+    const reg = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Mecânica Central',
+        slug: `m-${uniq()}`,
+        fullName: 'Marta Lima',
+        email,
+        password,
+      });
+    expect(reg.status).toBe(201);
+    const relogin = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email, password });
+    expect(relogin.status).toBe(200);
+    expect(relogin.body.accessToken).toBeTruthy();
+    expect(relogin.body.memberships).toHaveLength(1);
+  });
+});

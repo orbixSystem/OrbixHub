@@ -1,4 +1,9 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
@@ -19,7 +24,7 @@ export class RefreshService {
   constructor(
     private readonly repo: AuthRepository,
     @Inject(ENV) private readonly env: Env,
-    private readonly now: () => number = () => Date.now(),
+    @Optional() private readonly now: () => number = () => Date.now(),
   ) {}
 
   async issue(
