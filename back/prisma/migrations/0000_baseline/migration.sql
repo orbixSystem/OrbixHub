@@ -1,0 +1,280 @@
+-- ============================================================
+-- OrbixHub baseline schema — auth & multitenant
+-- Applied by app_owner. App connects as app_user (RLS enforced).
+-- Migrations run as app_migrator (BYPASSRLS).
+-- ============================================================
+CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- gen_random_uuid()
+
+-- ---- Roles (idempotent) ----
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_migrator') THEN
+    CREATE ROLE app_migrator LOGIN PASSWORD 'app_migrator_pw' BYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+    CREATE ROLE app_user LOGIN PASSWORD 'app_user_pw' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+END $$;
+
+-- Returns the tenant set for the current transaction, or NULL if unset.
+-- The 'true' arg => missing_ok, so unset returns NULL (fail-safe: policies match nothing).
+CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS uuid
+LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+$$;
+
+-- ============================================================
+-- Global / auth tables (no RLS)
+-- ============================================================
+
+-- ---- tenant ----
+CREATE TABLE tenant (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  slug        text NOT NULL UNIQUE,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---- users (global identity; a user may belong to many tenants) ----
+CREATE TABLE users (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email_normalized    text NOT NULL UNIQUE,  -- lower(trim(email)); case-insensitive identity
+  full_name           text NOT NULL,
+  password_hash       text NOT NULL,
+  email_verified_at   timestamptz,
+  failed_login_count  int NOT NULL DEFAULT 0,
+  locked_until        timestamptz,
+  last_tenant_id      uuid REFERENCES tenant(id) ON DELETE SET NULL,
+  mfa_secret          text,           -- TOTP seam (inactive)
+  mfa_enabled         boolean NOT NULL DEFAULT false,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
+);
+-- NOTE: the app stores email_normalized = lower(trim(email)). UNIQUE on it gives
+-- case-insensitive identity without the citext extension (keeps Prisma
+-- introspection clean — no Unsupported types).
+
+-- ---- role (global catalog) ----
+CREATE TABLE role (
+  id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key   text NOT NULL UNIQUE,   -- 'owner' | 'mechanic'
+  name  text NOT NULL
+);
+
+-- ---- permission (global catalog) ----
+CREATE TABLE permission (
+  id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key   text NOT NULL UNIQUE,   -- e.g. 'os.write'
+  name  text NOT NULL
+);
+
+-- ---- role_permission ----
+CREATE TABLE role_permission (
+  role_id        uuid NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+  permission_id  uuid NOT NULL REFERENCES permission(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+-- ---- refresh_token (opaque, hashed, rotating) ----
+CREATE TABLE refresh_token (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  family_id   uuid NOT NULL,
+  token_hash  text NOT NULL UNIQUE,         -- sha-256 of opaque token
+  rotated_to  uuid REFERENCES refresh_token(id) ON DELETE SET NULL,
+  revoked_at  timestamptz,
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_refresh_token_family ON refresh_token(family_id);
+CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
+
+-- ---- one_time_token (email verify / password reset / invite accept) ----
+CREATE TABLE one_time_token (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  purpose     text NOT NULL,                -- 'email_verify' | 'password_reset'
+  token_hash  text NOT NULL UNIQUE,
+  consumed_at timestamptz,
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_ott_user_purpose ON one_time_token(user_id, purpose);
+
+-- ---- login_attempt (audit/forensics for lockout) ----
+CREATE TABLE login_attempt (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email_normalized text NOT NULL,
+  user_id      uuid REFERENCES users(id) ON DELETE SET NULL,
+  ip           inet,
+  success      boolean NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_login_attempt_email_time ON login_attempt(email_normalized, created_at);
+
+-- ---- billing catalog (global) ----
+CREATE TABLE module (
+  id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key   text NOT NULL UNIQUE,   -- 'os' | 'inventory' | ...
+  name  text NOT NULL
+);
+CREATE TABLE plan (
+  id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key    text NOT NULL UNIQUE,  -- 'trial' | 'pro' | ...
+  name   text NOT NULL,
+  price_cents int NOT NULL DEFAULT 0
+);
+CREATE TABLE plan_module (
+  plan_id   uuid NOT NULL REFERENCES plan(id) ON DELETE CASCADE,
+  module_id uuid NOT NULL REFERENCES module(id) ON DELETE CASCADE,
+  PRIMARY KEY (plan_id, module_id)
+);
+
+-- ============================================================
+-- Tenant-scoped tables (RLS + FORCE)
+-- ============================================================
+
+-- ---- membership (user <-> tenant <-> role) ----
+CREATE TABLE membership (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id  uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id    uuid NOT NULL REFERENCES role(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, user_id)
+);
+CREATE INDEX idx_membership_user ON membership(user_id);
+
+-- ---- invite ----
+CREATE TABLE invite (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  email_normalized text NOT NULL,
+  role_id     uuid NOT NULL REFERENCES role(id),
+  token_hash  text NOT NULL UNIQUE,
+  invited_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+  accepted_at timestamptz,
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_invite_tenant ON invite(tenant_id);
+
+-- ---- subscription (one per tenant) ----
+CREATE TABLE subscription (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  plan_id     uuid NOT NULL REFERENCES plan(id),
+  status      text NOT NULL,  -- 'trialing'|'active'|'past_due'|'canceled'
+  external_subscription_id text,
+  trial_ends_at timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id)
+);
+
+-- ---- tenant_module (enabled modules per tenant) ----
+CREATE TABLE tenant_module (
+  tenant_id  uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  module_id  uuid NOT NULL REFERENCES module(id) ON DELETE CASCADE,
+  enabled    boolean NOT NULL DEFAULT true,
+  PRIMARY KEY (tenant_id, module_id)
+);
+
+-- ---- audit_log ----
+CREATE TABLE audit_log (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  action      text NOT NULL,    -- 'login'|'password_change'|'invite'|'subscription_change'
+  target      text,
+  metadata    jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_audit_tenant_time ON audit_log(tenant_id, created_at);
+
+-- ============================================================
+-- Enable RLS + FORCE + policy on the five tenant tables
+-- ============================================================
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['membership','tenant_module','subscription','invite','audit_log']
+  LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
+    EXECUTE format($f$
+      CREATE POLICY tenant_isolation ON %I
+      USING (tenant_id = current_tenant_id())
+      WITH CHECK (tenant_id = current_tenant_id());
+    $f$, t);
+  END LOOP;
+END $$;
+
+-- ============================================================
+-- auth_find_user_memberships (SECURITY DEFINER)
+-- ============================================================
+-- Lets the tenant-picker list a user's tenants pre-context, WITHOUT giving the
+-- app BYPASSRLS. SECURITY DEFINER runs as the function owner (app_owner).
+CREATE OR REPLACE FUNCTION auth_find_user_memberships(p_user_id uuid)
+RETURNS TABLE (tenant_id uuid, tenant_slug text, role_key text)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT m.tenant_id, t.slug, r.key
+  FROM membership m
+  JOIN tenant t ON t.id = m.tenant_id
+  JOIN role r ON r.id = m.role_id
+  WHERE m.user_id = p_user_id
+$$;
+REVOKE ALL ON FUNCTION auth_find_user_memberships(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_find_user_memberships(uuid) TO app_user;
+
+-- ============================================================
+-- Grants for app_user (least privilege)
+-- ============================================================
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT EXECUTE ON FUNCTION current_tenant_id() TO app_user;
+-- Future tables created by app_owner inherit these defaults:
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+GRANT USAGE ON SCHEMA public TO app_migrator;
+
+-- ============================================================
+-- Seeds (roles, permissions, role_permission, modules, plans)
+-- ============================================================
+INSERT INTO role (key, name) VALUES
+  ('owner','Dono'), ('mechanic','Mecânico')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO permission (key, name) VALUES
+  ('os.read','Ver OS'), ('os.write','Editar OS'),
+  ('inventory.read','Ver estoque'), ('inventory.write','Editar estoque'),
+  ('users.manage','Gerenciar usuários'), ('billing.manage','Gerenciar assinatura'),
+  ('tenant.manage','Gerenciar oficina')
+ON CONFLICT (key) DO NOTHING;
+
+-- owner gets all permissions; mechanic gets operational read/write only
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r, permission p WHERE r.key = 'owner'
+ON CONFLICT DO NOTHING;
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key IN ('os.read','os.write','inventory.read')
+WHERE r.key = 'mechanic'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO module (key, name) VALUES
+  ('os','Ordens de Serviço'), ('inventory','Estoque'), ('customers','Clientes')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO plan (key, name, price_cents) VALUES
+  ('trial','Trial', 0), ('pro','Pro', 9900)
+ON CONFLICT (key) DO NOTHING;
+
+-- trial includes os+customers; pro includes everything
+INSERT INTO plan_module (plan_id, module_id)
+SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key IN ('os','customers')
+WHERE pl.key = 'trial'
+ON CONFLICT DO NOTHING;
+INSERT INTO plan_module (plan_id, module_id)
+SELECT pl.id, m.id FROM plan pl, module m WHERE pl.key = 'pro'
+ON CONFLICT DO NOTHING;
