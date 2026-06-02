@@ -30,6 +30,7 @@ describe('envSchema', () => {
   });
 
   it('rejects a missing DATABASE_URL', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { DATABASE_URL, ...rest } = base;
     expect(() => envSchema.parse(rest)).toThrow();
   });
