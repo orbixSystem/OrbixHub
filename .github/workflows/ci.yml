@@ -1,0 +1,43 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  back:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: app_owner, POSTGRES_PASSWORD: owner_pw, POSTGRES_DB: orbixhub }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app_owner -d orbixhub"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run lint --workspace back
+      - run: npm run prisma:generate --workspace back
+      # NOTE: scripts/ci-db-setup.ts is created in Phase 2 Task 2.3; this step
+      # (and the e2e suite below) pass once Phase 2 lands.
+      - name: Apply baseline + roles
+        working-directory: back
+        run: npx ts-node scripts/ci-db-setup.ts
+        env:
+          ADMIN_DATABASE_URL: postgresql://app_owner:owner_pw@localhost:5432/orbixhub
+      - run: npm run test --workspace back
+        env: { NODE_ENV: test }
+      - run: npm run test:e2e --workspace back
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://app_user:app_user_pw@localhost:5432/orbixhub
+          MIGRATION_DATABASE_URL: postgresql://app_migrator:app_migrator_pw@localhost:5432/orbixhub
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: ci_secret_at_least_32_bytes_long_xxxxx
+          CORS_ORIGINS: http://localhost:3000
