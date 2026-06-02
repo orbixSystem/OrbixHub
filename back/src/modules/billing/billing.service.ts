@@ -164,8 +164,13 @@ export class BillingService {
     try {
       eventRow = await this.repo.insertWebhookEvent(payload.id, payload.type, payload as never);
     } catch (e) {
-      if ((e as { code?: string }).code === 'P2002') return; // duplicate -> no-op
-      throw e;
+      if ((e as { code?: string }).code !== 'P2002') throw e;
+      // Duplicate delivery. If a prior attempt inserted the row but failed before
+      // finishing (processed_at still null), re-drive processing so the update is
+      // not lost. If it was already processed, this is a true no-op.
+      const existing = await this.repo.findWebhookEventByExternalId(payload.id);
+      if (!existing || existing.processed_at) return;
+      eventRow = { id: existing.id };
     }
 
     const externalSubId = payload.data?.subscriptionId;

@@ -83,16 +83,17 @@ export class BillingRepository {
     ]);
 
     const target = new Set<string>([
-      ...planMods.map((m: { module_id: string }) => m.module_id),
-      ...coreMods.map((m: { id: string }) => m.id),
+      ...planMods.map((m) => m.module_id),
+      ...coreMods.map((m) => m.id),
     ]);
     const bySource = new Map(
-      existing.map((r: { module_id: string; source: string }) => [r.module_id, r.source]),
+      existing.map((r) => [r.module_id, r.source] as const),
     );
 
     // Enable every target module (skip addon/manual rows — leave them as-is).
     for (const moduleId of target) {
-      if (bySource.get(moduleId) && bySource.get(moduleId) !== 'plan') continue;
+      const src = bySource.get(moduleId);
+      if (src && src !== 'plan') continue;
       await db.tenant_module.upsert({
         where: { tenant_id_module_id: { tenant_id: tenantId, module_id: moduleId } },
         create: { tenant_id: tenantId, module_id: moduleId, enabled: true, source: 'plan' },
@@ -102,11 +103,8 @@ export class BillingRepository {
 
     // Disable plan-sourced modules that left the plan and aren't core.
     const toDisable = existing
-      .filter(
-        (r: { module_id: string; source: string }) =>
-          r.source === 'plan' && !target.has(r.module_id),
-      )
-      .map((r: { module_id: string }) => r.module_id);
+      .filter((r) => r.source === 'plan' && !target.has(r.module_id))
+      .map((r) => r.module_id);
     if (toDisable.length > 0) {
       await db.tenant_module.updateMany({
         where: { tenant_id: tenantId, module_id: { in: toDisable } },
@@ -125,6 +123,11 @@ export class BillingRepository {
     return this.prisma.billing_webhook_event.update({
       where: { id },
       data: { processed_at: new Date() },
+    });
+  }
+  findWebhookEventByExternalId(externalEventId: string) {
+    return this.prisma.billing_webhook_event.findUnique({
+      where: { external_event_id: externalEventId },
     });
   }
 

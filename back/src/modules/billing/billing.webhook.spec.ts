@@ -7,6 +7,7 @@ function build(overrides: { repo?: object; gateway?: object } = {}) {
     markWebhookProcessed: jest.fn(async () => undefined),
     resolveTenantBySubscription: jest.fn(async () => 't1'),
     updateSubscriptionStatus: jest.fn(async () => ({ id: 'sub' })),
+    findWebhookEventByExternalId: jest.fn(async () => ({ id: 'evt-row', processed_at: new Date() })),
     ...(overrides.repo ?? {}),
   };
   const tenant = { runWithTenant: (_t: string, fn: () => unknown) => fn() } as never;
@@ -62,5 +63,32 @@ describe('BillingService.processWebhook', () => {
     expect(repo.insertWebhookEvent).toHaveBeenCalled();
     expect(repo.updateSubscriptionStatus).not.toHaveBeenCalled();
     expect(repo.markWebhookProcessed).toHaveBeenCalled();
+  });
+
+  it('re-drives processing when a duplicate row was never processed (processed_at null)', async () => {
+    const dup = Object.assign(new Error('dup'), { code: 'P2002' });
+    const { svc, repo } = build({
+      repo: {
+        insertWebhookEvent: jest.fn(async () => { throw dup; }),
+        findWebhookEventByExternalId: jest.fn(async () => ({ id: 'evt-row', processed_at: null })),
+      },
+    });
+    await svc.processWebhook(body, 'sig');
+    const m = repo as unknown as { updateSubscriptionStatus: jest.Mock; markWebhookProcessed: jest.Mock };
+    expect(m.updateSubscriptionStatus).toHaveBeenCalled();
+    expect(m.markWebhookProcessed).toHaveBeenCalledWith('evt-row');
+  });
+
+  it('no-ops on a duplicate that was already processed', async () => {
+    const dup = Object.assign(new Error('dup'), { code: 'P2002' });
+    const { svc, repo } = build({
+      repo: {
+        insertWebhookEvent: jest.fn(async () => { throw dup; }),
+        findWebhookEventByExternalId: jest.fn(async () => ({ id: 'evt-row', processed_at: new Date() })),
+      },
+    });
+    await svc.processWebhook(body, 'sig');
+    const m = repo as unknown as { updateSubscriptionStatus: jest.Mock };
+    expect(m.updateSubscriptionStatus).not.toHaveBeenCalled();
   });
 });
