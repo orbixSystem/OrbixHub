@@ -144,6 +144,69 @@ export class BillingService {
     return this.subscriptionView(tenantId);
   }
 
+  /**
+   * Idempotent, signature-verified webhook handler.
+   * Order: verify sig -> dedupe -> resolve tenant by external id -> update under
+   * that tenant's context -> audit -> mark processed. NEVER trusts a tenant id
+   * from the payload.
+   */
+  async processWebhook(rawBody: Buffer | string, signature: string | undefined): Promise<void> {
+    if (!this.gateway.verifySignature(rawBody, signature)) {
+      throw new BadRequestException('Invalid webhook signature');
+    }
+    const payload = JSON.parse(rawBody.toString()) as {
+      id: string;
+      type: string;
+      data?: { subscriptionId?: string; currentPeriodStart?: string; currentPeriodEnd?: string };
+    };
+
+    let eventRow: { id: string };
+    try {
+      eventRow = await this.repo.insertWebhookEvent(payload.id, payload.type, payload as never);
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') return; // duplicate -> no-op
+      throw e;
+    }
+
+    const externalSubId = payload.data?.subscriptionId;
+    if (externalSubId) {
+      const tenantId = await this.repo.resolveTenantBySubscription(externalSubId);
+      if (tenantId) {
+        const status = this.statusFromEventType(payload.type);
+        await this.tenant.runWithTenant(tenantId, () =>
+          this.repo.updateSubscriptionStatus({
+            status,
+            current_period_start: payload.data?.currentPeriodStart
+              ? new Date(payload.data.currentPeriodStart)
+              : undefined,
+            current_period_end: payload.data?.currentPeriodEnd
+              ? new Date(payload.data.currentPeriodEnd)
+              : undefined,
+            canceled_at: status === 'canceled' ? new Date() : null,
+          }),
+        );
+        await this.audit.log(tenantId, null, 'subscription_change', 'webhook', {
+          type: payload.type,
+          externalSubscriptionId: externalSubId,
+        });
+      }
+    }
+    await this.repo.markWebhookProcessed(eventRow.id);
+  }
+
+  private statusFromEventType(type: string): 'trialing' | 'active' | 'past_due' | 'canceled' {
+    switch (type) {
+      case 'subscription.active':
+        return 'active';
+      case 'subscription.past_due':
+        return 'past_due';
+      case 'subscription.canceled':
+        return 'canceled';
+      default:
+        return 'trialing';
+    }
+  }
+
   private async assertSubscribablePlan(planKey: string) {
     const plan = await this.repo.findPlanByKey(planKey);
     if (!plan || plan.key === this.env.TRIAL_PLAN_KEY) {

@@ -1,0 +1,49 @@
+import { BadRequestException } from '@nestjs/common';
+import { BillingService } from './billing.service';
+
+function build(overrides: { repo?: object; gateway?: object } = {}) {
+  const repo = {
+    insertWebhookEvent: jest.fn(async () => ({ id: 'evt-row' })),
+    markWebhookProcessed: jest.fn(async () => undefined),
+    resolveTenantBySubscription: jest.fn(async () => 't1'),
+    updateSubscriptionStatus: jest.fn(async () => ({ id: 'sub' })),
+    ...(overrides.repo ?? {}),
+  };
+  const tenant = { runWithTenant: (_t: string, fn: () => unknown) => fn() } as never;
+  const audit = { log: jest.fn() } as never;
+  const gateway = { verifySignature: jest.fn(() => true), ...(overrides.gateway ?? {}) } as never;
+  const env = {} as never;
+  const svc = new BillingService(tenant, repo as never, env, audit, gateway);
+  return { svc, repo, gateway, audit };
+}
+
+const body = JSON.stringify({
+  id: 'evt_1',
+  type: 'subscription.active',
+  data: { subscriptionId: 'noop_sub_t1_pro' },
+});
+
+describe('BillingService.processWebhook', () => {
+  it('rejects an invalid signature with 400 and zero DB work', async () => {
+    const { svc, repo } = build({ gateway: { verifySignature: () => false } });
+    await expect(svc.processWebhook(body, 'bad')).rejects.toBeInstanceOf(BadRequestException);
+    expect(repo.insertWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it('no-ops on a duplicate external_event_id (P2002)', async () => {
+    const dup = Object.assign(new Error('dup'), { code: 'P2002' });
+    const { svc, repo } = build({ repo: { insertWebhookEvent: jest.fn(async () => { throw dup; }) } });
+    await expect(svc.processWebhook(body, 'sig')).resolves.toBeUndefined();
+    expect(repo.updateSubscriptionStatus).not.toHaveBeenCalled();
+  });
+
+  it('resolves tenant via external id and updates status', async () => {
+    const { svc, repo } = build();
+    await svc.processWebhook(body, 'sig');
+    expect(repo.resolveTenantBySubscription).toHaveBeenCalledWith('noop_sub_t1_pro');
+    expect(repo.updateSubscriptionStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'active' }),
+    );
+    expect(repo.markWebhookProcessed).toHaveBeenCalled();
+  });
+});
