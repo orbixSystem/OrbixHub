@@ -9,6 +9,7 @@ import { CommonAuthModule } from './common/auth/auth.module';
 import { AppThrottlerModule } from './common/throttler/throttler.module';
 import { MailerModule } from './common/mailer/mailer.module';
 import { AuditModule } from './common/audit/audit.module';
+import { JobsModule } from './common/jobs/jobs.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
@@ -30,6 +31,7 @@ import { TenancyModule } from './modules/tenancy/tenancy.module';
     AppThrottlerModule,
     MailerModule,
     AuditModule,
+    JobsModule,
     AuthModule,
     IamModule,
     TenancyModule,
