@@ -49,6 +49,21 @@ describe('ModuleAccessGuard', () => {
     const g = guardWith({ enabled: false, is_core: true }, 'active');
     await expect(g.canActivate(ctx('GET'))).resolves.toBe(true);
   });
+  it('is_core + past_due + write -> 403 (status gate not bypassed by core)', async () => {
+    const g = guardWith({ enabled: false, is_core: true }, 'past_due');
+    await expect(g.canActivate(ctx('POST'))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('no req.user -> 403', async () => {
+    const g = guardWith({ enabled: true, is_core: false }, 'active');
+    // Build the context inline: passing undefined to ctx() would hit the
+    // default param value, so set user: undefined explicitly here.
+    const noUser = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({ getRequest: () => ({ method: 'GET', user: undefined }) }),
+    } as never;
+    await expect(g.canActivate(noUser)).rejects.toBeInstanceOf(ForbiddenException);
+  });
   it('no @RequiresModule -> passes', async () => {
     const reflector = { getAllAndOverride: () => undefined } as never;
     const tenant = {} as never;
