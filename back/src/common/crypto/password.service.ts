@@ -5,6 +5,14 @@ import type { Env } from '../config/env.schema';
 
 @Injectable()
 export class PasswordService {
+  /**
+   * Cached, real argon2id hash (configured params) used solely to equalize
+   * timing on the unknown-email login path. Computed lazily once, then reused
+   * so every unknown-email request pays a genuine argon2 VERIFY — matching the
+   * cost of a real verify and resisting user-enumeration via timing.
+   */
+  private dummyHash: Promise<string> | null = null;
+
   constructor(@Inject(ENV) private readonly env: Env) {}
 
   hash(plain: string): Promise<string> {
@@ -22,5 +30,19 @@ export class PasswordService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Timing-equalization for the unknown-email login branch: runs a REAL
+   * argon2id verify of `plain` against a cached dummy hash (same params as a
+   * real verify) and always returns false. The dummy hash is computed once and
+   * memoized, so the per-request cost is an argon2 verify, never a no-op.
+   */
+  async dummyVerify(plain: string): Promise<boolean> {
+    if (!this.dummyHash) {
+      this.dummyHash = this.hash('orbix-dummy-password-for-timing');
+    }
+    const hash = await this.dummyHash;
+    return this.verify(hash, plain);
   }
 }

@@ -34,6 +34,7 @@ function deps(overrides: Overrides = {}) {
   const passwords = {
     verify: jest.fn(async () => true),
     hash: jest.fn(async () => 'h'),
+    dummyVerify: jest.fn(async () => false),
     ...overrides.passwords,
   };
   const accessTokens = { sign: jest.fn(() => 'access') };

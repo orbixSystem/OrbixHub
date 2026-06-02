@@ -118,12 +118,9 @@ export class AuthService {
 
     // Always do work shaped the same way to resist enumeration & timing.
     if (!user) {
-      await this.passwords
-        .verify(
-          '$argon2id$v=19$m=19456,t=2,p=1$ZmFrZQ$ZmFrZQ',
-          dto.password,
-        )
-        .catch(() => false);
+      // Real argon2 verify against a cached dummy hash (same params) so the
+      // unknown-email path costs the same as a real verify (anti-timing).
+      await this.passwords.dummyVerify(dto.password);
       await this.repo.recordLoginAttempt(email, false, undefined, ip);
       throw new UnauthorizedException(GENERIC_CREDENTIALS);
     }
