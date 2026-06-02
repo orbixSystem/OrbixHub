@@ -113,6 +113,7 @@ export class BillingService {
           external_subscription_id: checkout.externalSubscriptionId,
         }),
       );
+      // Module enablement (reconcile) is deferred to the webhook that confirms 'active'.
     } else {
       const now = new Date();
       await this.tenant.runWithTenant(tenantId, async () => {
@@ -153,13 +154,14 @@ export class BillingService {
 
   private async subscriptionView(tenantId: string): Promise<SubscriptionView> {
     const sub = await this.tenant.runWithTenant(tenantId, () => this.repo.getSubscription());
+    if (!sub) throw new Error('subscription not found immediately after write');
     return {
-      planKey: sub?.plan.key ?? '',
-      status: sub?.status ?? '',
-      trialEndsAt: sub?.trial_ends_at ?? null,
-      currentPeriodStart: sub?.current_period_start ?? null,
-      currentPeriodEnd: sub?.current_period_end ?? null,
-      canceledAt: sub?.canceled_at ?? null,
+      planKey: sub.plan.key,
+      status: sub.status,
+      trialEndsAt: sub.trial_ends_at,
+      currentPeriodStart: sub.current_period_start,
+      currentPeriodEnd: sub.current_period_end,
+      canceledAt: sub.canceled_at,
     };
   }
 }
