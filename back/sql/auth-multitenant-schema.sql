@@ -296,3 +296,51 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
 $$;
 REVOKE ALL ON FUNCTION auth_find_invite_by_hash(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auth_find_invite_by_hash(text) TO app_user;
+
+-- ============================================================
+-- 0002_billing — additive billing columns, webhook idempotency,
+-- controlled resolvers (idempotent; safe to re-run via ci-db-setup).
+-- ============================================================
+ALTER TABLE module        ADD COLUMN IF NOT EXISTS is_core boolean NOT NULL DEFAULT false;
+ALTER TABLE plan          ADD COLUMN IF NOT EXISTS billing_period text NOT NULL DEFAULT 'monthly';
+ALTER TABLE tenant_module ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'plan';
+ALTER TABLE tenant_module ADD COLUMN IF NOT EXISTS settings jsonb;
+ALTER TABLE tenant_module ADD COLUMN IF NOT EXISTS valid_until timestamptz;
+ALTER TABLE subscription  ADD COLUMN IF NOT EXISTS current_period_start timestamptz;
+ALTER TABLE subscription  ADD COLUMN IF NOT EXISTS current_period_end   timestamptz;
+ALTER TABLE subscription  ADD COLUMN IF NOT EXISTS canceled_at          timestamptz;
+
+CREATE TABLE IF NOT EXISTS billing_webhook_event (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_event_id  text NOT NULL UNIQUE,
+  type               text NOT NULL,
+  payload            jsonb NOT NULL,
+  received_at        timestamptz NOT NULL DEFAULT now(),
+  processed_at       timestamptz
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON billing_webhook_event TO app_user;
+
+-- Webhook (no JWT) resolves its tenant from the external subscription id.
+CREATE OR REPLACE FUNCTION billing_resolve_tenant_by_subscription(p_external_subscription_id text)
+RETURNS uuid
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT s.tenant_id FROM subscription s
+  WHERE s.external_subscription_id = p_external_subscription_id
+  LIMIT 1
+$$;
+REVOKE ALL ON FUNCTION billing_resolve_tenant_by_subscription(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION billing_resolve_tenant_by_subscription(text) TO app_user;
+
+-- Daily trial-expiry job (no per-tenant context) finds due trials via this lookup.
+CREATE OR REPLACE FUNCTION billing_find_expired_trials()
+RETURNS TABLE (tenant_id uuid, subscription_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT s.tenant_id, s.id FROM subscription s
+  WHERE s.status = 'trialing'
+    AND s.trial_ends_at IS NOT NULL
+    AND s.trial_ends_at < now()
+$$;
+REVOKE ALL ON FUNCTION billing_find_expired_trials() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION billing_find_expired_trials() TO app_user;
+
+UPDATE plan SET billing_period = 'monthly' WHERE key IN ('trial','pro');
