@@ -169,10 +169,10 @@ export class BillingService {
     }
 
     const externalSubId = payload.data?.subscriptionId;
-    if (externalSubId) {
+    const status = this.statusFromEventType(payload.type);
+    if (externalSubId && status) {
       const tenantId = await this.repo.resolveTenantBySubscription(externalSubId);
       if (tenantId) {
-        const status = this.statusFromEventType(payload.type);
         await this.tenant.runWithTenant(tenantId, () =>
           this.repo.updateSubscriptionStatus({
             status,
@@ -194,7 +194,9 @@ export class BillingService {
     await this.repo.markWebhookProcessed(eventRow.id);
   }
 
-  private statusFromEventType(type: string): 'trialing' | 'active' | 'past_due' | 'canceled' {
+  private statusFromEventType(
+    type: string,
+  ): 'trialing' | 'active' | 'past_due' | 'canceled' | null {
     switch (type) {
       case 'subscription.active':
         return 'active';
@@ -202,8 +204,10 @@ export class BillingService {
         return 'past_due';
       case 'subscription.canceled':
         return 'canceled';
-      default:
+      case 'subscription.trialing':
         return 'trialing';
+      default:
+        return null;
     }
   }
 

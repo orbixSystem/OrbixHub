@@ -46,4 +46,21 @@ describe('BillingService.processWebhook', () => {
     );
     expect(repo.markWebhookProcessed).toHaveBeenCalled();
   });
+
+  it('audits the change on a known event', async () => {
+    const { svc, audit } = build();
+    await svc.processWebhook(body, 'sig');
+    expect((audit as { log: jest.Mock }).log).toHaveBeenCalledWith(
+      't1', null, 'subscription_change', 'webhook', expect.objectContaining({ type: 'subscription.active' }),
+    );
+  });
+
+  it('records but does not update status for an unknown event type', async () => {
+    const unknown = JSON.stringify({ id: 'evt_2', type: 'invoice.paid', data: { subscriptionId: 'noop_sub_t1_pro' } });
+    const { svc, repo } = build();
+    await svc.processWebhook(unknown, 'sig');
+    expect(repo.insertWebhookEvent).toHaveBeenCalled();
+    expect(repo.updateSubscriptionStatus).not.toHaveBeenCalled();
+    expect(repo.markWebhookProcessed).toHaveBeenCalled();
+  });
 });
