@@ -7,11 +7,7 @@ import {
 import { Observable } from 'rxjs';
 import { TenantContext } from '../database/tenant-context';
 import type { Request } from 'express';
-
-// NOTE: AuthUser type lands in Phase 4 (../auth/auth.types). Until then we use a
-// minimal inline shape so this file compiles. The JwtAuthGuard will populate the
-// full AuthUser on req.user in Phase 4; we only need the tenantId here.
-type RequestUser = { tenantId?: string } | undefined;
+import type { AuthUser } from '../auth/auth.types';
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
@@ -20,7 +16,7 @@ export class TenantInterceptor implements NestInterceptor {
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = ctx
       .switchToHttp()
-      .getRequest<Request & { user?: RequestUser }>();
+      .getRequest<Request & { user?: AuthUser }>();
     // tid comes ONLY from the verified token (set by JwtAuthGuard on req.user).
     if (req.user?.tenantId) {
       this.tenant.setTenantId(req.user.tenantId);
