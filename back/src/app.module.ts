@@ -1,6 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { GlobalThrottlerGuard } from './common/throttler/global-throttler.guard';
 import { ConfigModule } from './common/config/config.module';
 import { RedisModule } from './common/redis/redis.module';
 import { DatabaseModule } from './common/database/database.module';
@@ -40,7 +40,7 @@ import { AuthModule } from './modules/auth/auth.module';
   providers: [
     // Guard order matters: ThrottlerGuard -> JwtAuthGuard (sets req.user)
     // -> PermissionsGuard (reads it). APP_GUARD runs in registration order.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: GlobalThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantInterceptor },

@@ -23,7 +23,9 @@ import {
   SwitchTenantDto,
 } from './dto/auth.dto';
 
-const STRICT = { default: { ttl: 60_000, limit: 5 } }; // 5/min per IP+account
+// Strict 5/min per IP+account. Targets the named `auth` throttler so only the
+// AuthThrottlerGuard enforces it; the global default (120/min) is untouched.
+const STRICT = { auth: { ttl: 60_000, limit: 5 } };
 
 @Controller('auth')
 export class AuthController {

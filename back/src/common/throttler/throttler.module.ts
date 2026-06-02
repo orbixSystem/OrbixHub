@@ -10,7 +10,14 @@ import type { Env } from '../config/env.schema';
     ThrottlerModule.forRootAsync({
       inject: [ENV],
       useFactory: (env: Env) => ({
-        throttlers: [{ name: 'default', ttl: 60000, limit: 120 }],
+        throttlers: [
+          // Global IP-only limit, enforced by the global ThrottlerGuard.
+          { name: 'default', ttl: 60000, limit: 120 },
+          // Strict per IP+account limit, enforced ONLY by AuthThrottlerGuard
+          // on register/login/forgot. Kept off the global guard so a shared
+          // egress IP is not clamped to 5/min on those routes.
+          { name: 'auth', ttl: 60000, limit: 5 },
+        ],
         storage: new ThrottlerStorageRedisService(new Redis(env.REDIS_URL)),
       }),
     }),
