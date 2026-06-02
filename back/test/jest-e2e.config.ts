@@ -6,5 +6,15 @@ const config: Config = {
   transform: { '^.+\\.ts$': 'ts-jest' },
   testEnvironment: 'node',
   testTimeout: 120000,
+  // The throttler-storage-redis ioredis client and the global REDIS ioredis
+  // provider are created via `new Redis(...)` and are NOT registered as Nest
+  // lifecycle providers, so `app.close()` in each spec's afterAll does not
+  // disconnect them. Those sockets keep the Node event loop alive and Jest
+  // would otherwise hang after the suite finishes (Phase 7 used a CLI
+  // --forceExit). Setting forceExit here makes the e2e run terminate on its
+  // own everywhere (local `npm run test:e2e` and the CI step) without relying
+  // on a CLI flag. Each spec still calls `await app.close()` so Prisma and the
+  // HTTP server shut down cleanly before the process exits.
+  forceExit: true,
 };
 export default config;
