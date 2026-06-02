@@ -1,0 +1,41 @@
+import { Injectable } from '@nestjs/common';
+import { TenancyRepository } from './tenancy.repository';
+import { AuthRepository } from '../auth/auth.repository';
+import type { AuthUser } from '../../common/auth/auth.types';
+
+@Injectable()
+export class TenancyService {
+  constructor(
+    private readonly repo: TenancyRepository,
+    private readonly authRepo: AuthRepository,
+  ) {}
+
+  async me(user: AuthUser) {
+    const [u, tenant, permissions, modules, memberships] = await Promise.all([
+      this.authRepo.findUserById(user.userId),
+      this.repo.getTenant(user.tenantId),
+      this.repo.permissionsForRole(user.role),
+      this.repo.enabledModules(),
+      this.authRepo.findUserMemberships(user.userId),
+    ]);
+    return {
+      user: {
+        id: u?.id,
+        email: u?.email_normalized,
+        fullName: u?.full_name,
+        emailVerified: !!u?.email_verified_at,
+      },
+      activeTenant: tenant
+        ? { id: tenant.id, slug: tenant.slug, name: tenant.name }
+        : null,
+      role: user.role,
+      permissions,
+      modules,
+      memberships: memberships.map((m) => ({
+        tenantId: m.tenant_id,
+        tenantSlug: m.tenant_slug,
+        role: m.role_key,
+      })),
+    };
+  }
+}

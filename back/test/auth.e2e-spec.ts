@@ -128,24 +128,40 @@ describe('Auth flows (e2e)', () => {
     expect(last).toBe(429); // strict limit (5/min) should trip
   });
 
-  it('criterion 7: register persists user/tenant/membership (re-login proves commit)', async () => {
-    // DevMailer never throws; the verification email is sent post-commit, so
-    // a mailer failure cannot roll back register. NOTE: GET /me does not exist
-    // until Phase 7 — instead we prove persistence by logging in again with the
-    // same credentials, which only succeeds if user+tenant+membership were
-    // committed.
+  it('criterion 7: register persists; GET /me reflects the committed identity', async () => {
+    // DevMailer never throws; the verification email is sent post-commit, so a
+    // mailer failure cannot roll back register. Now that Phase 7 ships GET /me,
+    // we prove persistence by calling /me with the register accessToken: it only
+    // returns 200 with the tenant/role/modules if user+tenant+membership+trial
+    // were committed. (Re-login is also checked as a belt-and-braces commit
+    // proof.)
     const email = `${uniq()}@ex.com`;
     const password = 'supersecret1';
+    const slug = `m-${uniq()}`;
     const reg = await request(app.getHttpServer())
       .post('/api/auth/register')
       .send({
         tenantName: 'Mecânica Central',
-        slug: `m-${uniq()}`,
+        slug,
         fullName: 'Marta Lima',
         email,
         password,
       });
     expect(reg.status).toBe(201);
+    const accessToken = reg.body.accessToken as string;
+    expect(accessToken).toBeTruthy();
+
+    const me = await request(app.getHttpServer())
+      .get('/api/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(me.status).toBe(200);
+    expect(me.body.activeTenant.slug).toBe(slug);
+    expect(me.body.role).toBe('owner');
+    // Trial plan enables os + customers (RLS-scoped tenant_module read).
+    expect(me.body.modules).toEqual(
+      expect.arrayContaining(['os', 'customers']),
+    );
+
     const relogin = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email, password });

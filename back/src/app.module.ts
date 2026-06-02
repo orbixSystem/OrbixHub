@@ -16,8 +16,7 @@ import { RequestIdMiddleware } from './common/observability/request-id.middlewar
 import { HealthController } from './common/observability/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { IamModule } from './modules/iam/iam.module';
-// TODO(phase7): enable when module exists
-// import { TenancyModule } from './modules/tenancy/tenancy.module';
+import { TenancyModule } from './modules/tenancy/tenancy.module';
 // TODO(phase8): enable when module exists
 // import { BillingModule } from './modules/billing/billing.module';
 
@@ -33,8 +32,9 @@ import { IamModule } from './modules/iam/iam.module';
     AuditModule,
     AuthModule,
     IamModule,
-    // TODO(phase7-8): enable when modules exist
-    // TenancyModule, BillingModule,
+    TenancyModule,
+    // TODO(phase8): enable when module exists
+    // BillingModule,
   ],
   controllers: [HealthController],
   providers: [
