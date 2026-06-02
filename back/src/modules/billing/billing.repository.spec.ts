@@ -16,21 +16,29 @@ function makeFakes(opts: {
     },
     tenant_module: {
       findMany: jest.fn(async () => rows.map((r) => ({ ...r }))),
-      upsert: jest.fn(async ({ create, update, where }: any) => {
-        const id = where.tenant_id_module_id.module_id;
-        const found = rows.find((r) => r.module_id === id);
-        if (found) Object.assign(found, update);
-        else rows.push({ module_id: id, enabled: create.enabled, source: create.source });
-      }),
-      updateMany: jest.fn(async ({ where, data }: any) => {
-        for (const r of rows) {
-          if (where.module_id.in.includes(r.module_id)) Object.assign(r, data);
-        }
-      }),
+      upsert: jest.fn(
+        async (args: {
+          where: { tenant_id_module_id: { tenant_id: string; module_id: string } };
+          create: { tenant_id: string; module_id: string; enabled: boolean; source: string };
+          update: { enabled: boolean };
+        }) => {
+          const id = args.where.tenant_id_module_id.module_id;
+          const found = rows.find((r) => r.module_id === id);
+          if (found) Object.assign(found, args.update);
+          else rows.push({ module_id: id, enabled: args.create.enabled, source: args.create.source });
+        },
+      ),
+      updateMany: jest.fn(
+        async (args: { where: { tenant_id: string; module_id: { in: string[] } }; data: { enabled: boolean } }) => {
+          for (const r of rows) {
+            if (args.where.module_id.in.includes(r.module_id)) Object.assign(r, args.data);
+          }
+        },
+      ),
     },
   };
   const prisma = client; // global reads via same fake for the test
-  const tenant = { getClient: () => client, withTenantTx: (fn: any) => fn() } as never;
+  const tenant = { getClient: () => client, withTenantTx: (fn: () => unknown) => fn() } as never;
   const repo = new BillingRepository(prisma as never, tenant);
   return { repo, rows, client };
 }

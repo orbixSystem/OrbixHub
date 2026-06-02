@@ -10,12 +10,12 @@ describe('BillingService.createTrial', () => {
     const repo = {
       findPlanByKey: jest.fn(async (k: string) => ({ id: 'plan-trial', key: k })),
       reconcile,
-    } as any;
+    };
     const env = { TRIAL_PLAN_KEY: 'trial', TRIAL_DAYS: 14, BILLING_REQUIRE_PAYMENT: false } as never;
     const audit = { log: jest.fn() } as never;
     const gateway = {} as never;
 
-    const svc = new BillingService(tenant, repo, env, audit, gateway);
+    const svc = new BillingService(tenant, repo as never, env, audit, gateway);
     await svc.createTrial('t1');
 
     expect(repo.findPlanByKey).toHaveBeenCalledWith('trial');
