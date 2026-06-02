@@ -15,8 +15,7 @@ import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { HealthController } from './common/observability/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
-// TODO(phase6): enable when module exists
-// import { IamModule } from './modules/iam/iam.module';
+import { IamModule } from './modules/iam/iam.module';
 // TODO(phase7): enable when module exists
 // import { TenancyModule } from './modules/tenancy/tenancy.module';
 // TODO(phase8): enable when module exists
@@ -33,8 +32,9 @@ import { AuthModule } from './modules/auth/auth.module';
     MailerModule,
     AuditModule,
     AuthModule,
-    // TODO(phase6-8): enable when modules exist
-    // IamModule, TenancyModule, BillingModule,
+    IamModule,
+    // TODO(phase7-8): enable when modules exist
+    // TenancyModule, BillingModule,
   ],
   controllers: [HealthController],
   providers: [
