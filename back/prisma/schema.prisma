@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_log {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  actor_user_id String?  @db.Uuid
+  action        String
+  target        String?
+  metadata      Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users?   @relation(fields: [actor_user_id], references: [id], onUpdate: NoAction)
+  tenant        tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, created_at], map: "idx_audit_tenant_time")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invite {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String    @db.Uuid
+  email_normalized String
+  role_id          String    @db.Uuid
+  token_hash       String    @unique
+  invited_by       String?   @db.Uuid
+  accepted_at      DateTime? @db.Timestamptz(6)
+  expires_at       DateTime  @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  users            users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
+  role             role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant           tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_invite_tenant")
+}
+
+model login_attempt {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email_normalized String
+  user_id          String?  @db.Uuid
+  ip               String?  @db.Inet
+  success          Boolean
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([email_normalized, created_at], map: "idx_login_attempt_email_time")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model membership {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  user_id    String   @db.Uuid
+  role_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  role       role     @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, user_id])
+  @@index([user_id], map: "idx_membership_user")
+}
+
+model module {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key           String          @unique
+  name          String
+  plan_module   plan_module[]
+  tenant_module tenant_module[]
+}
+
+model one_time_token {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?   @db.Uuid
+  purpose     String
+  token_hash  String    @unique
+  consumed_at DateTime? @db.Timestamptz(6)
+  expires_at  DateTime  @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, purpose], map: "idx_ott_user_purpose")
+}
+
+model permission {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String            @unique
+  name            String
+  role_permission role_permission[]
+}
+
+model plan {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key          String         @unique
+  name         String
+  price_cents  Int            @default(0)
+  plan_module  plan_module[]
+  subscription subscription[]
+}
+
+model plan_module {
+  plan_id   String @db.Uuid
+  module_id String @db.Uuid
+  module    module @relation(fields: [module_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plan      plan   @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([plan_id, module_id])
+}
+
+model refresh_token {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String          @db.Uuid
+  tenant_id           String          @db.Uuid
+  family_id           String          @db.Uuid
+  token_hash          String          @unique
+  rotated_to          String?         @db.Uuid
+  revoked_at          DateTime?       @db.Timestamptz(6)
+  expires_at          DateTime        @db.Timestamptz(6)
+  created_at          DateTime        @default(now()) @db.Timestamptz(6)
+  refresh_token       refresh_token?  @relation("refresh_tokenTorefresh_token", fields: [rotated_to], references: [id], onUpdate: NoAction)
+  other_refresh_token refresh_token[] @relation("refresh_tokenTorefresh_token")
+  tenant              tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([family_id], map: "idx_refresh_token_family")
+  @@index([user_id], map: "idx_refresh_token_user")
+}
+
+model role {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String            @unique
+  name            String
+  invite          invite[]
+  membership      membership[]
+  role_permission role_permission[]
+}
+
+model role_permission {
+  role_id       String     @db.Uuid
+  permission_id String     @db.Uuid
+  permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  role          role       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subscription {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String    @unique @db.Uuid
+  plan_id                  String    @db.Uuid
+  status                   String
+  external_subscription_id String?
+  trial_ends_at            DateTime? @db.Timestamptz(6)
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime  @default(now()) @db.Timestamptz(6)
+  plan                     plan      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant                   tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model tenant {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  slug          String          @unique
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  audit_log     audit_log[]
+  invite        invite[]
+  membership    membership[]
+  refresh_token refresh_token[]
+  subscription  subscription?
+  tenant_module tenant_module[]
+  users         users[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tenant_module {
+  tenant_id String  @db.Uuid
+  module_id String  @db.Uuid
+  enabled   Boolean @default(true)
+  module    module  @relation(fields: [module_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant    tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([tenant_id, module_id])
+}
+
+model users {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email_normalized   String           @unique
+  full_name          String
+  password_hash      String
+  email_verified_at  DateTime?        @db.Timestamptz(6)
+  failed_login_count Int              @default(0)
+  locked_until       DateTime?        @db.Timestamptz(6)
+  last_tenant_id     String?          @db.Uuid
+  mfa_secret         String?
+  mfa_enabled        Boolean          @default(false)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  audit_log          audit_log[]
+  invite             invite[]
+  login_attempt      login_attempt[]
+  membership         membership[]
+  one_time_token     one_time_token[]
+  refresh_token      refresh_token[]
+  tenant             tenant?          @relation(fields: [last_tenant_id], references: [id], onUpdate: NoAction)
+}
