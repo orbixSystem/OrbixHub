@@ -15,6 +15,23 @@ const base = {
   ARGON_PARALLELISM: '1',
 };
 
+describe('billing env knobs', () => {
+  it('applies billing defaults', () => {
+    const env = envSchema.parse(base);
+    expect(env.TRIAL_PLAN_KEY).toBe('trial');
+    expect(env.TRIAL_DAYS).toBe(14);
+    expect(env.BILLING_REQUIRE_PAYMENT).toBe(false);
+  });
+  it('parses BILLING_REQUIRE_PAYMENT="false" as boolean false (not truthy string)', () => {
+    const env = envSchema.parse({ ...base, BILLING_REQUIRE_PAYMENT: 'false' });
+    expect(env.BILLING_REQUIRE_PAYMENT).toBe(false);
+  });
+  it('parses BILLING_REQUIRE_PAYMENT="true" as true', () => {
+    const env = envSchema.parse({ ...base, BILLING_REQUIRE_PAYMENT: 'true' });
+    expect(env.BILLING_REQUIRE_PAYMENT).toBe(true);
+  });
+});
+
 describe('envSchema', () => {
   it('parses a valid env', () => {
     const parsed = envSchema.parse(base);
