@@ -18,8 +18,7 @@ import { HealthController } from './common/observability/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
-// TODO(phase8): enable when module exists
-// import { BillingModule } from './modules/billing/billing.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -35,8 +34,7 @@ import { TenancyModule } from './modules/tenancy/tenancy.module';
     AuthModule,
     IamModule,
     TenancyModule,
-    // TODO(phase8): enable when module exists
-    // BillingModule,
+    BillingModule,
   ],
   controllers: [HealthController],
   providers: [

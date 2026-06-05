@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TenancyRepository } from './tenancy.repository';
 import { AuthRepository } from '../auth/auth.repository';
+import { BillingService } from '../billing/billing.service';
 import type { AuthUser } from '../../common/auth/auth.types';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class TenancyService {
   constructor(
     private readonly repo: TenancyRepository,
     private readonly authRepo: AuthRepository,
+    private readonly billing: BillingService,
   ) {}
 
   async me(user: AuthUser) {
@@ -15,7 +17,7 @@ export class TenancyService {
       this.authRepo.findUserById(user.userId),
       this.repo.getTenant(user.tenantId),
       this.repo.permissionsForRole(user.role),
-      this.repo.enabledModules(),
+      this.billing.getEnabledModules(user.tenantId),
       this.authRepo.findUserMemberships(user.userId),
     ]);
     return {

@@ -15,6 +15,14 @@ export const envSchema = z.object({
   ARGON_MEMORY_KIB: z.coerce.number().int().positive().default(19456),
   ARGON_TIME_COST: z.coerce.number().int().positive().default(2),
   ARGON_PARALLELISM: z.coerce.number().int().positive().default(1),
+  TRIAL_PLAN_KEY: z.string().default('trial'),
+  TRIAL_DAYS: z.coerce.number().int().positive().default(14),
+  // NB: z.coerce.boolean() treats the string "false" as TRUE. Parse explicitly.
+  BILLING_REQUIRE_PAYMENT: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
 });
 
 export type Env = z.infer<typeof envSchema>;
