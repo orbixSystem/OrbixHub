@@ -53,7 +53,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Entrar',
+      title: 'Bem-vindo de volta',
+      subtitle: 'Acesse o painel da sua oficina.',
       child: Form(
         key: _formKey,
         child: Column(

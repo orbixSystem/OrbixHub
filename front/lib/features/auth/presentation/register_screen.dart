@@ -61,6 +61,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       title: 'Criar oficina',
+      subtitle: 'Crie sua conta e comece o teste grátis.',
       child: Form(
         key: _formKey,
         child: Column(

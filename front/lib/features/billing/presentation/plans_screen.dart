@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../di.dart';
 import '../domain/billing_models.dart';
 import 'billing_providers.dart';
 
 /// Renders subscribable plans DYNAMICALLY from `GET /billing/plans` (no hardcoded
-/// names/modules) and lets the owner subscribe / change plan.
+/// names/modules) as premium pricing cards; owner can subscribe / change plan.
 class PlansScreen extends ConsumerStatefulWidget {
   const PlansScreen({super.key});
 
@@ -18,20 +19,19 @@ class PlansScreen extends ConsumerStatefulWidget {
 class _PlansScreenState extends ConsumerState<PlansScreen> {
   String? _busyPlanKey;
 
-  String _price(int cents) =>
-      cents == 0 ? 'Grátis' : 'R\$ ${(cents / 100).toStringAsFixed(2).replaceAll('.', ',')}';
+  String _price(int cents) => cents == 0
+      ? 'Grátis'
+      : 'R\$ ${(cents / 100).toStringAsFixed(2).replaceAll('.', ',')}';
 
   Future<void> _choose(String planKey, Subscription? current) async {
     setState(() => _busyPlanKey = planKey);
     final repo = ref.read(billingRepositoryProvider);
     try {
-      // Active paid sub → change-plan; otherwise (trial/none) → subscribe.
       if (current != null && current.isActive) {
         await repo.changePlan(planKey);
       } else {
         await repo.subscribe(planKey);
       }
-      // Entitlements may have changed → refresh subscription, plans and /me.
       ref.invalidate(subscriptionProvider);
       ref.invalidate(plansProvider);
       await ref.read(sessionControllerProvider.notifier).reloadMe();
@@ -53,74 +53,167 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
   @override
   Widget build(BuildContext context) {
     final plansAsync = ref.watch(plansProvider);
-    final subAsync = ref.watch(subscriptionProvider);
-    final current = subAsync.asData?.value;
+    final current = ref.watch(subscriptionProvider).asData?.value;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Planos & Assinatura')),
-      body: plansAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(e is AppException ? e.message : 'Erro ao carregar planos.'),
-        ),
-        data: (plans) => ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            if (current != null) _CurrentStatus(sub: current),
-            const SizedBox(height: 12),
-            if (plans.isEmpty)
-              const Text('Nenhum plano disponível no momento.')
-            else
-              ...plans.map((p) {
-                final isCurrent = current?.planKey == p.key;
-                final busy = _busyPlanKey == p.key;
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(p.name,
-                                style: Theme.of(context).textTheme.titleLarge),
-                            const SizedBox(width: 12),
-                            Text('${_price(p.priceCents)} / ${p.billingPeriod}'),
-                            const Spacer(),
-                            if (isCurrent)
-                              const Chip(label: Text('Plano atual'))
-                            else
-                              FilledButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => _choose(p.key, current),
-                                child: busy
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      )
-                                    : Text(current != null && current.isActive
-                                        ? 'Trocar para este'
-                                        : 'Assinar'),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children:
-                              p.modules.map((m) => Chip(label: Text(m))).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+    return plansAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Text(e is AppException ? e.message : 'Erro ao carregar planos.'),
+      ),
+      data: (plans) => ListView(
+        padding: const EdgeInsets.all(28),
+        children: [
+          if (current != null) ...[
+            _CurrentStatus(sub: current),
+            const SizedBox(height: 24),
           ],
+          Text('Escolha seu plano',
+              style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          const Text(
+            'Faça upgrade quando precisar. Sem fidelidade.',
+            style: TextStyle(color: AppColors.inkMuted, fontSize: 15),
+          ),
+          const SizedBox(height: 22),
+          if (plans.isEmpty)
+            const Text('Nenhum plano disponível no momento.')
+          else
+            Wrap(
+              spacing: 18,
+              runSpacing: 18,
+              children: [
+                for (final p in plans)
+                  _PlanCard(
+                    plan: p,
+                    price: _price(p.priceCents),
+                    isCurrent: current?.planKey == p.key,
+                    busy: _busyPlanKey == p.key,
+                    ctaLabel: current != null && current.isActive
+                        ? 'Trocar para este'
+                        : 'Assinar agora',
+                    onChoose: () => _choose(p.key, current),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.price,
+    required this.isCurrent,
+    required this.busy,
+    required this.ctaLabel,
+    required this.onChoose,
+  });
+
+  final Plan plan;
+  final String price;
+  final bool isCurrent;
+  final bool busy;
+  final String ctaLabel;
+  final VoidCallback onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isCurrent ? AppColors.brand : AppColors.line,
+          width: isCurrent ? 1.8 : 1,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(plan.name,
+                  style: Theme.of(context).textTheme.titleLarge),
+              const Spacer(),
+              if (isCurrent)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandTint,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('Plano atual',
+                      style: TextStyle(
+                          color: AppColors.brandDeep,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(price,
+                  style: Theme.of(context)
+                      .textTheme
+                      .displaySmall
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(width: 4),
+              Text('/ ${plan.billingPeriod}',
+                  style:
+                      const TextStyle(color: AppColors.inkMuted, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 16),
+          const Text('Inclui os módulos:',
+              style: TextStyle(
+                  color: AppColors.inkMuted,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
+          const SizedBox(height: 12),
+          ...plan.modules.map(
+            (m) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle,
+                      size: 18, color: AppColors.success),
+                  const SizedBox(width: 10),
+                  Text(m,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          if (isCurrent)
+            OutlinedButton(
+              onPressed: null,
+              child: const Text('Seu plano'),
+            )
+          else
+            FilledButton(
+              onPressed: busy ? null : onChoose,
+              child: busy
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(ctaLabel),
+            ),
+        ],
       ),
     );
   }
@@ -132,23 +225,31 @@ class _CurrentStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final pastDue = sub.isPastDue;
+    final bg = pastDue ? AppColors.dangerTint : AppColors.surfaceSunken;
+    final fg = pastDue ? AppColors.danger : AppColors.ink;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: pastDue ? scheme.errorContainer : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: pastDue
+              ? AppColors.danger.withValues(alpha: 0.25)
+              : AppColors.line,
+        ),
       ),
       child: Row(
         children: [
-          Icon(pastDue ? Icons.warning_amber : Icons.info_outline),
-          const SizedBox(width: 8),
+          Icon(pastDue ? Icons.warning_amber_rounded : Icons.info_outline,
+              color: fg),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               pastDue
                   ? 'Assinatura "${sub.planKey}" com pagamento pendente (past_due).'
                   : 'Assinatura atual: ${sub.planKey} • ${sub.status}',
+              style: TextStyle(color: fg, fontWeight: FontWeight.w600),
             ),
           ),
         ],

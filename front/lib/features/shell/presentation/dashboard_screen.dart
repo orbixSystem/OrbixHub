@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../billing/domain/billing_models.dart';
 import '../../billing/presentation/billing_providers.dart';
+import 'nav_items.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -17,90 +19,307 @@ class DashboardScreen extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     final me = session.me;
+    final firstName = me.user.fullName.split(' ').first;
     final subAsync = ref.watch(subscriptionProvider);
+    final sub = subAsync.asData?.value;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Início'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(child: Text(me.user.fullName)),
+    return ListView(
+      padding: const EdgeInsets.all(28),
+      children: [
+        if (sub != null && sub.isPastDue) const _PastDueBanner(),
+        Text('Olá, $firstName 👋',
+            style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 6),
+        Text(
+          'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.',
+          style: const TextStyle(color: AppColors.inkMuted, fontSize: 15),
+        ),
+        const SizedBox(height: 26),
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            _StatTile(
+              icon: Icons.workspace_premium_outlined,
+              label: 'Plano atual',
+              value: sub?.planKey.toUpperCase() ?? '—',
+              accent: AppColors.brand,
+            ),
+            _StatTile(
+              icon: Icons.toggle_on_outlined,
+              label: 'Status',
+              value: _statusLabel(sub),
+              accent: _statusColor(sub),
+            ),
+            _StatTile(
+              icon: Icons.widgets_outlined,
+              label: 'Módulos ativos',
+              value: '${me.modules.length}',
+              accent: AppColors.info,
+            ),
+            _StatTile(
+              icon: Icons.badge_outlined,
+              label: 'Sua função',
+              value: me.role,
+              accent: AppColors.success,
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        const _SectionTitle('Seus módulos'),
+        const SizedBox(height: 14),
+        if (me.modules.isEmpty)
+          const _EmptyHint('Nenhum módulo habilitado no seu plano atual.')
+        else
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              for (final key in me.modules) _ModuleCard(moduleKey: key),
+            ],
           ),
-        ],
+        const SizedBox(height: 32),
+        const _SectionTitle('Conta'),
+        const SizedBox(height: 14),
+        _AccountPanel(
+          tenantName: me.activeTenant?.name ?? '—',
+          role: me.role,
+          permissions: me.permissions,
+          subscription: sub,
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  String _statusLabel(Subscription? s) {
+    if (s == null) return '—';
+    return switch (s.status) {
+      'trialing' => 'Trial',
+      'active' => 'Ativo',
+      'past_due' => 'Pendente',
+      'canceled' => 'Cancelado',
+      _ => s.status,
+    };
+  }
+
+  Color _statusColor(Subscription? s) {
+    if (s == null) return AppColors.inkMuted;
+    return switch (s.status) {
+      'active' => AppColors.success,
+      'past_due' => AppColors.danger,
+      'canceled' => AppColors.inkMuted,
+      _ => AppColors.warning,
+    };
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 224,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          subAsync.maybeWhen(
-            data: (sub) => sub != null && sub.isPastDue
-                ? const _PastDueBanner()
-                : const SizedBox.shrink(),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          Text('Bem-vindo, ${me.user.fullName}',
-              style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text('Oficina: ${me.activeTenant?.name ?? '—'}  •  Papel: ${me.role}'),
-          const SizedBox(height: 24),
-          _InfoCard(
-            title: 'Módulos habilitados',
-            child: me.modules.isEmpty
-                ? const Text('Nenhum módulo habilitado.')
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children:
-                        me.modules.map((m) => Chip(label: Text(m))).toList(),
-                  ),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: accent, size: 21),
           ),
           const SizedBox(height: 16),
-          _InfoCard(
-            title: 'Assinatura',
-            child: subAsync.when(
-              data: (sub) => _SubscriptionSummary(sub: sub),
-              loading: () => const LinearProgressIndicator(),
-              error: (_, _) => const Text('Não foi possível carregar.'),
-            ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
-          _InfoCard(
-            title: 'Permissões',
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: me.permissions
-                  .map((p) => Chip(
-                        label: Text(p),
-                        visualDensity: VisualDensity.compact,
-                      ))
-                  .toList(),
-            ),
-          ),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(color: AppColors.inkMuted, fontSize: 13)),
         ],
       ),
     );
   }
 }
 
-class _SubscriptionSummary extends StatelessWidget {
-  const _SubscriptionSummary({required this.sub});
-  final Subscription? sub;
+class _ModuleCard extends StatelessWidget {
+  const _ModuleCard({required this.moduleKey});
+  final String moduleKey;
 
   @override
   Widget build(BuildContext context) {
-    if (sub == null) return const Text('Sem assinatura ativa.');
+    final meta = moduleMeta[moduleKey] ?? (moduleKey, Icons.extension_outlined);
+    return SizedBox(
+      width: 268,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.go('/m/$moduleKey'),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.line),
+            ),
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandTint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(meta.$2, color: AppColors.brandDeep, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(meta.$1,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      const Text('Abrir módulo',
+                          style: TextStyle(
+                              color: AppColors.inkMuted, fontSize: 12.5)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_outward_rounded,
+                    size: 18, color: AppColors.inkFaint),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountPanel extends StatelessWidget {
+  const _AccountPanel({
+    required this.tenantName,
+    required this.role,
+    required this.permissions,
+    required this.subscription,
+  });
+
+  final String tenantName;
+  final String role;
+  final List<String> permissions;
+  final Subscription? subscription;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row('Oficina', tenantName),
+          const Divider(height: 26),
+          _row('Função', role),
+          const Divider(height: 26),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(
+                width: 120,
+                child: Text('Permissões',
+                    style: TextStyle(
+                        color: AppColors.inkMuted,
+                        fontWeight: FontWeight.w600)),
+              ),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children:
+                      permissions.map((p) => Chip(label: Text(p))).toList(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
     return Row(
       children: [
-        Chip(label: Text(sub!.planKey)),
-        const SizedBox(width: 8),
-        Chip(label: Text(sub!.status)),
-        const Spacer(),
-        TextButton(
-          onPressed: () => context.go('/billing'),
-          child: const Text('Ver planos'),
+        SizedBox(
+          width: 120,
+          child: Text(label,
+              style: const TextStyle(
+                  color: AppColors.inkMuted, fontWeight: FontWeight.w600)),
+        ),
+        Expanded(
+          child: Text(value,
+              style: const TextStyle(
+                  color: AppColors.ink, fontWeight: FontWeight.w600)),
         ),
       ],
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.titleLarge);
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSunken,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Text(text, style: const TextStyle(color: AppColors.inkMuted)),
     );
   }
 }
@@ -110,49 +329,31 @@ class _PastDueBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.dangerTint,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber, color: scheme.onErrorContainer),
-          const SizedBox(width: 8),
-          Expanded(
+          const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
-              'Pagamento pendente. Regularize a assinatura para manter o acesso '
-              'de escrita aos módulos.',
-              style: TextStyle(color: scheme.onErrorContainer),
+              'Pagamento pendente. Regularize a assinatura para manter o '
+              'acesso de escrita aos módulos.',
+              style: TextStyle(
+                  color: AppColors.danger, fontWeight: FontWeight.w600),
             ),
           ),
+          TextButton(
+            onPressed: () => context.go('/billing'),
+            child: const Text('Resolver'),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.title, required this.child});
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
       ),
     );
   }
