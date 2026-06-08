@@ -51,6 +51,15 @@ class TeamScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 16),
+            IconButton(
+              tooltip: 'Atualizar',
+              onPressed: () {
+                ref.invalidate(teamEmployeesProvider);
+                ref.invalidate(pendingInvitesProvider);
+              },
+              icon: const Icon(Icons.refresh),
+            ),
+            const SizedBox(width: 8),
             FilledButton.icon(
               // The global filled-button theme uses Size.fromHeight(50) (width =
               // infinity), which is fine in stretch columns but explodes as a
