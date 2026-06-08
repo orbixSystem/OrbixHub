@@ -40,9 +40,6 @@ export class IamService {
   listMembers() {
     return this.repo.listMembers();
   }
-  removeMember(id: string) {
-    return this.repo.removeMember(id);
-  }
   listRoles() {
     return this.repo.listRoles();
   }

@@ -139,13 +139,6 @@ export class IamRepository {
     });
   }
 
-  async removeMember(membershipId: string): Promise<void> {
-    await this.tenant.withTenantTx(async () => {
-      const db = this.tenant.getClient();
-      await db.membership.delete({ where: { id: membershipId } });
-    });
-  }
-
   listRoles() {
     return this.prisma.role.findMany();
   }
