@@ -10,6 +10,7 @@ import '../domain/team_models.dart';
 import 'change_role_dialog.dart';
 import 'invite_dialog.dart';
 import 'reauth_dialog.dart';
+import 'team_guards.dart';
 import 'team_providers.dart';
 
 /// Team management body (Funcionários + Convites pendentes). Body-only content;
@@ -68,16 +69,13 @@ class TeamScreen extends ConsumerWidget {
             if (employees.isEmpty) {
               return const _EmptyHint('Nenhum funcionário ainda.');
             }
-            final activeOwners = employees
-                .where((e) => e.role == 'owner' && e.status == 'active')
-                .length;
             return Column(
               children: [
                 for (final emp in employees)
                   _EmployeeCard(
                     employee: emp,
                     me: me,
-                    activeOwners: activeOwners,
+                    employees: employees,
                   ),
               ],
             );
@@ -121,17 +119,21 @@ class _EmployeeCard extends ConsumerWidget {
   const _EmployeeCard({
     required this.employee,
     required this.me,
-    required this.activeOwners,
+    required this.employees,
   });
 
   final Employee employee;
   final Me me;
-  final int activeOwners;
+  final List<Employee> employees;
 
   bool get _isSelf => employee.userId == me.user.id;
   bool get _isActive => employee.status == 'active';
-  bool get _isLastActiveOwner =>
-      employee.role == 'owner' && _isActive && activeOwners <= 1;
+  TeamActions get _actions => teamActions(me, employee, employees);
+  bool get _isLastActiveOwner {
+    final activeOwners =
+        employees.where((e) => e.role == 'owner' && e.status == 'active').length;
+    return employee.role == 'owner' && _isActive && activeOwners <= 1;
+  }
 
   Future<void> _changeRole(BuildContext context, WidgetRef ref) async {
     await showChangeRoleDialog(
@@ -192,18 +194,19 @@ class _EmployeeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Build the actions menu honoring the client-side guardrails.
+    final actions = _actions;
     final menuEntries = <PopupMenuEntry<String>>[];
     if (_isActive) {
       // No self-role, and last active owner can't be demoted from the menu —
       // the dialog still gates options, but hide the entry only for self.
-      if (!_isSelf) {
+      if (actions.canChangeRole) {
         menuEntries.add(const PopupMenuItem(
           value: 'role',
           child: Text('Trocar cargo'),
         ));
       }
       // No self-deactivate; never deactivate the last active owner.
-      if (!_isSelf && !_isLastActiveOwner) {
+      if (actions.canDeactivate) {
         menuEntries.add(const PopupMenuItem(
           value: 'deactivate',
           child: Text('Desativar'),
