@@ -3,15 +3,16 @@
 **Data:** 2026-06-08
 **Escopo:** varredura das regras de ouro, com foco na regra-mãe **"módulos
 independentes — aponta, não invade"** (um módulo nunca lê/escreve a *tabela* de
-outro módulo; busca via *service público*). Relatório apenas — **nada corrigido**.
+outro módulo; busca via *service público*). **Atualização 2026-06-08: as 3 violações
+foram corrigidas.**
 
 ## Resumo
 
 | # | Severidade | Arquivo:linha | Regra ferida | Status |
 |---|-----------|---------------|--------------|--------|
 | 1 | **Alta** | `back/src/modules/settings/settings.repository.ts:26-34` | Independência — lia `tenant_module` + `module` (módulo **billing**) | ✅ **Corrigida** (2026-06-08) |
-| 2 | Média | `back/src/modules/settings/settings.repository.ts:13-16` | Independência — lê `tenant` (módulo **tenancy**) | Aberta |
-| 3 | Média | `back/src/modules/settings/settings.repository.ts:18-23` | Independência — escreve `tenant` (módulo **tenancy**) | Aberta |
+| 2 | Média | `back/src/modules/settings/settings.repository.ts:13-16` | Independência — lia `tenant` (módulo **tenancy**) | ✅ **Corrigida** (2026-06-08) |
+| 3 | Média | `back/src/modules/settings/settings.repository.ts:18-23` | Independência — escrevia `tenant` (módulo **tenancy**) | ✅ **Corrigida** (2026-06-08) |
 
 Nenhuma outra violação encontrada. `auth`, `iam`, `billing`, `tenancy` e `devtools`
 respeitam as fronteiras. Em particular, **`TenancyService` lê módulos do jeito certo**:
@@ -70,9 +71,13 @@ empresa no `tenant.settings` (JSONB), mas o faz tocando a tabela alheia diretame
 
 **Nuance:** dá pra argumentar que `settings` é um *host* e que `tenant.settings` é "o
 lugar da config" — mas pela letra da regra 1 isso ainda é acessar a tabela de outro
-módulo. **Correção sugerida (não aplicada):** Tenancy expõe
-`getTenantSettings(tid)` / `updateTenantSettings(tid, patch)` e Settings chama esses
-métodos. Alternativa de longo prazo: dar a Settings sua própria tabela
+módulo.
+
+**✅ Corrigida (2026-06-08):** `TenancyService` (dono da tabela `tenant`) expõe
+`getCompanySettings(tid)` / `updateCompanySettings(tid, merged)`; `SettingsService`
+injeta `TenancyService` e usa esses métodos. O `SettingsRepository` ficou vazio e foi
+**removido**; `SettingsModule` importa `TenancyModule`. Settings não toca mais a tabela
+`tenant`. Alternativa de longo prazo (não adotada): dar a Settings sua própria tabela
 (`tenant_settings` RLS) e deixar de depender de `tenant.settings`.
 
 ---
@@ -92,6 +97,7 @@ métodos. Alternativa de longo prazo: dar a Settings sua própria tabela
 - **Front:** UI fala só com repository (interface no domain + impl dio + fake); models
   freezed; estado selado. OK.
 
-> Observação: as violações 1-3 estão concentradas no `SettingsRepository`. Como
-> `settings` é um módulo **host** novo, vale priorizar o conserto da #1 (service público
-> já existe) e decidir o destino do `tenant.settings` para #2/#3.
+> **Fechamento (2026-06-08):** as 3 violações estavam concentradas no
+> `SettingsRepository` (módulo host novo) e foram todas corrigidas — Settings agora só
+> consome `BillingService` e `TenancyService`, e o `SettingsRepository` deixou de existir.
+> Nenhuma outra violação da regra "aponta, não invade" no repositório.
