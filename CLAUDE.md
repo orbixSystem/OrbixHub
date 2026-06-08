@@ -5,6 +5,18 @@
 > mexer no código. Detalhes de setup/endpoints do backend estão no
 > [`README.md`](./README.md); designs aprovados estão em `docs/superpowers/specs/`.
 
+> **Skill obrigatória:** antes de construir/alterar qualquer coisa (módulo, endpoint,
+> tela, migration, plano, refactor), carregue a skill **`orbixhub-arquitetura`**
+> (`.claude/skills/orbixhub-arquitetura/SKILL.md`). Ela codifica as regras de ouro, o
+> inventário real (módulos/cargos/planos) e o playbook de módulo novo. Regras-mãe em
+> uma linha:
+> 1. **Módulos independentes — "aponta, não invade":** guarde só o *id* de entidades
+>    de outro módulo e busque via *service público*; **nunca** leia/escreva a *tabela*
+>    alheia. 2. Multi-tenant via **RLS** (`tenant_id` do JWT, `withTenantTx`). 3. Migrations
+>    **aditivas** nos 3 lugares. 4. Genérico, sem casca de vertical vazando. 5. Planos/módulos
+>    **nunca** hardcoded no front (vêm de `/me` + `/billing/plans`). 6. **Sem hard delete**.
+>    7. Mutações sensíveis: `@Permissions` + auditadas. 8. Front: UI só via repository.
+
 ---
 
 ## 1. O que é o OrbixHub

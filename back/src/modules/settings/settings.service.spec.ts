@@ -7,14 +7,15 @@ describe('SettingsService.getSettings', () => {
   it('core-only: returns sections with exactly [company] when no module sections registered', async () => {
     const repo = {
       getCompany: jest.fn(async () => ({})),
-      enabledModuleKeys: jest.fn(async () => ['os']),
     };
     const registry = { moduleSections: jest.fn(() => []) };
+    const billing = { getEnabledModules: jest.fn(async () => ['os']) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(repo as never, registry as never, audit);
+    const svc = new SettingsService(repo as never, registry as never, billing as never, audit);
     const result = await svc.getSettings(user);
 
+    expect(billing.getEnabledModules).toHaveBeenCalledWith('t1');
     expect(result.sections.map((s) => s.key)).toEqual(['company']);
     expect(result.sections[0]).toBe(COMPANY_SECTION);
   });
@@ -23,12 +24,12 @@ describe('SettingsService.getSettings', () => {
     const osSection = { key: 'os-cfg', title: 'OS', moduleKey: 'os', fields: [] };
     const repo = {
       getCompany: jest.fn(async () => ({})),
-      enabledModuleKeys: jest.fn(async () => ['os']),
     };
     const registry = { moduleSections: jest.fn(() => [osSection]) };
+    const billing = { getEnabledModules: jest.fn(async () => ['os']) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(repo as never, registry as never, audit);
+    const svc = new SettingsService(repo as never, registry as never, billing as never, audit);
     const result = await svc.getSettings(user);
 
     expect(result.sections.map((s) => s.key)).toContain('os-cfg');
@@ -38,12 +39,12 @@ describe('SettingsService.getSettings', () => {
     const osSection = { key: 'os-cfg', title: 'OS', moduleKey: 'os', fields: [] };
     const repo = {
       getCompany: jest.fn(async () => ({})),
-      enabledModuleKeys: jest.fn(async () => ['customers']),
     };
     const registry = { moduleSections: jest.fn(() => [osSection]) };
+    const billing = { getEnabledModules: jest.fn(async () => ['customers']) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(repo as never, registry as never, audit);
+    const svc = new SettingsService(repo as never, registry as never, billing as never, audit);
     const result = await svc.getSettings(user);
 
     const keys = result.sections.map((s) => s.key);
@@ -58,13 +59,13 @@ describe('SettingsService.updateCompany', () => {
     const repo = {
       getCompany: jest.fn(async () => ({ companyName: 'old', taxId: '123' })),
       updateCompany,
-      enabledModuleKeys: jest.fn(async () => []),
     };
     const registry = { moduleSections: jest.fn(() => []) };
+    const billing = { getEnabledModules: jest.fn(async () => []) };
     const log = jest.fn(async () => undefined);
     const audit = { log } as never;
 
-    const svc = new SettingsService(repo as never, registry as never, audit);
+    const svc = new SettingsService(repo as never, registry as never, billing as never, audit);
     const result = await svc.updateCompany(user, { companyName: 'new' });
 
     expect(updateCompany).toHaveBeenCalledWith('t1', {
