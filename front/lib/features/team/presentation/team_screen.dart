@@ -26,6 +26,7 @@ class TeamScreen extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     final me = session.me;
+    final scheme = Theme.of(context).colorScheme;
     final employeesAsync = ref.watch(teamEmployeesProvider);
     final invitesAsync = ref.watch(pendingInvitesProvider);
 
@@ -41,9 +42,10 @@ class TeamScreen extends ConsumerWidget {
                   Text('Equipe',
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Gerencie funcionários, cargos e convites da sua oficina.',
-                    style: TextStyle(color: AppColors.inkMuted, fontSize: 15),
+                    style: TextStyle(
+                        color: scheme.onSurfaceVariant, fontSize: 15),
                   ),
                 ],
               ),
@@ -194,6 +196,7 @@ class _EmployeeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Build the actions menu honoring the client-side guardrails.
+    final scheme = Theme.of(context).colorScheme;
     final actions = _actions;
     final menuEntries = <PopupMenuEntry<String>>[];
     if (_isActive) {
@@ -223,9 +226,9 @@ class _EmployeeCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -260,8 +263,8 @@ class _EmployeeCard extends ConsumerWidget {
                   employee.email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(color: AppColors.inkMuted, fontSize: 13),
+                  style: TextStyle(
+                      color: scheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -271,20 +274,22 @@ class _EmployeeCard extends ConsumerWidget {
                   children: [
                     _Badge(
                       text: employee.role,
-                      bg: AppColors.surfaceSunken,
-                      fg: AppColors.ink,
+                      bg: scheme.surfaceContainerHighest,
+                      fg: scheme.onSurface,
                     ),
                     _Badge(
                       text: _isActive ? 'ativo' : 'desativado',
                       bg: _isActive
                           ? AppColors.successTint
-                          : AppColors.surfaceSunken,
-                      fg: _isActive ? AppColors.success : AppColors.inkMuted,
+                          : scheme.surfaceContainerHighest,
+                      fg: _isActive
+                          ? AppColors.success
+                          : scheme.onSurfaceVariant,
                     ),
                     Text(
                       'último acesso: ${_formatDate(employee.lastAccess)}',
-                      style: const TextStyle(
-                          color: AppColors.inkFaint, fontSize: 12),
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant, fontSize: 12),
                     ),
                   ],
                 ),
@@ -294,7 +299,7 @@ class _EmployeeCard extends ConsumerWidget {
           if (menuEntries.isNotEmpty)
             PopupMenuButton<String>(
               tooltip: 'Ações',
-              icon: const Icon(Icons.more_vert, color: AppColors.inkMuted),
+              icon: Icon(Icons.more_vert, color: scheme.onSurfaceVariant),
               itemBuilder: (_) => menuEntries,
               onSelected: (value) {
                 switch (value) {
@@ -416,6 +421,7 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final invite = widget.invite;
     final expiry = invite.expiresAt == null
         ? 'sem expiração'
@@ -425,9 +431,9 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -460,8 +466,8 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
                   children: [
                     _Badge(
                       text: invite.role,
-                      bg: AppColors.surfaceSunken,
-                      fg: AppColors.ink,
+                      bg: scheme.surfaceContainerHighest,
+                      fg: scheme.onSurface,
                     ),
                     const _Badge(
                       text: 'pendente',
@@ -470,8 +476,8 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
                     ),
                     Text(
                       expiry,
-                      style: const TextStyle(
-                          color: AppColors.inkFaint, fontSize: 12),
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant, fontSize: 12),
                     ),
                   ],
                 ),
@@ -519,18 +525,20 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: 44,
       height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: dimmed ? AppColors.surfaceSunken : AppColors.brandTint,
+        color:
+            dimmed ? scheme.surfaceContainerHighest : AppColors.brandTint,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         _initials,
         style: TextStyle(
-          color: dimmed ? AppColors.inkMuted : AppColors.brandDeep,
+          color: dimmed ? scheme.onSurfaceVariant : AppColors.brandDeep,
           fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
@@ -612,15 +620,16 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSunken,
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Text(text, style: const TextStyle(color: AppColors.inkMuted)),
+      child: Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
     );
   }
 }

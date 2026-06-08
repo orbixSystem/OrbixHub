@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../di.dart';
 import '../domain/team_models.dart';
 import 'reauth_dialog.dart';
@@ -102,6 +101,7 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final items = [
       for (final r in widget.roles)
         DropdownMenuItem(
@@ -111,7 +111,7 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
             r.name,
             style: _enabled(r)
                 ? null
-                : const TextStyle(color: AppColors.inkFaint),
+                : TextStyle(color: scheme.onSurfaceVariant),
           ),
         ),
     ];
@@ -130,10 +130,11 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
           ),
           if (widget.isLastActiveOwner) ...[
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Este é o único proprietário ativo. Promova outro membro a '
               'proprietário antes de alterar este cargo.',
-              style: TextStyle(color: AppColors.inkMuted, fontSize: 12.5),
+              style: TextStyle(
+                  color: scheme.onSurfaceVariant, fontSize: 12.5),
             ),
           ],
         ],

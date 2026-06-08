@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { IamRepository } from './iam.repository';
 import { ReauthService } from './reauth.service';
@@ -207,20 +208,32 @@ export class IamService {
     const theUser = user;
 
     // Create membership + mark invite accepted under the invite's tenant context.
-    await this.tenant.runWithTenant(invite.tenant_id, async () => {
-      const db = this.tenant.getClient();
-      await db.membership.create({
-        data: {
-          tenant_id: invite.tenant_id,
-          user_id: theUser.id,
-          role_id: invite.role_id,
-        },
+    try {
+      await this.tenant.runWithTenant(invite.tenant_id, async () => {
+        const db = this.tenant.getClient();
+        await db.membership.create({
+          data: {
+            tenant_id: invite.tenant_id,
+            user_id: theUser.id,
+            role_id: invite.role_id,
+          },
+        });
+        await db.invite.update({
+          where: { id: invite.invite_id },
+          data: { accepted_at: new Date() },
+        });
       });
-      await db.invite.update({
-        where: { id: invite.invite_id },
-        data: { accepted_at: new Date() },
-      });
-    });
+    } catch (e) {
+      // Concurrent double-accept races on the membership unique constraint —
+      // surface it as a 400 instead of an unhandled 500.
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new BadRequestException('Convite inválido ou expirado.');
+      }
+      throw e;
+    }
 
     const roles = await this.repo.listRoles();
     const roleKey = (roles.find((r) => r.id === invite.role_id)?.key ??
