@@ -10,6 +10,16 @@ export interface MemberView {
   role: string | undefined;
 }
 
+export interface EmployeeView {
+  membershipId: string;
+  userId: string;
+  fullName: string | undefined;
+  email: string | undefined;
+  role: string | undefined;
+  status: string;
+  lastAccess: Date | null;
+}
+
 @Injectable()
 export class IamRepository {
   constructor(
@@ -43,10 +53,89 @@ export class IamRepository {
     });
   }
 
-  async removeMember(membershipId: string): Promise<void> {
+  async listEmployees(): Promise<EmployeeView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const memberships = await db.membership.findMany();
+      const userIds = memberships.map((m) => m.user_id);
+      const roleIds = memberships.map((m) => m.role_id);
+      const [users, roles, lastLogins] = await Promise.all([
+        this.prisma.users.findMany({ where: { id: { in: userIds } } }),
+        this.prisma.role.findMany({ where: { id: { in: roleIds } } }),
+        this.prisma.login_attempt.groupBy({
+          by: ['user_id'],
+          where: { success: true, user_id: { in: userIds } },
+          _max: { created_at: true },
+        }),
+      ]);
+      const uMap = new Map(users.map((u) => [u.id, u]));
+      const rMap = new Map(roles.map((r) => [r.id, r]));
+      const lMap = new Map(
+        lastLogins.map((l) => [l.user_id, l._max.created_at ?? null]),
+      );
+      return memberships.map((m) => ({
+        membershipId: m.id,
+        userId: m.user_id,
+        fullName: uMap.get(m.user_id)?.full_name,
+        email: uMap.get(m.user_id)?.email_normalized,
+        role: rMap.get(m.role_id)?.key,
+        status: m.status,
+        lastAccess: lMap.get(m.user_id) ?? null,
+      }));
+    });
+  }
+
+  /** {id, userId, roleKey, status} of ONE membership in the active tenant, or null. */
+  async getMembership(membershipId: string) {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const m = await db.membership.findUnique({ where: { id: membershipId } });
+      if (!m) return null;
+      const role = await this.prisma.role.findUnique({
+        where: { id: m.role_id },
+      });
+      return { id: m.id, userId: m.user_id, roleKey: role?.key, status: m.status };
+    });
+  }
+
+  /** How many ACTIVE owners exist in the active tenant. */
+  async countActiveOwners(): Promise<number> {
+    const owner = await this.prisma.role.findUnique({
+      where: { key: 'owner' },
+    });
+    if (!owner) return 0;
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      return db.membership.count({
+        where: { role_id: owner.id, status: 'active' },
+      });
+    });
+  }
+
+  async setRole(membershipId: string, roleKey: string): Promise<void> {
+    const role = await this.prisma.role.findUnique({
+      where: { key: roleKey },
+    });
+    if (!role) throw new Error(`unknown role ${roleKey}`);
     await this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
-      await db.membership.delete({ where: { id: membershipId } });
+      await db.membership.update({
+        where: { id: membershipId },
+        data: { role_id: role.id },
+      });
+    });
+  }
+
+  async setStatus(
+    membershipId: string,
+    status: 'active' | 'disabled',
+  ): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.membership.update({
+        where: { id: membershipId },
+        data: { status },
+      });
     });
   }
 

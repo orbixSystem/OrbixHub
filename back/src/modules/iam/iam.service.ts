@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { IamRepository } from './iam.repository';
+import { ReauthService } from './reauth.service';
 import { PrismaService } from '../../common/database/prisma.service';
 import { TenantContext } from '../../common/database/tenant-context';
 import { PasswordService } from '../../common/crypto/password.service';
@@ -32,14 +33,12 @@ export class IamService {
     private readonly refresh: RefreshService,
     private readonly accessTokens: AccessTokenService,
     private readonly audit: AuditService,
+    private readonly reauth: ReauthService,
     @Optional() private readonly mailer?: MailerService,
   ) {}
 
   listMembers() {
     return this.repo.listMembers();
-  }
-  removeMember(id: string) {
-    return this.repo.removeMember(id);
   }
   listRoles() {
     return this.repo.listRoles();
@@ -48,11 +47,28 @@ export class IamService {
     return this.repo.listPermissions();
   }
 
+  async listRolesWithPermissions() {
+    const [roles, rps, perms] = await Promise.all([
+      this.repo.listRoles(),
+      this.prisma.role_permission.findMany(),
+      this.repo.listPermissions(),
+    ]);
+    const pMap = new Map(perms.map((p) => [p.id, p.key]));
+    return roles.map((r) => ({
+      key: r.key,
+      name: r.name,
+      permissions: rps
+        .filter((rp) => rp.role_id === r.id)
+        .map((rp) => pMap.get(rp.permission_id)),
+    }));
+  }
+
   async createInvite(
     tenantId: string,
     invitedBy: string,
     dto: CreateInviteDto,
   ): Promise<{ invited: true }> {
+    await this.reauth.assertReauth(invitedBy, dto.currentPassword);
     const roles = await this.repo.listRoles();
     const role = roles.find((r) => r.key === dto.role);
     if (!role) throw new BadRequestException('Papel inválido.');

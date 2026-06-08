@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { IamController } from './iam.controller';
+import { EmployeesController } from './employees.controller';
 import { IamService } from './iam.service';
+import { EmployeesService } from './employees.service';
+import { ReauthService } from './reauth.service';
 import { IamRepository } from './iam.repository';
 import { AuthModule } from '../auth/auth.module';
 
@@ -9,7 +12,7 @@ import { AuthModule } from '../auth/auth.module';
   // injects. AccessTokenService, PasswordService, AuditService and
   // MailerService are provided by @Global() modules.
   imports: [AuthModule],
-  controllers: [IamController],
-  providers: [IamService, IamRepository],
+  controllers: [IamController, EmployeesController],
+  providers: [IamService, EmployeesService, ReauthService, IamRepository],
 })
 export class IamModule {}

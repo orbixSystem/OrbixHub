@@ -7,6 +7,7 @@ import type { PasswordService } from '../../common/crypto/password.service';
 import type { RefreshService } from '../auth/refresh.service';
 import type { AccessTokenService } from '../../common/auth/jwt.service';
 import type { AuditService } from '../../common/audit/audit.service';
+import type { ReauthService } from './reauth.service';
 
 function deps() {
   const repo = {
@@ -29,6 +30,7 @@ describe('IamService.acceptInvite', () => {
     const refresh = {};
     const accessTokens = {};
     const audit = {};
+    const reauth = {};
     const svc = new IamService(
       repo as unknown as IamRepository,
       prisma as unknown as PrismaService,
@@ -37,6 +39,7 @@ describe('IamService.acceptInvite', () => {
       refresh as unknown as RefreshService,
       accessTokens as unknown as AccessTokenService,
       audit as unknown as AuditService,
+      reauth as unknown as ReauthService,
     );
     await expect(svc.acceptInvite({ token: 'nope' })).rejects.toThrow(
       BadRequestException,

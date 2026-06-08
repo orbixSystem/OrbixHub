@@ -6,7 +6,11 @@ export type AuditAction =
   | 'login'
   | 'password_change'
   | 'invite'
-  | 'subscription_change';
+  | 'subscription_change'
+  | 'role_change'
+  | 'member_activate'
+  | 'member_deactivate'
+  | 'settings_change';
 
 @Injectable()
 export class AuditService {
