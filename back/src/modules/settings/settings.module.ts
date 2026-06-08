@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { SettingsService } from './settings.service';
-import { SettingsRepository } from './settings.repository';
 import { SettingsSectionRegistry } from './settings.section-registry';
 import { SettingsController } from './settings.controller';
+import { BillingModule } from '../billing/billing.module';
+import { TenancyModule } from '../tenancy/tenancy.module';
 
 @Module({
+  imports: [BillingModule, TenancyModule],
   controllers: [SettingsController],
-  providers: [SettingsService, SettingsRepository, SettingsSectionRegistry],
+  providers: [SettingsService, SettingsSectionRegistry],
   exports: [SettingsSectionRegistry],
 })
 export class SettingsModule {}

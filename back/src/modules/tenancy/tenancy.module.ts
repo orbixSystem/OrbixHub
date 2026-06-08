@@ -9,5 +9,6 @@ import { BillingModule } from '../billing/billing.module';
   imports: [AuthModule, BillingModule], // for AuthRepository (exported) + BillingService
   controllers: [TenancyController],
   providers: [TenancyService, TenancyRepository],
+  exports: [TenancyService], // Settings lê/escreve tenant.settings via este service
 })
 export class TenancyModule {}

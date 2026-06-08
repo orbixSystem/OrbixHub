@@ -40,4 +40,16 @@ export class TenancyService {
       })),
     };
   }
+
+  /**
+   * Settings da empresa (JSONB em tenant.settings). Tenancy é dono da tabela
+   * `tenant` — outros módulos (ex.: Settings) leem/escrevem por aqui, não direto.
+   */
+  getCompanySettings(tenantId: string): Promise<Record<string, unknown>> {
+    return this.repo.getTenantSettings(tenantId);
+  }
+
+  updateCompanySettings(tenantId: string, merged: Record<string, unknown>): Promise<void> {
+    return this.repo.updateTenantSettings(tenantId, merged);
+  }
 }
