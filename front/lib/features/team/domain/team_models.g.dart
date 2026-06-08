@@ -33,6 +33,9 @@ _Employee _$EmployeeFromJson(Map<String, dynamic> json) => _Employee(
   lastAccess: json['lastAccess'] == null
       ? null
       : DateTime.parse(json['lastAccess'] as String),
+  accessExpiresAt: json['accessExpiresAt'] == null
+      ? null
+      : DateTime.parse(json['accessExpiresAt'] as String),
 );
 
 Map<String, dynamic> _$EmployeeToJson(_Employee instance) => <String, dynamic>{
@@ -43,6 +46,7 @@ Map<String, dynamic> _$EmployeeToJson(_Employee instance) => <String, dynamic>{
   'role': instance.role,
   'status': instance.status,
   'lastAccess': instance.lastAccess?.toIso8601String(),
+  'accessExpiresAt': instance.accessExpiresAt?.toIso8601String(),
 };
 
 _PendingInvite _$PendingInviteFromJson(Map<String, dynamic> json) =>

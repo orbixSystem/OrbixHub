@@ -18,6 +18,7 @@ export interface EmployeeView {
   role: string | undefined;
   status: string;
   lastAccess: Date | null;
+  accessExpiresAt: Date | null;
 }
 
 export interface PendingInviteView {
@@ -89,6 +90,7 @@ export class IamRepository {
         role: rMap.get(m.role_id)?.key,
         status: m.status,
         lastAccess: lMap.get(m.user_id) ?? null,
+        accessExpiresAt: m.access_expires_at ?? null,
       }));
     });
   }

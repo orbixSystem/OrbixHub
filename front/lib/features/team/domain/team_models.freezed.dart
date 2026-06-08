@@ -290,7 +290,7 @@ as List<String>,
 /// @nodoc
 mixin _$Employee {
 
- String get membershipId; String get userId; String get fullName; String get email; String get role; String get status; DateTime? get lastAccess;
+ String get membershipId; String get userId; String get fullName; String get email; String get role; String get status; DateTime? get lastAccess; DateTime? get accessExpiresAt;
 /// Create a copy of Employee
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -303,16 +303,16 @@ $EmployeeCopyWith<Employee> get copyWith => _$EmployeeCopyWithImpl<Employee>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Employee&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastAccess, lastAccess) || other.lastAccess == lastAccess));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Employee&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastAccess, lastAccess) || other.lastAccess == lastAccess)&&(identical(other.accessExpiresAt, accessExpiresAt) || other.accessExpiresAt == accessExpiresAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,membershipId,userId,fullName,email,role,status,lastAccess);
+int get hashCode => Object.hash(runtimeType,membershipId,userId,fullName,email,role,status,lastAccess,accessExpiresAt);
 
 @override
 String toString() {
-  return 'Employee(membershipId: $membershipId, userId: $userId, fullName: $fullName, email: $email, role: $role, status: $status, lastAccess: $lastAccess)';
+  return 'Employee(membershipId: $membershipId, userId: $userId, fullName: $fullName, email: $email, role: $role, status: $status, lastAccess: $lastAccess, accessExpiresAt: $accessExpiresAt)';
 }
 
 
@@ -323,7 +323,7 @@ abstract mixin class $EmployeeCopyWith<$Res>  {
   factory $EmployeeCopyWith(Employee value, $Res Function(Employee) _then) = _$EmployeeCopyWithImpl;
 @useResult
 $Res call({
- String membershipId, String userId, String fullName, String email, String role, String status, DateTime? lastAccess
+ String membershipId, String userId, String fullName, String email, String role, String status, DateTime? lastAccess, DateTime? accessExpiresAt
 });
 
 
@@ -340,7 +340,7 @@ class _$EmployeeCopyWithImpl<$Res>
 
 /// Create a copy of Employee
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? membershipId = null,Object? userId = null,Object? fullName = null,Object? email = null,Object? role = null,Object? status = null,Object? lastAccess = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? membershipId = null,Object? userId = null,Object? fullName = null,Object? email = null,Object? role = null,Object? status = null,Object? lastAccess = freezed,Object? accessExpiresAt = freezed,}) {
   return _then(_self.copyWith(
 membershipId: null == membershipId ? _self.membershipId : membershipId // ignore: cast_nullable_to_non_nullable
 as String,userId: null == userId ? _self.userId : userId // ignore: cast_nullable_to_non_nullable
@@ -349,6 +349,7 @@ as String,email: null == email ? _self.email : email // ignore: cast_nullable_to
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,lastAccess: freezed == lastAccess ? _self.lastAccess : lastAccess // ignore: cast_nullable_to_non_nullable
+as DateTime?,accessExpiresAt: freezed == accessExpiresAt ? _self.accessExpiresAt : accessExpiresAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }
@@ -434,10 +435,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess,  DateTime? accessExpiresAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Employee() when $default != null:
-return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess);case _:
+return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess,_that.accessExpiresAt);case _:
   return orElse();
 
 }
@@ -455,10 +456,10 @@ return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess,  DateTime? accessExpiresAt)  $default,) {final _that = this;
 switch (_that) {
 case _Employee():
-return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess);case _:
+return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess,_that.accessExpiresAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -475,10 +476,10 @@ return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String membershipId,  String userId,  String fullName,  String email,  String role,  String status,  DateTime? lastAccess,  DateTime? accessExpiresAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Employee() when $default != null:
-return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess);case _:
+return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that.role,_that.status,_that.lastAccess,_that.accessExpiresAt);case _:
   return null;
 
 }
@@ -490,7 +491,7 @@ return $default(_that.membershipId,_that.userId,_that.fullName,_that.email,_that
 @JsonSerializable()
 
 class _Employee implements Employee {
-  const _Employee({required this.membershipId, required this.userId, required this.fullName, required this.email, required this.role, required this.status, this.lastAccess});
+  const _Employee({required this.membershipId, required this.userId, required this.fullName, required this.email, required this.role, required this.status, this.lastAccess, this.accessExpiresAt});
   factory _Employee.fromJson(Map<String, dynamic> json) => _$EmployeeFromJson(json);
 
 @override final  String membershipId;
@@ -500,6 +501,7 @@ class _Employee implements Employee {
 @override final  String role;
 @override final  String status;
 @override final  DateTime? lastAccess;
+@override final  DateTime? accessExpiresAt;
 
 /// Create a copy of Employee
 /// with the given fields replaced by the non-null parameter values.
@@ -514,16 +516,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Employee&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastAccess, lastAccess) || other.lastAccess == lastAccess));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Employee&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastAccess, lastAccess) || other.lastAccess == lastAccess)&&(identical(other.accessExpiresAt, accessExpiresAt) || other.accessExpiresAt == accessExpiresAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,membershipId,userId,fullName,email,role,status,lastAccess);
+int get hashCode => Object.hash(runtimeType,membershipId,userId,fullName,email,role,status,lastAccess,accessExpiresAt);
 
 @override
 String toString() {
-  return 'Employee(membershipId: $membershipId, userId: $userId, fullName: $fullName, email: $email, role: $role, status: $status, lastAccess: $lastAccess)';
+  return 'Employee(membershipId: $membershipId, userId: $userId, fullName: $fullName, email: $email, role: $role, status: $status, lastAccess: $lastAccess, accessExpiresAt: $accessExpiresAt)';
 }
 
 
@@ -534,7 +536,7 @@ abstract mixin class _$EmployeeCopyWith<$Res> implements $EmployeeCopyWith<$Res>
   factory _$EmployeeCopyWith(_Employee value, $Res Function(_Employee) _then) = __$EmployeeCopyWithImpl;
 @override @useResult
 $Res call({
- String membershipId, String userId, String fullName, String email, String role, String status, DateTime? lastAccess
+ String membershipId, String userId, String fullName, String email, String role, String status, DateTime? lastAccess, DateTime? accessExpiresAt
 });
 
 
@@ -551,7 +553,7 @@ class __$EmployeeCopyWithImpl<$Res>
 
 /// Create a copy of Employee
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? membershipId = null,Object? userId = null,Object? fullName = null,Object? email = null,Object? role = null,Object? status = null,Object? lastAccess = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? membershipId = null,Object? userId = null,Object? fullName = null,Object? email = null,Object? role = null,Object? status = null,Object? lastAccess = freezed,Object? accessExpiresAt = freezed,}) {
   return _then(_Employee(
 membershipId: null == membershipId ? _self.membershipId : membershipId // ignore: cast_nullable_to_non_nullable
 as String,userId: null == userId ? _self.userId : userId // ignore: cast_nullable_to_non_nullable
@@ -560,6 +562,7 @@ as String,email: null == email ? _self.email : email // ignore: cast_nullable_to
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,lastAccess: freezed == lastAccess ? _self.lastAccess : lastAccess // ignore: cast_nullable_to_non_nullable
+as DateTime?,accessExpiresAt: freezed == accessExpiresAt ? _self.accessExpiresAt : accessExpiresAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,
   ));
 }

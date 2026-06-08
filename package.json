@@ -2,11 +2,16 @@
   "name": "orbixhub",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["back"],
+  "workspaces": [
+    "back"
+  ],
   "scripts": {
     "back:dev": "npm run start:dev --workspace back",
     "back:test": "npm run test --workspace back",
     "back:test:e2e": "npm run test:e2e --workspace back",
     "back:lint": "npm run lint --workspace back"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }

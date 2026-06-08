@@ -15,7 +15,9 @@ TeamActions teamActions(Me me, Employee target, List<Employee> employees) {
   final activeOwners = employees.where((e) => e.role == 'owner' && e.status == 'active').length;
   final isLastActiveOwner = target.role == 'owner' && target.status == 'active' && activeOwners <= 1;
   return TeamActions(
-    canChangeRole: !isSelf,
+    // No one edits an owner's role (not even another owner) — the option is
+    // hidden entirely, never just disabled. Also never for self.
+    canChangeRole: !isSelf && target.role != 'owner',
     canDeactivate: !isSelf && !isLastActiveOwner,
     canAssignOwner: me.role == 'owner',
   );

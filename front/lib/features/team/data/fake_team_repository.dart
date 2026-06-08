@@ -66,6 +66,7 @@ class FakeTeamRepository implements TeamRepository {
       role: 'mechanic',
       status: 'active',
       lastAccess: DateTime.utc(2026, 6, 4, 9),
+      accessExpiresAt: DateTime.utc(2026, 7, 1),
     ),
   ];
 

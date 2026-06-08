@@ -122,12 +122,16 @@ class _InviteDialogState extends State<_InviteDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Convidar para a equipe'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      // Pin a comfortable width so the form fields breathe and the action
+      // buttons sit side by side instead of stacking vertically.
+      content: SizedBox(
+        width: 420,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             TextFormField(
               controller: _emailController,
               autofocus: true,
@@ -194,24 +198,43 @@ class _InviteDialogState extends State<_InviteDialog> {
                   ),
                 ],
               ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Enviar convite'),
+        // A single min-width Row keeps both buttons on the same line with a
+        // clean gap; OverflowBar measures action children at unbounded width,
+        // so the Row must be MainAxisSize.min (and the FilledButton pinned).
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            const SizedBox(width: 12),
+            _busy
+                ? FilledButton(
+                    style:
+                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                    onPressed: null,
+                    child: const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : FilledButton.icon(
+                    style:
+                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                    onPressed: _submit,
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('Enviar convite'),
+                  ),
+          ],
         ),
       ],
     );

@@ -50,6 +50,16 @@ void main() {
       expect(actions.canDeactivate, isTrue);
     });
 
+    test("no one can change an owner's role (option is hidden)", () {
+      final me = _me(userId: 'admin', role: 'owner');
+      final owner1 = _emp(userId: 'o1', role: 'owner', status: 'active');
+      final owner2 = _emp(userId: 'o2', role: 'owner', status: 'active');
+      // Even another active owner cannot edit an owner's role.
+      final actions = teamActions(me, owner1, [owner1, owner2]);
+
+      expect(actions.canChangeRole, isFalse);
+    });
+
     test('canAssignOwner is true only when the caller is an owner', () {
       final target = _emp(userId: 'u2', role: 'manager', status: 'active');
 

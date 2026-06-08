@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,14 +15,45 @@ import 'reauth_dialog.dart';
 import 'team_guards.dart';
 import 'team_providers.dart';
 
-/// Team management body (Funcionários + Convites pendentes). Body-only content;
-/// the shell owns the chrome. Guardrails are reflected in the UI from the loaded
-/// data + session `me`, but the backend remains the source of truth.
-class TeamScreen extends ConsumerWidget {
+/// How often the Team screen silently refreshes itself while open.
+const _pollInterval = Duration(seconds: 30);
+
+/// Team management body (Funcionários ativos + Convites pendentes +
+/// Funcionários desativados, each collapsible). Body-only content; the shell
+/// owns the chrome. While the screen is mounted it polls the backend every
+/// [_pollInterval]; the timer is canceled on dispose. Guardrails are reflected
+/// in the UI from the loaded data + session `me`, but the backend remains the
+/// source of truth.
+class TeamScreen extends ConsumerStatefulWidget {
   const TeamScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamScreen> createState() => _TeamScreenState();
+}
+
+class _TeamScreenState extends ConsumerState<TeamScreen> {
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    // Background refresh while the screen is open. Stopped in dispose() so the
+    // polling never outlives the route.
+    _poll = Timer.periodic(_pollInterval, (_) {
+      if (!mounted) return;
+      ref.invalidate(teamEmployeesProvider);
+      ref.invalidate(pendingInvitesProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     if (session is! SessionAuthenticated) {
       return const Center(child: CircularProgressIndicator());
@@ -51,15 +84,6 @@ class TeamScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 16),
-            IconButton(
-              tooltip: 'Atualizar',
-              onPressed: () {
-                ref.invalidate(teamEmployeesProvider);
-                ref.invalidate(pendingInvitesProvider);
-              },
-              icon: const Icon(Icons.refresh),
-            ),
-            const SizedBox(width: 8),
             FilledButton.icon(
               // The global filled-button theme uses Size.fromHeight(50) (width =
               // infinity), which is fine in stretch columns but explodes as a
@@ -72,51 +96,103 @@ class TeamScreen extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 28),
-        _SectionTitle('Funcionários'),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
+
+        // ---- Funcionários (ativos) ----------------------------------------
         employeesAsync.when(
-          loading: () => const _LoadingBox(),
-          error: (e, _) => _ErrorBox(
-            message:
-                e is AppException ? e.message : 'Erro ao carregar funcionários.',
+          skipLoadingOnReload: true,
+          loading: () => const _SectionFallback(
+            title: 'Funcionários',
+            child: _LoadingBox(),
+          ),
+          error: (e, _) => _SectionFallback(
+            title: 'Funcionários',
+            child: _ErrorBox(
+              message: e is AppException
+                  ? e.message
+                  : 'Erro ao carregar funcionários.',
+            ),
           ),
           data: (employees) {
-            if (employees.isEmpty) {
-              return const _EmptyHint('Nenhum funcionário ainda.');
-            }
-            return Column(
-              children: [
-                for (final emp in employees)
-                  _EmployeeCard(
-                    employee: emp,
-                    me: me,
-                    employees: employees,
-                  ),
-              ],
+            final active =
+                employees.where((e) => e.status == 'active').toList();
+            return _CollapsibleSection(
+              title: 'Funcionários',
+              count: active.length,
+              initiallyExpanded: true,
+              child: active.isEmpty
+                  ? const _EmptyHint('Nenhum funcionário ativo.')
+                  : Column(
+                      children: [
+                        for (final emp in active)
+                          _EmployeeCard(
+                            employee: emp,
+                            me: me,
+                            employees: employees,
+                          ),
+                      ],
+                    ),
             );
           },
         ),
-        const SizedBox(height: 32),
-        _SectionTitle('Convites pendentes'),
-        const SizedBox(height: 14),
+        const SizedBox(height: 28),
+
+        // ---- Convites pendentes -------------------------------------------
         invitesAsync.when(
-          loading: () => const _LoadingBox(),
-          error: (e, _) => _ErrorBox(
-            message:
-                e is AppException ? e.message : 'Erro ao carregar convites.',
+          skipLoadingOnReload: true,
+          loading: () => const _SectionFallback(
+            title: 'Convites pendentes',
+            child: _LoadingBox(),
           ),
-          data: (invites) {
-            if (invites.isEmpty) {
-              return const _EmptyHint('Nenhum convite pendente.');
-            }
-            return Column(
-              children: [
-                for (final inv in invites) _InviteCard(invite: inv),
-              ],
+          error: (e, _) => _SectionFallback(
+            title: 'Convites pendentes',
+            child: _ErrorBox(
+              message:
+                  e is AppException ? e.message : 'Erro ao carregar convites.',
+            ),
+          ),
+          data: (invites) => _CollapsibleSection(
+            title: 'Convites pendentes',
+            count: invites.length,
+            initiallyExpanded: true,
+            child: invites.isEmpty
+                ? const _EmptyHint('Nenhum convite pendente.')
+                : Column(
+                    children: [
+                      for (final inv in invites) _InviteCard(invite: inv),
+                    ],
+                  ),
+          ),
+        ),
+
+        // ---- Funcionários desativados (only when there are any) -----------
+        employeesAsync.maybeWhen(
+          data: (employees) {
+            final disabled =
+                employees.where((e) => e.status != 'active').toList();
+            if (disabled.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 28),
+              child: _CollapsibleSection(
+                title: 'Funcionários desativados',
+                count: disabled.length,
+                initiallyExpanded: false,
+                child: Column(
+                  children: [
+                    for (final emp in disabled)
+                      _EmployeeCard(
+                        employee: emp,
+                        me: me,
+                        employees: employees,
+                      ),
+                  ],
+                ),
+              ),
             );
           },
+          orElse: () => const SizedBox.shrink(),
         ),
+
         const SizedBox(height: 24),
       ],
     );
@@ -129,6 +205,12 @@ String _formatDate(DateTime? dt, {String fallback = '—'}) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${two(local.day)}/${two(local.month)}/${local.year} '
       '${two(local.hour)}:${two(local.minute)}';
+}
+
+String _formatDay(DateTime dt) {
+  final local = dt.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
 
 class _EmployeeCard extends ConsumerWidget {
@@ -305,6 +387,7 @@ class _EmployeeCard extends ConsumerWidget {
                       style: TextStyle(
                           color: scheme.onSurfaceVariant, fontSize: 12),
                     ),
+                    _AccessExpiry(expiresAt: employee.accessExpiresAt),
                   ],
                 ),
               ],
@@ -328,6 +411,47 @@ class _EmployeeCard extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Inline "acesso expira/expirado em …" indicator. Renders nothing when the
+/// member has no access expiry set. Turns warning (≤7 dias) / danger (vencido).
+class _AccessExpiry extends StatelessWidget {
+  const _AccessExpiry({required this.expiresAt});
+  final DateTime? expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = expiresAt;
+    if (at == null) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final expired = !at.isAfter(now);
+    final soon = !expired && at.difference(now) <= const Duration(days: 7);
+    final color = expired
+        ? AppColors.danger
+        : soon
+            ? AppColors.warning
+            : scheme.onSurfaceVariant;
+    final label = expired
+        ? 'acesso expirado em ${_formatDay(at)}'
+        : 'acesso expira em ${_formatDay(at)}';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(expired ? Icons.lock_clock_outlined : Icons.schedule,
+            size: 13, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: (expired || soon) ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -579,6 +703,95 @@ class _Badge extends StatelessWidget {
         text,
         style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12),
       ),
+    );
+  }
+}
+
+/// A section header (title + count) that toggles its body open/closed.
+class _CollapsibleSection extends StatefulWidget {
+  const _CollapsibleSection({
+    required this.title,
+    required this.count,
+    required this.child,
+    this.initiallyExpanded = true,
+  });
+
+  final String title;
+  final int count;
+  final Widget child;
+  final bool initiallyExpanded;
+
+  @override
+  State<_CollapsibleSection> createState() => _CollapsibleSectionState();
+}
+
+class _CollapsibleSectionState extends State<_CollapsibleSection> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: _expanded ? 0.0 : -0.25,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(Icons.keyboard_arrow_down,
+                      color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(width: 6),
+                Text(widget.title,
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(width: 10),
+                _Badge(
+                  text: '${widget.count}',
+                  bg: scheme.surfaceContainerHighest,
+                  fg: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox(width: double.infinity, height: 0),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: widget.child,
+          ),
+          crossFadeState: _expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 180),
+        ),
+      ],
+    );
+  }
+}
+
+/// Header + body used while a section's data is still loading or errored —
+/// keeps the title visible (and the layout stable) without the toggle chrome.
+class _SectionFallback extends StatelessWidget {
+  const _SectionFallback({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title),
+        const SizedBox(height: 14),
+        child,
+      ],
     );
   }
 }

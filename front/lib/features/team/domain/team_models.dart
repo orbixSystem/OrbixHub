@@ -28,6 +28,7 @@ abstract class Employee with _$Employee {
     required String role,
     required String status,
     DateTime? lastAccess,
+    DateTime? accessExpiresAt,
   }) = _Employee;
 
   factory Employee.fromJson(Map<String, dynamic> json) =>
