@@ -52,6 +52,11 @@ class TeamScreen extends ConsumerWidget {
             ),
             const SizedBox(width: 16),
             FilledButton.icon(
+              // The global filled-button theme uses Size.fromHeight(50) (width =
+              // infinity), which is fine in stretch columns but explodes as a
+              // non-flex child of a Row (measured with unbounded width). Pin a
+              // finite minimum width here.
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
               onPressed: () => showInviteDialog(context, ref),
               icon: const Icon(Icons.person_add_alt_1, size: 18),
               label: const Text('Convidar'),

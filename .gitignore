@@ -5,3 +5,5 @@ dist/
 coverage/
 front/build/
 .DS_Store
+
+tmp-pw/
