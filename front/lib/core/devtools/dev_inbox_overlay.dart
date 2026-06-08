@@ -96,8 +96,11 @@ class _CircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
+    // NB: no Tooltip here — this widget is painted ABOVE the Navigator (via
+    // MaterialApp.builder), so there is no Overlay ancestor for a Tooltip to use.
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: Material(
         color: bg,
         elevation: 3,
