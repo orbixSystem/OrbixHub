@@ -19,8 +19,17 @@ const List<(String, String)> inviteExpiryOptions = [
 /// Opens the "Convidar" form: email + role + expiry. On submit, re-authenticates
 /// (current password) and calls `invite`, then refreshes the pending list.
 Future<void> showInviteDialog(BuildContext context, WidgetRef ref) async {
-  final rolesAsync = ref.read(teamRolesProvider);
-  final roles = rolesAsync.asData?.value ?? const <RoleOption>[];
+  // Wait for the roles future to resolve — on the FIRST open the provider is
+  // still loading, so reading it synchronously used to bail with an error.
+  List<RoleOption> roles;
+  try {
+    roles = await ref.read(teamRolesProvider.future);
+  } on AppException {
+    roles = const <RoleOption>[];
+  } catch (_) {
+    roles = const <RoleOption>[];
+  }
+  if (!context.mounted) return;
   if (roles.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Não foi possível carregar os cargos.')),
@@ -49,7 +58,23 @@ class _InviteDialogState extends State<_InviteDialog> {
   final _emailController = TextEditingController();
   late String _role = widget.roles.first.key;
   String _expiresIn = '15days';
+  DateTime? _accessExpiresAt; // null = acesso sem expiração
   bool _busy = false;
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pickAccessDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _accessExpiresAt ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 5)),
+      helpText: 'Acesso válido até',
+    );
+    if (picked != null) setState(() => _accessExpiresAt = picked);
+  }
 
   @override
   void dispose() {
@@ -67,11 +92,17 @@ class _InviteDialogState extends State<_InviteDialog> {
     setState(() => _busy = true);
     final repo = widget.ref.read(teamRepositoryProvider);
     try {
+      final access = _accessExpiresAt;
       await repo.invite(
         email: _emailController.text.trim(),
         role: _role,
         expiresIn: _expiresIn,
         currentPassword: password,
+        accessExpiresAt: access == null
+            ? null
+            : DateTime(access.year, access.month, access.day, 23, 59, 59)
+                .toUtc()
+                .toIso8601String(),
       );
       widget.ref.invalidate(pendingInvitesProvider);
       if (!mounted) return;
@@ -132,6 +163,37 @@ class _InviteDialogState extends State<_InviteDialog> {
               onChanged: _busy
                   ? null
                   : (v) => setState(() => _expiresIn = v ?? _expiresIn),
+            ),
+            const SizedBox(height: 16),
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Acesso válido até',
+                helperText: 'Após esta data o funcionário perde o acesso.',
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _accessExpiresAt == null
+                          ? 'Sem expiração'
+                          : _fmtDate(_accessExpiresAt!),
+                    ),
+                  ),
+                  if (_accessExpiresAt != null)
+                    IconButton(
+                      tooltip: 'Remover',
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _accessExpiresAt = null),
+                    ),
+                  IconButton(
+                    tooltip: 'Escolher data',
+                    icon: const Icon(Icons.event, size: 20),
+                    onPressed: _busy ? null : _pickAccessDate,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

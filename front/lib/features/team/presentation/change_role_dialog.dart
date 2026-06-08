@@ -17,7 +17,13 @@ Future<void> showChangeRoleDialog(
   required bool callerIsOwner,
   required bool isLastActiveOwner,
 }) async {
-  final roles = ref.read(teamRolesProvider).asData?.value ?? const <RoleOption>[];
+  List<RoleOption> roles;
+  try {
+    roles = await ref.read(teamRolesProvider.future);
+  } catch (_) {
+    roles = const <RoleOption>[];
+  }
+  if (!context.mounted) return;
   if (roles.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Não foi possível carregar os cargos.')),

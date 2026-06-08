@@ -16,6 +16,7 @@ abstract interface class TeamRepository {
     required String role,
     required String expiresIn,
     required String currentPassword,
+    String? accessExpiresAt, // ISO 8601; when the member's ACCESS expires
   });
 
   Future<void> resendInvite(

@@ -45,6 +45,7 @@ class TeamRepositoryImpl implements TeamRepository {
     required String role,
     required String expiresIn,
     required String currentPassword,
+    String? accessExpiresAt,
   }) =>
       _guard(() async {
         await _dio.post<Object?>('/tenants/invites', data: {
@@ -52,6 +53,7 @@ class TeamRepositoryImpl implements TeamRepository {
           'role': role,
           'expiresIn': expiresIn,
           'currentPassword': currentPassword,
+          'accessExpiresAt': ?accessExpiresAt,
         });
       });
 
