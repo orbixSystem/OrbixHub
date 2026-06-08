@@ -101,7 +101,7 @@ describe('IAM invite flow (e2e)', () => {
     const inv = await request(app.getHttpServer())
       .post('/api/tenants/invites')
       .set('Authorization', `Bearer ${ownerAccess}`)
-      .send({ email: mechEmail, role: 'mechanic' });
+      .send({ email: mechEmail, role: 'mechanic', currentPassword: 'supersecret1' });
     expect(inv.status).toBe(201);
     expect(inv.body).toEqual({ invited: true });
 
@@ -150,7 +150,7 @@ describe('IAM invite flow (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/tenants/invites')
       .set('Authorization', `Bearer ${ownerAccess}`)
-      .send({ email: mechEmail, role: 'mechanic' })
+      .send({ email: mechEmail, role: 'mechanic', currentPassword: 'supersecret1' })
       .expect(201);
     const token = mailer.lastTokenFor('invite', mechEmail)!;
     await request(app.getHttpServer())
