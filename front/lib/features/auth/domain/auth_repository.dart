@@ -24,6 +24,14 @@ abstract interface class AuthRepository {
 
   Future<void> resetPassword({required String token, required String newPassword});
 
+  /// Accepts a team invite (public). Returns a fresh token pair on success;
+  /// throws [AppException] (400, generic message) on invalid/expired/used token.
+  Future<Tokens> acceptInvite({
+    required String token,
+    String? fullName,
+    required String password,
+  });
+
   Future<Tokens> switchTenant(String tenantId);
 
   /// Exchanges a refresh token for a new pair. Used by bootstrap and by the

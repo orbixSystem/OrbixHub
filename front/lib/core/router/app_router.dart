@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../di.dart';
+import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
@@ -22,7 +23,9 @@ import '../widgets/splash_screen.dart';
 const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
 
 bool _isPublic(String location) =>
-    _authRoutes.contains(location) || location.startsWith('/t/');
+    _authRoutes.contains(location) ||
+    location.startsWith('/t/') ||
+    location.startsWith('/convite/');
 
 /// go_router wired to the session. `refreshListenable` re-runs `redirect` on
 /// every session change. Guards run server-truth-first: the client only reflects
@@ -80,6 +83,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/t/:token',
         builder: (_, state) =>
             PublicTrackingScreen(token: state.pathParameters['token'] ?? ''),
+      ),
+      GoRoute(
+        path: '/convite/:token',
+        builder: (_, state) =>
+            AcceptInviteScreen(token: state.pathParameters['token'] ?? ''),
       ),
       // Authenticated shell.
       ShellRoute(

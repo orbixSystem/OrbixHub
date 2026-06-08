@@ -91,6 +91,14 @@ class FakeAuthRepository implements AuthRepository {
   }) async {}
 
   @override
+  Future<Tokens> acceptInvite({
+    required String token,
+    String? fullName,
+    required String password,
+  }) async =>
+      const Tokens(accessToken: 'fake-access', refreshToken: 'fake-refresh');
+
+  @override
   Future<Tokens> switchTenant(String tenantId) async =>
       const Tokens(accessToken: 'fake-access-2', refreshToken: 'fake-refresh-2');
 
