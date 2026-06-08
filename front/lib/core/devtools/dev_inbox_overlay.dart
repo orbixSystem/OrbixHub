@@ -1,51 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../router/navigator_key.dart';
+import '../../di.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
 
-/// Wraps the whole app and — only when [kDevTools] is true — paints a small
-/// floating "beetle" button in the top-right corner that opens the dev inbox.
+/// Global top-right controls painted over EVERY screen:
+/// - a theme toggle (always) that flips light <-> dark and swaps its icon;
+/// - a "beetle" button (only when [kDevTools]) that opens the dev inbox.
 ///
-/// In release builds [kDevTools] is a compile-time `false`, so the entire
-/// beetle subtree below is dead code and gets tree-shaken out.
-class DevInboxOverlay extends StatelessWidget {
-  const DevInboxOverlay({super.key, required this.child});
+/// The app [child] is wrapped with `Positioned.fill` so the underlying
+/// Navigator/Overlay is laid out with tight constraints (a loose-width wrap was
+/// breaking focus traversal and forcing infinite width on focus-heavy screens).
+/// The dev modal is opened through the root navigator's overlay context, since
+/// this widget sits ABOVE the Navigator (via MaterialApp.builder).
+class GlobalOverlay extends ConsumerWidget {
+  const GlobalOverlay({super.key, required this.child});
 
   final Widget child;
 
+  void _openInbox() {
+    final ctx = rootNavigatorKey.currentState?.overlay?.context;
+    if (ctx == null) return;
+    showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      builder: (_) => const DevInboxModal(),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
-    if (!kDevTools) return child;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final mode = ref.watch(themeControllerProvider);
+    final isDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
-    final colors = Theme.of(context).colorScheme;
-
-    // Only the Positioned button consumes pointer events; the rest of the
-    // Stack passes touches straight through to [child].
     return Stack(
       children: [
-        child,
+        Positioned.fill(child: child),
         Positioned(
           top: 0,
           right: 0,
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(top: 8, right: 8),
-              child: Material(
-                color: colors.primary,
-                elevation: 4,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _openInbox(context),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.bug_report,
-                      size: 20,
-                      color: colors.onPrimary,
-                    ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _CircleButton(
+                    icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                    tooltip: isDark ? 'Tema claro' : 'Tema escuro',
+                    bg: scheme.surfaceContainerHighest,
+                    fg: scheme.onSurface,
+                    onTap: () => ref
+                        .read(themeControllerProvider.notifier)
+                        .set(isDark ? ThemeMode.light : ThemeMode.dark),
                   ),
-                ),
+                  if (kDevTools) ...[
+                    const SizedBox(width: 8),
+                    _CircleButton(
+                      icon: Icons.bug_report,
+                      tooltip: 'Dev inbox',
+                      bg: scheme.primary,
+                      fg: scheme.onPrimary,
+                      onTap: _openInbox,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -53,13 +77,40 @@ class DevInboxOverlay extends StatelessWidget {
       ],
     );
   }
+}
 
-  void _openInbox(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: false,
-      isScrollControlled: true,
-      builder: (_) => const DevInboxModal(),
+class _CircleButton extends StatelessWidget {
+  const _CircleButton({
+    required this.icon,
+    required this.tooltip,
+    required this.bg,
+    required this.fg,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color bg;
+  final Color fg;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: bg,
+        elevation: 3,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Icon(icon, size: 20, color: fg),
+          ),
+        ),
+      ),
     );
   }
 }

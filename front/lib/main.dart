@@ -30,7 +30,7 @@ class OrbixApp extends ConsumerWidget {
       themeMode: mode,
       routerConfig: router,
       builder: (context, child) =>
-          DevInboxOverlay(child: child ?? const SizedBox.shrink()),
+          GlobalOverlay(child: child ?? const SizedBox.shrink()),
     );
   }
 }

@@ -18,6 +18,7 @@ import '../../features/shell/presentation/module_placeholder_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../widgets/splash_screen.dart';
+import 'navigator_key.dart';
 
 /// Routes that never require authentication.
 const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
@@ -36,6 +37,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(sessionControllerProvider, (_, _) => refresh.value++);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
