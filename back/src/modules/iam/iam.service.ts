@@ -96,6 +96,9 @@ export class IamService {
     const raw = generateOpaqueToken();
     const email = normalizeEmail(dto.email);
     const expiresAt = inviteExpiresAt(dto.expiresIn);
+    const accessExpiresAt = dto.accessExpiresAt
+      ? new Date(dto.accessExpiresAt)
+      : null;
     await this.repo.createInvite({
       tenantId,
       emailNormalized: email,
@@ -103,6 +106,7 @@ export class IamService {
       tokenHash: hashToken(raw),
       invitedBy,
       expiresAt,
+      accessExpiresAt,
     });
     // Email is best-effort (and runs outside any DB tx). Swallow failures so a
     // mailer outage never breaks invite creation.
@@ -211,11 +215,17 @@ export class IamService {
     try {
       await this.tenant.runWithTenant(invite.tenant_id, async () => {
         const db = this.tenant.getClient();
+        // Re-read the invite under tenant context to carry its access-expiry
+        // onto the new membership (the lookup function doesn't return it).
+        const inviteRow = await db.invite.findUnique({
+          where: { id: invite.invite_id },
+        });
         await db.membership.create({
           data: {
             tenant_id: invite.tenant_id,
             user_id: theUser.id,
             role_id: invite.role_id,
+            access_expires_at: inviteRow?.access_expires_at ?? null,
           },
         });
         await db.invite.update({

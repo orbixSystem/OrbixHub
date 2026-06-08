@@ -1,4 +1,11 @@
-import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsDateString,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 const ROLE_KEYS = ['owner', 'gerente', 'mechanic', 'caixa'] as const;
 export type RoleKeyInput = (typeof ROLE_KEYS)[number];
@@ -9,6 +16,8 @@ export class CreateInviteDto {
   @IsString() @MinLength(1) currentPassword!: string; // reautenticação
   @IsOptional() @IsIn(['15min', '30min', '1day', '15days', 'never'])
   expiresIn?: string;
+  // When the invited member's ACCESS expires (ISO 8601). Null/omitted = no expiry.
+  @IsOptional() @IsDateString() accessExpiresAt?: string;
 }
 
 export class ResendInviteDto {

@@ -163,6 +163,7 @@ export class IamRepository {
     tokenHash: string;
     invitedBy: string;
     expiresAt: Date | null;
+    accessExpiresAt: Date | null;
   }) {
     return this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
@@ -174,6 +175,7 @@ export class IamRepository {
           token_hash: data.tokenHash,
           invited_by: data.invitedBy,
           expires_at: data.expiresAt,
+          access_expires_at: data.accessExpiresAt,
         },
       });
     });
