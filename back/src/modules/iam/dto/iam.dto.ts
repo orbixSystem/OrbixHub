@@ -7,6 +7,14 @@ export class CreateInviteDto {
   @IsEmail() email!: string;
   @IsIn(ROLE_KEYS) role!: RoleKeyInput;
   @IsString() @MinLength(1) currentPassword!: string; // reautenticação
+  @IsOptional() @IsIn(['15min', '30min', '1day', '15days', 'never'])
+  expiresIn?: string;
+}
+
+export class ResendInviteDto {
+  @IsString() @MinLength(1) currentPassword!: string;
+  @IsOptional() @IsIn(['15min', '30min', '1day', '15days', 'never'])
+  expiresIn?: string;
 }
 
 export class AcceptInviteDto {
