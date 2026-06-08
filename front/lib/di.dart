@@ -1,11 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/material.dart';
+
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
 import 'core/network/auth_interceptor.dart';
 import 'core/network/token_refresh_service.dart';
 import 'core/storage/secure_token_store.dart';
+import 'core/theme/theme_controller.dart';
 import 'features/auth/data/auth_repository_impl.dart';
 import 'features/auth/domain/auth_repository.dart';
 import 'features/auth/presentation/session_controller.dart';
@@ -69,3 +72,6 @@ final trackingRepositoryProvider =
 
 final sessionControllerProvider =
     NotifierProvider<SessionController, SessionState>(SessionController.new);
+
+final themeControllerProvider =
+    NotifierProvider<ThemeController, ThemeMode>(ThemeController.new);
