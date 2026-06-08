@@ -20,6 +20,7 @@ import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     TenancyModule,
     BillingModule,
     SettingsModule,
+    DevtoolsModule,
   ],
   controllers: [HealthController],
   providers: [
