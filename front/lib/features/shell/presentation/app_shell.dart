@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import 'nav_items.dart';
@@ -75,11 +74,14 @@ class _ContentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Theme-aware so the header follows light/dark instead of staying on the
+    // hardcoded light canvas (which read as a white bar in dark mode).
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       height: 66,
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
       ),
       padding: EdgeInsets.only(left: showMenu ? 8 : 28, right: 20),
       child: Row(

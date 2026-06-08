@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../di.dart';
+import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
@@ -14,14 +15,18 @@ import '../../features/billing/presentation/plans_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
+import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../widgets/splash_screen.dart';
+import 'navigator_key.dart';
 
 /// Routes that never require authentication.
 const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
 
 bool _isPublic(String location) =>
-    _authRoutes.contains(location) || location.startsWith('/t/');
+    _authRoutes.contains(location) ||
+    location.startsWith('/t/') ||
+    location.startsWith('/convite/');
 
 /// go_router wired to the session. `refreshListenable` re-runs `redirect` on
 /// every session change. Guards run server-truth-first: the client only reflects
@@ -32,6 +37,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(sessionControllerProvider, (_, _) => refresh.value++);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -80,12 +86,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             PublicTrackingScreen(token: state.pathParameters['token'] ?? ''),
       ),
+      GoRoute(
+        path: '/convite/:token',
+        builder: (_, state) =>
+            AcceptInviteScreen(token: state.pathParameters['token'] ?? ''),
+      ),
       // Authenticated shell.
       ShellRoute(
         builder: (_, _, child) => AppShell(child: child),
         routes: [
           GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
           GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
+          GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
           GoRoute(
             path: '/m/:moduleKey',
             builder: (_, state) => ModulePlaceholderScreen(

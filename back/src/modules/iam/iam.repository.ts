@@ -18,6 +18,15 @@ export interface EmployeeView {
   role: string | undefined;
   status: string;
   lastAccess: Date | null;
+  accessExpiresAt: Date | null;
+}
+
+export interface PendingInviteView {
+  id: string;
+  email: string;
+  role: string | undefined;
+  expiresAt: Date | null;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -81,6 +90,7 @@ export class IamRepository {
         role: rMap.get(m.role_id)?.key,
         status: m.status,
         lastAccess: lMap.get(m.user_id) ?? null,
+        accessExpiresAt: m.access_expires_at ?? null,
       }));
     });
   }
@@ -154,7 +164,8 @@ export class IamRepository {
     roleId: string;
     tokenHash: string;
     invitedBy: string;
-    ttlMinutes: number;
+    expiresAt: Date | null;
+    accessExpiresAt: Date | null;
   }) {
     return this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
@@ -165,8 +176,66 @@ export class IamRepository {
           role_id: data.roleId,
           token_hash: data.tokenHash,
           invited_by: data.invitedBy,
-          expires_at: new Date(Date.now() + data.ttlMinutes * 60_000),
+          expires_at: data.expiresAt,
+          access_expires_at: data.accessExpiresAt,
         },
+      });
+    });
+  }
+
+  /** Pending (not accepted, not canceled, not expired) invites of active tenant. */
+  async listPendingInvites(): Promise<PendingInviteView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const invites = await db.invite.findMany({
+        where: {
+          accepted_at: null,
+          canceled_at: null,
+          OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+        },
+      });
+      const roleIds = invites.map((i) => i.role_id);
+      const roles = await this.prisma.role.findMany({
+        where: { id: { in: roleIds } },
+      });
+      const rMap = new Map(roles.map((r) => [r.id, r.key]));
+      return invites.map((i) => ({
+        id: i.id,
+        email: i.email_normalized,
+        role: rMap.get(i.role_id),
+        expiresAt: i.expires_at,
+        createdAt: i.created_at,
+      }));
+    });
+  }
+
+  async getInvite(id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      return db.invite.findUnique({ where: { id } });
+    });
+  }
+
+  async rotateInviteToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date | null,
+  ): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.invite.update({
+        where: { id },
+        data: { token_hash: tokenHash, expires_at: expiresAt },
+      });
+    });
+  }
+
+  async cancelInvite(id: string): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.invite.update({
+        where: { id },
+        data: { canceled_at: new Date() },
       });
     });
   }

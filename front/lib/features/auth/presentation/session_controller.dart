@@ -74,6 +74,22 @@ class SessionController extends Notifier<SessionState> {
     await _loadMe();
   }
 
+  /// Accepts a team invite (public) and signs the new member in.
+  Future<void> acceptInvite({
+    required String token,
+    String? fullName,
+    required String password,
+  }) async {
+    final tokens = await _auth.acceptInvite(
+      token: token,
+      fullName: fullName,
+      password: password,
+    );
+    _access.set(tokens.accessToken);
+    await _secure.writeRefreshToken(tokens.refreshToken);
+    await _loadMe();
+  }
+
   /// Switches active workshop and reloads `/me` (new role/modules).
   Future<void> switchTenant(String tenantId) async {
     final tokens = await _auth.switchTenant(tenantId);

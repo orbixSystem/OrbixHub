@@ -71,6 +71,19 @@ class AuthRepositoryImpl implements AuthRepository {
       });
 
   @override
+  Future<Tokens> acceptInvite({
+    required String token,
+    String? fullName,
+    required String password,
+  }) =>
+      _guard(() async {
+        final data = <String, dynamic>{'token': token, 'password': password};
+        if (fullName != null) data['fullName'] = fullName;
+        final res = await _dio.post<Object?>('/invites/accept', data: data);
+        return Tokens.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<Tokens> switchTenant(String tenantId) => _guard(() async {
         final res = await _dio
             .post<Object?>('/auth/switch-tenant', data: {'tenantId': tenantId});

@@ -36,6 +36,7 @@ interface Owner {
 
 interface Member {
   access: string;
+  refresh: string;
   email: string;
   password: string;
 }
@@ -125,7 +126,12 @@ describe('Employees feature (e2e)', () => {
       .post('/api/invites/accept')
       .send({ token, fullName: 'Member', password });
     expect(accept.status).toBe(200);
-    return { access: accept.body.accessToken as string, email, password };
+    return {
+      access: accept.body.accessToken as string,
+      refresh: accept.body.refreshToken as string,
+      email,
+      password,
+    };
   }
 
   async function listEmployees(access: string): Promise<Employee[]> {
@@ -288,6 +294,42 @@ describe('Employees feature (e2e)', () => {
       emps = await listEmployees(ownerA.access);
       const gAfterAct = byEmail(emps, gerente.email);
       expect(gAfterAct!.status).toBe('active');
+    });
+  });
+
+  // ---- Criterion 8: deactivation revokes the live session --------------
+  describe('Criterion 8 — deactivation kills the session immediately', () => {
+    it('blocks a deactivated member on the existing access token AND on refresh', async () => {
+      const owner = await registerOwner();
+      const gerente = await inviteAccept(owner, 'gerente');
+
+      // Sanity: while active, gerente (users.manage) can list employees.
+      const before = await request(app.getHttpServer())
+        .get('/api/employees')
+        .set('Authorization', `Bearer ${gerente.access}`);
+      expect(before.status).toBe(200);
+
+      // Owner deactivates the gerente.
+      const emps = await listEmployees(owner.access);
+      const gMembership = byEmail(emps, gerente.email);
+      expect(gMembership).toBeTruthy();
+      const deact = await request(app.getHttpServer())
+        .post(`/api/employees/${gMembership!.membershipId}/deactivate`)
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ currentPassword: owner.password });
+      expect(deact.status).toBe(200);
+
+      // The SAME, still-unexpired access token is now rejected per-request.
+      const after = await request(app.getHttpServer())
+        .get('/api/employees')
+        .set('Authorization', `Bearer ${gerente.access}`);
+      expect(after.status).toBe(401);
+
+      // And the refresh token can no longer mint a fresh access token.
+      const refreshed = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: gerente.refresh });
+      expect(refreshed.status).toBe(401);
     });
   });
 

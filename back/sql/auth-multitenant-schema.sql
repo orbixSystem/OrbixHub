@@ -405,3 +405,67 @@ SELECT r.id, p.id FROM role r JOIN permission p ON p.key IN
    'cashier.read','cashier.write','invoice.issue')
 WHERE r.key = 'caixa'
 ON CONFLICT DO NOTHING;
+
+-- ============================================================
+-- 0004 — Invite lifecycle (soft-cancel + optional expiry)
+-- ============================================================
+ALTER TABLE invite ADD COLUMN IF NOT EXISTS canceled_at timestamptz;
+ALTER TABLE invite ALTER COLUMN expires_at DROP NOT NULL;  -- NULL = sem expiração
+
+-- The lookup function must now expose canceled_at (and expires_at may be NULL).
+-- RETURNS TABLE signature changes → DROP + CREATE (idempotent via IF EXISTS).
+DROP FUNCTION IF EXISTS auth_find_invite_by_hash(text);
+CREATE FUNCTION auth_find_invite_by_hash(p_hash text)
+RETURNS TABLE (invite_id uuid, tenant_id uuid, email_normalized text,
+               role_id uuid, expires_at timestamptz, accepted_at timestamptz,
+               canceled_at timestamptz)
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT id, tenant_id, email_normalized, role_id, expires_at, accepted_at, canceled_at
+  FROM invite WHERE token_hash = p_hash
+$$;
+REVOKE ALL ON FUNCTION auth_find_invite_by_hash(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_find_invite_by_hash(text) TO app_user;
+
+-- ============================================================
+-- 0005 — Access expiry (membership-level, set at invite time)
+-- ============================================================
+ALTER TABLE membership ADD COLUMN IF NOT EXISTS access_expires_at timestamptz;
+ALTER TABLE invite     ADD COLUMN IF NOT EXISTS access_expires_at timestamptz;
+
+-- Enforce active + non-expired access at login / refresh / switch-tenant.
+-- (Same 3-column signature, so CREATE OR REPLACE is enough.) This also closes a
+-- pre-existing gap: deactivated members (status='disabled') could previously log in.
+CREATE OR REPLACE FUNCTION auth_find_user_memberships(p_user_id uuid)
+RETURNS TABLE (tenant_id uuid, tenant_slug text, role_key text)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT m.tenant_id, t.slug, r.key
+  FROM membership m
+  JOIN tenant t ON t.id = m.tenant_id
+  JOIN role r ON r.id = m.role_id
+  WHERE m.user_id = p_user_id
+    AND m.status = 'active'
+    AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
+$$;
+REVOKE ALL ON FUNCTION auth_find_user_memberships(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_find_user_memberships(uuid) TO app_user;
+
+-- ============================================================
+-- 0006 — Per-request membership check
+-- ============================================================
+-- The 15-min access token carries (sub, tid) but no live session state, so a
+-- member deactivated mid-session kept working until the token expired. This
+-- SECURITY DEFINER predicate lets a guard verify, on every authenticated
+-- request, that the (user, tenant) membership is still active + non-expired.
+CREATE OR REPLACE FUNCTION auth_membership_active(p_user_id uuid, p_tenant_id uuid)
+RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM membership m
+    WHERE m.user_id = p_user_id
+      AND m.tenant_id = p_tenant_id
+      AND m.status = 'active'
+      AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
+  )
+$$;
+REVOKE ALL ON FUNCTION auth_membership_active(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_membership_active(uuid, uuid) TO app_user;

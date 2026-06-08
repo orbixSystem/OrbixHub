@@ -22,6 +22,7 @@ class DashboardScreen extends ConsumerWidget {
     final firstName = me.user.fullName.split(' ').first;
     final subAsync = ref.watch(subscriptionProvider);
     final sub = subAsync.asData?.value;
+    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(28),
@@ -32,7 +33,7 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: 6),
         Text(
           'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.',
-          style: const TextStyle(color: AppColors.inkMuted, fontSize: 15),
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
         ),
         const SizedBox(height: 26),
         Wrap(
@@ -129,13 +130,14 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: 224,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +160,7 @@ class _StatTile extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(color: AppColors.inkMuted, fontSize: 13)),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
         ],
       ),
     );
@@ -172,10 +174,11 @@ class _ModuleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meta = moduleMeta[moduleKey] ?? (moduleKey, Icons.extension_outlined);
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: 268,
       child: Material(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -183,7 +186,7 @@ class _ModuleCard extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.line),
+              border: Border.all(color: scheme.outlineVariant),
             ),
             padding: const EdgeInsets.all(18),
             child: Row(
@@ -205,14 +208,14 @@ class _ModuleCard extends StatelessWidget {
                       Text(meta.$1,
                           style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 2),
-                      const Text('Abrir módulo',
+                      Text('Abrir módulo',
                           style: TextStyle(
-                              color: AppColors.inkMuted, fontSize: 12.5)),
+                              color: scheme.onSurfaceVariant, fontSize: 12.5)),
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_outward_rounded,
-                    size: 18, color: AppColors.inkFaint),
+                Icon(Icons.arrow_outward_rounded,
+                    size: 18, color: scheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -237,28 +240,29 @@ class _AccountPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _row('Oficina', tenantName),
+          _row(context, 'Oficina', tenantName),
           const Divider(height: 26),
-          _row('Função', role),
+          _row(context, 'Função', role),
           const Divider(height: 26),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 120,
                 child: Text('Permissões',
                     style: TextStyle(
-                        color: AppColors.inkMuted,
+                        color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600)),
               ),
               Expanded(
@@ -276,19 +280,21 @@ class _AccountPanel extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, String value) {
+  Widget _row(BuildContext context, String label, String value) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         SizedBox(
           width: 120,
           child: Text(label,
-              style: const TextStyle(
-                  color: AppColors.inkMuted, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600)),
         ),
         Expanded(
           child: Text(value,
-              style: const TextStyle(
-                  color: AppColors.ink, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: scheme.onSurface, fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -311,15 +317,16 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSunken,
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Text(text, style: const TextStyle(color: AppColors.inkMuted)),
+      child: Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
     );
   }
 }

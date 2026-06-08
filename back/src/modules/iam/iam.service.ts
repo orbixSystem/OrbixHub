@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { IamRepository } from './iam.repository';
 import { ReauthService } from './reauth.service';
@@ -11,16 +12,36 @@ import { AuditService } from '../../common/audit/audit.service';
 import { MailerService } from '../../common/mailer/mailer.service';
 import { generateOpaqueToken, hashToken } from '../../common/crypto/tokens';
 import { normalizeEmail } from '../auth/email';
-import { CreateInviteDto, AcceptInviteDto } from './dto/iam.dto';
-import type { RoleKey } from '../../common/auth/auth.types';
+import {
+  CreateInviteDto,
+  AcceptInviteDto,
+  ResendInviteDto,
+} from './dto/iam.dto';
+import type { RoleKey, AuthUser } from '../../common/auth/auth.types';
+
+const INVITE_EXPIRY_MIN: Record<string, number | null> = {
+  '15min': 15,
+  '30min': 30,
+  '1day': 1440,
+  '15days': 21600,
+  never: null,
+};
+
+/** Compute expiresAt Date|null from an expiresIn key (default '15days'). */
+function inviteExpiresAt(expiresIn?: string): Date | null {
+  const key = expiresIn ?? '15days';
+  const min = key in INVITE_EXPIRY_MIN ? INVITE_EXPIRY_MIN[key] : 21600;
+  return min === null ? null : new Date(Date.now() + min * 60_000);
+}
 
 interface InviteRow {
   invite_id: string;
   tenant_id: string;
   email_normalized: string;
   role_id: string;
-  expires_at: Date;
+  expires_at: Date | null;
   accepted_at: Date | null;
+  canceled_at: Date | null;
 }
 
 @Injectable()
@@ -74,13 +95,18 @@ export class IamService {
     if (!role) throw new BadRequestException('Papel inválido.');
     const raw = generateOpaqueToken();
     const email = normalizeEmail(dto.email);
+    const expiresAt = inviteExpiresAt(dto.expiresIn);
+    const accessExpiresAt = dto.accessExpiresAt
+      ? new Date(dto.accessExpiresAt)
+      : null;
     await this.repo.createInvite({
       tenantId,
       emailNormalized: email,
       roleId: role.id,
       tokenHash: hashToken(raw),
       invitedBy,
-      ttlMinutes: 60 * 24 * 7,
+      expiresAt,
+      accessExpiresAt,
     });
     // Email is best-effort (and runs outside any DB tx). Swallow failures so a
     // mailer outage never breaks invite creation.
@@ -94,6 +120,64 @@ export class IamService {
     return { invited: true };
   }
 
+  listPendingInvites(tenantId: string) {
+    // Runs under the request's tenant via the repo's withTenantTx (CLS); the
+    // explicit tenantId is kept for signature symmetry with the other methods.
+    void tenantId;
+    return this.repo.listPendingInvites();
+  }
+
+  async resendInvite(
+    tenantId: string,
+    actor: AuthUser,
+    inviteId: string,
+    dto: ResendInviteDto,
+  ): Promise<{ invited: true }> {
+    await this.reauth.assertReauth(actor.userId, dto.currentPassword);
+    const invite = await this.repo.getInvite(inviteId);
+    if (!invite || invite.accepted_at || invite.canceled_at) {
+      throw new BadRequestException('Convite não encontrado.');
+    }
+    const raw = generateOpaqueToken();
+    const expiresAt = inviteExpiresAt(dto.expiresIn);
+    await this.repo.rotateInviteToken(inviteId, hashToken(raw), expiresAt);
+    try {
+      await this.mailer?.send({
+        to: invite.email_normalized,
+        token: raw,
+        kind: 'invite',
+      });
+    } catch {
+      /* ignore */
+    }
+    await this.audit.log(
+      tenantId,
+      actor.userId,
+      'invite',
+      invite.email_normalized,
+    );
+    return { invited: true };
+  }
+
+  async cancelInvite(
+    tenantId: string,
+    actor: AuthUser,
+    inviteId: string,
+  ): Promise<{ ok: true }> {
+    const invite = await this.repo.getInvite(inviteId);
+    if (!invite || invite.accepted_at || invite.canceled_at) {
+      throw new BadRequestException('Convite não encontrado.');
+    }
+    await this.repo.cancelInvite(inviteId);
+    await this.audit.log(
+      tenantId,
+      actor.userId,
+      'invite',
+      invite.email_normalized,
+    );
+    return { ok: true };
+  }
+
   async acceptInvite(
     dto: AcceptInviteDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -101,11 +185,10 @@ export class IamService {
       SELECT * FROM auth_find_invite_by_hash(${hashToken(dto.token)})
     `;
     const invite = rows[0];
-    if (
-      !invite ||
-      invite.accepted_at ||
-      new Date(invite.expires_at).getTime() < Date.now()
-    ) {
+    const expired =
+      invite?.expires_at != null &&
+      new Date(invite.expires_at).getTime() < Date.now();
+    if (!invite || invite.accepted_at || invite.canceled_at || expired) {
       throw new BadRequestException('Convite inválido ou expirado.');
     }
 
@@ -129,20 +212,38 @@ export class IamService {
     const theUser = user;
 
     // Create membership + mark invite accepted under the invite's tenant context.
-    await this.tenant.runWithTenant(invite.tenant_id, async () => {
-      const db = this.tenant.getClient();
-      await db.membership.create({
-        data: {
-          tenant_id: invite.tenant_id,
-          user_id: theUser.id,
-          role_id: invite.role_id,
-        },
+    try {
+      await this.tenant.runWithTenant(invite.tenant_id, async () => {
+        const db = this.tenant.getClient();
+        // Re-read the invite under tenant context to carry its access-expiry
+        // onto the new membership (the lookup function doesn't return it).
+        const inviteRow = await db.invite.findUnique({
+          where: { id: invite.invite_id },
+        });
+        await db.membership.create({
+          data: {
+            tenant_id: invite.tenant_id,
+            user_id: theUser.id,
+            role_id: invite.role_id,
+            access_expires_at: inviteRow?.access_expires_at ?? null,
+          },
+        });
+        await db.invite.update({
+          where: { id: invite.invite_id },
+          data: { accepted_at: new Date() },
+        });
       });
-      await db.invite.update({
-        where: { id: invite.invite_id },
-        data: { accepted_at: new Date() },
-      });
-    });
+    } catch (e) {
+      // Concurrent double-accept races on the membership unique constraint —
+      // surface it as a 400 instead of an unhandled 500.
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new BadRequestException('Convite inválido ou expirado.');
+      }
+      throw e;
+    }
 
     const roles = await this.repo.listRoles();
     const roleKey = (roles.find((r) => r.id === invite.role_id)?.key ??

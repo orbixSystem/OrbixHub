@@ -23,6 +23,11 @@ export const envSchema = z.object({
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
+  DEV_TOOLS_ENABLED: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  APP_PUBLIC_URL: z.string().default('http://localhost:8090'),
 });
 
 export type Env = z.infer<typeof envSchema>;
