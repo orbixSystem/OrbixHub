@@ -31,7 +31,8 @@ model invite {
   token_hash       String    @unique
   invited_by       String?   @db.Uuid
   accepted_at      DateTime? @db.Timestamptz(6)
-  expires_at       DateTime  @db.Timestamptz(6)
+  expires_at       DateTime? @db.Timestamptz(6)
+  canceled_at      DateTime? @db.Timestamptz(6)
   created_at       DateTime  @default(now()) @db.Timestamptz(6)
   users            users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
   role             role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
