@@ -19,6 +19,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { BillingModule } from './modules/billing/billing.module';
     IamModule,
     TenancyModule,
     BillingModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
   providers: [
