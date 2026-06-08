@@ -14,6 +14,7 @@ import '../../features/billing/presentation/plans_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
+import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../widgets/splash_screen.dart';
 
@@ -86,6 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
           GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
+          GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
           GoRoute(
             path: '/m/:moduleKey',
             builder: (_, state) => ModulePlaceholderScreen(

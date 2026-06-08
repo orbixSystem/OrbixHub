@@ -71,6 +71,10 @@ class SidebarContent extends ConsumerWidget {
               ),
             ),
             const Divider(color: AppColors.graphiteLine, height: 1),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: _ThemeToggle(),
+            ),
             if (me.hasMultipleTenants)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
@@ -222,6 +226,64 @@ class _SideNavItemState extends State<_SideNavItem> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Compact light/dark/system theme selector for the sidebar footer. Reads the
+/// current mode and writes via [themeControllerProvider]. Styled for the
+/// graphite rail (legible on dark), the segments use on-graphite tones.
+class _ThemeToggle extends ConsumerWidget {
+  const _ThemeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeControllerProvider);
+    final notifier = ref.read(themeControllerProvider.notifier);
+
+    Widget segment(ThemeMode value, IconData icon, String tooltip) {
+      final selected = mode == value;
+      return Expanded(
+        child: Tooltip(
+          message: tooltip,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => notifier.set(value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.brand.withValues(alpha: 0.16)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color:
+                    selected ? AppColors.brandBright : AppColors.onGraphiteMuted,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.graphiteHi,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.graphiteLine),
+      ),
+      child: Row(
+        children: [
+          segment(ThemeMode.light, Icons.light_mode_outlined, 'Claro'),
+          segment(ThemeMode.dark, Icons.dark_mode_outlined, 'Escuro'),
+          segment(ThemeMode.system, Icons.brightness_auto_outlined, 'Sistema'),
+        ],
       ),
     );
   }

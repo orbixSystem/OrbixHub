@@ -28,6 +28,10 @@ List<NavItem> gatedNavItems(Me me) {
     final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
   }
+  // Team management is gated by users.manage; placed before Planos.
+  if (me.hasPermission('users.manage')) {
+    items.add(const NavItem('Equipe', Icons.groups_outlined, '/equipe'));
+  }
   // Billing/plans is owner-only (billing.manage); mechanics never see it.
   if (me.hasPermission('billing.manage')) {
     items.add(const NavItem('Planos', Icons.credit_card_outlined, '/billing'));
