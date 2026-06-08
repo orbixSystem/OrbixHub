@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/devtools/dev_inbox_overlay.dart';
 import 'core/router/app_router.dart';
+import 'core/router/navigator_key.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/branding.dart';
@@ -12,11 +13,44 @@ void main() {
   runApp(const ProviderScope(child: OrbixApp()));
 }
 
-class OrbixApp extends ConsumerWidget {
+class OrbixApp extends ConsumerStatefulWidget {
   const OrbixApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrbixApp> createState() => _OrbixAppState();
+}
+
+class _OrbixAppState extends ConsumerState<OrbixApp> {
+  OverlayEntry? _controls;
+
+  @override
+  void initState() {
+    super.initState();
+    // Insert the global controls into the root navigator's overlay once it
+    // exists. Doing this here (instead of wrapping the Navigator in a Stack via
+    // MaterialApp.builder) keeps web focus traversal happy.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _insertControls());
+  }
+
+  void _insertControls() {
+    if (_controls != null) return;
+    final overlay = rootNavigatorKey.currentState?.overlay;
+    if (overlay == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _insertControls());
+      return;
+    }
+    _controls = OverlayEntry(builder: (_) => const GlobalControls());
+    overlay.insert(_controls!);
+  }
+
+  @override
+  void dispose() {
+    _controls?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final seed = ref
         .watch(brandingSeedProvider)
@@ -29,8 +63,6 @@ class OrbixApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(seed: seed),
       themeMode: mode,
       routerConfig: router,
-      builder: (context, child) =>
-          GlobalOverlay(child: child ?? const SizedBox.shrink()),
     );
   }
 }
