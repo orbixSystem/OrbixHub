@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/devtools/dev_inbox_overlay.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
@@ -28,6 +29,8 @@ class OrbixApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(seed: seed),
       themeMode: mode,
       routerConfig: router,
+      builder: (context, child) =>
+          DevInboxOverlay(child: child ?? const SizedBox.shrink()),
     );
   }
 }
