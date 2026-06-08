@@ -15,6 +15,8 @@ import 'features/auth/presentation/session_controller.dart';
 import 'features/auth/presentation/session_state.dart';
 import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
+import 'features/team/data/team_repository_impl.dart';
+import 'features/team/domain/team_repository.dart';
 import 'features/tracking/data/fake_tracking_repository.dart';
 import 'features/tracking/domain/tracking_repository.dart';
 
@@ -66,6 +68,9 @@ final authRepositoryProvider =
 
 final billingRepositoryProvider = Provider<BillingRepository>(
     (ref) => BillingRepositoryImpl(ref.read(dioProvider)));
+
+final teamRepositoryProvider = Provider<TeamRepository>(
+    (ref) => TeamRepositoryImpl(ref.read(dioProvider)));
 
 final trackingRepositoryProvider =
     Provider<TrackingRepository>((ref) => const FakeTrackingRepository());
