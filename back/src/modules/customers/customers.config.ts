@@ -61,6 +61,34 @@ export const DEFAULT_CUSTOMERS_CONFIG: CustomersConfig = {
   documentRequired: false,
 };
 
+/**
+ * Reaplica `fonte`/`dependeDe` dos defaults a campos salvos com a mesma `chave`
+ * mas sem esses atributos. Snapshots de config persistidos antes da introdução
+ * de uma fonte (ex.: FIPE em marca/modelo) ficam congelados; isto restaura o
+ * autocomplete em runtime, sem migration de dados, e blinda futuras adições de
+ * default. Campos personalizados (sem default correspondente) ficam intactos.
+ */
+function withFieldSourceDefaults(
+  fields: SubjectFieldConfig[],
+): SubjectFieldConfig[] {
+  const defaultsByChave = new Map(
+    DEFAULT_CUSTOMERS_CONFIG.subjectFields.map((f) => [f.chave, f]),
+  );
+  return fields.map((field) => {
+    const def = defaultsByChave.get(field.chave);
+    if (!def) return field;
+    return {
+      ...field,
+      ...(field.fonte == null && def.fonte != null
+        ? { fonte: def.fonte }
+        : {}),
+      ...(field.dependeDe == null && def.dependeDe != null
+        ? { dependeDe: def.dependeDe }
+        : {}),
+    };
+  });
+}
+
 /** Merge raso e seguro de um patch parcial sobre os defaults/atual. */
 export function mergeCustomersConfig(
   current: Partial<CustomersConfig> | null | undefined,
@@ -71,6 +99,8 @@ export function mergeCustomersConfig(
     usaSubjects: patch.usaSubjects ?? base.usaSubjects,
     documentRequired: patch.documentRequired ?? base.documentRequired,
     subjectLabel: { ...base.subjectLabel, ...(patch.subjectLabel ?? {}) },
-    subjectFields: patch.subjectFields ?? base.subjectFields,
+    subjectFields: withFieldSourceDefaults(
+      patch.subjectFields ?? base.subjectFields,
+    ),
   };
 }
