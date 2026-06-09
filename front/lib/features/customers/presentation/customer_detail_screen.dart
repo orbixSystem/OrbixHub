@@ -387,26 +387,6 @@ class _VehiclesTab extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(28),
           children: [
-            if (canWrite)
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                  onPressed: () async {
-                    final ok = await SubjectFormDialog.show(
-                      context,
-                      customerId: customerId,
-                      config: config,
-                    );
-                    if (ok == true) {
-                      ref.invalidate(subjectsForCustomerProvider(customerId));
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text('Novo $singular'),
-                ),
-              ),
-            const SizedBox(height: 16),
             if (page.items.isEmpty)
               _EmptyBox(
                 icon: Icons.directions_car_outlined,

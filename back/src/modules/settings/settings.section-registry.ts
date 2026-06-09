@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-export type SettingsFieldType = 'text' | 'color' | 'url';
+export type SettingsFieldType = 'text' | 'color' | 'url' | 'bool';
 export interface SettingsFieldSchema {
   key: string;
   label: string;

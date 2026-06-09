@@ -151,17 +151,17 @@ describe('Settings host (e2e)', () => {
 
   const sectionKeys = (s: SettingsView) => s.sections.map((sec) => sec.key);
 
-  // ---- Criterion 4: core-only host -------------------------------------
-  // NOTE: must run BEFORE any module section is registered (registry is a
-  // process-wide singleton for this app instance).
-  describe('Criterion 4 — core-only host', () => {
-    it('GET /settings returns exactly the core company section + empty company', async () => {
+  // ---- Criterion 4: core company section + enabled-module sections ------
+  describe('Criterion 4 — core company section is always present', () => {
+    it('GET /settings includes the core company section (moduleKey null) + empty company', async () => {
       const owner = await registerOwner();
       const settings = await getSettings(owner.access);
 
-      expect(settings.sections).toHaveLength(1);
-      expect(settings.sections[0].key).toBe('company');
-      expect(settings.sections[0].moduleKey).toBeNull();
+      const company = settings.sections.find((s) => s.key === 'company');
+      expect(company).toBeDefined();
+      expect(company?.moduleKey).toBeNull();
+      // trial enables `customers` -> its registered config section shows up too.
+      expect(sectionKeys(settings)).toContain('clientes_veiculos');
       expect(typeof settings.company).toBe('object');
       expect(settings.company).not.toBeNull();
       // a fresh tenant has no company settings yet -> defaults to {}

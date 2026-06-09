@@ -10,7 +10,9 @@ export type AuditAction =
   | 'role_change'
   | 'member_activate'
   | 'member_deactivate'
-  | 'settings_change';
+  | 'settings_change'
+  | 'customer_delete'
+  | 'subject_delete';
 
 @Injectable()
 export class AuditService {

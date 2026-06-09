@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../di.dart';
+import '../../features/customers/presentation/customers_screen.dart';
+import '../../features/customers/presentation/customer_detail_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -63,11 +65,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Authenticated. Leave the splash.
       if (location == '/splash') return '/';
 
-      // Module gating: /m/:moduleKey requires the module to be enabled in /me.
+      // Module gating: any /m/<key>/... route requires that module enabled in
+      // /me. Parse the key from the path (not pathParameters) so deep routes
+      // like /m/customers/:id stay gated too.
       if (location.startsWith('/m/')) {
-        final moduleKey = state.pathParameters['moduleKey'];
+        final segments = location.split('/');
+        final moduleKey = segments.length > 2 ? segments[2] : null;
         final me = session.me;
-        if (moduleKey != null && !me.hasModule(moduleKey)) {
+        if (moduleKey != null &&
+            moduleKey.isNotEmpty &&
+            !me.hasModule(moduleKey)) {
           return '/';
         }
       }
@@ -98,6 +105,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
           GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
           GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
+          // Customers module — literal routes declared before the generic
+          // /m/:moduleKey placeholder so they take precedence.
+          GoRoute(
+            path: '/m/customers',
+            builder: (_, _) => const CustomersScreen(),
+          ),
+          GoRoute(
+            path: '/m/customers/:id',
+            builder: (_, state) => CustomerDetailScreen(
+              customerId: state.pathParameters['id'] ?? '',
+            ),
+          ),
           GoRoute(
             path: '/m/:moduleKey',
             builder: (_, state) => ModulePlaceholderScreen(

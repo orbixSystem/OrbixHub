@@ -1430,7 +1430,7 @@ $SubjectLabelCopyWith<$Res> get subjectLabel {
 /// @nodoc
 mixin _$SubjectHistoryEntry {
 
- String get id; String get kind; String get title; String get status; String get occurredAt;
+ String get id; String get kind; String get title; String get status; String get occurredAt; String? get subjectId; String? get subjectLabel;
 /// Create a copy of SubjectHistoryEntry
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1443,16 +1443,16 @@ $SubjectHistoryEntryCopyWith<SubjectHistoryEntry> get copyWith => _$SubjectHisto
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubjectHistoryEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.title, title) || other.title == title)&&(identical(other.status, status) || other.status == status)&&(identical(other.occurredAt, occurredAt) || other.occurredAt == occurredAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubjectHistoryEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.title, title) || other.title == title)&&(identical(other.status, status) || other.status == status)&&(identical(other.occurredAt, occurredAt) || other.occurredAt == occurredAt)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,title,status,occurredAt);
+int get hashCode => Object.hash(runtimeType,id,kind,title,status,occurredAt,subjectId,subjectLabel);
 
 @override
 String toString() {
-  return 'SubjectHistoryEntry(id: $id, kind: $kind, title: $title, status: $status, occurredAt: $occurredAt)';
+  return 'SubjectHistoryEntry(id: $id, kind: $kind, title: $title, status: $status, occurredAt: $occurredAt, subjectId: $subjectId, subjectLabel: $subjectLabel)';
 }
 
 
@@ -1463,7 +1463,7 @@ abstract mixin class $SubjectHistoryEntryCopyWith<$Res>  {
   factory $SubjectHistoryEntryCopyWith(SubjectHistoryEntry value, $Res Function(SubjectHistoryEntry) _then) = _$SubjectHistoryEntryCopyWithImpl;
 @useResult
 $Res call({
- String id, String kind, String title, String status, String occurredAt
+ String id, String kind, String title, String status, String occurredAt, String? subjectId, String? subjectLabel
 });
 
 
@@ -1480,14 +1480,16 @@ class _$SubjectHistoryEntryCopyWithImpl<$Res>
 
 /// Create a copy of SubjectHistoryEntry
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? title = null,Object? status = null,Object? occurredAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? title = null,Object? status = null,Object? occurredAt = null,Object? subjectId = freezed,Object? subjectLabel = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,occurredAt: null == occurredAt ? _self.occurredAt : occurredAt // ignore: cast_nullable_to_non_nullable
-as String,
+as String,subjectId: freezed == subjectId ? _self.subjectId : subjectId // ignore: cast_nullable_to_non_nullable
+as String?,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -1572,10 +1574,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind,  String title,  String status,  String occurredAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind,  String title,  String status,  String occurredAt,  String? subjectId,  String? subjectLabel)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SubjectHistoryEntry() when $default != null:
-return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);case _:
+return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt,_that.subjectId,_that.subjectLabel);case _:
   return orElse();
 
 }
@@ -1593,10 +1595,10 @@ return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);c
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind,  String title,  String status,  String occurredAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind,  String title,  String status,  String occurredAt,  String? subjectId,  String? subjectLabel)  $default,) {final _that = this;
 switch (_that) {
 case _SubjectHistoryEntry():
-return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);case _:
+return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt,_that.subjectId,_that.subjectLabel);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1613,10 +1615,10 @@ return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);c
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind,  String title,  String status,  String occurredAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind,  String title,  String status,  String occurredAt,  String? subjectId,  String? subjectLabel)?  $default,) {final _that = this;
 switch (_that) {
 case _SubjectHistoryEntry() when $default != null:
-return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);case _:
+return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt,_that.subjectId,_that.subjectLabel);case _:
   return null;
 
 }
@@ -1628,7 +1630,7 @@ return $default(_that.id,_that.kind,_that.title,_that.status,_that.occurredAt);c
 @JsonSerializable()
 
 class _SubjectHistoryEntry implements SubjectHistoryEntry {
-  const _SubjectHistoryEntry({required this.id, required this.kind, required this.title, required this.status, required this.occurredAt});
+  const _SubjectHistoryEntry({required this.id, required this.kind, required this.title, required this.status, required this.occurredAt, this.subjectId, this.subjectLabel});
   factory _SubjectHistoryEntry.fromJson(Map<String, dynamic> json) => _$SubjectHistoryEntryFromJson(json);
 
 @override final  String id;
@@ -1636,6 +1638,8 @@ class _SubjectHistoryEntry implements SubjectHistoryEntry {
 @override final  String title;
 @override final  String status;
 @override final  String occurredAt;
+@override final  String? subjectId;
+@override final  String? subjectLabel;
 
 /// Create a copy of SubjectHistoryEntry
 /// with the given fields replaced by the non-null parameter values.
@@ -1650,16 +1654,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubjectHistoryEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.title, title) || other.title == title)&&(identical(other.status, status) || other.status == status)&&(identical(other.occurredAt, occurredAt) || other.occurredAt == occurredAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubjectHistoryEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.title, title) || other.title == title)&&(identical(other.status, status) || other.status == status)&&(identical(other.occurredAt, occurredAt) || other.occurredAt == occurredAt)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,title,status,occurredAt);
+int get hashCode => Object.hash(runtimeType,id,kind,title,status,occurredAt,subjectId,subjectLabel);
 
 @override
 String toString() {
-  return 'SubjectHistoryEntry(id: $id, kind: $kind, title: $title, status: $status, occurredAt: $occurredAt)';
+  return 'SubjectHistoryEntry(id: $id, kind: $kind, title: $title, status: $status, occurredAt: $occurredAt, subjectId: $subjectId, subjectLabel: $subjectLabel)';
 }
 
 
@@ -1670,7 +1674,7 @@ abstract mixin class _$SubjectHistoryEntryCopyWith<$Res> implements $SubjectHist
   factory _$SubjectHistoryEntryCopyWith(_SubjectHistoryEntry value, $Res Function(_SubjectHistoryEntry) _then) = __$SubjectHistoryEntryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String kind, String title, String status, String occurredAt
+ String id, String kind, String title, String status, String occurredAt, String? subjectId, String? subjectLabel
 });
 
 
@@ -1687,14 +1691,16 @@ class __$SubjectHistoryEntryCopyWithImpl<$Res>
 
 /// Create a copy of SubjectHistoryEntry
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? title = null,Object? status = null,Object? occurredAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? title = null,Object? status = null,Object? occurredAt = null,Object? subjectId = freezed,Object? subjectLabel = freezed,}) {
   return _then(_SubjectHistoryEntry(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,occurredAt: null == occurredAt ? _self.occurredAt : occurredAt // ignore: cast_nullable_to_non_nullable
-as String,
+as String,subjectId: freezed == subjectId ? _self.subjectId : subjectId // ignore: cast_nullable_to_non_nullable
+as String?,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

@@ -21,6 +21,7 @@ import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
@@ -39,6 +40,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     TenancyModule,
     BillingModule,
     SettingsModule,
+    CustomersModule,
     DevtoolsModule,
   ],
   controllers: [HealthController],

@@ -81,7 +81,8 @@ abstract class CustomersConfig with _$CustomersConfig {
       _$CustomersConfigFromJson(json);
 }
 
-/// Uma entrada do histórico de um subject (ex.: uma OS). Vazio até a OS existir.
+/// Uma entrada do histórico (ex.: uma OS). Vazio até a OS existir. `subjectId`/
+/// `subjectLabel` indicam a qual veículo o evento pertence (timeline do cliente).
 @freezed
 abstract class SubjectHistoryEntry with _$SubjectHistoryEntry {
   const factory SubjectHistoryEntry({
@@ -90,6 +91,8 @@ abstract class SubjectHistoryEntry with _$SubjectHistoryEntry {
     required String title,
     required String status,
     required String occurredAt,
+    String? subjectId,
+    String? subjectLabel,
   }) = _SubjectHistoryEntry;
 
   factory SubjectHistoryEntry.fromJson(Map<String, dynamic> json) =>

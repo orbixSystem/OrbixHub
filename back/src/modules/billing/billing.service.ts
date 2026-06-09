@@ -97,6 +97,52 @@ export class BillingService {
     });
   }
 
+  /**
+   * Settings JSONB de um módulo (em `tenant_module.settings`). Billing é dono da
+   * tabela `tenant_module` — outros módulos leem/escrevem a própria config por
+   * aqui, nunca tocando a tabela ("aponta, não invade"). Retorna {} se o módulo
+   * não estiver provisionado para o tenant.
+   */
+  async getModuleSettings(
+    tenantId: string,
+    moduleKey: string,
+  ): Promise<Record<string, unknown>> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const tm = await db.tenant_module.findFirst({
+        where: { module: { key: moduleKey } },
+      });
+      return (tm?.settings as Record<string, unknown> | null) ?? {};
+    });
+  }
+
+  /**
+   * Persiste o JSONB de settings de um módulo. Só atualiza linhas existentes
+   * (provisionadas pelo reconcile do plano) — não cria entitlement por aqui.
+   */
+  async setModuleSettings(
+    tenantId: string,
+    moduleKey: string,
+    settings: Record<string, unknown>,
+  ): Promise<void> {
+    await this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const tm = await db.tenant_module.findFirst({
+        where: { module: { key: moduleKey } },
+      });
+      if (!tm) return;
+      await db.tenant_module.update({
+        where: {
+          tenant_id_module_id: {
+            tenant_id: tm.tenant_id,
+            module_id: tm.module_id,
+          },
+        },
+        data: { settings: settings as never },
+      });
+    });
+  }
+
   async subscribe(tenantId: string, actorUserId: string, planKey: string): Promise<SubscriptionView> {
     const plan = await this.assertSubscribablePlan(planKey);
 

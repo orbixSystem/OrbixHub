@@ -23,6 +23,46 @@ model audit_log {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model customer {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  name       String
+  type       String    @default("PF")
+  document   String?
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
+  status     String    @default("active")
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  tenant     tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subject    subject[]
+
+  // Partial unique index `(tenant_id, document) WHERE document IS NOT NULL` is
+  // created in SQL (Prisma can't express partial uniqueness). See sql baseline.
+  @@index([tenant_id, created_at], map: "idx_customer_tenant_time")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subject {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  customer_id String   @db.Uuid
+  label       String?
+  identifier  String?
+  attributes  Json?
+  status      String   @default("active")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  customer    customer @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, identifier], map: "idx_subject_tenant_identifier")
+  @@index([tenant_id, customer_id], map: "idx_subject_tenant_customer")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invite {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id        String    @db.Uuid
@@ -180,9 +220,11 @@ model tenant {
   settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
   audit_log     audit_log[]
+  customer      customer[]
   invite        invite[]
   membership    membership[]
   refresh_token refresh_token[]
+  subject       subject[]
   subscription  subscription?
   tenant_module tenant_module[]
   users         users[]

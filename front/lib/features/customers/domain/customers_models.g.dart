@@ -109,6 +109,8 @@ _SubjectHistoryEntry _$SubjectHistoryEntryFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       status: json['status'] as String,
       occurredAt: json['occurredAt'] as String,
+      subjectId: json['subjectId'] as String?,
+      subjectLabel: json['subjectLabel'] as String?,
     );
 
 Map<String, dynamic> _$SubjectHistoryEntryToJson(
@@ -119,6 +121,8 @@ Map<String, dynamic> _$SubjectHistoryEntryToJson(
   'title': instance.title,
   'status': instance.status,
   'occurredAt': instance.occurredAt,
+  'subjectId': instance.subjectId,
+  'subjectLabel': instance.subjectLabel,
 };
 
 _CustomerPage _$CustomerPageFromJson(Map<String, dynamic> json) =>
