@@ -149,9 +149,23 @@ class CustomersRepositoryImpl implements CustomersRepository {
       });
 
   @override
+  Future<List<SubjectHistoryEntry>> customerHistory(
+    String customerId, {
+    String? subjectId,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/customers/$customerId/history',
+          queryParameters: {'subjectId': ?subjectId},
+        );
+        return _asList(res.data).map(SubjectHistoryEntry.fromJson).toList();
+      });
+
+  @override
   Future<List<LookupOption>> lookup(
     String fonte, {
     String? marca,
+    String? modelo,
     String? q,
   }) =>
       _guard(() async {
@@ -159,6 +173,7 @@ class CustomersRepositoryImpl implements CustomersRepository {
           '/customers/lookups/$fonte',
           queryParameters: {
             if (marca != null && marca.isNotEmpty) 'marca': marca,
+            if (modelo != null && modelo.isNotEmpty) 'modelo': modelo,
             if (q != null && q.isNotEmpty) 'q': q,
           },
         );

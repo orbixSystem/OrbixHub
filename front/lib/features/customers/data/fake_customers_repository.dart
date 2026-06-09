@@ -160,21 +160,39 @@ class FakeCustomersRepository implements CustomersRepository {
   Future<List<SubjectHistoryEntry>> subjectHistory(String id) async => const [];
 
   @override
+  Future<List<SubjectHistoryEntry>> customerHistory(
+    String customerId, {
+    String? subjectId,
+  }) async =>
+      const [];
+
+  @override
   Future<List<LookupOption>> lookup(
     String fonte, {
     String? marca,
+    String? modelo,
     String? q,
   }) async {
     final all = switch (fonte) {
       'fipe.marcas' => const [
-          LookupOption(value: 'Ford', label: 'Ford', meta: {'codigo': '22'}),
+          LookupOption(
+            value: 'Ford',
+            label: 'Ford',
+            meta: {'codigo': '22', 'logoUrl': 'https://example.test/ford.png'},
+          ),
           LookupOption(value: 'Fiat', label: 'Fiat', meta: {'codigo': '23'}),
         ],
       'fipe.modelos' => marca == null
           ? const <LookupOption>[]
           : const [
-              LookupOption(value: 'Ka', label: 'Ka'),
-              LookupOption(value: 'Fiesta', label: 'Fiesta'),
+              LookupOption(value: 'Ka', label: 'Ka', meta: {'codigo': '1'}),
+              LookupOption(value: 'Fiesta', label: 'Fiesta', meta: {'codigo': '2'}),
+            ],
+      'fipe.anos' => (marca == null || modelo == null)
+          ? const <LookupOption>[]
+          : const [
+              LookupOption(value: '2024', label: '2024'),
+              LookupOption(value: '2023', label: '2023'),
             ],
       _ => const <LookupOption>[],
     };

@@ -31,8 +31,20 @@ abstract interface class CustomersRepository {
   Future<Subject> deleteSubject(String id);
   Future<List<SubjectHistoryEntry>> subjectHistory(String id);
 
-  // ---- autocomplete (marca/modelo via FIPE, no backend) ----
-  /// Opções para um campo com `fonte`. `marca` = código da marca selecionada
-  /// (cascata); `q` = texto digitado. Lista vazia se a fonte não tiver dados.
-  Future<List<LookupOption>> lookup(String fonte, {String? marca, String? q});
+  /// Timeline do cliente (histórico geral). `subjectId` filtra por veículo.
+  Future<List<SubjectHistoryEntry>> customerHistory(
+    String customerId, {
+    String? subjectId,
+  });
+
+  // ---- autocomplete (marca/modelo/ano via FIPE, no backend) ----
+  /// Opções para um campo com `fonte`. `marca`/`modelo` = códigos dos ancestrais
+  /// selecionados na cascata (modelo exige marca; ano exige marca+modelo). `q` =
+  /// texto digitado. Lista vazia se a fonte não tiver dados.
+  Future<List<LookupOption>> lookup(
+    String fonte, {
+    String? marca,
+    String? modelo,
+    String? q,
+  });
 }

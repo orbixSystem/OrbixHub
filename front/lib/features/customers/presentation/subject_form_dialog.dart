@@ -51,6 +51,37 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   /// Código FIPE da opção selecionada por campo (alimenta a cascata).
   final Map<String, String?> _selectedCode = {};
 
+  Map<String, SubjectFieldConfig> get _byChave =>
+      {for (final f in widget.config.subjectFields) f.chave: f};
+
+  /// Códigos selecionados dos ancestrais (cascata) de um campo, por chave.
+  /// Ex.: modelo → {marca: cod}; ano → {modelo: cod, marca: cod}.
+  Map<String, String?> _ancestorCodesOf(SubjectFieldConfig field) {
+    final codes = <String, String?>{};
+    var cur = field.dependeDe;
+    while (cur != null) {
+      codes[cur] = _selectedCode[cur];
+      cur = _byChave[cur]?.dependeDe;
+    }
+    return codes;
+  }
+
+  /// Limpa (texto + código) todo campo que dependa, direta ou transitivamente,
+  /// de `chave` — trocar a marca zera modelo e ano.
+  void _clearDescendants(String chave) {
+    for (final dep in widget.config.subjectFields) {
+      var cur = dep.dependeDe;
+      while (cur != null) {
+        if (cur == chave) {
+          _fields[dep.chave]?.clear();
+          _selectedCode[dep.chave] = null;
+          break;
+        }
+        cur = _byChave[cur]?.dependeDe;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -137,27 +168,19 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
                   const SizedBox(height: 12),
                   if (f.fonte != null)
                     _LookupField(
+                      // A key inclui os códigos dos ancestrais: ao trocar marca
+                      // (ou modelo), os campos dependentes rebuildam já limpos.
                       key: ValueKey(
-                        'lookup-${f.chave}-${f.dependeDe == null ? '' : (_selectedCode[f.dependeDe] ?? '')}',
+                        'lookup-${f.chave}-${_ancestorCodesOf(f).values.join(',')}',
                       ),
                       field: f,
                       controller: _fields[f.chave]!,
-                      marcaCodigo: f.dependeDe == null
-                          ? null
-                          : _selectedCode[f.dependeDe],
+                      ancestorCodes: _ancestorCodesOf(f),
                       onSelected: (opt) {
-                        // setState p/ os campos dependentes rebuildarem com o
-                        // novo código (a cascata lê _selectedCode no build).
                         setState(() {
                           _selectedCode[f.chave] =
                               opt.meta['codigo'] as String?;
-                          // troca de marca limpa os campos dependentes
-                          for (final dep in widget.config.subjectFields) {
-                            if (dep.dependeDe == f.chave) {
-                              _fields[dep.chave]!.clear();
-                              _selectedCode[dep.chave] = null;
-                            }
-                          }
+                          _clearDescendants(f.chave);
                         });
                       },
                     )
@@ -221,13 +244,15 @@ class _LookupField extends ConsumerWidget {
     super.key,
     required this.field,
     required this.controller,
-    required this.marcaCodigo,
+    required this.ancestorCodes,
     required this.onSelected,
   });
 
   final SubjectFieldConfig field;
   final TextEditingController controller;
-  final String? marcaCodigo;
+
+  /// Códigos dos ancestrais da cascata, por chave (marca/modelo).
+  final Map<String, String?> ancestorCodes;
   final ValueChanged<LookupOption> onSelected;
 
   @override
@@ -236,19 +261,61 @@ class _LookupField extends ConsumerWidget {
       initialValue: TextEditingValue(text: controller.text),
       displayStringForOption: (o) => o.value,
       // Sem guarda de texto vazio: ao focar (clicar) o campo já mostra as
-      // primeiras opções, e refiltra conforme digita. Para `fipe.modelos` sem
-      // marca selecionada o backend devolve [] (nada a sugerir).
+      // primeiras opções, e refiltra conforme digita. Modelo exige marca e ano
+      // exige marca+modelo; sem o ancestral, o backend devolve [] (nada a sugerir).
       optionsBuilder: (value) async {
         final repo = ref.read(customersRepositoryProvider);
         return repo.lookup(
           field.fonte!,
-          marca: marcaCodigo,
+          marca: ancestorCodes['marca'],
+          modelo: ancestorCodes['modelo'],
           q: value.text,
         );
       },
       onSelected: (opt) {
         controller.text = opt.value;
         onSelected(opt);
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final opts = options.toList();
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 380),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: opts.length,
+                itemBuilder: (context, i) {
+                  final o = opts[i];
+                  final logo = o.meta['logoUrl'] as String?;
+                  return ListTile(
+                    dense: true,
+                    leading: logo == null
+                        ? null
+                        : SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: Image.network(
+                              logo,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.directions_car_outlined,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                    title: Text(o.label),
+                    onTap: () => onSelected(o),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
       },
       fieldViewBuilder: (context, textController, focusNode, onSubmit) {
         return TextFormField(

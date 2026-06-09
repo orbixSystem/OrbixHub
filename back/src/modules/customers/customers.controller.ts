@@ -56,9 +56,10 @@ export class CustomersController {
   lookups(
     @Param('fonte') fonte: string,
     @Query('marca') marca?: string,
+    @Query('modelo') modelo?: string,
     @Query('q') q?: string,
   ) {
-    return this.lookup.lookup(fonte, { marca, q });
+    return this.lookup.lookup(fonte, { marca, modelo, q });
   }
 
   // --- customers ---
@@ -78,6 +79,17 @@ export class CustomersController {
   @Permissions('customer.read')
   getOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.customers.getCustomer(user, id);
+  }
+
+  // Timeline do cliente (histórico geral), com filtro opcional por subject.
+  @Get(':id/history')
+  @Permissions('customer.read')
+  history(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Query('subjectId') subjectId?: string,
+  ) {
+    return this.customers.getCustomerHistory(user, id, subjectId);
   }
 
   @Patch(':id')

@@ -54,7 +54,7 @@ export const DEFAULT_CUSTOMERS_CONFIG: CustomersConfig = {
     { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
     { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
     { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
-    { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false },
+    { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },
     { chave: 'cor', rotulo: 'Cor', tipo: 'text', obrigatorio: false },
     { chave: 'km', rotulo: 'KM', tipo: 'number', obrigatorio: false },
   ],

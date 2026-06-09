@@ -29,6 +29,12 @@ class CountingFipe implements FipeClient {
       { code: '2', name: 'Fiesta' },
     ];
   }
+  async years(_brandCode: string, _modelCode: string) {
+    return [
+      { code: '2024-1', name: '2024 Gasolina' },
+      { code: '2023-1', name: '2023 Gasolina' },
+    ];
+  }
 }
 
 /** Captures emails so we can read the raw invite token (drives /invites/accept). */
@@ -391,6 +397,38 @@ describe('Customers & Subjects (e2e)', () => {
     });
   });
 
+  // ---- customer-level history (timeline) -------------------------------
+  describe('customer history', () => {
+    it('GET /customers/:id/history returns [] (and accepts ?subjectId=)', async () => {
+      const o = await registerOwner();
+      const c = await createCustomer(o.access, { name: 'Com histórico' });
+      const customerId = c.body.id as string;
+      const sub = await request(app.getHttpServer())
+        .post(`/api/customers/${customerId}/subjects`)
+        .set(auth(o.access))
+        .send({ identifier: 'HIS1234' });
+      const subjectId = sub.body.id as string;
+
+      const all = await request(app.getHttpServer())
+        .get(`/api/customers/${customerId}/history`)
+        .set(auth(o.access));
+      expect(all.status).toBe(200);
+      expect(all.body).toEqual([]);
+
+      const byCar = await request(app.getHttpServer())
+        .get(`/api/customers/${customerId}/history?subjectId=${subjectId}`)
+        .set(auth(o.access));
+      expect(byCar.status).toBe(200);
+      expect(byCar.body).toEqual([]);
+
+      // a subject id not belonging to this customer is rejected
+      const bad = await request(app.getHttpServer())
+        .get(`/api/customers/${customerId}/history?subjectId=00000000-0000-0000-0000-000000000000`)
+        .set(auth(o.access));
+      expect(bad.status).toBe(404);
+    });
+  });
+
   // ---- Criterion 6: usaSubjects=false disables subject endpoints --------
   describe('usaSubjects=false', () => {
     it('disables subject endpoints (403)', async () => {
@@ -478,11 +516,11 @@ describe('Customers & Subjects (e2e)', () => {
         .get('/api/customers/lookups/fipe.marcas')
         .set(auth(owner.access))
         .expect(200);
-      expect(r1.body).toContainEqual({
-        value: 'Ford',
-        label: 'Ford',
-        meta: { codigo: '22' },
-      });
+      const ford = (r1.body as Array<{ value: string; meta: Record<string, unknown> }>).find(
+        (o) => o.value === 'Ford',
+      );
+      expect(ford?.meta.codigo).toBe('22');
+      expect(ford?.meta.logoUrl).toContain('/ford.png');
 
       // segunda chamada vem do cache: sem novo hit na FIPE
       await request(app.getHttpServer())

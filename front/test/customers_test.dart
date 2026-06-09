@@ -268,4 +268,57 @@ void main() {
     expect(find.text('Ford'), findsWidgets);
     expect(find.text('Fiat'), findsWidgets);
   });
+
+  testWidgets('cascata marca→modelo→ano libera o ano só após escolher o modelo',
+      (tester) async {
+    final fake = FakeCustomersRepository();
+    const config = CustomersConfig(
+      subjectFields: [
+        SubjectFieldConfig(chave: 'marca', rotulo: 'Marca', fonte: 'fipe.marcas'),
+        SubjectFieldConfig(
+          chave: 'modelo',
+          rotulo: 'Modelo',
+          fonte: 'fipe.modelos',
+          dependeDe: 'marca',
+        ),
+        SubjectFieldConfig(
+          chave: 'ano',
+          rotulo: 'Ano',
+          fonte: 'fipe.anos',
+          dependeDe: 'modelo',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SubjectFormDialog(customerId: 'cus-1', config: config),
+          ),
+        ),
+      ),
+    );
+
+    // sem marca/modelo o ano não sugere nada ao focar
+    await tester.tap(find.byKey(const Key('subjectField-ano')));
+    await tester.pumpAndSettle();
+    expect(find.text('2024'), findsNothing);
+
+    // escolhe marca → modelo
+    await tester.tap(find.byKey(const Key('subjectField-marca')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ford').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('subjectField-modelo')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ka').last);
+    await tester.pumpAndSettle();
+
+    // agora o ano sugere os anos da FIPE ao focar
+    await tester.tap(find.byKey(const Key('subjectField-ano')));
+    await tester.pumpAndSettle();
+    expect(find.text('2024'), findsWidgets);
+  });
 }
