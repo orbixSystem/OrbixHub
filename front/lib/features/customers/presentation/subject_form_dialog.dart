@@ -235,8 +235,10 @@ class _LookupField extends ConsumerWidget {
     return Autocomplete<LookupOption>(
       initialValue: TextEditingValue(text: controller.text),
       displayStringForOption: (o) => o.value,
+      // Sem guarda de texto vazio: ao focar (clicar) o campo já mostra as
+      // primeiras opções, e refiltra conforme digita. Para `fipe.modelos` sem
+      // marca selecionada o backend devolve [] (nada a sugerir).
       optionsBuilder: (value) async {
-        if (value.text.isEmpty) return const Iterable<LookupOption>.empty();
         final repo = ref.read(customersRepositoryProvider);
         return repo.lookup(
           field.fonte!,
@@ -254,6 +256,8 @@ class _LookupField extends ConsumerWidget {
           controller: textController,
           focusNode: focusNode,
           onChanged: (v) => controller.text = v,
+          // Enter seleciona a opção destacada (a 1ª por padrão).
+          onFieldSubmitted: (_) => onSubmit(),
           decoration: InputDecoration(
             labelText: '${field.rotulo}${field.obrigatorio ? ' *' : ''}',
           ),

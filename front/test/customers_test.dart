@@ -241,4 +241,31 @@ void main() {
     );
     expect(modelo.controller!.text, isEmpty);
   });
+
+  testWidgets('campo com fonte mostra opções ao focar, sem digitar',
+      (tester) async {
+    final fake = FakeCustomersRepository();
+    const config = CustomersConfig(
+      subjectFields: [
+        SubjectFieldConfig(chave: 'marca', rotulo: 'Marca', fonte: 'fipe.marcas'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SubjectFormDialog(customerId: 'cus-1', config: config),
+          ),
+        ),
+      ),
+    );
+
+    // só focar (clicar) o campo — sem digitar — já lista as marcas
+    await tester.tap(find.byKey(const Key('subjectField-marca')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ford'), findsWidgets);
+    expect(find.text('Fiat'), findsWidgets);
+  });
 }
