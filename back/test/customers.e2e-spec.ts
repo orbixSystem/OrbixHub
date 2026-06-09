@@ -499,5 +499,23 @@ describe('Customers & Subjects (e2e)', () => {
         .set(auth(owner.access))
         .expect(404);
     });
+
+    it('modelos: sem marca → []; com marca → modelos', async () => {
+      const owner = await registerOwner();
+
+      const semMarca = await request(app.getHttpServer())
+        .get('/api/customers/lookups/fipe.modelos')
+        .set(auth(owner.access))
+        .expect(200);
+      expect(semMarca.body).toEqual([]);
+
+      const comMarca = await request(app.getHttpServer())
+        .get('/api/customers/lookups/fipe.modelos?marca=22')
+        .set(auth(owner.access))
+        .expect(200);
+      expect(comMarca.body.map((o: { value: string }) => o.value)).toContain(
+        'Ka',
+      );
+    });
   });
 });

@@ -45,6 +45,8 @@ export class SubjectLookupService {
     // modelos dependem do código da marca; sem ele, nada a sugerir.
     if (fonte === 'fipe.modelos' && !marca) return [];
 
+    // Cache GLOBAL (sem prefixo de tenant): FIPE é dado público de referência,
+    // não dado de tenant. Não reutilize este esquema para dados tenant-scoped.
     const key = `lookup:${fonte}:${marca ?? '-'}`;
     const cached = await this.readCache(key);
     if (cached) return cached;

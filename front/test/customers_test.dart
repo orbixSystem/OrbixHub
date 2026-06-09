@@ -229,5 +229,16 @@ void main() {
     await tester.enterText(find.byKey(const Key('subjectField-modelo')), 'k');
     await tester.pumpAndSettle();
     expect(find.text('Ka'), findsWidgets);
+
+    // trocar a marca deve limpar o campo modelo (cascata)
+    await tester.enterText(find.byKey(const Key('subjectField-marca')), 'fia');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fiat').last);
+    await tester.pumpAndSettle();
+
+    final modelo = tester.widget<TextFormField>(
+      find.byKey(const Key('subjectField-modelo')),
+    );
+    expect(modelo.controller!.text, isEmpty);
   });
 }

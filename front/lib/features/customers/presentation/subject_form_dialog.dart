@@ -137,6 +137,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
                   const SizedBox(height: 12),
                   if (f.fonte != null)
                     _LookupField(
+                      key: ValueKey(
+                        'lookup-${f.chave}-${f.dependeDe == null ? '' : (_selectedCode[f.dependeDe] ?? '')}',
+                      ),
                       field: f,
                       controller: _fields[f.chave]!,
                       marcaCodigo: f.dependeDe == null
@@ -215,6 +218,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
 /// notifica o pai (para guardar o código e disparar a cascata).
 class _LookupField extends ConsumerWidget {
   const _LookupField({
+    super.key,
     required this.field,
     required this.controller,
     required this.marcaCodigo,
@@ -245,11 +249,11 @@ class _LookupField extends ConsumerWidget {
         onSelected(opt);
       },
       fieldViewBuilder: (context, textController, focusNode, onSubmit) {
-        textController.addListener(() => controller.text = textController.text);
         return TextFormField(
           key: Key('subjectField-${field.chave}'),
           controller: textController,
           focusNode: focusNode,
+          onChanged: (v) => controller.text = v,
           decoration: InputDecoration(
             labelText: '${field.rotulo}${field.obrigatorio ? ' *' : ''}',
           ),
