@@ -9,6 +9,7 @@ import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
+import 'package:orbixhub_front/features/customers/presentation/brand_logo.dart';
 import 'package:orbixhub_front/features/customers/presentation/customer_detail_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/customers_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
@@ -320,5 +321,24 @@ void main() {
     await tester.tap(find.byKey(const Key('subjectField-ano')));
     await tester.pumpAndSettle();
     expect(find.text('2024'), findsWidgets);
+  });
+
+  group('brandLogoUrl (slug igual ao backend)', () {
+    test('marcas simples viram slug direto', () {
+      expect(brandLogoUrl('Ford'), endsWith('/ford.png'));
+      expect(brandLogoUrl('Porsche'), endsWith('/porsche.png'));
+    });
+    test('nomes FIPE "XX - Nome" pegam a parte depois do hífen', () {
+      expect(brandLogoUrl('VW - VolksWagen'), endsWith('/volkswagen.png'));
+      expect(brandLogoUrl('GM - Chevrolet'), endsWith('/chevrolet.png'));
+    });
+    test('espaços viram hífen e acentos são removidos', () {
+      expect(brandLogoUrl('Alfa Romeo'), endsWith('/alfa-romeo.png'));
+      expect(brandLogoUrl('Citroën'), endsWith('/citroen.png'));
+    });
+    test('vazio/nulo retorna null', () {
+      expect(brandLogoUrl(null), isNull);
+      expect(brandLogoUrl('   '), isNull);
+    });
   });
 }
