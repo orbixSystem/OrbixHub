@@ -56,6 +56,10 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   /// Controllers dos campos da vertical, por chave.
   final Map<String, TextEditingController> _dynamic = {};
 
+  /// Chaves dos campos preenchidos pelo catálogo/item — destacados na UI.
+  /// Limpa a chave assim que o usuário edita o campo correspondente.
+  final Set<String> _autoFilled = {};
+
   String _kind = 'product';
   bool _saving = false;
   bool _lookingUp = false;
@@ -144,10 +148,17 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           final s = res.suggestion;
           if (s != null) {
             _name.text = s.name;
-            if (s.brand != null) _brand.text = s.brand!;
-            if (s.category != null) _category.text = s.category!;
+            _autoFilled.add('name');
+            if (s.brand != null) {
+              _brand.text = s.brand!;
+              _autoFilled.add('brand');
+            }
+            if (s.category != null) {
+              _category.text = s.category!;
+              _autoFilled.add('category');
+            }
             _placeCode(code);
-            _snack('Sugestão aplicada do catálogo');
+            _snack('Campos preenchidos pelo catálogo (revise antes de salvar)');
           }
         default:
           _placeCode(code);
@@ -166,8 +177,10 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     final isEan = RegExp(r'^\d{8,14}$').hasMatch(code);
     if (isEan) {
       _barcode.text = code;
+      _autoFilled.add('barcode');
     } else {
       _manufacturerCode.text = code;
+      _autoFilled.add('manufacturerCode');
     }
   }
 
@@ -178,6 +191,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _sku.text = it.sku ?? '';
     _category.text = it.category ?? '';
     _brand.text = it.brand ?? '';
+    _autoFilled.addAll(const ['name', 'brand', 'category', 'barcode',
+        'manufacturerCode']);
     _unit.text = it.unit ?? '';
     _salePrice.text = _fmt(it.salePrice);
     _costPrice.text = _fmt(it.costPrice);
@@ -339,20 +354,18 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _manufacturerCode,
-              decoration: const InputDecoration(
-                labelText: 'Cód. do fabricante',
-                prefixIcon: Icon(Icons.precision_manufacturing_outlined),
-              ),
+              decoration: _dec('Cód. do fabricante', 'manufacturerCode',
+                  prefixIcon: const Icon(Icons.precision_manufacturing_outlined)),
+              onChanged: (_) => _onEdit('manufacturerCode'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextFormField(
               controller: _barcode,
-              decoration: const InputDecoration(
-                labelText: 'Código de barras',
-                prefixIcon: Icon(Icons.qr_code_2),
-              ),
+              decoration: _dec('Código de barras', 'barcode',
+                  prefixIcon: const Icon(Icons.qr_code_2)),
+              onChanged: (_) => _onEdit('barcode'),
             ),
           ),
         ],
@@ -360,10 +373,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       const SizedBox(height: 12),
       TextFormField(
         controller: _name,
-        decoration: const InputDecoration(
-          labelText: 'Nome *',
-          prefixIcon: Icon(Icons.label_outline),
-        ),
+        decoration: _dec('Nome *', 'name',
+            prefixIcon: const Icon(Icons.label_outline)),
+        onChanged: (_) => _onEdit('name'),
         validator: (v) =>
             (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
       ),
@@ -373,20 +385,18 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _category,
-              decoration: const InputDecoration(
-                labelText: 'Categoria',
-                prefixIcon: Icon(Icons.category_outlined),
-              ),
+              decoration: _dec('Categoria', 'category',
+                  prefixIcon: const Icon(Icons.category_outlined)),
+              onChanged: (_) => _onEdit('category'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextFormField(
               controller: _brand,
-              decoration: const InputDecoration(
-                labelText: 'Marca',
-                prefixIcon: Icon(Icons.business_outlined),
-              ),
+              decoration: _dec('Marca', 'brand',
+                  prefixIcon: const Icon(Icons.business_outlined)),
+              onChanged: (_) => _onEdit('brand'),
             ),
           ),
         ],
@@ -449,6 +459,38 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         ],
       ],
     ];
+  }
+
+  /// Monta a `InputDecoration` de um campo, aplicando o destaque tangerina
+  /// quando [key] estiver em [_autoFilled] (preenchido pelo catálogo/item).
+  InputDecoration _dec(String label, String? key, {Widget? prefixIcon}) {
+    final highlighted = key != null && _autoFilled.contains(key);
+    if (!highlighted) {
+      return InputDecoration(labelText: label, prefixIcon: prefixIcon);
+    }
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: AppColors.brandTint,
+      suffixIcon: const Icon(
+        Icons.auto_awesome,
+        size: 18,
+        color: AppColors.brandDeep,
+      ),
+      helperText: 'Preenchido pelo catálogo',
+      helperStyle: const TextStyle(
+        color: AppColors.brandDeep,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  /// Limpa o destaque de [key] quando o usuário edita o campo.
+  void _onEdit(String key) {
+    if (_autoFilled.contains(key)) {
+      setState(() => _autoFilled.remove(key));
+    }
   }
 
   Widget _numField(
