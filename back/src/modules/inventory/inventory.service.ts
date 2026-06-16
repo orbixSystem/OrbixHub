@@ -1,36 +1,55 @@
 import {
-  BadRequestException, ConflictException,
-  Injectable, NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { InventoryRepository } from './inventory.repository';
 import {
-  INVENTORY_CONFIG_KEY, INVENTORY_MODULE_KEY,
-  InventoryConfig, mergeInventoryConfig, computeMovement, MovementType,
+  INVENTORY_CONFIG_KEY,
+  INVENTORY_MODULE_KEY,
+  InventoryConfig,
+  mergeInventoryConfig,
+  validateAttributes,
 } from './inventory.config';
-import { CreateItemDto, ListItemsQueryDto, UpdateItemDto } from './dto/item.dto';
-import { CreateMovementDto } from './dto/movement.dto';
+import {
+  CreateInventoryItemDto,
+  ItemQueryDto,
+  UpdateInventoryItemDto,
+} from './dto/item.dto';
 import { UpdateInventoryConfigDto } from './dto/config.dto';
+import {
+  CATALOG_PROVIDER,
+  CatalogHit,
+  CatalogProvider,
+} from './catalog/catalog.provider';
+import { CACHE_MISS, CatalogCacheService } from './catalog/catalog-cache.service';
+import { isValidGtin } from './catalog/gtin';
 
 const DEFAULT_PAGE_SIZE = 20;
-const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === 'P2002';
+
+const isUniqueViolation = (e: unknown): boolean =>
+  (e as { code?: string })?.code === 'P2002';
+
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
 
-export interface ApplyMovementInput {
-  itemId: string;
-  type: MovementType;
-  quantity: number;
-  reason?: string;
-  refType?: string;
-  refId?: string;
-  note?: string;
-  actorUserId?: string;
-}
+/** Trim → null quando vazio (mesmo padrão do customers). */
+const trimOrNull = (v: string | undefined): string | null | undefined =>
+  v === undefined ? undefined : v.trim() || null;
+
+export type LookupResult =
+  | { source: 'internal'; item: unknown }
+  | { source: 'catalog'; suggestion: CatalogHit }
+  | { source: 'none' };
 
 @Injectable()
 export class InventoryService {
@@ -39,65 +58,100 @@ export class InventoryService {
     private readonly repo: InventoryRepository,
     private readonly billing: BillingService,
     private readonly audit: AuditService,
+    private readonly catalogCache: CatalogCacheService,
+    @Inject(CATALOG_PROVIDER) private readonly catalog: CatalogProvider,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
-  // ============ Config ============
+  // ===================== Config =====================
   async getConfig(tenantId: string): Promise<InventoryConfig> {
-    const settings = await this.billing.getModuleSettings(tenantId, INVENTORY_MODULE_KEY);
-    return mergeInventoryConfig(settings[INVENTORY_CONFIG_KEY] as Partial<InventoryConfig> | undefined);
+    const settings = await this.billing.getModuleSettings(
+      tenantId,
+      INVENTORY_MODULE_KEY,
+    );
+    return mergeInventoryConfig(
+      settings[INVENTORY_CONFIG_KEY] as Partial<InventoryConfig> | undefined,
+    );
   }
 
-  async updateConfig(user: AuthUser, dto: UpdateInventoryConfigDto): Promise<InventoryConfig> {
-    const settings = await this.billing.getModuleSettings(user.tenantId, INVENTORY_MODULE_KEY);
-    const current = settings[INVENTORY_CONFIG_KEY] as Partial<InventoryConfig> | undefined;
+  async updateConfig(
+    user: AuthUser,
+    dto: UpdateInventoryConfigDto,
+  ): Promise<InventoryConfig> {
+    const settings = await this.billing.getModuleSettings(
+      user.tenantId,
+      INVENTORY_MODULE_KEY,
+    );
+    const current = settings[INVENTORY_CONFIG_KEY] as
+      | Partial<InventoryConfig>
+      | undefined;
     const merged = mergeInventoryConfig(current, dto as Partial<InventoryConfig>);
     await this.billing.setModuleSettings(user.tenantId, INVENTORY_MODULE_KEY, {
       ...settings,
       [INVENTORY_CONFIG_KEY]: merged,
     });
-    await this.audit.log(user.tenantId, user.userId, 'settings_change', 'inventory.config');
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'settings_change',
+      'inventory.config',
+    );
     return merged;
   }
 
-  // ============ Items ============
-  async createItem(user: AuthUser, dto: CreateItemDto) {
-    const isService = dto.kind === 'service';
+  // ===================== Items =====================
+  async createItem(user: AuthUser, dto: CreateInventoryItemDto) {
     const config = await this.getConfig(user.tenantId);
+    const errs = validateAttributes(dto.attributes, config.itemFields);
+    if (errs.length) throw new BadRequestException(errs.join(' '));
+
     const data = {
-      kind: dto.kind,
       name: dto.name.trim(),
-      code: dto.code?.trim() || null,
-      barcode: isService ? null : dto.barcode?.trim() || null,
-      category: dto.category?.trim() || null,
-      unit: dto.unit?.trim() || config.defaultUnit,
-      sale_price_cents: dto.salePriceCents ?? 0,
-      cost_price_cents: dto.costPriceCents ?? null,
-      margin_percent: dto.marginPercent ?? null,
-      sellable: dto.sellable ?? true,
-      track_stock: isService ? false : (dto.trackStock ?? config.trackStockDefault),
-      min_qty: isService ? null : dto.minQty ?? null,
-      duration_minutes: isService ? dto.durationMinutes ?? null : null,
-      brand: dto.brand?.trim() || null,
+      sku: trimOrNull(dto.sku),
+      manufacturer_code: trimOrNull(dto.manufacturerCode),
+      barcode: trimOrNull(dto.barcode),
+      category: trimOrNull(dto.category),
+      brand: trimOrNull(dto.brand),
+      unit: trimOrNull(dto.unit),
+      sale_price: dto.salePrice ?? null,
+      cost_price: dto.costPrice ?? null,
+      margin_pct: dto.marginPct ?? null,
+      current_stock: dto.currentStock ?? 0,
+      min_stock: dto.minStock ?? null,
+      attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue,
     };
     try {
-      const item = await this.tenant.withTenantTx(() => this.repo.createItem(user.tenantId, data));
-      await this.audit.log(user.tenantId, user.userId, 'inventory_item_create', item.id);
+      const item = await this.tenant.withTenantTx(() =>
+        this.repo.createItem(user.tenantId, data),
+      );
+      await this.audit.log(
+        user.tenantId,
+        user.userId,
+        'inventory_item_create',
+        item.id,
+      );
       return item;
     } catch (e) {
-      if (isUniqueViolation(e)) throw new ConflictException('Já existe um item com este código.');
+      if (isUniqueViolation(e))
+        throw new ConflictException('Já existe um item com este código.');
       throw e;
     }
   }
 
-  async listItems(user: AuthUser, query: ListItemsQueryDto) {
+  async listItems(user: AuthUser, query: ItemQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const active =
+      query.active === 'false'
+        ? 'archived'
+        : query.active === 'all'
+          ? 'all'
+          : 'active';
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listItems({
         q: query.q?.trim() || undefined,
-        kind: query.kind,
         category: query.category?.trim() || undefined,
-        status: query.status ?? 'active',
+        active,
         lowStock: query.lowStock ?? false,
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -112,139 +166,130 @@ export class InventoryService {
     return item;
   }
 
-  async updateItem(user: AuthUser, id: string, dto: UpdateItemDto) {
+  async updateItem(user: AuthUser, id: string, dto: UpdateInventoryItemDto) {
+    if (dto.attributes !== undefined) {
+      const config = await this.getConfig(user.tenantId);
+      const errs = validateAttributes(dto.attributes, config.itemFields);
+      if (errs.length) throw new BadRequestException(errs.join(' '));
+    }
     return this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
       if (!existing) throw new NotFoundException('Item não encontrado.');
-      const isService = existing.kind === 'service';
       const data: Record<string, unknown> = {};
       if (dto.name !== undefined) data.name = dto.name.trim();
-      if (dto.code !== undefined) data.code = dto.code.trim() || null;
-      if (dto.barcode !== undefined) data.barcode = isService ? null : dto.barcode.trim() || null;
-      if (dto.category !== undefined) data.category = dto.category.trim() || null;
-      if (dto.unit !== undefined) data.unit = dto.unit.trim() || existing.unit;
-      if (dto.salePriceCents !== undefined) data.sale_price_cents = dto.salePriceCents;
-      if (dto.costPriceCents !== undefined) data.cost_price_cents = dto.costPriceCents;
-      if (dto.marginPercent !== undefined) data.margin_percent = dto.marginPercent;
-      if (dto.sellable !== undefined) data.sellable = dto.sellable;
-      if (dto.trackStock !== undefined && !isService) data.track_stock = dto.trackStock;
-      if (dto.minQty !== undefined && !isService) data.min_qty = dto.minQty;
-      if (dto.durationMinutes !== undefined && isService) data.duration_minutes = dto.durationMinutes;
-      if (dto.brand !== undefined) data.brand = dto.brand.trim() || null;
+      if (dto.sku !== undefined) data.sku = trimOrNull(dto.sku);
+      if (dto.manufacturerCode !== undefined)
+        data.manufacturer_code = trimOrNull(dto.manufacturerCode);
+      if (dto.barcode !== undefined) data.barcode = trimOrNull(dto.barcode);
+      if (dto.category !== undefined) data.category = trimOrNull(dto.category);
+      if (dto.brand !== undefined) data.brand = trimOrNull(dto.brand);
+      if (dto.unit !== undefined) data.unit = trimOrNull(dto.unit);
+      if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
+      if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
+      if (dto.marginPct !== undefined) data.margin_pct = dto.marginPct;
+      if (dto.currentStock !== undefined) data.current_stock = dto.currentStock;
+      if (dto.minStock !== undefined) data.min_stock = dto.minStock;
+      if (dto.attributes !== undefined)
+        data.attributes = dto.attributes as Prisma.InputJsonValue;
       try {
         const item = await this.repo.updateItem(id, data);
-        await this.audit.log(user.tenantId, user.userId, 'inventory_item_update', id);
+        await this.audit.log(
+          user.tenantId,
+          user.userId,
+          'inventory_item_update',
+          id,
+        );
         return item;
       } catch (e) {
-        if (isUniqueViolation(e)) throw new ConflictException('Já existe um item com este código.');
+        if (isUniqueViolation(e))
+          throw new ConflictException('Já existe um item com este código.');
         throw e;
       }
     });
   }
 
   async archiveItem(user: AuthUser, id: string) {
-    return this.setStatus(user, id, 'archived', 'inventory_item_archive');
+    return this.setActive(user, id, false, 'inventory_item_archive');
   }
   async unarchiveItem(user: AuthUser, id: string) {
-    return this.setStatus(user, id, 'active', 'inventory_item_unarchive');
+    return this.setActive(user, id, true, 'inventory_item_unarchive');
   }
-  private async setStatus(
+  private async setActive(
     user: AuthUser,
     id: string,
-    status: 'active' | 'archived',
+    isActive: boolean,
     action: AuditAction,
   ) {
     return this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
       if (!existing) throw new NotFoundException('Item não encontrado.');
-      const item = await this.repo.setItemStatus(id, status);
+      const item = await this.repo.setActive(id, isActive);
       await this.audit.log(user.tenantId, user.userId, action, id);
       return item;
     });
   }
 
-  // ============ Movements ============
-  async registerMovement(user: AuthUser, itemId: string, dto: CreateMovementDto) {
-    return this.tenant.withTenantTx(async () => {
-      const item = await this.repo.findItemById(itemId);
-      if (!item) throw new NotFoundException('Item não encontrado.');
-      if (item.kind === 'service' || !item.track_stock) {
-        throw new BadRequestException('Este item não controla estoque.');
-      }
-      let calc: { quantity: number; balanceAfter: number };
-      try {
-        calc = computeMovement(toNum(item.stock_qty), dto.type, dto.quantity);
-      } catch (e) {
-        throw new BadRequestException((e as Error).message);
-      }
-      const movement = await this.repo.createMovement(user.tenantId, itemId, {
-        type: dto.type,
-        quantity: calc.quantity,
-        balance_after: calc.balanceAfter,
-        reason: dto.reason?.trim() || 'manual',
-        ref_type: null,
-        ref_id: null,
-        note: dto.note?.trim() || null,
-        created_by: user.userId,
-      });
-      await this.audit.log(user.tenantId, user.userId, 'inventory_movement', itemId, {
-        type: dto.type, quantity: calc.quantity, balanceAfter: calc.balanceAfter,
-      });
-      return movement;
-    });
-  }
-
-  async listMovements(user: AuthUser, itemId: string) {
-    return this.tenant.withTenantTx(async () => {
-      const item = await this.repo.findItemById(itemId);
-      if (!item) throw new NotFoundException('Item não encontrado.');
-      return this.repo.listMovements(itemId);
-    });
-  }
-
   async lowStock(_user: AuthUser) {
     const { items } = await this.tenant.withTenantTx(() =>
-      this.repo.listItems({ status: 'active', lowStock: true, skip: 0, take: 100 }),
+      this.repo.listItems({ active: 'active', lowStock: true, skip: 0, take: 100 }),
     );
     return items;
   }
 
-  // ============ Public (consumed by OS — não pela UI deste módulo) ============
+  // ===================== Código-first (lookup) =====================
   /**
-   * Busca 1 item por id (para a OS montar a linha por snapshot). Tenant vem do
-   * CLS (chamado dentro de um request autenticado) — sem AuthUser no contrato.
+   * Cascata: 1) interno (barcode|manufacturer_code|sku); 2) catálogo externo por
+   * GTIN (só se válido + CATALOG_ENABLED), com cache Redis e chamada FORA de tx;
+   * 3) nada. Token/credenciais nunca vão ao front.
    */
+  async lookup(_user: AuthUser, code: string): Promise<LookupResult> {
+    const trimmed = code.trim();
+
+    const internal = await this.tenant.withTenantTx(() =>
+      this.repo.findByCode(trimmed),
+    );
+    if (internal) return { source: 'internal', item: internal };
+
+    if (isValidGtin(trimmed) && this.env.CATALOG_ENABLED) {
+      const cached = await this.catalogCache.get(trimmed);
+      let hit: CatalogHit | null;
+      if (cached === CACHE_MISS) {
+        // Chamada externa fora de qualquer transação de banco.
+        hit = await this.catalog.lookupByGtin(trimmed);
+        await this.catalogCache.set(trimmed, hit);
+      } else {
+        hit = cached;
+      }
+      if (hit) return { source: 'catalog', suggestion: hit };
+    }
+
+    return { source: 'none' };
+  }
+
+  // ===================== Seam público (consumido pela OS) =====================
+  /** Busca 1 item por id (tenant via CLS — chamado dentro de request autenticado). */
   getItem(id: string) {
     return this.getItemOrThrow(id);
   }
 
-  /** Picker enxuto para a OS (tenant via CLS). */
-  async searchForPicker(q: string, kind?: 'product' | 'service') {
-    return this.tenant.withTenantTx(() => this.repo.searchForPicker(q?.trim() || undefined, kind));
+  /** Entrada de estoque programática (tenant explícito — padrão runWithTenant). */
+  async incrementStock(tenantId: string, id: string, qty: number) {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const item = await this.repo.findItemById(id);
+      if (!item) throw new NotFoundException('Item não encontrado.');
+      const next = toNum(item.current_stock) + qty;
+      return this.repo.adjustStock(id, next);
+    });
   }
 
-  /**
-   * Baixa/entrada programática (ex.: consumo por OS). tenantId explícito
-   * (padrão runWithTenant). Não chamar dentro de tx com I/O externo.
-   */
-  async applyMovement(tenantId: string, input: ApplyMovementInput) {
+  /** Baixa de estoque programática; valida saldo ≥ 0. */
+  async decrementStock(tenantId: string, id: string, qty: number) {
     return this.tenant.runWithTenant(tenantId, async () => {
-      const item = await this.repo.findItemById(input.itemId);
+      const item = await this.repo.findItemById(id);
       if (!item) throw new NotFoundException('Item não encontrado.');
-      if (item.kind === 'service' || !item.track_stock) {
-        throw new BadRequestException('Este item não controla estoque.');
-      }
-      const calc = computeMovement(toNum(item.stock_qty), input.type, input.quantity);
-      return this.repo.createMovement(tenantId, input.itemId, {
-        type: input.type,
-        quantity: calc.quantity,
-        balance_after: calc.balanceAfter,
-        reason: input.reason ?? 'os_consumption',
-        ref_type: input.refType ?? null,
-        ref_id: input.refId ?? null,
-        note: input.note ?? null,
-        created_by: input.actorUserId ?? null,
-      });
+      const next = toNum(item.current_stock) - qty;
+      if (next < 0) throw new BadRequestException('Estoque insuficiente.');
+      return this.repo.adjustStock(id, next);
     });
   }
 }

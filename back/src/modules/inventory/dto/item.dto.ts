@@ -1,49 +1,52 @@
 import {
-  IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString,
+  IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString,
   Max, MaxLength, Min, MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class CreateItemDto {
-  @IsIn(['product', 'service']) kind!: 'product' | 'service';
+/**
+ * Produto (item com estoque). Decimais (não centavos). Sem kind/sellable/track_stock/
+ * duration. `attributes` é validado dinamicamente no service contra `itemFields`.
+ */
+export class CreateInventoryItemDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
-  @IsOptional() @IsString() @MaxLength(60) code?: string;
+  @IsOptional() @IsString() @MaxLength(60) sku?: string;
+  @IsOptional() @IsString() @MaxLength(60) manufacturerCode?: string;
   @IsOptional() @IsString() @MaxLength(60) barcode?: string;
   @IsOptional() @IsString() @MaxLength(120) category?: string;
-  @IsOptional() @IsString() @MaxLength(20) unit?: string;
-  @IsOptional() @IsInt() @Min(0) salePriceCents?: number;
-  @IsOptional() @IsInt() @Min(0) costPriceCents?: number;
-  @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPercent?: number;
-  @IsOptional() @IsBoolean() sellable?: boolean;
-  @IsOptional() @IsBoolean() trackStock?: boolean;
-  @IsOptional() @IsNumber() @Min(0) minQty?: number;
-  @IsOptional() @IsInt() @Min(0) durationMinutes?: number;
   @IsOptional() @IsString() @MaxLength(120) brand?: string;
+  @IsOptional() @IsString() @MaxLength(20) unit?: string;
+  @IsOptional() @IsNumber() @Min(0) salePrice?: number;
+  @IsOptional() @IsNumber() @Min(0) costPrice?: number;
+  @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;
+  @IsOptional() @IsNumber() @Min(0) currentStock?: number;
+  @IsOptional() @IsNumber() @Min(0) minStock?: number;
+  /** Campos da vertical — validados dinâmico no service contra itemFields. */
+  @IsOptional() @IsObject() attributes?: Record<string, unknown>;
 }
 
-export class UpdateItemDto {
-  // kind is immutable after creation; stock_qty is never set here (only via movements).
+export class UpdateInventoryItemDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(200) name?: string;
-  @IsOptional() @IsString() @MaxLength(60) code?: string;
+  @IsOptional() @IsString() @MaxLength(60) sku?: string;
+  @IsOptional() @IsString() @MaxLength(60) manufacturerCode?: string;
   @IsOptional() @IsString() @MaxLength(60) barcode?: string;
   @IsOptional() @IsString() @MaxLength(120) category?: string;
-  @IsOptional() @IsString() @MaxLength(20) unit?: string;
-  @IsOptional() @IsInt() @Min(0) salePriceCents?: number;
-  @IsOptional() @IsInt() @Min(0) costPriceCents?: number;
-  @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPercent?: number;
-  @IsOptional() @IsBoolean() sellable?: boolean;
-  @IsOptional() @IsBoolean() trackStock?: boolean;
-  @IsOptional() @IsNumber() @Min(0) minQty?: number;
-  @IsOptional() @IsInt() @Min(0) durationMinutes?: number;
   @IsOptional() @IsString() @MaxLength(120) brand?: string;
+  @IsOptional() @IsString() @MaxLength(20) unit?: string;
+  @IsOptional() @IsNumber() @Min(0) salePrice?: number;
+  @IsOptional() @IsNumber() @Min(0) costPrice?: number;
+  @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;
+  @IsOptional() @IsNumber() @Min(0) currentStock?: number;
+  @IsOptional() @IsNumber() @Min(0) minStock?: number;
+  @IsOptional() @IsObject() attributes?: Record<string, unknown>;
 }
 
-export class ListItemsQueryDto {
+export class ItemQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
-  @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
   @IsOptional() @IsString() @MaxLength(120) category?: string;
-  @IsOptional() @IsIn(['active', 'archived', 'all']) status?: 'active' | 'archived' | 'all';
   @IsOptional() @Type(() => Boolean) @IsBoolean() lowStock?: boolean;
+  /** 'true' (padrão: só ativos), 'false' (só arquivados), 'all'. */
+  @IsOptional() @IsIn(['true', 'false', 'all']) active?: 'true' | 'false' | 'all';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize?: number;
 }

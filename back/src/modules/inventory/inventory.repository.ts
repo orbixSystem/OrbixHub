@@ -4,42 +4,44 @@ import { TenantContext } from '../../common/database/tenant-context';
 
 export interface ItemFilter {
   q?: string;
-  kind?: 'product' | 'service';
   category?: string;
-  status: 'active' | 'archived' | 'all';
+  /** Filtro por estado: 'active' (padrão), 'archived', ou 'all'. */
+  active: 'active' | 'archived' | 'all';
   lowStock?: boolean;
   skip: number;
   take: number;
 }
 
+type DecimalIn = Prisma.Decimal | number;
+
 export interface ItemData {
-  kind?: string;
   name?: string;
-  code?: string | null;
+  sku?: string | null;
+  manufacturer_code?: string | null;
   barcode?: string | null;
   category?: string | null;
-  unit?: string;
-  sale_price_cents?: number;
-  cost_price_cents?: number | null;
-  margin_percent?: Prisma.Decimal | number | null;
-  sellable?: boolean;
-  track_stock?: boolean;
-  min_qty?: Prisma.Decimal | number | null;
-  duration_minutes?: number | null;
   brand?: string | null;
+  unit?: string | null;
+  sale_price?: DecimalIn | null;
+  cost_price?: DecimalIn | null;
+  margin_pct?: DecimalIn | null;
+  current_stock?: DecimalIn;
+  min_stock?: DecimalIn | null;
+  attributes?: Prisma.InputJsonValue;
 }
 
 /**
- * Único ponto que toca `inventory_item`/`inventory_movement`. Sempre via
- * `tenant.getClient()` (tx-scoped sob RLS); o service abre o `withTenantTx`.
+ * Único ponto que toca `inventory_item`. Sempre via `tenant.getClient()`
+ * (cliente tx-scoped sob RLS); o service abre o `withTenantTx`/`runWithTenant`.
+ * Nunca recebe tenant_id do cliente — vem do CLS/JWT.
  */
 @Injectable()
 export class InventoryRepository {
   constructor(private readonly tenant: TenantContext) {}
 
-  private statusWhere(status: 'active' | 'archived' | 'all') {
-    if (status === 'all') return {};
-    return { status };
+  private activeWhere(active: 'active' | 'archived' | 'all') {
+    if (active === 'all') return {};
+    return { is_active: active === 'active' };
   }
 
   createItem(tenantId: string, data: ItemData) {
@@ -57,27 +59,47 @@ export class InventoryRepository {
   async listItems(filter: ItemFilter) {
     const db = this.tenant.getClient();
     const where: Prisma.inventory_itemWhereInput = {
-      ...this.statusWhere(filter.status),
-      ...(filter.kind ? { kind: filter.kind } : {}),
-      ...(filter.category ? { category: { equals: filter.category, mode: 'insensitive' } } : {}),
+      ...this.activeWhere(filter.active),
+      ...(filter.category
+        ? { category: { equals: filter.category, mode: 'insensitive' } }
+        : {}),
       ...(filter.lowStock
-        ? { track_stock: true, min_qty: { not: null }, stock_qty: { lte: db.inventory_item.fields.min_qty } }
+        ? {
+            min_stock: { not: null },
+            current_stock: { lte: db.inventory_item.fields.min_stock },
+          }
         : {}),
       ...(filter.q
         ? {
             OR: [
               { name: { contains: filter.q, mode: 'insensitive' } },
-              { code: { contains: filter.q, mode: 'insensitive' } },
+              { sku: { contains: filter.q, mode: 'insensitive' } },
               { barcode: { contains: filter.q, mode: 'insensitive' } },
+              { manufacturer_code: { contains: filter.q, mode: 'insensitive' } },
             ],
           }
         : {}),
     };
     const [items, total] = await Promise.all([
-      db.inventory_item.findMany({ where, orderBy: { name: 'asc' }, skip: filter.skip, take: filter.take }),
+      db.inventory_item.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip: filter.skip,
+        take: filter.take,
+      }),
       db.inventory_item.count({ where }),
     ]);
     return { items, total };
+  }
+
+  /** Primeiro item cujo barcode|manufacturer_code|sku == code (ativo ou não). */
+  findByCode(code: string) {
+    const db = this.tenant.getClient();
+    return db.inventory_item.findFirst({
+      where: {
+        OR: [{ barcode: code }, { manufacturer_code: code }, { sku: code }],
+      },
+    });
   }
 
   updateItem(id: string, data: ItemData) {
@@ -88,56 +110,19 @@ export class InventoryRepository {
     });
   }
 
-  setItemStatus(id: string, status: 'active' | 'archived') {
+  setActive(id: string, isActive: boolean) {
     const db = this.tenant.getClient();
-    return db.inventory_item.update({ where: { id }, data: { status, updated_at: new Date() } });
-  }
-
-  /** Cria o movimento E atualiza o saldo cacheado do item — mesma tx. */
-  async createMovement(
-    tenantId: string,
-    itemId: string,
-    data: {
-      type: string;
-      quantity: number;
-      balance_after: number;
-      reason: string | null;
-      ref_type: string | null;
-      ref_id: string | null;
-      note: string | null;
-      created_by: string | null;
-    },
-  ) {
-    const db = this.tenant.getClient();
-    const movement = await db.inventory_movement.create({
-      data: { tenant_id: tenantId, item_id: itemId, ...data },
-    });
-    await db.inventory_item.update({
-      where: { id: itemId },
-      data: { stock_qty: data.balance_after, updated_at: new Date() },
-    });
-    return movement;
-  }
-
-  listMovements(itemId: string, take = 100) {
-    const db = this.tenant.getClient();
-    return db.inventory_movement.findMany({
-      where: { item_id: itemId },
-      orderBy: { created_at: 'desc' },
-      take,
+    return db.inventory_item.update({
+      where: { id },
+      data: { is_active: isActive, updated_at: new Date() },
     });
   }
 
-  searchForPicker(q: string | undefined, kind: 'product' | 'service' | undefined, take = 20) {
+  adjustStock(id: string, newStock: DecimalIn) {
     const db = this.tenant.getClient();
-    return db.inventory_item.findMany({
-      where: {
-        status: 'active',
-        ...(kind ? { kind } : {}),
-        ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { code: { contains: q, mode: 'insensitive' } }] } : {}),
-      },
-      orderBy: { name: 'asc' },
-      take,
+    return db.inventory_item.update({
+      where: { id },
+      data: { current_stock: newStock, updated_at: new Date() },
     });
   }
 }

@@ -6,8 +6,12 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { InventoryService } from './inventory.service';
-import { CreateItemDto, ListItemsQueryDto, UpdateItemDto } from './dto/item.dto';
-import { CreateMovementDto } from './dto/movement.dto';
+import {
+  CreateInventoryItemDto,
+  ItemQueryDto,
+  UpdateInventoryItemDto,
+} from './dto/item.dto';
+import { LookupQueryDto } from './dto/lookup.dto';
 import { UpdateInventoryConfigDto } from './dto/config.dto';
 
 @Controller('inventory')
@@ -16,6 +20,7 @@ import { UpdateInventoryConfigDto } from './dto/config.dto';
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
+  // --- rotas literais antes de items/:id ---
   @Get('config')
   @Permissions('inventory.read')
   getConfig(@CurrentUser() user: AuthUser) {
@@ -29,33 +34,44 @@ export class InventoryController {
     return this.inventory.updateConfig(user, dto);
   }
 
+  @Get('lookup')
+  @Permissions('inventory.read')
+  lookup(@CurrentUser() user: AuthUser, @Query() query: LookupQueryDto) {
+    return this.inventory.lookup(user, query.code);
+  }
+
   @Get('low-stock')
   @Permissions('inventory.read')
   lowStock(@CurrentUser() user: AuthUser) {
     return this.inventory.lowStock(user);
   }
 
+  // --- itens ---
   @Post('items')
   @Permissions('inventory.write')
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateItemDto) {
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateInventoryItemDto) {
     return this.inventory.createItem(user, dto);
   }
 
   @Get('items')
   @Permissions('inventory.read')
-  list(@CurrentUser() user: AuthUser, @Query() query: ListItemsQueryDto) {
+  list(@CurrentUser() user: AuthUser, @Query() query: ItemQueryDto) {
     return this.inventory.listItems(user, query);
   }
 
   @Get('items/:id')
   @Permissions('inventory.read')
-  getOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  getOne(@CurrentUser() _user: AuthUser, @Param('id') id: string) {
     return this.inventory.getItemOrThrow(id);
   }
 
   @Patch('items/:id')
   @Permissions('inventory.write')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateItemDto) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateInventoryItemDto,
+  ) {
     return this.inventory.updateItem(user, id, dto);
   }
 
@@ -71,17 +87,5 @@ export class InventoryController {
   @HttpCode(200)
   unarchive(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.inventory.unarchiveItem(user, id);
-  }
-
-  @Get('items/:id/movements')
-  @Permissions('inventory.read')
-  movements(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.inventory.listMovements(user, id);
-  }
-
-  @Post('items/:id/movements')
-  @Permissions('inventory.write')
-  registerMovement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateMovementDto) {
-    return this.inventory.registerMovement(user, id, dto);
   }
 }

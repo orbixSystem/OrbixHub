@@ -1,8 +1,23 @@
-import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsArray, IsBoolean, IsIn, IsOptional, IsString,
+  MaxLength, MinLength, ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import type { ItemFieldType } from '../inventory.config';
+
+/** Um campo da vertical (espelha ItemFieldConfig). */
+export class ItemFieldDto {
+  @IsString() @MinLength(1) @MaxLength(40) key!: string;
+  @IsString() @MinLength(1) @MaxLength(60) label!: string;
+  @IsIn(['text', 'number', 'tags', 'select']) type!: ItemFieldType;
+  @IsBoolean() required!: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) options?: string[];
+}
 
 export class UpdateInventoryConfigDto {
-  @IsOptional() @IsString() @MaxLength(20) defaultUnit?: string;
-  @IsOptional() @IsBoolean() trackStockDefault?: boolean;
-  @IsOptional() @IsNumber() @Min(0) @Max(100000) defaultMarginPercent?: number | null;
-  @IsOptional() @IsArray() @IsString({ each: true }) categories?: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ItemFieldDto)
+  itemFields?: ItemFieldDto[];
 }
