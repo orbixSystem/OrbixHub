@@ -2,8 +2,7 @@ import '../domain/inventory_models.dart';
 import '../domain/inventory_repository.dart';
 
 /// In-memory [InventoryRepository] for tests/offline. Mirrors the contract,
-/// including archive-instead-of-delete and the cached stock balance updated by
-/// each movement (in: +, out: -, adjust: =target).
+/// including archive-instead-of-delete and direct stock (no movements).
 class FakeInventoryRepository implements InventoryRepository {
   FakeInventoryRepository({
     InventoryConfig? config,
@@ -13,7 +12,6 @@ class FakeInventoryRepository implements InventoryRepository {
 
   final InventoryConfig _config;
   final Map<String, InventoryItem> _items;
-  final Map<String, List<InventoryMovement>> _movs = {};
   int _seq = 0;
 
   @override
@@ -22,22 +20,25 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<ItemPage> listItems({
     String? q,
-    String? kind,
     String? category,
-    String status = 'active',
+    String active = 'true',
     bool lowStock = false,
     int page = 1,
   }) async {
     final term = q?.toLowerCase();
-    var list = _items.values.where((i) => status == 'all' || i.status == status);
-    if (kind != null && kind.isNotEmpty) {
-      list = list.where((i) => i.kind == kind);
-    }
+    var list = _items.values.where((i) {
+      if (active == 'all') return true;
+      return i.isActive == (active == 'true');
+    });
     if (category != null && category.isNotEmpty) {
       list = list.where((i) => i.category == category);
     }
     if (term != null && term.isNotEmpty) {
-      list = list.where((i) => i.name.toLowerCase().contains(term));
+      list = list.where((i) =>
+          i.name.toLowerCase().contains(term) ||
+          (i.sku?.toLowerCase().contains(term) ?? false) ||
+          (i.barcode?.toLowerCase().contains(term) ?? false) ||
+          (i.manufacturerCode?.toLowerCase().contains(term) ?? false));
     }
     if (lowStock) {
       list = list.where(_isLow);
@@ -52,26 +53,23 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<InventoryItem> createItem(ItemDraft d) async {
     final id = 'item-${_seq++}';
-    final isService = d.kind == 'service';
     final item = InventoryItem(
       id: id,
-      kind: d.kind,
       name: d.name,
-      unit: d.unit,
-      code: d.code,
+      sku: d.sku,
+      manufacturerCode: d.manufacturerCode,
       barcode: d.barcode,
       category: d.category,
-      salePriceCents: d.salePriceCents ?? 0,
-      costPriceCents: d.costPriceCents,
-      trackStock: isService ? false : (d.trackStock ?? true),
-      stockQty: '0',
-      minQty: d.minQty?.toString(),
-      durationMinutes: d.durationMinutes,
       brand: d.brand,
-      status: 'active',
+      unit: d.unit,
+      salePrice: d.salePrice?.toString(),
+      costPrice: d.costPrice?.toString(),
+      marginPct: d.marginPct?.toString(),
+      currentStock: (d.currentStock ?? 0).toString(),
+      minStock: d.minStock?.toString(),
+      attributes: d.attributes ?? const <String, dynamic>{},
     );
     _items[id] = item;
-    _movs[id] = [];
     return item;
   }
 
@@ -80,8 +78,18 @@ class FakeInventoryRepository implements InventoryRepository {
     final cur = _items[id]!;
     final next = cur.copyWith(
       name: d.name,
+      sku: d.sku,
+      manufacturerCode: d.manufacturerCode,
+      barcode: d.barcode,
+      category: d.category,
+      brand: d.brand,
       unit: d.unit,
-      salePriceCents: d.salePriceCents ?? cur.salePriceCents,
+      salePrice: d.salePrice?.toString() ?? cur.salePrice,
+      costPrice: d.costPrice?.toString() ?? cur.costPrice,
+      marginPct: d.marginPct?.toString() ?? cur.marginPct,
+      currentStock: d.currentStock?.toString() ?? cur.currentStock,
+      minStock: d.minStock?.toString() ?? cur.minStock,
+      attributes: d.attributes ?? cur.attributes,
     );
     _items[id] = next;
     return next;
@@ -89,50 +97,37 @@ class FakeInventoryRepository implements InventoryRepository {
 
   @override
   Future<InventoryItem> archiveItem(String id) async {
-    final next = _items[id]!.copyWith(status: 'archived');
+    final next = _items[id]!.copyWith(isActive: false);
     _items[id] = next;
     return next;
   }
 
   @override
   Future<InventoryItem> unarchiveItem(String id) async {
-    final next = _items[id]!.copyWith(status: 'active');
+    final next = _items[id]!.copyWith(isActive: true);
     _items[id] = next;
     return next;
   }
 
   @override
-  Future<List<InventoryMovement>> listMovements(String id) async =>
-      _movs[id] ?? const [];
-
-  @override
-  Future<InventoryMovement> registerMovement(String id, MovementDraft d) async {
-    final cur = _items[id]!;
-    final balance = switch (d.type) {
-      'in' => double.parse(cur.stockQty) + d.quantity,
-      'out' => double.parse(cur.stockQty) - d.quantity,
-      _ => d.quantity, // adjust → saldo-alvo
-    };
-    final m = InventoryMovement(
-      id: 'mov-${_seq++}',
-      type: d.type,
-      quantity: d.quantity.toString(),
-      balanceAfter: balance.toString(),
-      reason: d.reason,
-      note: d.note,
-      createdAt: '2026-01-01T00:00:00Z',
-    );
-    _items[id] = cur.copyWith(stockQty: balance.toString());
-    (_movs[id] ??= []).insert(0, m);
-    return m;
+  Future<LookupResult> lookup(String code) async {
+    final hit = _items.values.where((i) =>
+        i.barcode == code || i.sku == code || i.manufacturerCode == code);
+    if (hit.isNotEmpty) {
+      return LookupResult(source: 'internal', item: hit.first);
+    }
+    return const LookupResult(source: 'none');
   }
 
   @override
   Future<List<InventoryItem>> lowStock() async =>
       _items.values.where(_isLow).toList();
 
-  bool _isLow(InventoryItem i) =>
-      i.trackStock &&
-      i.minQty != null &&
-      double.parse(i.stockQty) <= double.parse(i.minQty!);
+  bool _isLow(InventoryItem i) {
+    if (i.minStock == null) return false;
+    final qty = double.tryParse(i.currentStock);
+    final min = double.tryParse(i.minStock!);
+    if (qty == null || min == null) return false;
+    return qty <= min;
+  }
 }

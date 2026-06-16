@@ -15,8 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$InventoryItem {
 
- String get id; String get kind;// 'product' | 'service'
- String get name; String? get code; String? get barcode; String? get category; String get unit;@JsonKey(name: 'sale_price_cents') int get salePriceCents;@JsonKey(name: 'cost_price_cents') int? get costPriceCents;@JsonKey(name: 'margin_percent') String? get marginPercent; bool get sellable;@JsonKey(name: 'track_stock') bool get trackStock;@JsonKey(name: 'stock_qty') String get stockQty;@JsonKey(name: 'min_qty') String? get minQty;@JsonKey(name: 'duration_minutes') int? get durationMinutes; String? get brand; String get status;
+ String get id; String get name; String? get sku;@JsonKey(name: 'manufacturer_code') String? get manufacturerCode; String? get barcode; String? get category; String? get brand; String? get unit;@JsonKey(name: 'sale_price') String? get salePrice;@JsonKey(name: 'cost_price') String? get costPrice;@JsonKey(name: 'margin_pct') String? get marginPct;@JsonKey(name: 'current_stock') String get currentStock;@JsonKey(name: 'min_stock') String? get minStock; Map<String, dynamic> get attributes;@JsonKey(name: 'is_active') bool get isActive;
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +28,16 @@ $InventoryItemCopyWith<InventoryItem> get copyWith => _$InventoryItemCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.name, name) || other.name == name)&&(identical(other.code, code) || other.code == code)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePriceCents, salePriceCents) || other.salePriceCents == salePriceCents)&&(identical(other.costPriceCents, costPriceCents) || other.costPriceCents == costPriceCents)&&(identical(other.marginPercent, marginPercent) || other.marginPercent == marginPercent)&&(identical(other.sellable, sellable) || other.sellable == sellable)&&(identical(other.trackStock, trackStock) || other.trackStock == trackStock)&&(identical(other.stockQty, stockQty) || other.stockQty == stockQty)&&(identical(other.minQty, minQty) || other.minQty == minQty)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other.attributes, attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,name,code,barcode,category,unit,salePriceCents,costPriceCents,marginPercent,sellable,trackStock,stockQty,minQty,durationMinutes,brand,status);
+int get hashCode => Object.hash(runtimeType,id,name,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(attributes),isActive);
 
 @override
 String toString() {
-  return 'InventoryItem(id: $id, kind: $kind, name: $name, code: $code, barcode: $barcode, category: $category, unit: $unit, salePriceCents: $salePriceCents, costPriceCents: $costPriceCents, marginPercent: $marginPercent, sellable: $sellable, trackStock: $trackStock, stockQty: $stockQty, minQty: $minQty, durationMinutes: $durationMinutes, brand: $brand, status: $status)';
+  return 'InventoryItem(id: $id, name: $name, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive)';
 }
 
 
@@ -49,7 +48,7 @@ abstract mixin class $InventoryItemCopyWith<$Res>  {
   factory $InventoryItemCopyWith(InventoryItem value, $Res Function(InventoryItem) _then) = _$InventoryItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String kind, String name, String? code, String? barcode, String? category, String unit,@JsonKey(name: 'sale_price_cents') int salePriceCents,@JsonKey(name: 'cost_price_cents') int? costPriceCents,@JsonKey(name: 'margin_percent') String? marginPercent, bool sellable,@JsonKey(name: 'track_stock') bool trackStock,@JsonKey(name: 'stock_qty') String stockQty,@JsonKey(name: 'min_qty') String? minQty,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? brand, String status
+ String id, String name, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive
 });
 
 
@@ -66,26 +65,24 @@ class _$InventoryItemCopyWithImpl<$Res>
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? name = null,Object? code = freezed,Object? barcode = freezed,Object? category = freezed,Object? unit = null,Object? salePriceCents = null,Object? costPriceCents = freezed,Object? marginPercent = freezed,Object? sellable = null,Object? trackStock = null,Object? stockQty = null,Object? minQty = freezed,Object? durationMinutes = freezed,Object? brand = freezed,Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,code: freezed == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
+as String,sku: freezed == sku ? _self.sku : sku // ignore: cast_nullable_to_non_nullable
+as String?,manufacturerCode: freezed == manufacturerCode ? _self.manufacturerCode : manufacturerCode // ignore: cast_nullable_to_non_nullable
 as String?,barcode: freezed == barcode ? _self.barcode : barcode // ignore: cast_nullable_to_non_nullable
 as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
-as String?,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
-as String,salePriceCents: null == salePriceCents ? _self.salePriceCents : salePriceCents // ignore: cast_nullable_to_non_nullable
-as int,costPriceCents: freezed == costPriceCents ? _self.costPriceCents : costPriceCents // ignore: cast_nullable_to_non_nullable
-as int?,marginPercent: freezed == marginPercent ? _self.marginPercent : marginPercent // ignore: cast_nullable_to_non_nullable
-as String?,sellable: null == sellable ? _self.sellable : sellable // ignore: cast_nullable_to_non_nullable
-as bool,trackStock: null == trackStock ? _self.trackStock : trackStock // ignore: cast_nullable_to_non_nullable
-as bool,stockQty: null == stockQty ? _self.stockQty : stockQty // ignore: cast_nullable_to_non_nullable
-as String,minQty: freezed == minQty ? _self.minQty : minQty // ignore: cast_nullable_to_non_nullable
-as String?,durationMinutes: freezed == durationMinutes ? _self.durationMinutes : durationMinutes // ignore: cast_nullable_to_non_nullable
-as int?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
-as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as String,
+as String?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
+as String?,unit: freezed == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
+as String?,salePrice: freezed == salePrice ? _self.salePrice : salePrice // ignore: cast_nullable_to_non_nullable
+as String?,costPrice: freezed == costPrice ? _self.costPrice : costPrice // ignore: cast_nullable_to_non_nullable
+as String?,marginPct: freezed == marginPct ? _self.marginPct : marginPct // ignore: cast_nullable_to_non_nullable
+as String?,currentStock: null == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
+as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
+as String?,attributes: null == attributes ? _self.attributes : attributes // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -170,10 +167,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind,  String name,  String? code,  String? barcode,  String? category,  String unit, @JsonKey(name: 'sale_price_cents')  int salePriceCents, @JsonKey(name: 'cost_price_cents')  int? costPriceCents, @JsonKey(name: 'margin_percent')  String? marginPercent,  bool sellable, @JsonKey(name: 'track_stock')  bool trackStock, @JsonKey(name: 'stock_qty')  String stockQty, @JsonKey(name: 'min_qty')  String? minQty, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? brand,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InventoryItem() when $default != null:
-return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.category,_that.unit,_that.salePriceCents,_that.costPriceCents,_that.marginPercent,_that.sellable,_that.trackStock,_that.stockQty,_that.minQty,_that.durationMinutes,_that.brand,_that.status);case _:
+return $default(_that.id,_that.name,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
   return orElse();
 
 }
@@ -191,10 +188,10 @@ return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind,  String name,  String? code,  String? barcode,  String? category,  String unit, @JsonKey(name: 'sale_price_cents')  int salePriceCents, @JsonKey(name: 'cost_price_cents')  int? costPriceCents, @JsonKey(name: 'margin_percent')  String? marginPercent,  bool sellable, @JsonKey(name: 'track_stock')  bool trackStock, @JsonKey(name: 'stock_qty')  String stockQty, @JsonKey(name: 'min_qty')  String? minQty, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? brand,  String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)  $default,) {final _that = this;
 switch (_that) {
 case _InventoryItem():
-return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.category,_that.unit,_that.salePriceCents,_that.costPriceCents,_that.marginPercent,_that.sellable,_that.trackStock,_that.stockQty,_that.minQty,_that.durationMinutes,_that.brand,_that.status);case _:
+return $default(_that.id,_that.name,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -211,10 +208,10 @@ return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind,  String name,  String? code,  String? barcode,  String? category,  String unit, @JsonKey(name: 'sale_price_cents')  int salePriceCents, @JsonKey(name: 'cost_price_cents')  int? costPriceCents, @JsonKey(name: 'margin_percent')  String? marginPercent,  bool sellable, @JsonKey(name: 'track_stock')  bool trackStock, @JsonKey(name: 'stock_qty')  String stockQty, @JsonKey(name: 'min_qty')  String? minQty, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? brand,  String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)?  $default,) {final _that = this;
 switch (_that) {
 case _InventoryItem() when $default != null:
-return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.category,_that.unit,_that.salePriceCents,_that.costPriceCents,_that.marginPercent,_that.sellable,_that.trackStock,_that.stockQty,_that.minQty,_that.durationMinutes,_that.brand,_that.status);case _:
+return $default(_that.id,_that.name,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
   return null;
 
 }
@@ -226,27 +223,30 @@ return $default(_that.id,_that.kind,_that.name,_that.code,_that.barcode,_that.ca
 @JsonSerializable()
 
 class _InventoryItem implements InventoryItem {
-  const _InventoryItem({required this.id, required this.kind, required this.name, this.code, this.barcode, this.category, required this.unit, @JsonKey(name: 'sale_price_cents') this.salePriceCents = 0, @JsonKey(name: 'cost_price_cents') this.costPriceCents, @JsonKey(name: 'margin_percent') this.marginPercent, this.sellable = true, @JsonKey(name: 'track_stock') this.trackStock = true, @JsonKey(name: 'stock_qty') this.stockQty = '0', @JsonKey(name: 'min_qty') this.minQty, @JsonKey(name: 'duration_minutes') this.durationMinutes, this.brand, required this.status});
+  const _InventoryItem({required this.id, required this.name, this.sku, @JsonKey(name: 'manufacturer_code') this.manufacturerCode, this.barcode, this.category, this.brand, this.unit, @JsonKey(name: 'sale_price') this.salePrice, @JsonKey(name: 'cost_price') this.costPrice, @JsonKey(name: 'margin_pct') this.marginPct, @JsonKey(name: 'current_stock') this.currentStock = '0', @JsonKey(name: 'min_stock') this.minStock, final  Map<String, dynamic> attributes = const <String, dynamic>{}, @JsonKey(name: 'is_active') this.isActive = true}): _attributes = attributes;
   factory _InventoryItem.fromJson(Map<String, dynamic> json) => _$InventoryItemFromJson(json);
 
 @override final  String id;
-@override final  String kind;
-// 'product' | 'service'
 @override final  String name;
-@override final  String? code;
+@override final  String? sku;
+@override@JsonKey(name: 'manufacturer_code') final  String? manufacturerCode;
 @override final  String? barcode;
 @override final  String? category;
-@override final  String unit;
-@override@JsonKey(name: 'sale_price_cents') final  int salePriceCents;
-@override@JsonKey(name: 'cost_price_cents') final  int? costPriceCents;
-@override@JsonKey(name: 'margin_percent') final  String? marginPercent;
-@override@JsonKey() final  bool sellable;
-@override@JsonKey(name: 'track_stock') final  bool trackStock;
-@override@JsonKey(name: 'stock_qty') final  String stockQty;
-@override@JsonKey(name: 'min_qty') final  String? minQty;
-@override@JsonKey(name: 'duration_minutes') final  int? durationMinutes;
 @override final  String? brand;
-@override final  String status;
+@override final  String? unit;
+@override@JsonKey(name: 'sale_price') final  String? salePrice;
+@override@JsonKey(name: 'cost_price') final  String? costPrice;
+@override@JsonKey(name: 'margin_pct') final  String? marginPct;
+@override@JsonKey(name: 'current_stock') final  String currentStock;
+@override@JsonKey(name: 'min_stock') final  String? minStock;
+ final  Map<String, dynamic> _attributes;
+@override@JsonKey() Map<String, dynamic> get attributes {
+  if (_attributes is EqualUnmodifiableMapView) return _attributes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_attributes);
+}
+
+@override@JsonKey(name: 'is_active') final  bool isActive;
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
@@ -261,16 +261,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.name, name) || other.name == name)&&(identical(other.code, code) || other.code == code)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePriceCents, salePriceCents) || other.salePriceCents == salePriceCents)&&(identical(other.costPriceCents, costPriceCents) || other.costPriceCents == costPriceCents)&&(identical(other.marginPercent, marginPercent) || other.marginPercent == marginPercent)&&(identical(other.sellable, sellable) || other.sellable == sellable)&&(identical(other.trackStock, trackStock) || other.trackStock == trackStock)&&(identical(other.stockQty, stockQty) || other.stockQty == stockQty)&&(identical(other.minQty, minQty) || other.minQty == minQty)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other._attributes, _attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,name,code,barcode,category,unit,salePriceCents,costPriceCents,marginPercent,sellable,trackStock,stockQty,minQty,durationMinutes,brand,status);
+int get hashCode => Object.hash(runtimeType,id,name,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(_attributes),isActive);
 
 @override
 String toString() {
-  return 'InventoryItem(id: $id, kind: $kind, name: $name, code: $code, barcode: $barcode, category: $category, unit: $unit, salePriceCents: $salePriceCents, costPriceCents: $costPriceCents, marginPercent: $marginPercent, sellable: $sellable, trackStock: $trackStock, stockQty: $stockQty, minQty: $minQty, durationMinutes: $durationMinutes, brand: $brand, status: $status)';
+  return 'InventoryItem(id: $id, name: $name, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive)';
 }
 
 
@@ -281,7 +281,7 @@ abstract mixin class _$InventoryItemCopyWith<$Res> implements $InventoryItemCopy
   factory _$InventoryItemCopyWith(_InventoryItem value, $Res Function(_InventoryItem) _then) = __$InventoryItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String kind, String name, String? code, String? barcode, String? category, String unit,@JsonKey(name: 'sale_price_cents') int salePriceCents,@JsonKey(name: 'cost_price_cents') int? costPriceCents,@JsonKey(name: 'margin_percent') String? marginPercent, bool sellable,@JsonKey(name: 'track_stock') bool trackStock,@JsonKey(name: 'stock_qty') String stockQty,@JsonKey(name: 'min_qty') String? minQty,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? brand, String status
+ String id, String name, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive
 });
 
 
@@ -298,309 +298,24 @@ class __$InventoryItemCopyWithImpl<$Res>
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? name = null,Object? code = freezed,Object? barcode = freezed,Object? category = freezed,Object? unit = null,Object? salePriceCents = null,Object? costPriceCents = freezed,Object? marginPercent = freezed,Object? sellable = null,Object? trackStock = null,Object? stockQty = null,Object? minQty = freezed,Object? durationMinutes = freezed,Object? brand = freezed,Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,}) {
   return _then(_InventoryItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,code: freezed == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
+as String,sku: freezed == sku ? _self.sku : sku // ignore: cast_nullable_to_non_nullable
+as String?,manufacturerCode: freezed == manufacturerCode ? _self.manufacturerCode : manufacturerCode // ignore: cast_nullable_to_non_nullable
 as String?,barcode: freezed == barcode ? _self.barcode : barcode // ignore: cast_nullable_to_non_nullable
 as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
-as String?,unit: null == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
-as String,salePriceCents: null == salePriceCents ? _self.salePriceCents : salePriceCents // ignore: cast_nullable_to_non_nullable
-as int,costPriceCents: freezed == costPriceCents ? _self.costPriceCents : costPriceCents // ignore: cast_nullable_to_non_nullable
-as int?,marginPercent: freezed == marginPercent ? _self.marginPercent : marginPercent // ignore: cast_nullable_to_non_nullable
-as String?,sellable: null == sellable ? _self.sellable : sellable // ignore: cast_nullable_to_non_nullable
-as bool,trackStock: null == trackStock ? _self.trackStock : trackStock // ignore: cast_nullable_to_non_nullable
-as bool,stockQty: null == stockQty ? _self.stockQty : stockQty // ignore: cast_nullable_to_non_nullable
-as String,minQty: freezed == minQty ? _self.minQty : minQty // ignore: cast_nullable_to_non_nullable
-as String?,durationMinutes: freezed == durationMinutes ? _self.durationMinutes : durationMinutes // ignore: cast_nullable_to_non_nullable
-as int?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
-as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as String,
-  ));
-}
-
-
-}
-
-
-/// @nodoc
-mixin _$InventoryMovement {
-
- String get id; String get type;// 'in' | 'out' | 'adjust'
- String get quantity;@JsonKey(name: 'balance_after') String get balanceAfter; String? get reason; String? get note;@JsonKey(name: 'created_at') String get createdAt;
-/// Create a copy of InventoryMovement
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$InventoryMovementCopyWith<InventoryMovement> get copyWith => _$InventoryMovementCopyWithImpl<InventoryMovement>(this as InventoryMovement, _$identity);
-
-  /// Serializes this InventoryMovement to a JSON map.
-  Map<String, dynamic> toJson();
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryMovement&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.balanceAfter, balanceAfter) || other.balanceAfter == balanceAfter)&&(identical(other.reason, reason) || other.reason == reason)&&(identical(other.note, note) || other.note == note)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,id,type,quantity,balanceAfter,reason,note,createdAt);
-
-@override
-String toString() {
-  return 'InventoryMovement(id: $id, type: $type, quantity: $quantity, balanceAfter: $balanceAfter, reason: $reason, note: $note, createdAt: $createdAt)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $InventoryMovementCopyWith<$Res>  {
-  factory $InventoryMovementCopyWith(InventoryMovement value, $Res Function(InventoryMovement) _then) = _$InventoryMovementCopyWithImpl;
-@useResult
-$Res call({
- String id, String type, String quantity,@JsonKey(name: 'balance_after') String balanceAfter, String? reason, String? note,@JsonKey(name: 'created_at') String createdAt
-});
-
-
-
-
-}
-/// @nodoc
-class _$InventoryMovementCopyWithImpl<$Res>
-    implements $InventoryMovementCopyWith<$Res> {
-  _$InventoryMovementCopyWithImpl(this._self, this._then);
-
-  final InventoryMovement _self;
-  final $Res Function(InventoryMovement) _then;
-
-/// Create a copy of InventoryMovement
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? quantity = null,Object? balanceAfter = null,Object? reason = freezed,Object? note = freezed,Object? createdAt = null,}) {
-  return _then(_self.copyWith(
-id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
-as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
-as String,balanceAfter: null == balanceAfter ? _self.balanceAfter : balanceAfter // ignore: cast_nullable_to_non_nullable
-as String,reason: freezed == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
-as String?,note: freezed == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
-as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as String,
-  ));
-}
-
-}
-
-
-/// Adds pattern-matching-related methods to [InventoryMovement].
-extension InventoryMovementPatterns on InventoryMovement {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _InventoryMovement value)?  $default,{required TResult orElse(),}){
-final _that = this;
-switch (_that) {
-case _InventoryMovement() when $default != null:
-return $default(_that);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _InventoryMovement value)  $default,){
-final _that = this;
-switch (_that) {
-case _InventoryMovement():
-return $default(_that);case _:
-  throw StateError('Unexpected subclass');
-
-}
-}
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _InventoryMovement value)?  $default,){
-final _that = this;
-switch (_that) {
-case _InventoryMovement() when $default != null:
-return $default(_that);case _:
-  return null;
-
-}
-}
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String type,  String quantity, @JsonKey(name: 'balance_after')  String balanceAfter,  String? reason,  String? note, @JsonKey(name: 'created_at')  String createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
-switch (_that) {
-case _InventoryMovement() when $default != null:
-return $default(_that.id,_that.type,_that.quantity,_that.balanceAfter,_that.reason,_that.note,_that.createdAt);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String type,  String quantity, @JsonKey(name: 'balance_after')  String balanceAfter,  String? reason,  String? note, @JsonKey(name: 'created_at')  String createdAt)  $default,) {final _that = this;
-switch (_that) {
-case _InventoryMovement():
-return $default(_that.id,_that.type,_that.quantity,_that.balanceAfter,_that.reason,_that.note,_that.createdAt);case _:
-  throw StateError('Unexpected subclass');
-
-}
-}
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String type,  String quantity, @JsonKey(name: 'balance_after')  String balanceAfter,  String? reason,  String? note, @JsonKey(name: 'created_at')  String createdAt)?  $default,) {final _that = this;
-switch (_that) {
-case _InventoryMovement() when $default != null:
-return $default(_that.id,_that.type,_that.quantity,_that.balanceAfter,_that.reason,_that.note,_that.createdAt);case _:
-  return null;
-
-}
-}
-
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class _InventoryMovement implements InventoryMovement {
-  const _InventoryMovement({required this.id, required this.type, required this.quantity, @JsonKey(name: 'balance_after') required this.balanceAfter, this.reason, this.note, @JsonKey(name: 'created_at') required this.createdAt});
-  factory _InventoryMovement.fromJson(Map<String, dynamic> json) => _$InventoryMovementFromJson(json);
-
-@override final  String id;
-@override final  String type;
-// 'in' | 'out' | 'adjust'
-@override final  String quantity;
-@override@JsonKey(name: 'balance_after') final  String balanceAfter;
-@override final  String? reason;
-@override final  String? note;
-@override@JsonKey(name: 'created_at') final  String createdAt;
-
-/// Create a copy of InventoryMovement
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$InventoryMovementCopyWith<_InventoryMovement> get copyWith => __$InventoryMovementCopyWithImpl<_InventoryMovement>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$InventoryMovementToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryMovement&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.balanceAfter, balanceAfter) || other.balanceAfter == balanceAfter)&&(identical(other.reason, reason) || other.reason == reason)&&(identical(other.note, note) || other.note == note)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,id,type,quantity,balanceAfter,reason,note,createdAt);
-
-@override
-String toString() {
-  return 'InventoryMovement(id: $id, type: $type, quantity: $quantity, balanceAfter: $balanceAfter, reason: $reason, note: $note, createdAt: $createdAt)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$InventoryMovementCopyWith<$Res> implements $InventoryMovementCopyWith<$Res> {
-  factory _$InventoryMovementCopyWith(_InventoryMovement value, $Res Function(_InventoryMovement) _then) = __$InventoryMovementCopyWithImpl;
-@override @useResult
-$Res call({
- String id, String type, String quantity,@JsonKey(name: 'balance_after') String balanceAfter, String? reason, String? note,@JsonKey(name: 'created_at') String createdAt
-});
-
-
-
-
-}
-/// @nodoc
-class __$InventoryMovementCopyWithImpl<$Res>
-    implements _$InventoryMovementCopyWith<$Res> {
-  __$InventoryMovementCopyWithImpl(this._self, this._then);
-
-  final _InventoryMovement _self;
-  final $Res Function(_InventoryMovement) _then;
-
-/// Create a copy of InventoryMovement
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? quantity = null,Object? balanceAfter = null,Object? reason = freezed,Object? note = freezed,Object? createdAt = null,}) {
-  return _then(_InventoryMovement(
-id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
-as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast_nullable_to_non_nullable
-as String,balanceAfter: null == balanceAfter ? _self.balanceAfter : balanceAfter // ignore: cast_nullable_to_non_nullable
-as String,reason: freezed == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
-as String?,note: freezed == note ? _self.note : note // ignore: cast_nullable_to_non_nullable
-as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
-as String,
+as String?,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
+as String?,unit: freezed == unit ? _self.unit : unit // ignore: cast_nullable_to_non_nullable
+as String?,salePrice: freezed == salePrice ? _self.salePrice : salePrice // ignore: cast_nullable_to_non_nullable
+as String?,costPrice: freezed == costPrice ? _self.costPrice : costPrice // ignore: cast_nullable_to_non_nullable
+as String?,marginPct: freezed == marginPct ? _self.marginPct : marginPct // ignore: cast_nullable_to_non_nullable
+as String?,currentStock: null == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
+as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
+as String?,attributes: null == attributes ? _self._attributes : attributes // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -887,9 +602,294 @@ as int,
 
 
 /// @nodoc
+mixin _$ItemFieldConfig {
+
+ String get key; String get label; String get type;// 'text' | 'number' | 'tags' | 'select'
+@JsonKey(name: 'required') bool get isRequired; List<String>? get options;
+/// Create a copy of ItemFieldConfig
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ItemFieldConfigCopyWith<ItemFieldConfig> get copyWith => _$ItemFieldConfigCopyWithImpl<ItemFieldConfig>(this as ItemFieldConfig, _$identity);
+
+  /// Serializes this ItemFieldConfig to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ItemFieldConfig&&(identical(other.key, key) || other.key == key)&&(identical(other.label, label) || other.label == label)&&(identical(other.type, type) || other.type == type)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&const DeepCollectionEquality().equals(other.options, options));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,key,label,type,isRequired,const DeepCollectionEquality().hash(options));
+
+@override
+String toString() {
+  return 'ItemFieldConfig(key: $key, label: $label, type: $type, isRequired: $isRequired, options: $options)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ItemFieldConfigCopyWith<$Res>  {
+  factory $ItemFieldConfigCopyWith(ItemFieldConfig value, $Res Function(ItemFieldConfig) _then) = _$ItemFieldConfigCopyWithImpl;
+@useResult
+$Res call({
+ String key, String label, String type,@JsonKey(name: 'required') bool isRequired, List<String>? options
+});
+
+
+
+
+}
+/// @nodoc
+class _$ItemFieldConfigCopyWithImpl<$Res>
+    implements $ItemFieldConfigCopyWith<$Res> {
+  _$ItemFieldConfigCopyWithImpl(this._self, this._then);
+
+  final ItemFieldConfig _self;
+  final $Res Function(ItemFieldConfig) _then;
+
+/// Create a copy of ItemFieldConfig
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? label = null,Object? type = null,Object? isRequired = null,Object? options = freezed,}) {
+  return _then(_self.copyWith(
+key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
+as String,label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
+as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,isRequired: null == isRequired ? _self.isRequired : isRequired // ignore: cast_nullable_to_non_nullable
+as bool,options: freezed == options ? _self.options : options // ignore: cast_nullable_to_non_nullable
+as List<String>?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [ItemFieldConfig].
+extension ItemFieldConfigPatterns on ItemFieldConfig {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ItemFieldConfig value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ItemFieldConfig() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ItemFieldConfig value)  $default,){
+final _that = this;
+switch (_that) {
+case _ItemFieldConfig():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ItemFieldConfig value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ItemFieldConfig() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String label,  String type, @JsonKey(name: 'required')  bool isRequired,  List<String>? options)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ItemFieldConfig() when $default != null:
+return $default(_that.key,_that.label,_that.type,_that.isRequired,_that.options);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String label,  String type, @JsonKey(name: 'required')  bool isRequired,  List<String>? options)  $default,) {final _that = this;
+switch (_that) {
+case _ItemFieldConfig():
+return $default(_that.key,_that.label,_that.type,_that.isRequired,_that.options);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String label,  String type, @JsonKey(name: 'required')  bool isRequired,  List<String>? options)?  $default,) {final _that = this;
+switch (_that) {
+case _ItemFieldConfig() when $default != null:
+return $default(_that.key,_that.label,_that.type,_that.isRequired,_that.options);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ItemFieldConfig implements ItemFieldConfig {
+  const _ItemFieldConfig({required this.key, required this.label, this.type = 'text', @JsonKey(name: 'required') this.isRequired = false, final  List<String>? options}): _options = options;
+  factory _ItemFieldConfig.fromJson(Map<String, dynamic> json) => _$ItemFieldConfigFromJson(json);
+
+@override final  String key;
+@override final  String label;
+@override@JsonKey() final  String type;
+// 'text' | 'number' | 'tags' | 'select'
+@override@JsonKey(name: 'required') final  bool isRequired;
+ final  List<String>? _options;
+@override List<String>? get options {
+  final value = _options;
+  if (value == null) return null;
+  if (_options is EqualUnmodifiableListView) return _options;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+
+/// Create a copy of ItemFieldConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ItemFieldConfigCopyWith<_ItemFieldConfig> get copyWith => __$ItemFieldConfigCopyWithImpl<_ItemFieldConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ItemFieldConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ItemFieldConfig&&(identical(other.key, key) || other.key == key)&&(identical(other.label, label) || other.label == label)&&(identical(other.type, type) || other.type == type)&&(identical(other.isRequired, isRequired) || other.isRequired == isRequired)&&const DeepCollectionEquality().equals(other._options, _options));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,key,label,type,isRequired,const DeepCollectionEquality().hash(_options));
+
+@override
+String toString() {
+  return 'ItemFieldConfig(key: $key, label: $label, type: $type, isRequired: $isRequired, options: $options)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ItemFieldConfigCopyWith<$Res> implements $ItemFieldConfigCopyWith<$Res> {
+  factory _$ItemFieldConfigCopyWith(_ItemFieldConfig value, $Res Function(_ItemFieldConfig) _then) = __$ItemFieldConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ String key, String label, String type,@JsonKey(name: 'required') bool isRequired, List<String>? options
+});
+
+
+
+
+}
+/// @nodoc
+class __$ItemFieldConfigCopyWithImpl<$Res>
+    implements _$ItemFieldConfigCopyWith<$Res> {
+  __$ItemFieldConfigCopyWithImpl(this._self, this._then);
+
+  final _ItemFieldConfig _self;
+  final $Res Function(_ItemFieldConfig) _then;
+
+/// Create a copy of ItemFieldConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? label = null,Object? type = null,Object? isRequired = null,Object? options = freezed,}) {
+  return _then(_ItemFieldConfig(
+key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
+as String,label: null == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
+as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,isRequired: null == isRequired ? _self.isRequired : isRequired // ignore: cast_nullable_to_non_nullable
+as bool,options: freezed == options ? _self._options : options // ignore: cast_nullable_to_non_nullable
+as List<String>?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$InventoryConfig {
 
- String get defaultUnit; bool get trackStockDefault; double? get defaultMarginPercent; List<String> get categories;
+ List<ItemFieldConfig> get itemFields;
 /// Create a copy of InventoryConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -902,16 +902,16 @@ $InventoryConfigCopyWith<InventoryConfig> get copyWith => _$InventoryConfigCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryConfig&&(identical(other.defaultUnit, defaultUnit) || other.defaultUnit == defaultUnit)&&(identical(other.trackStockDefault, trackStockDefault) || other.trackStockDefault == trackStockDefault)&&(identical(other.defaultMarginPercent, defaultMarginPercent) || other.defaultMarginPercent == defaultMarginPercent)&&const DeepCollectionEquality().equals(other.categories, categories));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryConfig&&const DeepCollectionEquality().equals(other.itemFields, itemFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,defaultUnit,trackStockDefault,defaultMarginPercent,const DeepCollectionEquality().hash(categories));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(itemFields));
 
 @override
 String toString() {
-  return 'InventoryConfig(defaultUnit: $defaultUnit, trackStockDefault: $trackStockDefault, defaultMarginPercent: $defaultMarginPercent, categories: $categories)';
+  return 'InventoryConfig(itemFields: $itemFields)';
 }
 
 
@@ -922,7 +922,7 @@ abstract mixin class $InventoryConfigCopyWith<$Res>  {
   factory $InventoryConfigCopyWith(InventoryConfig value, $Res Function(InventoryConfig) _then) = _$InventoryConfigCopyWithImpl;
 @useResult
 $Res call({
- String defaultUnit, bool trackStockDefault, double? defaultMarginPercent, List<String> categories
+ List<ItemFieldConfig> itemFields
 });
 
 
@@ -939,13 +939,10 @@ class _$InventoryConfigCopyWithImpl<$Res>
 
 /// Create a copy of InventoryConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? defaultUnit = null,Object? trackStockDefault = null,Object? defaultMarginPercent = freezed,Object? categories = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? itemFields = null,}) {
   return _then(_self.copyWith(
-defaultUnit: null == defaultUnit ? _self.defaultUnit : defaultUnit // ignore: cast_nullable_to_non_nullable
-as String,trackStockDefault: null == trackStockDefault ? _self.trackStockDefault : trackStockDefault // ignore: cast_nullable_to_non_nullable
-as bool,defaultMarginPercent: freezed == defaultMarginPercent ? _self.defaultMarginPercent : defaultMarginPercent // ignore: cast_nullable_to_non_nullable
-as double?,categories: null == categories ? _self.categories : categories // ignore: cast_nullable_to_non_nullable
-as List<String>,
+itemFields: null == itemFields ? _self.itemFields : itemFields // ignore: cast_nullable_to_non_nullable
+as List<ItemFieldConfig>,
   ));
 }
 
@@ -1030,10 +1027,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String defaultUnit,  bool trackStockDefault,  double? defaultMarginPercent,  List<String> categories)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ItemFieldConfig> itemFields)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InventoryConfig() when $default != null:
-return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPercent,_that.categories);case _:
+return $default(_that.itemFields);case _:
   return orElse();
 
 }
@@ -1051,10 +1048,10 @@ return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPer
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String defaultUnit,  bool trackStockDefault,  double? defaultMarginPercent,  List<String> categories)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ItemFieldConfig> itemFields)  $default,) {final _that = this;
 switch (_that) {
 case _InventoryConfig():
-return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPercent,_that.categories);case _:
+return $default(_that.itemFields);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1071,10 +1068,10 @@ return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPer
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String defaultUnit,  bool trackStockDefault,  double? defaultMarginPercent,  List<String> categories)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ItemFieldConfig> itemFields)?  $default,) {final _that = this;
 switch (_that) {
 case _InventoryConfig() when $default != null:
-return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPercent,_that.categories);case _:
+return $default(_that.itemFields);case _:
   return null;
 
 }
@@ -1086,17 +1083,14 @@ return $default(_that.defaultUnit,_that.trackStockDefault,_that.defaultMarginPer
 @JsonSerializable()
 
 class _InventoryConfig implements InventoryConfig {
-  const _InventoryConfig({this.defaultUnit = 'un', this.trackStockDefault = true, this.defaultMarginPercent, final  List<String> categories = const <String>[]}): _categories = categories;
+  const _InventoryConfig({final  List<ItemFieldConfig> itemFields = const <ItemFieldConfig>[]}): _itemFields = itemFields;
   factory _InventoryConfig.fromJson(Map<String, dynamic> json) => _$InventoryConfigFromJson(json);
 
-@override@JsonKey() final  String defaultUnit;
-@override@JsonKey() final  bool trackStockDefault;
-@override final  double? defaultMarginPercent;
- final  List<String> _categories;
-@override@JsonKey() List<String> get categories {
-  if (_categories is EqualUnmodifiableListView) return _categories;
+ final  List<ItemFieldConfig> _itemFields;
+@override@JsonKey() List<ItemFieldConfig> get itemFields {
+  if (_itemFields is EqualUnmodifiableListView) return _itemFields;
   // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_categories);
+  return EqualUnmodifiableListView(_itemFields);
 }
 
 
@@ -1113,16 +1107,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryConfig&&(identical(other.defaultUnit, defaultUnit) || other.defaultUnit == defaultUnit)&&(identical(other.trackStockDefault, trackStockDefault) || other.trackStockDefault == trackStockDefault)&&(identical(other.defaultMarginPercent, defaultMarginPercent) || other.defaultMarginPercent == defaultMarginPercent)&&const DeepCollectionEquality().equals(other._categories, _categories));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryConfig&&const DeepCollectionEquality().equals(other._itemFields, _itemFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,defaultUnit,trackStockDefault,defaultMarginPercent,const DeepCollectionEquality().hash(_categories));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_itemFields));
 
 @override
 String toString() {
-  return 'InventoryConfig(defaultUnit: $defaultUnit, trackStockDefault: $trackStockDefault, defaultMarginPercent: $defaultMarginPercent, categories: $categories)';
+  return 'InventoryConfig(itemFields: $itemFields)';
 }
 
 
@@ -1133,7 +1127,7 @@ abstract mixin class _$InventoryConfigCopyWith<$Res> implements $InventoryConfig
   factory _$InventoryConfigCopyWith(_InventoryConfig value, $Res Function(_InventoryConfig) _then) = __$InventoryConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String defaultUnit, bool trackStockDefault, double? defaultMarginPercent, List<String> categories
+ List<ItemFieldConfig> itemFields
 });
 
 
@@ -1150,17 +1144,603 @@ class __$InventoryConfigCopyWithImpl<$Res>
 
 /// Create a copy of InventoryConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? defaultUnit = null,Object? trackStockDefault = null,Object? defaultMarginPercent = freezed,Object? categories = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? itemFields = null,}) {
   return _then(_InventoryConfig(
-defaultUnit: null == defaultUnit ? _self.defaultUnit : defaultUnit // ignore: cast_nullable_to_non_nullable
-as String,trackStockDefault: null == trackStockDefault ? _self.trackStockDefault : trackStockDefault // ignore: cast_nullable_to_non_nullable
-as bool,defaultMarginPercent: freezed == defaultMarginPercent ? _self.defaultMarginPercent : defaultMarginPercent // ignore: cast_nullable_to_non_nullable
-as double?,categories: null == categories ? _self._categories : categories // ignore: cast_nullable_to_non_nullable
-as List<String>,
+itemFields: null == itemFields ? _self._itemFields : itemFields // ignore: cast_nullable_to_non_nullable
+as List<ItemFieldConfig>,
   ));
 }
 
 
+}
+
+
+/// @nodoc
+mixin _$CatalogSuggestion {
+
+ String get name; String? get brand; String? get ncm; String? get category;
+/// Create a copy of CatalogSuggestion
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$CatalogSuggestionCopyWith<CatalogSuggestion> get copyWith => _$CatalogSuggestionCopyWithImpl<CatalogSuggestion>(this as CatalogSuggestion, _$identity);
+
+  /// Serializes this CatalogSuggestion to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CatalogSuggestion&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.ncm, ncm) || other.ncm == ncm)&&(identical(other.category, category) || other.category == category));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,name,brand,ncm,category);
+
+@override
+String toString() {
+  return 'CatalogSuggestion(name: $name, brand: $brand, ncm: $ncm, category: $category)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $CatalogSuggestionCopyWith<$Res>  {
+  factory $CatalogSuggestionCopyWith(CatalogSuggestion value, $Res Function(CatalogSuggestion) _then) = _$CatalogSuggestionCopyWithImpl;
+@useResult
+$Res call({
+ String name, String? brand, String? ncm, String? category
+});
+
+
+
+
+}
+/// @nodoc
+class _$CatalogSuggestionCopyWithImpl<$Res>
+    implements $CatalogSuggestionCopyWith<$Res> {
+  _$CatalogSuggestionCopyWithImpl(this._self, this._then);
+
+  final CatalogSuggestion _self;
+  final $Res Function(CatalogSuggestion) _then;
+
+/// Create a copy of CatalogSuggestion
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? brand = freezed,Object? ncm = freezed,Object? category = freezed,}) {
+  return _then(_self.copyWith(
+name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
+as String?,ncm: freezed == ncm ? _self.ncm : ncm // ignore: cast_nullable_to_non_nullable
+as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [CatalogSuggestion].
+extension CatalogSuggestionPatterns on CatalogSuggestion {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _CatalogSuggestion value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _CatalogSuggestion() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _CatalogSuggestion value)  $default,){
+final _that = this;
+switch (_that) {
+case _CatalogSuggestion():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _CatalogSuggestion value)?  $default,){
+final _that = this;
+switch (_that) {
+case _CatalogSuggestion() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String? brand,  String? ncm,  String? category)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _CatalogSuggestion() when $default != null:
+return $default(_that.name,_that.brand,_that.ncm,_that.category);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String? brand,  String? ncm,  String? category)  $default,) {final _that = this;
+switch (_that) {
+case _CatalogSuggestion():
+return $default(_that.name,_that.brand,_that.ncm,_that.category);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String? brand,  String? ncm,  String? category)?  $default,) {final _that = this;
+switch (_that) {
+case _CatalogSuggestion() when $default != null:
+return $default(_that.name,_that.brand,_that.ncm,_that.category);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _CatalogSuggestion implements CatalogSuggestion {
+  const _CatalogSuggestion({required this.name, this.brand, this.ncm, this.category});
+  factory _CatalogSuggestion.fromJson(Map<String, dynamic> json) => _$CatalogSuggestionFromJson(json);
+
+@override final  String name;
+@override final  String? brand;
+@override final  String? ncm;
+@override final  String? category;
+
+/// Create a copy of CatalogSuggestion
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$CatalogSuggestionCopyWith<_CatalogSuggestion> get copyWith => __$CatalogSuggestionCopyWithImpl<_CatalogSuggestion>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$CatalogSuggestionToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CatalogSuggestion&&(identical(other.name, name) || other.name == name)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.ncm, ncm) || other.ncm == ncm)&&(identical(other.category, category) || other.category == category));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,name,brand,ncm,category);
+
+@override
+String toString() {
+  return 'CatalogSuggestion(name: $name, brand: $brand, ncm: $ncm, category: $category)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$CatalogSuggestionCopyWith<$Res> implements $CatalogSuggestionCopyWith<$Res> {
+  factory _$CatalogSuggestionCopyWith(_CatalogSuggestion value, $Res Function(_CatalogSuggestion) _then) = __$CatalogSuggestionCopyWithImpl;
+@override @useResult
+$Res call({
+ String name, String? brand, String? ncm, String? category
+});
+
+
+
+
+}
+/// @nodoc
+class __$CatalogSuggestionCopyWithImpl<$Res>
+    implements _$CatalogSuggestionCopyWith<$Res> {
+  __$CatalogSuggestionCopyWithImpl(this._self, this._then);
+
+  final _CatalogSuggestion _self;
+  final $Res Function(_CatalogSuggestion) _then;
+
+/// Create a copy of CatalogSuggestion
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? brand = freezed,Object? ncm = freezed,Object? category = freezed,}) {
+  return _then(_CatalogSuggestion(
+name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,brand: freezed == brand ? _self.brand : brand // ignore: cast_nullable_to_non_nullable
+as String?,ncm: freezed == ncm ? _self.ncm : ncm // ignore: cast_nullable_to_non_nullable
+as String?,category: freezed == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$LookupResult {
+
+ String get source; InventoryItem? get item; CatalogSuggestion? get suggestion;
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$LookupResultCopyWith<LookupResult> get copyWith => _$LookupResultCopyWithImpl<LookupResult>(this as LookupResult, _$identity);
+
+  /// Serializes this LookupResult to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LookupResult&&(identical(other.source, source) || other.source == source)&&(identical(other.item, item) || other.item == item)&&(identical(other.suggestion, suggestion) || other.suggestion == suggestion));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,source,item,suggestion);
+
+@override
+String toString() {
+  return 'LookupResult(source: $source, item: $item, suggestion: $suggestion)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $LookupResultCopyWith<$Res>  {
+  factory $LookupResultCopyWith(LookupResult value, $Res Function(LookupResult) _then) = _$LookupResultCopyWithImpl;
+@useResult
+$Res call({
+ String source, InventoryItem? item, CatalogSuggestion? suggestion
+});
+
+
+$InventoryItemCopyWith<$Res>? get item;$CatalogSuggestionCopyWith<$Res>? get suggestion;
+
+}
+/// @nodoc
+class _$LookupResultCopyWithImpl<$Res>
+    implements $LookupResultCopyWith<$Res> {
+  _$LookupResultCopyWithImpl(this._self, this._then);
+
+  final LookupResult _self;
+  final $Res Function(LookupResult) _then;
+
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? source = null,Object? item = freezed,Object? suggestion = freezed,}) {
+  return _then(_self.copyWith(
+source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as String,item: freezed == item ? _self.item : item // ignore: cast_nullable_to_non_nullable
+as InventoryItem?,suggestion: freezed == suggestion ? _self.suggestion : suggestion // ignore: cast_nullable_to_non_nullable
+as CatalogSuggestion?,
+  ));
+}
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$InventoryItemCopyWith<$Res>? get item {
+    if (_self.item == null) {
+    return null;
+  }
+
+  return $InventoryItemCopyWith<$Res>(_self.item!, (value) {
+    return _then(_self.copyWith(item: value));
+  });
+}/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CatalogSuggestionCopyWith<$Res>? get suggestion {
+    if (_self.suggestion == null) {
+    return null;
+  }
+
+  return $CatalogSuggestionCopyWith<$Res>(_self.suggestion!, (value) {
+    return _then(_self.copyWith(suggestion: value));
+  });
+}
+}
+
+
+/// Adds pattern-matching-related methods to [LookupResult].
+extension LookupResultPatterns on LookupResult {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _LookupResult value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _LookupResult() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _LookupResult value)  $default,){
+final _that = this;
+switch (_that) {
+case _LookupResult():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _LookupResult value)?  $default,){
+final _that = this;
+switch (_that) {
+case _LookupResult() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String source,  InventoryItem? item,  CatalogSuggestion? suggestion)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _LookupResult() when $default != null:
+return $default(_that.source,_that.item,_that.suggestion);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String source,  InventoryItem? item,  CatalogSuggestion? suggestion)  $default,) {final _that = this;
+switch (_that) {
+case _LookupResult():
+return $default(_that.source,_that.item,_that.suggestion);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String source,  InventoryItem? item,  CatalogSuggestion? suggestion)?  $default,) {final _that = this;
+switch (_that) {
+case _LookupResult() when $default != null:
+return $default(_that.source,_that.item,_that.suggestion);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _LookupResult implements LookupResult {
+  const _LookupResult({this.source = 'none', this.item, this.suggestion});
+  factory _LookupResult.fromJson(Map<String, dynamic> json) => _$LookupResultFromJson(json);
+
+@override@JsonKey() final  String source;
+@override final  InventoryItem? item;
+@override final  CatalogSuggestion? suggestion;
+
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$LookupResultCopyWith<_LookupResult> get copyWith => __$LookupResultCopyWithImpl<_LookupResult>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$LookupResultToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LookupResult&&(identical(other.source, source) || other.source == source)&&(identical(other.item, item) || other.item == item)&&(identical(other.suggestion, suggestion) || other.suggestion == suggestion));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,source,item,suggestion);
+
+@override
+String toString() {
+  return 'LookupResult(source: $source, item: $item, suggestion: $suggestion)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$LookupResultCopyWith<$Res> implements $LookupResultCopyWith<$Res> {
+  factory _$LookupResultCopyWith(_LookupResult value, $Res Function(_LookupResult) _then) = __$LookupResultCopyWithImpl;
+@override @useResult
+$Res call({
+ String source, InventoryItem? item, CatalogSuggestion? suggestion
+});
+
+
+@override $InventoryItemCopyWith<$Res>? get item;@override $CatalogSuggestionCopyWith<$Res>? get suggestion;
+
+}
+/// @nodoc
+class __$LookupResultCopyWithImpl<$Res>
+    implements _$LookupResultCopyWith<$Res> {
+  __$LookupResultCopyWithImpl(this._self, this._then);
+
+  final _LookupResult _self;
+  final $Res Function(_LookupResult) _then;
+
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? source = null,Object? item = freezed,Object? suggestion = freezed,}) {
+  return _then(_LookupResult(
+source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as String,item: freezed == item ? _self.item : item // ignore: cast_nullable_to_non_nullable
+as InventoryItem?,suggestion: freezed == suggestion ? _self.suggestion : suggestion // ignore: cast_nullable_to_non_nullable
+as CatalogSuggestion?,
+  ));
+}
+
+/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$InventoryItemCopyWith<$Res>? get item {
+    if (_self.item == null) {
+    return null;
+  }
+
+  return $InventoryItemCopyWith<$Res>(_self.item!, (value) {
+    return _then(_self.copyWith(item: value));
+  });
+}/// Create a copy of LookupResult
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CatalogSuggestionCopyWith<$Res>? get suggestion {
+    if (_self.suggestion == null) {
+    return null;
+  }
+
+  return $CatalogSuggestionCopyWith<$Res>(_self.suggestion!, (value) {
+    return _then(_self.copyWith(suggestion: value));
+  });
+}
 }
 
 // dart format on

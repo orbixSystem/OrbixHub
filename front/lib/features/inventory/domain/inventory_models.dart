@@ -3,53 +3,31 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'inventory_models.freezed.dart';
 part 'inventory_models.g.dart';
 
-/// Natureza do item: produto (controla estoque) ou serviço (mão de obra).
-enum ItemKind { product, service }
-
-/// Item de estoque/serviço. Genérico — sem termo de vertical. Valores monetários
-/// em centavos (int); quantidades e margem chegam como Decimal serializado (string).
+/// Item de estoque (produto). Genérico — sem termo de vertical; o específico
+/// da vertical vive em [attributes] (whitelist por `itemFields`). Preços/estoque
+/// chegam como decimal serializado (String); `attributes` é objeto livre.
 @freezed
 abstract class InventoryItem with _$InventoryItem {
   const factory InventoryItem({
     required String id,
-    required String kind, // 'product' | 'service'
     required String name,
-    String? code,
+    String? sku,
+    @JsonKey(name: 'manufacturer_code') String? manufacturerCode,
     String? barcode,
     String? category,
-    required String unit,
-    @JsonKey(name: 'sale_price_cents') @Default(0) int salePriceCents,
-    @JsonKey(name: 'cost_price_cents') int? costPriceCents,
-    @JsonKey(name: 'margin_percent') String? marginPercent,
-    @Default(true) bool sellable,
-    @JsonKey(name: 'track_stock') @Default(true) bool trackStock,
-    @JsonKey(name: 'stock_qty') @Default('0') String stockQty,
-    @JsonKey(name: 'min_qty') String? minQty,
-    @JsonKey(name: 'duration_minutes') int? durationMinutes,
     String? brand,
-    required String status,
+    String? unit,
+    @JsonKey(name: 'sale_price') String? salePrice,
+    @JsonKey(name: 'cost_price') String? costPrice,
+    @JsonKey(name: 'margin_pct') String? marginPct,
+    @JsonKey(name: 'current_stock') @Default('0') String currentStock,
+    @JsonKey(name: 'min_stock') String? minStock,
+    @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
+    @JsonKey(name: 'is_active') @Default(true) bool isActive,
   }) = _InventoryItem;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) =>
       _$InventoryItemFromJson(json);
-}
-
-/// Um movimento de estoque (entrada/saída/ajuste). `balanceAfter` é o saldo
-/// resultante; `quantity` é a magnitude do movimento. Ambos Decimal (string).
-@freezed
-abstract class InventoryMovement with _$InventoryMovement {
-  const factory InventoryMovement({
-    required String id,
-    required String type, // 'in' | 'out' | 'adjust'
-    required String quantity,
-    @JsonKey(name: 'balance_after') required String balanceAfter,
-    String? reason,
-    String? note,
-    @JsonKey(name: 'created_at') required String createdAt,
-  }) = _InventoryMovement;
-
-  factory InventoryMovement.fromJson(Map<String, dynamic> json) =>
-      _$InventoryMovementFromJson(json);
 }
 
 /// Página de itens (`GET /inventory/items`).
@@ -66,91 +44,109 @@ abstract class ItemPage with _$ItemPage {
       _$ItemPageFromJson(json);
 }
 
-/// Config do módulo Estoque & Serviços (de `GET /inventory/config`).
+/// Definição de um campo da vertical (vem de `GET /inventory/config`).
+/// `type ∈ text|number|tags|select`. `isRequired` mapeia o `required` do backend
+/// (palavra reservada-ish no Dart).
+@freezed
+abstract class ItemFieldConfig with _$ItemFieldConfig {
+  const factory ItemFieldConfig({
+    required String key,
+    required String label,
+    @Default('text') String type, // 'text' | 'number' | 'tags' | 'select'
+    @JsonKey(name: 'required') @Default(false) bool isRequired,
+    List<String>? options,
+  }) = _ItemFieldConfig;
+
+  factory ItemFieldConfig.fromJson(Map<String, dynamic> json) =>
+      _$ItemFieldConfigFromJson(json);
+}
+
+/// Config do módulo Estoque (campos dinâmicos da vertical).
 @freezed
 abstract class InventoryConfig with _$InventoryConfig {
   const factory InventoryConfig({
-    @Default('un') String defaultUnit,
-    @Default(true) bool trackStockDefault,
-    double? defaultMarginPercent,
-    @Default(<String>[]) List<String> categories,
+    @Default(<ItemFieldConfig>[]) List<ItemFieldConfig> itemFields,
   }) = _InventoryConfig;
 
   factory InventoryConfig.fromJson(Map<String, dynamic> json) =>
       _$InventoryConfigFromJson(json);
 }
 
-/// Draft de escrita de item (create/update). Só envia campos não-nulos. Envia
-/// chaves em camelCase (o backend espera `salePriceCents`, `trackStock`, …).
+/// Sugestão vinda de um catálogo externo (`source:'catalog'`). Campos editáveis.
+@freezed
+abstract class CatalogSuggestion with _$CatalogSuggestion {
+  const factory CatalogSuggestion({
+    required String name,
+    String? brand,
+    String? ncm,
+    String? category,
+  }) = _CatalogSuggestion;
+
+  factory CatalogSuggestion.fromJson(Map<String, dynamic> json) =>
+      _$CatalogSuggestionFromJson(json);
+}
+
+/// Resultado do código-first (`GET /inventory/lookup?code=`).
+/// `source ∈ internal|catalog|none`.
+@freezed
+abstract class LookupResult with _$LookupResult {
+  const factory LookupResult({
+    @Default('none') String source,
+    InventoryItem? item,
+    CatalogSuggestion? suggestion,
+  }) = _LookupResult;
+
+  factory LookupResult.fromJson(Map<String, dynamic> json) =>
+      _$LookupResultFromJson(json);
+}
+
+/// Draft de escrita de item (create/update). Só envia campos não-nulos.
+/// Chaves em camelCase (o backend espera `manufacturerCode`, `salePrice`, …);
+/// preços/estoque como números.
 class ItemDraft {
   const ItemDraft({
-    required this.kind,
     required this.name,
-    required this.unit,
-    this.code,
+    this.sku,
+    this.manufacturerCode,
     this.barcode,
     this.category,
     this.brand,
-    this.salePriceCents,
-    this.costPriceCents,
-    this.durationMinutes,
-    this.marginPercent,
-    this.minQty,
-    this.sellable,
-    this.trackStock,
+    this.unit,
+    this.salePrice,
+    this.costPrice,
+    this.marginPct,
+    this.currentStock,
+    this.minStock,
+    this.attributes,
   });
 
-  final String kind;
   final String name;
-  final String unit;
-  final String? code;
+  final String? sku;
+  final String? manufacturerCode;
   final String? barcode;
   final String? category;
   final String? brand;
-  final int? salePriceCents;
-  final int? costPriceCents;
-  final int? durationMinutes;
-  final double? marginPercent;
-  final double? minQty;
-  final bool? sellable;
-  final bool? trackStock;
+  final String? unit;
+  final double? salePrice;
+  final double? costPrice;
+  final double? marginPct;
+  final double? currentStock;
+  final double? minStock;
+  final Map<String, dynamic>? attributes;
 
   Map<String, dynamic> toJson() => {
-        'kind': kind,
         'name': name,
-        'unit': unit,
-        if (code != null) 'code': code,
+        if (sku != null) 'sku': sku,
+        if (manufacturerCode != null) 'manufacturerCode': manufacturerCode,
         if (barcode != null) 'barcode': barcode,
         if (category != null) 'category': category,
         if (brand != null) 'brand': brand,
-        if (salePriceCents != null) 'salePriceCents': salePriceCents,
-        if (costPriceCents != null) 'costPriceCents': costPriceCents,
-        if (durationMinutes != null) 'durationMinutes': durationMinutes,
-        if (marginPercent != null) 'marginPercent': marginPercent,
-        if (minQty != null) 'minQty': minQty,
-        if (sellable != null) 'sellable': sellable,
-        if (trackStock != null) 'trackStock': trackStock,
-      };
-}
-
-/// Draft de movimento de estoque. `type`: 'in' | 'out' | 'adjust'.
-class MovementDraft {
-  const MovementDraft({
-    required this.type,
-    required this.quantity,
-    this.reason,
-    this.note,
-  });
-
-  final String type;
-  final double quantity;
-  final String? reason;
-  final String? note;
-
-  Map<String, dynamic> toJson() => {
-        'type': type,
-        'quantity': quantity,
-        if (reason != null) 'reason': reason,
-        if (note != null) 'note': note,
+        if (unit != null) 'unit': unit,
+        if (salePrice != null) 'salePrice': salePrice,
+        if (costPrice != null) 'costPrice': costPrice,
+        if (marginPct != null) 'marginPct': marginPct,
+        if (currentStock != null) 'currentStock': currentStock,
+        if (minStock != null) 'minStock': minStock,
+        if (attributes != null) 'attributes': attributes,
       };
 }

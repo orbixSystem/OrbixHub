@@ -25,11 +25,11 @@ class _FakeSession extends SessionController {
 }
 
 void main() {
-  testWidgets('lista mostra item e badge de estoque baixo', (tester) async {
+  testWidgets('lista mostra produto e badge de estoque baixo', (tester) async {
     final fake = FakeInventoryRepository();
-    // Produto com mínimo 5 e saldo 0 → estoque baixo.
+    // Produto com mínimo 5 e saldo 2 → estoque baixo.
     await fake.createItem(
-      const ItemDraft(kind: 'product', name: 'Pastilha', unit: 'un', minQty: 5),
+      const ItemDraft(name: 'Pastilha', unit: 'un', minStock: 5, currentStock: 2),
     );
 
     await tester.pumpWidget(

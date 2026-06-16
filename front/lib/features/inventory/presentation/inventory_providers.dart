@@ -9,7 +9,7 @@ final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
       'inventoryRepositoryProvider must be overridden in di.dart');
 });
 
-/// Config do módulo (unidade/categorias/margem padrão). Estável na sessão.
+/// Config do módulo (campos dinâmicos da vertical). Estável na sessão.
 final inventoryConfigProvider = FutureProvider<InventoryConfig>((ref) {
   return ref.read(inventoryRepositoryProvider).fetchConfig();
 });
@@ -18,42 +18,41 @@ final inventoryConfigProvider = FutureProvider<InventoryConfig>((ref) {
 class ItemListQuery {
   const ItemListQuery({
     this.q,
-    this.kind,
-    this.status = 'active',
+    this.category,
+    this.active = 'true',
     this.lowStock = false,
   });
 
   final String? q;
-  final String? kind; // null = todos | 'product' | 'service'
-  final String status;
+  final String? category;
+  final String active; // 'true' | 'false' | 'all'
   final bool lowStock;
 
   ItemListQuery copyWith({
     String? q,
-    String? kind,
-    String? status,
+    String? category,
+    String? active,
     bool? lowStock,
   }) =>
       ItemListQuery(
         q: q ?? this.q,
-        kind: kind,
-        status: status ?? this.status,
+        category: category,
+        active: active ?? this.active,
         lowStock: lowStock ?? this.lowStock,
       );
 }
 
-/// Estado dos filtros (busca/tipo/baixo estoque).
+/// Estado dos filtros (busca/categoria/baixo estoque).
 class ItemListQueryNotifier extends Notifier<ItemListQuery> {
   @override
   ItemListQuery build() => const ItemListQuery();
 
   void setQuery(String value) =>
       state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
-  void setKind(String? kind) =>
-      state = ItemListQuery(
+  void setCategory(String? category) => state = ItemListQuery(
         q: state.q,
-        kind: kind,
-        status: state.status,
+        category: category,
+        active: state.active,
         lowStock: state.lowStock,
       );
   void setLowStock(bool value) => state = state.copyWith(lowStock: value);
@@ -68,8 +67,8 @@ final itemListProvider = FutureProvider.autoDispose<ItemPage>((ref) {
   final query = ref.watch(itemListQueryProvider);
   return ref.read(inventoryRepositoryProvider).listItems(
         q: query.q,
-        kind: query.kind,
-        status: query.status,
+        category: query.category,
+        active: query.active,
         lowStock: query.lowStock,
       );
 });
@@ -78,10 +77,4 @@ final itemListProvider = FutureProvider.autoDispose<ItemPage>((ref) {
 final itemProvider =
     FutureProvider.autoDispose.family<InventoryItem, String>((ref, id) {
   return ref.read(inventoryRepositoryProvider).getItem(id);
-});
-
-/// Histórico de movimentos de um item.
-final itemMovementsProvider = FutureProvider.autoDispose
-    .family<List<InventoryMovement>, String>((ref, id) {
-  return ref.read(inventoryRepositoryProvider).listMovements(id);
 });

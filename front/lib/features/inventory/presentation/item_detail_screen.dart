@@ -9,12 +9,11 @@ import '../domain/inventory_models.dart';
 import 'inventory_providers.dart';
 import 'inventory_screen.dart' show money, isLowStock;
 import 'item_form_dialog.dart';
-import 'movement_form_dialog.dart';
 
 const _maxContentWidth = 720.0;
 
-/// Ficha do item: cabeçalho + fatos + (para produto) ações de movimento e
-/// histórico de movimentos. Empilhada via Navigator.push.
+/// Ficha do produto: cabeçalho + fatos (incl. campos da vertical). Empilhada via
+/// Navigator.push. Sem histórico/movimentos — estoque é ajustado direto na edição.
 class ItemDetailScreen extends ConsumerWidget {
   const ItemDetailScreen({super.key, required this.itemId});
 
@@ -40,7 +39,6 @@ class ItemDetailScreen extends ConsumerWidget {
         ),
         data: (item) {
           final canWrite = _canWrite(ref);
-          final isService = item.kind == 'service';
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: _maxContentWidth),
@@ -57,10 +55,10 @@ class ItemDetailScreen extends ConsumerWidget {
                     },
                     onArchiveToggle: () async {
                       final repo = ref.read(inventoryRepositoryProvider);
-                      if (item.status == 'archived') {
-                        await repo.unarchiveItem(item.id);
-                      } else {
+                      if (item.isActive) {
                         await repo.archiveItem(item.id);
+                      } else {
+                        await repo.unarchiveItem(item.id);
                       }
                       ref.invalidate(itemProvider(itemId));
                       ref.invalidate(itemListProvider);
@@ -68,36 +66,6 @@ class ItemDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 20),
                   _FactsCard(item: item),
-                  if (!isService) ...[
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Text('Movimentos',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const Spacer(),
-                        if (canWrite)
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                                minimumSize: const Size(0, 40)),
-                            onPressed: () async {
-                              final ok = await MovementFormDialog.show(
-                                context,
-                                itemId: item.id,
-                              );
-                              if (ok == true) {
-                                ref.invalidate(itemMovementsProvider(itemId));
-                                ref.invalidate(itemProvider(itemId));
-                                ref.invalidate(itemListProvider);
-                              }
-                            },
-                            icon: const Icon(Icons.swap_vert, size: 18),
-                            label: const Text('Registrar movimento'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _MovementHistory(itemId: itemId),
-                  ],
                 ],
               ),
             ),
@@ -124,8 +92,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isService = item.kind == 'service';
-    final archived = item.status == 'archived';
+    final archived = !item.isActive;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -143,10 +110,8 @@ class _Header extends StatelessWidget {
               color: AppColors.brandTint,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              isService
-                  ? Icons.design_services_outlined
-                  : Icons.inventory_2_outlined,
+            child: const Icon(
+              Icons.inventory_2_outlined,
               color: AppColors.brandDeep,
               size: 26,
             ),
@@ -160,7 +125,7 @@ class _Header extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
-                  isService ? 'Serviço' : 'Produto',
+                  'Produto',
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ],
@@ -214,25 +179,34 @@ class _FactsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isService = item.kind == 'service';
+    final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
     final facts = <(IconData, String, String?)>[
-      (Icons.sell_outlined, 'Preço de venda', money(item.salePriceCents)),
-      if (item.costPriceCents != null)
-        (Icons.payments_outlined, 'Custo', money(item.costPriceCents!)),
+      (Icons.sell_outlined, 'Preço de venda', money(item.salePrice)),
+      if (item.costPrice != null)
+        (Icons.payments_outlined, 'Custo', money(item.costPrice)),
+      if (item.marginPct != null)
+        (Icons.percent, 'Margem', '${item.marginPct}%'),
+      (Icons.inventory_outlined, 'Estoque', '${item.currentStock}$unit'),
+      if (item.minStock != null)
+        (Icons.warning_amber_outlined, 'Mínimo', item.minStock),
+      if (item.unit != null) (Icons.straighten, 'Unidade', item.unit),
       if (item.category != null)
         (Icons.category_outlined, 'Categoria', item.category),
-      if (item.code != null) (Icons.tag, 'Código', item.code),
-      if (!isService) (Icons.straighten, 'Unidade', item.unit),
-      if (!isService)
-        (Icons.inventory_outlined, 'Estoque', '${item.stockQty} ${item.unit}'),
-      if (!isService && item.minQty != null)
-        (Icons.warning_amber_outlined, 'Mínimo', item.minQty),
-      if (!isService && item.barcode != null)
+      if (item.brand != null) (Icons.business_outlined, 'Marca', item.brand),
+      if (item.sku != null) (Icons.tag, 'SKU', item.sku),
+      if (item.manufacturerCode != null)
+        (Icons.precision_manufacturing_outlined, 'Cód. fabricante',
+            item.manufacturerCode),
+      if (item.barcode != null)
         (Icons.qr_code_2, 'Cód. de barras', item.barcode),
-      if (!isService && item.brand != null)
-        (Icons.business_outlined, 'Marca', item.brand),
-      if (isService && item.durationMinutes != null)
-        (Icons.timer_outlined, 'Duração', '${item.durationMinutes} min'),
+      for (final entry in item.attributes.entries)
+        (
+          Icons.label_important_outline,
+          entry.key,
+          entry.value is List
+              ? (entry.value as List).join(', ')
+              : entry.value?.toString()
+        ),
     ];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -293,92 +267,6 @@ class _FactTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _MovementHistory extends ConsumerWidget {
-  const _MovementHistory({required this.itemId});
-  final String itemId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final movsAsync = ref.watch(itemMovementsProvider(itemId));
-    final scheme = Theme.of(context).colorScheme;
-
-    return movsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Text(
-        e is AppException ? e.message : 'Erro ao carregar movimentos.',
-      ),
-      data: (movs) {
-        if (movs.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.swap_vert,
-                    size: 32, color: scheme.onSurfaceVariant),
-                const SizedBox(height: 12),
-                Text('Nenhum movimento registrado ainda.',
-                    style: TextStyle(color: scheme.onSurfaceVariant)),
-              ],
-            ),
-          );
-        }
-        return Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          child: Column(
-            children: [
-              for (var i = 0; i < movs.length; i++) ...[
-                if (i > 0) const Divider(height: 1),
-                _MovementTile(mov: movs[i]),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MovementTile extends StatelessWidget {
-  const _MovementTile({required this.mov});
-  final InventoryMovement mov;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (icon, label, color) = switch (mov.type) {
-      'in' => (Icons.south_west, 'Entrada', AppColors.success),
-      'out' => (Icons.north_east, 'Saída', AppColors.danger),
-      _ => (Icons.tune, 'Ajuste', AppColors.info),
-    };
-    final subtitleParts = <String>[
-      'Saldo: ${mov.balanceAfter}',
-      if (mov.reason != null && mov.reason!.isNotEmpty) mov.reason!,
-      mov.createdAt,
-    ];
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.14),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text('$label · ${mov.quantity}'),
-      subtitle: Text(subtitleParts.join(' · '),
-          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
     );
   }
 }

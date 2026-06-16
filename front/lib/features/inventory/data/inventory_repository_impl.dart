@@ -33,9 +33,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<ItemPage> listItems({
     String? q,
-    String? kind,
     String? category,
-    String status = 'active',
+    String active = 'true',
     bool lowStock = false,
     int page = 1,
   }) =>
@@ -44,9 +43,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
           '/inventory/items',
           queryParameters: {
             if (q != null && q.isNotEmpty) 'q': q,
-            if (kind != null && kind.isNotEmpty) 'kind': kind,
             if (category != null && category.isNotEmpty) 'category': category,
-            'status': status,
+            'active': active,
             if (lowStock) 'lowStock': true,
             'page': page,
           },
@@ -90,24 +88,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
       });
 
   @override
-  Future<List<InventoryMovement>> listMovements(String id) => _guard(() async {
-        final res = await _dio.get<Object?>('/inventory/items/$id/movements');
-        return _asList(res.data).map(InventoryMovement.fromJson).toList();
-      });
-
-  @override
-  Future<InventoryMovement> registerMovement(String id, MovementDraft draft) =>
-      _guard(() async {
-        final res = await _dio.post<Object?>(
-          '/inventory/items/$id/movements',
-          data: draft.toJson(),
+  Future<LookupResult> lookup(String code) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/inventory/lookup',
+          queryParameters: {'code': code},
         );
-        return InventoryMovement.fromJson(_asMap(res.data));
+        return LookupResult.fromJson(_asMap(res.data));
       });
 
   @override
   Future<List<InventoryItem>> lowStock() => _guard(() async {
-        final res = await _dio.get<Object?>('/inventory/low-stock');
-        return _asList(res.data).map(InventoryItem.fromJson).toList();
+        final res = await _dio.get<Object?>(
+          '/inventory/items',
+          queryParameters: {'lowStock': true, 'active': 'true'},
+        );
+        return _asList(_asMap(res.data)['items'])
+            .map(InventoryItem.fromJson)
+            .toList();
       });
 }

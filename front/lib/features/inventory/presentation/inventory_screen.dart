@@ -10,23 +10,25 @@ import 'inventory_providers.dart';
 import 'item_detail_screen.dart';
 import 'item_form_dialog.dart';
 
-/// Formata centavos em "R$ X,XX" (vírgula decimal).
-String money(int cents) {
-  final v = (cents / 100).toStringAsFixed(2).replaceAll('.', ',');
-  return 'R\$ $v';
+/// Formata um preço decimal serializado ("45.90") em "R$ 45,90". Null → "—".
+String money(String? decimal) {
+  if (decimal == null || decimal.trim().isEmpty) return '—';
+  final v = double.tryParse(decimal);
+  if (v == null) return '—';
+  return 'R\$ ${v.toStringAsFixed(2).replaceAll('.', ',')}';
 }
 
 /// Item está com estoque no/abaixo do mínimo.
 bool isLowStock(InventoryItem i) {
-  if (!i.trackStock || i.minQty == null) return false;
-  final qty = double.tryParse(i.stockQty);
-  final min = double.tryParse(i.minQty!);
+  if (i.minStock == null) return false;
+  final qty = double.tryParse(i.currentStock);
+  final min = double.tryParse(i.minStock!);
   if (qty == null || min == null) return false;
   return qty <= min;
 }
 
-/// Lista de itens (produtos/serviços) com busca, filtro por tipo e baixo
-/// estoque, criar e abrir detalhe. Corpo apenas — a moldura é do shell.
+/// Lista de produtos com busca, filtro de baixo estoque, criar e abrir detalhe.
+/// Corpo apenas — a moldura é do shell.
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
@@ -69,33 +71,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'all',
-                    label: Text('Todos'),
-                    icon: Icon(Icons.apps, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: 'product',
-                    label: Text('Produtos'),
-                    icon: Icon(Icons.inventory_2_outlined, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: 'service',
-                    label: Text('Serviços'),
-                    icon: Icon(Icons.design_services_outlined, size: 18),
-                  ),
-                ],
-                selected: {query.kind ?? 'all'},
-                showSelectedIcon: false,
-                onSelectionChanged: (sel) {
-                  final v = sel.first;
-                  ref
-                      .read(itemListQueryProvider.notifier)
-                      .setKind(v == 'all' ? null : v);
-                },
-              ),
               FilterChip(
                 label: const Text('Só estoque baixo'),
                 avatar: Icon(
@@ -115,7 +90,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   decoration: const InputDecoration(
                     isDense: true,
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar item',
+                    hintText: 'Buscar produto',
                   ),
                   onChanged: (v) =>
                       ref.read(itemListQueryProvider.notifier).setQuery(v),
@@ -191,11 +166,10 @@ class _ItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isService = item.kind == 'service';
     final low = isLowStock(item);
-    final subtitle = isService
-        ? 'Serviço · ${money(item.salePriceCents)}'
-        : 'Estoque: ${item.stockQty} ${item.unit} · ${money(item.salePriceCents)}';
+    final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
+    final subtitle =
+        'Estoque: ${item.currentStock}$unit · ${money(item.salePrice)}';
     return ListTile(
       onTap: onOpen,
       leading: Container(
@@ -206,10 +180,8 @@ class _ItemTile extends StatelessWidget {
           color: AppColors.brandTint,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          isService
-              ? Icons.design_services_outlined
-              : Icons.inventory_2_outlined,
+        child: const Icon(
+          Icons.inventory_2_outlined,
           color: AppColors.brandDeep,
           size: 22,
         ),
@@ -237,7 +209,7 @@ class _ItemTile extends StatelessWidget {
                 ),
               ),
             ),
-          if (item.status == 'archived') ...[
+          if (!item.isActive) ...[
             const SizedBox(width: 6),
             Chip(
               visualDensity: VisualDensity.compact,

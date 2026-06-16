@@ -1,18 +1,17 @@
 import 'inventory_models.dart';
 
-/// Contrato do módulo Estoque & Serviços. O backend é a verdade (RLS +
+/// Contrato do módulo Estoque (produtos). O backend é a verdade (RLS +
 /// permissões + gating de módulo); o cliente só reflete para UX. Impl real (dio)
 /// + fake, trocadas por injeção Riverpod. A UI nunca fala com o dio direto.
 abstract interface class InventoryRepository {
-  // ---- config (unidade/categorias/margem padrão) ----
+  // ---- config (campos dinâmicos da vertical) ----
   Future<InventoryConfig> fetchConfig();
 
   // ---- items ----
   Future<ItemPage> listItems({
     String? q,
-    String? kind,
     String? category,
-    String status,
+    String active,
     bool lowStock,
     int page,
   });
@@ -22,10 +21,9 @@ abstract interface class InventoryRepository {
   Future<InventoryItem> archiveItem(String id);
   Future<InventoryItem> unarchiveItem(String id);
 
-  // ---- movements (saldo) ----
-  Future<List<InventoryMovement>> listMovements(String id);
-  Future<InventoryMovement> registerMovement(String id, MovementDraft draft);
+  /// Código-first: resolve por barras/fabricante/sku (`GET /inventory/lookup`).
+  Future<LookupResult> lookup(String code);
 
-  /// Itens com saldo no/abaixo do mínimo (`GET /inventory/low-stock`).
+  /// Itens com saldo no/abaixo do mínimo (filtro `lowStock=true`).
   Future<List<InventoryItem>> lowStock();
 }
