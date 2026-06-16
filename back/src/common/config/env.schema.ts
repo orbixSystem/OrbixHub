@@ -28,6 +28,17 @@ export const envSchema = z.object({
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
   APP_PUBLIC_URL: z.string().default('http://localhost:8090'),
+  // --- Inventory catalog lookup (código-first) ---
+  // External GTIN/EAN catalog provider. 'noop' = always empty (validation phase).
+  CATALOG_PROVIDER: z.enum(['noop', 'cosmos']).default('noop'),
+  // Master kill-switch: false = never call out, providers return null.
+  // NB: z.coerce.boolean() treats "false" as TRUE; parse explicitly.
+  CATALOG_ENABLED: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  // Bearer token for cosmos.bluesoft.com.br (secret — never sent to the front).
+  COSMOS_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
