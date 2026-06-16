@@ -210,13 +210,16 @@ export class InventoryService {
   }
 
   // ============ Public (consumed by OS — não pela UI deste módulo) ============
-  /** Busca 1 item por id (para a OS montar a linha por snapshot). */
-  getItem(_user: AuthUser, id: string) {
+  /**
+   * Busca 1 item por id (para a OS montar a linha por snapshot). Tenant vem do
+   * CLS (chamado dentro de um request autenticado) — sem AuthUser no contrato.
+   */
+  getItem(id: string) {
     return this.getItemOrThrow(id);
   }
 
-  /** Picker enxuto para a OS. */
-  async searchForPicker(user: AuthUser, q: string, kind?: 'product' | 'service') {
+  /** Picker enxuto para a OS (tenant via CLS). */
+  async searchForPicker(q: string, kind?: 'product' | 'service') {
     return this.tenant.withTenantTx(() => this.repo.searchForPicker(q?.trim() || undefined, kind));
   }
 
