@@ -202,7 +202,7 @@ export class InventoryService {
     });
   }
 
-  async lowStock(user: AuthUser) {
+  async lowStock(_user: AuthUser) {
     const { items } = await this.tenant.withTenantTx(() =>
       this.repo.listItems({ status: 'active', lowStock: true, skip: 0, take: 100 }),
     );
@@ -211,7 +211,7 @@ export class InventoryService {
 
   // ============ Public (consumed by OS — não pela UI deste módulo) ============
   /** Busca 1 item por id (para a OS montar a linha por snapshot). */
-  getItem(user: AuthUser, id: string) {
+  getItem(_user: AuthUser, id: string) {
     return this.getItemOrThrow(id);
   }
 
