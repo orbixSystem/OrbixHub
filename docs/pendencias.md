@@ -40,11 +40,10 @@ básico no trial, avançado no pro) precisamos de uma camada análoga à de mód
 - **Seeding de `itemFields` por vertical** no provisionamento do tenant (a casca da vertical semeia
   ex.: `vehicleApplication` na oficina) — hoje default `[]`.
 
-## Módulo Catálogo de Serviços (mão de obra) — módulo próprio (planejado)
-
-Serviço (mão de obra) **não** é do Estoque (regra do spec do módulo 4). É um módulo próprio:
-cadastro de serviços (nome, preço, duração estimada), consumido pela OS. A aba **"Serviço"** da tela
-de "Novo item" no front é hoje um **placeholder "em breve"** até este módulo existir.
+> **Decisão revista (2026-06-16):** **serviço voltou a ser do módulo `inventory`**
+> (tipo `produto`/`serviço`; serviço = item sem estoque, com preço + duração). O "Módulo
+> Catálogo de Serviços separado" do spec do Módulo 4 foi descartado a pedido do usuário —
+> um catálogo só (produtos + serviços) é mais simples pro estágio atual (1 oficina).
 
 ## Módulo Ordens de Serviço (`os`) — a detalhar em spec próprio
 
