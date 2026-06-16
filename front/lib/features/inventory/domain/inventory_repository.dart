@@ -21,6 +21,9 @@ abstract interface class InventoryRepository {
   Future<InventoryItem> archiveItem(String id);
   Future<InventoryItem> unarchiveItem(String id);
 
+  /// Soft delete: sai da lista, preservado no sistema (`DELETE /inventory/items/:id`).
+  Future<void> deleteItem(String id);
+
   /// Código-first: resolve por barras/fabricante/sku (`GET /inventory/lookup`).
   Future<LookupResult> lookup(String code);
 

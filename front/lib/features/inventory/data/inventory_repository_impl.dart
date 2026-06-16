@@ -88,6 +88,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
       });
 
   @override
+  Future<void> deleteItem(String id) => _guard(() async {
+        await _dio.delete<Object?>('/inventory/items/$id');
+      });
+
+  @override
   Future<LookupResult> lookup(String code) => _guard(() async {
         final res = await _dio.get<Object?>(
           '/inventory/lookup',

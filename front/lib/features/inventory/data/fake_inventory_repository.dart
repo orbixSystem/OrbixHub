@@ -110,6 +110,11 @@ class FakeInventoryRepository implements InventoryRepository {
   }
 
   @override
+  Future<void> deleteItem(String id) async {
+    _items.remove(id);
+  }
+
+  @override
   Future<LookupResult> lookup(String code) async {
     final hit = _items.values.where((i) =>
         i.barcode == code || i.sku == code || i.manufacturerCode == code);

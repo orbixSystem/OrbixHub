@@ -56,6 +56,7 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
         lowStock: state.lowStock,
       );
   void setLowStock(bool value) => state = state.copyWith(lowStock: value);
+  void setActive(String value) => state = state.copyWith(active: value);
 }
 
 final itemListQueryProvider =
