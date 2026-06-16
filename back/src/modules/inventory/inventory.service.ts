@@ -173,19 +173,16 @@ export class InventoryService {
   }
 
   async deleteItem(user: AuthUser, id: string) {
-    return this.tenant.withTenantTx(async () => {
+    // audit FORA do withTenantTx: audit.log abre sua própria transação, e aninhar
+    // transações esgota o pool ("Unable to start a transaction"). Mesmo padrão do createItem.
+    const item = await this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
       if (!existing || existing.deleted_at)
         throw new NotFoundException('Item não encontrado.');
-      const item = await this.repo.softDelete(id);
-      await this.audit.log(
-        user.tenantId,
-        user.userId,
-        'inventory_item_delete',
-        id,
-      );
-      return item;
+      return this.repo.softDelete(id);
     });
+    await this.audit.log(user.tenantId, user.userId, 'inventory_item_delete', id);
+    return item;
   }
 
   async updateItem(user: AuthUser, id: string, dto: UpdateInventoryItemDto) {
@@ -194,7 +191,7 @@ export class InventoryService {
       const errs = validateAttributes(dto.attributes, config.itemFields);
       if (errs.length) throw new BadRequestException(errs.join(' '));
     }
-    return this.tenant.withTenantTx(async () => {
+    const item = await this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
       if (!existing || existing.deleted_at)
         throw new NotFoundException('Item não encontrado.');
@@ -221,20 +218,16 @@ export class InventoryService {
       if (dto.attributes !== undefined)
         data.attributes = dto.attributes as Prisma.InputJsonValue;
       try {
-        const item = await this.repo.updateItem(id, data);
-        await this.audit.log(
-          user.tenantId,
-          user.userId,
-          'inventory_item_update',
-          id,
-        );
-        return item;
+        return await this.repo.updateItem(id, data);
       } catch (e) {
         if (isUniqueViolation(e))
           throw new ConflictException('Já existe um item com este código.');
         throw e;
       }
     });
+    // audit FORA do tx (evita transação aninhada — ver deleteItem).
+    await this.audit.log(user.tenantId, user.userId, 'inventory_item_update', id);
+    return item;
   }
 
   async archiveItem(user: AuthUser, id: string) {
@@ -249,14 +242,15 @@ export class InventoryService {
     isActive: boolean,
     action: AuditAction,
   ) {
-    return this.tenant.withTenantTx(async () => {
+    const item = await this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
       if (!existing || existing.deleted_at)
         throw new NotFoundException('Item não encontrado.');
-      const item = await this.repo.setActive(id, isActive);
-      await this.audit.log(user.tenantId, user.userId, action, id);
-      return item;
+      return this.repo.setActive(id, isActive);
     });
+    // audit FORA do tx (evita transação aninhada — ver deleteItem).
+    await this.audit.log(user.tenantId, user.userId, action, id);
+    return item;
   }
 
   /**
