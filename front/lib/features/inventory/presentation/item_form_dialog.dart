@@ -43,7 +43,6 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   late final TextEditingController _sku;
   late final TextEditingController _category;
   late final TextEditingController _brand;
-  late final TextEditingController _unit;
   late final TextEditingController _salePrice;
   late final TextEditingController _costPrice;
   late final TextEditingController _marginPct;
@@ -63,6 +62,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   String _kind = 'product';
   bool _saving = false;
   bool _lookingUp = false;
+  bool _suggestingSku = false;
   String? _error;
 
   @override
@@ -75,7 +75,6 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _sku = TextEditingController(text: it?.sku ?? '');
     _category = TextEditingController(text: it?.category ?? '');
     _brand = TextEditingController(text: it?.brand ?? '');
-    _unit = TextEditingController(text: it?.unit ?? '');
     _salePrice = TextEditingController(text: _fmt(it?.salePrice));
     _costPrice = TextEditingController(text: _fmt(it?.costPrice));
     _marginPct = TextEditingController(text: _fmt(it?.marginPct));
@@ -112,7 +111,6 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       _sku,
       _category,
       _brand,
-      _unit,
       _salePrice,
       _costPrice,
       _marginPct,
@@ -142,6 +140,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           final item = res.item;
           if (item != null) {
             _prefillFromItem(item);
+            await _autoSuggestSku();
             _snack('Já existe um item com este código: ${item.name}');
           }
         case 'catalog':
@@ -158,6 +157,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
               _autoFilled.add('category');
             }
             _placeCode(code);
+            await _autoSuggestSku();
             _snack('Campos preenchidos pelo catálogo (revise antes de salvar)');
           }
         default:
@@ -169,6 +169,42 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       _snack(e.message);
     } finally {
       if (mounted) setState(() => _lookingUp = false);
+    }
+  }
+
+  /// Botão "Sugerir": pede um SKU ao repository a partir do nome. Ação do
+  /// usuário — NÃO marca como auto-preenchido (sem destaque tangerina).
+  Future<void> _suggestSku() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      _snack('Informe o nome antes de sugerir um SKU');
+      return;
+    }
+    setState(() => _suggestingSku = true);
+    try {
+      final sku = await ref.read(inventoryRepositoryProvider).suggestSku(name);
+      _sku.text = sku;
+      _onEdit('sku');
+    } on AppException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _suggestingSku = false);
+    }
+  }
+
+  /// Após o código-first preencher o nome, sugere o SKU se ainda estiver vazio.
+  /// Resiliente: falha silenciosa (não quebra o fluxo de lookup).
+  Future<void> _autoSuggestSku() async {
+    final name = _name.text.trim();
+    if (name.isEmpty || _sku.text.trim().isNotEmpty) return;
+    try {
+      final sku = await ref.read(inventoryRepositoryProvider).suggestSku(name);
+      if (_sku.text.trim().isEmpty) {
+        _sku.text = sku;
+        _autoFilled.add('sku');
+      }
+    } on AppException {
+      // segue sem sugestão
     }
   }
 
@@ -193,7 +229,6 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _brand.text = it.brand ?? '';
     _autoFilled.addAll(const ['name', 'brand', 'category', 'barcode',
         'manufacturerCode']);
-    _unit.text = it.unit ?? '';
     _salePrice.text = _fmt(it.salePrice);
     _costPrice.text = _fmt(it.costPrice);
     _marginPct.text = _fmt(it.marginPct);
@@ -244,7 +279,6 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       barcode: _opt(_barcode.text),
       category: _opt(_category.text),
       brand: _opt(_brand.text),
-      unit: _opt(_unit.text),
       salePrice: _toDouble(_salePrice.text),
       costPrice: _toDouble(_costPrice.text),
       marginPct: _toDouble(_marginPct.text),
@@ -402,29 +436,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         ],
       ),
       const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              controller: _unit,
-              decoration: const InputDecoration(
-                labelText: 'Unidade',
-                hintText: 'un',
-                prefixIcon: Icon(Icons.straighten),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextFormField(
-              controller: _sku,
-              decoration: const InputDecoration(
-                labelText: 'SKU',
-                prefixIcon: Icon(Icons.tag),
-              ),
-            ),
-          ),
-        ],
+      TextFormField(
+        controller: _sku,
+        onChanged: (_) => _onEdit('sku'),
+        decoration: _dec('SKU', 'sku',
+            prefixIcon: const Icon(Icons.tag),
+            suffixIcon: IconButton(
+              tooltip: 'Sugerir SKU',
+              icon: _suggestingSku
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_fix_high),
+              onPressed: _suggestingSku ? null : _suggestSku,
+            )),
       ),
       const SizedBox(height: 12),
       Row(
@@ -463,10 +490,15 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
 
   /// Monta a `InputDecoration` de um campo, aplicando o destaque tangerina
   /// quando [key] estiver em [_autoFilled] (preenchido pelo catálogo/item).
-  InputDecoration _dec(String label, String? key, {Widget? prefixIcon}) {
+  InputDecoration _dec(String label, String? key,
+      {Widget? prefixIcon, Widget? suffixIcon}) {
     final highlighted = key != null && _autoFilled.contains(key);
     if (!highlighted) {
-      return InputDecoration(labelText: label, prefixIcon: prefixIcon);
+      return InputDecoration(
+        labelText: label,
+        prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
+      );
     }
     return InputDecoration(
       labelText: label,

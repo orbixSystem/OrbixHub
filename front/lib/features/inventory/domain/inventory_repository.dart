@@ -24,6 +24,10 @@ abstract interface class InventoryRepository {
   /// Código-first: resolve por barras/fabricante/sku (`GET /inventory/lookup`).
   Future<LookupResult> lookup(String code);
 
+  /// Sugere um SKU único para o tenant a partir do nome
+  /// (`GET /inventory/sku-suggestion?name=`).
+  Future<String> suggestSku(String name);
+
   /// Itens com saldo no/abaixo do mínimo (filtro `lowStock=true`).
   Future<List<InventoryItem>> lowStock();
 }

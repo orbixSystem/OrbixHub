@@ -97,6 +97,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
       });
 
   @override
+  Future<String> suggestSku(String name) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/inventory/sku-suggestion',
+          queryParameters: {'name': name},
+        );
+        return _asMap(res.data)['sku'] as String;
+      });
+
+  @override
   Future<List<InventoryItem>> lowStock() => _guard(() async {
         final res = await _dio.get<Object?>(
           '/inventory/items',

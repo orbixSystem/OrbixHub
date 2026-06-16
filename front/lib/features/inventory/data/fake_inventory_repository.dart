@@ -120,6 +120,52 @@ class FakeInventoryRepository implements InventoryRepository {
   }
 
   @override
+  Future<String> suggestSku(String name) async {
+    final base = _slug(name);
+    final existing = _items.values
+        .map((i) => i.sku)
+        .whereType<String>()
+        .toSet();
+    if (!existing.contains(base)) return base;
+    var n = 2;
+    while (existing.contains('$base-$n')) {
+      n++;
+    }
+    return '$base-$n';
+  }
+
+  /// Stopwords em PT-BR descartadas ao montar o slug do SKU.
+  static const _stopwords = {
+    'DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'COM', 'PARA', 'P', 'EM',
+    'NO', 'NA', 'O', 'A', 'OS', 'AS', 'UM', 'UMA',
+  };
+
+  /// Mapa simples de diacríticos comuns → ASCII.
+  static const _diacritics = {
+    'Á': 'A', 'À': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
+    'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+    'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+    'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
+    'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+    'Ç': 'C', 'Ñ': 'N',
+  };
+
+  String _slug(String name) {
+    var up = name.toUpperCase();
+    _diacritics.forEach((k, v) => up = up.replaceAll(k, v));
+    final cleaned = up.replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ');
+    final tokens = cleaned
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty && !_stopwords.contains(t))
+        .take(3)
+        .toList();
+    if (tokens.isEmpty) return 'ITEM';
+    var slug = tokens.join('-');
+    if (slug.length > 24) slug = slug.substring(0, 24);
+    return slug;
+  }
+
+  @override
   Future<List<InventoryItem>> lowStock() async =>
       _items.values.where(_isLow).toList();
 
