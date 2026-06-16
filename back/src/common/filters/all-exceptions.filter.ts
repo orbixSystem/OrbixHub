@@ -4,14 +4,18 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger('AllExceptionsFilter');
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
+    const req = ctx.getRequest<Request>();
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let error = 'Internal Server Error';
@@ -40,6 +44,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       500: 'Internal Server Error',
     };
     error = reason[statusCode] ?? error;
+
+    // Erros 5xx (inclui qualquer exceção não-HTTP, ex.: Prisma) são logados com
+    // stack — a resposta ao cliente segue genérica/sem vazar detalhe.
+    if (statusCode >= 500) {
+      const where = `${req?.method ?? '?'} ${req?.originalUrl ?? req?.url ?? '?'}`;
+      const stack =
+        exception instanceof Error ? exception.stack : String(exception);
+      this.logger.error(`5xx em ${where}: ${stack}`);
+    }
 
     res.status(statusCode).json({ statusCode, error, message });
   }
