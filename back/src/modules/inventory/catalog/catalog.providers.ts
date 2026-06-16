@@ -4,6 +4,7 @@ import type { Env } from '../../../common/config/env.schema';
 import { CATALOG_PROVIDER, CatalogProvider } from './catalog.provider';
 import { CosmosCatalogProvider } from './cosmos-catalog.provider';
 import { NoopCatalogProvider } from './noop-catalog.provider';
+import { OpenFoodFactsCatalogProvider } from './openfoodfacts-catalog.provider';
 
 /**
  * Factory de DI keyed em CATALOG_PROVIDER — mesmo padrão do PAYMENT_GATEWAY do
@@ -13,8 +14,14 @@ import { NoopCatalogProvider } from './noop-catalog.provider';
 export const catalogProviderFactory: Provider = {
   provide: CATALOG_PROVIDER,
   inject: [ENV],
-  useFactory: (env: Env): CatalogProvider =>
-    env.CATALOG_PROVIDER === 'cosmos'
-      ? new CosmosCatalogProvider(env)
-      : new NoopCatalogProvider(),
+  useFactory: (env: Env): CatalogProvider => {
+    switch (env.CATALOG_PROVIDER) {
+      case 'cosmos':
+        return new CosmosCatalogProvider(env);
+      case 'openfoodfacts':
+        return new OpenFoodFactsCatalogProvider();
+      default:
+        return new NoopCatalogProvider();
+    }
+  },
 };

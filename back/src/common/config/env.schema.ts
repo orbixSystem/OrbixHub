@@ -30,7 +30,7 @@ export const envSchema = z.object({
   APP_PUBLIC_URL: z.string().default('http://localhost:8090'),
   // --- Inventory catalog lookup (código-first) ---
   // External GTIN/EAN catalog provider. 'noop' = always empty (validation phase).
-  CATALOG_PROVIDER: z.enum(['noop', 'cosmos']).default('noop'),
+  CATALOG_PROVIDER: z.enum(['noop', 'cosmos', 'openfoodfacts']).default('noop'),
   // Master kill-switch: false = never call out, providers return null.
   // NB: z.coerce.boolean() treats "false" as TRUE; parse explicitly.
   CATALOG_ENABLED: z
