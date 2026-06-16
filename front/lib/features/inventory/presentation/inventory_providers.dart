@@ -19,24 +19,28 @@ class ItemListQuery {
   const ItemListQuery({
     this.q,
     this.category,
+    this.kind,
     this.active = 'true',
     this.lowStock = false,
   });
 
   final String? q;
   final String? category;
+  final String? kind; // null (todos) | 'product' | 'service'
   final String active; // 'true' | 'false' | 'all'
   final bool lowStock;
 
   ItemListQuery copyWith({
     String? q,
     String? category,
+    String? kind,
     String? active,
     bool? lowStock,
   }) =>
       ItemListQuery(
         q: q ?? this.q,
         category: category,
+        kind: kind ?? this.kind,
         active: active ?? this.active,
         lowStock: lowStock ?? this.lowStock,
       );
@@ -52,11 +56,20 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
   void setCategory(String? category) => state = ItemListQuery(
         q: state.q,
         category: category,
+        kind: state.kind,
+        active: state.active,
+        lowStock: state.lowStock,
+      );
+
+  /// Filtro por tipo: null = todos, 'product' ou 'service'.
+  void setKind(String? kind) => state = ItemListQuery(
+        q: state.q,
+        category: state.category,
+        kind: kind,
         active: state.active,
         lowStock: state.lowStock,
       );
   void setLowStock(bool value) => state = state.copyWith(lowStock: value);
-  void setActive(String value) => state = state.copyWith(active: value);
 }
 
 final itemListQueryProvider =
@@ -69,6 +82,7 @@ final itemListProvider = FutureProvider.autoDispose<ItemPage>((ref) {
   return ref.read(inventoryRepositoryProvider).listItems(
         q: query.q,
         category: query.category,
+        kind: query.kind,
         active: query.active,
         lowStock: query.lowStock,
       );

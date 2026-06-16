@@ -34,6 +34,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<ItemPage> listItems({
     String? q,
     String? category,
+    String? kind,
     String active = 'true',
     bool lowStock = false,
     int page = 1,
@@ -44,6 +45,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
           queryParameters: {
             if (q != null && q.isNotEmpty) 'q': q,
             if (category != null && category.isNotEmpty) 'category': category,
+            if (kind != null && kind.isNotEmpty) 'kind': kind,
             'active': active,
             if (lowStock) 'lowStock': true,
             'page': page,

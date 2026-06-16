@@ -13,12 +13,21 @@ double? _toDouble(String raw) {
   return double.tryParse(t);
 }
 
-/// Dialog de cadastro/edição de produto.
+/// Converte texto em int (duração em minutos). Null quando vazio/inválido.
+int? _toInt(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) return null;
+  return int.tryParse(t);
+}
+
+/// Dialog de cadastro/edição de item (produto ou serviço).
 ///
-/// Topo: aba Produto | Serviço. Serviço é placeholder ("módulo 3 — em breve") e
-/// desabilita o salvar. Produto traz o bloco **código-first** em destaque, os
-/// campos do núcleo (manufacturerCode/barcode primeiro) e os campos dinâmicos
-/// da vertical (`itemFields`). UI fala só com o repository (via providers).
+/// Topo: aba Produto | Serviço (travada na edição — `kind` não muda). Produto
+/// traz o bloco **código-first** (só na criação), os campos do núcleo
+/// (manufacturerCode/barcode) e os campos dinâmicos da vertical (`itemFields`).
+/// Serviço é um item sem estoque (sem código-first/códigos/estoque) com Duração.
+/// Na edição, barcode e cód. do fabricante ficam travados (identificam o item).
+/// UI fala só com o repository (via providers).
 class ItemFormDialog extends ConsumerStatefulWidget {
   const ItemFormDialog({super.key, this.existing});
 
@@ -48,6 +57,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   late final TextEditingController _marginPct;
   late final TextEditingController _minStock;
   late final TextEditingController _currentStock;
+  late final TextEditingController _durationMinutes;
 
   /// Bloco código-first.
   final _lookupCode = TextEditingController();
@@ -59,7 +69,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   /// Limpa a chave assim que o usuário edita o campo correspondente.
   final Set<String> _autoFilled = {};
 
-  String _kind = 'product';
+  late String _kind;
   bool _saving = false;
   bool _lookingUp = false;
   bool _suggestingSku = false;
@@ -69,6 +79,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   void initState() {
     super.initState();
     final it = widget.existing;
+    _kind = it?.kind ?? 'product';
+    _durationMinutes =
+        TextEditingController(text: it?.durationMinutes?.toString() ?? '');
     _manufacturerCode = TextEditingController(text: it?.manufacturerCode ?? '');
     _barcode = TextEditingController(text: it?.barcode ?? '');
     _name = TextEditingController(text: it?.name ?? '');
@@ -116,6 +129,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       _marginPct,
       _minStock,
       _currentStock,
+      _durationMinutes,
       _lookupCode,
       ..._dynamic.values,
     ]) {
@@ -272,18 +286,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     });
     final repo = ref.read(inventoryRepositoryProvider);
     final attributes = _collectAttributes(fields);
+    final isService = _kind == 'service';
     final draft = ItemDraft(
       name: _name.text.trim(),
+      kind: _kind,
+      durationMinutes: isService ? _toInt(_durationMinutes.text) : null,
       sku: _opt(_sku.text),
-      manufacturerCode: _opt(_manufacturerCode.text),
-      barcode: _opt(_barcode.text),
+      // Para serviço não enviamos códigos/estoque (item sem estoque).
+      manufacturerCode: isService ? null : _opt(_manufacturerCode.text),
+      barcode: isService ? null : _opt(_barcode.text),
       category: _opt(_category.text),
       brand: _opt(_brand.text),
       salePrice: _toDouble(_salePrice.text),
       costPrice: _toDouble(_costPrice.text),
       marginPct: _toDouble(_marginPct.text),
-      minStock: _toDouble(_minStock.text),
-      currentStock: _toDouble(_currentStock.text),
+      minStock: isService ? null : _toDouble(_minStock.text),
+      currentStock: isService ? null : _toDouble(_currentStock.text),
       attributes: attributes.isEmpty ? null : attributes,
     );
     try {
@@ -341,9 +359,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                 ),
                 const SizedBox(height: 16),
                 if (isService)
-                  _ServicePlaceholder()
+                  ..._serviceForm(fields, editing)
                 else
-                  ..._productForm(fields),
+                  ..._productForm(fields, editing),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -362,7 +380,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: (_saving || isService) ? null : () => _save(fields),
+          onPressed: _saving ? null : () => _save(fields),
           child: _saving
               ? const SizedBox(
                   width: 18,
@@ -375,31 +393,38 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     );
   }
 
-  List<Widget> _productForm(List<ItemFieldConfig> fields) {
+  List<Widget> _productForm(List<ItemFieldConfig> fields, bool editing) {
     return [
-      _CodeFirstCard(
-        controller: _lookupCode,
-        loading: _lookingUp,
-        onSubmit: _lookingUp ? null : _lookup,
-      ),
-      const SizedBox(height: 16),
+      // Código-first é um helper de criação — escondido na edição.
+      if (!editing) ...[
+        _CodeFirstCard(
+          controller: _lookupCode,
+          loading: _lookingUp,
+          onSubmit: _lookingUp ? null : _lookup,
+        ),
+        const SizedBox(height: 16),
+      ],
       Row(
         children: [
           Expanded(
             child: TextFormField(
               controller: _manufacturerCode,
+              readOnly: editing,
               decoration: _dec('Cód. do fabricante', 'manufacturerCode',
-                  prefixIcon: const Icon(Icons.precision_manufacturing_outlined)),
-              onChanged: (_) => _onEdit('manufacturerCode'),
+                  prefixIcon:
+                      const Icon(Icons.precision_manufacturing_outlined),
+                  locked: editing),
+              onChanged: editing ? null : (_) => _onEdit('manufacturerCode'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextFormField(
               controller: _barcode,
+              readOnly: editing,
               decoration: _dec('Código de barras', 'barcode',
-                  prefixIcon: const Icon(Icons.qr_code_2)),
-              onChanged: (_) => _onEdit('barcode'),
+                  prefixIcon: const Icon(Icons.qr_code_2), locked: editing),
+              onChanged: editing ? null : (_) => _onEdit('barcode'),
             ),
           ),
         ],
@@ -488,10 +513,114 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     ];
   }
 
+  /// Formulário de Serviço: item sem estoque (sem código-first, códigos,
+  /// estoque atual/mínimo). Foca em nome, preços, duração e classificação.
+  List<Widget> _serviceForm(List<ItemFieldConfig> fields, bool editing) {
+    return [
+      TextFormField(
+        controller: _name,
+        decoration: _dec('Nome *', 'name',
+            prefixIcon: const Icon(Icons.label_outline)),
+        onChanged: (_) => _onEdit('name'),
+        validator: (v) =>
+            (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(child: _numField(_salePrice, 'Preço de venda', 'R\$ ',
+              Icons.sell_outlined)),
+          const SizedBox(width: 12),
+          Expanded(child: _numField(_costPrice, 'Preço de custo', 'R\$ ',
+              Icons.payments_outlined)),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(child: _numField(_marginPct, 'Margem %', null,
+              Icons.percent)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: _durationMinutes,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Duração (min)',
+                prefixIcon: Icon(Icons.schedule_outlined),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _category,
+              decoration: _dec('Categoria', 'category',
+                  prefixIcon: const Icon(Icons.category_outlined)),
+              onChanged: (_) => _onEdit('category'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: _brand,
+              decoration: _dec('Marca', 'brand',
+                  prefixIcon: const Icon(Icons.business_outlined)),
+              onChanged: (_) => _onEdit('brand'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      TextFormField(
+        controller: _sku,
+        onChanged: (_) => _onEdit('sku'),
+        decoration: _dec('SKU', 'sku',
+            prefixIcon: const Icon(Icons.tag),
+            suffixIcon: IconButton(
+              tooltip: 'Sugerir SKU',
+              icon: _suggestingSku
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_fix_high),
+              onPressed: _suggestingSku ? null : _suggestSku,
+            )),
+      ),
+      if (fields.isNotEmpty) ...[
+        const SizedBox(height: 20),
+        _SectionHeader(icon: Icons.tune, text: 'Detalhes do item'),
+        const SizedBox(height: 8),
+        for (final f in fields) ...[
+          _dynamicField(f),
+          const SizedBox(height: 12),
+        ],
+      ],
+    ];
+  }
+
   /// Monta a `InputDecoration` de um campo, aplicando o destaque tangerina
   /// quando [key] estiver em [_autoFilled] (preenchido pelo catálogo/item).
   InputDecoration _dec(String label, String? key,
-      {Widget? prefixIcon, Widget? suffixIcon}) {
+      {Widget? prefixIcon, Widget? suffixIcon, bool locked = false}) {
+    // Campo travado na edição (identifica o item): visual apagado + cadeado.
+    if (locked) {
+      return InputDecoration(
+        labelText: label,
+        prefixIcon: prefixIcon,
+        filled: true,
+        fillColor: AppColors.surfaceSunken,
+        enabled: false,
+        suffixIcon: const Icon(Icons.lock_outline, size: 18),
+        helperText: 'Não editável',
+      );
+    }
     final highlighted = key != null && _autoFilled.contains(key);
     if (!highlighted) {
       return InputDecoration(
@@ -659,29 +788,6 @@ class _CodeFirstCard extends StatelessWidget {
                   : const Icon(Icons.search, size: 18),
               label: const Text('Buscar e preencher'),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Placeholder da aba Serviço (módulo 3 — Catálogo de serviços, ainda não existe).
-class _ServicePlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 12),
-      child: Column(
-        children: [
-          Icon(Icons.design_services_outlined,
-              size: 40, color: scheme.onSurfaceVariant),
-          const SizedBox(height: 16),
-          Text(
-            'Catálogo de Serviços (módulo 3) — em breve',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
         ],
       ),

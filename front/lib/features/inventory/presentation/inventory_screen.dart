@@ -83,13 +83,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 children: [
                   SegmentedButton<String>(
                     segments: const [
-                      ButtonSegment(value: 'true', label: Text('Ativos')),
-                      ButtonSegment(value: 'false', label: Text('Arquivados')),
                       ButtonSegment(value: 'all', label: Text('Todos')),
+                      ButtonSegment(value: 'product', label: Text('Produtos')),
+                      ButtonSegment(value: 'service', label: Text('Serviços')),
                     ],
-                    selected: {query.active},
+                    selected: {query.kind ?? 'all'},
                     showSelectedIcon: false,
-                    onSelectionChanged: (sel) => notifier.setActive(sel.first),
+                    onSelectionChanged: (sel) => notifier
+                        .setKind(sel.first == 'all' ? null : sel.first),
                   ),
                   FilterChip(
                     label: const Text('Só estoque baixo'),
@@ -203,26 +204,8 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
       case 'editar':
         final ok = await ItemFormDialog.show(context, existing: _item);
         if (ok == true) ref.invalidate(itemListProvider);
-      case 'archive':
-        await _archiveToggle();
       case 'delete':
         await _delete();
-    }
-  }
-
-  Future<void> _archiveToggle() async {
-    final repo = ref.read(inventoryRepositoryProvider);
-    try {
-      if (_item.isActive) {
-        await repo.archiveItem(_item.id);
-        _snack('Arquivado');
-      } else {
-        await repo.unarchiveItem(_item.id);
-        _snack('Reativado');
-      }
-      ref.invalidate(itemListProvider);
-    } on AppException catch (e) {
-      _snack(e.message);
     }
   }
 
@@ -261,10 +244,14 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
   @override
   Widget build(BuildContext context) {
     final item = _item;
-    final low = isLowStock(item);
+    final isService = item.kind == 'service';
+    final low = isService ? false : isLowStock(item);
     final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
-    final subtitle =
-        'Estoque: ${item.currentStock}$unit · ${money(item.salePrice)}';
+    final duration = item.durationMinutes;
+    final subtitle = isService
+        ? 'Serviço · ${money(item.salePrice)}'
+            '${duration != null ? ' · $duration min' : ''}'
+        : 'Estoque: ${item.currentStock}$unit · ${money(item.salePrice)}';
     final archived = !item.isActive;
 
     return Column(
@@ -284,8 +271,10 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                     color: AppColors.brandTint,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.inventory_2_outlined,
+                  child: Icon(
+                    isService
+                        ? Icons.design_services_outlined
+                        : Icons.inventory_2_outlined,
                     color: AppColors.brandDeep,
                     size: 22,
                   ),
@@ -331,17 +320,6 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(Icons.edit_outlined),
                           title: Text('Editar'),
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'archive',
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(archived
-                              ? Icons.unarchive_outlined
-                              : Icons.archive_outlined),
-                          title: Text(archived ? 'Desarquivar' : 'Arquivar'),
                         ),
                       ),
                       const PopupMenuItem(
@@ -427,6 +405,7 @@ class _FactsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isService = item.kind == 'service';
     final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
     final facts = <(IconData, String, String?)>[
       (Icons.sell_outlined, 'Preço de venda', money(item.salePrice)),
@@ -434,18 +413,21 @@ class _FactsCard extends StatelessWidget {
         (Icons.payments_outlined, 'Custo', money(item.costPrice)),
       if (item.marginPct != null)
         (Icons.percent, 'Margem', '${item.marginPct}%'),
-      (Icons.inventory_outlined, 'Estoque', '${item.currentStock}$unit'),
-      if (item.minStock != null)
+      if (isService && item.durationMinutes != null)
+        (Icons.schedule_outlined, 'Duração', '${item.durationMinutes} min'),
+      if (!isService)
+        (Icons.inventory_outlined, 'Estoque', '${item.currentStock}$unit'),
+      if (!isService && item.minStock != null)
         (Icons.warning_amber_outlined, 'Mínimo', item.minStock),
       if (item.unit != null) (Icons.straighten, 'Unidade', item.unit),
       if (item.category != null)
         (Icons.category_outlined, 'Categoria', item.category),
       if (item.brand != null) (Icons.business_outlined, 'Marca', item.brand),
       if (item.sku != null) (Icons.tag, 'SKU', item.sku),
-      if (item.manufacturerCode != null)
+      if (!isService && item.manufacturerCode != null)
         (Icons.precision_manufacturing_outlined, 'Cód. fabricante',
             item.manufacturerCode),
-      if (item.barcode != null)
+      if (!isService && item.barcode != null)
         (Icons.qr_code_2, 'Cód. de barras', item.barcode),
       for (final entry in item.attributes.entries)
         (

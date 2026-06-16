@@ -11,6 +11,7 @@ abstract interface class InventoryRepository {
   Future<ItemPage> listItems({
     String? q,
     String? category,
+    String? kind,
     String active,
     bool lowStock,
     int page,

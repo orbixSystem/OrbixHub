@@ -21,6 +21,7 @@ class FakeInventoryRepository implements InventoryRepository {
   Future<ItemPage> listItems({
     String? q,
     String? category,
+    String? kind,
     String active = 'true',
     bool lowStock = false,
     int page = 1,
@@ -30,6 +31,9 @@ class FakeInventoryRepository implements InventoryRepository {
       if (active == 'all') return true;
       return i.isActive == (active == 'true');
     });
+    if (kind != null && kind.isNotEmpty) {
+      list = list.where((i) => i.kind == kind);
+    }
     if (category != null && category.isNotEmpty) {
       list = list.where((i) => i.category == category);
     }
@@ -53,20 +57,23 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<InventoryItem> createItem(ItemDraft d) async {
     final id = 'item-${_seq++}';
+    final isService = d.kind == 'service';
     final item = InventoryItem(
       id: id,
       name: d.name,
+      kind: d.kind,
+      durationMinutes: isService ? d.durationMinutes : null,
       sku: d.sku,
-      manufacturerCode: d.manufacturerCode,
-      barcode: d.barcode,
+      manufacturerCode: isService ? null : d.manufacturerCode,
+      barcode: isService ? null : d.barcode,
       category: d.category,
       brand: d.brand,
       unit: d.unit,
       salePrice: d.salePrice?.toString(),
       costPrice: d.costPrice?.toString(),
       marginPct: d.marginPct?.toString(),
-      currentStock: (d.currentStock ?? 0).toString(),
-      minStock: d.minStock?.toString(),
+      currentStock: isService ? '0' : (d.currentStock ?? 0).toString(),
+      minStock: isService ? null : d.minStock?.toString(),
       attributes: d.attributes ?? const <String, dynamic>{},
     );
     _items[id] = item;
@@ -76,19 +83,25 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<InventoryItem> updateItem(String id, ItemDraft d) async {
     final cur = _items[id]!;
+    final isService = cur.kind == 'service'; // kind não é editável no PATCH
     final next = cur.copyWith(
       name: d.name,
+      durationMinutes:
+          isService ? (d.durationMinutes ?? cur.durationMinutes) : null,
       sku: d.sku,
-      manufacturerCode: d.manufacturerCode,
-      barcode: d.barcode,
+      // barcode/manufacturerCode não editáveis: preserva os atuais.
+      manufacturerCode: cur.manufacturerCode,
+      barcode: cur.barcode,
       category: d.category,
       brand: d.brand,
       unit: d.unit,
       salePrice: d.salePrice?.toString() ?? cur.salePrice,
       costPrice: d.costPrice?.toString() ?? cur.costPrice,
       marginPct: d.marginPct?.toString() ?? cur.marginPct,
-      currentStock: d.currentStock?.toString() ?? cur.currentStock,
-      minStock: d.minStock?.toString() ?? cur.minStock,
+      currentStock: isService
+          ? '0'
+          : (d.currentStock?.toString() ?? cur.currentStock),
+      minStock: isService ? null : (d.minStock?.toString() ?? cur.minStock),
       attributes: d.attributes ?? cur.attributes,
     );
     _items[id] = next;
@@ -126,24 +139,19 @@ class FakeInventoryRepository implements InventoryRepository {
 
   @override
   Future<String> suggestSku(String name) async {
-    final base = _slug(name);
+    final abbrev = _abbrev(name); // 4-letter prefix (ex.: CAFE)
     final existing = _items.values
         .map((i) => i.sku)
         .whereType<String>()
         .toSet();
-    if (!existing.contains(base)) return base;
-    var n = 2;
-    while (existing.contains('$base-$n')) {
+    var n = 1;
+    var sku = '$abbrev${n.toString().padLeft(4, '0')}';
+    while (existing.contains(sku)) {
       n++;
+      sku = '$abbrev${n.toString().padLeft(4, '0')}';
     }
-    return '$base-$n';
+    return sku;
   }
-
-  /// Stopwords em PT-BR descartadas ao montar o slug do SKU.
-  static const _stopwords = {
-    'DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'COM', 'PARA', 'P', 'EM',
-    'NO', 'NA', 'O', 'A', 'OS', 'AS', 'UM', 'UMA',
-  };
 
   /// Mapa simples de diacríticos comuns → ASCII.
   static const _diacritics = {
@@ -155,19 +163,15 @@ class FakeInventoryRepository implements InventoryRepository {
     'Ç': 'C', 'Ñ': 'N',
   };
 
-  String _slug(String name) {
+  /// Abreviação de 4 letras do nome (sem acentos, maiúsculas), preenchida com
+  /// 'X' até 4 chars; 'ITEM' quando não há letras.
+  String _abbrev(String name) {
     var up = name.toUpperCase();
     _diacritics.forEach((k, v) => up = up.replaceAll(k, v));
-    final cleaned = up.replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ');
-    final tokens = cleaned
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty && !_stopwords.contains(t))
-        .take(3)
-        .toList();
-    if (tokens.isEmpty) return 'ITEM';
-    var slug = tokens.join('-');
-    if (slug.length > 24) slug = slug.substring(0, 24);
-    return slug;
+    final letters = up.replaceAll(RegExp(r'[^A-Z]'), '');
+    if (letters.isEmpty) return 'ITEM';
+    final take = letters.length >= 4 ? letters.substring(0, 4) : letters;
+    return take.padRight(4, 'X');
   }
 
   @override

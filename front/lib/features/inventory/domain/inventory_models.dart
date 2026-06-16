@@ -11,6 +11,8 @@ abstract class InventoryItem with _$InventoryItem {
   const factory InventoryItem({
     required String id,
     required String name,
+    @Default('product') String kind, // 'product' | 'service'
+    @JsonKey(name: 'duration_minutes') int? durationMinutes,
     String? sku,
     @JsonKey(name: 'manufacturer_code') String? manufacturerCode,
     String? barcode,
@@ -106,6 +108,8 @@ abstract class LookupResult with _$LookupResult {
 class ItemDraft {
   const ItemDraft({
     required this.name,
+    this.kind = 'product',
+    this.durationMinutes,
     this.sku,
     this.manufacturerCode,
     this.barcode,
@@ -121,6 +125,8 @@ class ItemDraft {
   });
 
   final String name;
+  final String kind; // 'product' | 'service'
+  final int? durationMinutes;
   final String? sku;
   final String? manufacturerCode;
   final String? barcode;
@@ -136,6 +142,8 @@ class ItemDraft {
 
   Map<String, dynamic> toJson() => {
         'name': name,
+        'kind': kind,
+        if (durationMinutes != null) 'durationMinutes': durationMinutes,
         if (sku != null) 'sku': sku,
         if (manufacturerCode != null) 'manufacturerCode': manufacturerCode,
         if (barcode != null) 'barcode': barcode,

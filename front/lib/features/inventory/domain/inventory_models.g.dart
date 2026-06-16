@@ -10,6 +10,8 @@ _InventoryItem _$InventoryItemFromJson(Map<String, dynamic> json) =>
     _InventoryItem(
       id: json['id'] as String,
       name: json['name'] as String,
+      kind: json['kind'] as String? ?? 'product',
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt(),
       sku: json['sku'] as String?,
       manufacturerCode: json['manufacturer_code'] as String?,
       barcode: json['barcode'] as String?,
@@ -31,6 +33,8 @@ Map<String, dynamic> _$InventoryItemToJson(_InventoryItem instance) =>
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
+      'kind': instance.kind,
+      'duration_minutes': instance.durationMinutes,
       'sku': instance.sku,
       'manufacturer_code': instance.manufacturerCode,
       'barcode': instance.barcode,
