@@ -106,19 +106,23 @@ export class InventoryService {
     const errs = validateAttributes(dto.attributes, config.itemFields);
     if (errs.length) throw new BadRequestException(errs.join(' '));
 
+    const isService = dto.kind === 'service';
     const data = {
       name: dto.name.trim(),
+      kind: dto.kind ?? 'product',
+      // Serviço não controla estoque: sem barcode/código do fabricante/estoque.
       sku: trimOrNull(dto.sku),
-      manufacturer_code: trimOrNull(dto.manufacturerCode),
-      barcode: trimOrNull(dto.barcode),
+      manufacturer_code: isService ? null : trimOrNull(dto.manufacturerCode),
+      barcode: isService ? null : trimOrNull(dto.barcode),
       category: trimOrNull(dto.category),
       brand: trimOrNull(dto.brand),
       unit: trimOrNull(dto.unit),
       sale_price: dto.salePrice ?? null,
       cost_price: dto.costPrice ?? null,
       margin_pct: dto.marginPct ?? null,
-      current_stock: dto.currentStock ?? 0,
-      min_stock: dto.minStock ?? null,
+      current_stock: isService ? 0 : (dto.currentStock ?? 0),
+      min_stock: isService ? null : (dto.minStock ?? null),
+      duration_minutes: isService ? (dto.durationMinutes ?? null) : null,
       attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue,
     };
     try {
@@ -151,6 +155,7 @@ export class InventoryService {
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listItems({
         q: query.q?.trim() || undefined,
+        kind: query.kind,
         category: query.category?.trim() || undefined,
         active,
         lowStock: query.lowStock ?? false,
@@ -193,20 +198,26 @@ export class InventoryService {
       const existing = await this.repo.findItemById(id);
       if (!existing || existing.deleted_at)
         throw new NotFoundException('Item não encontrado.');
+      // kind nunca muda; serviço não controla estoque (ignora campos de estoque).
+      const isService = existing.kind === 'service';
       const data: Record<string, unknown> = {};
       if (dto.name !== undefined) data.name = dto.name.trim();
       if (dto.sku !== undefined) data.sku = trimOrNull(dto.sku);
-      if (dto.manufacturerCode !== undefined)
+      if (!isService && dto.manufacturerCode !== undefined)
         data.manufacturer_code = trimOrNull(dto.manufacturerCode);
-      if (dto.barcode !== undefined) data.barcode = trimOrNull(dto.barcode);
+      if (!isService && dto.barcode !== undefined)
+        data.barcode = trimOrNull(dto.barcode);
       if (dto.category !== undefined) data.category = trimOrNull(dto.category);
       if (dto.brand !== undefined) data.brand = trimOrNull(dto.brand);
       if (dto.unit !== undefined) data.unit = trimOrNull(dto.unit);
       if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
       if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
       if (dto.marginPct !== undefined) data.margin_pct = dto.marginPct;
-      if (dto.currentStock !== undefined) data.current_stock = dto.currentStock;
-      if (dto.minStock !== undefined) data.min_stock = dto.minStock;
+      if (!isService && dto.currentStock !== undefined)
+        data.current_stock = dto.currentStock;
+      if (!isService && dto.minStock !== undefined) data.min_stock = dto.minStock;
+      if (dto.durationMinutes !== undefined)
+        data.duration_minutes = dto.durationMinutes;
       if (dto.attributes !== undefined)
         data.attributes = dto.attributes as Prisma.InputJsonValue;
       try {
@@ -265,7 +276,13 @@ export class InventoryService {
 
   async lowStock(_user: AuthUser) {
     const { items } = await this.tenant.withTenantTx(() =>
-      this.repo.listItems({ active: 'active', lowStock: true, skip: 0, take: 100 }),
+      this.repo.listItems({
+        active: 'active',
+        kind: 'product',
+        lowStock: true,
+        skip: 0,
+        take: 100,
+      }),
     );
     return items;
   }
@@ -311,6 +328,8 @@ export class InventoryService {
     return this.tenant.runWithTenant(tenantId, async () => {
       const item = await this.repo.findItemById(id);
       if (!item) throw new NotFoundException('Item não encontrado.');
+      if (item.kind === 'service')
+        throw new BadRequestException('Serviço não controla estoque.');
       const next = toNum(item.current_stock) + qty;
       return this.repo.adjustStock(id, next);
     });
@@ -321,6 +340,8 @@ export class InventoryService {
     return this.tenant.runWithTenant(tenantId, async () => {
       const item = await this.repo.findItemById(id);
       if (!item) throw new NotFoundException('Item não encontrado.');
+      if (item.kind === 'service')
+        throw new BadRequestException('Serviço não controla estoque.');
       const next = toNum(item.current_stock) - qty;
       if (next < 0) throw new BadRequestException('Estoque insuficiente.');
       return this.repo.adjustStock(id, next);

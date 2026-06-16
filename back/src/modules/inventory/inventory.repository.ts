@@ -4,6 +4,7 @@ import { TenantContext } from '../../common/database/tenant-context';
 
 export interface ItemFilter {
   q?: string;
+  kind?: 'product' | 'service';
   category?: string;
   /** Filtro por estado: 'active' (padrão), 'archived', ou 'all'. */
   active: 'active' | 'archived' | 'all';
@@ -16,6 +17,8 @@ type DecimalIn = Prisma.Decimal | number;
 
 export interface ItemData {
   name?: string;
+  kind?: 'product' | 'service';
+  duration_minutes?: number | null;
   sku?: string | null;
   manufacturer_code?: string | null;
   barcode?: string | null;
@@ -61,6 +64,7 @@ export class InventoryRepository {
     const where: Prisma.inventory_itemWhereInput = {
       deleted_at: null,
       ...this.activeWhere(filter.active),
+      ...(filter.kind ? { kind: filter.kind } : {}),
       ...(filter.category
         ? { category: { equals: filter.category, mode: 'insensitive' } }
         : {}),

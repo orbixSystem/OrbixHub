@@ -589,12 +589,23 @@ CREATE TABLE IF NOT EXISTS inventory_item (
   attributes        jsonb NOT NULL DEFAULT '{}'::jsonb,
   is_active         boolean NOT NULL DEFAULT true,
   deleted_at        timestamptz,
+  kind              text NOT NULL DEFAULT 'product',
+  duration_minutes  integer,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
 -- soft delete (aditivo): deleted_at NULL = ativo; setado = excluído. Idempotente p/ DBs já criados.
 ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
+-- 0013 — tipo produto|serviço (+ duração p/ serviço). Aditivo. Idempotente p/ DBs já criados.
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'product';
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS duration_minutes integer;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='inventory_item_kind_chk') THEN
+    ALTER TABLE inventory_item ADD CONSTRAINT inventory_item_kind_chk CHECK (kind IN ('product','service'));
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_barcode
   ON inventory_item(tenant_id, barcode);

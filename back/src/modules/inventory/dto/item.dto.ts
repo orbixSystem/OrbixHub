@@ -10,6 +10,8 @@ import { Type } from 'class-transformer';
  */
 export class CreateInventoryItemDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
+  @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
+  @IsOptional() @IsInt() @Min(0) durationMinutes?: number;
   @IsOptional() @IsString() @MaxLength(60) sku?: string;
   @IsOptional() @IsString() @MaxLength(60) manufacturerCode?: string;
   @IsOptional() @IsString() @MaxLength(60) barcode?: string;
@@ -27,6 +29,7 @@ export class CreateInventoryItemDto {
 
 export class UpdateInventoryItemDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(200) name?: string;
+  @IsOptional() @IsInt() @Min(0) durationMinutes?: number;
   @IsOptional() @IsString() @MaxLength(60) sku?: string;
   @IsOptional() @IsString() @MaxLength(60) manufacturerCode?: string;
   @IsOptional() @IsString() @MaxLength(60) barcode?: string;
@@ -48,6 +51,7 @@ export class SkuSuggestionQueryDto {
 
 export class ItemQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
   @IsOptional() @IsString() @MaxLength(120) category?: string;
   @IsOptional() @Type(() => Boolean) @IsBoolean() lowStock?: boolean;
   /** 'true' (padrão: só ativos), 'false' (só arquivados), 'all'. */

@@ -408,6 +408,48 @@ describe('Inventory — Produtos (e2e)', () => {
     });
   });
 
+  // ---- 7b. product / service (kind) ------------------------------------
+  describe('product / service (kind)', () => {
+    it('creates a service (no stock) and filters by kind', async () => {
+      const o = await registerOwner();
+
+      // a product (default kind) coexists with the service
+      const prod = await createItem(o.access, {
+        name: 'Pastilha de freio',
+        salePrice: 45.9,
+        currentStock: 10,
+      });
+      expect(prod.status).toBe(201);
+      expect(prod.body.kind).toBe('product');
+      const prodId = prod.body.id as string;
+
+      // a service: no stock, has price + optional duration
+      const svc = await createItem(o.access, {
+        kind: 'service',
+        name: 'Troca de óleo',
+        salePrice: 80,
+        durationMinutes: 30,
+      });
+      expect(svc.status).toBe(201);
+      expect(svc.body.kind).toBe('service');
+      expect(Number(svc.body.current_stock)).toBe(0);
+      expect(svc.body.duration_minutes).toBe(30);
+      const svcId = svc.body.id as string;
+
+      // ?kind=service -> includes the service, excludes the product
+      const serviceList = await listItems(o.access, '?kind=service');
+      expect(serviceList.status).toBe(200);
+      expect(ids(serviceList.body.items as IdRow[])).toContain(svcId);
+      expect(ids(serviceList.body.items as IdRow[])).not.toContain(prodId);
+
+      // ?kind=product -> includes the product, excludes the service
+      const productList = await listItems(o.access, '?kind=product');
+      expect(productList.status).toBe(200);
+      expect(ids(productList.body.items as IdRow[])).toContain(prodId);
+      expect(ids(productList.body.items as IdRow[])).not.toContain(svcId);
+    });
+  });
+
   // ---- 8. authorization by role ----------------------------------------
   describe('authorization', () => {
     it('mechanic reads items (200) but cannot create (403) nor patch config (403)', async () => {

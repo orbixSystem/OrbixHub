@@ -81,6 +81,8 @@ model inventory_item {
   attributes        Json     @default(dbgenerated("'{}'::jsonb"))
   is_active         Boolean  @default(true)
   deleted_at        DateTime? @db.Timestamptz(6)
+  kind              String   @default("product")
+  duration_minutes  Int?
   created_at        DateTime @default(now()) @db.Timestamptz(6)
   updated_at        DateTime @default(now()) @db.Timestamptz(6)
   tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
