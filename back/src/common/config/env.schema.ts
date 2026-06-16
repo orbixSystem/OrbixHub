@@ -39,6 +39,8 @@ export const envSchema = z.object({
     .transform((s) => s.toLowerCase() === 'true'),
   // Bearer token for cosmos.bluesoft.com.br (secret — never sent to the front).
   COSMOS_TOKEN: z.string().optional(),
+  // User-Agent exigido pela Cosmos (fornecido na sua conta ao logar).
+  COSMOS_USER_AGENT: z.string().default('OrbixHub/1.0 (+https://orbixhub)'),
 });
 
 export type Env = z.infer<typeof envSchema>;

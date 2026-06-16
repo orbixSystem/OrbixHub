@@ -38,6 +38,8 @@ export class CosmosCatalogProvider extends CatalogProvider {
       const res = await fetch(`${this.baseUrl}/gtins/${encodeURIComponent(gtin)}`, {
         headers: {
           'X-Cosmos-Token': this.env.COSMOS_TOKEN,
+          // A Cosmos exige um User-Agent (fornecido na sua conta).
+          'User-Agent': this.env.COSMOS_USER_AGENT,
           Accept: 'application/json',
         },
       });
