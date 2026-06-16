@@ -12,7 +12,12 @@ export type AuditAction =
   | 'member_deactivate'
   | 'settings_change'
   | 'customer_delete'
-  | 'subject_delete';
+  | 'subject_delete'
+  | 'inventory_item_create'
+  | 'inventory_item_update'
+  | 'inventory_item_archive'
+  | 'inventory_item_unarchive'
+  | 'inventory_movement';
 
 @Injectable()
 export class AuditService {
