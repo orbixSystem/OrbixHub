@@ -259,18 +259,18 @@ export class InventoryService {
     });
   }
 
-  /** Sugere um SKU legível e único por tenant a partir do nome do produto. */
+  /**
+   * Sugere um SKU de 8 caracteres único por tenant: 4 letras (abreviação do nome)
+   * + 4 dígitos sequenciais (ex.: CAFE0001, CAFE0002…).
+   */
   async suggestSku(_user: AuthUser, name: string): Promise<{ sku: string }> {
-    const base = skuBaseFromName(name);
+    const abbr = skuBaseFromName(name); // 4 letras
     return this.tenant.withTenantTx(async () => {
-      let candidate = base;
-      let n = 1;
-      // cap defensivo
-      while (n < 100 && (await this.repo.skuExists(candidate))) {
-        n += 1;
-        candidate = `${base}-${n}`;
+      for (let n = 1; n < 10000; n++) {
+        const candidate = `${abbr}${String(n).padStart(4, '0')}`;
+        if (!(await this.repo.skuExists(candidate))) return { sku: candidate };
       }
-      return { sku: candidate };
+      return { sku: `${abbr}0000` }; // fallback defensivo (improvável)
     });
   }
 

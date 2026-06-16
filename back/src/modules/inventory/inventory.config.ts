@@ -41,22 +41,19 @@ export function mergeInventoryConfig(
   };
 }
 
-/** Base de SKU legível a partir do nome do produto (sem acento, maiúsculo,
- *  palavras-chave). NÃO garante unicidade — o service resolve colisão. */
+/**
+ * Abreviação de 4 letras a partir do nome (sem acento, só letras, maiúsculo).
+ * É a base do SKU sugerido — formato final = 4 letras + 4 dígitos = 8 chars (ex.: CAFE0001).
+ * Curto demais → completa com 'X'; sem letras → 'ITEM'. NÃO garante unicidade (o service resolve).
+ */
 export function skuBaseFromName(name: string): string {
-  const STOP = new Set([
-    'DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'COM', 'PARA', 'P', 'EM', 'NO', 'NA',
-    'O', 'A', 'OS', 'AS', 'UM', 'UMA',
-  ]);
-  const norm = name
+  const letters = name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '') // tira acentos
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, ' ')
-    .trim();
-  const tokens = norm.split(' ').filter((t) => t && !STOP.has(t));
-  const base = tokens.slice(0, 3).join('-').slice(0, 24).replace(/-+$/, '');
-  return base || 'ITEM';
+    .replace(/[^A-Z]/g, ''); // só letras
+  if (!letters) return 'ITEM';
+  return letters.slice(0, 4).padEnd(4, 'X');
 }
 
 /**

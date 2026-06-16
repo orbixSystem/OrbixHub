@@ -132,39 +132,27 @@ describe('validateAttributes', () => {
   });
 });
 
-describe('skuBaseFromName', () => {
-  it('strips accents, stopwords and numbers-words; keeps first 3 tokens', () => {
-    expect(skuBaseFromName('Café Torrado e Moído 3 Corações 500g')).toBe(
-      'CAFE-TORRADO-MOIDO',
-    );
+describe('skuBaseFromName (abreviação de 4 letras)', () => {
+  it('pega as 4 primeiras letras, sem acento, maiúsculo', () => {
+    expect(skuBaseFromName('Café Torrado e Moído 3 Corações 500g')).toBe('CAFE');
+    expect(skuBaseFromName('Pastilha de freio dianteira')).toBe('PAST');
+    expect(skuBaseFromName('óleo/motor 5w30')).toBe('OLEO');
   });
 
-  it('removes Portuguese stopwords', () => {
-    expect(skuBaseFromName('Pastilha de freio dianteira')).toBe(
-      'PASTILHA-FREIO-DIANTEIRA',
-    );
+  it('completa com X quando há menos de 4 letras', () => {
+    expect(skuBaseFromName('Pá')).toBe('PAXX');
+    expect(skuBaseFromName('A1')).toBe('AXXX');
   });
 
-  it('falls back to ITEM when only whitespace', () => {
+  it('cai em ITEM quando não há letras', () => {
     expect(skuBaseFromName('   ')).toBe('ITEM');
-  });
-
-  it('falls back to ITEM when only special chars', () => {
     expect(skuBaseFromName('@#$%')).toBe('ITEM');
+    expect(skuBaseFromName('500')).toBe('ITEM');
   });
 
-  it('falls back to ITEM when only stopwords', () => {
-    expect(skuBaseFromName('de da do')).toBe('ITEM');
-  });
-
-  it('uppercases and replaces separators with a hyphen', () => {
-    expect(skuBaseFromName('óleo/motor 5w30')).toBe('OLEO-MOTOR-5W30');
-  });
-
-  it('caps the base at 24 chars and trims trailing hyphens', () => {
-    const out = skuBaseFromName('Parafuso Sextavado Inoxidavel');
-    expect(out.length).toBeLessThanOrEqual(24);
-    expect(out.endsWith('-')).toBe(false);
-    expect(out).toBe('PARAFUSO-SEXTAVADO-INOXI');
+  it('sempre retorna exatamente 4 caracteres', () => {
+    for (const n of ['Café', 'X', 'Parafuso Sextavado', '']) {
+      expect(skuBaseFromName(n).length).toBe(4);
+    }
   });
 });
