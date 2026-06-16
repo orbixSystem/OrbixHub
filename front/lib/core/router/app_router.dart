@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
+import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -116,6 +117,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => CustomerDetailScreen(
               customerId: state.pathParameters['id'] ?? '',
             ),
+          ),
+          // Inventory module — literal route before the generic placeholder.
+          GoRoute(
+            path: '/m/inventory',
+            builder: (_, _) => const InventoryScreen(),
           ),
           GoRoute(
             path: '/m/:moduleKey',

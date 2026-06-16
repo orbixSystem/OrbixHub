@@ -10,7 +10,7 @@ import 'core/theme/branding.dart';
 import 'di.dart';
 
 void main() {
-  runApp(const ProviderScope(child: OrbixApp()));
+  runApp(ProviderScope(overrides: diOverrides, child: const OrbixApp()));
 }
 
 class OrbixApp extends ConsumerStatefulWidget {

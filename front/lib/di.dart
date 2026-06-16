@@ -17,6 +17,8 @@ import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
+import 'features/inventory/data/inventory_repository_impl.dart';
+import 'features/inventory/presentation/inventory_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
 import 'features/tracking/data/fake_tracking_repository.dart';
@@ -79,6 +81,15 @@ final customersRepositoryProvider = Provider<CustomersRepository>(
 
 final trackingRepositoryProvider =
     Provider<TrackingRepository>((ref) => const FakeTrackingRepository());
+
+/// Overrides do composition root — passados ao `ProviderScope` em main.dart.
+/// O `inventoryRepositoryProvider` é declarado em `inventory_providers.dart`
+/// (lança por padrão) e ganha a impl real (dio) aqui, espelhando os demais repos.
+final diOverrides = [
+  inventoryRepositoryProvider.overrideWith(
+    (ref) => InventoryRepositoryImpl(ref.read(dioProvider)),
+  ),
+];
 
 final sessionControllerProvider =
     NotifierProvider<SessionController, SessionState>(SessionController.new);
