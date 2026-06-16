@@ -193,7 +193,10 @@ A seção registrada no host expõe os escalares (`defaultUnit`, `trackStockDefa
 ## 6. Permissões, cargos e billing
 
 - **Permissões** já semeadas — usar exatamente: `inventory.read`, `inventory.write`.
-- **Cargos:** `owner` (tudo), `mechanic` (`inventory.read`). Manter o seed atual; sem novas permissões.
+- **Cargos (já mapeados nos seeds — NENHUMA mudança de cargo necessária):**
+  `owner` (tudo) · `gerente` (todas exceto `billing.manage` ⇒ já tem `inventory.read`+`inventory.write`)
+  · `caixa` (`inventory.read`) · `mechanic` (`inventory.read`, só leitura). Confirmado em
+  `prisma/migrations/0003_employees_settings/migration.sql` + baseline.
 - **Billing (seed aditivo):** adicionar `inventory` ao plano **`trial`** (hoje só no `pro`), para a
   conta de teste (trial) ver o módulo e a futura OS rodar de ponta a ponta. SQL aditivo no baseline
   + migration `0010`. `reconcileTenantModules` recalcula ao (re)assinar; tenants trial existentes
@@ -218,6 +221,9 @@ inventory/
   `me.modules` + `gatedNavItems`. Router também guarda a rota (esconder ≠ proteger; 403 elegante).
 - **Markup helper (UI):** ao informar custo + margem, sugere `sale_price`; usuário pode sobrescrever.
 - Repo fake cobre os fluxos para testes de widget sem backend.
+- **UI animada/ícones (requisito do produto):** usar ícones por tipo (produto vs serviço), por tipo de
+  movimento (entrada/saída/ajuste) e estados (badge de "abaixo do mínimo"); tela com vida, não só
+  tabela. Seguir o design system (grafite + tangerina, Sora/Manrope) e o padrão visual de `customers`.
 
 ## 8. Testes (evidência antes de "pronto")
 
