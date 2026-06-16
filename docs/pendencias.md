@@ -31,10 +31,24 @@ básico no trial, avançado no pro) precisamos de uma camada análoga à de mód
 - **Código de barras por leitor** — busca rápida por barcode no PDV/OS.
 - **Unidades e conversão** — compra em caixa/fardo, consome em unidade.
 - **Múltiplos depósitos/locais** — saldo por local (provavelmente fora do público-alvo inicial).
+- **Tabela de movimentações de estoque (histórico)** — o rework produtos-only ajusta `currentStock`
+  **direto** (sem trilha); a tabela `stock_movement` com histórico volta quando a OS chegar
+  (o seam `increment/decrementStock` já existe).
+- **Catálogo externo ligado** — habilitar Cosmos (`CATALOG_ENABLED=true` + `COSMOS_TOKEN`) e o gancho
+  **TecDoc/Auto Experts** por código de fabricante (hoje `NoopCatalogProvider`; lookup por EAN já cacheia no Redis).
+- **Categorias como entidade própria** (hoje texto livre).
+- **Seeding de `itemFields` por vertical** no provisionamento do tenant (a casca da vertical semeia
+  ex.: `vehicleApplication` na oficina) — hoje default `[]`.
+
+## Módulo Catálogo de Serviços (mão de obra) — módulo próprio (planejado)
+
+Serviço (mão de obra) **não** é do Estoque (regra do spec do módulo 4). É um módulo próprio:
+cadastro de serviços (nome, preço, duração estimada), consumido pela OS. A aba **"Serviço"** da tela
+de "Novo item" no front é hoje um **placeholder "em breve"** até este módulo existir.
 
 ## Módulo Ordens de Serviço (`os`) — a detalhar em spec próprio
 
-- Baixa automática de estoque ao consumir produto na OS (liga em `InventoryService.applyMovement`).
+- Baixa automática de estoque ao consumir produto na OS (liga em `InventoryService.decrementStock`).
 - Envio do link público por **WhatsApp** e **e-mail** (no v1 os ícones aparecem desabilitados;
   só "copiar link" funciona).
 - (mais itens entram quando brainstormarmos a OS)

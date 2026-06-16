@@ -59,22 +59,26 @@ A sugestão é **não-obrigatória**: o usuário pode digitar valores fora da li
 salvo é sempre o texto, em `attributes` (nenhum código FIPE é persistido). Verticais sem
 veículos simplesmente não declaram esses campos.
 
-### Estoque & Serviços (módulo `inventory`)
+### Estoque / Produtos (módulo `inventory`)
 Seção registrada pelo módulo `inventory` — aparece em `GET /settings` quando o módulo
 está habilitado no tenant. Os **valores** ficam em `tenant_module.settings['inventory']`
 (tabela do billing); o módulo lê/grava via `BillingService.getModuleSettings`/
 `setModuleSettings` ("aponta, não invade").
 
+A config rica é a lista **`itemFields`** — os **campos da vertical** que montam o
+formulário do item (mesmo padrão do `subjectFields` do módulo Clientes). O módulo é
+genérico e nunca conhece "veículo"; quem semeia os defaults por vertical é a casca da
+vertical no provisionamento do tenant (oficina semeia `vehicleApplication`; petshop, outro).
+
 | Config | Chave | Tipo | Default | Obs |
 |---|---|---|---|---|
-| Unidade padrão | `defaultUnit` | text | `un` | pré-seleção ao cadastrar produto |
-| Rastrear estoque por padrão | `trackStockDefault` | bool | `true` | novos produtos nascem rastreáveis |
-| Margem padrão (%) | `defaultMarginPercent` | number | `null` | usada pelo helper de markup (custo+margem→preço) |
-| Sugestões de categoria | `categories` | lista text | `[]` | autocomplete; o valor salvo é texto livre |
+| Campos da vertical | `itemFields` | lista `{ key, label, type, required, options? }` | `[]` | `type ∈ text\|number\|tags\|select`; gravados em `attributes` (jsonb) do item, validados por whitelist |
 
 - Leitura/escrita rica: `GET /inventory/config` (requer `inventory.read`) e
-  `PATCH /inventory/config` (requer `settings.manage`). A lista `categories` é gerida por
-  esses endpoints; a seção registrada no host expõe só os escalares (`defaultUnit`,
-  `trackStockDefault`, `defaultMarginPercent`) para descoberta.
+  `PATCH /inventory/config` (requer `settings.manage`). A seção registrada no host não
+  tem campos escalares (a lista `itemFields` é gerida por esses endpoints próprios — mesmo
+  split do `customers`/`subjectFields`).
+- No create/update de item, `attributes` é validado **whitelist** contra `itemFields`
+  (chave desconhecida → 400; tipo errado → 400; `required` ausente → 400).
 
 <!-- Próximos módulos: registrem e documentem a subseção de config de cada um aqui. -->
