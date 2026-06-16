@@ -32,7 +32,7 @@ interface Member {
   access: string;
 }
 
-describe('Inventory — Estoque & Serviços (e2e)', () => {
+describe('Inventory — Produtos (e2e)', () => {
   let app: INestApplication;
   let redis: Redis;
   let mailer: CapturingMailer;
@@ -122,15 +122,36 @@ describe('Inventory — Estoque & Serviços (e2e)', () => {
       .get(`/api/inventory/items/${id}`)
       .set(auth(access));
   }
-  function move(access: string, id: string, body: Record<string, unknown>) {
+  function patchItem(access: string, id: string, body: Record<string, unknown>) {
     return request(app.getHttpServer())
-      .post(`/api/inventory/items/${id}/movements`)
+      .patch(`/api/inventory/items/${id}`)
       .set(auth(access))
       .send(body);
   }
-  function listMovements(access: string, id: string) {
+  function archive(access: string, id: string) {
     return request(app.getHttpServer())
-      .get(`/api/inventory/items/${id}/movements`)
+      .post(`/api/inventory/items/${id}/archive`)
+      .set(auth(access));
+  }
+  function unarchive(access: string, id: string) {
+    return request(app.getHttpServer())
+      .post(`/api/inventory/items/${id}/unarchive`)
+      .set(auth(access));
+  }
+  function patchConfig(access: string, body: Record<string, unknown>) {
+    return request(app.getHttpServer())
+      .patch('/api/inventory/config')
+      .set(auth(access))
+      .send(body);
+  }
+  function getConfig(access: string) {
+    return request(app.getHttpServer())
+      .get('/api/inventory/config')
+      .set(auth(access));
+  }
+  function lookup(access: string, code: string) {
+    return request(app.getHttpServer())
+      .get(`/api/inventory/lookup?code=${encodeURIComponent(code)}`)
       .set(auth(access));
   }
   function lowStock(access: string) {
@@ -139,50 +160,47 @@ describe('Inventory — Estoque & Serviços (e2e)', () => {
       .set(auth(access));
   }
 
-  // ---- create + list ----------------------------------------------------
+  type IdRow = { id: string };
+  const ids = (rows: IdRow[]) => rows.map((r) => r.id);
+
+  // ---- 1. create + list (decimal prices) --------------------------------
   describe('create + list', () => {
-    it('creates a tracked product and lists it', async () => {
+    it('creates a product with decimal prices and lists it', async () => {
       const o = await registerOwner();
       const created = await createItem(o.access, {
-        kind: 'product',
-        name: 'Óleo 5W30',
-        unit: 'L',
-        salePriceCents: 4500,
-        costPriceCents: 3000,
-        marginPercent: 50,
-        minQty: 2,
+        name: 'Pastilha de freio',
+        sku: 'PF-001',
+        barcode: '7891000100103',
+        salePrice: 45.9,
+        costPrice: 30,
+        currentStock: 10,
+        minStock: 3,
       });
       expect(created.status).toBe(201);
-      expect(created.body.kind).toBe('product');
-      expect(created.body.track_stock).toBe(true);
+      expect(created.body.is_active).toBe(true);
+      // decimal serializes as string -> compare numerically
+      expect(Number(created.body.sale_price)).toBe(45.9);
       const id = created.body.id as string;
 
       const list = await listItems(o.access);
       expect(list.status).toBe(200);
-      expect(
-        (list.body.items as Array<{ id: string }>).map((i) => i.id),
-      ).toContain(id);
+      expect(ids(list.body.items as IdRow[])).toContain(id);
     });
   });
 
-  // ---- tenant isolation (RLS) — non-negotiable -------------------------
+  // ---- 2. tenant isolation (RLS) ---------------------------------------
   describe('tenant isolation (RLS)', () => {
     it("tenant B never sees tenant A's item", async () => {
       const a = await registerOwner();
       const b = await registerOwner();
 
-      const created = await createItem(a.access, {
-        kind: 'product',
-        name: 'Item secreto de A',
-      });
+      const created = await createItem(a.access, { name: 'Item secreto de A' });
       expect(created.status).toBe(201);
       const id = created.body.id as string;
 
       const bList = await listItems(b.access);
       expect(bList.status).toBe(200);
-      expect(
-        (bList.body.items as Array<{ id: string }>).map((i) => i.id),
-      ).not.toContain(id);
+      expect(ids(bList.body.items as IdRow[])).not.toContain(id);
 
       // direct fetch is invisible under B's RLS -> 404
       const bGet = await getItem(b.access, id);
@@ -190,102 +208,188 @@ describe('Inventory — Estoque & Serviços (e2e)', () => {
     });
   });
 
-  // ---- movements + cached balance --------------------------------------
-  describe('movements + cached balance', () => {
-    it('in 10 then out 3 => stock_qty 7, and 2 movements listed', async () => {
-      const o = await registerOwner();
-      const created = await createItem(o.access, {
-        kind: 'product',
-        name: 'Parafuso M6',
-      });
-      const id = created.body.id as string;
+  // ---- 3. uniques per tenant -------------------------------------------
+  describe('uniques per tenant', () => {
+    it('rejects duplicate barcode in same tenant (409); another tenant can reuse it', async () => {
+      const a = await registerOwner();
+      const b = await registerOwner();
+      const barcode = '7891000100103';
 
-      const mIn = await move(o.access, id, { type: 'in', quantity: 10 });
-      expect(mIn.status).toBe(201);
-      const mOut = await move(o.access, id, { type: 'out', quantity: 3 });
-      expect(mOut.status).toBe(201);
+      const first = await createItem(a.access, { name: 'Primeiro', barcode });
+      expect(first.status).toBe(201);
 
-      const item = await getItem(o.access, id);
-      expect(item.status).toBe(200);
-      expect(Number(item.body.stock_qty)).toBe(7);
+      // same barcode, same tenant -> conflict
+      const dupBarcode = await createItem(a.access, { name: 'Duplicado', barcode });
+      expect(dupBarcode.status).toBe(409);
 
-      const movs = await listMovements(o.access, id);
-      expect(movs.status).toBe(200);
-      expect((movs.body as unknown[]).length).toBe(2);
+      // same sku, same tenant -> conflict
+      const sku = 'SKU-DUP-1';
+      const firstSku = await createItem(a.access, { name: 'Com SKU', sku });
+      expect(firstSku.status).toBe(201);
+      const dupSku = await createItem(a.access, { name: 'SKU repetido', sku });
+      expect(dupSku.status).toBe(409);
+
+      // a DIFFERENT tenant can reuse the same barcode (no conflict)
+      const otherTenant = await createItem(b.access, { name: 'De B', barcode });
+      expect(otherTenant.status).toBe(201);
     });
   });
 
-  // ---- negative block ---------------------------------------------------
-  describe('negative block', () => {
-    it('out beyond balance => 400', async () => {
+  // ---- 4. attributes whitelist -----------------------------------------
+  describe('attributes whitelist', () => {
+    it('accepts declared keys, rejects unknown key and wrong type', async () => {
       const o = await registerOwner();
-      const created = await createItem(o.access, {
-        kind: 'product',
-        name: 'Sem estoque',
+      const cfg = await patchConfig(o.access, {
+        itemFields: [
+          {
+            key: 'vehicleApplication',
+            label: 'Aplicação',
+            type: 'tags',
+            required: false,
+          },
+        ],
       });
-      const id = created.body.id as string;
+      expect(cfg.status).toBe(200);
 
-      const out = await move(o.access, id, { type: 'out', quantity: 1 });
-      expect(out.status).toBe(400);
+      // declared key, correct type -> 201
+      const ok = await createItem(o.access, {
+        name: 'Com atributo válido',
+        attributes: { vehicleApplication: ['Gol G5'] },
+      });
+      expect(ok.status).toBe(201);
+      expect(ok.body.attributes).toEqual({ vehicleApplication: ['Gol G5'] });
+
+      // unknown key -> 400
+      const unknown = await createItem(o.access, {
+        name: 'Atributo desconhecido',
+        attributes: { foo: 'bar' },
+      });
+      expect(unknown.status).toBe(400);
+
+      // wrong type (should be array of strings) -> 400
+      const wrongType = await createItem(o.access, {
+        name: 'Tipo errado',
+        attributes: { vehicleApplication: 'nota-lista' },
+      });
+      expect(wrongType.status).toBe(400);
     });
   });
 
-  // ---- service item rejects movement -----------------------------------
-  describe('service item', () => {
-    it('is created with track_stock=false and rejects movements (400)', async () => {
+  // ---- 5. lookup cascade -----------------------------------------------
+  describe('lookup cascade', () => {
+    it('internal for known barcode; none for valid-GTIN-not-in-db and non-GTIN', async () => {
       const o = await registerOwner();
+      const barcode = '7891000100103';
       const created = await createItem(o.access, {
-        kind: 'service',
-        name: 'Troca de óleo',
-        salePriceCents: 8000,
-        durationMinutes: 30,
+        name: 'Pastilha de freio',
+        barcode,
       });
       expect(created.status).toBe(201);
-      expect(created.body.track_stock).toBe(false);
-      const id = created.body.id as string;
 
-      const mov = await move(o.access, id, { type: 'in', quantity: 5 });
-      expect(mov.status).toBe(400);
+      // internal path: code matches an existing item's barcode
+      const internal = await lookup(o.access, barcode);
+      expect(internal.status).toBe(200);
+      expect(internal.body.source).toBe('internal');
+      expect(internal.body.item).toBeDefined();
+      expect(internal.body.item.id).toBe(created.body.id);
+
+      // valid GTIN (passes GS1 mod-10) but not in db; catalog disabled (Noop) -> none
+      const validNotInDb = await lookup(o.access, '7896005800010');
+      expect(validNotInDb.status).toBe(200);
+      expect(validNotInDb.body.source).toBe('none');
+
+      // non-GTIN, not in db -> none
+      const nonGtin = await lookup(o.access, 'abc');
+      expect(nonGtin.status).toBe(200);
+      expect(nonGtin.body.source).toBe('none');
     });
   });
 
-  // ---- low-stock --------------------------------------------------------
-  describe('low-stock', () => {
-    it('includes a product whose balance is at/below minQty', async () => {
+  // ---- 6. archive / unarchive ------------------------------------------
+  describe('archive / unarchive', () => {
+    it('archived item leaves the default list but is not deleted; unarchive restores', async () => {
       const o = await registerOwner();
-      const created = await createItem(o.access, {
-        kind: 'product',
-        name: 'Filtro de ar',
-        minQty: 5,
-      });
+      const created = await createItem(o.access, { name: 'Para arquivar' });
       const id = created.body.id as string;
 
-      // add 2 (2 <= 5) -> low stock
-      const mIn = await move(o.access, id, { type: 'in', quantity: 2 });
-      expect(mIn.status).toBe(201);
+      const arch = await archive(o.access, id);
+      expect(arch.status).toBe(200);
+      expect(arch.body.is_active).toBe(false);
 
-      const low = await lowStock(o.access);
-      expect(low.status).toBe(200);
-      expect((low.body as Array<{ id: string }>).map((i) => i.id)).toContain(id);
+      // gone from default (active-only) list
+      const defaultList = await listItems(o.access);
+      expect(ids(defaultList.body.items as IdRow[])).not.toContain(id);
+
+      // present with active=all and active=false
+      const allList = await listItems(o.access, '?active=all');
+      expect(ids(allList.body.items as IdRow[])).toContain(id);
+      const archivedList = await listItems(o.access, '?active=false');
+      expect(ids(archivedList.body.items as IdRow[])).toContain(id);
+
+      // row still exists (not hard-deleted)
+      const stillThere = await getItem(o.access, id);
+      expect(stillThere.status).toBe(200);
+      expect(stillThere.body.is_active).toBe(false);
+
+      // unarchive restores
+      const un = await unarchive(o.access, id);
+      expect(un.status).toBe(200);
+      expect(un.body.is_active).toBe(true);
+      const restored = await listItems(o.access);
+      expect(ids(restored.body.items as IdRow[])).toContain(id);
     });
   });
 
-  // ---- authorization by role -------------------------------------------
+  // ---- 7. low-stock -----------------------------------------------------
+  describe('low-stock', () => {
+    it('lists a product at/below min and excludes one above min', async () => {
+      const o = await registerOwner();
+      const low = await createItem(o.access, {
+        name: 'Filtro de ar',
+        minStock: 5,
+        currentStock: 2,
+      });
+      expect(low.status).toBe(201);
+      const lowId = low.body.id as string;
+
+      const ok = await createItem(o.access, {
+        name: 'Bem abastecido',
+        minStock: 5,
+        currentStock: 50,
+      });
+      expect(ok.status).toBe(201);
+      const okId = ok.body.id as string;
+
+      const res = await lowStock(o.access);
+      expect(res.status).toBe(200);
+      const lowIds = ids(res.body as IdRow[]);
+      expect(lowIds).toContain(lowId);
+      expect(lowIds).not.toContain(okId);
+    });
+  });
+
+  // ---- 8. authorization by role ----------------------------------------
   describe('authorization', () => {
-    it('mechanic can read items (inventory.read) but not create them (no inventory.write) -> 403', async () => {
+    it('mechanic reads items (200) but cannot create (403) nor patch config (403)', async () => {
       const o = await registerOwner();
       const mech = await inviteAccept(o, 'mechanic');
 
-      // read is allowed
+      // inventory.read -> list allowed
       const list = await listItems(mech.access);
       expect(list.status).toBe(200);
 
-      // write is denied
-      const create = await createItem(mech.access, {
-        kind: 'product',
-        name: 'Por mecânico',
-      });
+      // no inventory.write -> create denied
+      const create = await createItem(mech.access, { name: 'Por mecânico' });
       expect(create.status).toBe(403);
+
+      // no settings.manage -> config patch denied
+      const cfg = await patchConfig(mech.access, { itemFields: [] });
+      expect(cfg.status).toBe(403);
+
+      // read config is allowed (inventory.read)
+      const readCfg = await getConfig(mech.access);
+      expect(readCfg.status).toBe(200);
+      expect(readCfg.body.itemFields).toEqual([]);
     });
   });
 });
