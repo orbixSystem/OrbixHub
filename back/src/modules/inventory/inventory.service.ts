@@ -31,7 +31,7 @@ import {
   CatalogHit,
   CatalogProvider,
 } from './catalog/catalog.provider';
-import { CACHE_MISS, CatalogCacheService } from './catalog/catalog-cache.service';
+import { CatalogProductStore } from './catalog/catalog-product.store';
 import { isValidGtin } from './catalog/gtin';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -58,7 +58,7 @@ export class InventoryService {
     private readonly repo: InventoryRepository,
     private readonly billing: BillingService,
     private readonly audit: AuditService,
-    private readonly catalogCache: CatalogCacheService,
+    private readonly catalogStore: CatalogProductStore,
     @Inject(CATALOG_PROVIDER) private readonly catalog: CatalogProvider,
     @Inject(ENV) private readonly env: Env,
   ) {}
@@ -238,9 +238,10 @@ export class InventoryService {
 
   // ===================== Código-first (lookup) =====================
   /**
-   * Cascata: 1) interno (barcode|manufacturer_code|sku); 2) catálogo externo por
-   * GTIN (só se válido + CATALOG_ENABLED), com cache Redis e chamada FORA de tx;
-   * 3) nada. Token/credenciais nunca vão ao front.
+   * Cascata: 1) interno (barcode|manufacturer_code|sku); 2) catálogo por GTIN (só
+   * se válido + CATALOG_ENABLED) servido do nosso `catalog_product` durável quando
+   * fresco (≤60d, zero chamada externa); no miss/obsoleto chama o provider FORA de
+   * tx e faz upsert; 3) nada. Token/credenciais nunca vão ao front.
    */
   async lookup(_user: AuthUser, code: string): Promise<LookupResult> {
     const trimmed = code.trim();
@@ -251,16 +252,15 @@ export class InventoryService {
     if (internal) return { source: 'internal', item: internal };
 
     if (isValidGtin(trimmed) && this.env.CATALOG_ENABLED) {
-      const cached = await this.catalogCache.get(trimmed);
-      let hit: CatalogHit | null;
-      if (cached === CACHE_MISS) {
-        // Chamada externa fora de qualquer transação de banco.
-        hit = await this.catalog.lookupByGtin(trimmed);
-        await this.catalogCache.set(trimmed, hit);
-      } else {
-        hit = cached;
+      const cached = await this.catalogStore.get(trimmed);
+      if (cached) return { source: 'catalog', suggestion: cached };
+
+      // Miss/obsoleto: chamada externa fora de qualquer transação de banco.
+      const hit = await this.catalog.lookupByGtin(trimmed);
+      if (hit) {
+        await this.catalogStore.upsert(trimmed, hit, this.env.CATALOG_PROVIDER);
+        return { source: 'catalog', suggestion: hit };
       }
-      if (hit) return { source: 'catalog', suggestion: hit };
     }
 
     return { source: 'none' };
