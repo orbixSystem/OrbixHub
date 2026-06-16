@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards,
+  Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
@@ -94,5 +94,12 @@ export class InventoryController {
   @HttpCode(200)
   unarchive(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.inventory.unarchiveItem(user, id);
+  }
+
+  @Delete('items/:id')
+  @Permissions('inventory.write')
+  @HttpCode(200)
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.inventory.deleteItem(user, id);
   }
 }

@@ -10,6 +10,12 @@ import {
   VerificationEmail,
 } from '../src/common/mailer/mailer.service';
 
+// e2e é determinístico: o catálogo externo (Cosmos/OFF) fica DESLIGADO aqui, então
+// o lookup nunca bate em API externa (sem flakiness / sem gastar cota). Definido antes
+// do compile() do AppModule; o dotenv (sem override) não sobrescreve um env já setado.
+process.env.CATALOG_ENABLED = 'false';
+process.env.CATALOG_PROVIDER = 'noop';
+
 /** Captures emails so we can read the raw invite token (drives /invites/accept). */
 class CapturingMailer extends MailerService {
   public readonly sent: VerificationEmail[] = [];
@@ -136,6 +142,11 @@ describe('Inventory — Produtos (e2e)', () => {
   function unarchive(access: string, id: string) {
     return request(app.getHttpServer())
       .post(`/api/inventory/items/${id}/unarchive`)
+      .set(auth(access));
+  }
+  function deleteItem(access: string, id: string) {
+    return request(app.getHttpServer())
+      .delete(`/api/inventory/items/${id}`)
       .set(auth(access));
   }
   function patchConfig(access: string, body: Record<string, unknown>) {
@@ -337,6 +348,35 @@ describe('Inventory — Produtos (e2e)', () => {
       expect(un.body.is_active).toBe(true);
       const restored = await listItems(o.access);
       expect(ids(restored.body.items as IdRow[])).toContain(id);
+    });
+  });
+
+  // ---- 6b. soft delete --------------------------------------------------
+  describe('soft delete', () => {
+    it('deleted item disappears from ALL lists and 404s on direct fetch; row preserved', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, { name: 'Para excluir' });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      // DELETE -> 200 (soft delete: deleted_at set)
+      const del = await deleteItem(o.access, id);
+      expect(del.status).toBe(200);
+      expect(del.body.deleted_at).toBeTruthy();
+
+      // gone from every list view (active, all, archived)
+      const allList = await listItems(o.access, '?active=all');
+      expect(ids(allList.body.items as IdRow[])).not.toContain(id);
+      const archivedList = await listItems(o.access, '?active=false');
+      expect(ids(archivedList.body.items as IdRow[])).not.toContain(id);
+
+      // direct fetch -> 404 (treated as not found, row preserved underneath)
+      const gone = await getItem(o.access, id);
+      expect(gone.status).toBe(404);
+
+      // deleting again -> 404 (already excluded)
+      const again = await deleteItem(o.access, id);
+      expect(again.status).toBe(404);
     });
   });
 

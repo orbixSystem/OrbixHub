@@ -588,9 +588,13 @@ CREATE TABLE IF NOT EXISTS inventory_item (
   min_stock         numeric(14,3),
   attributes        jsonb NOT NULL DEFAULT '{}'::jsonb,
   is_active         boolean NOT NULL DEFAULT true,
+  deleted_at        timestamptz,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- soft delete (aditivo): deleted_at NULL = ativo; setado = excluído. Idempotente p/ DBs já criados.
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_barcode
   ON inventory_item(tenant_id, barcode);

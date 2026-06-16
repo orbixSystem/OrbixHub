@@ -59,6 +59,7 @@ export class InventoryRepository {
   async listItems(filter: ItemFilter) {
     const db = this.tenant.getClient();
     const where: Prisma.inventory_itemWhereInput = {
+      deleted_at: null,
       ...this.activeWhere(filter.active),
       ...(filter.category
         ? { category: { equals: filter.category, mode: 'insensitive' } }
@@ -92,20 +93,21 @@ export class InventoryRepository {
     return { items, total };
   }
 
-  /** Primeiro item cujo barcode|manufacturer_code|sku == code (ativo ou não). */
+  /** Primeiro item NÃO excluído cujo barcode|manufacturer_code|sku == code (ativo ou não). */
   findByCode(code: string) {
     const db = this.tenant.getClient();
     return db.inventory_item.findFirst({
       where: {
+        deleted_at: null,
         OR: [{ barcode: code }, { manufacturer_code: code }, { sku: code }],
       },
     });
   }
 
-  /** Existe item (ativo ou não) com este SKU exato? Tenant-scoped por RLS. */
+  /** Existe item NÃO excluído (ativo ou não) com este SKU exato? Tenant-scoped por RLS. */
   async skuExists(sku: string): Promise<boolean> {
     const db = this.tenant.getClient();
-    return (await db.inventory_item.count({ where: { sku } })) > 0;
+    return (await db.inventory_item.count({ where: { sku, deleted_at: null } })) > 0;
   }
 
   updateItem(id: string, data: ItemData) {
@@ -121,6 +123,14 @@ export class InventoryRepository {
     return db.inventory_item.update({
       where: { id },
       data: { is_active: isActive, updated_at: new Date() },
+    });
+  }
+
+  softDelete(id: string) {
+    const db = this.tenant.getClient();
+    return db.inventory_item.update({
+      where: { id },
+      data: { deleted_at: new Date(), updated_at: new Date() },
     });
   }
 

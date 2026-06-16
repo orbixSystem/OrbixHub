@@ -163,8 +163,24 @@ export class InventoryService {
 
   async getItemOrThrow(id: string) {
     const item = await this.tenant.withTenantTx(() => this.repo.findItemById(id));
-    if (!item) throw new NotFoundException('Item não encontrado.');
+    if (!item || item.deleted_at) throw new NotFoundException('Item não encontrado.');
     return item;
+  }
+
+  async deleteItem(user: AuthUser, id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findItemById(id);
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('Item não encontrado.');
+      const item = await this.repo.softDelete(id);
+      await this.audit.log(
+        user.tenantId,
+        user.userId,
+        'inventory_item_delete',
+        id,
+      );
+      return item;
+    });
   }
 
   async updateItem(user: AuthUser, id: string, dto: UpdateInventoryItemDto) {
@@ -175,7 +191,8 @@ export class InventoryService {
     }
     return this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
-      if (!existing) throw new NotFoundException('Item não encontrado.');
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('Item não encontrado.');
       const data: Record<string, unknown> = {};
       if (dto.name !== undefined) data.name = dto.name.trim();
       if (dto.sku !== undefined) data.sku = trimOrNull(dto.sku);
@@ -223,7 +240,8 @@ export class InventoryService {
   ) {
     return this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findItemById(id);
-      if (!existing) throw new NotFoundException('Item não encontrado.');
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('Item não encontrado.');
       const item = await this.repo.setActive(id, isActive);
       await this.audit.log(user.tenantId, user.userId, action, id);
       return item;
