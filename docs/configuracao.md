@@ -59,4 +59,22 @@ A sugestão é **não-obrigatória**: o usuário pode digitar valores fora da li
 salvo é sempre o texto, em `attributes` (nenhum código FIPE é persistido). Verticais sem
 veículos simplesmente não declaram esses campos.
 
+### Estoque & Serviços (módulo `inventory`)
+Seção registrada pelo módulo `inventory` — aparece em `GET /settings` quando o módulo
+está habilitado no tenant. Os **valores** ficam em `tenant_module.settings['inventory']`
+(tabela do billing); o módulo lê/grava via `BillingService.getModuleSettings`/
+`setModuleSettings` ("aponta, não invade").
+
+| Config | Chave | Tipo | Default | Obs |
+|---|---|---|---|---|
+| Unidade padrão | `defaultUnit` | text | `un` | pré-seleção ao cadastrar produto |
+| Rastrear estoque por padrão | `trackStockDefault` | bool | `true` | novos produtos nascem rastreáveis |
+| Margem padrão (%) | `defaultMarginPercent` | number | `null` | usada pelo helper de markup (custo+margem→preço) |
+| Sugestões de categoria | `categories` | lista text | `[]` | autocomplete; o valor salvo é texto livre |
+
+- Leitura/escrita rica: `GET /inventory/config` (requer `inventory.read`) e
+  `PATCH /inventory/config` (requer `settings.manage`). A lista `categories` é gerida por
+  esses endpoints; a seção registrada no host expõe só os escalares (`defaultUnit`,
+  `trackStockDefault`, `defaultMarginPercent`) para descoberta.
+
 <!-- Próximos módulos: registrem e documentem a subseção de config de cada um aqui. -->

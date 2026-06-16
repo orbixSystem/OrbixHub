@@ -16,7 +16,7 @@ A lista de módulos ativos do tenant é exposta pelo endpoint `GET /me` no array
 | Assinatura / Billing | _(núcleo)_ | núcleo | Gestão de planos, ciclo de vida da assinatura (trial, ativo, vencido) e webhooks de pagamento. Sempre ativo. |
 | Ordens de Serviço | `os` | contratável | Abertura, acompanhamento e encerramento de ordens de serviço de veículos. |
 | Clientes | `customers` | contratável _(implementado)_ | Cadastros-base genéricos: **cliente** (contato/pagador) e **subject** (o que recebe o serviço — "Veículo" na oficina, "Pet" no petshop; rótulo/campos vêm da config). CRUD + arquivar + excluir (soft delete, status `deleted`) + busca; `GET /subjects/:id/history` pronto p/ consumir o service público da OS. |
-| Estoque | `inventory` | contratável | Controle de peças e insumos, entradas, saídas e alertas de estoque mínimo. |
+| Estoque | `inventory` | contratável _(implementado)_ | Catálogo de **itens** genéricos (`produto` com estoque \| `serviço` sem estoque; o formulário adapta os campos por tipo) + **movimentações** (entrada/saída/ajuste) com histórico por item e saldo cacheado. Precificação por markup manual (custo+margem→preço sugerido), `min_qty` + filtro "abaixo do mínimo", soft delete. Serviço público `getItem`/`searchForPicker`/`applyMovement` pronto p/ a OS consumir ("aponta, não invade"). Agora também faz parte do plano `trial`. |
 | Acompanhamento | `tracking` | contratável _(planejado)_ | Página pública de acompanhamento do status da OS pelo cliente final. |
 | Caixa | `cashier` | contratável _(planejado)_ | Controle de caixa, recebimentos e pagamentos do dia. |
 | Nota / Fiscal | `invoice` | contratável _(planejado)_ | Emissão e gestão de notas fiscais de serviço e produto. |
