@@ -2,6 +2,7 @@ import {
   mergeInventoryConfig,
   DEFAULT_INVENTORY_CONFIG,
   validateAttributes,
+  skuBaseFromName,
   ItemFieldConfig,
 } from './inventory.config';
 
@@ -128,5 +129,42 @@ describe('validateAttributes', () => {
     it('accepts when present', () => {
       expect(validateAttributes({ nome: 'abc' }, fields)).toEqual([]);
     });
+  });
+});
+
+describe('skuBaseFromName', () => {
+  it('strips accents, stopwords and numbers-words; keeps first 3 tokens', () => {
+    expect(skuBaseFromName('Café Torrado e Moído 3 Corações 500g')).toBe(
+      'CAFE-TORRADO-MOIDO',
+    );
+  });
+
+  it('removes Portuguese stopwords', () => {
+    expect(skuBaseFromName('Pastilha de freio dianteira')).toBe(
+      'PASTILHA-FREIO-DIANTEIRA',
+    );
+  });
+
+  it('falls back to ITEM when only whitespace', () => {
+    expect(skuBaseFromName('   ')).toBe('ITEM');
+  });
+
+  it('falls back to ITEM when only special chars', () => {
+    expect(skuBaseFromName('@#$%')).toBe('ITEM');
+  });
+
+  it('falls back to ITEM when only stopwords', () => {
+    expect(skuBaseFromName('de da do')).toBe('ITEM');
+  });
+
+  it('uppercases and replaces separators with a hyphen', () => {
+    expect(skuBaseFromName('óleo/motor 5w30')).toBe('OLEO-MOTOR-5W30');
+  });
+
+  it('caps the base at 24 chars and trims trailing hyphens', () => {
+    const out = skuBaseFromName('Parafuso Sextavado Inoxidavel');
+    expect(out.length).toBeLessThanOrEqual(24);
+    expect(out.endsWith('-')).toBe(false);
+    expect(out).toBe('PARAFUSO-SEXTAVADO-INOXI');
   });
 });

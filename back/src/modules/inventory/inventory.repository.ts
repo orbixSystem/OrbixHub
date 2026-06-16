@@ -102,6 +102,12 @@ export class InventoryRepository {
     });
   }
 
+  /** Existe item (ativo ou não) com este SKU exato? Tenant-scoped por RLS. */
+  async skuExists(sku: string): Promise<boolean> {
+    const db = this.tenant.getClient();
+    return (await db.inventory_item.count({ where: { sku } })) > 0;
+  }
+
   updateItem(id: string, data: ItemData) {
     const db = this.tenant.getClient();
     return db.inventory_item.update({

@@ -9,6 +9,7 @@ import { InventoryService } from './inventory.service';
 import {
   CreateInventoryItemDto,
   ItemQueryDto,
+  SkuSuggestionQueryDto,
   UpdateInventoryItemDto,
 } from './dto/item.dto';
 import { LookupQueryDto } from './dto/lookup.dto';
@@ -44,6 +45,12 @@ export class InventoryController {
   @Permissions('inventory.read')
   lowStock(@CurrentUser() user: AuthUser) {
     return this.inventory.lowStock(user);
+  }
+
+  @Get('sku-suggestion')
+  @Permissions('inventory.write')
+  suggestSku(@CurrentUser() user: AuthUser, @Query() q: SkuSuggestionQueryDto) {
+    return this.inventory.suggestSku(user, q.name);
   }
 
   // --- itens ---

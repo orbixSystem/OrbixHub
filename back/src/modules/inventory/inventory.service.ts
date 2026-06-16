@@ -18,6 +18,7 @@ import {
   INVENTORY_MODULE_KEY,
   InventoryConfig,
   mergeInventoryConfig,
+  skuBaseFromName,
   validateAttributes,
 } from './inventory.config';
 import {
@@ -226,6 +227,21 @@ export class InventoryService {
       const item = await this.repo.setActive(id, isActive);
       await this.audit.log(user.tenantId, user.userId, action, id);
       return item;
+    });
+  }
+
+  /** Sugere um SKU legível e único por tenant a partir do nome do produto. */
+  async suggestSku(_user: AuthUser, name: string): Promise<{ sku: string }> {
+    const base = skuBaseFromName(name);
+    return this.tenant.withTenantTx(async () => {
+      let candidate = base;
+      let n = 1;
+      // cap defensivo
+      while (n < 100 && (await this.repo.skuExists(candidate))) {
+        n += 1;
+        candidate = `${base}-${n}`;
+      }
+      return { sku: candidate };
     });
   }
 

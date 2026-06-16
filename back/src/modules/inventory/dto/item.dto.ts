@@ -41,6 +41,11 @@ export class UpdateInventoryItemDto {
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
 }
 
+/** Query de GET /inventory/sku-suggestion?name=<nome do produto>. */
+export class SkuSuggestionQueryDto {
+  @IsString() @MinLength(1) @MaxLength(200) name!: string;
+}
+
 export class ItemQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
   @IsOptional() @IsString() @MaxLength(120) category?: string;
