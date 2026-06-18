@@ -104,6 +104,60 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<ServiceOrder> addPhoto(
+    String orderId, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    String? caption,
+  }) =>
+      _guard(() async {
+        final form = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType.parse(contentType),
+          ),
+          if (caption != null && caption.isNotEmpty) 'caption': caption,
+        });
+        await _dio.post<Object?>('/os/orders/$orderId/photos', data: form);
+        // O endpoint devolve só a foto; re-buscamos a OS para ter `photos`.
+        final refreshed = await _dio.get<Object?>('/os/orders/$orderId');
+        return ServiceOrder.fromJson(_asMap(refreshed.data));
+      });
+
+  @override
+  Future<ServiceOrder> deletePhoto(String orderId, String photoId) =>
+      _guard(() async {
+        await _dio.delete<Object?>('/os/orders/$orderId/photos/$photoId');
+        final refreshed = await _dio.get<Object?>('/os/orders/$orderId');
+        return ServiceOrder.fromJson(_asMap(refreshed.data));
+      });
+
+  @override
+  Future<List<OsTemplate>> listTemplates() => _guard(() async {
+        final res = await _dio.get<Object?>('/os/templates');
+        final data = res.data;
+        // Aceita `{ items: [...] }` ou uma lista direta.
+        final raw = data is Map
+            ? (data.cast<String, dynamic>()['items'] as List? ?? const [])
+            : (data as List? ?? const []);
+        return raw
+            .cast<Map<String, dynamic>>()
+            .map(OsTemplate.fromJson)
+            .toList();
+      });
+
+  @override
+  Future<ServiceOrder> applyTemplate(String orderId, String templateId) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/os/orders/$orderId/apply-template/$templateId',
+        );
+        return ServiceOrder.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<ServiceOrder> addItem(String id, OrderItemDraft draft) =>
       _guard(() async {
         final res = await _dio.post<Object?>(

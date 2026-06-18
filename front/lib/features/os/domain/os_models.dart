@@ -42,6 +42,35 @@ abstract class OrderEvent with _$OrderEvent {
       _$OrderEventFromJson(json);
 }
 
+/// Foto anexada à OS. O backend devolve `url` já utilizável em `Image.network`
+/// (provider local: `http://localhost:4500/files/...`). `caption` é opcional.
+@freezed
+abstract class OrderPhoto with _$OrderPhoto {
+  const factory OrderPhoto({
+    required String id,
+    required String url,
+    String? caption,
+    @JsonKey(name: 'created_at') String? createdAt,
+  }) = _OrderPhoto;
+
+  factory OrderPhoto.fromJson(Map<String, dynamic> json) =>
+      _$OrderPhotoFromJson(json);
+}
+
+/// Template de OS (`GET /os/templates`): um conjunto de itens reaproveitável que
+/// pode ser aplicado a uma OS (`POST /os/orders/:id/apply-template/:templateId`).
+@freezed
+abstract class OsTemplate with _$OsTemplate {
+  const factory OsTemplate({
+    required String id,
+    required String name,
+    String? description,
+  }) = _OsTemplate;
+
+  factory OsTemplate.fromJson(Map<String, dynamic> json) =>
+      _$OsTemplateFromJson(json);
+}
+
 /// Ordem de serviço. Aponta para cliente/veículo de outros módulos por id e
 /// guarda um retrato (`customerName`/`subjectLabel`) para histórico. `status`
 /// segue a FSM do backend. Decimais (`discount`/`total`) chegam como String.
@@ -66,6 +95,7 @@ abstract class ServiceOrder with _$ServiceOrder {
     String? total,
     @Default(<OrderItem>[]) List<OrderItem> items,
     @Default(<OrderEvent>[]) List<OrderEvent> events,
+    @Default(<OrderPhoto>[]) List<OrderPhoto> photos,
     @JsonKey(name: 'created_at') String? createdAt,
   }) = _ServiceOrder;
 

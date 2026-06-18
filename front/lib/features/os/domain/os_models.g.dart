@@ -48,6 +48,34 @@ Map<String, dynamic> _$OrderEventToJson(_OrderEvent instance) =>
       'created_at': instance.createdAt,
     };
 
+_OrderPhoto _$OrderPhotoFromJson(Map<String, dynamic> json) => _OrderPhoto(
+  id: json['id'] as String,
+  url: json['url'] as String,
+  caption: json['caption'] as String?,
+  createdAt: json['created_at'] as String?,
+);
+
+Map<String, dynamic> _$OrderPhotoToJson(_OrderPhoto instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'url': instance.url,
+      'caption': instance.caption,
+      'created_at': instance.createdAt,
+    };
+
+_OsTemplate _$OsTemplateFromJson(Map<String, dynamic> json) => _OsTemplate(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  description: json['description'] as String?,
+);
+
+Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'description': instance.description,
+    };
+
 _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
     _ServiceOrder(
       id: json['id'] as String,
@@ -76,6 +104,11 @@ _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
               ?.map((e) => OrderEvent.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <OrderEvent>[],
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => OrderPhoto.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <OrderPhoto>[],
       createdAt: json['created_at'] as String?,
     );
 
@@ -99,6 +132,7 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'total': instance.total,
       'items': instance.items,
       'events': instance.events,
+      'photos': instance.photos,
       'created_at': instance.createdAt,
     };
 

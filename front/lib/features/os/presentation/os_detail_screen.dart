@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +11,7 @@ import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
 import 'order_edit_dialog.dart';
+import 'os_pdf.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
 
@@ -33,6 +36,7 @@ class OsDetailScreen extends ConsumerWidget {
     final orderAsync = ref.watch(orderProvider(orderId));
     final canWrite = _has(ref, 'os.write');
     final canApprove = _has(ref, 'os.approve');
+    final canRead = _has(ref, 'os.read');
 
     return orderAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -55,8 +59,11 @@ class OsDetailScreen extends ConsumerWidget {
             _Header(
               order: order,
               canWrite: canWrite,
+              canRead: canRead,
               onEdit: () => _edit(context, ref, order),
               onDelete: () => _delete(context, ref, order),
+              onApplyTemplate: () => _applyTemplate(context, ref, order),
+              onPrint: () => _printOrder(context, order),
             ),
             const SizedBox(height: 20),
             _StatusBar(
@@ -69,6 +76,8 @@ class OsDetailScreen extends ConsumerWidget {
             _ItemsSection(order: order, canWrite: canWrite),
             const SizedBox(height: 24),
             _TotalsCard(order: order),
+            const SizedBox(height: 24),
+            _PhotosSection(order: order, canWrite: canWrite),
             const SizedBox(height: 24),
             _TimelineSection(order: order, canWrite: canWrite),
           ],
@@ -142,6 +151,53 @@ class OsDetailScreen extends ConsumerWidget {
       }
     }
   }
+
+  Future<void> _applyTemplate(
+    BuildContext context,
+    WidgetRef ref,
+    ServiceOrder order,
+  ) async {
+    final repo = ref.read(osRepositoryProvider);
+    List<OsTemplate> templates;
+    try {
+      templates = await repo.listTemplates();
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final chosen = await _TemplatePickerDialog.show(context, templates);
+    if (chosen == null) return;
+    try {
+      await repo.applyTemplate(order.id, chosen.id);
+      ref.invalidate(orderProvider(orderId));
+      ref.invalidate(orderListProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Template aplicado.')));
+      }
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  Future<void> _printOrder(BuildContext context, ServiceOrder order) async {
+    try {
+      await Printing.layoutPdf(onLayout: (format) => buildOsPdf(order, format));
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível gerar o PDF.')),
+        );
+      }
+    }
+  }
 }
 
 class _Bounded extends StatelessWidget {
@@ -163,14 +219,20 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.order,
     required this.canWrite,
+    required this.canRead,
     required this.onEdit,
     required this.onDelete,
+    required this.onApplyTemplate,
+    required this.onPrint,
   });
 
   final ServiceOrder order;
   final bool canWrite;
+  final bool canRead;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onApplyTemplate;
+  final VoidCallback onPrint;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +281,18 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
+              if (canWrite)
+                IconButton(
+                  tooltip: 'Aplicar template',
+                  icon: const Icon(Icons.dashboard_customize_outlined),
+                  onPressed: onApplyTemplate,
+                ),
+              if (canRead)
+                IconButton(
+                  tooltip: 'Imprimir',
+                  icon: const Icon(Icons.print_outlined),
+                  onPressed: onPrint,
+                ),
               if (canWrite) ...[
                 IconButton(
                   tooltip: 'Editar',
@@ -1074,6 +1148,276 @@ class _NoteDialogState extends State<_NoteDialog> {
         FilledButton(
           onPressed: _submit,
           child: const Text('Adicionar'),
+        ),
+      ],
+    );
+  }
+}
+
+// ===================== Fotos =====================
+
+/// Galeria de fotos da OS: miniaturas em rolagem horizontal (com remover, sob
+/// permissão) e upload via picker. Lê `order.photos`; ao mutar, invalida a OS.
+class _PhotosSection extends ConsumerStatefulWidget {
+  const _PhotosSection({required this.order, required this.canWrite});
+
+  final ServiceOrder order;
+  final bool canWrite;
+
+  @override
+  ConsumerState<_PhotosSection> createState() => _PhotosSectionState();
+}
+
+class _PhotosSectionState extends ConsumerState<_PhotosSection> {
+  bool _busy = false;
+
+  ServiceOrder get order => widget.order;
+
+  Future<void> _add() async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final file = picked.files.first;
+    if (file.bytes == null) return;
+
+    final ext = (file.extension ?? 'jpeg').toLowerCase();
+    setState(() => _busy = true);
+    try {
+      await ref.read(osRepositoryProvider).addPhoto(
+            order.id,
+            bytes: file.bytes!,
+            filename: file.name,
+            contentType: 'image/$ext',
+            caption: null,
+          );
+      ref.invalidate(orderProvider(order.id));
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove(OrderPhoto photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remover foto'),
+        content: const Text('Remover esta foto da OS?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(osRepositoryProvider).deletePhoto(order.id, photo.id);
+      ref.invalidate(orderProvider(order.id));
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final photos = order.photos;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.photo_library_outlined,
+                size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              'Fotos',
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const Spacer(),
+            if (widget.canWrite)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                onPressed: _busy ? null : _add,
+                icon: _busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: Text(_busy ? 'Enviando…' : 'Adicionar foto'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: photos.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text(
+                      'Sem fotos',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  height: 96,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: photos.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (_, i) => _PhotoThumb(
+                      photo: photos[i],
+                      canWrite: widget.canWrite,
+                      onRemove: () => _remove(photos[i]),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PhotoThumb extends StatelessWidget {
+  const _PhotoThumb({
+    required this.photo,
+    required this.canWrite,
+    required this.onRemove,
+  });
+
+  final OrderPhoto photo;
+  final bool canWrite;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            photo.url,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              width: 96,
+              height: 96,
+              color: scheme.surfaceContainerHighest,
+              alignment: Alignment.center,
+              child: Icon(Icons.broken_image_outlined,
+                  color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ),
+        if (canWrite)
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onRemove,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 14, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ===================== Seletor de template =====================
+
+/// Dialog para escolher um template de OS a aplicar. Lista cada template como
+/// um ListTile clicável; devolve o escolhido (ou null em Cancelar). Vazio →
+/// mensagem orientando a criar templates.
+class _TemplatePickerDialog extends StatelessWidget {
+  const _TemplatePickerDialog({required this.templates});
+
+  final List<OsTemplate> templates;
+
+  static Future<OsTemplate?> show(
+    BuildContext context,
+    List<OsTemplate> templates,
+  ) {
+    return showDialog<OsTemplate>(
+      context: context,
+      builder: (_) => _TemplatePickerDialog(templates: templates),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Aplicar template'),
+      content: SizedBox(
+        width: 420,
+        child: templates.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Nenhum template — crie em Templates.'),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final t in templates)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.dashboard_customize_outlined),
+                      title: Text(t.name),
+                      subtitle: (t.description != null &&
+                              t.description!.isNotEmpty)
+                          ? Text(
+                              t.description!,
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            )
+                          : null,
+                      onTap: () => Navigator.of(context).pop(t),
+                    ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
         ),
       ],
     );

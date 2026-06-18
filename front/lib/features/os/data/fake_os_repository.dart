@@ -11,18 +11,22 @@ class FakeOsRepository implements OsRepository {
     List<InventoryOption>? inventory,
     List<CustomerOption>? customers,
     Map<String, List<SubjectOption>>? subjects,
+    List<OsTemplate>? templates,
   })  : _orders = {for (final o in orders ?? const <ServiceOrder>[]) o.id: o},
         _inventory = inventory ?? const <InventoryOption>[],
         _customers = customers ?? const <CustomerOption>[],
-        _subjects = subjects ?? const <String, List<SubjectOption>>{};
+        _subjects = subjects ?? const <String, List<SubjectOption>>{},
+        _templates = templates ?? const <OsTemplate>[];
 
   final Map<String, ServiceOrder> _orders;
   final List<InventoryOption> _inventory;
   final List<CustomerOption> _customers;
   final Map<String, List<SubjectOption>> _subjects;
+  final List<OsTemplate> _templates;
   int _seq = 0;
   int _itemSeq = 0;
   int _eventSeq = 0;
+  int _photoSeq = 0;
 
   @override
   Future<OrderPage> listOrders({
@@ -133,6 +137,56 @@ class FakeOsRepository implements OsRepository {
     // Mais recente primeiro (espelha o backend).
     final next = cur.copyWith(events: [event, ...cur.events]);
     _orders[id] = next;
+    return next;
+  }
+
+  @override
+  Future<ServiceOrder> addPhoto(
+    String orderId, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    String? caption,
+  }) async {
+    final cur = _orders[orderId]!;
+    final photo = OrderPhoto(
+      id: 'ph-${_photoSeq++}',
+      url: 'https://example.test/files/$filename',
+      caption: caption,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    final next = cur.copyWith(photos: [...cur.photos, photo]);
+    _orders[orderId] = next;
+    return next;
+  }
+
+  @override
+  Future<ServiceOrder> deletePhoto(String orderId, String photoId) async {
+    final cur = _orders[orderId]!;
+    final next = cur.copyWith(
+      photos: cur.photos.where((p) => p.id != photoId).toList(),
+    );
+    _orders[orderId] = next;
+    return next;
+  }
+
+  @override
+  Future<List<OsTemplate>> listTemplates() async => _templates;
+
+  @override
+  Future<ServiceOrder> applyTemplate(String orderId, String templateId) async {
+    final cur = _orders[orderId]!;
+    final item = OrderItem(
+      id: 'oi-${_itemSeq++}',
+      kind: 'service',
+      name: 'Item do template',
+      quantity: '1',
+      unitPrice: '100',
+      discount: '0',
+      total: '100',
+    );
+    final next = _recalc(cur.copyWith(items: [...cur.items, item]));
+    _orders[orderId] = next;
     return next;
   }
 

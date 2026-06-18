@@ -31,6 +31,26 @@ abstract interface class OsRepository {
     required bool visiblePublic,
   });
 
+  // ---- fotos ----
+  /// Anexa uma foto à OS (multipart `file`). Retorna a OS atualizada (com `photos`).
+  Future<ServiceOrder> addPhoto(
+    String orderId, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    String? caption,
+  });
+
+  /// Remove (soft no backend) uma foto da OS. Retorna a OS atualizada.
+  Future<ServiceOrder> deletePhoto(String orderId, String photoId);
+
+  // ---- templates ----
+  /// Templates de OS disponíveis (`GET /os/templates`).
+  Future<List<OsTemplate>> listTemplates();
+
+  /// Aplica um template à OS (adiciona os itens). Retorna a OS atualizada.
+  Future<ServiceOrder> applyTemplate(String orderId, String templateId);
+
   // ---- items ----
   Future<ServiceOrder> addItem(String id, OrderItemDraft draft);
   Future<ServiceOrder> updateItem(String id, String itemId, OrderItemPatch patch);
