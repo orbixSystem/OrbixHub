@@ -17,7 +17,11 @@ export type AuditAction =
   | 'inventory_item_update'
   | 'inventory_item_archive'
   | 'inventory_item_unarchive'
-  | 'inventory_item_delete';
+  | 'inventory_item_delete'
+  | 'os_create'
+  | 'os_update'
+  | 'os_status_change'
+  | 'os_delete';
 
 @Injectable()
 export class AuditService {

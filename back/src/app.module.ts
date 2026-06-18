@@ -23,6 +23,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { OsModule } from './modules/os/os.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     SettingsModule,
     CustomersModule,
     InventoryModule,
+    OsModule,
     DevtoolsModule,
   ],
   controllers: [HealthController],
