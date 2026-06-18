@@ -45,14 +45,17 @@ abstract class ConversationThread with _$ConversationThread {
     @Default(<Message>[]) List<Message> messages,
   }) = _ConversationThread;
 
-  /// O backend devolve `{ ...conversation, messages: [...] }` num único objeto;
-  /// separamos a conversa (sem a lista) das mensagens.
+  /// O backend devolve `{ conversation: {...}, messages: [...] }` (aninhado).
+  /// Toleramos também o formato plano `{ ...campos, messages: [...] }`.
   factory ConversationThread.fromJson(Map<String, dynamic> json) {
     final messages = (json['messages'] as List?)
             ?.map((e) => Message.fromJson((e as Map).cast<String, dynamic>()))
             .toList() ??
         const <Message>[];
-    final convJson = Map<String, dynamic>.from(json)..remove('messages');
+    final nested = json['conversation'];
+    final convJson = nested is Map
+        ? nested.cast<String, dynamic>()
+        : (Map<String, dynamic>.from(json)..remove('messages'));
     return ConversationThread(
       conversation: Conversation.fromJson(convJson),
       messages: messages,
