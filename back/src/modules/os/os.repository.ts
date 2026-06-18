@@ -63,6 +63,14 @@ export interface UpdateItemData {
   total?: DecimalIn;
 }
 
+export interface CreateTemplateItemData {
+  kind: 'product' | 'service';
+  inventory_item_id: string | null;
+  name: string;
+  quantity: DecimalIn;
+  unit_price: DecimalIn | null;
+}
+
 export interface CreatePhotoData {
   order_id: string;
   storage_key: string;
@@ -265,6 +273,88 @@ export class OsRepository {
     return db.service_order_photo.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'desc' },
+    });
+  }
+
+  // ---- templates de serviço ----
+  createTemplate(
+    tenantId: string,
+    data: { name: string; description: string | null },
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_template.create({
+      data: {
+        tenant_id: tenantId,
+        name: data.name,
+        description: data.description,
+      } as Prisma.service_order_templateUncheckedCreateInput,
+    });
+  }
+
+  findTemplateById(id: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_template.findUnique({
+      where: { id },
+      include: { items: { orderBy: { created_at: 'asc' } } },
+    });
+  }
+
+  listTemplates() {
+    const db = this.tenant.getClient();
+    return db.service_order_template.findMany({
+      where: { deleted_at: null },
+      orderBy: { name: 'asc' },
+      include: { items: { orderBy: { created_at: 'asc' } } },
+    });
+  }
+
+  updateTemplate(
+    id: string,
+    data: { name?: string; description?: string | null },
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_template.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
+    });
+  }
+
+  softDeleteTemplate(id: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_template.update({
+      where: { id },
+      data: { deleted_at: new Date(), updated_at: new Date() },
+    });
+  }
+
+  addTemplateItem(
+    tenantId: string,
+    templateId: string,
+    data: CreateTemplateItemData,
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_template_item.create({
+      data: {
+        tenant_id: tenantId,
+        template_id: templateId,
+        ...data,
+      } as Prisma.service_order_template_itemUncheckedCreateInput,
+    });
+  }
+
+  /** Apaga todos os itens do template (usado no replace ao atualizar). */
+  deleteTemplateItems(templateId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_template_item.deleteMany({
+      where: { template_id: templateId },
+    });
+  }
+
+  listTemplateItems(templateId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_template_item.findMany({
+      where: { template_id: templateId },
+      orderBy: { created_at: 'asc' },
     });
   }
 

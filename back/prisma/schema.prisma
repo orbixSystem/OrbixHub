@@ -151,6 +151,39 @@ model service_order_item {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_template {
+  id          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String                        @db.Uuid
+  name        String
+  description String?
+  deleted_at  DateTime?                     @db.Timestamptz(6)
+  created_at  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime                      @default(now()) @db.Timestamptz(6)
+  tenant      tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items       service_order_template_item[]
+
+  @@index([tenant_id], map: "idx_service_order_template_tenant")
+  @@index([tenant_id, name], map: "idx_service_order_template_tenant_name")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_template_item {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                 @db.Uuid
+  template_id       String                 @db.Uuid
+  kind              String
+  inventory_item_id String?                @db.Uuid
+  name              String
+  quantity          Decimal                @default(1) @db.Decimal(14, 3)
+  unit_price        Decimal?               @db.Decimal(14, 2)
+  created_at        DateTime               @default(now()) @db.Timestamptz(6)
+  template          service_order_template @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, template_id], map: "idx_service_order_template_item_tenant_template")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model service_order_event {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id       String        @db.Uuid
@@ -416,6 +449,8 @@ model tenant {
   service_order_event service_order_event[]
   service_order_item  service_order_item[]
   service_order_photo service_order_photo[]
+  service_order_template      service_order_template[]
+  service_order_template_item service_order_template_item[]
   subject            subject[]
   subscription       subscription?
   tenant_module      tenant_module[]

@@ -223,6 +223,34 @@ describe('OS — Ordens de Serviço (e2e)', () => {
     return request(srv()).get(`/api/subjects${query}`).set(auth(access));
   }
 
+  function createTemplate(access: string, body: Record<string, unknown>) {
+    return request(srv())
+      .post('/api/os/templates')
+      .set(auth(access))
+      .send(body);
+  }
+  function listTemplates(access: string) {
+    return request(srv()).get('/api/os/templates').set(auth(access));
+  }
+  function deleteTemplate(access: string, id: string) {
+    return request(srv()).delete(`/api/os/templates/${id}`).set(auth(access));
+  }
+  function applyTemplate(access: string, orderId: string, templateId: string) {
+    return request(srv())
+      .post(`/api/os/orders/${orderId}/apply-template/${templateId}`)
+      .set(auth(access));
+  }
+  function patchInventoryItem(
+    access: string,
+    id: string,
+    body: Record<string, unknown>,
+  ) {
+    return request(srv())
+      .patch(`/api/inventory/items/${id}`)
+      .set(auth(access))
+      .send(body);
+  }
+
   type IdRow = { id: string };
   const ids = (rows: IdRow[]) => rows.map((r) => r.id);
 
@@ -643,6 +671,89 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       expect(created.status).toBe(201);
       const list = await listOrders(mech.access);
       expect(list.status).toBe(200);
+    });
+  });
+
+  // ---- 8. templates de serviço ------------------------------------------
+  describe('service templates (CRUD + apply)', () => {
+    it('creates a template (inventory-ref + avulso), lists it', async () => {
+      const o = await registerOwner();
+      const prodId = await createInventoryProduct(o.access, 10, 80);
+
+      const created = await createTemplate(o.access, {
+        name: 'Revisão completa',
+        description: 'Óleo + filtro + mão de obra',
+        items: [
+          { kind: 'product', inventoryItemId: prodId, quantity: 2 },
+          { kind: 'service', name: 'Mão de obra', quantity: 1, unitPrice: 120 },
+        ],
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.name).toBe('Revisão completa');
+      expect(created.body.items).toHaveLength(2);
+      // Item do estoque foi snapshotado (nome + preço do item).
+      const refItem = created.body.items.find(
+        (i: { inventory_item_id: string | null }) =>
+          i.inventory_item_id === prodId,
+      );
+      expect(refItem).toBeTruthy();
+      expect(Number(refItem.unit_price)).toBe(80);
+
+      const list = await listTemplates(o.access);
+      expect(list.status).toBe(200);
+      expect(ids(list.body as IdRow[])).toContain(created.body.id as string);
+    });
+
+    it('applies a template to an OS: pre-fills items, recomputes total, re-snapshots current price', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const prodId = await createInventoryProduct(o.access, 10, 80);
+
+      const tpl = await createTemplate(o.access, {
+        name: 'Troca de óleo',
+        items: [
+          { kind: 'product', inventoryItemId: prodId, quantity: 2 },
+          { kind: 'service', name: 'Mão de obra', quantity: 1, unitPrice: 120 },
+        ],
+      });
+      expect(tpl.status).toBe(201);
+
+      // Preço do produto sobe DEPOIS de criar o template — apply re-snapshota o atual.
+      const patched = await patchInventoryItem(o.access, prodId, {
+        salePrice: 100,
+      });
+      expect(patched.status).toBe(200);
+
+      const order = await createOrder(o.access, { customerId });
+      expect(order.status).toBe(201);
+      const orderId = order.body.id as string;
+
+      const applied = await applyTemplate(o.access, orderId, tpl.body.id);
+      expect(applied.status).toBe(200);
+      expect(applied.body.items).toHaveLength(2);
+      // Produto re-snapshotado com o preço CORRENTE (100), não o do template (80).
+      const prodLine = applied.body.items.find(
+        (i: { inventory_item_id: string | null }) =>
+          i.inventory_item_id === prodId,
+      );
+      expect(Number(prodLine.unit_price)).toBe(100);
+      // Total = 2*100 (produto) + 1*120 (mão de obra) = 320.
+      expect(Number(applied.body.total)).toBe(320);
+    });
+
+    it('soft deletes a template (gone from list)', async () => {
+      const o = await registerOwner();
+      const tpl = await createTemplate(o.access, {
+        name: 'Descartável',
+        items: [{ kind: 'service', name: 'X', quantity: 1, unitPrice: 10 }],
+      });
+      expect(tpl.status).toBe(201);
+
+      const del = await deleteTemplate(o.access, tpl.body.id);
+      expect(del.status).toBe(200);
+
+      const list = await listTemplates(o.access);
+      expect(ids(list.body as IdRow[])).not.toContain(tpl.body.id as string);
     });
   });
 });

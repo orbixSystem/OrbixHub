@@ -23,7 +23,11 @@ export type AuditAction =
   | 'os_status_change'
   | 'os_delete'
   | 'os_photo_add'
-  | 'os_photo_delete';
+  | 'os_photo_delete'
+  | 'os_template_create'
+  | 'os_template_update'
+  | 'os_template_delete'
+  | 'os_template_apply';
 
 @Injectable()
 export class AuditService {

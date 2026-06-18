@@ -28,6 +28,12 @@ import {
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
+import {
+  CreateTemplateDto,
+  TemplateItemDto,
+  UpdateTemplateDto,
+} from './dto/template.dto';
+import type { CreateTemplateItemData } from './os.repository';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -528,6 +534,201 @@ export class OsService {
       await this.recomputeTotal(orderId);
       return { id: itemId, deleted: true };
     });
+  }
+
+  // ===================== Templates de serviço =====================
+  /**
+   * Resolve os itens de um template (DTO → dados do repo). Para itens com
+   * `inventoryItemId`, faz snapshot de nome/preço via `inventory.getItem`
+   * (service público — não toca a tabela alheia). Cada getItem abre a PRÓPRIA
+   * withTenantTx, então resolvemos SEQUENCIALMENTE e FORA de qualquer tx (aninhar
+   * esgota o pool). Itens avulsos exigem `name`.
+   */
+  private async resolveTemplateItems(
+    items: TemplateItemDto[],
+  ): Promise<CreateTemplateItemData[]> {
+    const resolved: CreateTemplateItemData[] = [];
+    for (const dto of items) {
+      let name = dto.name?.trim() || '';
+      let unitPrice: number | null = dto.unitPrice ?? null;
+      let kind: 'product' | 'service' = dto.kind;
+      let inventoryItemId: string | null = null;
+
+      if (dto.inventoryItemId) {
+        const invItem = await this.inventory.getItem(dto.inventoryItemId);
+        inventoryItemId = invItem.id;
+        name = invItem.name;
+        kind = (invItem.kind as 'product' | 'service') ?? dto.kind;
+        if (dto.unitPrice === undefined) unitPrice = toNum(invItem.sale_price);
+      } else if (!name) {
+        throw new BadRequestException('Nome é obrigatório para item avulso.');
+      }
+
+      resolved.push({
+        kind,
+        inventory_item_id: inventoryItemId,
+        name,
+        quantity: dto.quantity ?? 1,
+        unit_price: unitPrice,
+      });
+    }
+    return resolved;
+  }
+
+  async createTemplate(user: AuthUser, dto: CreateTemplateDto) {
+    // Snapshot dos itens FORA da tx do template (getItem abre a própria tx).
+    const items = await this.resolveTemplateItems(dto.items ?? []);
+
+    const template = await this.tenant.withTenantTx(async () => {
+      const created = await this.repo.createTemplate(user.tenantId, {
+        name: dto.name.trim(),
+        description: dto.description?.trim() || null,
+      });
+      for (const item of items) {
+        await this.repo.addTemplateItem(user.tenantId, created.id, item);
+      }
+      return this.repo.findTemplateById(created.id);
+    });
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'os_template_create',
+      template!.id,
+    );
+    return template;
+  }
+
+  listTemplates(_user: AuthUser) {
+    return this.tenant.withTenantTx(() => this.repo.listTemplates());
+  }
+
+  async getTemplate(_user: AuthUser, id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const template = await this.repo.findTemplateById(id);
+      if (!template || template.deleted_at)
+        throw new NotFoundException('Template não encontrado.');
+      return template;
+    });
+  }
+
+  async updateTemplate(user: AuthUser, id: string, dto: UpdateTemplateDto) {
+    // Snapshot dos novos itens FORA da tx (getItem abre a própria tx).
+    const items =
+      dto.items !== undefined
+        ? await this.resolveTemplateItems(dto.items)
+        : undefined;
+
+    const template = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findTemplateById(id);
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('Template não encontrado.');
+      const data: { name?: string; description?: string | null } = {};
+      if (dto.name !== undefined) data.name = dto.name.trim();
+      if (dto.description !== undefined)
+        data.description = dto.description.trim() || null;
+      if (Object.keys(data).length) await this.repo.updateTemplate(id, data);
+      if (items !== undefined) {
+        // Substituição integral dos itens.
+        await this.repo.deleteTemplateItems(id);
+        for (const item of items) {
+          await this.repo.addTemplateItem(user.tenantId, id, item);
+        }
+      }
+      return this.repo.findTemplateById(id);
+    });
+    await this.audit.log(user.tenantId, user.userId, 'os_template_update', id);
+    return template;
+  }
+
+  async deleteTemplate(user: AuthUser, id: string) {
+    const result = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findTemplateById(id);
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('Template não encontrado.');
+      return this.repo.softDeleteTemplate(id);
+    });
+    await this.audit.log(user.tenantId, user.userId, 'os_template_delete', id);
+    return result;
+  }
+
+  /**
+   * Aplica um template a uma OS: para cada item do template, insere um
+   * `service_order_item` na OS. Itens com `inventory_item_id` re-fazem snapshot do
+   * nome/preço ATUAL via `inventory.getItem` (preço corrente no momento de aplicar);
+   * avulsos usam o nome/preço gravado no template. Recalcula o total e adiciona um
+   * evento de nota na timeline (interno). Retorna a OS atualizada (com itens/eventos).
+   */
+  async applyTemplate(user: AuthUser, orderId: string, templateId: string) {
+    // Carrega OS + template (cada um na própria tx) e re-snapshot dos itens de
+    // estoque ANTES da tx de escrita (getItem abre a própria tx — não aninhar).
+    const template = await this.getTemplate(user, templateId);
+    // Garante OS existente / não deletada antes do re-snapshot (sua própria tx).
+    await this.getOrderOrThrow(orderId);
+
+    // Resolve os itens a inserir (re-snapshot do preço atual quando vinculado ao estoque).
+    const toInsert: Array<{
+      kind: 'product' | 'service';
+      inventory_item_id: string | null;
+      name: string;
+      quantity: number;
+      unit_price: number;
+    }> = [];
+    for (const ti of template.items) {
+      let name = ti.name;
+      let unitPrice = toNum(ti.unit_price);
+      let kind = ti.kind as 'product' | 'service';
+      let inventoryItemId: string | null = ti.inventory_item_id;
+      if (ti.inventory_item_id) {
+        // Re-snapshot do preço/nome CORRENTE no momento de aplicar.
+        const invItem = await this.inventory.getItem(ti.inventory_item_id);
+        inventoryItemId = invItem.id;
+        name = invItem.name;
+        kind = (invItem.kind as 'product' | 'service') ?? kind;
+        unitPrice = toNum(invItem.sale_price);
+      }
+      toInsert.push({
+        kind,
+        inventory_item_id: inventoryItemId,
+        name,
+        quantity: toNum(ti.quantity),
+        unit_price: unitPrice,
+      });
+    }
+
+    const updated = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findOrderById(orderId);
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('OS não encontrada.');
+      for (const it of toInsert) {
+        const total = Math.max(0, it.quantity * it.unit_price);
+        await this.repo.addItem(user.tenantId, {
+          order_id: orderId,
+          kind: it.kind,
+          inventory_item_id: it.inventory_item_id,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          discount: 0,
+          total,
+        });
+      }
+      await this.recomputeTotal(orderId);
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message: `Template aplicado: ${template.name}`,
+        visiblePublic: false,
+        createdBy: user.userId,
+      });
+      return this.repo.findOrderById(orderId);
+    });
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'os_template_apply',
+      orderId,
+      { templateId },
+    );
+    return updated;
   }
 
   // ===================== Internos =====================

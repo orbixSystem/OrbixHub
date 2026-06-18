@@ -27,12 +27,65 @@ import {
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
+import { CreateTemplateDto, UpdateTemplateDto } from './dto/template.dto';
 
 @Controller('os')
 @UseGuards(ModuleAccessGuard)
 @RequiresModule('os')
 export class OsController {
   constructor(private readonly os: OsService) {}
+
+  // --- templates de serviço ---
+  // Rotas literais `/os/templates...` declaradas ANTES de `/os/orders/...` para
+  // não colidirem (segmentos distintos, mas mantemos explícito).
+  @Get('templates')
+  @Permissions('os.read')
+  listTemplates(@CurrentUser() user: AuthUser) {
+    return this.os.listTemplates(user);
+  }
+
+  @Get('templates/:id')
+  @Permissions('os.read')
+  getTemplate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.os.getTemplate(user, id);
+  }
+
+  @Post('templates')
+  @Permissions('os.write')
+  createTemplate(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateTemplateDto,
+  ) {
+    return this.os.createTemplate(user, dto);
+  }
+
+  @Patch('templates/:id')
+  @Permissions('os.write')
+  updateTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTemplateDto,
+  ) {
+    return this.os.updateTemplate(user, id, dto);
+  }
+
+  @Delete('templates/:id')
+  @Permissions('os.write')
+  @HttpCode(200)
+  deleteTemplate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.os.deleteTemplate(user, id);
+  }
+
+  @Post('orders/:id/apply-template/:templateId')
+  @Permissions('os.write')
+  @HttpCode(200)
+  applyTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('templateId') templateId: string,
+  ) {
+    return this.os.applyTemplate(user, id, templateId);
+  }
 
   // --- orders ---
   @Post('orders')
