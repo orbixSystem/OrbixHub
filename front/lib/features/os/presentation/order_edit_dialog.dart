@@ -1,0 +1,203 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/error/app_exception.dart';
+import '../domain/os_models.dart';
+import 'os_providers.dart';
+
+/// Dialog de edição da OS: relato, diagnóstico, previsões, responsável e
+/// desconto. PATCH envia só os campos presentes. UI fala só com o repository.
+class OrderEditDialog extends ConsumerStatefulWidget {
+  const OrderEditDialog({super.key, required this.order});
+
+  final ServiceOrder order;
+
+  static Future<bool?> show(BuildContext context, {required ServiceOrder order}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => OrderEditDialog(order: order),
+    );
+  }
+
+  @override
+  ConsumerState<OrderEditDialog> createState() => _OrderEditDialogState();
+}
+
+class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
+  late final TextEditingController _complaint;
+  late final TextEditingController _diagnosis;
+  late final TextEditingController _assignedTo;
+  late final TextEditingController _scheduledStart;
+  late final TextEditingController _scheduledEnd;
+  late final TextEditingController _discount;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final o = widget.order;
+    _complaint = TextEditingController(text: o.complaint ?? '');
+    _diagnosis = TextEditingController(text: o.diagnosis ?? '');
+    _assignedTo = TextEditingController(text: o.assignedTo ?? '');
+    _scheduledStart = TextEditingController(text: o.scheduledStart ?? '');
+    _scheduledEnd = TextEditingController(text: o.scheduledEnd ?? '');
+    _discount = TextEditingController(text: _fmt(o.discount));
+  }
+
+  String _fmt(String? decimal) {
+    final v = double.tryParse(decimal ?? '');
+    if (v == null || v == 0) return '';
+    return v.toString().replaceAll('.', ',');
+  }
+
+  @override
+  void dispose() {
+    for (final c in [
+      _complaint,
+      _diagnosis,
+      _assignedTo,
+      _scheduledStart,
+      _scheduledEnd,
+      _discount,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _opt(String v) => v.trim().isEmpty ? null : v.trim();
+
+  double? _toDouble(String raw) {
+    final t = raw.trim().replaceAll(',', '.');
+    if (t.isEmpty) return 0;
+    return double.tryParse(t);
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final patch = OrderPatch(
+      complaint: _opt(_complaint.text),
+      diagnosis: _opt(_diagnosis.text),
+      assignedTo: _opt(_assignedTo.text),
+      scheduledStart: _opt(_scheduledStart.text),
+      scheduledEnd: _opt(_scheduledEnd.text),
+      discount: _toDouble(_discount.text),
+    );
+    try {
+      await ref.read(osRepositoryProvider).updateOrder(widget.order.id, patch);
+      ref.invalidate(orderProvider(widget.order.id));
+      if (mounted) Navigator.of(context).pop(true);
+    } on AppException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Editar ${widget.order.number}'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _complaint,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Relato do cliente',
+                  prefixIcon: Icon(Icons.chat_outlined),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _diagnosis,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Diagnóstico',
+                  prefixIcon: Icon(Icons.search_outlined),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _assignedTo,
+                decoration: const InputDecoration(
+                  labelText: 'Responsável',
+                  prefixIcon: Icon(Icons.engineering_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _scheduledStart,
+                      decoration: const InputDecoration(
+                        labelText: 'Previsão início',
+                        prefixIcon: Icon(Icons.event_outlined),
+                        hintText: 'AAAA-MM-DD',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _scheduledEnd,
+                      decoration: const InputDecoration(
+                        labelText: 'Previsão fim',
+                        prefixIcon: Icon(Icons.event_available_outlined),
+                        hintText: 'AAAA-MM-DD',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _discount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Desconto da OS',
+                  prefixText: 'R\$ ',
+                  prefixIcon: Icon(Icons.discount_outlined),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}

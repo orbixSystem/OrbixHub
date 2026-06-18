@@ -6,6 +6,8 @@ import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/os/presentation/os_list_screen.dart';
+import '../../features/os/presentation/os_detail_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -122,6 +124,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/inventory',
             builder: (_, _) => const InventoryScreen(),
+          ),
+          // OS module — literal routes before the generic placeholder so they
+          // take precedence; both stay gated under /m/os.
+          GoRoute(
+            path: '/m/os',
+            builder: (_, _) => const OsListScreen(),
+          ),
+          GoRoute(
+            path: '/m/os/:id',
+            builder: (_, state) => OsDetailScreen(
+              orderId: state.pathParameters['id'] ?? '',
+            ),
           ),
           GoRoute(
             path: '/m/:moduleKey',

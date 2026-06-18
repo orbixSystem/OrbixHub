@@ -19,6 +19,8 @@ import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
 import 'features/inventory/presentation/inventory_providers.dart';
+import 'features/os/data/os_repository_impl.dart';
+import 'features/os/presentation/os_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
 import 'features/tracking/data/fake_tracking_repository.dart';
@@ -88,6 +90,9 @@ final trackingRepositoryProvider =
 final diOverrides = [
   inventoryRepositoryProvider.overrideWith(
     (ref) => InventoryRepositoryImpl(ref.read(dioProvider)),
+  ),
+  osRepositoryProvider.overrideWith(
+    (ref) => OsRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 
