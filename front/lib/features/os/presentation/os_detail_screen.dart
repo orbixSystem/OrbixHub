@@ -818,13 +818,15 @@ class _TotalRow extends StatelessWidget {
 
 /// Card com o link público de acompanhamento da OS. Copiar funciona; WhatsApp
 /// e e-mail aparecem desabilitados ("Em breve"). A origem do link vem de
-/// `Uri.base.origin` (web) — ex.: `http://localhost:8090/t/<token>`.
+/// `Uri.base.origin` (web) — ex.: `http://localhost:8090/#/t/<token>`.
+/// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
+/// pública não casa e o cliente cai no login).
 class _TrackingLinkCard extends StatelessWidget {
   const _TrackingLinkCard({required this.token});
 
   final String token;
 
-  String get _url => '${Uri.base.origin}/t/$token';
+  String get _url => '${Uri.base.origin}/#/t/$token';
 
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _url));
