@@ -19,6 +19,10 @@ import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
 import 'features/inventory/presentation/inventory_providers.dart';
+import 'features/messages/data/messages_repository_impl.dart';
+import 'features/messages/presentation/messages_providers.dart';
+import 'features/notifications/data/notifications_repository_impl.dart';
+import 'features/notifications/presentation/notifications_providers.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
@@ -93,6 +97,12 @@ final diOverrides = [
   ),
   osRepositoryProvider.overrideWith(
     (ref) => OsRepositoryImpl(ref.read(dioProvider)),
+  ),
+  messagesRepositoryProvider.overrideWith(
+    (ref) => MessagesRepositoryImpl(ref.read(dioProvider)),
+  ),
+  notificationsRepositoryProvider.overrideWith(
+    (ref) => NotificationsRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 

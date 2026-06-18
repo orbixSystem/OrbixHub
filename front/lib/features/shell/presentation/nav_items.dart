@@ -28,6 +28,13 @@ List<NavItem> gatedNavItems(Me me) {
     final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
   }
+  // Mensagens é genérico (não é módulo de tenant). v1 reusa as permissões de OS:
+  // mostra para quem pode ler OS; owners também têm essa permissão.
+  if (me.hasPermission('os.read')) {
+    items.add(
+      const NavItem('Mensagens', Icons.forum_outlined, '/mensagens'),
+    );
+  }
   // Team management is gated by users.manage; placed before Planos.
   if (me.hasPermission('users.manage')) {
     items.add(const NavItem('Equipe', Icons.groups_outlined, '/equipe'));

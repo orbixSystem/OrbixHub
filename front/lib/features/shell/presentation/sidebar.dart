@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../messages/presentation/messages_providers.dart';
 import 'nav_items.dart';
 
 /// The graphite navigation rail content, shared by the persistent desktop
@@ -26,6 +27,8 @@ class SidebarContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Badge ao vivo no item Mensagens (soma de não-lidos do staff).
+    final unreadMessages = ref.watch(unreadConversationsCountProvider);
     return Container(
       width: 272,
       color: AppColors.graphite,
@@ -65,6 +68,9 @@ class SidebarContent extends ConsumerWidget {
                     _SideNavItem(
                       item: items[i],
                       active: i == selectedIndex,
+                      badge: items[i].route == '/mensagens'
+                          ? unreadMessages
+                          : 0,
                       onTap: () => onNavigate(items[i].route),
                     ),
                 ],
@@ -155,11 +161,13 @@ class _SideNavItem extends StatefulWidget {
     required this.item,
     required this.active,
     required this.onTap,
+    this.badge = 0,
   });
 
   final NavItem item;
   final bool active;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   State<_SideNavItem> createState() => _SideNavItemState();
@@ -209,7 +217,26 @@ class _SideNavItemState extends State<_SideNavItem> {
                     ),
                   ),
                 ),
-                if (active)
+                if (widget.badge > 0)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 20),
+                    height: 20,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.brand,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      widget.badge > 99 ? '99+' : '${widget.badge}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  )
+                else if (active)
                   Container(
                     width: 6,
                     height: 6,

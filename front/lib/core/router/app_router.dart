@@ -6,6 +6,8 @@ import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/messages/presentation/messages_inbox_screen.dart';
+import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
 import '../../features/os/presentation/os_detail_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
@@ -108,6 +110,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
           GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
           GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
+          // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
+          // só por autenticação (já está dentro da shell autenticada).
+          GoRoute(
+            path: '/mensagens',
+            builder: (_, _) => const MessagesInboxScreen(),
+          ),
+          GoRoute(
+            path: '/mensagens/:id',
+            builder: (_, state) => MessageThreadScreen(
+              conversationId: state.pathParameters['id'] ?? '',
+            ),
+          ),
           // Customers module — literal routes declared before the generic
           // /m/:moduleKey placeholder so they take precedence.
           GoRoute(

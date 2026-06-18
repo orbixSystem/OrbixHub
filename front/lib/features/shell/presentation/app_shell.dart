@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import 'nav_items.dart';
 import 'sidebar.dart';
 
@@ -95,6 +96,8 @@ class _ContentHeader extends StatelessWidget {
             ),
           Text(title, style: Theme.of(context).textTheme.titleLarge),
           const Spacer(),
+          // Sino de notificações (badge + drawer/toast + polling).
+          const NotificationsBell(),
         ],
       ),
     );
