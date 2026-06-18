@@ -83,6 +83,27 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<ServiceOrder> createNote(
+    String id, {
+    required String message,
+    required bool visiblePublic,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/os/orders/$id/notes',
+          data: {'message': message, 'visiblePublic': visiblePublic},
+        );
+        final body = _asMap(res.data);
+        // O backend pode devolver a OS (com `items`) ou só o evento. Se vier a
+        // OS, usamos direto; senão, re-buscamos a OS atualizada.
+        if (body.containsKey('items') || body.containsKey('number')) {
+          return ServiceOrder.fromJson(body);
+        }
+        final refreshed = await _dio.get<Object?>('/os/orders/$id');
+        return ServiceOrder.fromJson(_asMap(refreshed.data));
+      });
+
+  @override
   Future<ServiceOrder> addItem(String id, OrderItemDraft draft) =>
       _guard(() async {
         final res = await _dio.post<Object?>(

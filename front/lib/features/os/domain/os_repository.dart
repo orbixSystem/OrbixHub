@@ -23,6 +23,14 @@ abstract interface class OsRepository {
   /// Transição de status (FSM no backend). `aprovada` exige `os.approve`.
   Future<ServiceOrder> changeStatus(String id, String status);
 
+  /// Adiciona uma nota à linha do tempo da OS. `visiblePublic` controla se o
+  /// cliente a vê no acompanhamento. Retorna a OS atualizada (com `events`).
+  Future<ServiceOrder> createNote(
+    String id, {
+    required String message,
+    required bool visiblePublic,
+  });
+
   // ---- items ----
   Future<ServiceOrder> addItem(String id, OrderItemDraft draft);
   Future<ServiceOrder> updateItem(String id, String itemId, OrderItemPatch patch);

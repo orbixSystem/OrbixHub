@@ -22,6 +22,7 @@ class FakeOsRepository implements OsRepository {
   final Map<String, List<SubjectOption>> _subjects;
   int _seq = 0;
   int _itemSeq = 0;
+  int _eventSeq = 0;
 
   @override
   Future<OrderPage> listOrders({
@@ -111,6 +112,26 @@ class FakeOsRepository implements OsRepository {
   @override
   Future<ServiceOrder> changeStatus(String id, String status) async {
     final next = _orders[id]!.copyWith(status: status);
+    _orders[id] = next;
+    return next;
+  }
+
+  @override
+  Future<ServiceOrder> createNote(
+    String id, {
+    required String message,
+    required bool visiblePublic,
+  }) async {
+    final cur = _orders[id]!;
+    final event = OrderEvent(
+      id: 'ev-${_eventSeq++}',
+      kind: 'note',
+      message: message,
+      visiblePublic: visiblePublic,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    // Mais recente primeiro (espelha o backend).
+    final next = cur.copyWith(events: [event, ...cur.events]);
     _orders[id] = next;
     return next;
   }

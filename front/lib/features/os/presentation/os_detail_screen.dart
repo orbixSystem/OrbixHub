@@ -69,6 +69,8 @@ class OsDetailScreen extends ConsumerWidget {
             _ItemsSection(order: order, canWrite: canWrite),
             const SizedBox(height: 24),
             _TotalsCard(order: order),
+            const SizedBox(height: 24),
+            _TimelineSection(order: order, canWrite: canWrite),
           ],
         ),
       ),
@@ -727,6 +729,352 @@ class _TotalRow extends StatelessWidget {
       children: [
         Text(label, style: TextStyle(color: scheme.onSurfaceVariant)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+// ===================== Linha do tempo =====================
+
+class _TimelineSection extends ConsumerWidget {
+  const _TimelineSection({required this.order, required this.canWrite});
+
+  final ServiceOrder order;
+  final bool canWrite;
+
+  Future<void> _addNote(BuildContext context, WidgetRef ref) async {
+    final draft = await _NoteDialog.show(context);
+    if (draft == null) return;
+    try {
+      await ref.read(osRepositoryProvider).createNote(
+            order.id,
+            message: draft.message,
+            visiblePublic: draft.visiblePublic,
+          );
+      ref.invalidate(orderProvider(order.id));
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final events = order.events;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.timeline_outlined,
+                size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              'Linha do tempo',
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const Spacer(),
+            if (canWrite)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                onPressed: () => _addNote(context, ref),
+                icon: const Icon(Icons.add_comment_outlined, size: 18),
+                label: const Text('Adicionar nota'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: events.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'Nenhum evento ainda.',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (var i = 0; i < events.length; i++)
+                      _EventRow(
+                        event: events[i],
+                        isFirst: i == 0,
+                        isLast: i == events.length - 1,
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventRow extends StatelessWidget {
+  const _EventRow({
+    required this.event,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  final OrderEvent event;
+  final bool isFirst;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dotColor = _dotColor();
+    return IntrinsicHeight(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Trilho vertical com o ponto/ícone.
+            SizedBox(
+              width: 36,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: isFirst
+                          ? Colors.transparent
+                          : scheme.outlineVariant,
+                    ),
+                  ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: dotColor.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(_kindIcon(), size: 16, color: dotColor),
+                  ),
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color:
+                          isLast ? Colors.transparent : scheme.outlineVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _label(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: event.visiblePublic
+                              ? 'Visível ao cliente'
+                              : 'Interno (não visível ao cliente)',
+                          child: Icon(
+                            event.visiblePublic
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 16,
+                            color: event.visiblePublic
+                                ? AppColors.brand
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (event.createdAt != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _fmtTimestamp(event.createdAt!),
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Rótulo do evento: usa a `message` quando há; senão deriva de `status_change`
+  /// (rótulo PT-BR do status) ou do `kind`.
+  String _label() {
+    final msg = event.message?.trim();
+    if (msg != null && msg.isNotEmpty) return msg;
+    switch (event.kind) {
+      case 'status_change':
+        final snap = event.statusSnapshot;
+        return snap == null
+            ? 'Status alterado'
+            : 'Status: ${osStatusLabel(snap)}';
+      case 'created':
+        return 'OS criada';
+      case 'photo':
+        return 'Foto adicionada';
+      default:
+        return 'Nota';
+    }
+  }
+
+  Color _dotColor() {
+    switch (event.kind) {
+      case 'status_change':
+        return event.statusSnapshot == null
+            ? AppColors.brand
+            : osStatusColor(event.statusSnapshot!);
+      case 'created':
+        return AppColors.success;
+      case 'photo':
+        return AppColors.info;
+      default:
+        return AppColors.graphite;
+    }
+  }
+
+  IconData _kindIcon() {
+    switch (event.kind) {
+      case 'created':
+        return Icons.flag_outlined;
+      case 'status_change':
+        return Icons.swap_horiz;
+      case 'photo':
+        return Icons.photo_outlined;
+      case 'note':
+      default:
+        return Icons.chat_bubble_outline;
+    }
+  }
+
+  /// Timestamp curto a partir de um ISO-8601. Mostra `dd/MM HH:mm`; se não
+  /// parsear, devolve o original.
+  String _fmtTimestamp(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    final local = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.day)}/${two(local.month)}/${local.year} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+}
+
+/// Resultado do dialog de nova nota.
+class _NoteDraft {
+  const _NoteDraft({required this.message, required this.visiblePublic});
+  final String message;
+  final bool visiblePublic;
+}
+
+/// Dialog para adicionar uma nota à linha do tempo (mensagem + visibilidade).
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog();
+
+  static Future<_NoteDraft?> show(BuildContext context) {
+    return showDialog<_NoteDraft>(
+      context: context,
+      builder: (_) => const _NoteDialog(),
+    );
+  }
+
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  final _message = TextEditingController();
+  bool _visiblePublic = false;
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _message.text.trim();
+    if (text.isEmpty) return;
+    Navigator.of(context).pop(
+      _NoteDraft(message: text, visiblePublic: _visiblePublic),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adicionar nota'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _message,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 6,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: 'Nota',
+                hintText: 'Ex.: peça pedida ao fornecedor, previsão de chegada…',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _visiblePublic,
+              onChanged: (v) => setState(() => _visiblePublic = v),
+              title: const Text('Visível ao cliente'),
+              subtitle: const Text(
+                'Quando ligado, aparece no acompanhamento do cliente.',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Adicionar'),
+        ),
       ],
     );
   }

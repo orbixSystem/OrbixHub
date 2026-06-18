@@ -23,6 +23,25 @@ abstract class OrderItem with _$OrderItem {
       _$OrderItemFromJson(json);
 }
 
+/// Evento da linha do tempo da OS (criação, troca de status, nota, foto). Vem
+/// do backend já em ordem decrescente (mais recente primeiro). `message` é a
+/// descrição livre; `statusSnapshot` registra o status no momento (útil em
+/// `status_change`); `visiblePublic` indica se o evento é exibido ao cliente.
+@freezed
+abstract class OrderEvent with _$OrderEvent {
+  const factory OrderEvent({
+    required String id,
+    @Default('note') String kind, // 'created' | 'status_change' | 'note' | 'photo'
+    String? message,
+    @JsonKey(name: 'status_snapshot') String? statusSnapshot,
+    @JsonKey(name: 'visible_public') @Default(false) bool visiblePublic,
+    @JsonKey(name: 'created_at') String? createdAt,
+  }) = _OrderEvent;
+
+  factory OrderEvent.fromJson(Map<String, dynamic> json) =>
+      _$OrderEventFromJson(json);
+}
+
 /// Ordem de serviço. Aponta para cliente/veículo de outros módulos por id e
 /// guarda um retrato (`customerName`/`subjectLabel`) para histórico. `status`
 /// segue a FSM do backend. Decimais (`discount`/`total`) chegam como String.
@@ -46,6 +65,7 @@ abstract class ServiceOrder with _$ServiceOrder {
     String? discount,
     String? total,
     @Default(<OrderItem>[]) List<OrderItem> items,
+    @Default(<OrderEvent>[]) List<OrderEvent> events,
     @JsonKey(name: 'created_at') String? createdAt,
   }) = _ServiceOrder;
 

@@ -299,9 +299,289 @@ as String,
 
 
 /// @nodoc
+mixin _$OrderEvent {
+
+ String get id; String get kind;// 'created' | 'status_change' | 'note' | 'photo'
+ String? get message;@JsonKey(name: 'status_snapshot') String? get statusSnapshot;@JsonKey(name: 'visible_public') bool get visiblePublic;@JsonKey(name: 'created_at') String? get createdAt;
+/// Create a copy of OrderEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$OrderEventCopyWith<OrderEvent> get copyWith => _$OrderEventCopyWithImpl<OrderEvent>(this as OrderEvent, _$identity);
+
+  /// Serializes this OrderEvent to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OrderEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.visiblePublic, visiblePublic) || other.visiblePublic == visiblePublic)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,kind,message,statusSnapshot,visiblePublic,createdAt);
+
+@override
+String toString() {
+  return 'OrderEvent(id: $id, kind: $kind, message: $message, statusSnapshot: $statusSnapshot, visiblePublic: $visiblePublic, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $OrderEventCopyWith<$Res>  {
+  factory $OrderEventCopyWith(OrderEvent value, $Res Function(OrderEvent) _then) = _$OrderEventCopyWithImpl;
+@useResult
+$Res call({
+ String id, String kind, String? message,@JsonKey(name: 'status_snapshot') String? statusSnapshot,@JsonKey(name: 'visible_public') bool visiblePublic,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$OrderEventCopyWithImpl<$Res>
+    implements $OrderEventCopyWith<$Res> {
+  _$OrderEventCopyWithImpl(this._self, this._then);
+
+  final OrderEvent _self;
+  final $Res Function(OrderEvent) _then;
+
+/// Create a copy of OrderEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? visiblePublic = null,Object? createdAt = freezed,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as String,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String?,statusSnapshot: freezed == statusSnapshot ? _self.statusSnapshot : statusSnapshot // ignore: cast_nullable_to_non_nullable
+as String?,visiblePublic: null == visiblePublic ? _self.visiblePublic : visiblePublic // ignore: cast_nullable_to_non_nullable
+as bool,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [OrderEvent].
+extension OrderEventPatterns on OrderEvent {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _OrderEvent value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _OrderEvent() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _OrderEvent value)  $default,){
+final _that = this;
+switch (_that) {
+case _OrderEvent():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _OrderEvent value)?  $default,){
+final _that = this;
+switch (_that) {
+case _OrderEvent() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind,  String? message, @JsonKey(name: 'status_snapshot')  String? statusSnapshot, @JsonKey(name: 'visible_public')  bool visiblePublic, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _OrderEvent() when $default != null:
+return $default(_that.id,_that.kind,_that.message,_that.statusSnapshot,_that.visiblePublic,_that.createdAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind,  String? message, @JsonKey(name: 'status_snapshot')  String? statusSnapshot, @JsonKey(name: 'visible_public')  bool visiblePublic, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+switch (_that) {
+case _OrderEvent():
+return $default(_that.id,_that.kind,_that.message,_that.statusSnapshot,_that.visiblePublic,_that.createdAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind,  String? message, @JsonKey(name: 'status_snapshot')  String? statusSnapshot, @JsonKey(name: 'visible_public')  bool visiblePublic, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+switch (_that) {
+case _OrderEvent() when $default != null:
+return $default(_that.id,_that.kind,_that.message,_that.statusSnapshot,_that.visiblePublic,_that.createdAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _OrderEvent implements OrderEvent {
+  const _OrderEvent({required this.id, this.kind = 'note', this.message, @JsonKey(name: 'status_snapshot') this.statusSnapshot, @JsonKey(name: 'visible_public') this.visiblePublic = false, @JsonKey(name: 'created_at') this.createdAt});
+  factory _OrderEvent.fromJson(Map<String, dynamic> json) => _$OrderEventFromJson(json);
+
+@override final  String id;
+@override@JsonKey() final  String kind;
+// 'created' | 'status_change' | 'note' | 'photo'
+@override final  String? message;
+@override@JsonKey(name: 'status_snapshot') final  String? statusSnapshot;
+@override@JsonKey(name: 'visible_public') final  bool visiblePublic;
+@override@JsonKey(name: 'created_at') final  String? createdAt;
+
+/// Create a copy of OrderEvent
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$OrderEventCopyWith<_OrderEvent> get copyWith => __$OrderEventCopyWithImpl<_OrderEvent>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$OrderEventToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OrderEvent&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.visiblePublic, visiblePublic) || other.visiblePublic == visiblePublic)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,kind,message,statusSnapshot,visiblePublic,createdAt);
+
+@override
+String toString() {
+  return 'OrderEvent(id: $id, kind: $kind, message: $message, statusSnapshot: $statusSnapshot, visiblePublic: $visiblePublic, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$OrderEventCopyWith<$Res> implements $OrderEventCopyWith<$Res> {
+  factory _$OrderEventCopyWith(_OrderEvent value, $Res Function(_OrderEvent) _then) = __$OrderEventCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String kind, String? message,@JsonKey(name: 'status_snapshot') String? statusSnapshot,@JsonKey(name: 'visible_public') bool visiblePublic,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$OrderEventCopyWithImpl<$Res>
+    implements _$OrderEventCopyWith<$Res> {
+  __$OrderEventCopyWithImpl(this._self, this._then);
+
+  final _OrderEvent _self;
+  final $Res Function(_OrderEvent) _then;
+
+/// Create a copy of OrderEvent
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? visiblePublic = null,Object? createdAt = freezed,}) {
+  return _then(_OrderEvent(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as String,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String?,statusSnapshot: freezed == statusSnapshot ? _self.statusSnapshot : statusSnapshot // ignore: cast_nullable_to_non_nullable
+as String?,visiblePublic: null == visiblePublic ? _self.visiblePublic : visiblePublic // ignore: cast_nullable_to_non_nullable
+as bool,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$ServiceOrder {
 
- String get id; String get number;@JsonKey(name: 'customer_id') String get customerId;@JsonKey(name: 'customer_name') String? get customerName;@JsonKey(name: 'subject_id') String? get subjectId;@JsonKey(name: 'subject_label') String? get subjectLabel; String get status;@JsonKey(name: 'assigned_to') String? get assignedTo; String? get complaint; String? get diagnosis;@JsonKey(name: 'scheduled_start') String? get scheduledStart;@JsonKey(name: 'scheduled_end') String? get scheduledEnd;@JsonKey(name: 'started_at') String? get startedAt;@JsonKey(name: 'finished_at') String? get finishedAt; String? get discount; String? get total; List<OrderItem> get items;@JsonKey(name: 'created_at') String? get createdAt;
+ String get id; String get number;@JsonKey(name: 'customer_id') String get customerId;@JsonKey(name: 'customer_name') String? get customerName;@JsonKey(name: 'subject_id') String? get subjectId;@JsonKey(name: 'subject_label') String? get subjectLabel; String get status;@JsonKey(name: 'assigned_to') String? get assignedTo; String? get complaint; String? get diagnosis;@JsonKey(name: 'scheduled_start') String? get scheduledStart;@JsonKey(name: 'scheduled_end') String? get scheduledEnd;@JsonKey(name: 'started_at') String? get startedAt;@JsonKey(name: 'finished_at') String? get finishedAt; String? get discount; String? get total; List<OrderItem> get items; List<OrderEvent> get events;@JsonKey(name: 'created_at') String? get createdAt;
 /// Create a copy of ServiceOrder
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -314,16 +594,16 @@ $ServiceOrderCopyWith<ServiceOrder> get copyWith => _$ServiceOrderCopyWithImpl<S
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceOrder&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.status, status) || other.status == status)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.complaint, complaint) || other.complaint == complaint)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.finishedAt, finishedAt) || other.finishedAt == finishedAt)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceOrder&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.status, status) || other.status == status)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.complaint, complaint) || other.complaint == complaint)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.finishedAt, finishedAt) || other.finishedAt == finishedAt)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.events, events)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,subjectId,subjectLabel,status,assignedTo,complaint,diagnosis,scheduledStart,scheduledEnd,startedAt,finishedAt,discount,total,const DeepCollectionEquality().hash(items),createdAt);
+int get hashCode => Object.hashAll([runtimeType,id,number,customerId,customerName,subjectId,subjectLabel,status,assignedTo,complaint,diagnosis,scheduledStart,scheduledEnd,startedAt,finishedAt,discount,total,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(events),createdAt]);
 
 @override
 String toString() {
-  return 'ServiceOrder(id: $id, number: $number, customerId: $customerId, customerName: $customerName, subjectId: $subjectId, subjectLabel: $subjectLabel, status: $status, assignedTo: $assignedTo, complaint: $complaint, diagnosis: $diagnosis, scheduledStart: $scheduledStart, scheduledEnd: $scheduledEnd, startedAt: $startedAt, finishedAt: $finishedAt, discount: $discount, total: $total, items: $items, createdAt: $createdAt)';
+  return 'ServiceOrder(id: $id, number: $number, customerId: $customerId, customerName: $customerName, subjectId: $subjectId, subjectLabel: $subjectLabel, status: $status, assignedTo: $assignedTo, complaint: $complaint, diagnosis: $diagnosis, scheduledStart: $scheduledStart, scheduledEnd: $scheduledEnd, startedAt: $startedAt, finishedAt: $finishedAt, discount: $discount, total: $total, items: $items, events: $events, createdAt: $createdAt)';
 }
 
 
@@ -334,7 +614,7 @@ abstract mixin class $ServiceOrderCopyWith<$Res>  {
   factory $ServiceOrderCopyWith(ServiceOrder value, $Res Function(ServiceOrder) _then) = _$ServiceOrderCopyWithImpl;
 @useResult
 $Res call({
- String id, String number,@JsonKey(name: 'customer_id') String customerId,@JsonKey(name: 'customer_name') String? customerName,@JsonKey(name: 'subject_id') String? subjectId,@JsonKey(name: 'subject_label') String? subjectLabel, String status,@JsonKey(name: 'assigned_to') String? assignedTo, String? complaint, String? diagnosis,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'scheduled_end') String? scheduledEnd,@JsonKey(name: 'started_at') String? startedAt,@JsonKey(name: 'finished_at') String? finishedAt, String? discount, String? total, List<OrderItem> items,@JsonKey(name: 'created_at') String? createdAt
+ String id, String number,@JsonKey(name: 'customer_id') String customerId,@JsonKey(name: 'customer_name') String? customerName,@JsonKey(name: 'subject_id') String? subjectId,@JsonKey(name: 'subject_label') String? subjectLabel, String status,@JsonKey(name: 'assigned_to') String? assignedTo, String? complaint, String? diagnosis,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'scheduled_end') String? scheduledEnd,@JsonKey(name: 'started_at') String? startedAt,@JsonKey(name: 'finished_at') String? finishedAt, String? discount, String? total, List<OrderItem> items, List<OrderEvent> events,@JsonKey(name: 'created_at') String? createdAt
 });
 
 
@@ -351,7 +631,7 @@ class _$ServiceOrderCopyWithImpl<$Res>
 
 /// Create a copy of ServiceOrder
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? number = null,Object? customerId = null,Object? customerName = freezed,Object? subjectId = freezed,Object? subjectLabel = freezed,Object? status = null,Object? assignedTo = freezed,Object? complaint = freezed,Object? diagnosis = freezed,Object? scheduledStart = freezed,Object? scheduledEnd = freezed,Object? startedAt = freezed,Object? finishedAt = freezed,Object? discount = freezed,Object? total = freezed,Object? items = null,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? number = null,Object? customerId = null,Object? customerName = freezed,Object? subjectId = freezed,Object? subjectLabel = freezed,Object? status = null,Object? assignedTo = freezed,Object? complaint = freezed,Object? diagnosis = freezed,Object? scheduledStart = freezed,Object? scheduledEnd = freezed,Object? startedAt = freezed,Object? finishedAt = freezed,Object? discount = freezed,Object? total = freezed,Object? items = null,Object? events = null,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
@@ -370,7 +650,8 @@ as String?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // 
 as String?,discount: freezed == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as String?,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<OrderItem>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<OrderItem>,events: null == events ? _self.events : events // ignore: cast_nullable_to_non_nullable
+as List<OrderEvent>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -456,10 +737,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items,  List<OrderEvent> events, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ServiceOrder() when $default != null:
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.createdAt);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.events,_that.createdAt);case _:
   return orElse();
 
 }
@@ -477,10 +758,10 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items,  List<OrderEvent> events, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _ServiceOrder():
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.createdAt);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.events,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -497,10 +778,10 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String number, @JsonKey(name: 'customer_id')  String customerId, @JsonKey(name: 'customer_name')  String? customerName, @JsonKey(name: 'subject_id')  String? subjectId, @JsonKey(name: 'subject_label')  String? subjectLabel,  String status, @JsonKey(name: 'assigned_to')  String? assignedTo,  String? complaint,  String? diagnosis, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'scheduled_end')  String? scheduledEnd, @JsonKey(name: 'started_at')  String? startedAt, @JsonKey(name: 'finished_at')  String? finishedAt,  String? discount,  String? total,  List<OrderItem> items,  List<OrderEvent> events, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _ServiceOrder() when $default != null:
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.createdAt);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.subjectId,_that.subjectLabel,_that.status,_that.assignedTo,_that.complaint,_that.diagnosis,_that.scheduledStart,_that.scheduledEnd,_that.startedAt,_that.finishedAt,_that.discount,_that.total,_that.items,_that.events,_that.createdAt);case _:
   return null;
 
 }
@@ -512,7 +793,7 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 @JsonSerializable()
 
 class _ServiceOrder implements ServiceOrder {
-  const _ServiceOrder({required this.id, required this.number, @JsonKey(name: 'customer_id') required this.customerId, @JsonKey(name: 'customer_name') this.customerName, @JsonKey(name: 'subject_id') this.subjectId, @JsonKey(name: 'subject_label') this.subjectLabel, this.status = 'aberta', @JsonKey(name: 'assigned_to') this.assignedTo, this.complaint, this.diagnosis, @JsonKey(name: 'scheduled_start') this.scheduledStart, @JsonKey(name: 'scheduled_end') this.scheduledEnd, @JsonKey(name: 'started_at') this.startedAt, @JsonKey(name: 'finished_at') this.finishedAt, this.discount, this.total, final  List<OrderItem> items = const <OrderItem>[], @JsonKey(name: 'created_at') this.createdAt}): _items = items;
+  const _ServiceOrder({required this.id, required this.number, @JsonKey(name: 'customer_id') required this.customerId, @JsonKey(name: 'customer_name') this.customerName, @JsonKey(name: 'subject_id') this.subjectId, @JsonKey(name: 'subject_label') this.subjectLabel, this.status = 'aberta', @JsonKey(name: 'assigned_to') this.assignedTo, this.complaint, this.diagnosis, @JsonKey(name: 'scheduled_start') this.scheduledStart, @JsonKey(name: 'scheduled_end') this.scheduledEnd, @JsonKey(name: 'started_at') this.startedAt, @JsonKey(name: 'finished_at') this.finishedAt, this.discount, this.total, final  List<OrderItem> items = const <OrderItem>[], final  List<OrderEvent> events = const <OrderEvent>[], @JsonKey(name: 'created_at') this.createdAt}): _items = items,_events = events;
   factory _ServiceOrder.fromJson(Map<String, dynamic> json) => _$ServiceOrderFromJson(json);
 
 @override final  String id;
@@ -538,6 +819,13 @@ class _ServiceOrder implements ServiceOrder {
   return EqualUnmodifiableListView(_items);
 }
 
+ final  List<OrderEvent> _events;
+@override@JsonKey() List<OrderEvent> get events {
+  if (_events is EqualUnmodifiableListView) return _events;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_events);
+}
+
 @override@JsonKey(name: 'created_at') final  String? createdAt;
 
 /// Create a copy of ServiceOrder
@@ -553,16 +841,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServiceOrder&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.status, status) || other.status == status)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.complaint, complaint) || other.complaint == complaint)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.finishedAt, finishedAt) || other.finishedAt == finishedAt)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ServiceOrder&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.subjectId, subjectId) || other.subjectId == subjectId)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.status, status) || other.status == status)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.complaint, complaint) || other.complaint == complaint)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.finishedAt, finishedAt) || other.finishedAt == finishedAt)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._events, _events)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,subjectId,subjectLabel,status,assignedTo,complaint,diagnosis,scheduledStart,scheduledEnd,startedAt,finishedAt,discount,total,const DeepCollectionEquality().hash(_items),createdAt);
+int get hashCode => Object.hashAll([runtimeType,id,number,customerId,customerName,subjectId,subjectLabel,status,assignedTo,complaint,diagnosis,scheduledStart,scheduledEnd,startedAt,finishedAt,discount,total,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_events),createdAt]);
 
 @override
 String toString() {
-  return 'ServiceOrder(id: $id, number: $number, customerId: $customerId, customerName: $customerName, subjectId: $subjectId, subjectLabel: $subjectLabel, status: $status, assignedTo: $assignedTo, complaint: $complaint, diagnosis: $diagnosis, scheduledStart: $scheduledStart, scheduledEnd: $scheduledEnd, startedAt: $startedAt, finishedAt: $finishedAt, discount: $discount, total: $total, items: $items, createdAt: $createdAt)';
+  return 'ServiceOrder(id: $id, number: $number, customerId: $customerId, customerName: $customerName, subjectId: $subjectId, subjectLabel: $subjectLabel, status: $status, assignedTo: $assignedTo, complaint: $complaint, diagnosis: $diagnosis, scheduledStart: $scheduledStart, scheduledEnd: $scheduledEnd, startedAt: $startedAt, finishedAt: $finishedAt, discount: $discount, total: $total, items: $items, events: $events, createdAt: $createdAt)';
 }
 
 
@@ -573,7 +861,7 @@ abstract mixin class _$ServiceOrderCopyWith<$Res> implements $ServiceOrderCopyWi
   factory _$ServiceOrderCopyWith(_ServiceOrder value, $Res Function(_ServiceOrder) _then) = __$ServiceOrderCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String number,@JsonKey(name: 'customer_id') String customerId,@JsonKey(name: 'customer_name') String? customerName,@JsonKey(name: 'subject_id') String? subjectId,@JsonKey(name: 'subject_label') String? subjectLabel, String status,@JsonKey(name: 'assigned_to') String? assignedTo, String? complaint, String? diagnosis,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'scheduled_end') String? scheduledEnd,@JsonKey(name: 'started_at') String? startedAt,@JsonKey(name: 'finished_at') String? finishedAt, String? discount, String? total, List<OrderItem> items,@JsonKey(name: 'created_at') String? createdAt
+ String id, String number,@JsonKey(name: 'customer_id') String customerId,@JsonKey(name: 'customer_name') String? customerName,@JsonKey(name: 'subject_id') String? subjectId,@JsonKey(name: 'subject_label') String? subjectLabel, String status,@JsonKey(name: 'assigned_to') String? assignedTo, String? complaint, String? diagnosis,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'scheduled_end') String? scheduledEnd,@JsonKey(name: 'started_at') String? startedAt,@JsonKey(name: 'finished_at') String? finishedAt, String? discount, String? total, List<OrderItem> items, List<OrderEvent> events,@JsonKey(name: 'created_at') String? createdAt
 });
 
 
@@ -590,7 +878,7 @@ class __$ServiceOrderCopyWithImpl<$Res>
 
 /// Create a copy of ServiceOrder
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? number = null,Object? customerId = null,Object? customerName = freezed,Object? subjectId = freezed,Object? subjectLabel = freezed,Object? status = null,Object? assignedTo = freezed,Object? complaint = freezed,Object? diagnosis = freezed,Object? scheduledStart = freezed,Object? scheduledEnd = freezed,Object? startedAt = freezed,Object? finishedAt = freezed,Object? discount = freezed,Object? total = freezed,Object? items = null,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? number = null,Object? customerId = null,Object? customerName = freezed,Object? subjectId = freezed,Object? subjectLabel = freezed,Object? status = null,Object? assignedTo = freezed,Object? complaint = freezed,Object? diagnosis = freezed,Object? scheduledStart = freezed,Object? scheduledEnd = freezed,Object? startedAt = freezed,Object? finishedAt = freezed,Object? discount = freezed,Object? total = freezed,Object? items = null,Object? events = null,Object? createdAt = freezed,}) {
   return _then(_ServiceOrder(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
@@ -609,7 +897,8 @@ as String?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // 
 as String?,discount: freezed == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as String?,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<OrderItem>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<OrderItem>,events: null == events ? _self._events : events // ignore: cast_nullable_to_non_nullable
+as List<OrderEvent>,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
