@@ -46,9 +46,9 @@ guarda `subject_id` + snapshot. Nada de "placa" hardcoded.
 `id, tenant_id, order_id, kind`('created'|'status_change'|'note'|'photo'), `message`,
 `status_snapshot`, `photo_id`, `visible_public bool`, `created_by, created_at`.
 
-### `service_order_message` (CHAT)
-`id, tenant_id, order_id, sender`('customer'|'staff'), `author_name` (snapshot/opcional),
-`body`, `created_by` (staff), `read_at`, `created_at`. Thread por OS; ordenado por tempo.
+> **Chat:** NÃO é tabela da OS. Vive no **módulo genérico `messages`** (§8b): a OS tem uma
+> `conversation` com `ref_type='os'`, `ref_id=order_id` (criada ao abrir a OS). O detalhe da OS
+> apenas exibe/usa essa conversa.
 
 ### `service_order_template` + `service_order_template_item`
 Template nomeado (ex.: "Revisão completa") + itens pré-definidos. "Aplicar" pré-preenche os itens da OS.
@@ -79,7 +79,6 @@ Env (Zod, segredos): `STORAGE_PROVIDER=minio`, `S3_ENDPOINT, S3_REGION, S3_ACCES
 | POST/PATCH/DELETE | `/os/orders/:id/items[/:itemId]` | os.write | itens (recalcula total) |
 | POST/DELETE | `/os/orders/:id/photos[/:photoId]` (multipart) | os.write | fotos (MinIO) |
 | POST | `/os/orders/:id/notes` | os.write | nota na timeline (toggle `visible_public`) |
-| GET/POST | `/os/orders/:id/messages` | os.read/os.write | **chat (lado staff)** |
 | DELETE | `/os/orders/:id` | os.write | soft delete |
 | GET | `/os/orders/:id/pdf` (ou front imprime) | os.read | OS imprimível |
 | CRUD | `/os/templates...` + `/os/orders/:id/apply-template/:templateId` | os.write | templates |
@@ -95,14 +94,33 @@ Públicos resolvem tenant+OS via função `SECURITY DEFINER` por `public_token` 
 - UI só via repository; freezed; estado selado; PT-BR; design tokens. Menu via `me.modules`.
 - **Playwright:** após cada tela, screenshot do app em `http://localhost:8090` e iterar o visual até ficar polido e coerente com o resto (login/equipe/estoque). (Há histórico de PWuse em `front/tmp-pw/`.)
 
+## 8b. Módulos genéricos: Mensagens + Notificações (reusáveis)
+O "chat" NÃO é da OS — são dois módulos genéricos que a OS apenas alimenta.
+
+### Módulo `messages` (genérico)
+- `conversation`: `id, tenant_id, ref_type` (ex. `'os'`), `ref_id`, `title`/`customer_name` (snapshot), `channel` ('public_link'), `last_message_at`, `staff_unread int`, `created_at`. **Contexto genérico via `ref_type`/`ref_id`** — hoje só `'os'`, mas serve a qualquer módulo depois.
+- `message`: `id, tenant_id, conversation_id, sender`('customer'|'staff'), `author_name`, `body`, `read_at`, `created_by`, `created_at`.
+- **Inbox** (`Mensagens` no menu): GET `/messages/conversations` (todas as conversas + não-lidas), GET `/messages/conversations/:id` (thread), POST `.../messages` (resposta staff, os.write/messages.write). Badge de não-lidas no item de menu e por conversa.
+- **Público:** o link da OS posta msg do cliente na conversa via `/public/track/:token/messages` (resolve OS→conversation por `SECURITY DEFINER`; rate-limit; sem auth por ora). Ao criar a OS, cria-se a `conversation` (ref_type='os').
+- Permissões: `messages.read`/`messages.write` (semear) — ou reusar `os.*` no v1; decidir no plano.
+
+### Sistema `notifications` (genérico)
+- `notification`: `id, tenant_id, type`('message'|…), `title, body, ref_type, ref_id` (p/ navegar), `read_at, created_at` (tenant-wide no v1; qualquer staff vê).
+- Criada por qualquer módulo (hoje: o `messages` cria uma ao chegar msg do cliente).
+- **Front (AppShell, canto superior direito):** sino com **badge** de não-lidas; **polling** (~15s); **toast** ao chegar nova; clique no sino → **drawer** com a lista (marcar lida, navegar pro `ref`). Sino destacado quando há nova.
+- Endpoints: GET `/notifications` (lista + count), POST `/notifications/:id/read`, POST `/notifications/read-all`.
+- **Entrega:** polling no v1 (realtime/WebSocket/SSE = futuro).
+
 ## 9. Fases de entrega (cada uma roda + testes)
-1. **Núcleo OS** (back+front): order+item, CRUD, workflow de status, totais, integração customers+inventory (picker+snapshot+baixa automática), `SubjectHistoryProvider`, e2e. **(começa aqui)**
-2. **Timeline + notas** (event table, `visible_public`).
-3. **Fotos (MinIO)**: StorageProvider + container + upload.
-4. **Acompanhamento público + CHAT**: função `SECURITY DEFINER`, `/public/track/:token`(+`/messages`), `service_order_message`, página pública (timeline + chat), chat no detalhe interno. (sem auth no link; rate-limit; futuro: código WhatsApp).
-5. **Templates de serviço** + aplicar.
-6. **PDF/impressão.**
-> Polimento de UX via Playwright ao final de cada fase com front.
+1. **Núcleo OS** (back+front): order+item, CRUD, workflow de status, totais, integração customers+inventory (picker+snapshot+baixa automática na conclusão), e2e.
+2. **Timeline + notas** (event table, `visible_public`) + hookup do `SubjectHistoryProvider` (histórico do veículo lista as OS; wiring customers↔os via forwardRef).
+3. **Fotos (MinIO)**: container `orbix-minio` + `StorageProvider` + upload + fotos na timeline.
+4. **Módulo `messages` (genérico) + `notifications` (genérico)**: tabelas conversation/message + notification; inbox "Mensagens" (lista + thread + responder, badge de não-lidas); sino no AppShell (badge + toast + drawer, polling ~15s). A OS cria a `conversation` (ref_type='os') ao abrir.
+5. **Acompanhamento público + chat**: função `SECURITY DEFINER` + `/public/track/:token` (status+previsão+fotos+timeline `visible_public`) e `/public/track/:token/messages` (chat do cliente → posta na conversation + gera notificação). Página pública `/t/:token` (timeline recente-no-topo + chat).
+6. **Templates de serviço** + aplicar.
+7. **PDF/impressão.**
+> Polimento de UX via **Playwright** (screenshot do app em :8090) ao final de cada fase com front.
+> **Entrega de mensagens/notificações:** polling no v1; realtime (WS/SSE) = futuro. Auth do link público por **código via WhatsApp** = futuro (hoje aberto + rate-limit).
 
 ## 10. Testes (mínimo)
 Isolamento de tenant; autorização (`os.read`/`write`/`approve`); máquina de estados (válidas/inválidas; aprovar exige os.approve); baixa idempotente na conclusão (chama inventory, não toca tabela); snapshot ao criar; soft delete; timeline pública só `visible_public`; chat público posta/lê por token (rate-limit); upload valida tipo/tamanho; nenhuma chamada externa em transação.
