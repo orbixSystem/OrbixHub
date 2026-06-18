@@ -27,7 +27,7 @@ import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
-import 'features/tracking/data/fake_tracking_repository.dart';
+import 'features/tracking/data/tracking_repository_impl.dart';
 import 'features/tracking/domain/tracking_repository.dart';
 
 /// Composition root. Wires building blocks into providers. Tests override the
@@ -85,8 +85,9 @@ final teamRepositoryProvider = Provider<TeamRepository>(
 final customersRepositoryProvider = Provider<CustomersRepository>(
     (ref) => CustomersRepositoryImpl(ref.read(dioProvider)));
 
+/// Acompanhamento público: Dio LIMPO (sem bearer/refresh) — endpoints `@Public`.
 final trackingRepositoryProvider =
-    Provider<TrackingRepository>((ref) => const FakeTrackingRepository());
+    Provider<TrackingRepository>((ref) => TrackingRepositoryImpl());
 
 /// Overrides do composition root — passados ao `ProviderScope` em main.dart.
 /// O `inventoryRepositoryProvider` é declarado em `inventory_providers.dart`

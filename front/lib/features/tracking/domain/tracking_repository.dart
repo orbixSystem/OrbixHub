@@ -1,8 +1,14 @@
 import 'tracking_models.dart';
 
-/// Resolves a public tracking status from an opaque deep-link token. No auth.
-/// Backed by a mock until the real public endpoint ships.
+/// Acompanhamento público por token opaco de deep-link. Sem autenticação:
+/// a impl real usa um Dio limpo, SEM bearer/refresh.
 abstract interface class TrackingRepository {
-  /// [token] must already be validated for format by the caller.
-  Future<TrackingStatus> fetchByToken(String token);
+  /// [token] deve já estar validado de formato pelo chamador.
+  Future<PublicTrack> track(String token);
+
+  /// Mensagens do chat (mais recente por último ou primeiro — a UI ordena).
+  Future<List<PublicMessage>> messages(String token);
+
+  /// Posta uma mensagem do cliente (rate-limited no servidor).
+  Future<void> sendMessage(String token, String body, {String? authorName});
 }
