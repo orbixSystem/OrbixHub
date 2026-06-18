@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
@@ -76,6 +77,11 @@ class OsDetailScreen extends ConsumerWidget {
             _ItemsSection(order: order, canWrite: canWrite),
             const SizedBox(height: 24),
             _TotalsCard(order: order),
+            if (order.publicToken != null &&
+                order.publicToken!.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              _TrackingLinkCard(token: order.publicToken!),
+            ],
             const SizedBox(height: 24),
             _PhotosSection(order: order, canWrite: canWrite),
             const SizedBox(height: 24),
@@ -804,6 +810,104 @@ class _TotalRow extends StatelessWidget {
         Text(label, style: TextStyle(color: scheme.onSurfaceVariant)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ],
+    );
+  }
+}
+
+// ===================== Link de acompanhamento =====================
+
+/// Card com o link público de acompanhamento da OS. Copiar funciona; WhatsApp
+/// e e-mail aparecem desabilitados ("Em breve"). A origem do link vem de
+/// `Uri.base.origin` (web) — ex.: `http://localhost:8090/t/<token>`.
+class _TrackingLinkCard extends StatelessWidget {
+  const _TrackingLinkCard({required this.token});
+
+  final String token;
+
+  String get _url => '${Uri.base.origin}/t/$token';
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: _url));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Link copiado')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.link_outlined,
+                  size: 18, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text(
+                'Link de acompanhamento',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: SelectableText(
+              _url,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                onPressed: () => _copy(context),
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                label: const Text('Copiar'),
+              ),
+              Tooltip(
+                message: 'Em breve',
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44)),
+                  onPressed: null,
+                  icon: const Icon(Icons.chat_outlined, size: 18),
+                  label: const Text('WhatsApp'),
+                ),
+              ),
+              Tooltip(
+                message: 'Em breve',
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44)),
+                  onPressed: null,
+                  icon: const Icon(Icons.email_outlined, size: 18),
+                  label: const Text('E-mail'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

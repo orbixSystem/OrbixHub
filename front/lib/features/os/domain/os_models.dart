@@ -57,6 +57,24 @@ abstract class OrderPhoto with _$OrderPhoto {
       _$OrderPhotoFromJson(json);
 }
 
+/// Item de um template de OS. Igual ao item de OS, mas sem totais calculados:
+/// `kind ∈ product|service`, aponta para o estoque (`inventoryItemId`) OU é
+/// avulso (`name`). Decimais como String.
+@freezed
+abstract class OsTemplateItem with _$OsTemplateItem {
+  const factory OsTemplateItem({
+    String? id,
+    @Default('product') String kind, // 'product' | 'service'
+    @JsonKey(name: 'inventory_item_id') String? inventoryItemId,
+    @Default('') String name,
+    @Default('1') String quantity,
+    @JsonKey(name: 'unit_price') String? unitPrice,
+  }) = _OsTemplateItem;
+
+  factory OsTemplateItem.fromJson(Map<String, dynamic> json) =>
+      _$OsTemplateItemFromJson(json);
+}
+
 /// Template de OS (`GET /os/templates`): um conjunto de itens reaproveitável que
 /// pode ser aplicado a uma OS (`POST /os/orders/:id/apply-template/:templateId`).
 @freezed
@@ -65,10 +83,56 @@ abstract class OsTemplate with _$OsTemplate {
     required String id,
     required String name,
     String? description,
+    @Default(<OsTemplateItem>[]) List<OsTemplateItem> items,
   }) = _OsTemplate;
 
   factory OsTemplate.fromJson(Map<String, dynamic> json) =>
       _$OsTemplateFromJson(json);
+}
+
+/// Draft de item de template (create/update). `inventoryItemId` aponta para o
+/// estoque OU usa `name`/`unitPrice` para item avulso.
+class OsTemplateItemDraft {
+  const OsTemplateItemDraft({
+    this.kind = 'product',
+    this.inventoryItemId,
+    this.name,
+    this.quantity,
+    this.unitPrice,
+  });
+
+  final String kind; // 'product' | 'service'
+  final String? inventoryItemId;
+  final String? name;
+  final double? quantity;
+  final double? unitPrice;
+
+  Map<String, dynamic> toJson() => {
+        'kind': kind,
+        if (inventoryItemId != null) 'inventoryItemId': inventoryItemId,
+        if (name != null) 'name': name,
+        if (quantity != null) 'quantity': quantity,
+        if (unitPrice != null) 'unitPrice': unitPrice,
+      };
+}
+
+/// Draft de criação/edição de template (POST/PATCH). Só envia campos presentes.
+class OsTemplateDraft {
+  const OsTemplateDraft({
+    required this.name,
+    this.description,
+    this.items = const <OsTemplateItemDraft>[],
+  });
+
+  final String name;
+  final String? description;
+  final List<OsTemplateItemDraft> items;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (description != null) 'description': description,
+        'items': items.map((i) => i.toJson()).toList(),
+      };
 }
 
 /// Ordem de serviço. Aponta para cliente/veículo de outros módulos por id e
@@ -91,6 +155,7 @@ abstract class ServiceOrder with _$ServiceOrder {
     @JsonKey(name: 'scheduled_end') String? scheduledEnd,
     @JsonKey(name: 'started_at') String? startedAt,
     @JsonKey(name: 'finished_at') String? finishedAt,
+    @JsonKey(name: 'public_token') String? publicToken,
     String? discount,
     String? total,
     @Default(<OrderItem>[]) List<OrderItem> items,

@@ -48,6 +48,21 @@ abstract interface class OsRepository {
   /// Templates de OS disponíveis (`GET /os/templates`).
   Future<List<OsTemplate>> listTemplates();
 
+  /// Templates com seus itens (`GET /os/templates` — para a tela de gestão).
+  Future<List<OsTemplate>> listTemplatesFull();
+
+  /// Um template com seus itens (`GET /os/templates/:id`).
+  Future<OsTemplate> getTemplate(String id);
+
+  /// Cria um template (`POST /os/templates`). Exige `os.write`.
+  Future<OsTemplate> createTemplate(OsTemplateDraft draft);
+
+  /// Atualiza um template (`PATCH /os/templates/:id`). Exige `os.write`.
+  Future<OsTemplate> updateTemplate(String id, OsTemplateDraft draft);
+
+  /// Remove um template (`DELETE /os/templates/:id`). Exige `os.write`.
+  Future<void> deleteTemplate(String id);
+
   /// Aplica um template à OS (adiciona os itens). Retorna a OS atualizada.
   Future<ServiceOrder> applyTemplate(String orderId, String templateId);
 

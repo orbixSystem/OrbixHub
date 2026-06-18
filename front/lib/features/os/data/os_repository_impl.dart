@@ -149,6 +149,38 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<List<OsTemplate>> listTemplatesFull() => listTemplates();
+
+  @override
+  Future<OsTemplate> getTemplate(String id) => _guard(() async {
+        final res = await _dio.get<Object?>('/os/templates/$id');
+        return OsTemplate.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<OsTemplate> createTemplate(OsTemplateDraft draft) =>
+      _guard(() async {
+        final res =
+            await _dio.post<Object?>('/os/templates', data: draft.toJson());
+        return OsTemplate.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<OsTemplate> updateTemplate(String id, OsTemplateDraft draft) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>(
+          '/os/templates/$id',
+          data: draft.toJson(),
+        );
+        return OsTemplate.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<void> deleteTemplate(String id) => _guard(() async {
+        await _dio.delete<Object?>('/os/templates/$id');
+      });
+
+  @override
   Future<ServiceOrder> applyTemplate(String orderId, String templateId) =>
       _guard(() async {
         final res = await _dio.post<Object?>(

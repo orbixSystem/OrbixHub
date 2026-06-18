@@ -63,10 +63,35 @@ Map<String, dynamic> _$OrderPhotoToJson(_OrderPhoto instance) =>
       'created_at': instance.createdAt,
     };
 
+_OsTemplateItem _$OsTemplateItemFromJson(Map<String, dynamic> json) =>
+    _OsTemplateItem(
+      id: json['id'] as String?,
+      kind: json['kind'] as String? ?? 'product',
+      inventoryItemId: json['inventory_item_id'] as String?,
+      name: json['name'] as String? ?? '',
+      quantity: json['quantity'] as String? ?? '1',
+      unitPrice: json['unit_price'] as String?,
+    );
+
+Map<String, dynamic> _$OsTemplateItemToJson(_OsTemplateItem instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'kind': instance.kind,
+      'inventory_item_id': instance.inventoryItemId,
+      'name': instance.name,
+      'quantity': instance.quantity,
+      'unit_price': instance.unitPrice,
+    };
+
 _OsTemplate _$OsTemplateFromJson(Map<String, dynamic> json) => _OsTemplate(
   id: json['id'] as String,
   name: json['name'] as String,
   description: json['description'] as String?,
+  items:
+      (json['items'] as List<dynamic>?)
+          ?.map((e) => OsTemplateItem.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <OsTemplateItem>[],
 );
 
 Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
@@ -74,6 +99,7 @@ Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
       'id': instance.id,
       'name': instance.name,
       'description': instance.description,
+      'items': instance.items,
     };
 
 _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
@@ -92,6 +118,7 @@ _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
       scheduledEnd: json['scheduled_end'] as String?,
       startedAt: json['started_at'] as String?,
       finishedAt: json['finished_at'] as String?,
+      publicToken: json['public_token'] as String?,
       discount: json['discount'] as String?,
       total: json['total'] as String?,
       items:
@@ -128,6 +155,7 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'scheduled_end': instance.scheduledEnd,
       'started_at': instance.startedAt,
       'finished_at': instance.finishedAt,
+      'public_token': instance.publicToken,
       'discount': instance.discount,
       'total': instance.total,
       'items': instance.items,

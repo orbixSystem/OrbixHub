@@ -16,17 +16,20 @@ class FakeOsRepository implements OsRepository {
         _inventory = inventory ?? const <InventoryOption>[],
         _customers = customers ?? const <CustomerOption>[],
         _subjects = subjects ?? const <String, List<SubjectOption>>{},
-        _templates = templates ?? const <OsTemplate>[];
+        _templates = {
+          for (final t in templates ?? const <OsTemplate>[]) t.id: t
+        };
 
   final Map<String, ServiceOrder> _orders;
   final List<InventoryOption> _inventory;
   final List<CustomerOption> _customers;
   final Map<String, List<SubjectOption>> _subjects;
-  final List<OsTemplate> _templates;
+  final Map<String, OsTemplate> _templates;
   int _seq = 0;
   int _itemSeq = 0;
   int _eventSeq = 0;
   int _photoSeq = 0;
+  int _tplSeq = 0;
 
   @override
   Future<OrderPage> listOrders({
@@ -171,7 +174,65 @@ class FakeOsRepository implements OsRepository {
   }
 
   @override
-  Future<List<OsTemplate>> listTemplates() async => _templates;
+  Future<List<OsTemplate>> listTemplates() async =>
+      _templates.values.toList();
+
+  @override
+  Future<List<OsTemplate>> listTemplatesFull() async =>
+      _templates.values.toList();
+
+  @override
+  Future<OsTemplate> getTemplate(String id) async => _templates[id]!;
+
+  @override
+  Future<OsTemplate> createTemplate(OsTemplateDraft draft) async {
+    final id = 'tpl-${_tplSeq++}';
+    final template = OsTemplate(
+      id: id,
+      name: draft.name,
+      description: draft.description,
+      items: _draftItems(draft.items),
+    );
+    _templates[id] = template;
+    return template;
+  }
+
+  @override
+  Future<OsTemplate> updateTemplate(String id, OsTemplateDraft draft) async {
+    final next = OsTemplate(
+      id: id,
+      name: draft.name,
+      description: draft.description,
+      items: _draftItems(draft.items),
+    );
+    _templates[id] = next;
+    return next;
+  }
+
+  @override
+  Future<void> deleteTemplate(String id) async {
+    _templates.remove(id);
+  }
+
+  List<OsTemplateItem> _draftItems(List<OsTemplateItemDraft> drafts) {
+    return [
+      for (final d in drafts)
+        OsTemplateItem(
+          id: 'ti-${_itemSeq++}',
+          kind: d.kind,
+          inventoryItemId: d.inventoryItemId,
+          name: d.name ?? _inventoryName(d.inventoryItemId),
+          quantity: (d.quantity ?? 1).toString(),
+          unitPrice: d.unitPrice?.toString(),
+        ),
+    ];
+  }
+
+  String _inventoryName(String? inventoryItemId) {
+    if (inventoryItemId == null) return 'Item';
+    final match = _inventory.where((i) => i.id == inventoryItemId);
+    return match.isNotEmpty ? match.first.name : 'Item';
+  }
 
   @override
   Future<ServiceOrder> applyTemplate(String orderId, String templateId) async {

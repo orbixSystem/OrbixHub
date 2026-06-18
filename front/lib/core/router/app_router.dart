@@ -10,6 +10,7 @@ import '../../features/messages/presentation/messages_inbox_screen.dart';
 import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
 import '../../features/os/presentation/os_detail_screen.dart';
+import '../../features/os/presentation/templates_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -144,6 +145,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/os',
             builder: (_, _) => const OsListScreen(),
+          ),
+          // Templates de OS — antes de /m/os/:id para não ser capturado como id.
+          GoRoute(
+            path: '/m/os/templates',
+            builder: (_, _) => const TemplatesScreen(),
           ),
           GoRoute(
             path: '/m/os/:id',

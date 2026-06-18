@@ -84,6 +84,13 @@ class _OsListScreenState extends ConsumerState<OsListScreen> {
                 runSpacing: 12,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48)),
+                    onPressed: () => context.go('/m/os/templates'),
+                    icon: const Icon(Icons.dashboard_customize_outlined),
+                    label: const Text('Templates'),
+                  ),
                   if (canWrite)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
