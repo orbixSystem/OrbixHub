@@ -81,6 +81,11 @@ abstract interface class OsRepository {
   /// Veículos/subjects do cliente selecionado.
   Future<List<SubjectOption>> subjectsOf(String customerId);
 
+  /// Membros da equipe (`GET /employees`) para o dropdown "Responsável" da OS.
+  /// `MemberOption.id` é o uuid do membro (o backend valida `assignedTo` como
+  /// uuid). "Aponta, não invade": só lemos a lista pública de membros.
+  Future<List<MemberOption>> listMembers();
+
   /// Config do módulo de clientes (`GET /customers/config`): usamos `usaSubjects`
   /// para decidir se mostramos a seção de veículo ao cadastrar cliente novo, e
   /// `subjectLabel.singular` como rótulo dessa seção. "Aponta, não invade".

@@ -13,6 +13,46 @@ import 'dev_inbox_modal.dart';
 class GlobalControls extends ConsumerWidget {
   const GlobalControls({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final mode = ref.watch(themeControllerProvider);
+    final isDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+
+    // Só o toggle de tema fica no topo-direita. O "besouro" (dev inbox) é
+    // inserido como um OverlayEntry próprio no canto inferior-direito
+    // ([DevBeetleControl]) para NÃO sobrepor o sino de notificações que o shell
+    // adicionou ao topo-direita do header.
+    return Positioned(
+      top: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, right: 8),
+          child: _CircleButton(
+            icon: isDark ? Icons.light_mode : Icons.dark_mode,
+            label: isDark ? 'Tema claro' : 'Tema escuro',
+            bg: scheme.surfaceContainerHighest,
+            fg: scheme.onSurface,
+            onTap: () => ref
+                .read(themeControllerProvider.notifier)
+                .set(isDark ? ThemeMode.light : ThemeMode.dark),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// O botão "besouro" do dev inbox, inserido como [OverlayEntry] próprio no canto
+/// **inferior-direito** (longe do sino de notificações do header). Visível só
+/// quando [kDevTools]. Mantém clique/posicionamento como antes — só mudou o
+/// canto. Como cada filho do overlay é um [Positioned], não bloqueia o input.
+class DevBeetleControl extends ConsumerWidget {
+  const DevBeetleControl({super.key});
+
   void _openInbox() {
     final ctx = rootNavigatorKey.currentState?.overlay?.context;
     if (ctx == null) return;
@@ -25,42 +65,18 @@ class GlobalControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!kDevTools) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
-    final mode = ref.watch(themeControllerProvider);
-    final isDark = mode == ThemeMode.dark ||
-        (mode == ThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
-
     return Positioned(
-      top: 0,
-      right: 0,
+      right: 16,
+      bottom: 16,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8, right: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _CircleButton(
-                icon: isDark ? Icons.light_mode : Icons.dark_mode,
-                label: isDark ? 'Tema claro' : 'Tema escuro',
-                bg: scheme.surfaceContainerHighest,
-                fg: scheme.onSurface,
-                onTap: () => ref
-                    .read(themeControllerProvider.notifier)
-                    .set(isDark ? ThemeMode.light : ThemeMode.dark),
-              ),
-              if (kDevTools) ...[
-                const SizedBox(width: 8),
-                _CircleButton(
-                  icon: Icons.bug_report,
-                  label: 'Dev inbox',
-                  bg: scheme.primary,
-                  fg: scheme.onPrimary,
-                  onTap: _openInbox,
-                ),
-              ],
-            ],
-          ),
+        child: _CircleButton(
+          icon: Icons.bug_report,
+          label: 'Dev inbox',
+          bg: scheme.primary,
+          fg: scheme.onPrimary,
+          onTap: _openInbox,
         ),
       ),
     );

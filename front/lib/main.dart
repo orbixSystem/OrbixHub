@@ -22,6 +22,7 @@ class OrbixApp extends ConsumerStatefulWidget {
 
 class _OrbixAppState extends ConsumerState<OrbixApp> {
   OverlayEntry? _controls;
+  OverlayEntry? _beetle;
 
   @override
   void initState() {
@@ -40,12 +41,14 @@ class _OrbixAppState extends ConsumerState<OrbixApp> {
       return;
     }
     _controls = OverlayEntry(builder: (_) => const GlobalControls());
-    overlay.insert(_controls!);
+    _beetle = OverlayEntry(builder: (_) => const DevBeetleControl());
+    overlay.insertAll([_controls!, _beetle!]);
   }
 
   @override
   void dispose() {
     _controls?.remove();
+    _beetle?.remove();
     super.dispose();
   }
 

@@ -26,10 +26,13 @@ class OrderEditDialog extends ConsumerStatefulWidget {
 class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
   late final TextEditingController _complaint;
   late final TextEditingController _diagnosis;
-  late final TextEditingController _assignedTo;
   late final TextEditingController _scheduledStart;
   late final TextEditingController _scheduledEnd;
   late final TextEditingController _discount;
+
+  // Responsável: dropdown de membros (uuid ou null) — nunca string vazia/nome.
+  String? _assignedTo;
+  List<MemberOption> _members = const [];
   bool _saving = false;
   String? _error;
 
@@ -39,10 +42,28 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
     final o = widget.order;
     _complaint = TextEditingController(text: o.complaint ?? '');
     _diagnosis = TextEditingController(text: o.diagnosis ?? '');
-    _assignedTo = TextEditingController(text: o.assignedTo ?? '');
+    _assignedTo = (o.assignedTo?.isNotEmpty ?? false) ? o.assignedTo : null;
     _scheduledStart = TextEditingController(text: o.scheduledStart ?? '');
     _scheduledEnd = TextEditingController(text: o.scheduledEnd ?? '');
     _discount = TextEditingController(text: _fmt(o.discount));
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await ref.read(osRepositoryProvider).listMembers();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        // Se o responsável atual não está na lista, não força um valor inválido
+        // no dropdown (deixa null para não disparar assert do Dropdown).
+        if (_assignedTo != null && !members.any((m) => m.id == _assignedTo)) {
+          _assignedTo = null;
+        }
+      });
+    } on AppException {
+      // falha silenciosa — dropdown fica só com "sem responsável".
+    }
   }
 
   String _fmt(String? decimal) {
@@ -56,7 +77,6 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
     for (final c in [
       _complaint,
       _diagnosis,
-      _assignedTo,
       _scheduledStart,
       _scheduledEnd,
       _discount,
@@ -82,7 +102,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
     final patch = OrderPatch(
       complaint: _opt(_complaint.text),
       diagnosis: _opt(_diagnosis.text),
-      assignedTo: _opt(_assignedTo.text),
+      assignedTo: _assignedTo,
       scheduledStart: _opt(_scheduledStart.text),
       scheduledEnd: _opt(_scheduledEnd.text),
       discount: _toDouble(_discount.text),
@@ -128,12 +148,26 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _assignedTo,
+              DropdownButtonFormField<String?>(
+                initialValue: _assignedTo,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Responsável',
                   prefixIcon: Icon(Icons.engineering_outlined),
                 ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('— Sem responsável —'),
+                  ),
+                  for (final m in _members)
+                    DropdownMenuItem<String?>(
+                      value: m.id,
+                      child: Text(m.name),
+                    ),
+                ],
+                onChanged:
+                    _saving ? null : (id) => setState(() => _assignedTo = id),
               ),
               const SizedBox(height: 12),
               Row(

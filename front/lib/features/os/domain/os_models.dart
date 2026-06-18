@@ -333,6 +333,16 @@ abstract class SubjectOption with _$SubjectOption {
       _$SubjectOptionFromJson(json);
 }
 
+/// Opção de membro da equipe para o dropdown "Responsável" da OS. `id` é o uuid
+/// do membro (o backend valida `assignedTo` como uuid). Modelo simples (sem
+/// freezed) — só transporta `{ id, name }` para o dropdown.
+class MemberOption {
+  const MemberOption({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
 /// Opção de item do estoque para o picker (produto/serviço a adicionar à OS).
 @freezed
 abstract class InventoryOption with _$InventoryOption {

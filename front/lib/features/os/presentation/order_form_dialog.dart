@@ -31,7 +31,11 @@ class OrderFormDialog extends ConsumerStatefulWidget {
 class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _complaint = TextEditingController();
-  final _assignedTo = TextEditingController();
+
+  // Responsável: dropdown de membros da equipe. Guarda o uuid do membro (ou
+  // null). Nunca enviamos string vazia — o backend valida `assignedTo` como uuid.
+  String? _assignedTo;
+  List<MemberOption> _members = const [];
 
   // Cliente novo
   final _newName = TextEditingController();
@@ -59,13 +63,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   void initState() {
     super.initState();
     _loadConfig();
+    _loadMembers();
   }
 
   @override
   void dispose() {
     for (final c in [
       _complaint,
-      _assignedTo,
       _newName,
       _newPhone,
       _subjIdentifier,
@@ -87,6 +91,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       });
     } on AppException {
       // falha graciosa: mantém o default (usaSubjects=true, "Veículo").
+    }
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await ref.read(osRepositoryProvider).listMembers();
+      if (!mounted) return;
+      setState(() => _members = members);
+    } on AppException {
+      // sem membros / falha silenciosa — dropdown fica só com "sem responsável".
     }
   }
 
@@ -115,7 +129,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   OrderDraft _buildDraft() {
     final complaint = _opt(_complaint.text);
-    final assignedTo = _opt(_assignedTo.text);
+    // _assignedTo já é o uuid do membro (ou null) — nunca string vazia.
+    final assignedTo = _assignedTo;
     if (_mode == _CustomerMode.existing) {
       return OrderDraft(
         customerId: _customer!.id,
@@ -217,12 +232,26 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _assignedTo,
+                DropdownButtonFormField<String?>(
+                  initialValue: _assignedTo,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Responsável',
                     prefixIcon: Icon(Icons.engineering_outlined),
                   ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('— Sem responsável —'),
+                    ),
+                    for (final m in _members)
+                      DropdownMenuItem<String?>(
+                        value: m.id,
+                        child: Text(m.name),
+                      ),
+                  ],
+                  onChanged:
+                      _saving ? null : (id) => setState(() => _assignedTo = id),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),

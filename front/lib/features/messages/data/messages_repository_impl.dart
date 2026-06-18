@@ -24,10 +24,17 @@ class MessagesRepositoryImpl implements MessagesRepository {
   @override
   Future<List<Conversation>> listConversations() => _guard(() async {
         final res = await _dio.get<Object?>('/messages/conversations');
-        final items = (_asMap(res.data)['items'] as List? ?? const [])
+        final data = res.data;
+        // O backend devolve um array cru `[ {...}, ... ]`. Toleramos também o
+        // formato `{ items: [...] }` por robustez.
+        final raw = data is List
+            ? data
+            : (data is Map
+                ? (data.cast<String, dynamic>()['items'] as List? ?? const [])
+                : const []);
+        return raw
             .map((e) => Conversation.fromJson((e as Map).cast<String, dynamic>()))
             .toList();
-        return items;
       });
 
   @override

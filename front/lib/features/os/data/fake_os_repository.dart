@@ -344,5 +344,13 @@ class FakeOsRepository implements OsRepository {
       _subjects[customerId] ?? const <SubjectOption>[];
 
   @override
+  Future<List<MemberOption>> listMembers() async => const [
+        MemberOption(
+            id: '11111111-1111-1111-1111-111111111111', name: 'Ana Mecânica'),
+        MemberOption(
+            id: '22222222-2222-2222-2222-222222222222', name: 'Bruno Funilaria'),
+      ];
+
+  @override
   Future<CustomersConfig> customersConfig() async => const CustomersConfig();
 }

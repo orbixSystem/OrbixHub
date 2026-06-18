@@ -262,6 +262,18 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<List<MemberOption>> listMembers() => _guard(() async {
+        final res = await _dio.get<Object?>('/employees');
+        return _asList(res.data).map((m) {
+          // id do membro: preferimos `userId` (uuid); fallback `membershipId`.
+          final id = (m['userId'] ?? m['membershipId'] ?? m['id'])?.toString();
+          final name = (m['fullName'] ?? m['name'] ?? m['email'] ?? id)
+              ?.toString();
+          return MemberOption(id: id ?? '', name: name ?? '');
+        }).where((m) => m.id.isNotEmpty).toList();
+      });
+
+  @override
   Future<CustomersConfig> customersConfig() => _guard(() async {
         final res = await _dio.get<Object?>('/customers/config');
         return CustomersConfig.fromJson(_asMap(res.data));
