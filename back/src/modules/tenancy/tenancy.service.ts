@@ -13,13 +13,18 @@ export class TenancyService {
   ) {}
 
   async me(user: AuthUser) {
-    const [u, tenant, permissions, modules, memberships] = await Promise.all([
-      this.authRepo.findUserById(user.userId),
-      this.repo.getTenant(user.tenantId),
-      this.repo.permissionsForRole(user.role),
-      this.billing.getEnabledModules(user.tenantId),
-      this.authRepo.findUserMemberships(user.userId),
-    ]);
+    // Sequential on purpose. getEnabledModules() opens a short $transaction
+    // (maxWait 2s); under CPU/pool pressure it can time out and reject. With
+    // Promise.all the first rejection is surfaced (→ handled 500) but the other
+    // queries reject AFTER the combinator settled, becoming UNHANDLED rejections
+    // that crash the whole process. Awaiting one at a time keeps a single
+    // in-flight promise, caps peak connections per request at 1, and turns any
+    // failure into a clean 500 instead of a server crash.
+    const u = await this.authRepo.findUserById(user.userId);
+    const tenant = await this.repo.getTenant(user.tenantId);
+    const permissions = await this.repo.permissionsForRole(user.role);
+    const modules = await this.billing.getEnabledModules(user.tenantId);
+    const memberships = await this.authRepo.findUserMemberships(user.userId);
     return {
       user: {
         id: u?.id,

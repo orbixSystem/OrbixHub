@@ -18,10 +18,11 @@ export class SettingsService {
   async getSettings(user: AuthUser) {
     // Tudo vem de service público de outro módulo — Settings não toca tabela
     // alheia: company de tenancy (tenant.settings), módulos do billing.
-    const [company, enabled] = await Promise.all([
-      this.tenancy.getCompanySettings(user.tenantId),
-      this.billing.getEnabledModules(user.tenantId),
-    ]);
+    // Sequential, not Promise.all: getEnabledModules() opens a $transaction that
+    // can reject under load; alongside a sibling in Promise.all that sibling's
+    // late rejection becomes an unhandled rejection that crashes the process.
+    const company = await this.tenancy.getCompanySettings(user.tenantId);
+    const enabled = await this.billing.getEnabledModules(user.tenantId);
     const moduleSections = this.registry
       .moduleSections()
       .filter((s) => s.moduleKey && enabled.includes(s.moduleKey));
