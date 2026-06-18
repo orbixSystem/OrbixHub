@@ -118,6 +118,9 @@ describe('Billing (e2e)', () => {
     expect(subB.body.status).toBe('trialing');
     await request(app.getHttpServer()).post('/api/billing/subscribe').set('Authorization', `Bearer ${a.token}`).send({ planKey: 'pro' });
     const meB = await request(app.getHttpServer()).get('/api/me').set('Authorization', `Bearer ${b.token}`);
-    expect(meB.body.modules).not.toContain('inventory');
+    // B continua com exatamente os módulos do trial (A assinar pro não vaza pra B).
+    expect([...(meB.body.modules as string[])].sort()).toEqual(
+      ['customers', 'inventory', 'os'],
+    );
   });
 });
