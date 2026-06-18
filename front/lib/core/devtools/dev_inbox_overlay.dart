@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../router/navigator_key.dart';
 import '../../di.dart';
+import '../../features/auth/presentation/session_state.dart';
+import '../../features/notifications/presentation/notifications_bell.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
 
@@ -21,24 +23,33 @@ class GlobalControls extends ConsumerWidget {
         (mode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
-    // Só o toggle de tema fica no topo-direita. O "besouro" (dev inbox) é
-    // inserido como um OverlayEntry próprio no canto inferior-direito
-    // ([DevBeetleControl]) para NÃO sobrepor o sino de notificações que o shell
-    // adicionou ao topo-direita do header.
+    // Topo-direita: sino de notificações (só quando logado) + toggle de tema,
+    // LADO A LADO num Row — antes o toggle (overlay) cobria o sino (header).
+    // O "besouro" (dev inbox) fica no canto inferior-direito ([DevBeetleControl]).
+    final authed = ref.watch(sessionControllerProvider) is SessionAuthenticated;
     return Positioned(
       top: 0,
       right: 0,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(top: 8, right: 8),
-          child: _CircleButton(
-            icon: isDark ? Icons.light_mode : Icons.dark_mode,
-            label: isDark ? 'Tema claro' : 'Tema escuro',
-            bg: scheme.surfaceContainerHighest,
-            fg: scheme.onSurface,
-            onTap: () => ref
-                .read(themeControllerProvider.notifier)
-                .set(isDark ? ThemeMode.light : ThemeMode.dark),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (authed) ...[
+                const NotificationsBell(),
+                const SizedBox(width: 8),
+              ],
+              _CircleButton(
+                icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                label: isDark ? 'Tema claro' : 'Tema escuro',
+                bg: scheme.surfaceContainerHighest,
+                fg: scheme.onSurface,
+                onTap: () => ref
+                    .read(themeControllerProvider.notifier)
+                    .set(isDark ? ThemeMode.light : ThemeMode.dark),
+              ),
+            ],
           ),
         ),
       ),
