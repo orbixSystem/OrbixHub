@@ -69,10 +69,20 @@ abstract class OrderPage with _$OrderPage {
 
 /// Draft de criação de OS. Só envia campos não-nulos. Chaves em camelCase
 /// (o backend espera `customerId`, `subjectId`, `scheduledStart`, …).
+///
+/// Aceita DOIS caminhos (o backend exige um dos dois):
+/// - **cliente existente:** `customerId` (+ `subjectId` opcional);
+/// - **cliente novo na hora:** `newCustomerName` (obrigatório) + opcionalmente
+///   `newCustomerPhone`, `newSubjectIdentifier` (placa/identificação) e
+///   `newSubjectAttributes` (ex.: `{marca, modelo}`).
 class OrderDraft {
   const OrderDraft({
-    required this.customerId,
+    this.customerId,
     this.subjectId,
+    this.newCustomerName,
+    this.newCustomerPhone,
+    this.newSubjectIdentifier,
+    this.newSubjectAttributes,
     this.complaint,
     this.diagnosis,
     this.scheduledStart,
@@ -80,8 +90,12 @@ class OrderDraft {
     this.assignedTo,
   });
 
-  final String customerId;
+  final String? customerId;
   final String? subjectId;
+  final String? newCustomerName;
+  final String? newCustomerPhone;
+  final String? newSubjectIdentifier;
+  final Map<String, dynamic>? newSubjectAttributes;
   final String? complaint;
   final String? diagnosis;
   final String? scheduledStart;
@@ -89,8 +103,14 @@ class OrderDraft {
   final String? assignedTo;
 
   Map<String, dynamic> toJson() => {
-        'customerId': customerId,
+        if (customerId != null) 'customerId': customerId,
         if (subjectId != null) 'subjectId': subjectId,
+        if (newCustomerName != null) 'newCustomerName': newCustomerName,
+        if (newCustomerPhone != null) 'newCustomerPhone': newCustomerPhone,
+        if (newSubjectIdentifier != null)
+          'newSubjectIdentifier': newSubjectIdentifier,
+        if (newSubjectAttributes != null && newSubjectAttributes!.isNotEmpty)
+          'newSubjectAttributes': newSubjectAttributes,
         if (complaint != null) 'complaint': complaint,
         if (diagnosis != null) 'diagnosis': diagnosis,
         if (scheduledStart != null) 'scheduledStart': scheduledStart,

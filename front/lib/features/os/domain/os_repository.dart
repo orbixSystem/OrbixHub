@@ -1,3 +1,4 @@
+import '../../customers/domain/customers_models.dart';
 import 'os_models.dart';
 
 /// Contrato do módulo Ordens de Serviço. O backend é a verdade (RLS +
@@ -36,4 +37,9 @@ abstract interface class OsRepository {
 
   /// Veículos/subjects do cliente selecionado.
   Future<List<SubjectOption>> subjectsOf(String customerId);
+
+  /// Config do módulo de clientes (`GET /customers/config`): usamos `usaSubjects`
+  /// para decidir se mostramos a seção de veículo ao cadastrar cliente novo, e
+  /// `subjectLabel.singular` como rótulo dessa seção. "Aponta, não invade".
+  Future<CustomersConfig> customersConfig();
 }

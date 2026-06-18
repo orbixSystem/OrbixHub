@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import '../domain/os_repository.dart';
 
@@ -151,5 +152,11 @@ class OsRepositoryImpl implements OsRepository {
         return _asList(_asMap(res.data)['items'])
             .map(SubjectOption.fromJson)
             .toList();
+      });
+
+  @override
+  Future<CustomersConfig> customersConfig() => _guard(() async {
+        final res = await _dio.get<Object?>('/customers/config');
+        return CustomersConfig.fromJson(_asMap(res.data));
       });
 }

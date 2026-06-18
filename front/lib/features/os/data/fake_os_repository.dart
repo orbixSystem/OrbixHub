@@ -1,3 +1,4 @@
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import '../domain/os_repository.dart';
 
@@ -53,19 +54,27 @@ class FakeOsRepository implements OsRepository {
   Future<ServiceOrder> createOrder(OrderDraft d) async {
     final id = 'os-${_seq++}';
     final customer = _customers.where((c) => c.id == d.customerId);
-    final subjects = _subjects[d.customerId] ?? const <SubjectOption>[];
+    final subjects =
+        _subjects[d.customerId ?? ''] ?? const <SubjectOption>[];
     final subject = d.subjectId == null
         ? null
         : subjects.where((s) => s.id == d.subjectId);
+    // Cliente novo na hora: derivamos um retrato a partir dos campos do draft.
+    final newSubjectLabel = d.newSubjectIdentifier ??
+        [
+          d.newSubjectAttributes?['marca'],
+          d.newSubjectAttributes?['modelo'],
+        ].whereType<String>().join(' ');
     final order = ServiceOrder(
       id: id,
       number: 'OS-${(_seq).toString().padLeft(4, '0')}',
-      customerId: d.customerId,
-      customerName: customer.isNotEmpty ? customer.first.name : null,
+      customerId: d.customerId ?? 'new-$_seq',
+      customerName: d.newCustomerName ??
+          (customer.isNotEmpty ? customer.first.name : null),
       subjectId: d.subjectId,
       subjectLabel: subject != null && subject.isNotEmpty
           ? (subject.first.label ?? subject.first.identifier)
-          : null,
+          : (newSubjectLabel.isEmpty ? null : newSubjectLabel),
       complaint: d.complaint,
       diagnosis: d.diagnosis,
       scheduledStart: d.scheduledStart,
@@ -197,4 +206,7 @@ class FakeOsRepository implements OsRepository {
   @override
   Future<List<SubjectOption>> subjectsOf(String customerId) async =>
       _subjects[customerId] ?? const <SubjectOption>[];
+
+  @override
+  Future<CustomersConfig> customersConfig() async => const CustomersConfig();
 }
