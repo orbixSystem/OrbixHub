@@ -122,6 +122,7 @@ model service_order {
   tenant          tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   items           service_order_item[]
   events          service_order_event[]
+  photos          service_order_photo[]
 
   @@index([tenant_id, status], map: "idx_service_order_tenant_status")
   @@index([tenant_id, customer_id], map: "idx_service_order_tenant_customer")
@@ -165,6 +166,22 @@ model service_order_event {
   tenant          tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, order_id, created_at], map: "idx_service_order_event_tenant_order_created")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_photo {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String        @db.Uuid
+  order_id    String        @db.Uuid
+  storage_key String
+  url         String
+  caption     String?
+  uploaded_by String?       @db.Uuid
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  order       service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, order_id], map: "idx_service_order_photo_tenant_order")
 }
 
 model catalog_product {
@@ -344,6 +361,7 @@ model tenant {
   service_order       service_order[]
   service_order_event service_order_event[]
   service_order_item  service_order_item[]
+  service_order_photo service_order_photo[]
   subject            subject[]
   subscription       subscription?
   tenant_module      tenant_module[]

@@ -1,14 +1,20 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  STORAGE_PROVIDER,
+  StorageProvider,
+} from '../../common/storage/storage.provider';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OsRepository } from './os.repository';
@@ -23,6 +29,14 @@ import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
 
 const DEFAULT_PAGE_SIZE = 20;
+
+/** Subset do arquivo multer (memory storage) usado no upload de fotos. */
+export interface UploadedImage {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname?: string;
+}
 
 /** Rótulos PT-BR dos status (mensagem legível nos eventos de timeline). */
 const STATUS_LABELS: Record<OsStatus, string> = {
@@ -66,7 +80,11 @@ export class OsService {
     private readonly audit: AuditService,
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
+
+  /** Limite de tamanho do upload de foto (~8 MB). */
+  private static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
   // ===================== Orders =====================
   async createOrder(user: AuthUser, dto: CreateOrderDto) {
@@ -169,9 +187,12 @@ export class OsService {
       const order = await this.repo.findOrderById(id);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
-      // Timeline (mais recente no topo) embutida no detalhe — front pega em 1 chamada.
-      const events = await this.repo.listEvents(id);
-      return { ...order, events };
+      // Timeline (mais recente no topo) + fotos embutidas no detalhe — front pega em 1 chamada.
+      const [events, photos] = await Promise.all([
+        this.repo.listEvents(id),
+        this.repo.listPhotos(id),
+      ]);
+      return { ...order, events, photos };
     });
   }
 
@@ -227,6 +248,98 @@ export class OsService {
       });
     });
     return event;
+  }
+
+  // ===================== Fotos =====================
+  /**
+   * Anexa uma foto à OS. Valida ordem + tipo/tamanho do arquivo, sobe o binário ao
+   * storage **FORA de qualquer transação de banco** (regra de ouro), e só então
+   * persiste a linha + um evento 'photo' na timeline (na mesma tx). Retorna a foto
+   * com a URL pública.
+   */
+  async addPhoto(
+    user: AuthUser,
+    orderId: string,
+    file: UploadedImage | undefined,
+    caption?: string,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException('Arquivo de imagem é obrigatório.');
+    }
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('O arquivo deve ser uma imagem.');
+    }
+    if (file.size > OsService.MAX_PHOTO_BYTES) {
+      throw new BadRequestException('Imagem muito grande (máx. 8 MB).');
+    }
+
+    // Confere que a OS existe / não está deletada ANTES do upload (sua própria tx).
+    await this.getOrderOrThrow(orderId);
+
+    // Chave única + extensão a partir do mimetype (genérica).
+    const ext = (file.mimetype.split('/')[1] || 'bin').replace(
+      /[^a-z0-9]/gi,
+      '',
+    );
+    const key = `os/${orderId}/${randomUUID()}.${ext}`;
+
+    // Upload do binário — FORA de transação de banco.
+    await this.storage.put(key, file.buffer, file.mimetype);
+    const url = this.storage.url(key);
+
+    const photo = await this.tenant.withTenantTx(async () => {
+      const created = await this.repo.addPhoto(user.tenantId, {
+        order_id: orderId,
+        storage_key: key,
+        url,
+        caption: caption?.trim() || null,
+        uploaded_by: user.userId,
+      });
+      // Evento 'photo' na timeline (visível ao cliente) — mesma tx.
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'photo',
+        message: 'Foto adicionada',
+        photoId: created.id,
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
+      return created;
+    });
+    await this.audit.log(user.tenantId, user.userId, 'os_photo_add', orderId, {
+      photoId: photo.id,
+    });
+    return photo;
+  }
+
+  /**
+   * Remove uma foto da OS: busca a linha, apaga o binário no storage **fora da tx**,
+   * depois deleta a linha (hard delete — não é registro histórico; o evento de
+   * timeline permanece).
+   */
+  async deletePhoto(user: AuthUser, orderId: string, photoId: string) {
+    const photo = await this.tenant.withTenantTx(async () => {
+      const found = await this.repo.findPhotoById(photoId);
+      if (!found || found.order_id !== orderId) {
+        throw new NotFoundException('Foto não encontrada.');
+      }
+      return found;
+    });
+
+    // Remoção no storage — FORA de transação de banco. Best-effort: falha no
+    // storage não impede a deleção da linha (loga um aviso).
+    try {
+      await this.storage.remove(photo.storage_key);
+    } catch (e) {
+      this.logger.warn(
+        `Remoção do arquivo falhou (foto ${photoId}): ${(e as Error).message}`,
+      );
+    }
+
+    await this.tenant.withTenantTx(() => this.repo.deletePhoto(photoId));
+    await this.audit.log(user.tenantId, user.userId, 'os_photo_delete', orderId, {
+      photoId,
+    });
+    return { id: photoId, deleted: true };
   }
 
   // ===================== Workflow =====================

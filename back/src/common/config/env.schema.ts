@@ -41,6 +41,19 @@ export const envSchema = z.object({
   COSMOS_TOKEN: z.string().optional(),
   // User-Agent exigido pela Cosmos (fornecido na sua conta ao logar).
   COSMOS_USER_AGENT: z.string().default('OrbixHub/1.0 (+https://orbixhub)'),
+  // --- Object storage (fotos da OS, etc.) ---
+  // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
+  // 'minio' = S3-compatible (MinIO em dev / S3 em prod).
+  STORAGE_PROVIDER: z.enum(['local', 'minio']).default('local'),
+  // Base pública usada pelo provider local para montar a URL (rota GET /files/*).
+  STORAGE_PUBLIC_URL: z.string().default('http://localhost:4400'),
+  // Config do provider S3-compatible (opcional — só usada quando STORAGE_PROVIDER=minio).
+  S3_ENDPOINT: z.string().optional(), // ex.: http://localhost:9000
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ACCESS_KEY: z.string().optional(), // secret — nunca enviado ao front
+  S3_SECRET_KEY: z.string().optional(), // secret — nunca enviado ao front
+  S3_BUCKET: z.string().optional(), // ex.: orbix-os
+  S3_PUBLIC_URL: z.string().optional(), // base pública p/ servir objetos (ex.: http://localhost:9000)
 });
 
 export type Env = z.infer<typeof envSchema>;

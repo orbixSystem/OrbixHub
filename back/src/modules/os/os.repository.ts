@@ -63,6 +63,14 @@ export interface UpdateItemData {
   total?: DecimalIn;
 }
 
+export interface CreatePhotoData {
+  order_id: string;
+  storage_key: string;
+  url: string;
+  caption: string | null;
+  uploaded_by: string | null;
+}
+
 export interface CreateEventData {
   kind: 'created' | 'status_change' | 'note' | 'photo';
   message?: string | null;
@@ -224,6 +232,37 @@ export class OsRepository {
   listEvents(orderId: string) {
     const db = this.tenant.getClient();
     return db.service_order_event.findMany({
+      where: { order_id: orderId },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  // ---- fotos ----
+  /** Cria a linha da foto. Cliente tx-scoped — roda na MESMA tx do chamador. */
+  addPhoto(tenantId: string, data: CreatePhotoData) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo.create({
+      data: {
+        tenant_id: tenantId,
+        ...data,
+      } as Prisma.service_order_photoUncheckedCreateInput,
+    });
+  }
+
+  findPhotoById(id: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo.findUnique({ where: { id } });
+  }
+
+  /** Hard delete da linha (fotos não são registro histórico — o evento na timeline fica). */
+  deletePhoto(id: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo.delete({ where: { id } });
+  }
+
+  listPhotos(orderId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'desc' },
     });

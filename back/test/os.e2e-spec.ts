@@ -9,10 +9,23 @@ import {
   MailerService,
   VerificationEmail,
 } from '../src/common/mailer/mailer.service';
+import {
+  STORAGE_PROVIDER,
+  StorageProvider,
+} from '../src/common/storage/storage.provider';
 
 // Catálogo externo desligado (lookup determinístico — sem API externa).
 process.env.CATALOG_ENABLED = 'false';
 process.env.CATALOG_PROVIDER = 'noop';
+
+// Storage fake (sem I/O real) — put/remove no-op; url determinística por key.
+class FakeStorageProvider extends StorageProvider {
+  async put(): Promise<void> {}
+  url(key: string): string {
+    return `http://test/${key}`;
+  }
+  async remove(): Promise<void> {}
+}
 
 class CapturingMailer extends MailerService {
   public readonly sent: VerificationEmail[] = [];
@@ -48,6 +61,8 @@ describe('OS — Ordens de Serviço (e2e)', () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(MailerService)
       .useValue(mailer)
+      .overrideProvider(STORAGE_PROVIDER)
+      .useValue(new FakeStorageProvider())
       .compile();
     app = mod.createNestApplication();
     app.setGlobalPrefix('api');
@@ -173,6 +188,23 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       .post(`/api/os/orders/${id}/notes`)
       .set(auth(access))
       .send(body);
+  }
+  function addPhoto(
+    access: string,
+    id: string,
+    body: Buffer,
+    contentType: string,
+    filename = 'x.jpg',
+  ) {
+    return request(srv())
+      .post(`/api/os/orders/${id}/photos`)
+      .set(auth(access))
+      .attach('file', body, { filename, contentType });
+  }
+  function deletePhoto(access: string, id: string, photoId: string) {
+    return request(srv())
+      .delete(`/api/os/orders/${id}/photos/${photoId}`)
+      .set(auth(access));
   }
   function subjectHistory(access: string, subjectId: string) {
     return request(srv())
@@ -525,6 +557,61 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       expect(entry!.kind).toBe('os');
       expect(entry!.status).toBe('aberta');
       expect(entry!.subjectId).toBe(subjectId);
+    });
+  });
+
+  // ---- 5d. photos -------------------------------------------------------
+  describe('photos (upload + timeline + delete)', () => {
+    type PhotoRow = { id: string; url: string; caption: string | null };
+    type EventRow = { kind: string };
+
+    it('uploads an image, appears in detail photos + a photo event, then deletes', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      // upload de uma "imagem" → 201 + url
+      const up = await addPhoto(
+        o.access,
+        id,
+        Buffer.from('fakejpg'),
+        'image/jpeg',
+      );
+      expect(up.status).toBe(201);
+      expect(up.body.url).toBeTruthy();
+      const photoId = up.body.id as string;
+
+      // detalhe traz a foto + um evento 'photo' na timeline
+      const got = await getOrder(o.access, id);
+      expect(got.status).toBe(200);
+      const photos = got.body.photos as PhotoRow[];
+      expect(photos).toHaveLength(1);
+      expect(photos[0].id).toBe(photoId);
+      const events = got.body.events as EventRow[];
+      expect(events.some((e) => e.kind === 'photo')).toBe(true);
+
+      // delete → some do detalhe
+      const del = await deletePhoto(o.access, id, photoId);
+      expect(del.status).toBe(200);
+      const after = await getOrder(o.access, id);
+      expect((after.body.photos as PhotoRow[])).toHaveLength(0);
+    });
+
+    it('rejects a non-image upload (400)', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      const up = await addPhoto(
+        o.access,
+        id,
+        Buffer.from('not an image'),
+        'text/plain',
+        'x.txt',
+      );
+      expect(up.status).toBe(400);
     });
   });
 

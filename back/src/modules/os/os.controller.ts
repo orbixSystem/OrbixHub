@@ -8,13 +8,17 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
-import { OsService } from './os.service';
+import { OsService, type UploadedImage } from './os.service';
 import {
   ChangeStatusDto,
   CreateOrderDto,
@@ -120,5 +124,36 @@ export class OsController {
     @Body() dto: CreateNoteDto,
   ) {
     return this.os.createNote(user, id, dto);
+  }
+
+  // --- fotos (multipart) ---
+  // Memory storage: o binário fica em file.buffer (sem tocar disco antes do StorageProvider).
+  // Validação de tipo/tamanho fica no service.
+  @Post('orders/:id/photos')
+  @Permissions('os.write')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 8 * 1024 * 1024 },
+    }),
+  )
+  addPhoto(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedImage | undefined,
+    @Body('caption') caption?: string,
+  ) {
+    return this.os.addPhoto(user, id, file, caption);
+  }
+
+  @Delete('orders/:id/photos/:photoId')
+  @Permissions('os.write')
+  @HttpCode(200)
+  deletePhoto(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.os.deletePhoto(user, id, photoId);
   }
 }

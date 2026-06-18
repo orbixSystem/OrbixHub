@@ -10,6 +10,7 @@ import { AppThrottlerModule } from './common/throttler/throttler.module';
 import { MailerModule } from './common/mailer/mailer.module';
 import { AuditModule } from './common/audit/audit.module';
 import { JobsModule } from './common/jobs/jobs.module';
+import { StorageModule } from './common/storage/storage.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { ActiveMembershipGuard } from './common/auth/active-membership.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
@@ -37,6 +38,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     MailerModule,
     AuditModule,
     JobsModule,
+    StorageModule,
     AuthModule,
     IamModule,
     TenancyModule,
