@@ -17,6 +17,7 @@ import {
 } from '../../common/storage/storage.provider';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { MessagesService } from '../messages/messages.service';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -80,6 +81,7 @@ export class OsService {
     private readonly audit: AuditService,
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
+    private readonly messages: MessagesService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
@@ -164,6 +166,22 @@ export class OsService {
     });
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
+
+    // Cria a conversa (chat) da OS via service público do módulo genérico `messages`
+    // ("aponta, não invade": passamos só o id da OS como ref_id; não tocamos a tabela).
+    // SEQUENCIAL e FORA da tx da OS (createConversation abre a própria via
+    // runWithTenant). best-effort: falha de mensageria NUNCA bloqueia a criação da OS.
+    try {
+      await this.messages.createConversation(user.tenantId, {
+        refType: 'os',
+        refId: order.id,
+        title: order.customer_name,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Falha ao criar conversa da OS ${order.id}: ${(e as Error).message}`,
+      );
+    }
     return order;
   }
 

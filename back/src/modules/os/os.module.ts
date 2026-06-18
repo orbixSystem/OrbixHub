@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { MessagesModule } from '../messages/messages.module';
 import { OsController } from './os.controller';
 import { OsService } from './os.service';
 import { OsRepository } from './os.repository';
@@ -15,7 +16,12 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
  * (ModuleAccessGuard), CustomersModule e InventoryModule (services públicos).
  */
 @Module({
-  imports: [BillingModule, forwardRef(() => CustomersModule), InventoryModule],
+  imports: [
+    BillingModule,
+    forwardRef(() => CustomersModule),
+    InventoryModule,
+    MessagesModule,
+  ],
   controllers: [OsController],
   providers: [OsService, OsRepository, OsSubjectHistoryProvider],
   // Exporta o provider de histórico para o CustomersModule plugá-lo no seam

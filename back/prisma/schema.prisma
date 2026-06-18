@@ -184,6 +184,57 @@ model service_order_photo {
   @@index([tenant_id, order_id], map: "idx_service_order_photo_tenant_order")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model conversation {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  ref_type        String
+  ref_id          String    @db.Uuid
+  title           String?
+  channel         String    @default("public_link")
+  staff_unread    Int       @default(0)
+  last_message_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  tenant          tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages        message[]
+
+  @@unique([tenant_id, ref_type, ref_id], map: "uq_conversation_tenant_ref")
+  @@index([tenant_id, last_message_at], map: "idx_conversation_tenant_last_message")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model message {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String       @db.Uuid
+  conversation_id String       @db.Uuid
+  sender          String
+  author_name     String?
+  body            String
+  read_at         DateTime?    @db.Timestamptz(6)
+  created_by      String?      @db.Uuid
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  conversation    conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant          tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, conversation_id, created_at], map: "idx_message_tenant_conversation_created")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  type       String
+  title      String
+  body       String?
+  ref_type   String?
+  ref_id     String?   @db.Uuid
+  read_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  tenant     tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, read_at, created_at], map: "idx_notification_tenant_read_created")
+}
+
 model catalog_product {
   gtin       String   @id
   name       String
@@ -353,10 +404,13 @@ model tenant {
   settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
   audit_log          audit_log[]
+  conversation       conversation[]
   customer           customer[]
   inventory_item     inventory_item[]
   invite             invite[]
   membership         membership[]
+  message            message[]
+  notification       notification[]
   refresh_token      refresh_token[]
   service_order       service_order[]
   service_order_event service_order_event[]
