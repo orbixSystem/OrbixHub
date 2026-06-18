@@ -119,7 +119,7 @@ class OsRepositoryImpl implements OsRepository {
           '/inventory/items',
           queryParameters: {
             if (q.isNotEmpty) 'q': q,
-            'status': 'active',
+            'active': 'true', // ItemQueryDto usa `active`, não `status`
           },
         );
         return _asList(_asMap(res.data)['items'])
