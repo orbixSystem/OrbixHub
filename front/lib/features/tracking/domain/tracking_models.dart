@@ -52,6 +52,7 @@ abstract class PublicTrack with _$PublicTrack {
     @Default('') String statusLabel,
     String? subjectLabel,
     String? scheduledEnd,
+    String? diagnosis,
     @Default(<PublicPhoto>[]) List<PublicPhoto> photos,
     @Default(<PublicEvent>[]) List<PublicEvent> timeline,
     @Default(PublicCompany()) PublicCompany company,

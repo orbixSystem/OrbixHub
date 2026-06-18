@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
 import '../../os/presentation/os_status.dart';
@@ -40,7 +41,6 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   List<PublicMessage> _messages = const [];
 
   final _msgController = TextEditingController();
-  final _nameController = TextEditingController();
   bool _sending = false;
   Timer? _poll;
 
@@ -59,7 +59,6 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   void dispose() {
     _poll?.cancel();
     _msgController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -111,13 +110,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     if (body.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await _repo.sendMessage(
-        widget.token,
-        body,
-        authorName: _nameController.text.trim().isEmpty
-            ? null
-            : _nameController.text.trim(),
-      );
+      // Sem nome: o backend credita a mensagem ao nome do cliente da OS.
+      await _repo.sendMessage(widget.token, body);
       _msgController.clear();
       final fresh = await _repo.messages(widget.token);
       if (!mounted) return;
@@ -134,13 +128,18 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.canvas,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: _body(),
+    // Página voltada ao cliente: tema FIXO claro e on-brand, independente do
+    // modo de tema do staff (claro/escuro) — as cores nunca quebram.
+    return Theme(
+      data: AppTheme.light(seed: AppColors.brand),
+      child: Scaffold(
+        backgroundColor: AppColors.canvas,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: _body(),
+            ),
           ),
         ),
       ),
@@ -204,6 +203,12 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           const SizedBox(height: 18),
           if (t.scheduledEnd != null && t.scheduledEnd!.isNotEmpty) ...[
             _previsao(t.scheduledEnd!),
+            const SizedBox(height: 18),
+          ],
+          if (t.diagnosis != null && t.diagnosis!.trim().isNotEmpty) ...[
+            _sectionTitle('Diagnóstico'),
+            const SizedBox(height: 10),
+            _diagnosis(t.diagnosis!.trim()),
             const SizedBox(height: 18),
           ],
           if (t.photos.isNotEmpty) ...[
@@ -327,6 +332,26 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     );
   }
 
+  Widget _diagnosis(String text) {
+    return _surface(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.build_circle_outlined,
+              color: AppColors.brand, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  color: AppColors.ink, fontSize: 14, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _gallery(List<PublicPhoto> photos) {
     return SizedBox(
       height: 130,
@@ -400,14 +425,6 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           else
             for (final m in _messages) _bubble(m),
           const SizedBox(height: 12),
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: 'Seu nome (opcional)',
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [

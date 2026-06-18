@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../router/app_router.dart';
 import '../router/navigator_key.dart';
 import '../../di.dart';
 import '../../features/auth/presentation/session_state.dart';
 import '../../features/notifications/presentation/notifications_bell.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
+
+/// `true` quando estamos na página PÚBLICA de acompanhamento (`/t/:token`). O
+/// cliente não pode ver NENHUM chrome de staff (sino, toggle de tema, besouro).
+bool _isPublicTrackingRoute(WidgetRef ref) {
+  final path = ref
+      .read(routerProvider)
+      .routerDelegate
+      .currentConfiguration
+      .uri
+      .path;
+  return path.startsWith('/t/');
+}
 
 /// Global top-right controls, inserted as an [OverlayEntry] into the root
 /// Navigator's overlay (NOT by wrapping the app in a Stack — that broke web
@@ -17,6 +30,18 @@ class GlobalControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // O routerDelegate é um ChangeNotifier — rebuilda a cada navegação para que
+    // o chrome de staff suma na rota pública `/t/:token`.
+    return ListenableBuilder(
+      listenable: ref.read(routerProvider).routerDelegate,
+      builder: (context, _) {
+        if (_isPublicTrackingRoute(ref)) return const SizedBox.shrink();
+        return _buildControls(context, ref);
+      },
+    );
+  }
+
+  Widget _buildControls(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final mode = ref.watch(themeControllerProvider);
     final isDark = mode == ThemeMode.dark ||
@@ -77,6 +102,16 @@ class DevBeetleControl extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (!kDevTools) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: ref.read(routerProvider).routerDelegate,
+      builder: (context, _) {
+        if (_isPublicTrackingRoute(ref)) return const SizedBox.shrink();
+        return _buildBeetle(context, ref);
+      },
+    );
+  }
+
+  Widget _buildBeetle(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     return Positioned(
       right: 16,

@@ -822,7 +822,7 @@ as String?,
 /// @nodoc
 mixin _$PublicTrack {
 
- String get number; String get status; String get statusLabel; String? get subjectLabel; String? get scheduledEnd; List<PublicPhoto> get photos; List<PublicEvent> get timeline; PublicCompany get company;
+ String get number; String get status; String get statusLabel; String? get subjectLabel; String? get scheduledEnd; String? get diagnosis; List<PublicPhoto> get photos; List<PublicEvent> get timeline; PublicCompany get company;
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -835,16 +835,16 @@ $PublicTrackCopyWith<PublicTrack> get copyWith => _$PublicTrackCopyWithImpl<Publ
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&const DeepCollectionEquality().equals(other.photos, photos)&&const DeepCollectionEquality().equals(other.timeline, timeline)&&(identical(other.company, company) || other.company == company));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other.photos, photos)&&const DeepCollectionEquality().equals(other.timeline, timeline)&&(identical(other.company, company) || other.company == company));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,const DeepCollectionEquality().hash(photos),const DeepCollectionEquality().hash(timeline),company);
+int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(photos),const DeepCollectionEquality().hash(timeline),company);
 
 @override
 String toString() {
-  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, photos: $photos, timeline: $timeline, company: $company)';
+  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
 }
 
 
@@ -855,7 +855,7 @@ abstract mixin class $PublicTrackCopyWith<$Res>  {
   factory $PublicTrackCopyWith(PublicTrack value, $Res Function(PublicTrack) _then) = _$PublicTrackCopyWithImpl;
 @useResult
 $Res call({
- String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
+ String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
 });
 
 
@@ -872,13 +872,14 @@ class _$PublicTrackCopyWithImpl<$Res>
 
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
   return _then(_self.copyWith(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,statusLabel: null == statusLabel ? _self.statusLabel : statusLabel // ignore: cast_nullable_to_non_nullable
 as String,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
 as String?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
+as String?,diagnosis: freezed == diagnosis ? _self.diagnosis : diagnosis // ignore: cast_nullable_to_non_nullable
 as String?,photos: null == photos ? _self.photos : photos // ignore: cast_nullable_to_non_nullable
 as List<PublicPhoto>,timeline: null == timeline ? _self.timeline : timeline // ignore: cast_nullable_to_non_nullable
 as List<PublicEvent>,company: null == company ? _self.company : company // ignore: cast_nullable_to_non_nullable
@@ -976,10 +977,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicTrack() when $default != null:
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   return orElse();
 
 }
@@ -997,10 +998,10 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)  $default,) {final _that = this;
 switch (_that) {
 case _PublicTrack():
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1017,10 +1018,10 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicTrack() when $default != null:
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   return null;
 
 }
@@ -1032,7 +1033,7 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 @JsonSerializable()
 
 class _PublicTrack implements PublicTrack {
-  const _PublicTrack({this.number = '', this.status = '', this.statusLabel = '', this.subjectLabel, this.scheduledEnd, final  List<PublicPhoto> photos = const <PublicPhoto>[], final  List<PublicEvent> timeline = const <PublicEvent>[], this.company = const PublicCompany()}): _photos = photos,_timeline = timeline;
+  const _PublicTrack({this.number = '', this.status = '', this.statusLabel = '', this.subjectLabel, this.scheduledEnd, this.diagnosis, final  List<PublicPhoto> photos = const <PublicPhoto>[], final  List<PublicEvent> timeline = const <PublicEvent>[], this.company = const PublicCompany()}): _photos = photos,_timeline = timeline;
   factory _PublicTrack.fromJson(Map<String, dynamic> json) => _$PublicTrackFromJson(json);
 
 @override@JsonKey() final  String number;
@@ -1040,6 +1041,7 @@ class _PublicTrack implements PublicTrack {
 @override@JsonKey() final  String statusLabel;
 @override final  String? subjectLabel;
 @override final  String? scheduledEnd;
+@override final  String? diagnosis;
  final  List<PublicPhoto> _photos;
 @override@JsonKey() List<PublicPhoto> get photos {
   if (_photos is EqualUnmodifiableListView) return _photos;
@@ -1069,16 +1071,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&const DeepCollectionEquality().equals(other._photos, _photos)&&const DeepCollectionEquality().equals(other._timeline, _timeline)&&(identical(other.company, company) || other.company == company));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other._photos, _photos)&&const DeepCollectionEquality().equals(other._timeline, _timeline)&&(identical(other.company, company) || other.company == company));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,const DeepCollectionEquality().hash(_photos),const DeepCollectionEquality().hash(_timeline),company);
+int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(_photos),const DeepCollectionEquality().hash(_timeline),company);
 
 @override
 String toString() {
-  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, photos: $photos, timeline: $timeline, company: $company)';
+  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
 }
 
 
@@ -1089,7 +1091,7 @@ abstract mixin class _$PublicTrackCopyWith<$Res> implements $PublicTrackCopyWith
   factory _$PublicTrackCopyWith(_PublicTrack value, $Res Function(_PublicTrack) _then) = __$PublicTrackCopyWithImpl;
 @override @useResult
 $Res call({
- String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
+ String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
 });
 
 
@@ -1106,13 +1108,14 @@ class __$PublicTrackCopyWithImpl<$Res>
 
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
   return _then(_PublicTrack(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,statusLabel: null == statusLabel ? _self.statusLabel : statusLabel // ignore: cast_nullable_to_non_nullable
 as String,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
 as String?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
+as String?,diagnosis: freezed == diagnosis ? _self.diagnosis : diagnosis // ignore: cast_nullable_to_non_nullable
 as String?,photos: null == photos ? _self._photos : photos // ignore: cast_nullable_to_non_nullable
 as List<PublicPhoto>,timeline: null == timeline ? _self._timeline : timeline // ignore: cast_nullable_to_non_nullable
 as List<PublicEvent>,company: null == company ? _self.company : company // ignore: cast_nullable_to_non_nullable

@@ -49,6 +49,7 @@ _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
   statusLabel: json['statusLabel'] as String? ?? '',
   subjectLabel: json['subjectLabel'] as String?,
   scheduledEnd: json['scheduledEnd'] as String?,
+  diagnosis: json['diagnosis'] as String?,
   photos:
       (json['photos'] as List<dynamic>?)
           ?.map((e) => PublicPhoto.fromJson(e as Map<String, dynamic>))
@@ -71,6 +72,7 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
       'statusLabel': instance.statusLabel,
       'subjectLabel': instance.subjectLabel,
       'scheduledEnd': instance.scheduledEnd,
+      'diagnosis': instance.diagnosis,
       'photos': instance.photos,
       'timeline': instance.timeline,
       'company': instance.company,
