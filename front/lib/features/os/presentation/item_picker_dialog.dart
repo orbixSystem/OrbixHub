@@ -52,6 +52,15 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
     return double.tryParse(t);
   }
 
+  /// Formata o estoque para exibição (sem casas se inteiro; vírgula decimal).
+  String _fmtStock(String raw) {
+    final v = double.tryParse(raw);
+    if (v == null) return raw;
+    return v == v.truncate()
+        ? v.toInt().toString()
+        : v.toString().replaceAll('.', ',');
+  }
+
   void _pickInventory(InventoryOption o) {
     setState(() {
       _picked = o;
@@ -63,7 +72,41 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
     });
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
+    final qty = _toDouble(_quantity.text) ?? 1;
+
+    // Aviso de estoque: só para produto vinculado ao estoque (serviço não tem
+    // estoque; item avulso não aponta para o catálogo).
+    if (!_avulso && _picked != null && _picked!.kind == 'product') {
+      final stock = double.tryParse(_picked!.currentStock ?? '');
+      if (stock != null && qty > stock) {
+        final fmtStock = stock == stock.truncate()
+            ? stock.toInt().toString()
+            : stock.toString().replaceAll('.', ',');
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Estoque insuficiente'),
+            content: Text(
+              'Estoque insuficiente: disponível $fmtStock. '
+              'Deseja adicionar mesmo assim?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Adicionar mesmo assim'),
+              ),
+            ],
+          ),
+        );
+        if (go != true) return;
+      }
+    }
+
     final draft = _avulso
         ? OrderItemDraft(
             kind: _kind,
@@ -79,7 +122,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
             unitPrice: _toDouble(_unitPrice.text),
             discount: _toDouble(_discount.text),
           );
-    Navigator.of(context).pop(draft);
+    if (mounted) Navigator.of(context).pop(draft);
   }
 
   bool get _canConfirm => _avulso
@@ -175,7 +218,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: _canConfirm ? _confirm : null,
+          onPressed: _canConfirm ? () => _confirm() : null,
           child: const Text('Adicionar'),
         ),
       ],
@@ -229,7 +272,12 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                           size: 20,
                         ),
                         title: Text(o.name),
-                        subtitle: Text(money(o.salePrice)),
+                        subtitle: Text(
+                          o.kind == 'product' && o.currentStock != null
+                              ? '${money(o.salePrice)}  ·  '
+                                  'estoque: ${_fmtStock(o.currentStock!)}'
+                              : money(o.salePrice),
+                        ),
                         onTap: () => onSelected(o),
                       ),
                   ],

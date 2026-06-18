@@ -44,51 +44,63 @@ class OsDetailScreen extends ConsumerWidget {
       error: (e, _) => Center(
         child: Text(e is AppException ? e.message : 'Erro ao carregar a OS.'),
       ),
-      data: (order) => _Bounded(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => context.go('/m/os'),
-                icon: const Icon(Icons.arrow_back, size: 18),
-                label: const Text('Voltar'),
+      data: (order) {
+        // Estado terminal (cancelada/entregue) trava a edição de conteúdo —
+        // espelha o backend; cancelada volta a editar reabrindo-a.
+        final terminal = osIsTerminal(order.status);
+        final canEdit = canWrite && !terminal;
+        return _Bounded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.go('/m/os'),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Voltar'),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _Header(
-              order: order,
-              canWrite: canWrite,
-              canRead: canRead,
-              onEdit: () => _edit(context, ref, order),
-              onDelete: () => _delete(context, ref, order),
-              onApplyTemplate: () => _applyTemplate(context, ref, order),
-              onPrint: () => _printOrder(context, order),
-            ),
-            const SizedBox(height: 20),
-            _StatusBar(
-              order: order,
-              canWrite: canWrite,
-              canApprove: canApprove,
-              onChange: (target) => _changeStatus(context, ref, order, target),
-            ),
-            const SizedBox(height: 24),
-            _ItemsSection(order: order, canWrite: canWrite),
-            const SizedBox(height: 24),
-            _TotalsCard(order: order),
-            if (order.publicToken != null &&
-                order.publicToken!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _Header(
+                order: order,
+                canEdit: canEdit,
+                canRead: canRead,
+                onEdit: () => _edit(context, ref, order),
+                onApplyTemplate: () => _applyTemplate(context, ref, order),
+                onPrint: () => _printOrder(context, order),
+              ),
+              if (terminal && canWrite) ...[
+                const SizedBox(height: 16),
+                _TerminalNotice(status: order.status),
+              ],
+              const SizedBox(height: 20),
+              _StatusBar(
+                order: order,
+                canWrite: canWrite,
+                canApprove: canApprove,
+                onChange: (target) =>
+                    _changeStatus(context, ref, order, target),
+              ),
               const SizedBox(height: 24),
-              _TrackingLinkCard(token: order.publicToken!),
+              _DiagnosisSection(order: order, canWrite: canEdit),
+              const SizedBox(height: 24),
+              _ItemsSection(order: order, canWrite: canEdit),
+              const SizedBox(height: 24),
+              _TotalsCard(order: order),
+              if (order.publicToken != null &&
+                  order.publicToken!.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _TrackingLinkCard(token: order.publicToken!),
+              ],
+              const SizedBox(height: 24),
+              _PhotosSection(order: order, canWrite: canEdit),
+              const SizedBox(height: 24),
+              _TimelineSection(order: order, canWrite: canEdit),
             ],
-            const SizedBox(height: 24),
-            _PhotosSection(order: order, canWrite: canWrite),
-            const SizedBox(height: 24),
-            _TimelineSection(order: order, canWrite: canWrite),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -111,45 +123,6 @@ class OsDetailScreen extends ConsumerWidget {
       await ref.read(osRepositoryProvider).changeStatus(order.id, target);
       ref.invalidate(orderProvider(orderId));
       ref.invalidate(orderListProvider);
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
-  }
-
-  Future<void> _delete(
-    BuildContext context,
-    WidgetRef ref,
-    ServiceOrder order,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Excluir OS'),
-        content: Text(
-          'Excluir "${order.number}"? A ordem sai das listagens '
-          '(fica preservada no sistema).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await ref.read(osRepositoryProvider).deleteOrder(order.id);
-      ref.invalidate(orderListProvider);
-      if (context.mounted) context.go('/m/os');
     } on AppException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -224,21 +197,29 @@ class _Bounded extends StatelessWidget {
 class _Header extends StatelessWidget {
   const _Header({
     required this.order,
-    required this.canWrite,
+    required this.canEdit,
     required this.canRead,
     required this.onEdit,
-    required this.onDelete,
     required this.onApplyTemplate,
     required this.onPrint,
   });
 
   final ServiceOrder order;
-  final bool canWrite;
+  final bool canEdit;
   final bool canRead;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final VoidCallback onApplyTemplate;
   final VoidCallback onPrint;
+
+  /// Formata uma data ISO-8601 para dd/MM/yyyy (pt-BR); se não parsear, devolve
+  /// o valor original.
+  String _fmtDate(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    final d = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}/${d.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,9 +229,14 @@ class _Header extends StatelessWidget {
       ('Veículo', order.subjectLabel),
       ('Responsável', order.assignedTo),
       ('Relato', order.complaint),
-      ('Diagnóstico', order.diagnosis),
-      ('Previsão início', order.scheduledStart),
-      ('Previsão fim', order.scheduledEnd),
+      (
+        'Previsão início',
+        order.scheduledStart == null ? null : _fmtDate(order.scheduledStart!)
+      ),
+      (
+        'Previsão fim',
+        order.scheduledEnd == null ? null : _fmtDate(order.scheduledEnd!)
+      ),
     ];
     return Container(
       padding: const EdgeInsets.all(20),
@@ -287,7 +273,7 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              if (canWrite)
+              if (canEdit)
                 IconButton(
                   tooltip: 'Aplicar template',
                   icon: const Icon(Icons.dashboard_customize_outlined),
@@ -299,19 +285,12 @@ class _Header extends StatelessWidget {
                   icon: const Icon(Icons.print_outlined),
                   onPressed: onPrint,
                 ),
-              if (canWrite) ...[
+              if (canEdit)
                 IconButton(
                   tooltip: 'Editar',
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: onEdit,
                 ),
-                IconButton(
-                  tooltip: 'Excluir',
-                  icon: const Icon(Icons.delete_outline),
-                  color: scheme.error,
-                  onPressed: onDelete,
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -359,6 +338,45 @@ class _InlineFact extends StatelessWidget {
   }
 }
 
+// ===================== Aviso de OS travada =====================
+
+/// Faixa informativa quando a OS está em estado terminal e a edição está
+/// bloqueada. Para `cancelada`, orienta a reabrir; para `entregue`, é só leitura.
+class _TerminalNotice extends StatelessWidget {
+  const _TerminalNotice({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isCancelled = status == 'cancelada';
+    final message = isCancelled
+        ? 'OS cancelada — edição bloqueada. Reabra a OS para voltar a editá-la.'
+        : 'OS entregue — somente leitura.';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_outline, size: 18, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ===================== Barra de status (workflow) =====================
 
 class _StatusBar extends StatelessWidget {
@@ -378,10 +396,13 @@ class _StatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!canWrite) return const SizedBox.shrink();
     final targets = osTransitions[order.status] ?? const <String>[];
-    // "Aprovar" só aparece com a permissão os.approve.
-    final visible = targets
-        .where((t) => t != 'aprovada' || canApprove)
-        .toList();
+    // "Aprovar" e "Reabrir" (cancelada → aberta) exigem a permissão os.approve.
+    final isReopen = order.status == 'cancelada';
+    final visible = targets.where((t) {
+      if (t == 'aprovada') return canApprove;
+      if (isReopen && t == 'aberta') return canApprove;
+      return true;
+    }).toList();
     if (visible.isEmpty) return const SizedBox.shrink();
     return Wrap(
       spacing: 10,
@@ -426,6 +447,165 @@ class _StatusBar extends StatelessWidget {
       default:
         return Icons.arrow_forward;
     }
+  }
+}
+
+// ===================== Diagnóstico =====================
+
+/// Diagnóstico editável inline na ficha (não mais no dialog de edição). Mostra o
+/// texto atual; ao tocar em "Editar" vira um campo de texto com "Salvar". Salvar
+/// chama o PATCH da OS (`diagnosis`) e atualiza a ficha. Aparece também ao
+/// cliente na página pública de acompanhamento.
+class _DiagnosisSection extends ConsumerStatefulWidget {
+  const _DiagnosisSection({required this.order, required this.canWrite});
+
+  final ServiceOrder order;
+  final bool canWrite;
+
+  @override
+  ConsumerState<_DiagnosisSection> createState() => _DiagnosisSectionState();
+}
+
+class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
+  late final TextEditingController _controller;
+  bool _editing = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.order.diagnosis ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiagnosisSection old) {
+    super.didUpdateWidget(old);
+    // Reflete mudanças vindas de fora (ex.: após refresh) quando não editando.
+    if (!_editing && old.order.diagnosis != widget.order.diagnosis) {
+      _controller.text = widget.order.diagnosis ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final text = _controller.text.trim();
+    try {
+      await ref.read(osRepositoryProvider).updateOrder(
+            widget.order.id,
+            OrderPatch(diagnosis: text.isEmpty ? '' : text),
+          );
+      ref.invalidate(orderProvider(widget.order.id));
+      if (mounted) setState(() => _editing = false);
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final diagnosis = widget.order.diagnosis?.trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.search_outlined,
+                size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              'Diagnóstico',
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const Spacer(),
+            if (widget.canWrite && !_editing)
+              TextButton.icon(
+                onPressed: () => setState(() => _editing = true),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: Text(diagnosis.isEmpty ? 'Adicionar' : 'Editar'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: _editing
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 8,
+                      enabled: !_saving,
+                      decoration: const InputDecoration(
+                        hintText:
+                            'Descreva o diagnóstico técnico (visível ao cliente).',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() {
+                                    _editing = false;
+                                    _controller.text =
+                                        widget.order.diagnosis ?? '';
+                                  }),
+                          child: const Text('Cancelar'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: _saving ? null : _save,
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Text('Salvar diagnóstico'),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Text(
+                  diagnosis.isEmpty ? 'Sem diagnóstico ainda.' : diagnosis,
+                  style: TextStyle(
+                    color: diagnosis.isEmpty ? scheme.onSurfaceVariant : null,
+                    fontSize: 15,
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1436,13 +1616,38 @@ class _PhotoThumb extends StatelessWidget {
             width: 96,
             height: 96,
             fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                width: 96,
+                height: 96,
+                color: scheme.surfaceContainerHighest,
+                alignment: Alignment.center,
+                child: const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
             errorBuilder: (_, _, _) => Container(
               width: 96,
               height: 96,
               color: scheme.surfaceContainerHighest,
               alignment: Alignment.center,
-              child: Icon(Icons.broken_image_outlined,
-                  color: scheme.onSurfaceVariant),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image_outlined,
+                      size: 22, color: scheme.onSurfaceVariant),
+                  const SizedBox(height: 4),
+                  Text(
+                    'indisponível',
+                    style: TextStyle(
+                        fontSize: 10, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

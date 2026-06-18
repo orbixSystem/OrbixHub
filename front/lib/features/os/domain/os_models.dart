@@ -351,6 +351,7 @@ abstract class InventoryOption with _$InventoryOption {
     required String name,
     @Default('product') String kind,
     @JsonKey(name: 'sale_price') String? salePrice,
+    @JsonKey(name: 'current_stock') String? currentStock,
   }) = _InventoryOption;
 
   factory InventoryOption.fromJson(Map<String, dynamic> json) =>
