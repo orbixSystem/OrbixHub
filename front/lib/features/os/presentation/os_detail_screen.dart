@@ -501,7 +501,12 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
             OrderPatch(diagnosis: text.isEmpty ? '' : text),
           );
       ref.invalidate(orderProvider(widget.order.id));
-      if (mounted) setState(() => _editing = false);
+      if (mounted) {
+        setState(() => _editing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Diagnóstico salvo.')),
+        );
+      }
     } on AppException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
