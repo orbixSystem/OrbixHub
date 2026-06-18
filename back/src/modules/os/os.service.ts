@@ -59,13 +59,50 @@ export class OsService {
   // ===================== Orders =====================
   async createOrder(user: AuthUser, dto: CreateOrderDto) {
     // "Aponta, não invade": resolve via service público + snapshot (não toca a tabela alheia).
-    const customer = await this.customers.getCustomer(user, dto.customerId);
+    // Cada chamada ao CustomersService roda na PRÓPRIA withTenantTx — chame-as
+    // SEQUENCIALMENTE e ANTES da tx da OS (nunca aninhe; aninhar esgota o pool).
+    let customer: { id: string; name: string };
     let subjectId: string | null = null;
     let subjectLabel: string | null = null;
-    if (dto.subjectId) {
-      const subject = await this.customers.getSubject(user, dto.subjectId);
-      subjectId = subject.id;
-      subjectLabel = subject.label || subject.identifier || null;
+
+    if (dto.customerId) {
+      // Caminho "cliente existente": ponteiro + snapshot.
+      customer = await this.customers.getCustomer(user, dto.customerId);
+      if (dto.subjectId) {
+        const subject = await this.customers.getSubject(user, dto.subjectId);
+        subjectId = subject.id;
+        subjectLabel = subject.label || subject.identifier || null;
+      }
+    } else if (dto.newCustomerName?.trim()) {
+      // Caminho "cliente novo na hora": cria o cliente (e o veículo) via service público.
+      customer = await this.customers.createCustomer(user, {
+        name: dto.newCustomerName.trim(),
+        phone: dto.newCustomerPhone?.trim(),
+      });
+      const wantsSubject =
+        !!dto.newSubjectIdentifier?.trim() ||
+        (dto.newSubjectAttributes != null &&
+          Object.keys(dto.newSubjectAttributes).length > 0);
+      if (wantsSubject) {
+        // Só cria o subject se o tenant usa objetos; senão a OS fica só com o cliente.
+        const config = await this.customers.getConfig(user.tenantId);
+        if (config.usaSubjects) {
+          const subject = await this.customers.createSubject(user, customer.id, {
+            identifier: dto.newSubjectIdentifier?.trim() || undefined,
+            attributes: dto.newSubjectAttributes,
+          });
+          subjectId = subject.id;
+          subjectLabel = subject.label || subject.identifier || null;
+        } else {
+          this.logger.warn(
+            `OS criada sem veículo: tenant ${user.tenantId} não usa objetos (usaSubjects=false).`,
+          );
+        }
+      }
+    } else {
+      throw new BadRequestException(
+        'Informe um cliente existente ou os dados de um novo cliente (nome).',
+      );
     }
 
     const order = await this.tenant.withTenantTx(async () => {

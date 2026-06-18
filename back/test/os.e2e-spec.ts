@@ -173,6 +173,12 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       .get(`/api/inventory/items/${id}`)
       .set(auth(access));
   }
+  function listCustomers(access: string, query = '') {
+    return request(srv()).get(`/api/customers${query}`).set(auth(access));
+  }
+  function listSubjects(access: string, query = '') {
+    return request(srv()).get(`/api/subjects${query}`).set(auth(access));
+  }
 
   type IdRow = { id: string };
   const ids = (rows: IdRow[]) => rows.map((r) => r.id);
@@ -203,6 +209,57 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       const got = await getOrder(o.access, created.body.id);
       expect(got.status).toBe(200);
       expect(got.body.items).toEqual([]);
+    });
+  });
+
+  // ---- 1b. create with a brand-new customer on the fly ------------------
+  describe('create with new customer on the fly', () => {
+    it('creates an OS with a new customer (name+phone), auto-creating the customer', async () => {
+      const o = await registerOwner();
+
+      const created = await createOrder(o.access, {
+        newCustomerName: 'Maria Avulsa',
+        newCustomerPhone: '11988887777',
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.customer_name).toBe('Maria Avulsa');
+      expect(created.body.customer_id).toBeTruthy();
+
+      // o cliente foi de fato criado (aponta, não invade — confere via API pública)
+      const list = await listCustomers(o.access, '?q=Maria');
+      const names = (list.body.items as Array<{ name: string }>).map(
+        (c) => c.name,
+      );
+      expect(names).toContain('Maria Avulsa');
+    });
+
+    it('creates an OS with a new customer + vehicle (identifier+attributes)', async () => {
+      const o = await registerOwner();
+
+      const created = await createOrder(o.access, {
+        newCustomerName: 'João Veículo',
+        newCustomerPhone: '11977776666',
+        newSubjectIdentifier: 'ABC1D23',
+        newSubjectAttributes: { marca: 'VW', modelo: 'Gol' },
+      });
+      expect(created.status).toBe(201);
+      const customerId = created.body.customer_id as string;
+      expect(customerId).toBeTruthy();
+      expect(created.body.subject_id).toBeTruthy();
+      expect(created.body.subject_label).toBe('ABC1D23');
+
+      // o veículo foi criado e está vinculado ao cliente
+      const subjects = await listSubjects(o.access, `?customerId=${customerId}`);
+      const identifiers = (
+        subjects.body.items as Array<{ identifier: string }>
+      ).map((s) => s.identifier);
+      expect(identifiers).toContain('ABC1D23');
+    });
+
+    it('rejects an OS with neither customerId nor newCustomerName (400)', async () => {
+      const o = await registerOwner();
+      const res = await createOrder(o.access, { complaint: 'sem cliente' });
+      expect(res.status).toBe(400);
     });
   });
 

@@ -2,6 +2,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -22,10 +23,22 @@ export const OS_STATUSES = [
 ] as const;
 export type OsStatus = (typeof OS_STATUSES)[number];
 
-/** Cria OS. Cliente (e opcionalmente veículo/subject) são ponteiros — snapshot no service. */
+/**
+ * Cria OS. Cliente (e opcionalmente veículo/subject) são ponteiros — snapshot no service.
+ * Caminho "cliente existente": passe `customerId` (+ opcional `subjectId`).
+ * Caminho "cliente novo na hora": omita `customerId` e passe `newCustomerName`
+ * (+ opcional telefone/veículo); o service cria cliente (e subject) via CustomersService.
+ */
 export class CreateOrderDto {
-  @IsUUID() customerId!: string;
+  @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsUUID() subjectId?: string;
+  /** Cliente novo na hora: nome (obrigatório quando não há customerId). */
+  @IsOptional() @IsString() @MaxLength(200) newCustomerName?: string;
+  @IsOptional() @IsString() @MaxLength(40) newCustomerPhone?: string;
+  /** Veículo novo: placa/identificação (genérico = identifier). */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectIdentifier?: string;
+  /** Veículo novo: atributos do vertical (ex.: { marca, modelo }). */
+  @IsOptional() @IsObject() newSubjectAttributes?: Record<string, unknown>;
   @IsOptional() @IsString() @MaxLength(2000) complaint?: string;
   @IsOptional() @IsString() @MaxLength(4000) diagnosis?: string;
   /** ISO date strings (previsão). */
