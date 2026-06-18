@@ -17,6 +17,10 @@ import type { Env } from '../config/env.schema';
           // on register/login/forgot. Kept off the global guard so a shared
           // egress IP is not clamped to 5/min on those routes.
           { name: 'auth', ttl: 60000, limit: 5 },
+          // Tight per-IP limit for public unauthenticated writes (chat do
+          // cliente no link de acompanhamento). Enforced ONLY by
+          // PublicThrottlerGuard; off the global guard.
+          { name: 'public', ttl: 60000, limit: 10 },
         ],
         storage: new ThrottlerStorageRedisService(new Redis(env.REDIS_URL)),
       }),

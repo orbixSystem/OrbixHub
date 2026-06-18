@@ -4,7 +4,9 @@ import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { MessagesModule } from '../messages/messages.module';
 import { OsController } from './os.controller';
+import { OsPublicController } from './os-public.controller';
 import { OsService } from './os.service';
+import { OsPublicService } from './os-public.service';
 import { OsRepository } from './os.repository';
 import { OsSubjectHistoryProvider } from './os-subject-history.provider';
 
@@ -22,8 +24,8 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
     InventoryModule,
     MessagesModule,
   ],
-  controllers: [OsController],
-  providers: [OsService, OsRepository, OsSubjectHistoryProvider],
+  controllers: [OsController, OsPublicController],
+  providers: [OsService, OsPublicService, OsRepository, OsSubjectHistoryProvider],
   // Exporta o provider de histórico para o CustomersModule plugá-lo no seam
   // SubjectHistoryProvider (forwardRef — dependência mútua).
   exports: [OsService, OsSubjectHistoryProvider],
