@@ -65,7 +65,8 @@ const toDate = (v: string | undefined): Date | null | undefined =>
 
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
- * válidos; `entregue`/`cancelada` são terminais (sem destinos).
+ * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
+ * "reabertura" (→ `aberta`), que é privilegiada (gated por `os.approve`).
  */
 const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
   aberta: ['aguardando_aprovacao', 'em_execucao', 'cancelada'],
@@ -74,8 +75,15 @@ const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
   em_execucao: ['concluida', 'cancelada'],
   concluida: ['entregue'],
   entregue: [],
-  cancelada: [],
+  cancelada: ['aberta'],
 };
+
+/**
+ * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
+ * cabeçalho). `cancelada` volta a ser editável reabrindo-a (→ `aberta`);
+ * `entregue` é final.
+ */
+const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue']);
 
 @Injectable()
 export class OsService {
@@ -225,6 +233,7 @@ export class OsService {
       const existing = await this.repo.findOrderById(id);
       if (!existing || existing.deleted_at)
         throw new NotFoundException('OS não encontrada.');
+      this.assertEditable(existing);
       const data: Record<string, unknown> = {};
       if (dto.complaint !== undefined) data.complaint = dto.complaint.trim() || null;
       if (dto.diagnosis !== undefined) data.diagnosis = dto.diagnosis.trim() || null;
@@ -264,6 +273,7 @@ export class OsService {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
+      this.assertEditable(order);
       return this.repo.createEvent(user.tenantId, orderId, {
         kind: 'note',
         message: dto.message.trim(),
@@ -297,8 +307,9 @@ export class OsService {
       throw new BadRequestException('Imagem muito grande (máx. 8 MB).');
     }
 
-    // Confere que a OS existe / não está deletada ANTES do upload (sua própria tx).
-    await this.getOrderOrThrow(orderId);
+    // Confere que a OS existe / não está deletada / é editável ANTES do upload.
+    const order = await this.getOrderOrThrow(orderId);
+    this.assertEditable(order);
 
     // Chave única + extensão a partir do mimetype (genérica).
     const ext = (file.mimetype.split('/')[1] || 'bin').replace(
@@ -366,6 +377,20 @@ export class OsService {
     return { id: photoId, deleted: true };
   }
 
+  /**
+   * Bloqueia edição de conteúdo quando a OS está num estado terminal
+   * (`cancelada`/`entregue`). Cancelada pode voltar a ser editável reabrindo-a.
+   */
+  private assertEditable(order: { status: string }) {
+    if (!TERMINAL_STATUSES.has(order.status as OsStatus)) return;
+    if (order.status === 'cancelada') {
+      throw new BadRequestException(
+        'OS cancelada não pode ser alterada. Reabra a OS para editá-la.',
+      );
+    }
+    throw new BadRequestException('OS entregue não pode ser alterada.');
+  }
+
   // ===================== Workflow =====================
   async changeStatus(user: AuthUser, id: string, dto: ChangeStatusDto) {
     const to = dto.status;
@@ -381,6 +406,11 @@ export class OsService {
     // Aprovar exige a permissão os.approve (owner/gerente têm; mecânico não).
     if (to === 'aprovada' && !(await this.userHasPermission(user, 'os.approve'))) {
       throw new ForbiddenException('Sem permissão para aprovar OS.');
+    }
+    // Reabrir (cancelada → aberta) é privilegiado — mesmo público de aprovar.
+    const isReopen = from === 'cancelada' && to === 'aberta';
+    if (isReopen && !(await this.userHasPermission(user, 'os.approve'))) {
+      throw new ForbiddenException('Sem permissão para reabrir OS.');
     }
 
     const fields: {
@@ -399,7 +429,7 @@ export class OsService {
       await this.repo.createEvent(user.tenantId, id, {
         kind: 'status_change',
         statusSnapshot: to,
-        message: STATUS_LABELS[to],
+        message: isReopen ? 'OS reaberta' : STATUS_LABELS[to],
         visiblePublic: true,
         createdBy: user.userId,
       });
@@ -474,6 +504,7 @@ export class OsService {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
+      this.assertEditable(order);
       const item = await this.repo.addItem(user.tenantId, {
         order_id: orderId,
         kind,
@@ -500,6 +531,7 @@ export class OsService {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
+      this.assertEditable(order);
       const existing = await this.repo.findItemById(itemId);
       if (!existing || existing.order_id !== orderId)
         throw new NotFoundException('Item não encontrado.');
@@ -528,6 +560,7 @@ export class OsService {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
+      this.assertEditable(order);
       const existing = await this.repo.findItemById(itemId);
       if (!existing || existing.order_id !== orderId)
         throw new NotFoundException('Item não encontrado.');
@@ -663,8 +696,9 @@ export class OsService {
     // Carrega OS + template (cada um na própria tx) e re-snapshot dos itens de
     // estoque ANTES da tx de escrita (getItem abre a própria tx — não aninhar).
     const template = await this.getTemplate(user, templateId);
-    // Garante OS existente / não deletada antes do re-snapshot (sua própria tx).
-    await this.getOrderOrThrow(orderId);
+    // Garante OS existente / não deletada / editável antes do re-snapshot.
+    const target = await this.getOrderOrThrow(orderId);
+    this.assertEditable(target);
 
     // Resolve os itens a inserir (re-snapshot do preço atual quando vinculado ao estoque).
     const toInsert: Array<{

@@ -440,6 +440,94 @@ describe('OS — Ordens de Serviço (e2e)', () => {
     });
   });
 
+  // ---- 3b. cancelada trava edição + reabertura --------------------------
+  describe('cancelada: lock edits + reopen', () => {
+    function patchOrder(
+      access: string,
+      id: string,
+      body: Record<string, unknown>,
+    ) {
+      return request(srv())
+        .patch(`/api/os/orders/${id}`)
+        .set(auth(access))
+        .send(body);
+    }
+
+    it('blocks every content mutation once cancelled, then allows them after reopen', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      // aberta → cancelada (transição válida)
+      const cancel = await changeStatus(o.access, id, 'cancelada');
+      expect(cancel.status).toBe(200);
+      expect(cancel.body.status).toBe('cancelada');
+
+      // toda edição de conteúdo é bloqueada (400)
+      expect((await patchOrder(o.access, id, { complaint: 'novo' })).status).toBe(
+        400,
+      );
+      expect(
+        (await addItem(o.access, id, { kind: 'service', name: 'X', unitPrice: 10 }))
+          .status,
+      ).toBe(400);
+      expect((await addNote(o.access, id, { message: 'nota' })).status).toBe(400);
+      expect(
+        (await addPhoto(o.access, id, Buffer.from('fakejpg'), 'image/jpeg')).status,
+      ).toBe(400);
+
+      // reabrir (cancelada → aberta) — owner tem os.approve
+      const reopen = await changeStatus(o.access, id, 'aberta');
+      expect(reopen.status).toBe(200);
+      expect(reopen.body.status).toBe('aberta');
+      // evento de reabertura na timeline (visível ao cliente)
+      const ev = (reopen.body.events as Array<{ message: string | null }>)[0];
+      expect(ev.message).toBe('OS reaberta');
+
+      // agora volta a aceitar edição
+      const addAfter = await addItem(o.access, id, {
+        kind: 'service',
+        name: 'Mão de obra',
+        unitPrice: 50,
+      });
+      expect(addAfter.status).toBe(201);
+    });
+
+    it('mechanic (no os.approve) cannot reopen a cancelled OS (403)', async () => {
+      const o = await registerOwner();
+      const mech = await inviteAccept(o, 'mechanic');
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      const cancel = await changeStatus(o.access, id, 'cancelada');
+      expect(cancel.status).toBe(200);
+
+      const mechReopen = await changeStatus(mech.access, id, 'aberta');
+      expect(mechReopen.status).toBe(403);
+    });
+
+    it('blocks edits on a delivered (entregue) OS too — no reopen path', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      await changeStatus(o.access, id, 'em_execucao');
+      await changeStatus(o.access, id, 'concluida');
+      const delivered = await changeStatus(o.access, id, 'entregue');
+      expect(delivered.status).toBe(200);
+
+      // edição bloqueada
+      expect(
+        (await addNote(o.access, id, { message: 'tarde demais' })).status,
+      ).toBe(400);
+      // entregue é terminal — nem reabrir
+      expect((await changeStatus(o.access, id, 'aberta')).status).toBe(400);
+    });
+  });
+
   // ---- 4. auto stock decrement on em_execucao --------------------------
   describe('stock decrement on em_execucao', () => {
     it('decrements linked inventory product stock when moving to em_execucao', async () => {
