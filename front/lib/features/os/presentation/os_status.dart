@@ -65,8 +65,15 @@ const Map<String, List<String>> osTransitions = {
   'em_execucao': ['concluida', 'cancelada'],
   'concluida': ['entregue'],
   'entregue': <String>[],
-  'cancelada': <String>[],
+  // Cancelada só sai por "reabertura" (→ aberta) — privilegiada (os.approve).
+  'cancelada': ['aberta'],
 };
+
+/// Estados terminais (espelha o backend): a OS não aceita edição de conteúdo
+/// (itens, fotos, notas, cabeçalho). `cancelada` volta a ser editável reabrindo-a;
+/// `entregue` é final. O backend é a verdade — isto só desabilita os controles.
+bool osIsTerminal(String status) =>
+    status == 'cancelada' || status == 'entregue';
 
 /// Verbo do botão de transição (ação) para cada destino.
 String osTransitionLabel(String target) {
