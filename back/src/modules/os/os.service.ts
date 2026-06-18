@@ -409,9 +409,10 @@ export class OsService {
       to,
     });
 
-    // Baixa de estoque na conclusão — FORA de qualquer withTenantTx
-    // (decrementStock abre sua própria tx via runWithTenant; aninhar esgota o pool).
-    if (to === 'concluida' && !order.stock_applied) {
+    // Baixa de estoque ao entrar em execução ("o produto já está sendo usado")
+    // — FORA de qualquer withTenantTx (decrementStock abre sua própria tx via
+    // runWithTenant; aninhar esgota o pool). Idempotente via stock_applied.
+    if (to === 'em_execucao' && !order.stock_applied) {
       await this.applyStock(user, id);
     }
 
@@ -421,7 +422,7 @@ export class OsService {
   /**
    * Baixa de estoque dos itens-produto vinculados ao inventário (idempotente via
    * stock_applied). v1 best-effort: erro num item (ex.: estoque insuficiente) NÃO
-   * bloqueia a conclusão — apenas loga um aviso. Roda fora de transação de banco.
+   * bloqueia a transição — apenas loga um aviso. Roda fora de transação de banco.
    */
   private async applyStock(user: AuthUser, orderId: string) {
     const order = await this.getOrderOrThrow(orderId);

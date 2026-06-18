@@ -119,10 +119,13 @@ export class MessagesService {
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensagem não pode ser vazia.');
     const message = await this.tenant.runWithTenant(tenantId, async () => {
-      await this.repo.getConversationOrThrow(conversationId);
+      const conversation = await this.repo.getConversationOrThrow(conversationId);
+      // Sem nome digitado: atribui ao cliente da OS (o título da conversa é o
+      // nome do cliente). Assim a mensagem é creditada sem o cliente digitar nada.
+      const resolvedName = authorName?.trim() || conversation.title || null;
       const created = await this.repo.addMessage(tenantId, conversationId, {
         sender: 'customer',
-        authorName: authorName?.trim() || null,
+        authorName: resolvedName,
         body: text,
       });
       await this.repo.touchConversation(conversationId, {

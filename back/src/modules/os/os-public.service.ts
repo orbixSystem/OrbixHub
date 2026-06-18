@@ -31,7 +31,8 @@ interface ResolvedToken {
  * `os_resolve_by_public_token` — NUNCA confiando em input do cliente (regra de ouro
  * de fluxos públicos). O resto roda em `runWithTenant(tenantId, ...)` (tenant
  * explícito, sem CLS de JWT). O payload é DELIBERADAMENTE mínimo: nunca expõe
- * itens, preços, totais, diagnóstico, telefone do cliente ou notas internas.
+ * itens, preços, totais, telefone do cliente, queixa nem notas internas (o
+ * diagnóstico, sim — é a informação que o cliente quer ver).
  */
 @Injectable()
 export class OsPublicService {
@@ -60,9 +61,9 @@ export class OsPublicService {
   }
 
   /**
-   * Payload público read-only: status + previsão + fotos + timeline (só eventos
-   * visible_public, mais recente no topo) + dados da empresa. NÃO inclui itens,
-   * preços, totais, diagnóstico, telefone nem notas internas.
+   * Payload público read-only: status + previsão + diagnóstico + fotos + timeline
+   * (só eventos visible_public, mais recente no topo) + dados da empresa. NÃO inclui
+   * itens, preços, totais, queixa, telefone nem notas internas.
    */
   async getPublicTrack(token: string) {
     const { tenantId, orderId } = await this.resolveToken(token);
@@ -86,6 +87,7 @@ export class OsPublicService {
         number: order.number,
         status,
         statusLabel: STATUS_LABELS[status] ?? status,
+        diagnosis: order.diagnosis ?? null,
         subjectLabel: order.subject_label,
         scheduledEnd: order.scheduled_end,
         photos: photos.map((p) => ({ url: p.url, caption: p.caption })),

@@ -440,9 +440,9 @@ describe('OS — Ordens de Serviço (e2e)', () => {
     });
   });
 
-  // ---- 4. auto stock decrement on conclusion ---------------------------
-  describe('stock decrement on conclusion', () => {
-    it('decrements linked inventory product stock by the item quantity', async () => {
+  // ---- 4. auto stock decrement on em_execucao --------------------------
+  describe('stock decrement on em_execucao', () => {
+    it('decrements linked inventory product stock when moving to em_execucao', async () => {
       const o = await registerOwner();
       const customerId = await createCustomer(o.access);
       const prodId = await createInventoryProduct(o.access, 10, 50);
@@ -455,15 +455,20 @@ describe('OS — Ordens de Serviço (e2e)', () => {
         quantity: 3,
       });
 
-      // aberta → em_execucao → concluida (dispara a baixa)
-      expect((await changeStatus(o.access, id, 'em_execucao')).status).toBe(200);
-      const done = await changeStatus(o.access, id, 'concluida');
-      expect(done.status).toBe(200);
-      expect(done.body.stock_applied).toBe(true);
+      // aberta → em_execucao dispara a baixa (o produto já está sendo usado)
+      const exec = await changeStatus(o.access, id, 'em_execucao');
+      expect(exec.status).toBe(200);
+      expect(exec.body.stock_applied).toBe(true);
 
-      // estoque caiu de 10 para 7
+      // estoque caiu de 10 para 7 logo na entrada em execução
       const inv = await getInventoryItem(o.access, prodId);
       expect(Number(inv.body.current_stock)).toBe(7);
+
+      // concluir não baixa de novo (idempotente via stock_applied)
+      const done = await changeStatus(o.access, id, 'concluida');
+      expect(done.status).toBe(200);
+      const inv2 = await getInventoryItem(o.access, prodId);
+      expect(Number(inv2.body.current_stock)).toBe(7);
     });
   });
 

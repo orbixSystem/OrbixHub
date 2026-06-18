@@ -94,13 +94,16 @@ describe('OS — Acompanhamento público (e2e)', () => {
     };
   }
 
-  async function createCustomer(access: string): Promise<string> {
+  async function createCustomer(
+    access: string,
+  ): Promise<{ id: string; name: string }> {
+    const name = `Cliente ${uniq()}`;
     const res = await request(srv())
       .post('/api/customers')
       .set(auth(access))
-      .send({ name: `Cliente ${uniq()}` });
+      .send({ name });
     expect(res.status).toBe(201);
-    return res.body.id as string;
+    return { id: res.body.id as string, name };
   }
 
   function createOrder(access: string, body: Record<string, unknown>) {
@@ -109,6 +112,12 @@ describe('OS — Acompanhamento público (e2e)', () => {
   function addNote(access: string, id: string, body: Record<string, unknown>) {
     return request(srv())
       .post(`/api/os/orders/${id}/notes`)
+      .set(auth(access))
+      .send(body);
+  }
+  function updateOrder(access: string, id: string, body: Record<string, unknown>) {
+    return request(srv())
+      .patch(`/api/os/orders/${id}`)
       .set(auth(access))
       .send(body);
   }
@@ -129,10 +138,12 @@ describe('OS — Acompanhamento público (e2e)', () => {
     return request(srv()).get('/api/notifications').set(auth(access));
   }
 
-  async function newOrder(o: Owner): Promise<{ id: string; token: string }> {
-    const customerId = await createCustomer(o.access);
+  async function newOrder(
+    o: Owner,
+  ): Promise<{ id: string; token: string; customerName: string }> {
+    const customer = await createCustomer(o.access);
     const created = await createOrder(o.access, {
-      customerId,
+      customerId: customer.id,
       complaint: 'Barulho na frente',
     });
     expect(created.status).toBe(201);
@@ -140,6 +151,7 @@ describe('OS — Acompanhamento público (e2e)', () => {
     return {
       id: created.body.id as string,
       token: created.body.public_token as string,
+      customerName: customer.name,
     };
   }
 
@@ -165,12 +177,28 @@ describe('OS — Acompanhamento público (e2e)', () => {
       const timeline = res.body.timeline as TimelineRow[];
       expect(timeline.some((e) => e.kind === 'created')).toBe(true);
 
-      // payload público NÃO expõe preços/diagnóstico/itens/total/cliente
+      // diagnóstico aparece (é a informação que o cliente quer ver) — aqui null
+      expect(res.body.diagnosis).toBeNull();
+
+      // payload público NÃO expõe preços/itens/total/queixa/cliente
       expect(res.body.items).toBeUndefined();
       expect(res.body.total).toBeUndefined();
-      expect(res.body.diagnosis).toBeUndefined();
       expect(res.body.complaint).toBeUndefined();
       expect(res.body.customer_name).toBeUndefined();
+    });
+
+    it('retorna o diagnóstico quando definido na OS', async () => {
+      const o = await registerOwner();
+      const { id, token } = await newOrder(o);
+
+      const upd = await updateOrder(o.access, id, {
+        diagnosis: 'Pastilhas de freio gastas',
+      });
+      expect(upd.status).toBe(200);
+
+      const res = await getTrack(token);
+      expect(res.status).toBe(200);
+      expect(res.body.diagnosis).toBe('Pastilhas de freio gastas');
     });
 
     it('nota interna (visiblePublic=false) NÃO aparece; nota pública aparece', async () => {
@@ -204,21 +232,30 @@ describe('OS — Acompanhamento público (e2e)', () => {
   describe('chat público do cliente', () => {
     it('POST mensagem do cliente → aparece como customer; incrementa staff_unread + notificação', async () => {
       const o = await registerOwner();
-      const { token } = await newOrder(o);
+      const { token, customerName } = await newOrder(o);
 
+      // cliente NÃO digita o nome → atribuído ao nome do cliente da OS
       const posted = await postPublicMessage(token, {
         body: 'Oi, alguma novidade?',
       });
       expect([200, 201]).toContain(posted.status);
       expect(posted.body.sender).toBe('customer');
+      expect(posted.body.authorName).toBe(customerName);
 
-      // GET público mostra a mensagem como sender 'customer'
+      // GET público mostra a mensagem como sender 'customer' + nome do cliente
       const msgs = await getPublicMessages(token);
       expect(msgs.status).toBe(200);
-      const list = msgs.body as Array<{ sender: string; body: string }>;
+      const list = msgs.body as Array<{
+        sender: string;
+        body: string;
+        authorName: string | null;
+      }>;
       expect(
         list.some(
-          (m) => m.sender === 'customer' && m.body === 'Oi, alguma novidade?',
+          (m) =>
+            m.sender === 'customer' &&
+            m.body === 'Oi, alguma novidade?' &&
+            m.authorName === customerName,
         ),
       ).toBe(true);
 

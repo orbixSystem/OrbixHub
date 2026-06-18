@@ -12,6 +12,18 @@ import * as path from 'node:path';
 import { Public } from '../auth/decorators';
 import { LOCAL_STORAGE_ROOT } from './local-storage.provider';
 
+/** Content-Type por extensão (genérico; cobre os formatos de imagem comuns). */
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  pdf: 'application/pdf',
+};
+
 /**
  * Rota pública que serve os arquivos do LocalStorageProvider em dev
  * (`GET /files/<key>`). Em prod (MinIO/S3) os arquivos são servidos pelo próprio
@@ -33,6 +45,13 @@ export class FilesController {
     } catch {
       throw new NotFoundException('Arquivo não encontrado.');
     }
+    const ext = path.extname(dest).slice(1).toLowerCase();
+    // Flutter web (CanvasKit) busca os bytes da imagem por fetch e exige CORS
+    // para conseguir desenhá-la (a foto está em :4500 e o app em :8090 —
+    // cross-origin). Sem isso o <img> não renderiza.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Content-Type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
     createReadStream(dest).pipe(res);
   }
 }
