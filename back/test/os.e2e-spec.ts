@@ -168,6 +168,17 @@ describe('OS — Ordens de Serviço (e2e)', () => {
   function deleteOrder(access: string, id: string) {
     return request(srv()).delete(`/api/os/orders/${id}`).set(auth(access));
   }
+  function addNote(access: string, id: string, body: Record<string, unknown>) {
+    return request(srv())
+      .post(`/api/os/orders/${id}/notes`)
+      .set(auth(access))
+      .send(body);
+  }
+  function subjectHistory(access: string, subjectId: string) {
+    return request(srv())
+      .get(`/api/subjects/${subjectId}/history`)
+      .set(auth(access));
+  }
   function getInventoryItem(access: string, id: string) {
     return request(srv())
       .get(`/api/inventory/items/${id}`)
@@ -416,6 +427,104 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       const again = await deleteOrder(o.access, id);
       expect(again.status).toBe(404);
+    });
+  });
+
+  // ---- 5b. timeline (events + notes) -----------------------------------
+  describe('timeline (events + notes)', () => {
+    type EventRow = {
+      kind: string;
+      message: string | null;
+      status_snapshot: string | null;
+      visible_public: boolean;
+    };
+
+    it('auto-creates a created event, then a status_change event (newest first)', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      // detalhe traz a timeline com o evento 'created' (visível ao cliente)
+      const got = await getOrder(o.access, id);
+      expect(got.status).toBe(200);
+      let events = got.body.events as EventRow[];
+      expect(Array.isArray(events)).toBe(true);
+      const created = events.find((e) => e.kind === 'created');
+      expect(created).toBeTruthy();
+      expect(created!.status_snapshot).toBe('aberta');
+      expect(created!.visible_public).toBe(true);
+
+      // muda status → surge um evento 'status_change'
+      const exec = await changeStatus(o.access, id, 'em_execucao');
+      expect(exec.status).toBe(200);
+
+      const after = await getOrder(o.access, id);
+      events = after.body.events as EventRow[];
+      // mais recente no topo: o status_change é o primeiro
+      expect(events[0].kind).toBe('status_change');
+      expect(events[0].status_snapshot).toBe('em_execucao');
+      expect(events[0].visible_public).toBe(true);
+      // o created continua presente
+      expect(events.some((e) => e.kind === 'created')).toBe(true);
+    });
+
+    it('adds manual notes with visible_public false (default) and true', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const order = await createOrder(o.access, { customerId });
+      const id = order.body.id as string;
+
+      // nota interna (default visiblePublic=false)
+      const noteA = await addNote(o.access, id, { message: 'Nota interna' });
+      expect(noteA.status).toBe(201);
+      expect(noteA.body.kind).toBe('note');
+      expect(noteA.body.visible_public).toBe(false);
+
+      // nota visível ao cliente
+      const noteB = await addNote(o.access, id, {
+        message: 'Visível ao cliente',
+        visiblePublic: true,
+      });
+      expect(noteB.status).toBe(201);
+      expect(noteB.body.visible_public).toBe(true);
+
+      const got = await getOrder(o.access, id);
+      const notes = (got.body.events as EventRow[]).filter(
+        (e) => e.kind === 'note',
+      );
+      expect(notes).toHaveLength(2);
+      const internal = notes.find((n) => n.message === 'Nota interna');
+      const publicNote = notes.find((n) => n.message === 'Visível ao cliente');
+      expect(internal!.visible_public).toBe(false);
+      expect(publicNote!.visible_public).toBe(true);
+    });
+  });
+
+  // ---- 5c. subject history (SubjectHistoryProvider hookup) -------------
+  describe('subject history (customers ↔ os)', () => {
+    it("a vehicle's history lists its OS (kind 'os' + number)", async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+      const subjectId = await createSubject(o.access, customerId);
+
+      const order = await createOrder(o.access, { customerId, subjectId });
+      expect(order.status).toBe(201);
+      const number = order.body.number as string;
+
+      const hist = await subjectHistory(o.access, subjectId);
+      expect(hist.status).toBe(200);
+      const entries = hist.body as Array<{
+        kind: string;
+        title: string;
+        status: string;
+        subjectId?: string;
+      }>;
+      const entry = entries.find((e) => e.title === `OS ${number}`);
+      expect(entry).toBeTruthy();
+      expect(entry!.kind).toBe('os');
+      expect(entry!.status).toBe('aberta');
+      expect(entry!.subjectId).toBe(subjectId);
     });
   });
 

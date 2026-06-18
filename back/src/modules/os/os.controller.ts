@@ -22,6 +22,7 @@ import {
   UpdateOrderDto,
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
+import { CreateNoteDto } from './dto/note.dto';
 
 @Controller('os')
 @UseGuards(ModuleAccessGuard)
@@ -108,5 +109,16 @@ export class OsController {
     @Param('itemId') itemId: string,
   ) {
     return this.os.deleteItem(user, id, itemId);
+  }
+
+  // --- timeline / notas ---
+  @Post('orders/:id/notes')
+  @Permissions('os.write')
+  addNote(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateNoteDto,
+  ) {
+    return this.os.createNote(user, id, dto);
   }
 }

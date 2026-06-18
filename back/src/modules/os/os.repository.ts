@@ -63,6 +63,15 @@ export interface UpdateItemData {
   total?: DecimalIn;
 }
 
+export interface CreateEventData {
+  kind: 'created' | 'status_change' | 'note' | 'photo';
+  message?: string | null;
+  statusSnapshot?: string | null;
+  photoId?: string | null;
+  visiblePublic: boolean;
+  createdBy?: string | null;
+}
+
 /**
  * Único ponto que toca `service_order`/`service_order_item`. Sempre via
  * `tenant.getClient()` (cliente tx-scoped sob RLS); o service abre o
@@ -190,6 +199,52 @@ export class OsRepository {
     return db.service_order_item.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'asc' },
+    });
+  }
+
+  // ---- eventos (timeline) ----
+  /** Cria um evento na timeline. Usa o cliente tx-scoped — roda na MESMA tx do chamador. */
+  createEvent(tenantId: string, orderId: string, data: CreateEventData) {
+    const db = this.tenant.getClient();
+    return db.service_order_event.create({
+      data: {
+        tenant_id: tenantId,
+        order_id: orderId,
+        kind: data.kind,
+        message: data.message ?? null,
+        status_snapshot: data.statusSnapshot ?? null,
+        photo_id: data.photoId ?? null,
+        visible_public: data.visiblePublic,
+        created_by: data.createdBy ?? null,
+      } as Prisma.service_order_eventUncheckedCreateInput,
+    });
+  }
+
+  /** Timeline da OS — mais recente no topo (created_at DESC). */
+  listEvents(orderId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_event.findMany({
+      where: { order_id: orderId },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  // ---- histórico (SubjectHistoryProvider) ----
+  /** OS de um subject (veículo), exclui deletadas. Mais recente no topo. */
+  listOrdersBySubject(subjectId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: { subject_id: subjectId, deleted_at: null },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /** OS de um cliente, exclui deletadas. Mais recente no topo. */
+  listOrdersByCustomer(customerId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: { customer_id: customerId, deleted_at: null },
+      orderBy: { created_at: 'desc' },
     });
   }
 }

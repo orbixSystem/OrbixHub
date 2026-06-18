@@ -1,15 +1,14 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Module, OnModuleInit } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
+import { OsModule } from '../os/os.module';
+import { OsSubjectHistoryProvider } from '../os/os-subject-history.provider';
 import { SettingsModule } from '../settings/settings.module';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { CustomersController } from './customers.controller';
 import { SubjectsController } from './subjects.controller';
 import { CustomersService } from './customers.service';
 import { CustomersRepository } from './customers.repository';
-import {
-  EmptySubjectHistoryProvider,
-  SubjectHistoryProvider,
-} from './subject-history.provider';
+import { SubjectHistoryProvider } from './subject-history.provider';
 import { CUSTOMERS_CONFIG_KEY } from './customers.config';
 import { SubjectLookupService } from './subject-lookup.service';
 import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
@@ -20,12 +19,14 @@ import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
  * e SettingsModule (registra a própria seção de config no host).
  */
 @Module({
-  imports: [BillingModule, SettingsModule],
+  imports: [BillingModule, SettingsModule, forwardRef(() => OsModule)],
   controllers: [CustomersController, SubjectsController],
   providers: [
     CustomersService,
     CustomersRepository,
-    { provide: SubjectHistoryProvider, useClass: EmptySubjectHistoryProvider },
+    // Histórico do veículo/cliente vem da OS (módulo `os` implementa o seam).
+    // forwardRef p/ a dependência mútua OsModule ↔ CustomersModule.
+    { provide: SubjectHistoryProvider, useExisting: OsSubjectHistoryProvider },
     SubjectLookupService,
     { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },
   ],

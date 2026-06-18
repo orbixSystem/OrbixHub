@@ -20,8 +20,20 @@ import {
   UpdateOrderDto,
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
+import { CreateNoteDto } from './dto/note.dto';
 
 const DEFAULT_PAGE_SIZE = 20;
+
+/** Rótulos PT-BR dos status (mensagem legível nos eventos de timeline). */
+const STATUS_LABELS: Record<OsStatus, string> = {
+  aberta: 'OS aberta',
+  aguardando_aprovacao: 'Aguardando aprovação',
+  aprovada: 'Orçamento aprovado',
+  em_execucao: 'Em execução',
+  concluida: 'Serviço concluído',
+  entregue: 'Veículo entregue',
+  cancelada: 'OS cancelada',
+};
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -108,7 +120,7 @@ export class OsService {
     const order = await this.tenant.withTenantTx(async () => {
       const n = (await this.repo.maxOrderNumber()) + 1;
       const number = `OS-${String(n).padStart(4, '0')}`;
-      return this.repo.createOrder(user.tenantId, {
+      const created = await this.repo.createOrder(user.tenantId, {
         number,
         customer_id: customer.id,
         customer_name: customer.name,
@@ -122,6 +134,15 @@ export class OsService {
         scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
         scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
       });
+      // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
+      await this.repo.createEvent(user.tenantId, created.id, {
+        kind: 'created',
+        message: 'OS aberta',
+        statusSnapshot: 'aberta',
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
+      return created;
     });
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
@@ -144,12 +165,14 @@ export class OsService {
   }
 
   async getOrderOrThrow(id: string) {
-    const order = await this.tenant.withTenantTx(() =>
-      this.repo.findOrderById(id),
-    );
-    if (!order || order.deleted_at)
-      throw new NotFoundException('OS não encontrada.');
-    return order;
+    return this.tenant.withTenantTx(async () => {
+      const order = await this.repo.findOrderById(id);
+      if (!order || order.deleted_at)
+        throw new NotFoundException('OS não encontrada.');
+      // Timeline (mais recente no topo) embutida no detalhe — front pega em 1 chamada.
+      const events = await this.repo.listEvents(id);
+      return { ...order, events };
+    });
   }
 
   async updateOrder(user: AuthUser, id: string, dto: UpdateOrderDto) {
@@ -186,6 +209,26 @@ export class OsService {
     return result;
   }
 
+  // ===================== Timeline / notas =====================
+  /**
+   * Adiciona uma nota manual à timeline da OS. `visiblePublic` (default false)
+   * controla se a nota aparece na página pública de acompanhamento.
+   */
+  async createNote(user: AuthUser, orderId: string, dto: CreateNoteDto) {
+    const event = await this.tenant.withTenantTx(async () => {
+      const order = await this.repo.findOrderById(orderId);
+      if (!order || order.deleted_at)
+        throw new NotFoundException('OS não encontrada.');
+      return this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message: dto.message.trim(),
+        visiblePublic: dto.visiblePublic ?? false,
+        createdBy: user.userId,
+      });
+    });
+    return event;
+  }
+
   // ===================== Workflow =====================
   async changeStatus(user: AuthUser, id: string, dto: ChangeStatusDto) {
     const to = dto.status;
@@ -213,7 +256,17 @@ export class OsService {
     if (to === 'concluida') fields.finished_at = new Date();
     if (to === 'entregue') fields.closed_at = new Date();
 
-    await this.tenant.withTenantTx(() => this.repo.setStatusFields(id, fields));
+    await this.tenant.withTenantTx(async () => {
+      await this.repo.setStatusFields(id, fields);
+      // Evento de mudança de status — mesma tx (visível na página pública).
+      await this.repo.createEvent(user.tenantId, id, {
+        kind: 'status_change',
+        statusSnapshot: to,
+        message: STATUS_LABELS[to],
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
+    });
     await this.audit.log(user.tenantId, user.userId, 'os_status_change', id, {
       from,
       to,

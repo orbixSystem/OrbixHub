@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { OsController } from './os.controller';
 import { OsService } from './os.service';
 import { OsRepository } from './os.repository';
+import { OsSubjectHistoryProvider } from './os-subject-history.provider';
 
 /**
  * Módulo Ordens de Serviço (OS) — núcleo (Fase 1): cabeçalho + itens, workflow de
@@ -14,9 +15,11 @@ import { OsRepository } from './os.repository';
  * (ModuleAccessGuard), CustomersModule e InventoryModule (services públicos).
  */
 @Module({
-  imports: [BillingModule, CustomersModule, InventoryModule],
+  imports: [BillingModule, forwardRef(() => CustomersModule), InventoryModule],
   controllers: [OsController],
-  providers: [OsService, OsRepository],
-  exports: [OsService],
+  providers: [OsService, OsRepository, OsSubjectHistoryProvider],
+  // Exporta o provider de histórico para o CustomersModule plugá-lo no seam
+  // SubjectHistoryProvider (forwardRef — dependência mútua).
+  exports: [OsService, OsSubjectHistoryProvider],
 })
 export class OsModule {}
