@@ -264,4 +264,147 @@ describe('Settings host (e2e)', () => {
       expect(bSettings.company.companyName).toBeUndefined();
     });
   });
+
+  // ---- Criterion 8: fiscal fields + /me sync ---------------------------
+  describe('Criterion 8 — fiscal fields and /me sync', () => {
+    it('PATCH /settings/company with fiscal fields persists and syncs legalName to /me', async () => {
+      const owner = await registerOwner();
+
+      const patch = await request(app.getHttpServer())
+        .patch('/api/settings/company')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({
+          legalName: 'Razão Social Fiscal Ltda',
+          companyName: 'Nome Fantasia Fiscal',
+          regimeTributario: 'simples',
+          uf: 'SP',
+          themePreset: 'azul',
+        });
+      expect(patch.status).toBe(200);
+
+      // GET /settings reflects the fiscal fields
+      const settings = await getSettings(owner.access);
+      expect(settings.company.legalName).toBe('Razão Social Fiscal Ltda');
+      expect(settings.company.companyName).toBe('Nome Fantasia Fiscal');
+      expect(settings.company.regimeTributario).toBe('simples');
+      expect(settings.company.uf).toBe('SP');
+      expect(settings.company.themePreset).toBe('azul');
+
+      // GET /me reflects synced identity (legalName + tradeName)
+      const me = await request(app.getHttpServer())
+        .get('/api/me')
+        .set('Authorization', `Bearer ${owner.access}`);
+      expect(me.status).toBe(200);
+      expect(me.body.activeTenant.legalName).toBe('Razão Social Fiscal Ltda');
+      expect(me.body.activeTenant.tradeName).toBe('Nome Fantasia Fiscal');
+    });
+
+    it('PATCH /settings/company with invalid regimeTributario returns 400', async () => {
+      const owner = await registerOwner();
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/company')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ regimeTributario: 'invalido' });
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH /settings/company with invalid uf returns 400', async () => {
+      const owner = await registerOwner();
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/company')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ uf: 'XX' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ---- Criterion 9: logo upload ----------------------------------------
+  describe('Criterion 9 — logo upload', () => {
+    // Minimal valid 1×1 PNG (67 bytes)
+    const TINY_PNG = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR length + type
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1×1
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // bit depth, color, crc
+      0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, // IDAT length + type
+      0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, // IDAT data
+      0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, // IDAT data + crc
+      0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, // IEND length + type
+      0x44, 0xae, 0x42, 0x60, 0x82,                    // IEND data + crc
+    ]);
+
+    it('POST /settings/company/logo with valid PNG sets logoUrl', async () => {
+      const owner = await registerOwner();
+
+      const res = await request(app.getHttpServer())
+        .post('/api/settings/company/logo')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .attach('file', TINY_PNG, { filename: 'logo.png', contentType: 'image/png' });
+      if (res.status !== 200) {
+        // eslint-disable-next-line no-console
+        console.error('POST logo unexpected status', res.status, res.body);
+      }
+      expect(res.status).toBe(200);
+      expect(res.body.company.logoUrl).toBeTruthy();
+      expect(typeof res.body.company.logoUrl).toBe('string');
+      // Local storage URL contains /files/
+      expect(res.body.company.logoUrl).toMatch(/files/);
+
+      // GET /settings also reflects the new logoUrl
+      const settings = await getSettings(owner.access);
+      expect(settings.company.logoUrl).toBe(res.body.company.logoUrl);
+    });
+
+    it('POST /settings/company/logo with text/plain returns 400', async () => {
+      const owner = await registerOwner();
+
+      const res = await request(app.getHttpServer())
+        .post('/api/settings/company/logo')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .attach('file', Buffer.from('not an image'), {
+          filename: 'logo.txt',
+          contentType: 'text/plain',
+        });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).toMatch(/imagem/i);
+    });
+
+    it('POST /settings/company/logo without settings.manage (mechanic) returns 403', async () => {
+      const owner = await registerOwner();
+      const mech = await inviteAccept(owner, 'mechanic');
+
+      const res = await request(app.getHttpServer())
+        .post('/api/settings/company/logo')
+        .set('Authorization', `Bearer ${mech.access}`)
+        .attach('file', TINY_PNG, { filename: 'logo.png', contentType: 'image/png' });
+      expect(res.status).toBe(403);
+    });
+  });
+
+  // ---- Criterion 10: tenant isolation for fiscal fields -----------------
+  describe('Criterion 10 — tenant isolation for fiscal fields', () => {
+    it('fiscal fields set by tenant A are not visible to tenant B', async () => {
+      const ownerA = await registerOwner();
+      const ownerB = await registerOwner();
+
+      // Tenant A sets fiscal data
+      const patch = await request(app.getHttpServer())
+        .patch('/api/settings/company')
+        .set('Authorization', `Bearer ${ownerA.access}`)
+        .send({
+          companyName: 'Empresa Alpha',
+          legalName: 'Alpha Razão Social LTDA',
+          regimeTributario: 'presumido',
+          uf: 'RJ',
+        });
+      expect(patch.status).toBe(200);
+
+      // Tenant B sees none of A's fiscal data
+      const bSettings = await getSettings(ownerB.access);
+      expect(bSettings.company.companyName).not.toBe('Empresa Alpha');
+      expect(bSettings.company.legalName).toBeUndefined();
+      expect(bSettings.company.regimeTributario).toBeUndefined();
+      expect(bSettings.company.uf).toBeUndefined();
+    });
+  });
 });
