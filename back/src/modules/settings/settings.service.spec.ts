@@ -49,13 +49,15 @@ describe('SettingsService.getSettings', () => {
 });
 
 describe('SettingsService.updateCompany', () => {
-  it('merges with current settings, persists, audits, and returns merged company', async () => {
+  it('merges with current settings, persists, syncs identity, audits, and returns merged company', async () => {
     const updateCompanySettings = jest.fn(async () => undefined);
+    const syncCompanyIdentity = jest.fn(async () => undefined);
     const registry = { moduleSections: jest.fn(() => []) };
     const billing = { getEnabledModules: jest.fn(async () => []) };
     const tenancy = {
       getCompanySettings: jest.fn(async () => ({ companyName: 'old', taxId: '123' })),
       updateCompanySettings,
+      syncCompanyIdentity,
     };
     const log = jest.fn(async () => undefined);
     const audit = { log } as never;
@@ -67,7 +69,28 @@ describe('SettingsService.updateCompany', () => {
       companyName: 'new',
       taxId: '123',
     });
+    expect(syncCompanyIdentity).toHaveBeenCalledWith('t1', { tradeName: 'new', legalName: undefined, cnpj: undefined });
     expect(log).toHaveBeenCalledWith('t1', 'u1', 'settings_change', 'company');
     expect(result).toEqual({ company: { companyName: 'new', taxId: '123' } });
+  });
+
+  it('faz merge, persiste, sincroniza identidade e audita', async () => {
+    const tenancy2 = {
+      getCompanySettings: jest.fn(async () => ({ companyName: 'Velho' })),
+      updateCompanySettings: jest.fn(async () => undefined),
+      syncCompanyIdentity: jest.fn(async () => undefined),
+    };
+    const audit2 = { log: jest.fn(async () => undefined) };
+    const billing2 = { getEnabledModules: jest.fn(async () => []) };
+    const registry2 = { moduleSections: () => [] };
+    const svc = new SettingsService(registry2 as never, billing2 as never, tenancy2 as never, audit2 as never);
+    const u = { tenantId: 't1', userId: 'u1' } as never;
+
+    const res = await svc.updateCompany(u, { companyName: 'Novo', legalName: 'Novo ME', taxId: '123' } as never);
+
+    expect(tenancy2.updateCompanySettings).toHaveBeenCalledWith('t1', expect.objectContaining({ companyName: 'Novo' }));
+    expect(tenancy2.syncCompanyIdentity).toHaveBeenCalledWith('t1', { tradeName: 'Novo', legalName: 'Novo ME', cnpj: '123' });
+    expect(audit2.log).toHaveBeenCalledWith('t1', 'u1', 'settings_change', 'company');
+    expect(res.company.companyName).toBe('Novo');
   });
 });

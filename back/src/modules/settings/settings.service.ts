@@ -33,6 +33,11 @@ export class SettingsService {
     const current = await this.tenancy.getCompanySettings(user.tenantId);
     const merged = { ...current, ...JSON.parse(JSON.stringify(dto)) };
     await this.tenancy.updateCompanySettings(user.tenantId, merged);
+    await this.tenancy.syncCompanyIdentity(user.tenantId, {
+      tradeName: dto.companyName,
+      legalName: dto.legalName,
+      cnpj: dto.taxId,
+    });
     await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company');
     return { company: merged };
   }

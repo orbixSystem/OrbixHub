@@ -64,4 +64,17 @@ export class TenancyService {
   updateCompanySettings(tenantId: string, merged: Record<string, unknown>): Promise<void> {
     return this.repo.updateTenantSettings(tenantId, merged);
   }
+
+  /** Sincroniza colunas tipadas a partir do company settings (chamado pelo Settings). */
+  async syncCompanyIdentity(
+    tenantId: string,
+    id: { tradeName?: string; legalName?: string; cnpj?: string },
+  ): Promise<void> {
+    const data: { trade_name?: string; legal_name?: string; cnpj?: string; name?: string } = {};
+    if (id.tradeName !== undefined) { data.trade_name = id.tradeName; data.name = id.tradeName; }
+    if (id.legalName !== undefined) data.legal_name = id.legalName;
+    if (id.cnpj !== undefined) data.cnpj = id.cnpj;
+    if (Object.keys(data).length === 0) return;
+    await this.repo.updateTenantIdentity(tenantId, data);
+  }
 }

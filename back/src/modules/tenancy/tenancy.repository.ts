@@ -22,6 +22,13 @@ export class TenancyRepository {
     });
   }
 
+  async updateTenantIdentity(
+    tenantId: string,
+    data: { trade_name?: string | null; legal_name?: string | null; cnpj?: string | null; name?: string },
+  ): Promise<void> {
+    await this.prisma.tenant.update({ where: { id: tenantId }, data });
+  }
+
   async permissionsForRole(roleKey: string): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ key: string }>>`
       SELECT p.key FROM role r
