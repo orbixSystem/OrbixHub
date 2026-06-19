@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/read_ticks.dart';
+import '../../../di.dart';
 import '../domain/messages_models.dart';
 import 'messages_providers.dart';
 
@@ -21,7 +24,10 @@ class MessageThreadScreen extends ConsumerStatefulWidget {
 
 class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
   final _reply = TextEditingController();
+  final _scroll = ScrollController();
   bool _sending = false;
+  bool _didInitialJump = false;
+  final RealtimeChat _rt = RealtimeChat();
 
   @override
   void initState() {
@@ -31,12 +37,48 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(conversationsProvider);
     });
+    // Tempo real: mensagem nova do cliente aparece na hora (push via WebSocket).
+    final accessToken = ref.read(accessTokenStoreProvider).token;
+    if (accessToken != null) {
+      _rt.connectStaff(
+        accessToken: accessToken,
+        conversationId: widget.conversationId,
+        onMessage: (_) {
+          if (!mounted) return;
+          ref.invalidate(threadProvider(widget.conversationId));
+          ref.invalidate(conversationsProvider);
+        },
+      );
+    }
   }
 
   @override
   void dispose() {
+    _rt.dispose();
     _reply.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  /// Leva a conversa para o final, acompanhando a última mensagem. Agendado
+  /// após o frame para que o ListView já tenha medido a nova extensão.
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final target = _scroll.position.maxScrollExtent;
+      // Ao abrir, pula direto para o fim (sem animação visível). Depois disso,
+      // anima suavemente ao chegar/enviar mensagens.
+      if (!_didInitialJump) {
+        _didInitialJump = true;
+        _scroll.jumpTo(target);
+      } else {
+        _scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _snack(String msg) {
@@ -89,7 +131,12 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
                 ],
               ),
             ),
-            data: (thread) => _ThreadBody(thread: thread),
+            data: (thread) {
+              // Sempre que a thread renderiza (abrir, nova mensagem enviada
+              // ou recebida no refresh), acompanha a última mensagem.
+              _scrollToBottom();
+              return _ThreadBody(thread: thread, controller: _scroll);
+            },
           ),
         ),
         _Composer(
@@ -103,21 +150,81 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
 }
 
 class _ThreadBody extends StatelessWidget {
-  const _ThreadBody({required this.thread});
+  const _ThreadBody({required this.thread, required this.controller});
   final ConversationThread thread;
+  final ScrollController controller;
 
   @override
   Widget build(BuildContext context) {
     final messages = thread.messages;
-    if (messages.isEmpty) {
-      return const Center(child: Text('Nenhuma mensagem ainda.'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      itemCount: messages.length,
-      itemBuilder: (_, i) => _Bubble(message: messages[i]),
+    return _ChatBackground(
+      child: messages.isEmpty
+          ? const Center(child: Text('Nenhuma mensagem ainda.'))
+          : ListView.builder(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              itemCount: messages.length,
+              itemBuilder: (_, i) => _Bubble(message: messages[i]),
+            ),
     );
   }
+}
+
+/// Fundo decorativo da conversa: um leve degradê on-brand com uma trama de
+/// pontos sutil por cima, para a tela não ficar "sem graça". O padrão é
+/// discreto o bastante para não competir com as bolhas de mensagem.
+class _ChatBackground extends StatelessWidget {
+  const _ChatBackground({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.surface,
+            Color.alphaBlend(
+              AppColors.brand.withValues(alpha: dark ? 0.06 : 0.04),
+              scheme.surface,
+            ),
+          ],
+        ),
+      ),
+      child: CustomPaint(
+        painter: _DotGridPainter(
+          color: AppColors.brand.withValues(alpha: dark ? 0.10 : 0.07),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Trama de pontos espaçados — barata de pintar e agradável como textura.
+class _DotGridPainter extends CustomPainter {
+  const _DotGridPainter({required this.color});
+  final Color color;
+
+  static const double _gap = 26;
+  static const double _radius = 1.6;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    for (double y = _gap / 2; y < size.height; y += _gap) {
+      for (double x = _gap / 2; x < size.width; x += _gap) {
+        canvas.drawCircle(Offset(x, y), _radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotGridPainter old) => old.color != color;
 }
 
 /// Formata um ISO-8601 em "HH:mm". Falha → string vazia.
@@ -180,7 +287,17 @@ class _Bubble extends StatelessWidget {
             ],
             if (time.isNotEmpty) ...[
               const SizedBox(height: 3),
-              Text(time, style: TextStyle(color: metaColor, fontSize: 10.5)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(time,
+                      style: TextStyle(color: metaColor, fontSize: 10.5)),
+                  if (isStaff) ...[
+                    const SizedBox(width: 4),
+                    ReadTicks(read: message.readAt != null, onBrand: true),
+                  ],
+                ],
+              ),
             ],
           ],
         ),

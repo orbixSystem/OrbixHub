@@ -17,10 +17,13 @@ import type { Env } from '../config/env.schema';
           // on register/login/forgot. Kept off the global guard so a shared
           // egress IP is not clamped to 5/min on those routes.
           { name: 'auth', ttl: 60000, limit: 5 },
-          // Tight per-IP limit for public unauthenticated writes (chat do
-          // cliente no link de acompanhamento). Enforced ONLY by
-          // PublicThrottlerGuard; off the global guard.
-          { name: 'public', ttl: 60000, limit: 10 },
+          // Limite para rotas públicas sem auth (página de acompanhamento da
+          // OS: track + mensagens + chat do cliente). Enforçado SOMENTE pelo
+          // PublicThrottlerGuard, que chaveia pelo TOKEN do link (não por IP) —
+          // assim clientes atrás do mesmo IP de NAT/operadora não colidem. O
+          // budget cobre o polling (track+mensagens a cada 15s ≈ 8/min) com
+          // folga para os envios. Fica fora do guard global (default).
+          { name: 'public', ttl: 60000, limit: 60 },
         ],
         storage: new ThrottlerStorageRedisService(new Redis(env.REDIS_URL)),
       }),

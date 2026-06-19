@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 
 /**
  * Exercises GET /me end-to-end under a real authenticated request. This is the
@@ -50,6 +51,8 @@ describe('GET /api/me (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName,
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug,
         fullName: 'Owner Me',
         email,

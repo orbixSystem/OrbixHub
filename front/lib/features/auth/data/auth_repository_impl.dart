@@ -35,6 +35,9 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<RegisterResult> register({
     required String tenantName,
     required String slug,
+    required String cnpj,
+    required String legalName,
+    String? tradeName,
     required String fullName,
     required String email,
     required String password,
@@ -43,11 +46,21 @@ class AuthRepositoryImpl implements AuthRepository {
         final res = await _dio.post<Object?>('/auth/register', data: {
           'tenantName': tenantName,
           'slug': slug,
+          'cnpj': cnpj,
+          'legalName': legalName,
+          if (tradeName != null && tradeName.isNotEmpty) 'tradeName': tradeName,
           'fullName': fullName,
           'email': email,
           'password': password,
         });
         return RegisterResult.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CnpjCompany> lookupCnpj(String cnpj) => _guard(() async {
+        final res = await _dio
+            .post<Object?>('/auth/cnpj-lookup', data: {'cnpj': cnpj});
+        return CnpjCompany.fromJson(_asMap(res.data));
       });
 
   @override

@@ -61,6 +61,33 @@ export class IamService {
   listMembers() {
     return this.repo.listMembers();
   }
+
+  /**
+   * Resolve o nome de exibição de um membro do tenant pelo `user_id`. Service
+   * PÚBLICO usado por outros módulos ("aponta, não invade") — ex.: o link de
+   * acompanhamento da OS mostra o responsável. Tenant EXPLÍCITO via
+   * `runWithTenant` (fluxo público, sem CLS de JWT). Só devolve o nome se o
+   * usuário for membro ATIVO do tenant; senão `null` (não vaza nome de terceiros
+   * nem de membros desativados).
+   */
+  async resolveMemberName(
+    tenantId: string,
+    userId: string,
+  ): Promise<string | null> {
+    if (!userId) return null;
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const membership = await db.membership.findFirst({
+        where: { user_id: userId, status: 'active' },
+      });
+      if (!membership) return null;
+      const user = await this.prisma.users.findUnique({
+        where: { id: userId },
+        select: { full_name: true },
+      });
+      return user?.full_name?.trim() || null;
+    });
+  }
   listRoles() {
     return this.repo.listRoles();
   }

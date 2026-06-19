@@ -287,7 +287,7 @@ as bool,
 /// @nodoc
 mixin _$Tenant {
 
- String get id; String get slug; String get name;
+ String get id; String get slug; String get name; String? get cnpj; String? get legalName; String? get tradeName;
 /// Create a copy of Tenant
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -300,16 +300,16 @@ $TenantCopyWith<Tenant> get copyWith => _$TenantCopyWithImpl<Tenant>(this as Ten
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Tenant&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Tenant&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.cnpj, cnpj) || other.cnpj == cnpj)&&(identical(other.legalName, legalName) || other.legalName == legalName)&&(identical(other.tradeName, tradeName) || other.tradeName == tradeName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,slug,name);
+int get hashCode => Object.hash(runtimeType,id,slug,name,cnpj,legalName,tradeName);
 
 @override
 String toString() {
-  return 'Tenant(id: $id, slug: $slug, name: $name)';
+  return 'Tenant(id: $id, slug: $slug, name: $name, cnpj: $cnpj, legalName: $legalName, tradeName: $tradeName)';
 }
 
 
@@ -320,7 +320,7 @@ abstract mixin class $TenantCopyWith<$Res>  {
   factory $TenantCopyWith(Tenant value, $Res Function(Tenant) _then) = _$TenantCopyWithImpl;
 @useResult
 $Res call({
- String id, String slug, String name
+ String id, String slug, String name, String? cnpj, String? legalName, String? tradeName
 });
 
 
@@ -337,12 +337,15 @@ class _$TenantCopyWithImpl<$Res>
 
 /// Create a copy of Tenant
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? slug = null,Object? name = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? slug = null,Object? name = null,Object? cnpj = freezed,Object? legalName = freezed,Object? tradeName = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,slug: null == slug ? _self.slug : slug // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,
+as String,cnpj: freezed == cnpj ? _self.cnpj : cnpj // ignore: cast_nullable_to_non_nullable
+as String?,legalName: freezed == legalName ? _self.legalName : legalName // ignore: cast_nullable_to_non_nullable
+as String?,tradeName: freezed == tradeName ? _self.tradeName : tradeName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -427,10 +430,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String slug,  String name)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String slug,  String name,  String? cnpj,  String? legalName,  String? tradeName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Tenant() when $default != null:
-return $default(_that.id,_that.slug,_that.name);case _:
+return $default(_that.id,_that.slug,_that.name,_that.cnpj,_that.legalName,_that.tradeName);case _:
   return orElse();
 
 }
@@ -448,10 +451,10 @@ return $default(_that.id,_that.slug,_that.name);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String slug,  String name)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String slug,  String name,  String? cnpj,  String? legalName,  String? tradeName)  $default,) {final _that = this;
 switch (_that) {
 case _Tenant():
-return $default(_that.id,_that.slug,_that.name);case _:
+return $default(_that.id,_that.slug,_that.name,_that.cnpj,_that.legalName,_that.tradeName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -468,10 +471,10 @@ return $default(_that.id,_that.slug,_that.name);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String slug,  String name)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String slug,  String name,  String? cnpj,  String? legalName,  String? tradeName)?  $default,) {final _that = this;
 switch (_that) {
 case _Tenant() when $default != null:
-return $default(_that.id,_that.slug,_that.name);case _:
+return $default(_that.id,_that.slug,_that.name,_that.cnpj,_that.legalName,_that.tradeName);case _:
   return null;
 
 }
@@ -483,12 +486,15 @@ return $default(_that.id,_that.slug,_that.name);case _:
 @JsonSerializable()
 
 class _Tenant implements Tenant {
-  const _Tenant({required this.id, required this.slug, required this.name});
+  const _Tenant({required this.id, required this.slug, required this.name, this.cnpj, this.legalName, this.tradeName});
   factory _Tenant.fromJson(Map<String, dynamic> json) => _$TenantFromJson(json);
 
 @override final  String id;
 @override final  String slug;
 @override final  String name;
+@override final  String? cnpj;
+@override final  String? legalName;
+@override final  String? tradeName;
 
 /// Create a copy of Tenant
 /// with the given fields replaced by the non-null parameter values.
@@ -503,16 +509,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Tenant&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Tenant&&(identical(other.id, id) || other.id == id)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.name, name) || other.name == name)&&(identical(other.cnpj, cnpj) || other.cnpj == cnpj)&&(identical(other.legalName, legalName) || other.legalName == legalName)&&(identical(other.tradeName, tradeName) || other.tradeName == tradeName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,slug,name);
+int get hashCode => Object.hash(runtimeType,id,slug,name,cnpj,legalName,tradeName);
 
 @override
 String toString() {
-  return 'Tenant(id: $id, slug: $slug, name: $name)';
+  return 'Tenant(id: $id, slug: $slug, name: $name, cnpj: $cnpj, legalName: $legalName, tradeName: $tradeName)';
 }
 
 
@@ -523,7 +529,7 @@ abstract mixin class _$TenantCopyWith<$Res> implements $TenantCopyWith<$Res> {
   factory _$TenantCopyWith(_Tenant value, $Res Function(_Tenant) _then) = __$TenantCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String slug, String name
+ String id, String slug, String name, String? cnpj, String? legalName, String? tradeName
 });
 
 
@@ -540,12 +546,15 @@ class __$TenantCopyWithImpl<$Res>
 
 /// Create a copy of Tenant
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? slug = null,Object? name = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? slug = null,Object? name = null,Object? cnpj = freezed,Object? legalName = freezed,Object? tradeName = freezed,}) {
   return _then(_Tenant(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,slug: null == slug ? _self.slug : slug // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
-as String,
+as String,cnpj: freezed == cnpj ? _self.cnpj : cnpj // ignore: cast_nullable_to_non_nullable
+as String?,legalName: freezed == legalName ? _self.legalName : legalName // ignore: cast_nullable_to_non_nullable
+as String?,tradeName: freezed == tradeName ? _self.tradeName : tradeName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -1419,6 +1428,287 @@ class __$TokensCopyWithImpl<$Res>
 accessToken: null == accessToken ? _self.accessToken : accessToken // ignore: cast_nullable_to_non_nullable
 as String,refreshToken: null == refreshToken ? _self.refreshToken : refreshToken // ignore: cast_nullable_to_non_nullable
 as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$CnpjCompany {
+
+ String get cnpj; String get razaoSocial; String? get nomeFantasia; String? get situacao; String? get municipio; String? get uf; bool get alreadyRegistered;
+/// Create a copy of CnpjCompany
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$CnpjCompanyCopyWith<CnpjCompany> get copyWith => _$CnpjCompanyCopyWithImpl<CnpjCompany>(this as CnpjCompany, _$identity);
+
+  /// Serializes this CnpjCompany to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CnpjCompany&&(identical(other.cnpj, cnpj) || other.cnpj == cnpj)&&(identical(other.razaoSocial, razaoSocial) || other.razaoSocial == razaoSocial)&&(identical(other.nomeFantasia, nomeFantasia) || other.nomeFantasia == nomeFantasia)&&(identical(other.situacao, situacao) || other.situacao == situacao)&&(identical(other.municipio, municipio) || other.municipio == municipio)&&(identical(other.uf, uf) || other.uf == uf)&&(identical(other.alreadyRegistered, alreadyRegistered) || other.alreadyRegistered == alreadyRegistered));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,cnpj,razaoSocial,nomeFantasia,situacao,municipio,uf,alreadyRegistered);
+
+@override
+String toString() {
+  return 'CnpjCompany(cnpj: $cnpj, razaoSocial: $razaoSocial, nomeFantasia: $nomeFantasia, situacao: $situacao, municipio: $municipio, uf: $uf, alreadyRegistered: $alreadyRegistered)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $CnpjCompanyCopyWith<$Res>  {
+  factory $CnpjCompanyCopyWith(CnpjCompany value, $Res Function(CnpjCompany) _then) = _$CnpjCompanyCopyWithImpl;
+@useResult
+$Res call({
+ String cnpj, String razaoSocial, String? nomeFantasia, String? situacao, String? municipio, String? uf, bool alreadyRegistered
+});
+
+
+
+
+}
+/// @nodoc
+class _$CnpjCompanyCopyWithImpl<$Res>
+    implements $CnpjCompanyCopyWith<$Res> {
+  _$CnpjCompanyCopyWithImpl(this._self, this._then);
+
+  final CnpjCompany _self;
+  final $Res Function(CnpjCompany) _then;
+
+/// Create a copy of CnpjCompany
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? cnpj = null,Object? razaoSocial = null,Object? nomeFantasia = freezed,Object? situacao = freezed,Object? municipio = freezed,Object? uf = freezed,Object? alreadyRegistered = null,}) {
+  return _then(_self.copyWith(
+cnpj: null == cnpj ? _self.cnpj : cnpj // ignore: cast_nullable_to_non_nullable
+as String,razaoSocial: null == razaoSocial ? _self.razaoSocial : razaoSocial // ignore: cast_nullable_to_non_nullable
+as String,nomeFantasia: freezed == nomeFantasia ? _self.nomeFantasia : nomeFantasia // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,municipio: freezed == municipio ? _self.municipio : municipio // ignore: cast_nullable_to_non_nullable
+as String?,uf: freezed == uf ? _self.uf : uf // ignore: cast_nullable_to_non_nullable
+as String?,alreadyRegistered: null == alreadyRegistered ? _self.alreadyRegistered : alreadyRegistered // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [CnpjCompany].
+extension CnpjCompanyPatterns on CnpjCompany {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _CnpjCompany value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _CnpjCompany() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _CnpjCompany value)  $default,){
+final _that = this;
+switch (_that) {
+case _CnpjCompany():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _CnpjCompany value)?  $default,){
+final _that = this;
+switch (_that) {
+case _CnpjCompany() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String cnpj,  String razaoSocial,  String? nomeFantasia,  String? situacao,  String? municipio,  String? uf,  bool alreadyRegistered)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _CnpjCompany() when $default != null:
+return $default(_that.cnpj,_that.razaoSocial,_that.nomeFantasia,_that.situacao,_that.municipio,_that.uf,_that.alreadyRegistered);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String cnpj,  String razaoSocial,  String? nomeFantasia,  String? situacao,  String? municipio,  String? uf,  bool alreadyRegistered)  $default,) {final _that = this;
+switch (_that) {
+case _CnpjCompany():
+return $default(_that.cnpj,_that.razaoSocial,_that.nomeFantasia,_that.situacao,_that.municipio,_that.uf,_that.alreadyRegistered);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String cnpj,  String razaoSocial,  String? nomeFantasia,  String? situacao,  String? municipio,  String? uf,  bool alreadyRegistered)?  $default,) {final _that = this;
+switch (_that) {
+case _CnpjCompany() when $default != null:
+return $default(_that.cnpj,_that.razaoSocial,_that.nomeFantasia,_that.situacao,_that.municipio,_that.uf,_that.alreadyRegistered);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _CnpjCompany implements CnpjCompany {
+  const _CnpjCompany({required this.cnpj, required this.razaoSocial, this.nomeFantasia, this.situacao, this.municipio, this.uf, this.alreadyRegistered = false});
+  factory _CnpjCompany.fromJson(Map<String, dynamic> json) => _$CnpjCompanyFromJson(json);
+
+@override final  String cnpj;
+@override final  String razaoSocial;
+@override final  String? nomeFantasia;
+@override final  String? situacao;
+@override final  String? municipio;
+@override final  String? uf;
+@override@JsonKey() final  bool alreadyRegistered;
+
+/// Create a copy of CnpjCompany
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$CnpjCompanyCopyWith<_CnpjCompany> get copyWith => __$CnpjCompanyCopyWithImpl<_CnpjCompany>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$CnpjCompanyToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CnpjCompany&&(identical(other.cnpj, cnpj) || other.cnpj == cnpj)&&(identical(other.razaoSocial, razaoSocial) || other.razaoSocial == razaoSocial)&&(identical(other.nomeFantasia, nomeFantasia) || other.nomeFantasia == nomeFantasia)&&(identical(other.situacao, situacao) || other.situacao == situacao)&&(identical(other.municipio, municipio) || other.municipio == municipio)&&(identical(other.uf, uf) || other.uf == uf)&&(identical(other.alreadyRegistered, alreadyRegistered) || other.alreadyRegistered == alreadyRegistered));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,cnpj,razaoSocial,nomeFantasia,situacao,municipio,uf,alreadyRegistered);
+
+@override
+String toString() {
+  return 'CnpjCompany(cnpj: $cnpj, razaoSocial: $razaoSocial, nomeFantasia: $nomeFantasia, situacao: $situacao, municipio: $municipio, uf: $uf, alreadyRegistered: $alreadyRegistered)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$CnpjCompanyCopyWith<$Res> implements $CnpjCompanyCopyWith<$Res> {
+  factory _$CnpjCompanyCopyWith(_CnpjCompany value, $Res Function(_CnpjCompany) _then) = __$CnpjCompanyCopyWithImpl;
+@override @useResult
+$Res call({
+ String cnpj, String razaoSocial, String? nomeFantasia, String? situacao, String? municipio, String? uf, bool alreadyRegistered
+});
+
+
+
+
+}
+/// @nodoc
+class __$CnpjCompanyCopyWithImpl<$Res>
+    implements _$CnpjCompanyCopyWith<$Res> {
+  __$CnpjCompanyCopyWithImpl(this._self, this._then);
+
+  final _CnpjCompany _self;
+  final $Res Function(_CnpjCompany) _then;
+
+/// Create a copy of CnpjCompany
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? cnpj = null,Object? razaoSocial = null,Object? nomeFantasia = freezed,Object? situacao = freezed,Object? municipio = freezed,Object? uf = freezed,Object? alreadyRegistered = null,}) {
+  return _then(_CnpjCompany(
+cnpj: null == cnpj ? _self.cnpj : cnpj // ignore: cast_nullable_to_non_nullable
+as String,razaoSocial: null == razaoSocial ? _self.razaoSocial : razaoSocial // ignore: cast_nullable_to_non_nullable
+as String,nomeFantasia: freezed == nomeFantasia ? _self.nomeFantasia : nomeFantasia // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,municipio: freezed == municipio ? _self.municipio : municipio // ignore: cast_nullable_to_non_nullable
+as String?,uf: freezed == uf ? _self.uf : uf // ignore: cast_nullable_to_non_nullable
+as String?,alreadyRegistered: null == alreadyRegistered ? _self.alreadyRegistered : alreadyRegistered // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
@@ -32,12 +33,26 @@ class OsDetailScreen extends ConsumerWidget {
     return s is SessionAuthenticated && s.me.hasPermission(perm);
   }
 
+  /// Identificação da empresa (tenant ativo) p/ exibir e imprimir na OS.
+  OsCompany? _company(WidgetRef ref) {
+    final s = ref.read(sessionControllerProvider);
+    if (s is! SessionAuthenticated) return null;
+    final t = s.me.activeTenant;
+    if (t == null) return null;
+    return OsCompany(
+      name: t.name,
+      legalName: t.legalName,
+      cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty) ? formatCnpj(t.cnpj) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsync = ref.watch(orderProvider(orderId));
     final canWrite = _has(ref, 'os.write');
     final canApprove = _has(ref, 'os.approve');
     final canRead = _has(ref, 'os.read');
+    final company = _company(ref);
 
     return orderAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -64,11 +79,12 @@ class OsDetailScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               _Header(
                 order: order,
+                company: company,
                 canEdit: canEdit,
                 canRead: canRead,
                 onEdit: () => _edit(context, ref, order),
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
-                onPrint: () => _printOrder(context, order),
+                onPrint: () => _printOrder(context, order, company),
               ),
               if (terminal && canWrite) ...[
                 const SizedBox(height: 16),
@@ -166,9 +182,15 @@ class OsDetailScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _printOrder(BuildContext context, ServiceOrder order) async {
+  Future<void> _printOrder(
+    BuildContext context,
+    ServiceOrder order,
+    OsCompany? company,
+  ) async {
     try {
-      await Printing.layoutPdf(onLayout: (format) => buildOsPdf(order, format));
+      await Printing.layoutPdf(
+        onLayout: (format) => buildOsPdf(order, format, company: company),
+      );
     } on Exception {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,6 +219,7 @@ class _Bounded extends StatelessWidget {
 class _Header extends StatelessWidget {
   const _Header({
     required this.order,
+    required this.company,
     required this.canEdit,
     required this.canRead,
     required this.onEdit,
@@ -205,6 +228,7 @@ class _Header extends StatelessWidget {
   });
 
   final ServiceOrder order;
+  final OsCompany? company;
   final bool canEdit;
   final bool canRead;
   final VoidCallback onEdit;
@@ -248,6 +272,20 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (company != null) ...[
+            Text(
+              company!.name,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            if ((company!.cnpj ?? '').isNotEmpty)
+              Text(
+                'CNPJ: ${company!.cnpj}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Container(
@@ -556,7 +594,7 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
           ),
           child: _editing
               ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TextField(
                       controller: _controller,
@@ -573,8 +611,8 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
                     ),
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        const Spacer(),
                         TextButton(
                           onPressed: _saving
                               ? null
@@ -586,16 +624,19 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
                           child: const Text('Cancelar'),
                         ),
                         const SizedBox(width: 8),
-                        FilledButton(
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 44)),
                           onPressed: _saving ? null : _save,
-                          child: _saving
+                          icon: _saving
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2),
                                 )
-                              : const Text('Salvar diagnóstico'),
+                              : const Icon(Icons.check, size: 18),
+                          label: const Text('Salvar diagnóstico'),
                         ),
                       ],
                     ),

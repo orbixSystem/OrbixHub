@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/notification_sound.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/brand_mark.dart';
+import '../../../core/widgets/read_ticks.dart';
 import '../../../di.dart';
 import '../../os/presentation/os_status.dart';
 import '../domain/tracking_models.dart';
@@ -29,7 +32,8 @@ class PublicTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
-  static const _pollInterval = Duration(seconds: 15);
+  // Fallback do WebSocket: intervalo folgado (o tempo real vem do socket).
+  static const _pollInterval = Duration(seconds: 30);
 
   late final TrackingRepository _repo = ref.read(trackingRepositoryProvider);
   late final bool _validToken =
@@ -41,14 +45,26 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   List<PublicMessage> _messages = const [];
 
   final _msgController = TextEditingController();
+  final _chatScroll = ScrollController();
   bool _sending = false;
   Timer? _poll;
+  final RealtimeChat _rt = RealtimeChat();
 
   @override
   void initState() {
     super.initState();
     if (_validToken) {
       _load();
+      // Tempo real: a resposta da oficina aparece na hora (push via WebSocket).
+      // Toca um aviso sonoro quando a mensagem vem da oficina (não no próprio eco).
+      _rt.connectPublic(
+        token: widget.token,
+        onMessage: (m) {
+          if (m['sender'] == 'staff') unawaited(NotificationSound.play());
+          _refreshQuietly();
+        },
+      );
+      // Polling de segurança (fallback se o WS cair) — intervalo folgado.
       _poll = Timer.periodic(_pollInterval, (_) => _refreshQuietly());
     } else {
       _loading = false;
@@ -58,8 +74,24 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _rt.dispose();
     _msgController.dispose();
+    _chatScroll.dispose();
     super.dispose();
+  }
+
+  /// Rola o chat para a mensagem mais recente (no fim da lista). Em [force] rola
+  /// sempre (após enviar); senão só se o usuário já estava perto do fim — para
+  /// não arrancar a rolagem dele enquanto lê o histórico durante o polling.
+  void _scrollChatToBottom({bool force = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_chatScroll.hasClients) return;
+      final pos = _chatScroll.position;
+      final nearBottom = pos.maxScrollExtent - pos.pixels < 120;
+      if (force || nearBottom) {
+        _chatScroll.jumpTo(pos.maxScrollExtent);
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -78,6 +110,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         _messages = results[1] as List<PublicMessage>;
         _loading = false;
       });
+      _scrollChatToBottom(force: true);
     } on AppException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -100,6 +133,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         _track = results[0] as PublicTrack;
         _messages = results[1] as List<PublicMessage>;
       });
+      _scrollChatToBottom();
     } catch (_) {
       // silencioso
     }
@@ -116,6 +150,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       final fresh = await _repo.messages(widget.token);
       if (!mounted) return;
       setState(() => _messages = fresh);
+      _scrollChatToBottom(force: true);
     } on AppException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -277,6 +312,24 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                           style: const TextStyle(
                               color: AppColors.inkMuted, fontSize: 13.5)),
                     ],
+                    if (t.responsibleName != null &&
+                        t.responsibleName!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline,
+                              size: 15, color: AppColors.inkMuted),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              'Responsável: ${t.responsibleName!}',
+                              style: const TextStyle(
+                                  color: AppColors.inkMuted, fontSize: 13.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -361,24 +414,38 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final p = photos[i];
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              p.url,
-              width: 170,
-              height: 130,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
+          return GestureDetector(
+            onTap: () => _openPhotoViewer(photos, i),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                p.url,
                 width: 170,
                 height: 130,
-                color: AppColors.surfaceSunken,
-                child: const Icon(Icons.broken_image,
-                    color: AppColors.inkFaint),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  width: 170,
+                  height: 130,
+                  color: AppColors.surfaceSunken,
+                  child: const Icon(Icons.broken_image,
+                      color: AppColors.inkFaint),
+                ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  /// Abre o visualizador em tela cheia (zoom + swipe entre as fotos),
+  /// começando na foto tocada.
+  void _openPhotoViewer(List<PublicPhoto> photos, int initialIndex) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black,
+      useSafeArea: false,
+      builder: (_) => _PhotoViewer(photos: photos, initialIndex: initialIndex),
     );
   }
 
@@ -423,7 +490,18 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               ),
             )
           else
-            for (final m in _messages) _bubble(m),
+            // Lista com rolagem PRÓPRIA e altura limitada: o chat não estica a
+            // página inteira; o campo de envio fica sempre visível logo abaixo.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView.builder(
+                controller: _chatScroll,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _messages.length,
+                itemBuilder: (_, i) => _bubble(_messages[i]),
+              ),
+            ),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -435,25 +513,51 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                   maxLines: 4,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _send(),
-                  decoration: const InputDecoration(
+                  style: const TextStyle(fontSize: 14, color: AppColors.ink),
+                  decoration: InputDecoration(
                     isDense: true,
+                    filled: true,
+                    fillColor: AppColors.surfaceSunken,
                     hintText: 'Escreva uma mensagem...',
+                    hintStyle: const TextStyle(
+                        color: AppColors.inkFaint, fontSize: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 11),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: AppColors.line),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide:
+                          const BorderSide(color: AppColors.brand, width: 1.5),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: 44,
-                child: FilledButton(
-                  onPressed: _sending ? null : _send,
-                  child: _sending
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.send, size: 18),
+              Material(
+                color: AppColors.brand,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _sending ? null : _send,
+                  child: Padding(
+                    padding: const EdgeInsets.all(11),
+                    child: _sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send_rounded,
+                            size: 20, color: Colors.white),
+                  ),
                 ),
               ),
             ],
@@ -497,9 +601,20 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           ),
           if (m.createdAt != null && m.createdAt!.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(_relative(m.createdAt),
-                style: const TextStyle(
-                    color: AppColors.inkFaint, fontSize: 11)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_relative(m.createdAt),
+                    style: const TextStyle(
+                        color: AppColors.inkFaint, fontSize: 11)),
+                // Recibo de leitura nas mensagens do próprio cliente: 1 tracinho
+                // = enviada; 2 azuis = a oficina já leu.
+                if (isCustomer) ...[
+                  const SizedBox(width: 4),
+                  ReadTicks(read: m.readAt != null),
+                ],
+              ],
+            ),
           ],
         ],
       ),
@@ -547,6 +662,111 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     if (diff.inHours < 24) return 'há ${diff.inHours} h';
     if (diff.inDays < 30) return 'há ${diff.inDays} d';
     return _formatDate(iso);
+  }
+}
+
+/// Visualizador de fotos em tela cheia para o cliente: fundo preto, swipe
+/// horizontal entre as fotos e pinça/duplo-toque pra dar zoom. Fecha no X.
+class _PhotoViewer extends StatefulWidget {
+  const _PhotoViewer({required this.photos, required this.initialIndex});
+
+  final List<PublicPhoto> photos;
+  final int initialIndex;
+
+  @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  late final PageController _controller =
+      PageController(initialPage: widget.initialIndex);
+  late int _current = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.photos.length;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: total,
+            onPageChanged: (i) => setState(() => _current = i),
+            itemBuilder: (_, i) => InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Center(
+                child: Image.network(
+                  widget.photos[i].url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                  errorBuilder: (_, _, _) => const Center(
+                    child: Icon(Icons.broken_image, color: Colors.white54,
+                        size: 48),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Botão de fechar (respeitando o notch/status bar).
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Material(
+                  color: Colors.black45,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Contador "1 / N" quando há mais de uma foto.
+          if (total > 1)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_current + 1} / $total',
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

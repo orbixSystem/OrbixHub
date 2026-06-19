@@ -58,6 +58,9 @@ class SessionController extends Notifier<SessionState> {
   Future<void> register({
     required String tenantName,
     required String slug,
+    required String cnpj,
+    required String legalName,
+    String? tradeName,
     required String fullName,
     required String email,
     required String password,
@@ -65,6 +68,9 @@ class SessionController extends Notifier<SessionState> {
     final res = await _auth.register(
       tenantName: tenantName,
       slug: slug,
+      cnpj: cnpj,
+      legalName: legalName,
+      tradeName: tradeName,
       fullName: fullName,
       email: email,
       password: password,

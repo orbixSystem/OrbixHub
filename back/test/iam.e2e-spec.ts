@@ -6,6 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 import { MailerService, VerificationEmail } from '../src/common/mailer/mailer.service';
 import { TenantContext } from '../src/common/database/tenant-context';
 import type { TxClient } from '../src/common/database/tenant-context';
@@ -85,6 +86,8 @@ describe('IAM invite flow (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Oficina A',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `a-${uniq()}`,
         fullName: 'Owner A',
         email: ownerEmail,
@@ -140,6 +143,8 @@ describe('IAM invite flow (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Oficina B',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `b-${uniq()}`,
         fullName: 'Owner B',
         email: ownerEmail,

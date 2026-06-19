@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 
@@ -40,9 +41,14 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   // Cliente novo
   final _newName = TextEditingController();
   final _newPhone = TextEditingController();
-  final _subjIdentifier = TextEditingController();
-  final _subjMarca = TextEditingController();
-  final _subjModelo = TextEditingController();
+
+  // Campos dinâmicos do veículo/subject (cliente novo), vindos da config
+  // (`subjectFields`): `identifier` (placa) + atributos (marca/modelo/ano/cor/…).
+  // Nada de "placa"/"marca" hardcoded — o vertical mora na config.
+  final Map<String, TextEditingController> _subjFields = {};
+
+  /// Código FIPE selecionado por campo — alimenta a cascata marca→modelo→ano.
+  final Map<String, String?> _selectedCode = {};
 
   _CustomerMode _mode = _CustomerMode.existing;
 
@@ -52,9 +58,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   SubjectOption? _subject;
   bool _loadingSubjects = false;
 
-  // Config (usaSubjects + rótulo). Default seguro: usa veículos.
-  bool _usaSubjects = true;
-  String _subjectLabelSingular = 'Veículo';
+  // Config do módulo de clientes (usaSubjects + rótulo + campos dinâmicos).
+  // Default seguro: usa veículos, sem campos até a config carregar.
+  CustomersConfig _config = const CustomersConfig();
+  bool get _usaSubjects => _config.usaSubjects;
+  String get _subjectLabelSingular => _config.subjectLabel.singular;
 
   bool _saving = false;
   String? _error;
@@ -68,14 +76,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   @override
   void dispose() {
-    for (final c in [
-      _complaint,
-      _newName,
-      _newPhone,
-      _subjIdentifier,
-      _subjMarca,
-      _subjModelo,
-    ]) {
+    for (final c in [_complaint, _newName, _newPhone, ..._subjFields.values]) {
       c.dispose();
     }
     super.dispose();
@@ -86,11 +87,55 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       final cfg = await ref.read(osRepositoryProvider).customersConfig();
       if (!mounted) return;
       setState(() {
-        _usaSubjects = cfg.usaSubjects;
-        _subjectLabelSingular = cfg.subjectLabel.singular;
+        _config = cfg;
+        _rebuildSubjFields();
       });
     } on AppException {
-      // falha graciosa: mantém o default (usaSubjects=true, "Veículo").
+      // falha graciosa: mantém o default (usaSubjects=true, "Veículo", sem campos).
+    }
+  }
+
+  /// (Re)cria os controllers dos campos dinâmicos a partir da config carregada.
+  void _rebuildSubjFields() {
+    for (final c in _subjFields.values) {
+      c.dispose();
+    }
+    _subjFields
+      ..clear()
+      ..addEntries(
+        _config.subjectFields.map((f) => MapEntry(f.chave, TextEditingController())),
+      );
+    _selectedCode.clear();
+  }
+
+  Map<String, SubjectFieldConfig> get _byChave =>
+      {for (final f in _config.subjectFields) f.chave: f};
+
+  /// Códigos selecionados dos ancestrais (cascata) de um campo: modelo→{marca},
+  /// ano→{marca, modelo}.
+  Map<String, String?> _ancestorCodesOf(SubjectFieldConfig field) {
+    final codes = <String, String?>{};
+    var cur = field.dependeDe;
+    while (cur != null) {
+      codes[cur] = _selectedCode[cur];
+      cur = _byChave[cur]?.dependeDe;
+    }
+    return codes;
+  }
+
+  /// Limpa todo campo que dependa, direta ou transitivamente, de `chave` —
+  /// trocar a marca zera modelo e ano.
+  void _clearDescendants(String chave) {
+    for (final dep in _config.subjectFields) {
+      var cur = dep.dependeDe;
+      while (cur != null) {
+        if (cur == chave) {
+          _subjFields[dep.chave]?.clear();
+          _selectedCode[dep.chave] = null;
+          break;
+        }
+        cur = _byChave[cur]?.dependeDe;
+      }
     }
   }
 
@@ -139,16 +184,22 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         assignedTo: assignedTo,
       );
     }
-    // Cliente novo: monta atributos do veículo só se o tenant usa subjects.
+    // Cliente novo: monta identifier (placa) + atributos do veículo a partir dos
+    // campos dinâmicos da config. Tudo opcional aqui (cadastro-relâmpago da OS).
     Map<String, dynamic>? attrs;
     String? identifier;
     if (_usaSubjects) {
-      identifier = _opt(_subjIdentifier.text);
-      attrs = {
-        if (_opt(_subjMarca.text) != null) 'marca': _subjMarca.text.trim(),
-        if (_opt(_subjModelo.text) != null) 'modelo': _subjModelo.text.trim(),
-      };
-      if (attrs.isEmpty) attrs = null;
+      final built = <String, dynamic>{};
+      for (final f in _config.subjectFields) {
+        final raw = _subjFields[f.chave]?.text.trim() ?? '';
+        if (f.chave == 'identifier') {
+          identifier = raw.isEmpty ? null : raw;
+          continue;
+        }
+        if (raw.isEmpty) continue;
+        built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
+      }
+      attrs = built.isEmpty ? null : built;
     }
     return OrderDraft(
       newCustomerName: _newName.text.trim(),
@@ -224,25 +275,31 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _complaint,
-                  maxLines: 3,
+                  minLines: 3,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
                   decoration: const InputDecoration(
-                    labelText: 'Relato do cliente',
-                    prefixIcon: Icon(Icons.chat_outlined),
+                    labelText: 'Relato do cliente *',
+                    hintText: 'Descreva o problema relatado pelo cliente…',
                     alignLabelWithHint: true,
                   ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Informe o relato do cliente'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   initialValue: _assignedTo,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Responsável',
+                    labelText: 'Responsável *',
                     prefixIcon: Icon(Icons.engineering_outlined),
                   ),
                   items: [
                     const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('— Sem responsável —'),
+                      child: Text('— Selecione —'),
                     ),
                     for (final m in _members)
                       DropdownMenuItem<String?>(
@@ -252,6 +309,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   ],
                   onChanged:
                       _saving ? null : (id) => setState(() => _assignedTo = id),
+                  validator: (v) =>
+                      (v == null) ? 'Selecione um responsável' : null,
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
@@ -406,9 +465,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           controller: _newPhone,
           keyboardType: TextInputType.phone,
           decoration: const InputDecoration(
-            labelText: 'Telefone',
+            labelText: 'Telefone *',
             prefixIcon: Icon(Icons.phone_outlined),
           ),
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'Informe o telefone' : null,
         ),
         if (_usaSubjects) ...[
           const SizedBox(height: 16),
@@ -419,57 +480,174 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   }
 
   Widget _subjectCard() {
+    // Cores derivadas do tema (legíveis em claro E escuro): um wash translúcido
+    // do acento em vez de um tom claro fixo — antes quebrava no modo escuro.
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: AppColors.brandTint,
+        color: scheme.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.brand.withValues(alpha: 0.25)),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.30)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(Icons.directions_car_outlined,
-                  size: 18, color: AppColors.brandDeep),
+              Icon(Icons.directions_car_outlined,
+                  size: 18, color: scheme.primary),
               const SizedBox(width: 8),
               Text(
                 _subjectLabelSingular,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.brandDeep,
+                  color: scheme.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _subjIdentifier,
-            decoration: const InputDecoration(
-              labelText: 'Placa / Identificação',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _subjMarca,
-                  decoration: const InputDecoration(labelText: 'Marca'),
+          // Campos dinâmicos da config: identifier (placa) + marca/modelo/ano/cor.
+          // Campos com `fonte` viram picker FIPE com cascata (marca→modelo→ano);
+          // os demais, texto livre. Todos opcionais no cadastro-relâmpago da OS.
+          for (final f in _config.subjectFields) ...[
+            const SizedBox(height: 12),
+            if (f.fonte != null)
+              _SubjectLookupField(
+                // A key inclui os códigos dos ancestrais: ao trocar marca (ou
+                // modelo), os dependentes rebuildam já limpos.
+                key: ValueKey(
+                  'os-lookup-${f.chave}-${_ancestorCodesOf(f).values.join(',')}',
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _subjModelo,
-                  decoration: const InputDecoration(labelText: 'Modelo'),
+                field: f,
+                controller: _subjFields[f.chave]!,
+                ancestorCodes: _ancestorCodesOf(f),
+                onSelected: (opt) {
+                  setState(() {
+                    _selectedCode[f.chave] = opt.meta['codigo'] as String?;
+                    _clearDescendants(f.chave);
+                  });
+                },
+              )
+            else
+              TextFormField(
+                controller: _subjFields[f.chave],
+                decoration: InputDecoration(
+                  // A identificação (placa) é obrigatória; demais campos opcionais.
+                  labelText: f.chave == 'identifier' ? '${f.rotulo} *' : f.rotulo,
                 ),
+                keyboardType: f.tipo == 'number'
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : TextInputType.text,
+                inputFormatters: f.tipo == 'number'
+                    ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
+                    : null,
+                validator: f.chave == 'identifier'
+                    ? (v) => (v == null || v.trim().isEmpty)
+                        ? 'Informe a ${f.rotulo.toLowerCase()}'
+                        : null
+                    : null,
               ),
-            ],
-          ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Campo de texto com sugestões (não-obrigatórias) vindas do repo de OS
+/// (`lookup` → mesma fonte FIPE do módulo Clientes). Permite digitar valores fora
+/// da lista; ao escolher uma opção, notifica o pai (guarda o código → cascata).
+class _SubjectLookupField extends ConsumerWidget {
+  const _SubjectLookupField({
+    super.key,
+    required this.field,
+    required this.controller,
+    required this.ancestorCodes,
+    required this.onSelected,
+  });
+
+  final SubjectFieldConfig field;
+  final TextEditingController controller;
+
+  /// Códigos dos ancestrais da cascata, por chave (marca/modelo).
+  final Map<String, String?> ancestorCodes;
+  final ValueChanged<LookupOption> onSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Autocomplete<LookupOption>(
+      initialValue: TextEditingValue(text: controller.text),
+      displayStringForOption: (o) => o.value,
+      // Ao focar, já mostra as primeiras opções e refiltra ao digitar. Modelo
+      // exige marca e ano exige marca+modelo; sem o ancestral o backend devolve [].
+      optionsBuilder: (value) async {
+        try {
+          return await ref.read(osRepositoryProvider).lookup(
+                field.fonte!,
+                marca: ancestorCodes['marca'],
+                modelo: ancestorCodes['modelo'],
+                q: value.text,
+              );
+        } on AppException {
+          return const Iterable<LookupOption>.empty();
+        }
+      },
+      onSelected: (opt) {
+        controller.text = opt.value;
+        onSelected(opt);
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final opts = options.toList();
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 380),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: opts.length,
+                itemBuilder: (context, i) {
+                  final o = opts[i];
+                  final logo = o.meta['logoUrl'] as String?;
+                  return ListTile(
+                    dense: true,
+                    leading: logo == null
+                        ? null
+                        : SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: Image.network(
+                              logo,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.directions_car_outlined,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                    title: Text(o.label),
+                    onTap: () => onSelected(o),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      fieldViewBuilder: (context, textController, focusNode, onSubmit) {
+        return TextFormField(
+          key: Key('osSubjectField-${field.chave}'),
+          controller: textController,
+          focusNode: focusNode,
+          onChanged: (v) => controller.text = v,
+          onFieldSubmitted: (_) => onSubmit(),
+          decoration: InputDecoration(labelText: field.rotulo),
+        );
+      },
     );
   }
 }

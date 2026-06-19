@@ -33,7 +33,14 @@ export class TenancyService {
         emailVerified: !!u?.email_verified_at,
       },
       activeTenant: tenant
-        ? { id: tenant.id, slug: tenant.slug, name: tenant.name }
+        ? {
+            id: tenant.id,
+            slug: tenant.slug,
+            name: tenant.name,
+            cnpj: tenant.cnpj ?? null,
+            legalName: tenant.legal_name ?? null,
+            tradeName: tenant.trade_name ?? null,
+          }
         : null,
       role: user.role,
       permissions,

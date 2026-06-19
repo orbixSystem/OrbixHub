@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { GlobalThrottlerGuard } from './common/throttler/global-throttler.guard';
 import { ConfigModule } from './common/config/config.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -27,11 +28,13 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { OsModule } from './modules/os/os.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { MessagesModule } from './modules/messages/messages.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
   imports: [
     ConfigModule,
+    EventEmitterModule.forRoot(),
     RedisModule,
     DatabaseModule,
     CryptoModule,
@@ -51,6 +54,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     NotificationsModule,
     MessagesModule,
     OsModule,
+    RealtimeModule,
     DevtoolsModule,
   ],
   controllers: [HealthController],

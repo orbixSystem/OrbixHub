@@ -63,6 +63,12 @@ const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
 const toDate = (v: string | undefined): Date | null | undefined =>
   v === undefined ? undefined : v ? new Date(v) : null;
 
+/** Data PT-BR (dd/MM/yyyy) para mensagens de timeline visíveis ao cliente. */
+const formatBrDate = (d: Date): string => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
  * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
@@ -190,6 +196,7 @@ export class OsService {
         refType: 'os',
         refId: order.id,
         title: order.customer_name,
+        refLabel: order.number, // ex.: 'OS-0001' — distingue clientes homônimos
       });
     } catch (e) {
       this.logger.warn(
@@ -244,6 +251,36 @@ export class OsService {
       if (dto.assignedTo !== undefined) data.assigned_to = dto.assignedTo;
       if (dto.discount !== undefined) data.discount = dto.discount;
       await this.repo.updateOrder(id, data);
+
+      // Mudanças relevantes do serviço viram eventos VISÍVEIS ao cliente na
+      // página pública de acompanhamento (mesma tx).
+      if (dto.scheduledEnd !== undefined) {
+        const newEnd = toDate(dto.scheduledEnd) ?? null;
+        const oldEnd = existing.scheduled_end ?? null;
+        if ((newEnd?.getTime() ?? null) !== (oldEnd?.getTime() ?? null)) {
+          await this.repo.createEvent(user.tenantId, id, {
+            kind: 'note',
+            message: newEnd
+              ? `Previsão de entrega: ${formatBrDate(newEnd)}`
+              : 'Previsão de entrega removida',
+            visiblePublic: true,
+            createdBy: user.userId,
+          });
+        }
+      }
+      if (dto.diagnosis !== undefined) {
+        const newDiag = dto.diagnosis.trim() || null;
+        const oldDiag = existing.diagnosis ?? null;
+        if (newDiag && newDiag !== oldDiag) {
+          await this.repo.createEvent(user.tenantId, id, {
+            kind: 'note',
+            message: 'Diagnóstico atualizado',
+            visiblePublic: true,
+            createdBy: user.userId,
+          });
+        }
+      }
+
       // Desconto do cabeçalho mudou → recalcula total.
       if (dto.discount !== undefined) await this.recomputeTotal(id);
       return this.repo.findOrderById(id);

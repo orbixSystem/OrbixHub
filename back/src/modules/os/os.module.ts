@@ -3,6 +3,7 @@ import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { MessagesModule } from '../messages/messages.module';
+import { IamModule } from '../iam/iam.module';
 import { OsController } from './os.controller';
 import { OsPublicController } from './os-public.controller';
 import { OsService } from './os.service';
@@ -23,11 +24,13 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
     forwardRef(() => CustomersModule),
     InventoryModule,
     MessagesModule,
+    IamModule,
   ],
   controllers: [OsController, OsPublicController],
   providers: [OsService, OsPublicService, OsRepository, OsSubjectHistoryProvider],
   // Exporta o provider de histórico para o CustomersModule plugá-lo no seam
-  // SubjectHistoryProvider (forwardRef — dependência mútua).
-  exports: [OsService, OsSubjectHistoryProvider],
+  // SubjectHistoryProvider (forwardRef — dependência mútua). OsPublicService é
+  // exportado para o RealtimeModule resolver a sala de um token público.
+  exports: [OsService, OsSubjectHistoryProvider, OsPublicService],
 })
 export class OsModule {}

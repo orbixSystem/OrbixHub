@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Conversation {
 
- String get id; String? get title;@JsonKey(name: 'ref_type') String? get refType;@JsonKey(name: 'ref_id') String? get refId;@JsonKey(name: 'staff_unread') int get staffUnread;@JsonKey(name: 'last_message_at') String? get lastMessageAt;@JsonKey(name: 'last_message') String? get lastMessage;
+ String get id; String? get title;@JsonKey(name: 'ref_label') String? get refLabel;@JsonKey(name: 'ref_type') String? get refType;@JsonKey(name: 'ref_id') String? get refId;@JsonKey(name: 'staff_unread') int get staffUnread;@JsonKey(name: 'last_message_at') String? get lastMessageAt;@JsonKey(name: 'last_message') String? get lastMessage;@JsonKey(name: 'last_message_sender') String? get lastMessageSender;@JsonKey(name: 'last_message_read') bool get lastMessageRead;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $ConversationCopyWith<Conversation> get copyWith => _$ConversationCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.refType, refType) || other.refType == refType)&&(identical(other.refId, refId) || other.refId == refId)&&(identical(other.staffUnread, staffUnread) || other.staffUnread == staffUnread)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.refLabel, refLabel) || other.refLabel == refLabel)&&(identical(other.refType, refType) || other.refType == refType)&&(identical(other.refId, refId) || other.refId == refId)&&(identical(other.staffUnread, staffUnread) || other.staffUnread == staffUnread)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.lastMessageSender, lastMessageSender) || other.lastMessageSender == lastMessageSender)&&(identical(other.lastMessageRead, lastMessageRead) || other.lastMessageRead == lastMessageRead));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,refType,refId,staffUnread,lastMessageAt,lastMessage);
+int get hashCode => Object.hash(runtimeType,id,title,refLabel,refType,refId,staffUnread,lastMessageAt,lastMessage,lastMessageSender,lastMessageRead);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, refType: $refType, refId: $refId, staffUnread: $staffUnread, lastMessageAt: $lastMessageAt, lastMessage: $lastMessage)';
+  return 'Conversation(id: $id, title: $title, refLabel: $refLabel, refType: $refType, refId: $refId, staffUnread: $staffUnread, lastMessageAt: $lastMessageAt, lastMessage: $lastMessage, lastMessageSender: $lastMessageSender, lastMessageRead: $lastMessageRead)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $ConversationCopyWith<$Res>  {
   factory $ConversationCopyWith(Conversation value, $Res Function(Conversation) _then) = _$ConversationCopyWithImpl;
 @useResult
 $Res call({
- String id, String? title,@JsonKey(name: 'ref_type') String? refType,@JsonKey(name: 'ref_id') String? refId,@JsonKey(name: 'staff_unread') int staffUnread,@JsonKey(name: 'last_message_at') String? lastMessageAt,@JsonKey(name: 'last_message') String? lastMessage
+ String id, String? title,@JsonKey(name: 'ref_label') String? refLabel,@JsonKey(name: 'ref_type') String? refType,@JsonKey(name: 'ref_id') String? refId,@JsonKey(name: 'staff_unread') int staffUnread,@JsonKey(name: 'last_message_at') String? lastMessageAt,@JsonKey(name: 'last_message') String? lastMessage,@JsonKey(name: 'last_message_sender') String? lastMessageSender,@JsonKey(name: 'last_message_read') bool lastMessageRead
 });
 
 
@@ -65,16 +65,19 @@ class _$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = freezed,Object? refType = freezed,Object? refId = freezed,Object? staffUnread = null,Object? lastMessageAt = freezed,Object? lastMessage = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = freezed,Object? refLabel = freezed,Object? refType = freezed,Object? refId = freezed,Object? staffUnread = null,Object? lastMessageAt = freezed,Object? lastMessage = freezed,Object? lastMessageSender = freezed,Object? lastMessageRead = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,refLabel: freezed == refLabel ? _self.refLabel : refLabel // ignore: cast_nullable_to_non_nullable
 as String?,refType: freezed == refType ? _self.refType : refType // ignore: cast_nullable_to_non_nullable
 as String?,refId: freezed == refId ? _self.refId : refId // ignore: cast_nullable_to_non_nullable
 as String?,staffUnread: null == staffUnread ? _self.staffUnread : staffUnread // ignore: cast_nullable_to_non_nullable
 as int,lastMessageAt: freezed == lastMessageAt ? _self.lastMessageAt : lastMessageAt // ignore: cast_nullable_to_non_nullable
 as String?,lastMessage: freezed == lastMessage ? _self.lastMessage : lastMessage // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastMessageSender: freezed == lastMessageSender ? _self.lastMessageSender : lastMessageSender // ignore: cast_nullable_to_non_nullable
+as String?,lastMessageRead: null == lastMessageRead ? _self.lastMessageRead : lastMessageRead // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -159,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? title, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? title, @JsonKey(name: 'ref_label')  String? refLabel, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage, @JsonKey(name: 'last_message_sender')  String? lastMessageSender, @JsonKey(name: 'last_message_read')  bool lastMessageRead)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage);case _:
+return $default(_that.id,_that.title,_that.refLabel,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage,_that.lastMessageSender,_that.lastMessageRead);case _:
   return orElse();
 
 }
@@ -180,10 +183,10 @@ return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? title, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? title, @JsonKey(name: 'ref_label')  String? refLabel, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage, @JsonKey(name: 'last_message_sender')  String? lastMessageSender, @JsonKey(name: 'last_message_read')  bool lastMessageRead)  $default,) {final _that = this;
 switch (_that) {
 case _Conversation():
-return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage);case _:
+return $default(_that.id,_that.title,_that.refLabel,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage,_that.lastMessageSender,_that.lastMessageRead);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +203,10 @@ return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? title, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? title, @JsonKey(name: 'ref_label')  String? refLabel, @JsonKey(name: 'ref_type')  String? refType, @JsonKey(name: 'ref_id')  String? refId, @JsonKey(name: 'staff_unread')  int staffUnread, @JsonKey(name: 'last_message_at')  String? lastMessageAt, @JsonKey(name: 'last_message')  String? lastMessage, @JsonKey(name: 'last_message_sender')  String? lastMessageSender, @JsonKey(name: 'last_message_read')  bool lastMessageRead)?  $default,) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage);case _:
+return $default(_that.id,_that.title,_that.refLabel,_that.refType,_that.refId,_that.staffUnread,_that.lastMessageAt,_that.lastMessage,_that.lastMessageSender,_that.lastMessageRead);case _:
   return null;
 
 }
@@ -215,16 +218,19 @@ return $default(_that.id,_that.title,_that.refType,_that.refId,_that.staffUnread
 @JsonSerializable()
 
 class _Conversation implements Conversation {
-  const _Conversation({required this.id, this.title, @JsonKey(name: 'ref_type') this.refType, @JsonKey(name: 'ref_id') this.refId, @JsonKey(name: 'staff_unread') this.staffUnread = 0, @JsonKey(name: 'last_message_at') this.lastMessageAt, @JsonKey(name: 'last_message') this.lastMessage});
+  const _Conversation({required this.id, this.title, @JsonKey(name: 'ref_label') this.refLabel, @JsonKey(name: 'ref_type') this.refType, @JsonKey(name: 'ref_id') this.refId, @JsonKey(name: 'staff_unread') this.staffUnread = 0, @JsonKey(name: 'last_message_at') this.lastMessageAt, @JsonKey(name: 'last_message') this.lastMessage, @JsonKey(name: 'last_message_sender') this.lastMessageSender, @JsonKey(name: 'last_message_read') this.lastMessageRead = false});
   factory _Conversation.fromJson(Map<String, dynamic> json) => _$ConversationFromJson(json);
 
 @override final  String id;
 @override final  String? title;
+@override@JsonKey(name: 'ref_label') final  String? refLabel;
 @override@JsonKey(name: 'ref_type') final  String? refType;
 @override@JsonKey(name: 'ref_id') final  String? refId;
 @override@JsonKey(name: 'staff_unread') final  int staffUnread;
 @override@JsonKey(name: 'last_message_at') final  String? lastMessageAt;
 @override@JsonKey(name: 'last_message') final  String? lastMessage;
+@override@JsonKey(name: 'last_message_sender') final  String? lastMessageSender;
+@override@JsonKey(name: 'last_message_read') final  bool lastMessageRead;
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
@@ -239,16 +245,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.refType, refType) || other.refType == refType)&&(identical(other.refId, refId) || other.refId == refId)&&(identical(other.staffUnread, staffUnread) || other.staffUnread == staffUnread)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.refLabel, refLabel) || other.refLabel == refLabel)&&(identical(other.refType, refType) || other.refType == refType)&&(identical(other.refId, refId) || other.refId == refId)&&(identical(other.staffUnread, staffUnread) || other.staffUnread == staffUnread)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.lastMessageSender, lastMessageSender) || other.lastMessageSender == lastMessageSender)&&(identical(other.lastMessageRead, lastMessageRead) || other.lastMessageRead == lastMessageRead));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,refType,refId,staffUnread,lastMessageAt,lastMessage);
+int get hashCode => Object.hash(runtimeType,id,title,refLabel,refType,refId,staffUnread,lastMessageAt,lastMessage,lastMessageSender,lastMessageRead);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, refType: $refType, refId: $refId, staffUnread: $staffUnread, lastMessageAt: $lastMessageAt, lastMessage: $lastMessage)';
+  return 'Conversation(id: $id, title: $title, refLabel: $refLabel, refType: $refType, refId: $refId, staffUnread: $staffUnread, lastMessageAt: $lastMessageAt, lastMessage: $lastMessage, lastMessageSender: $lastMessageSender, lastMessageRead: $lastMessageRead)';
 }
 
 
@@ -259,7 +265,7 @@ abstract mixin class _$ConversationCopyWith<$Res> implements $ConversationCopyWi
   factory _$ConversationCopyWith(_Conversation value, $Res Function(_Conversation) _then) = __$ConversationCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String? title,@JsonKey(name: 'ref_type') String? refType,@JsonKey(name: 'ref_id') String? refId,@JsonKey(name: 'staff_unread') int staffUnread,@JsonKey(name: 'last_message_at') String? lastMessageAt,@JsonKey(name: 'last_message') String? lastMessage
+ String id, String? title,@JsonKey(name: 'ref_label') String? refLabel,@JsonKey(name: 'ref_type') String? refType,@JsonKey(name: 'ref_id') String? refId,@JsonKey(name: 'staff_unread') int staffUnread,@JsonKey(name: 'last_message_at') String? lastMessageAt,@JsonKey(name: 'last_message') String? lastMessage,@JsonKey(name: 'last_message_sender') String? lastMessageSender,@JsonKey(name: 'last_message_read') bool lastMessageRead
 });
 
 
@@ -276,16 +282,19 @@ class __$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = freezed,Object? refType = freezed,Object? refId = freezed,Object? staffUnread = null,Object? lastMessageAt = freezed,Object? lastMessage = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = freezed,Object? refLabel = freezed,Object? refType = freezed,Object? refId = freezed,Object? staffUnread = null,Object? lastMessageAt = freezed,Object? lastMessage = freezed,Object? lastMessageSender = freezed,Object? lastMessageRead = null,}) {
   return _then(_Conversation(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,refLabel: freezed == refLabel ? _self.refLabel : refLabel // ignore: cast_nullable_to_non_nullable
 as String?,refType: freezed == refType ? _self.refType : refType // ignore: cast_nullable_to_non_nullable
 as String?,refId: freezed == refId ? _self.refId : refId // ignore: cast_nullable_to_non_nullable
 as String?,staffUnread: null == staffUnread ? _self.staffUnread : staffUnread // ignore: cast_nullable_to_non_nullable
 as int,lastMessageAt: freezed == lastMessageAt ? _self.lastMessageAt : lastMessageAt // ignore: cast_nullable_to_non_nullable
 as String?,lastMessage: freezed == lastMessage ? _self.lastMessage : lastMessage // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastMessageSender: freezed == lastMessageSender ? _self.lastMessageSender : lastMessageSender // ignore: cast_nullable_to_non_nullable
+as String?,lastMessageRead: null == lastMessageRead ? _self.lastMessageRead : lastMessageRead // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -297,7 +306,7 @@ as String?,
 mixin _$Message {
 
  String get id; String get sender;// 'customer' | 'staff'
-@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;
+@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;@JsonKey(name: 'read_at') String? get readAt;
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -310,16 +319,16 @@ $MessageCopyWith<Message> get copyWith => _$MessageCopyWithImpl<Message>(this as
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt);
 
 @override
 String toString() {
-  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt)';
+  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
 }
 
 
@@ -330,7 +339,7 @@ abstract mixin class $MessageCopyWith<$Res>  {
   factory $MessageCopyWith(Message value, $Res Function(Message) _then) = _$MessageCopyWithImpl;
 @useResult
 $Res call({
- String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+ String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt
 });
 
 
@@ -347,13 +356,14 @@ class _$MessageCopyWithImpl<$Res>
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -439,10 +449,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Message() when $default != null:
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   return orElse();
 
 }
@@ -460,10 +470,10 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)  $default,) {final _that = this;
 switch (_that) {
 case _Message():
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -480,10 +490,10 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Message() when $default != null:
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   return null;
 
 }
@@ -495,7 +505,7 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 @JsonSerializable()
 
 class _Message implements Message {
-  const _Message({required this.id, this.sender = 'customer', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt});
+  const _Message({required this.id, this.sender = 'customer', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt, @JsonKey(name: 'read_at') this.readAt});
   factory _Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);
 
 @override final  String id;
@@ -504,6 +514,7 @@ class _Message implements Message {
 @override@JsonKey(name: 'author_name') final  String? authorName;
 @override@JsonKey() final  String body;
 @override@JsonKey(name: 'created_at') final  String? createdAt;
+@override@JsonKey(name: 'read_at') final  String? readAt;
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
@@ -518,16 +529,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt);
 
 @override
 String toString() {
-  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt)';
+  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
 }
 
 
@@ -538,7 +549,7 @@ abstract mixin class _$MessageCopyWith<$Res> implements $MessageCopyWith<$Res> {
   factory _$MessageCopyWith(_Message value, $Res Function(_Message) _then) = __$MessageCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+ String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt
 });
 
 
@@ -555,13 +566,14 @@ class __$MessageCopyWithImpl<$Res>
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
   return _then(_Message(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

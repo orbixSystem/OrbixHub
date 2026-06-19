@@ -5,6 +5,7 @@ export interface CreateConversationData {
   refType: string;
   refId: string;
   title?: string | null;
+  refLabel?: string | null;
   channel?: string;
 }
 
@@ -32,6 +33,7 @@ export class MessagesRepository {
         ref_type: data.refType,
         ref_id: data.refId,
         title: data.title ?? null,
+        ref_label: data.refLabel ?? null,
         channel: data.channel ?? 'public_link',
       },
     });
@@ -113,6 +115,15 @@ export class MessagesRepository {
     const db = this.tenant.getClient();
     return db.message.updateMany({
       where: { conversation_id: convId, sender: 'customer', read_at: null },
+      data: { read_at: new Date() },
+    });
+  }
+
+  /** Marca como lidas as mensagens do staff ainda não lidas (cliente abriu o link). */
+  markStaffMessagesRead(convId: string) {
+    const db = this.tenant.getClient();
+    return db.message.updateMany({
+      where: { conversation_id: convId, sender: 'staff', read_at: null },
       data: { read_at: new Date() },
     });
   }

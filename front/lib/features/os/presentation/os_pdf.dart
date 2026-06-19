@@ -6,11 +6,23 @@ import 'package:pdf/widgets.dart' as pw;
 import '../domain/os_models.dart';
 import 'os_status.dart';
 
-/// Gera o PDF de impressão de uma OS: cabeçalho (nº + status), cliente/veículo,
-/// datas relevantes, tabela de itens e total. Mantido simples e on-brand-ish
-/// (cinza grafite + tangerina Orbix). Não acessa rede — usa o que já está em
-/// `order`. Usado por `Printing.layoutPdf`.
-Future<Uint8List> buildOsPdf(ServiceOrder order, PdfPageFormat format) async {
+/// Identificação da empresa (tenant) impressa no topo da OS.
+class OsCompany {
+  const OsCompany({required this.name, this.legalName, this.cnpj});
+  final String name;
+  final String? legalName;
+  final String? cnpj;
+}
+
+/// Gera o PDF de impressão de uma OS: cabeçalho da empresa (nome + CNPJ),
+/// nº + status, cliente/veículo, datas relevantes, tabela de itens e total.
+/// Mantido simples e on-brand-ish (cinza grafite + tangerina Orbix). Não acessa
+/// rede — usa o que já está em `order`/`company`. Usado por `Printing.layoutPdf`.
+Future<Uint8List> buildOsPdf(
+  ServiceOrder order,
+  PdfPageFormat format, {
+  OsCompany? company,
+}) async {
   const brand = PdfColor.fromInt(0xFFEC5E12);
   const graphite = PdfColor.fromInt(0xFF15171C);
   const muted = PdfColor.fromInt(0xFF6B7079);
@@ -41,6 +53,29 @@ Future<Uint8List> buildOsPdf(ServiceOrder order, PdfPageFormat format) async {
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // Cabeçalho da empresa (tenant)
+            if (company != null) ...[
+              pw.Text(
+                company.name,
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                  color: graphite,
+                ),
+              ),
+              if ((company.legalName ?? '').isNotEmpty &&
+                  company.legalName != company.name)
+                pw.Text(
+                  company.legalName!,
+                  style: pw.TextStyle(fontSize: 10, color: muted),
+                ),
+              if ((company.cnpj ?? '').isNotEmpty)
+                pw.Text(
+                  'CNPJ: ${company.cnpj}',
+                  style: pw.TextStyle(fontSize: 10, color: muted),
+                ),
+              pw.SizedBox(height: 12),
+            ],
             // Cabeçalho
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

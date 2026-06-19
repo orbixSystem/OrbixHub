@@ -281,4 +281,23 @@ class OsRepositoryImpl implements OsRepository {
         final res = await _dio.get<Object?>('/customers/config');
         return CustomersConfig.fromJson(_asMap(res.data));
       });
+
+  @override
+  Future<List<LookupOption>> lookup(
+    String fonte, {
+    String? marca,
+    String? modelo,
+    String? q,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/customers/lookups/$fonte',
+          queryParameters: {
+            if (marca != null && marca.isNotEmpty) 'marca': marca,
+            if (modelo != null && modelo.isNotEmpty) 'modelo': modelo,
+            if (q != null && q.isNotEmpty) 'q': q,
+          },
+        );
+        return _asList(res.data).map(LookupOption.fromJson).toList();
+      });
 }

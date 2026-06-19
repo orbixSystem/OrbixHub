@@ -66,6 +66,9 @@ class FakeAuthRepository implements AuthRepository {
   Future<RegisterResult> register({
     required String tenantName,
     required String slug,
+    required String cnpj,
+    required String legalName,
+    String? tradeName,
     required String fullName,
     required String email,
     required String password,
@@ -77,6 +80,16 @@ class FakeAuthRepository implements AuthRepository {
       tenant: Tenant(id: 't-new', slug: slug, name: tenantName),
     );
   }
+
+  @override
+  Future<CnpjCompany> lookupCnpj(String cnpj) async => CnpjCompany(
+        cnpj: cnpj,
+        razaoSocial: 'Empresa Teste LTDA',
+        nomeFantasia: 'Empresa Teste',
+        situacao: 'ATIVA',
+        municipio: 'São Paulo',
+        uf: 'SP',
+      );
 
   @override
   Future<void> verifyEmail(String token) async {}

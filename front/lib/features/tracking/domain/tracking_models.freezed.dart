@@ -822,7 +822,7 @@ as String?,
 /// @nodoc
 mixin _$PublicTrack {
 
- String get number; String get status; String get statusLabel; String? get subjectLabel; String? get scheduledEnd; String? get diagnosis; List<PublicPhoto> get photos; List<PublicEvent> get timeline; PublicCompany get company;
+ String get number; String get status; String get statusLabel; String? get subjectLabel; String? get responsibleName; String? get scheduledEnd; String? get diagnosis; List<PublicPhoto> get photos; List<PublicEvent> get timeline; PublicCompany get company;
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -835,16 +835,16 @@ $PublicTrackCopyWith<PublicTrack> get copyWith => _$PublicTrackCopyWithImpl<Publ
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other.photos, photos)&&const DeepCollectionEquality().equals(other.timeline, timeline)&&(identical(other.company, company) || other.company == company));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.responsibleName, responsibleName) || other.responsibleName == responsibleName)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other.photos, photos)&&const DeepCollectionEquality().equals(other.timeline, timeline)&&(identical(other.company, company) || other.company == company));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(photos),const DeepCollectionEquality().hash(timeline),company);
+int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,responsibleName,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(photos),const DeepCollectionEquality().hash(timeline),company);
 
 @override
 String toString() {
-  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
+  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, responsibleName: $responsibleName, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
 }
 
 
@@ -855,7 +855,7 @@ abstract mixin class $PublicTrackCopyWith<$Res>  {
   factory $PublicTrackCopyWith(PublicTrack value, $Res Function(PublicTrack) _then) = _$PublicTrackCopyWithImpl;
 @useResult
 $Res call({
- String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
+ String number, String status, String statusLabel, String? subjectLabel, String? responsibleName, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
 });
 
 
@@ -872,12 +872,13 @@ class _$PublicTrackCopyWithImpl<$Res>
 
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? responsibleName = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
   return _then(_self.copyWith(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,statusLabel: null == statusLabel ? _self.statusLabel : statusLabel // ignore: cast_nullable_to_non_nullable
 as String,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
+as String?,responsibleName: freezed == responsibleName ? _self.responsibleName : responsibleName // ignore: cast_nullable_to_non_nullable
 as String?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
 as String?,diagnosis: freezed == diagnosis ? _self.diagnosis : diagnosis // ignore: cast_nullable_to_non_nullable
 as String?,photos: null == photos ? _self.photos : photos // ignore: cast_nullable_to_non_nullable
@@ -977,10 +978,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? responsibleName,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicTrack() when $default != null:
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.responsibleName,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   return orElse();
 
 }
@@ -998,10 +999,10 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? responsibleName,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)  $default,) {final _that = this;
 switch (_that) {
 case _PublicTrack():
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.responsibleName,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1018,10 +1019,10 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String number,  String status,  String statusLabel,  String? subjectLabel,  String? responsibleName,  String? scheduledEnd,  String? diagnosis,  List<PublicPhoto> photos,  List<PublicEvent> timeline,  PublicCompany company)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicTrack() when $default != null:
-return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
+return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_that.responsibleName,_that.scheduledEnd,_that.diagnosis,_that.photos,_that.timeline,_that.company);case _:
   return null;
 
 }
@@ -1033,13 +1034,14 @@ return $default(_that.number,_that.status,_that.statusLabel,_that.subjectLabel,_
 @JsonSerializable()
 
 class _PublicTrack implements PublicTrack {
-  const _PublicTrack({this.number = '', this.status = '', this.statusLabel = '', this.subjectLabel, this.scheduledEnd, this.diagnosis, final  List<PublicPhoto> photos = const <PublicPhoto>[], final  List<PublicEvent> timeline = const <PublicEvent>[], this.company = const PublicCompany()}): _photos = photos,_timeline = timeline;
+  const _PublicTrack({this.number = '', this.status = '', this.statusLabel = '', this.subjectLabel, this.responsibleName, this.scheduledEnd, this.diagnosis, final  List<PublicPhoto> photos = const <PublicPhoto>[], final  List<PublicEvent> timeline = const <PublicEvent>[], this.company = const PublicCompany()}): _photos = photos,_timeline = timeline;
   factory _PublicTrack.fromJson(Map<String, dynamic> json) => _$PublicTrackFromJson(json);
 
 @override@JsonKey() final  String number;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  String statusLabel;
 @override final  String? subjectLabel;
+@override final  String? responsibleName;
 @override final  String? scheduledEnd;
 @override final  String? diagnosis;
  final  List<PublicPhoto> _photos;
@@ -1071,16 +1073,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other._photos, _photos)&&const DeepCollectionEquality().equals(other._timeline, _timeline)&&(identical(other.company, company) || other.company == company));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicTrack&&(identical(other.number, number) || other.number == number)&&(identical(other.status, status) || other.status == status)&&(identical(other.statusLabel, statusLabel) || other.statusLabel == statusLabel)&&(identical(other.subjectLabel, subjectLabel) || other.subjectLabel == subjectLabel)&&(identical(other.responsibleName, responsibleName) || other.responsibleName == responsibleName)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd)&&(identical(other.diagnosis, diagnosis) || other.diagnosis == diagnosis)&&const DeepCollectionEquality().equals(other._photos, _photos)&&const DeepCollectionEquality().equals(other._timeline, _timeline)&&(identical(other.company, company) || other.company == company));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(_photos),const DeepCollectionEquality().hash(_timeline),company);
+int get hashCode => Object.hash(runtimeType,number,status,statusLabel,subjectLabel,responsibleName,scheduledEnd,diagnosis,const DeepCollectionEquality().hash(_photos),const DeepCollectionEquality().hash(_timeline),company);
 
 @override
 String toString() {
-  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
+  return 'PublicTrack(number: $number, status: $status, statusLabel: $statusLabel, subjectLabel: $subjectLabel, responsibleName: $responsibleName, scheduledEnd: $scheduledEnd, diagnosis: $diagnosis, photos: $photos, timeline: $timeline, company: $company)';
 }
 
 
@@ -1091,7 +1093,7 @@ abstract mixin class _$PublicTrackCopyWith<$Res> implements $PublicTrackCopyWith
   factory _$PublicTrackCopyWith(_PublicTrack value, $Res Function(_PublicTrack) _then) = __$PublicTrackCopyWithImpl;
 @override @useResult
 $Res call({
- String number, String status, String statusLabel, String? subjectLabel, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
+ String number, String status, String statusLabel, String? subjectLabel, String? responsibleName, String? scheduledEnd, String? diagnosis, List<PublicPhoto> photos, List<PublicEvent> timeline, PublicCompany company
 });
 
 
@@ -1108,12 +1110,13 @@ class __$PublicTrackCopyWithImpl<$Res>
 
 /// Create a copy of PublicTrack
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? status = null,Object? statusLabel = null,Object? subjectLabel = freezed,Object? responsibleName = freezed,Object? scheduledEnd = freezed,Object? diagnosis = freezed,Object? photos = null,Object? timeline = null,Object? company = null,}) {
   return _then(_PublicTrack(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,statusLabel: null == statusLabel ? _self.statusLabel : statusLabel // ignore: cast_nullable_to_non_nullable
 as String,subjectLabel: freezed == subjectLabel ? _self.subjectLabel : subjectLabel // ignore: cast_nullable_to_non_nullable
+as String?,responsibleName: freezed == responsibleName ? _self.responsibleName : responsibleName // ignore: cast_nullable_to_non_nullable
 as String?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
 as String?,diagnosis: freezed == diagnosis ? _self.diagnosis : diagnosis // ignore: cast_nullable_to_non_nullable
 as String?,photos: null == photos ? _self._photos : photos // ignore: cast_nullable_to_non_nullable
@@ -1139,7 +1142,8 @@ $PublicCompanyCopyWith<$Res> get company {
 /// @nodoc
 mixin _$PublicMessage {
 
- String get sender; String? get authorName; String get body; String? get createdAt;
+ String get sender; String? get authorName; String get body; String? get createdAt;/// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
+ String? get readAt;
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1152,16 +1156,16 @@ $PublicMessageCopyWith<PublicMessage> get copyWith => _$PublicMessageCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt);
+int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt)';
+  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
 }
 
 
@@ -1172,7 +1176,7 @@ abstract mixin class $PublicMessageCopyWith<$Res>  {
   factory $PublicMessageCopyWith(PublicMessage value, $Res Function(PublicMessage) _then) = _$PublicMessageCopyWithImpl;
 @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt
+ String sender, String? authorName, String body, String? createdAt, String? readAt
 });
 
 
@@ -1189,12 +1193,13 @@ class _$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
   return _then(_self.copyWith(
 sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -1280,10 +1285,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   return orElse();
 
 }
@@ -1301,10 +1306,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage():
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1321,10 +1326,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender,  String? authorName,  String body,  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
   return null;
 
 }
@@ -1336,13 +1341,15 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt);case _
 @JsonSerializable()
 
 class _PublicMessage implements PublicMessage {
-  const _PublicMessage({this.sender = 'staff', this.authorName, this.body = '', this.createdAt});
+  const _PublicMessage({this.sender = 'staff', this.authorName, this.body = '', this.createdAt, this.readAt});
   factory _PublicMessage.fromJson(Map<String, dynamic> json) => _$PublicMessageFromJson(json);
 
 @override@JsonKey() final  String sender;
 @override final  String? authorName;
 @override@JsonKey() final  String body;
 @override final  String? createdAt;
+/// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
+@override final  String? readAt;
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
@@ -1357,16 +1364,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt);
+int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt)';
+  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
 }
 
 
@@ -1377,7 +1384,7 @@ abstract mixin class _$PublicMessageCopyWith<$Res> implements $PublicMessageCopy
   factory _$PublicMessageCopyWith(_PublicMessage value, $Res Function(_PublicMessage) _then) = __$PublicMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt
+ String sender, String? authorName, String body, String? createdAt, String? readAt
 });
 
 
@@ -1394,12 +1401,13 @@ class __$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
   return _then(_PublicMessage(
 sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

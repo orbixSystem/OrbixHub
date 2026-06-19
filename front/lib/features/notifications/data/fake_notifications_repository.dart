@@ -9,8 +9,8 @@ class FakeNotificationsRepository implements NotificationsRepository {
           AppNotification(
             id: 'n1',
             type: 'message',
-            title: 'Nova mensagem do cliente',
-            body: 'Maria Souza: Meu carro já está pronto?',
+            title: 'Nova mensagem de Maria Souza',
+            body: 'Meu carro já está pronto?',
             refType: 'message',
             refId: 'c1',
           ),

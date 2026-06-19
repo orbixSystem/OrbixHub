@@ -34,6 +34,17 @@ Future<String?> _openDialog(
   return result;
 }
 
+/// Seleciona o primeiro membro no dropdown "Responsável *" (obrigatório).
+Future<void> _selectResponsavel(WidgetTester tester) async {
+  final dd = find.text('— Selecione —');
+  await tester.ensureVisible(dd);
+  await tester.pumpAndSettle();
+  await tester.tap(dd);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Ana Mecânica').last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('cliente novo: nome habilita "Criar OS" e cria a OS',
       (tester) async {
@@ -55,10 +66,25 @@ void main() {
         find.widgetWithText(TextFormField, 'Nome *'), 'Maria Teste');
     await tester.pump();
 
-    // Seção de veículo aparece (usaSubjects=true por default).
+    // Seção de veículo aparece (usaSubjects=true por default) com os campos
+    // dinâmicos da config — incl. o picker de Marca e os campos Ano e Cor.
     expect(find.text('Veículo'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Marca'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Ano'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Cor'), findsOneWidget);
+
+    // Preenche os obrigatórios: telefone, placa, relato e responsável (campos de
+    // texto livre — Cor é opcional).
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Marca'), 'Fiat');
+        find.widgetWithText(TextFormField, 'Telefone *'), '11999998888');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Placa / Identificação *'), 'ABC1D23');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Cor'), 'Prata');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Relato do cliente *'),
+        'Barulho no motor');
+    await tester.pump();
+    await _selectResponsavel(tester);
 
     final enabled =
         tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Criar OS'));
@@ -82,7 +108,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('cliente existente: selecionar habilita criar', (tester) async {
+  testWidgets('cliente existente: preenche obrigatórios e cria', (tester) async {
     final fake = FakeOsRepository(
       customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
     );
@@ -97,6 +123,13 @@ void main() {
     final enabled =
         tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Criar OS'));
     expect(enabled.onPressed, isNotNull);
+
+    // Relato e responsável são obrigatórios.
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Relato do cliente *'),
+        'Revisão geral');
+    await tester.pump();
+    await _selectResponsavel(tester);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Criar OS'));
     await tester.pumpAndSettle();

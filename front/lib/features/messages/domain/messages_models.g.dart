@@ -10,22 +10,28 @@ _Conversation _$ConversationFromJson(Map<String, dynamic> json) =>
     _Conversation(
       id: json['id'] as String,
       title: json['title'] as String?,
+      refLabel: json['ref_label'] as String?,
       refType: json['ref_type'] as String?,
       refId: json['ref_id'] as String?,
       staffUnread: (json['staff_unread'] as num?)?.toInt() ?? 0,
       lastMessageAt: json['last_message_at'] as String?,
       lastMessage: json['last_message'] as String?,
+      lastMessageSender: json['last_message_sender'] as String?,
+      lastMessageRead: json['last_message_read'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
     <String, dynamic>{
       'id': instance.id,
       'title': instance.title,
+      'ref_label': instance.refLabel,
       'ref_type': instance.refType,
       'ref_id': instance.refId,
       'staff_unread': instance.staffUnread,
       'last_message_at': instance.lastMessageAt,
       'last_message': instance.lastMessage,
+      'last_message_sender': instance.lastMessageSender,
+      'last_message_read': instance.lastMessageRead,
     };
 
 _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
@@ -34,6 +40,7 @@ _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
   authorName: json['author_name'] as String?,
   body: json['body'] as String? ?? '',
   createdAt: json['created_at'] as String?,
+  readAt: json['read_at'] as String?,
 );
 
 Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
@@ -42,6 +49,7 @@ Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
   'author_name': instance.authorName,
   'body': instance.body,
   'created_at': instance.createdAt,
+  'read_at': instance.readAt,
 };
 
 _ConversationPage _$ConversationPageFromJson(Map<String, dynamic> json) =>

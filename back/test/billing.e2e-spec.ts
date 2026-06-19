@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 import { PrismaService } from '../src/common/database/prisma.service';
 import { TenantContext } from '../src/common/database/tenant-context';
 import { NoopPaymentGateway } from '../src/modules/billing/payment/noop-payment-gateway';
@@ -16,7 +17,7 @@ async function registerOwner(app: INestApplication) {
   const email = `${uniq()}@ex.com`;
   const slug = `b-${uniq()}`;
   const res = await request(app.getHttpServer()).post('/api/auth/register').send({
-    tenantName: 'Oficina B', slug, fullName: 'Owner B', email, password: 'supersecret1',
+    tenantName: 'Oficina B', cnpj: randomCnpj(), legalName: 'Razão Social Teste', slug, fullName: 'Owner B', email, password: 'supersecret1',
   });
   return { token: res.body.accessToken as string, tenantId: res.body.tenant.id as string, slug };
 }

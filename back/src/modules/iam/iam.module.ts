@@ -15,5 +15,8 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [IamController, EmployeesController, InvitesController],
   providers: [IamService, EmployeesService, ReauthService, IamRepository],
+  // IamService é service público (resolveMemberName) consumido por outros
+  // módulos — ex.: OS mostra o responsável no link de acompanhamento.
+  exports: [IamService],
 })
 export class IamModule {}

@@ -48,6 +48,7 @@ _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
   status: json['status'] as String? ?? '',
   statusLabel: json['statusLabel'] as String? ?? '',
   subjectLabel: json['subjectLabel'] as String?,
+  responsibleName: json['responsibleName'] as String?,
   scheduledEnd: json['scheduledEnd'] as String?,
   diagnosis: json['diagnosis'] as String?,
   photos:
@@ -71,6 +72,7 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
       'status': instance.status,
       'statusLabel': instance.statusLabel,
       'subjectLabel': instance.subjectLabel,
+      'responsibleName': instance.responsibleName,
       'scheduledEnd': instance.scheduledEnd,
       'diagnosis': instance.diagnosis,
       'photos': instance.photos,
@@ -84,6 +86,7 @@ _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>
       authorName: json['authorName'] as String?,
       body: json['body'] as String? ?? '',
       createdAt: json['createdAt'] as String?,
+      readAt: json['readAt'] as String?,
     );
 
 Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
@@ -92,4 +95,5 @@ Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
       'authorName': instance.authorName,
       'body': instance.body,
       'createdAt': instance.createdAt,
+      'readAt': instance.readAt,
     };

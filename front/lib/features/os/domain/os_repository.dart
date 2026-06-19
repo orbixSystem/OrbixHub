@@ -90,4 +90,16 @@ abstract interface class OsRepository {
   /// para decidir se mostramos a seção de veículo ao cadastrar cliente novo, e
   /// `subjectLabel.singular` como rótulo dessa seção. "Aponta, não invade".
   Future<CustomersConfig> customersConfig();
+
+  /// Sugestões para um campo de subject com `fonte` (cascata marca→modelo→ano via
+  /// FIPE no backend) — mesmo endpoint público do módulo Clientes
+  /// (`GET /customers/lookups/:fonte`). `marca`/`modelo` são os códigos dos
+  /// ancestrais selecionados. "Aponta, não invade": só consumimos a fonte; lista
+  /// vazia quando não há dados.
+  Future<List<LookupOption>> lookup(
+    String fonte, {
+    String? marca,
+    String? modelo,
+    String? q,
+  });
 }

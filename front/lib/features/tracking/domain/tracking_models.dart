@@ -51,6 +51,7 @@ abstract class PublicTrack with _$PublicTrack {
     @Default('') String status,
     @Default('') String statusLabel,
     String? subjectLabel,
+    String? responsibleName,
     String? scheduledEnd,
     String? diagnosis,
     @Default(<PublicPhoto>[]) List<PublicPhoto> photos,
@@ -70,6 +71,8 @@ abstract class PublicMessage with _$PublicMessage {
     String? authorName,
     @Default('') String body,
     String? createdAt,
+    /// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
+    String? readAt,
   }) = _PublicMessage;
 
   factory PublicMessage.fromJson(Map<String, dynamic> json) =>

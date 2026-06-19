@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 import {
   MailerService,
   VerificationEmail,
@@ -85,6 +86,8 @@ describe('Mensagens + Notificações (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: `Oficina ${uniq()}`,
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `t-${uniq()}`,
         fullName: 'Owner',
         email,
@@ -142,6 +145,7 @@ describe('Mensagens + Notificações (e2e)', () => {
     ref_type: string;
     ref_id: string;
     title: string | null;
+    ref_label: string | null;
     staff_unread: number;
   };
 
@@ -163,6 +167,8 @@ describe('Mensagens + Notificações (e2e)', () => {
       );
       expect(conv).toBeTruthy();
       expect(conv!.title).toBe(customerName);
+      // ref_label = número da OS (distingue clientes homônimos no inbox).
+      expect(conv!.ref_label).toBe(order.body.number as string);
       expect(conv!.staff_unread).toBe(0);
     });
   });
@@ -233,7 +239,8 @@ describe('Mensagens + Notificações (e2e)', () => {
         ref_id: string;
       }>).find((x) => x.type === 'message' && x.ref_id === conv!.id);
       expect(n).toBeTruthy();
-      expect(n!.title).toBe('Nova mensagem do cliente');
+      // O título carrega o nome de quem enviou (snapshot do autor da mensagem).
+      expect(n!.title).toBe('Nova mensagem de Cliente Teste');
       expect(n!.ref_type).toBe('message');
 
       // staff abre a thread → staff_unread zera e a msg do cliente aparece

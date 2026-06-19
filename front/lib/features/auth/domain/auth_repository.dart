@@ -12,10 +12,17 @@ abstract interface class AuthRepository {
   Future<RegisterResult> register({
     required String tenantName,
     required String slug,
+    required String cnpj,
+    required String legalName,
+    String? tradeName,
     required String fullName,
     required String email,
     required String password,
   });
+
+  /// Consulta pública de dados da empresa pelo CNPJ (pré-cadastro).
+  /// Lança [AppException] (400 inválido, 404 não encontrado, 503 fonte fora).
+  Future<CnpjCompany> lookupCnpj(String cnpj);
 
   Future<void> verifyEmail(String token);
 

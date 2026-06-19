@@ -11,11 +11,14 @@ abstract class Conversation with _$Conversation {
   const factory Conversation({
     required String id,
     String? title,
+    @JsonKey(name: 'ref_label') String? refLabel,
     @JsonKey(name: 'ref_type') String? refType,
     @JsonKey(name: 'ref_id') String? refId,
     @JsonKey(name: 'staff_unread') @Default(0) int staffUnread,
     @JsonKey(name: 'last_message_at') String? lastMessageAt,
     @JsonKey(name: 'last_message') String? lastMessage,
+    @JsonKey(name: 'last_message_sender') String? lastMessageSender,
+    @JsonKey(name: 'last_message_read') @Default(false) bool lastMessageRead,
   }) = _Conversation;
 
   factory Conversation.fromJson(Map<String, dynamic> json) =>
@@ -31,6 +34,7 @@ abstract class Message with _$Message {
     @JsonKey(name: 'author_name') String? authorName,
     @Default('') String body,
     @JsonKey(name: 'created_at') String? createdAt,
+    @JsonKey(name: 'read_at') String? readAt,
   }) = _Message;
 
   factory Message.fromJson(Map<String, dynamic> json) =>

@@ -15,6 +15,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { generateOpaqueToken, hashToken } from '../../common/crypto/tokens';
 import { normalizeEmail } from './email';
 import { validateSlug } from './slug';
+import { isValidCnpj, normalizeCnpj } from './cnpj';
 import type { RoleKey } from '../../common/auth/auth.types';
 import {
   RegisterDto,
@@ -54,10 +55,16 @@ export class AuthService {
     const slugError = validateSlug(dto.slug);
     if (slugError) throw new BadRequestException(slugError);
 
+    const cnpj = normalizeCnpj(dto.cnpj);
+    if (!isValidCnpj(cnpj)) throw new BadRequestException('CNPJ inválido.');
+
     const email = normalizeEmail(dto.email);
     const existing = await this.repo.findUserByEmail(email);
     if (existing) {
       throw new ConflictException('Slug ou e-mail já em uso.');
+    }
+    if (await this.repo.findTenantByCnpj(cnpj)) {
+      throw new ConflictException('Este CNPJ já está cadastrado.');
     }
 
     const passwordHash = await this.passwords.hash(dto.password);
@@ -67,14 +74,23 @@ export class AuthService {
       ids = await this.repo.createTenantWithOwner({
         tenantName: dto.tenantName,
         slug: dto.slug,
+        cnpj,
+        legalName: dto.legalName,
+        tradeName: dto.tradeName?.trim() || null,
         fullName: dto.fullName,
         emailNormalized: email,
         passwordHash,
         createTrial: (tenantId) => this.billing.createTrial(tenantId),
       });
     } catch (e) {
-      // unique violation on slug or email
+      // unique violation on slug, email or cnpj
       if ((e as { code?: string }).code === 'P2002') {
+        const target = String(
+          (e as { meta?: { target?: unknown } }).meta?.target ?? '',
+        );
+        if (target.includes('cnpj')) {
+          throw new ConflictException('Este CNPJ já está cadastrado.');
+        }
         throw new ConflictException('Slug ou e-mail já em uso.');
       }
       throw e;

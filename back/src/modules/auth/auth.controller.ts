@@ -9,6 +9,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { CnpjLookupService } from './cnpj-lookup.service';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
 import { Public, CurrentUser } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
@@ -21,6 +22,7 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   SwitchTenantDto,
+  CnpjLookupDto,
 } from './dto/auth.dto';
 
 // Strict 5/min per IP+account. Targets the named `auth` throttler so only the
@@ -29,7 +31,10 @@ const STRICT = { auth: { ttl: 60_000, limit: 5 } };
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly cnpjLookup: CnpjLookupService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -38,6 +43,17 @@ export class AuthController {
   @Throttle(STRICT)
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
+  }
+
+  // Pré-cadastro: consulta pública de dados da empresa pelo CNPJ (proxy p/ a
+  // fonte externa). Throttled — sem JWT. Body em vez de path p/ evitar máscara na URL.
+  @Public()
+  @Post('cnpj-lookup')
+  @HttpCode(200)
+  @UseGuards(AuthThrottlerGuard)
+  @Throttle(STRICT)
+  cnpjLookupFn(@Body() dto: CnpjLookupDto) {
+    return this.cnpjLookup.lookup(dto.cnpj);
   }
 
   @Public()

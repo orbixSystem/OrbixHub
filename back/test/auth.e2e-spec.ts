@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 
 describe('Auth flows (e2e)', () => {
   let app: INestApplication;
@@ -45,6 +46,8 @@ describe('Auth flows (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Oficina Teste',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug,
         fullName: 'Dona Maria',
         email: `${uniq()}@ex.com`,
@@ -61,6 +64,8 @@ describe('Auth flows (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Oficina Reservada',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: 'api',
         fullName: 'Ana Souza',
         email: `${uniq()}@ex.com`,
@@ -77,6 +82,8 @@ describe('Auth flows (e2e)', () => {
     const email = `${uniq()}@ex.com`;
     await request(app.getHttpServer()).post('/api/auth/register').send({
       tenantName: 'Zona Oficina',
+      cnpj: randomCnpj(),
+      legalName: 'Razão Social Teste',
       slug: `z-${uniq()}`,
       fullName: 'Zeca Silva',
       email,
@@ -96,6 +103,8 @@ describe('Auth flows (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Rede Oficina',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `r-${uniq()}`,
         fullName: 'Rui Mendes',
         email,
@@ -142,6 +151,8 @@ describe('Auth flows (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: 'Mecânica Central',
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug,
         fullName: 'Marta Lima',
         email,
@@ -168,5 +179,34 @@ describe('Auth flows (e2e)', () => {
     expect(relogin.status).toBe(200);
     expect(relogin.body.accessToken).toBeTruthy();
     expect(relogin.body.memberships).toHaveLength(1);
+  });
+
+  it('rejects a register that reuses an already-taken CNPJ', async () => {
+    const cnpj = randomCnpj();
+    const first = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Oficina CNPJ Um',
+        cnpj,
+        legalName: 'Razão Social Teste',
+        slug: `cnpj1-${uniq()}`,
+        fullName: 'Owner Um',
+        email: `${uniq()}@ex.com`,
+        password: 'supersecret1',
+      });
+    expect(first.status).toBe(201);
+
+    const second = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        tenantName: 'Oficina CNPJ Dois',
+        cnpj,
+        legalName: 'Razão Social Teste',
+        slug: `cnpj2-${uniq()}`,
+        fullName: 'Owner Dois',
+        email: `${uniq()}@ex.com`,
+        password: 'supersecret1',
+      });
+    expect(second.status).toBe(409);
   });
 });

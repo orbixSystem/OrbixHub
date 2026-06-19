@@ -3,17 +3,51 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/read_ticks.dart';
+import '../../../di.dart';
 import '../domain/messages_models.dart';
 import 'messages_providers.dart';
 
 /// Inbox do staff: lista de conversas (título + prévia da última mensagem +
 /// bolha de não-lidos). Tocar abre o thread. Corpo apenas — moldura é do shell.
-class MessagesInboxScreen extends ConsumerWidget {
+///
+/// Em tempo real: assina a sala do tenant (WebSocket); a cada mensagem nova em
+/// qualquer conversa, recarrega a lista (badges/prévia atualizam na hora).
+class MessagesInboxScreen extends ConsumerStatefulWidget {
   const MessagesInboxScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MessagesInboxScreen> createState() =>
+      _MessagesInboxScreenState();
+}
+
+class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
+  final RealtimeChat _rt = RealtimeChat();
+
+  @override
+  void initState() {
+    super.initState();
+    final accessToken = ref.read(accessTokenStoreProvider).token;
+    if (accessToken != null) {
+      _rt.connectStaff(
+        accessToken: accessToken,
+        onMessage: (_) {
+          if (mounted) ref.invalidate(conversationsProvider);
+        },
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _rt.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(conversationsProvider);
     return Padding(
       padding: const EdgeInsets.all(28),
@@ -61,16 +95,23 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final unread = conversation.staffUnread;
-    final title = (conversation.title?.trim().isNotEmpty ?? false)
-        ? conversation.title!
+    final name = (conversation.title?.trim().isNotEmpty ?? false)
+        ? conversation.title!.trim()
         : 'Conversa';
+    // Rótulo da origem (ex.: 'OS-0001') — distingue clientes de mesmo nome.
+    final refLabel = conversation.refLabel?.trim();
     final preview = conversation.lastMessage;
+    final hasPreview = preview != null && preview.trim().isNotEmpty;
+    final time = _hhmm(conversation.lastMessageAt);
+    // Tracinhos só na prévia quando a última mensagem é resposta do staff.
+    final showTicks = hasPreview && showTicksFor(conversation.lastMessageSender);
 
     return InkWell(
       onTap: () => context.go('/mensagens/${conversation.id}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 44,
@@ -88,27 +129,87 @@ class _ConversationTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight:
-                          unread > 0 ? FontWeight.w800 : FontWeight.w700,
-                    ),
-                  ),
-                  if (preview != null && preview.trim().isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 13,
-                        fontWeight:
-                            unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: unread > 0
+                                      ? FontWeight.w800
+                                      : FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (refLabel != null && refLabel.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '· $refLabel',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
+                      if (time.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          time,
+                          style: TextStyle(
+                            color: unread > 0
+                                ? AppColors.brand
+                                : scheme.onSurfaceVariant,
+                            fontSize: 11.5,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (hasPreview) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (showTicks) ...[
+                          ReadTicks(read: conversation.lastMessageRead),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(
+                          // Prévia em 1 linha com reticências; o texto completo
+                          // fica no tooltip (passar o mouse / segurar) para o
+                          // usuário poder ler mensagens longas sem abrir a conversa.
+                          child: Tooltip(
+                            message: preview,
+                            waitDuration: const Duration(milliseconds: 400),
+                            child: Text(
+                              preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 13,
+                                fontWeight: unread > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -125,6 +226,16 @@ class _ConversationTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Formata um ISO-8601 em "HH:mm" (hora local). Falha/nulo → string vazia.
+String _hhmm(String? iso) {
+  if (iso == null) return '';
+  final dt = DateTime.tryParse(iso)?.toLocal();
+  if (dt == null) return '';
+  final h = dt.hour.toString().padLeft(2, '0');
+  final m = dt.minute.toString().padLeft(2, '0');
+  return '$h:$m';
 }
 
 /// Bolha tangerina com a contagem de não-lidos (>99 vira "99+").

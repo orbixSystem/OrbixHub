@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 import {
   MailerService,
   VerificationEmail,
@@ -82,6 +83,8 @@ describe('OS — Acompanhamento público (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: `Oficina ${uniq()}`,
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `t-${uniq()}`,
         fullName: 'Owner',
         email,
@@ -130,6 +133,9 @@ describe('OS — Acompanhamento público (e2e)', () => {
   }
   function postPublicMessage(token: string, body: Record<string, unknown>) {
     return request(srv()).post(`/api/public/track/${token}/messages`).send(body);
+  }
+  function listEmployees(access: string) {
+    return request(srv()).get('/api/employees').set(auth(access));
   }
   function listConversations(access: string) {
     return request(srv()).get('/api/messages/conversations').set(auth(access));
@@ -199,6 +205,36 @@ describe('OS — Acompanhamento público (e2e)', () => {
       const res = await getTrack(token);
       expect(res.status).toBe(200);
       expect(res.body.diagnosis).toBe('Pastilhas de freio gastas');
+    });
+
+    it('mostra o responsável (resolvido ao vivo) e atualiza ao trocar o mecânico', async () => {
+      const o = await registerOwner();
+
+      // owner como membro (userId + nome) via /employees
+      const emp = await listEmployees(o.access);
+      expect(emp.status).toBe(200);
+      const owner = (
+        emp.body as Array<{ userId: string; fullName: string; role: string }>
+      ).find((m) => m.role === 'owner');
+      expect(owner).toBeTruthy();
+
+      const customer = await createCustomer(o.access);
+      const created = await createOrder(o.access, {
+        customerId: customer.id,
+        assignedTo: owner!.userId,
+      });
+      expect(created.status).toBe(201);
+      const token = created.body.public_token as string;
+
+      // link público mostra o nome do responsável (não o uuid)
+      const res = await getTrack(token);
+      expect(res.status).toBe(200);
+      expect(res.body.responsibleName).toBe(owner!.fullName);
+
+      // sem responsável → null (não vaza nada)
+      const created2 = await createOrder(o.access, { customerId: customer.id });
+      const res2 = await getTrack(created2.body.public_token as string);
+      expect(res2.body.responsibleName).toBeNull();
     });
 
     it('nota interna (visiblePublic=false) NÃO aparece; nota pública aparece', async () => {

@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { randomCnpj } from './helpers/cnpj';
 import {
   MailerService,
   VerificationEmail,
@@ -79,6 +80,8 @@ describe('Inventory — Produtos (e2e)', () => {
       .post('/api/auth/register')
       .send({
         tenantName: `Oficina ${uniq()}`,
+        cnpj: randomCnpj(),
+        legalName: 'Razão Social Teste',
         slug: `t-${uniq()}`,
         fullName: 'Owner',
         email,

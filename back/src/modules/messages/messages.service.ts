@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -8,6 +9,23 @@ export interface CreateConversationInput {
   refType: string;
   refId: string;
   title?: string;
+  /** Rótulo legível da origem (snapshot), ex.: número da OS 'OS-0001'. */
+  refLabel?: string;
+}
+
+/** Nome do evento de domínio emitido a cada nova mensagem (ouvido pelo realtime). */
+export const MESSAGE_CREATED_EVENT = 'message.created';
+
+/** Payload do evento `message.created` (push em tempo real via WebSocket). */
+export interface MessageCreatedEvent {
+  tenantId: string;
+  conversationId: string;
+  message: {
+    sender: string;
+    authorName: string | null;
+    body: string;
+    createdAt: Date;
+  };
 }
 
 /**
@@ -22,7 +40,45 @@ export class MessagesService {
     private readonly tenant: TenantContext,
     private readonly repo: MessagesRepository,
     private readonly notifications: NotificationsService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /**
+   * Emite o evento de domínio de nova mensagem (push em tempo real). Chamado FORA
+   * de qualquer transação de banco (o listener do realtime não deve segurar o pool).
+   * best-effort: falha de emissão nunca quebra o fluxo de mensagem.
+   */
+  private emitMessageCreated(
+    tenantId: string,
+    conversationId: string,
+    msg: { sender: string; author_name: string | null; body: string; created_at: Date },
+  ) {
+    const payload: MessageCreatedEvent = {
+      tenantId,
+      conversationId,
+      message: {
+        sender: msg.sender,
+        authorName: msg.author_name,
+        body: msg.body,
+        createdAt: msg.created_at,
+      },
+    };
+    this.events.emit(MESSAGE_CREATED_EVENT, payload);
+  }
+
+  /**
+   * Valida que uma conversa pertence ao tenant (fluxos com tenant explícito, ex.:
+   * autorização de sala WebSocket do staff). Tenant via `runWithTenant` (RLS).
+   */
+  async conversationBelongsToTenant(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<boolean> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const conv = await this.repo.findConversationById(conversationId);
+      return !!conv;
+    });
+  }
 
   /**
    * Idempotente em (refType, refId): se já existe uma conversa para o contexto,
@@ -41,6 +97,7 @@ export class MessagesService {
         refType: input.refType,
         refId: input.refId,
         title: input.title?.trim() || null,
+        refLabel: input.refLabel?.trim() || null,
       });
     });
   }
@@ -52,10 +109,41 @@ export class MessagesService {
     );
   }
 
-  /** Inbox: todas as conversas do tenant (mais recente no topo) + última mensagem. */
+  /**
+   * Inbox: todas as conversas do tenant (mais recente no topo) + prévia da última
+   * mensagem (corpo, remetente e se já foi lida). O `last_message_read` só faz
+   * sentido quando a última mensagem é do staff (recibo de leitura estilo WhatsApp:
+   * o cliente já viu a resposta).
+   */
   async listConversations(user: AuthUser) {
-    return this.tenant.withTenantTx(() =>
+    const rows = await this.tenant.withTenantTx(() =>
       this.repo.listConversations(user.tenantId),
+    );
+    return rows.map((c) => {
+      const last = c.messages?.[0];
+      return {
+        id: c.id,
+        title: c.title,
+        ref_label: c.ref_label,
+        ref_type: c.ref_type,
+        ref_id: c.ref_id,
+        staff_unread: c.staff_unread,
+        last_message_at: c.last_message_at,
+        last_message: last?.body ?? null,
+        last_message_sender: last?.sender ?? null,
+        last_message_read: last ? last.read_at != null : false,
+      };
+    });
+  }
+
+  /**
+   * O cliente abriu o link público e viu a conversa: marca as mensagens do staff
+   * como lidas (alimenta o recibo de leitura no inbox). Tenant explícito (fluxo
+   * público, sem CLS) — roda em sua própria tx via runWithTenant.
+   */
+  async markStaffMessagesRead(tenantId: string, convId: string) {
+    return this.tenant.runWithTenant(tenantId, () =>
+      this.repo.markStaffMessagesRead(convId),
     );
   }
 
@@ -80,17 +168,20 @@ export class MessagesService {
   async postStaffMessage(user: AuthUser, convId: string, body: string) {
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensagem não pode ser vazia.');
-    return this.tenant.withTenantTx(async () => {
+    const message = await this.tenant.withTenantTx(async () => {
       await this.repo.getConversationOrThrow(convId);
-      const message = await this.repo.addMessage(user.tenantId, convId, {
+      const created = await this.repo.addMessage(user.tenantId, convId, {
         sender: 'staff',
         authorName: 'Equipe',
         body: text,
         createdBy: user.userId,
       });
       await this.repo.touchConversation(convId, { lastMessageAt: new Date() });
-      return message;
+      return created;
     });
+    // Push em tempo real — FORA da tx (o cliente público vê a resposta na hora).
+    this.emitMessageCreated(user.tenantId, convId, message);
+    return message;
   }
 
   /** Zera só o contador de não-lidas do staff (marcação explícita de "lido"). */
@@ -134,14 +225,21 @@ export class MessagesService {
       });
       return created;
     });
-    // Notificação FORA da tx acima (própria tx).
+    // Notificação FORA da tx acima (própria tx). O título carrega o nome do
+    // cliente (snapshot do autor da mensagem) para o staff identificar a origem
+    // sem abrir a conversa; o corpo é o texto da mensagem.
+    const senderName = message.author_name?.trim();
     await this.notifications.notify(tenantId, {
       type: 'message',
-      title: 'Nova mensagem do cliente',
+      title: senderName
+        ? `Nova mensagem de ${senderName}`
+        : 'Nova mensagem do cliente',
       body: text.slice(0, 80),
       refType: 'message',
       refId: conversationId,
     });
+    // Push em tempo real — staff vê a mensagem do cliente na hora.
+    this.emitMessageCreated(tenantId, conversationId, message);
     return message;
   }
 }

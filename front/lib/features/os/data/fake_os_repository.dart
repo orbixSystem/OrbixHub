@@ -352,5 +352,54 @@ class FakeOsRepository implements OsRepository {
       ];
 
   @override
-  Future<CustomersConfig> customersConfig() async => const CustomersConfig();
+  Future<CustomersConfig> customersConfig() async => const CustomersConfig(
+        subjectFields: [
+          SubjectFieldConfig(
+              chave: 'identifier', rotulo: 'Placa / Identificação'),
+          SubjectFieldConfig(
+              chave: 'marca', rotulo: 'Marca', fonte: 'fipe.marcas'),
+          SubjectFieldConfig(
+              chave: 'modelo',
+              rotulo: 'Modelo',
+              fonte: 'fipe.modelos',
+              dependeDe: 'marca'),
+          SubjectFieldConfig(
+              chave: 'ano',
+              rotulo: 'Ano',
+              tipo: 'number',
+              fonte: 'fipe.anos',
+              dependeDe: 'modelo'),
+          SubjectFieldConfig(chave: 'cor', rotulo: 'Cor'),
+        ],
+      );
+
+  @override
+  Future<List<LookupOption>> lookup(
+    String fonte, {
+    String? marca,
+    String? modelo,
+    String? q,
+  }) async {
+    const byFonte = <String, List<LookupOption>>{
+      'fipe.marcas': [
+        LookupOption(value: 'Fiat', label: 'Fiat', meta: {'codigo': '21'}),
+        LookupOption(
+            value: 'Volkswagen',
+            label: 'Volkswagen',
+            meta: {'codigo': '59'}),
+      ],
+      'fipe.modelos': [
+        LookupOption(value: 'Uno', label: 'Uno', meta: {'codigo': '1'}),
+        LookupOption(value: 'Palio', label: 'Palio', meta: {'codigo': '2'}),
+      ],
+      'fipe.anos': [
+        LookupOption(value: '2020', label: '2020', meta: {'codigo': '2020-1'}),
+        LookupOption(value: '2021', label: '2021', meta: {'codigo': '2021-1'}),
+      ],
+    };
+    final all = byFonte[fonte] ?? const <LookupOption>[];
+    if (q == null || q.trim().isEmpty) return all;
+    final term = q.toLowerCase();
+    return all.where((o) => o.value.toLowerCase().contains(term)).toList();
+  }
 }

@@ -20,7 +20,9 @@ class FakeMessagesRepository implements MessagesRepository {
             title: 'João Lima',
             refType: 'os',
             refId: 'os-2',
-            lastMessage: 'Obrigado pelo atendimento!',
+            lastMessage: 'Pode retirar amanhã às 9h.',
+            lastMessageSender: 'staff',
+            lastMessageRead: true,
           ),
         ];
     for (final c in seed) {
@@ -77,8 +79,12 @@ class FakeMessagesRepository implements MessagesRepository {
       body: body,
     );
     _threads[id] = [...?_threads[id], msg];
-    _conversations[id] =
-        _conversations[id]!.copyWith(lastMessage: body, staffUnread: 0);
+    _conversations[id] = _conversations[id]!.copyWith(
+      lastMessage: body,
+      lastMessageSender: 'staff',
+      lastMessageRead: false,
+      staffUnread: 0,
+    );
     return msg;
   }
 

@@ -224,6 +224,7 @@ model conversation {
   ref_type        String
   ref_id          String    @db.Uuid
   title           String?
+  ref_label       String?
   channel         String    @default("public_link")
   staff_unread    Int       @default(0)
   last_message_at DateTime? @db.Timestamptz(6)
@@ -434,6 +435,9 @@ model tenant {
   id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
   slug          String          @unique
+  cnpj          String?         @unique
+  legal_name    String?
+  trade_name    String?
   settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
   audit_log          audit_log[]

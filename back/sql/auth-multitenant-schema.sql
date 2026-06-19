@@ -859,6 +859,7 @@ CREATE TABLE IF NOT EXISTS conversation (
   ref_type        text NOT NULL,                  -- contexto genérico (ex.: 'os')
   ref_id          uuid NOT NULL,                  -- id da entidade dona do contexto
   title           text,                           -- snapshot legível (ex.: nome do cliente)
+  ref_label       text,                           -- snapshot do rótulo da origem (ex.: 'OS-0001')
   channel         text NOT NULL DEFAULT 'public_link',
   staff_unread    integer NOT NULL DEFAULT 0,     -- contador de não-lidas pelo staff
   last_message_at timestamptz,
@@ -1007,3 +1008,13 @@ END $$;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON service_order_template TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON service_order_template_item TO app_user;
+
+-- ============================================================
+-- 0020 — Empresa: CNPJ + razão social + nome fantasia no tenant (aditivo)
+-- CNPJ é nullable na coluna (tenants antigos não têm); a obrigatoriedade
+-- no cadastro é regra de aplicação. Unicidade global via índice parcial.
+-- ============================================================
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS cnpj        text;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS legal_name  text;  -- razão social
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS trade_name  text;  -- nome fantasia
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tenant_cnpj ON tenant(cnpj) WHERE cnpj IS NOT NULL;

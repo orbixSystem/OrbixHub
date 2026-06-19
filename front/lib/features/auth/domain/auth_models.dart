@@ -24,6 +24,9 @@ abstract class Tenant with _$Tenant {
     required String id,
     required String slug,
     required String name,
+    String? cnpj,
+    String? legalName,
+    String? tradeName,
   }) = _Tenant;
 
   factory Tenant.fromJson(Map<String, dynamic> json) => _$TenantFromJson(json);
@@ -74,6 +77,24 @@ abstract class Tokens with _$Tokens {
 
   factory Tokens.fromJson(Map<String, dynamic> json) =>
       _$TokensFromJson(json);
+}
+
+/// Dados públicos de empresa retornados por `POST /auth/cnpj-lookup` no
+/// pré-cadastro (proxy do backend para a Receita).
+@freezed
+abstract class CnpjCompany with _$CnpjCompany {
+  const factory CnpjCompany({
+    required String cnpj,
+    required String razaoSocial,
+    String? nomeFantasia,
+    String? situacao,
+    String? municipio,
+    String? uf,
+    @Default(false) bool alreadyRegistered,
+  }) = _CnpjCompany;
+
+  factory CnpjCompany.fromJson(Map<String, dynamic> json) =>
+      _$CnpjCompanyFromJson(json);
 }
 
 /// `POST /auth/login` response.
