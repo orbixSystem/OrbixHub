@@ -9,23 +9,68 @@
 ## Contrato de registro de seções
 - Backend: `SettingsSectionRegistry.register({ key, title, moduleKey, fields })` (em `back/src/modules/settings/settings.section-registry.ts`).
   - `moduleKey`: `null` para a seção núcleo; senão a chave do módulo (a seção só aparece se aquele módulo estiver habilitado no tenant).
-  - `fields`: `[{ key, label, type }]` com `type` ∈ `text | color | url | bool`.
+  - `fields`: `[{ key, label, type, group? }]` com `type` ∈ `text | email | tel | url | color | bool | select | image`.
 - `GET /settings` devolve `{ company, sections: [seção núcleo, ...seções de módulos habilitados] }`.
 - `PATCH /settings/company` (requer `settings.manage`) atualiza `tenant.settings` (cores validadas como hex `#RRGGBB`).
+- `POST /settings/company/logo` (requer `settings.manage`) faz upload da logo via StorageProvider (máx. 4 MB, `image/*`); persiste internamente `logoStorageKey` e expõe a URL pública em `logoUrl`.
+- `DELETE /settings/company/logo` (requer `settings.manage`) remove a logo do storage e limpa `logoUrl` / `logoStorageKey`.
 
 ## Seções
 ### Empresa & Identidade visual (núcleo)
-| Config | Chave (tenant.settings) | Tipo | Obs |
-|---|---|---|---|
-| Nome fantasia | companyName | text | |
-| Razão social | legalName | text | |
-| CNPJ / documento | taxId | text | |
-| Endereço | address | text | |
-| Telefone / WhatsApp | phone | text | |
-| E-mail | email | text | |
-| Logo | logoUrl | url | nesta versão só a URL (upload de arquivo fica para depois) |
-| Cor primária | primaryColor | color | hex #RRGGBB; usada no app e na página de acompanhamento |
-| Cor secundária | secondaryColor | color | hex #RRGGBB |
+| Config | Chave (`tenant.settings`) | Tipo | Grupo | Obs |
+|---|---|---|---|---|
+| Nome fantasia | `companyName` | text | Identidade | |
+| Razão social | `legalName` | text | Identidade | sincronizado em `tenant.name` e `tenant.legal_name` |
+| CNPJ / documento | `taxId` | text | Identidade | sincronizado em `tenant.cnpj` |
+| Telefone / WhatsApp | `phone` | tel | Identidade | |
+| E-mail | `email` | email | Identidade | |
+| Site | `website` | url | Identidade | |
+| Logo | `logoUrl` | image | Identidade | upload via `POST /settings/company/logo`; `logoStorageKey` é interno (não exposto no JSON) |
+| Inscrição Estadual | `inscricaoEstadual` | text | Fiscal | |
+| Inscrição Municipal | `inscricaoMunicipal` | text | Fiscal | |
+| Regime tributário | `regimeTributario` | select | Fiscal | simples / mei / presumido / real |
+| CNAE principal | `cnae` | text | Fiscal | |
+| CEP | `cep` | text | Endereço | |
+| Logradouro | `logradouro` | text | Endereço | |
+| Número | `numero` | text | Endereço | |
+| Complemento | `complemento` | text | Endereço | |
+| Bairro | `bairro` | text | Endereço | |
+| Município | `municipio` | text | Endereço | |
+| UF | `uf` | select | Endereço | siglas dos 27 estados |
+| Tema do sistema | `themePreset` | select | Aparência | tangerina / vermelho / azul / verde / roxo / petroleo / ambar |
+| Cor primária | `primaryColor` | color | Aparência | hex `#RRGGBB`; substitui a semente do tema quando preenchida |
+| Cor secundária | `secondaryColor` | color | Aparência | hex `#RRGGBB` |
+
+> **Legado:** o campo `address` (texto livre) foi substituído pelo endereço estruturado acima. Dados anteriores permanecem preservados no JSONB do tenant; o campo não é mais exposto na seção registrada.
+
+### Nota Fiscal (módulo `invoice`) — planejado
+
+Este módulo ainda não existe, mas a fronteira de responsabilidade já está definida
+(princípio "aponta, não invade"):
+
+**No config da empresa (núcleo — já disponível agora):**
+Os campos abaixo são **identidade do tenant** e úteis a múltiplos módulos. Ficam em
+`tenant.settings` e são geridos por `PATCH /settings/company`:
+
+- CNPJ / documento (`taxId`)
+- Razão social (`legalName`)
+- Inscrição Estadual (`inscricaoEstadual`) e Municipal (`inscricaoMunicipal`)
+- Regime tributário (`regimeTributario`) e CNAE (`cnae`)
+- Endereço fiscal completo (campos `cep` → `uf`)
+
+**No próprio módulo `invoice` (quando existir, via seção registrada):**
+Dados **operacionais e sensíveis** que pertencem exclusivamente ao módulo:
+
+| Dado | Obs |
+|---|---|
+| Certificado digital A1 (`.pfx`) | sensível; armazenado criptografado; nunca exposto no settings genérico |
+| Ambiente | homologação / produção |
+| Série e numeração de NF | controle de sequência da emissão |
+| CSC / token NFC-e | credencial por ambiente |
+
+O módulo `invoice` **aponta** para `tenant.settings` (lê CNPJ, IE, endereço) mas
+**não invade** a tabela de settings do núcleo; seus dados operacionais ficam em
+`tenant_module.settings['invoice']`, geridos pelos endpoints próprios do módulo.
 
 ### Clientes & Veículos (módulo `customers`)
 Seção registrada pelo módulo `customers` — aparece em `GET /settings` quando o
