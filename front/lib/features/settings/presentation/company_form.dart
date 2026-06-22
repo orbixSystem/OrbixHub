@@ -226,10 +226,12 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     final section = _companySection;
 
     // Group fields by field.group (null → 'Geral').
+    // Skip the 'Aparência' group — it is handled by the dedicated AppearanceSection.
     final groups = <String, List<SettingsField>>{};
     if (section != null) {
       for (final f in section.fields) {
         final g = f.group ?? 'Geral';
+        if (g == 'Aparência') continue;
         groups.putIfAbsent(g, () => []).add(f);
       }
     }
@@ -345,8 +347,14 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
 
     if (field.type == 'select' && field.options.isNotEmpty) {
+      final dropdownColor = Theme.of(context).colorScheme.surfaceContainerHigh;
       return DropdownButtonFormField<String>(
         initialValue: _selectValues[field.key],
+        isExpanded: true,
+        elevation: 8,
+        dropdownColor: dropdownColor,
+        borderRadius: BorderRadius.circular(12),
+        menuMaxHeight: 320.0,
         decoration: InputDecoration(
           labelText: field.label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

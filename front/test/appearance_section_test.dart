@@ -66,10 +66,10 @@ void main() {
     expect(find.text('Sistema'), findsOneWidget);
   });
 
-  testWidgets('AppearanceSection exibe seção de pré-visualização', (tester) async {
+  testWidgets('AppearanceSection NÃO exibe seção de pré-visualização', (tester) async {
     await _pump(tester, {'themePreset': 'tangerina'});
 
-    expect(find.text('Pré-visualização'), findsOneWidget);
+    expect(find.text('Pré-visualização'), findsNothing);
   });
 
   testWidgets('Tocar swatch Azul chama saveCompany com themePreset:azul',

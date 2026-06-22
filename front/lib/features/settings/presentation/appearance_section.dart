@@ -102,18 +102,6 @@ class AppearanceSection extends ConsumerWidget {
               ref.read(themeControllerProvider.notifier).set(mode);
             },
           ),
-          const SizedBox(height: 20),
-
-          // ---- Pré-visualização ----------------------------------------
-          Text(
-            'Pré-visualização',
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 10),
-          _ThemePreview(scheme: scheme),
         ],
       ),
     );
@@ -265,76 +253,3 @@ class _ThemeModeSelector extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Card de pré-visualização
-// ---------------------------------------------------------------------------
-
-class _ThemePreview extends StatelessWidget {
-  final ColorScheme scheme;
-
-  const _ThemePreview({required this.scheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Exemplo de interface',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: scheme.onSurface),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                  ),
-                  onPressed: () {},
-                  child: const Text('Salvar'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                  ),
-                  onPressed: () {},
-                  child: const Text('Cancelar'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                Chip(
-                  label: Text(
-                    'Ativo',
-                    style: TextStyle(color: scheme.onPrimaryContainer),
-                  ),
-                  backgroundColor: scheme.primaryContainer,
-                ),
-                Chip(
-                  label: Text(
-                    'Pendente',
-                    style: TextStyle(color: scheme.onSecondaryContainer),
-                  ),
-                  backgroundColor: scheme.secondaryContainer,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
