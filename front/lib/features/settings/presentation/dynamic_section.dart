@@ -189,31 +189,14 @@ class _FieldValue extends StatelessWidget {
       );
     }
 
-    // text / email / tel / url — read-only text
+    // text / email / tel / url — read-only text (plain Text; sem controller para evitar leak)
     final display = value?.toString();
     if (display == null || display.isEmpty) {
       return Text('—', style: TextStyle(color: scheme.onSurfaceVariant));
     }
-    return TextField(
-      controller: TextEditingController(text: display),
-      readOnly: true,
-      enabled: false,
+    return Text(
+      display,
       style: TextStyle(color: scheme.onSurface, fontSize: 14),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.outlineVariant),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.outlineVariant),
-        ),
-        fillColor: scheme.surfaceContainerHighest,
-        filled: true,
-      ),
     );
   }
 }
