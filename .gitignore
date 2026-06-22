@@ -10,3 +10,6 @@ tmp-pw/
 
 # Local object storage (LocalStorageProvider dev fallback)
 back/.storage/
+
+# Local StorageProvider uploads (dev)
+.storage/
