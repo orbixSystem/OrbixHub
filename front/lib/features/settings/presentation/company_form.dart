@@ -9,6 +9,67 @@ import '../../../core/error/app_exception.dart';
 import '../../../di.dart';
 import '../domain/settings_models.dart';
 
+// ---------------------------------------------------------------------------
+// CNAE cache — carregado uma vez e reutilizado em todos os rebuilds
+// ---------------------------------------------------------------------------
+
+/// Entrada da lista de subclasses CNAE do IBGE.
+class _CnaeEntry {
+  const _CnaeEntry({required this.id, required this.descricao});
+  final String id;
+  final String descricao;
+
+  String get label => '$id - $descricao';
+}
+
+/// Cache em memória das subclasses CNAE. `null` = ainda não carregado.
+/// `[]` = falha na requisição (fallback para campo texto).
+List<_CnaeEntry>? _cnaeCache;
+bool _cnaeLoading = false;
+
+Future<List<_CnaeEntry>> _loadCnaes() async {
+  if (_cnaeCache != null) return _cnaeCache!;
+  if (_cnaeLoading) {
+    // Aguarda até o cache ficar disponível (poll simples).
+    while (_cnaeLoading) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    return _cnaeCache ?? [];
+  }
+  _cnaeLoading = true;
+  final cnaeDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 12),
+    receiveTimeout: const Duration(seconds: 20),
+  ));
+  try {
+    final resp = await cnaeDio.get<String>(
+      'https://servicodados.ibge.gov.br/api/v2/cnae/subclasses',
+    );
+    if (resp.statusCode == 200 && resp.data != null) {
+      final raw = jsonDecode(resp.data!) as List<dynamic>;
+      _cnaeCache = raw
+          .map((e) => _CnaeEntry(
+                id: (e['id'] as dynamic)?.toString() ?? '',
+                descricao: (e['descricao'] as String?) ?? '',
+              ))
+          .where((e) => e.id.isNotEmpty)
+          .toList();
+    } else {
+      _cnaeCache = [];
+    }
+  } catch (_) {
+    _cnaeCache = [];
+  } finally {
+    cnaeDio.close();
+    _cnaeLoading = false;
+  }
+  return _cnaeCache!;
+}
+
+// ---------------------------------------------------------------------------
+// CompanyForm
+// ---------------------------------------------------------------------------
+
 /// Formulário editável dos dados da empresa (seção 'company' do bundle).
 ///
 /// Agrupa campos por [SettingsField.group] quando presente. A ação "Salvar"
@@ -47,6 +108,10 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
   bool _saving = false;
 
+  /// Lista de subclasses CNAE — carregada de forma lazy no initState.
+  /// `null` enquanto ainda está carregando; `[]` indica falha (usa fallback texto).
+  List<_CnaeEntry>? _cnaes;
+
   /// Retorna a seção 'company' do bundle, ou null se não existir.
   SettingsSection? get _companySection {
     try {
@@ -60,6 +125,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   void initState() {
     super.initState();
     _initControllers();
+    _loadCnaesAsync();
   }
 
   void _initControllers() {
@@ -76,6 +142,13 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         final valid = field.options.any((o) => o.value == current);
         _selectValues[field.key] = valid ? current : null;
       }
+    }
+  }
+
+  Future<void> _loadCnaesAsync() async {
+    final list = await _loadCnaes();
+    if (mounted) {
+      setState(() => _cnaes = list);
     }
   }
 
@@ -119,6 +192,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         final orig = original?.toString() ?? '';
         if (current != orig) patch[field.key] = current;
       } else if (field.type == 'select') {
+        // Campos select normais — regime, uf etc.
+        // CNAE é tratado como select especial mas armazenado em _selectValues também.
         final current = _selectValues[field.key];
         final orig = original?.toString();
         if (current != orig) patch[field.key] = current;
@@ -406,6 +481,11 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       );
     }
 
+    // ---- Campo CNAE (buscável via API IBGE) --------------------------------
+    if (field.key == 'cnae') {
+      return _buildCnaeField(field, scheme);
+    }
+
     if (_isTextField(field.type)) {
       // Campo CEP: busca endereço via ViaCEP ao confirmar digitação.
       if (field.key == 'cep') {
@@ -445,25 +525,9 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       );
     }
 
+    // ---- Campos select (regime tributário, UF, …) -------------------------
     if (field.type == 'select' && field.options.isNotEmpty) {
-      final dropdownColor = Theme.of(context).colorScheme.surfaceContainerHigh;
-      return DropdownButtonFormField<String>(
-        initialValue: _selectValues[field.key],
-        isExpanded: true,
-        elevation: 8,
-        dropdownColor: dropdownColor,
-        borderRadius: BorderRadius.circular(12),
-        menuMaxHeight: 320.0,
-        decoration: InputDecoration(
-          labelText: field.label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          isDense: true,
-        ),
-        items: field.options
-            .map((o) => DropdownMenuItem(value: o.value, child: Text(o.label)))
-            .toList(),
-        onChanged: (v) => setState(() => _selectValues[field.key] = v),
-      );
+      return _buildSelectDropdown(field, scheme);
     }
 
     // Unsupported field types: show read-only hint.
@@ -478,6 +542,117 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
           style: TextStyle(color: scheme.onSurface, fontSize: 13),
         ),
       ],
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Select ancorado (DropdownMenu — abre ABAIXO do campo)
+  // -------------------------------------------------------------------------
+
+  /// Constrói um [DropdownMenu] Material 3 ancorado abaixo do campo, substituindo
+  /// o antigo [DropdownButtonFormField] que abria fora de posição no web.
+  Widget _buildSelectDropdown(SettingsField field, ColorScheme scheme) {
+    return DropdownMenu<String>(
+      expandedInsets: EdgeInsets.zero,
+      initialSelection: _selectValues[field.key],
+      label: Text(field.label),
+      menuHeight: 320,
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(
+          scheme.surfaceContainerHigh,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        isDense: true,
+      ),
+      dropdownMenuEntries: field.options
+          .map((o) => DropdownMenuEntry<String>(value: o.value, label: o.label))
+          .toList(),
+      onSelected: (v) => setState(() => _selectValues[field.key] = v),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Campo CNAE buscável
+  // -------------------------------------------------------------------------
+
+  /// Renderiza um campo CNAE buscável via DropdownMenu com `enableFilter: true`.
+  ///
+  /// - Se ainda está carregando: mostra um TextFormField desabilitado com hint.
+  /// - Se houve falha (_cnaes == []): cai no TextFormField comum (fallback).
+  /// - Se carregado com sucesso: mostra DropdownMenu com filtro nativo.
+  Widget _buildCnaeField(SettingsField field, ColorScheme scheme) {
+    // Valor atual salvo na empresa (pré-preenchimento).
+    final currentCode = widget.company[field.key]?.toString() ?? '';
+
+    // Ainda carregando.
+    if (_cnaes == null) {
+      return TextFormField(
+        initialValue: currentCode,
+        enabled: false,
+        decoration: InputDecoration(
+          labelText: field.label,
+          hintText: 'Carregando lista CNAE…',
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          isDense: true,
+          suffixIcon: const SizedBox(
+            width: 16,
+            height: 16,
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Falha ao carregar: fallback para campo texto livre.
+    if (_cnaes!.isEmpty) {
+      return TextFormField(
+        controller: _textCtrl.putIfAbsent(
+          field.key,
+          () => TextEditingController(text: currentCode),
+        ),
+        keyboardType: TextInputType.text,
+        decoration: InputDecoration(
+          labelText: field.label,
+          hintText: 'Digite o código CNAE',
+          helperText: 'Lista CNAE indisponível — insira o código manualmente.',
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          isDense: true,
+        ),
+        onChanged: (v) => setState(() => _selectValues[field.key] = v.isEmpty ? null : v),
+      );
+    }
+
+    // Sucesso: DropdownMenu buscável.
+    // Encontra o label completo para o código atual (pré-seleção visual).
+    final matchingEntry = _cnaes!
+        .cast<_CnaeEntry?>()
+        .firstWhere((e) => e?.id == currentCode, orElse: () => null);
+
+    return DropdownMenu<String>(
+      expandedInsets: EdgeInsets.zero,
+      enableFilter: true,
+      requestFocusOnTap: true,
+      initialSelection: matchingEntry != null ? currentCode : null,
+      label: Text(field.label),
+      menuHeight: 320,
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(
+          scheme.surfaceContainerHigh,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        isDense: true,
+      ),
+      dropdownMenuEntries: _cnaes!
+          .map((e) => DropdownMenuEntry<String>(value: e.id, label: e.label))
+          .toList(),
+      onSelected: (v) => setState(() => _selectValues[field.key] = v),
     );
   }
 }
