@@ -23,10 +23,25 @@ class AppearanceSection extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final themeMode = ref.watch(themeControllerProvider);
 
-    // Determina o preset selecionado a partir de company['themePreset'],
-    // ou usa 'tangerina' como padrão.
-    final selectedKey =
-        (company['themePreset'] as String?) ?? 'tangerina';
+    // Determina o preset selecionado: 3-tier resolution.
+    // 1. themePreset não-vazio → usa diretamente.
+    // 2. primaryColor válido (#RRGGBB) → converte para Color e busca preset.
+    // 3. fallback → 'tangerina'.
+    final String selectedKey = () {
+      final preset = company['themePreset'];
+      if (preset is String && preset.isNotEmpty) return preset;
+
+      final hex = company['primaryColor'];
+      if (hex is String && RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(hex)) {
+        final value = int.tryParse('FF${hex.substring(1)}', radix: 16);
+        if (value != null) {
+          final mapped = presetForSeed(Color(value));
+          if (mapped != null) return mapped;
+        }
+      }
+
+      return 'tangerina';
+    }();
 
     return Card(
       elevation: 0,

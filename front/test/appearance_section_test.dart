@@ -31,7 +31,7 @@ Future<void> _pump(
     ProviderScope(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(
-          FakeSettingsRepository() as SettingsRepository,
+          FakeSettingsRepository(),
         ),
         sessionControllerProvider.overrideWith(_FakeSession.new),
       ],
@@ -113,7 +113,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository() as SettingsRepository,
+            FakeSettingsRepository(),
           ),
           sessionControllerProvider.overrideWith(_FakeSession.new),
         ],

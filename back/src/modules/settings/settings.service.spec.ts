@@ -2,7 +2,7 @@ import { SettingsService } from './settings.service';
 import { COMPANY_SECTION } from './settings.section-registry';
 
 const user = { userId: 'u1', tenantId: 't1', role: 'owner', jti: 'j' } as never;
-const storage = { put: jest.fn(), delete: jest.fn(), url: jest.fn() } as never;
+const storage = { put: jest.fn(), remove: jest.fn(), url: jest.fn() } as never;
 
 describe('SettingsService.getSettings', () => {
   it('core-only: returns sections with exactly [company] when no module sections registered', async () => {

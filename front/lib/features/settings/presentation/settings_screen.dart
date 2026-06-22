@@ -11,7 +11,7 @@ import 'dynamic_section.dart';
 ///
 /// Exibe:
 /// 1. [CompanyForm] para editar dados da empresa.
-/// 2. Um card placeholder de Aparência (Task 5.1).
+/// 2. [AppearanceSection] com presets de tema e seletor claro/escuro/sistema.
 /// 3. Um [DynamicSection] por seção de módulo habilitado (moduleKey != null).
 ///
 /// Se o usuário não tiver permissão `settings.manage`, exibe uma mensagem de
@@ -111,7 +111,7 @@ class SettingsScreen extends ConsumerWidget {
             CompanyForm(bundle: bundle, company: bundle.company),
             const SizedBox(height: 24),
 
-            // ---- Aparência (Task 5.1) ------------------------------------
+            // ---- Aparência (presets de tema + claro/escuro) --------------
             AppearanceSection(company: bundle.company),
 
             // ---- Module sections ----------------------------------------
