@@ -61,7 +61,10 @@ export class TenantContext {
           return fn();
         });
       },
-      { timeout: 10000 },
+      // maxWait: time to ACQUIRE a connection from the pool — directly fixes
+      // "Unable to start a transaction in the given time" under burst load.
+      // timeout: max wall-clock time for the whole transaction body.
+      { maxWait: 15000, timeout: 20000 },
     );
   }
 

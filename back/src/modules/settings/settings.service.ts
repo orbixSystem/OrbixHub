@@ -44,7 +44,13 @@ export class SettingsService {
       legalName: dto.legalName,
       cnpj: dto.taxId,
     });
-    await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company');
+    // Audit é best-effort: falha de infra transitória (pool esgotado, timeout)
+    // não deve fazer o save retornar 500 — os dados já foram persistidos acima.
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company');
+    } catch (err) {
+      console.warn('[settings] audit.log falhou (best-effort):', err);
+    }
     return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }
 
@@ -63,7 +69,11 @@ export class SettingsService {
     const oldKey = (current.logoStorageKey as string | undefined) ?? null;
     const merged = { ...current, logoUrl: url, logoStorageKey: key };
     await this.tenancy.updateCompanySettings(user.tenantId, merged);
-    await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
+    } catch (err) {
+      console.warn('[settings] audit.log falhou (best-effort):', err);
+    }
     if (oldKey && oldKey !== key) { try { await this.storage.remove(oldKey); } catch { /* best-effort */ } }
     return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }
@@ -75,7 +85,11 @@ export class SettingsService {
     delete (merged as Record<string, unknown>).logoUrl;
     delete (merged as Record<string, unknown>).logoStorageKey;
     await this.tenancy.updateCompanySettings(user.tenantId, merged);
-    await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
+    } catch (err) {
+      console.warn('[settings] audit.log falhou (best-effort):', err);
+    }
     if (key) { try { await this.storage.remove(key); } catch { /* best-effort */ } }
     return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }

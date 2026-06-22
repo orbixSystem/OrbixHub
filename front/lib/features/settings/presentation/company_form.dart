@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../di.dart';
 import '../domain/settings_models.dart';
+import '../../auth/presentation/session_state.dart';
 
 // ---------------------------------------------------------------------------
 // CNAE cache — carregado uma vez e reutilizado em todos os rebuilds
@@ -131,11 +132,24 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   void _initControllers() {
     final section = _companySection;
     if (section == null) return;
+
+    // Resolve o email do dono logado para usar como default quando o campo
+    // de email da empresa estiver vazio.
+    String ownerEmail() {
+      final session = ref.read(sessionControllerProvider);
+      if (session is SessionAuthenticated) return session.me.user.email;
+      return '';
+    }
+
     for (final field in section.fields) {
       final raw = widget.company[field.key];
       if (_isTextField(field.type)) {
-        _textCtrl[field.key] =
-            TextEditingController(text: raw?.toString() ?? '');
+        String initial = raw?.toString() ?? '';
+        // Fix 3: pré-preenche email da empresa com o email do dono quando vazio.
+        if (field.type == 'email' && initial.isEmpty) {
+          initial = ownerEmail();
+        }
+        _textCtrl[field.key] = TextEditingController(text: initial);
       } else if (field.type == 'select') {
         // Validate the current value is among the known options.
         final current = raw?.toString();
@@ -574,16 +588,17 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   }
 
   // -------------------------------------------------------------------------
-  // Campo CNAE buscável
+  // Campo CNAE buscável (Fix 2 — máx 40 entradas para performance)
   // -------------------------------------------------------------------------
 
-  /// Renderiza um campo CNAE buscável via DropdownMenu com `enableFilter: true`.
+  static const int _cnaeMaxOptions = 40;
+
+  /// Renderiza um campo CNAE buscável com [Autocomplete<String>].
   ///
-  /// - Se ainda está carregando: mostra um TextFormField desabilitado com hint.
-  /// - Se houve falha (_cnaes == []): cai no TextFormField comum (fallback).
-  /// - Se carregado com sucesso: mostra DropdownMenu com filtro nativo.
+  /// - Ainda carregando: TextFormField desabilitado com hint de loading.
+  /// - Falha (_cnaes == []): fallback para campo texto livre.
+  /// - Sucesso: Autocomplete que nunca materializa mais de 40 opções por query.
   Widget _buildCnaeField(SettingsField field, ColorScheme scheme) {
-    // Valor atual salvo na empresa (pré-preenchimento).
     final currentCode = widget.company[field.key]?.toString() ?? '';
 
     // Ainda carregando.
@@ -627,32 +642,81 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       );
     }
 
-    // Sucesso: DropdownMenu buscável.
-    // Encontra o label completo para o código atual (pré-seleção visual).
-    final matchingEntry = _cnaes!
-        .cast<_CnaeEntry?>()
+    // Sucesso: Autocomplete com limite de 40 opções para performance.
+    // O initialValue é o label completo do código salvo, se encontrado.
+    final all = _cnaes!;
+    final matchingEntry = all.cast<_CnaeEntry?>()
         .firstWhere((e) => e?.id == currentCode, orElse: () => null);
 
-    return DropdownMenu<String>(
-      expandedInsets: EdgeInsets.zero,
-      enableFilter: true,
-      requestFocusOnTap: true,
-      initialSelection: matchingEntry != null ? currentCode : null,
-      label: Text(field.label),
-      menuHeight: 320,
-      menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(
-          scheme.surfaceContainerHigh,
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        isDense: true,
-      ),
-      dropdownMenuEntries: _cnaes!
-          .map((e) => DropdownMenuEntry<String>(value: e.id, label: e.label))
-          .toList(),
-      onSelected: (v) => setState(() => _selectValues[field.key] = v),
+    return Autocomplete<String>(
+      initialValue: matchingEntry != null
+          ? TextEditingValue(text: matchingEntry.label)
+          : (currentCode.isNotEmpty
+              ? TextEditingValue(text: currentCode)
+              : TextEditingValue.empty),
+      displayStringForOption: (option) => option,
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        final query = textEditingValue.text.trim().toLowerCase();
+        if (query.isEmpty) return all.take(_cnaeMaxOptions).map((e) => e.label);
+        // Digit-only query → prioriza startsWith no id; senão busca na descricao.
+        final isDigits = RegExp(r'^\d+$').hasMatch(query);
+        final matched = <String>[];
+        for (final e in all) {
+          if (matched.length >= _cnaeMaxOptions) break;
+          if (isDigits) {
+            if (e.id.startsWith(query)) matched.add(e.label);
+          } else {
+            if (e.label.toLowerCase().contains(query)) matched.add(e.label);
+          }
+        }
+        return matched;
+      },
+      onSelected: (String label) {
+        // Extrai o código (parte antes do " - ").
+        final code = label.contains(' - ') ? label.split(' - ').first.trim() : label;
+        setState(() => _selectValues[field.key] = code.isEmpty ? null : code);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+          decoration: InputDecoration(
+            labelText: field.label,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            isDense: true,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Text(option,
+                          style: TextStyle(fontSize: 13, color: scheme.onSurface)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
