@@ -27,6 +27,8 @@ import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
+import 'features/settings/data/settings_repository_impl.dart';
+import 'features/settings/domain/settings_repository.dart';
 import 'features/tracking/data/tracking_repository_impl.dart';
 import 'features/tracking/domain/tracking_repository.dart';
 
@@ -84,6 +86,9 @@ final teamRepositoryProvider = Provider<TeamRepository>(
 
 final customersRepositoryProvider = Provider<CustomersRepository>(
     (ref) => CustomersRepositoryImpl(ref.read(dioProvider)));
+
+final settingsRepositoryProvider = Provider<SettingsRepository>(
+    (ref) => SettingsRepositoryImpl(ref.read(dioProvider)));
 
 /// Acompanhamento público: Dio LIMPO (sem bearer/refresh) — endpoints `@Public`.
 final trackingRepositoryProvider =
