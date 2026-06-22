@@ -20,6 +20,7 @@ import '../../features/auth/presentation/session_state.dart';
 import '../../features/auth/presentation/tenant_picker_screen.dart';
 import '../../features/auth/presentation/verify_screen.dart';
 import '../../features/billing/presentation/plans_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
@@ -111,6 +112,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
           GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
           GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
+          GoRoute(
+            path: '/configuracoes',
+            builder: (_, _) => const SettingsScreen(),
+          ),
           // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
           // só por autenticação (já está dentro da shell autenticada).
           GoRoute(

@@ -43,6 +43,12 @@ List<NavItem> gatedNavItems(Me me) {
   if (me.hasPermission('billing.manage')) {
     items.add(const NavItem('Planos', Icons.credit_card_outlined, '/billing'));
   }
+  // Settings — gated by settings.manage; placed after Planos.
+  if (me.hasPermission('settings.manage')) {
+    items.add(
+      const NavItem('Configurações', Icons.settings_outlined, '/configuracoes'),
+    );
+  }
   return items;
 }
 
