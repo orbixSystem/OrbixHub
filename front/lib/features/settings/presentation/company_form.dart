@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -195,6 +198,71 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
   }
 
+  /// Consulta o ViaCEP e preenche os campos de endereço automaticamente.
+  Future<void> _buscarCep(String rawCep) async {
+    final digits = rawCep.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 8) return;
+
+    // Usa Dio independente — sem o interceptor de auth da app (que aponta para a API).
+    final viaCepDio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+    ));
+    try {
+      final response = await viaCepDio
+          .get<String>('https://viacep.com.br/ws/$digits/json/');
+      if (response.statusCode != 200 || response.data == null) {
+        _showCepSnack('CEP não encontrado.');
+        return;
+      }
+      final data = jsonDecode(response.data!) as Map<String, dynamic>;
+      if (data['erro'] == true || data['erro'] == 'true') {
+        _showCepSnack('CEP não encontrado.');
+        return;
+      }
+      setState(() {
+        if (_textCtrl.containsKey('logradouro')) {
+          _textCtrl['logradouro']!.text = (data['logradouro'] as String?) ?? '';
+        }
+        if (_textCtrl.containsKey('bairro')) {
+          _textCtrl['bairro']!.text = (data['bairro'] as String?) ?? '';
+        }
+        if (_textCtrl.containsKey('municipio')) {
+          _textCtrl['municipio']!.text = (data['localidade'] as String?) ?? '';
+        }
+        // complemento: preenche apenas se estiver vazio
+        if (_textCtrl.containsKey('complemento')) {
+          final comp = (data['complemento'] as String?) ?? '';
+          if (_textCtrl['complemento']!.text.isEmpty && comp.isNotEmpty) {
+            _textCtrl['complemento']!.text = comp;
+          }
+        }
+        // UF: atualiza o select
+        final uf = (data['uf'] as String?);
+        if (uf != null && _selectValues.containsKey('uf')) {
+          _selectValues['uf'] = uf;
+        }
+      });
+    } on DioException {
+      // Falha silenciosa — não crasha o form
+    } catch (_) {
+      // Falha silenciosa
+    } finally {
+      viaCepDio.close();
+    }
+  }
+
+  void _showCepSnack(String msg) {
+    if (!mounted) return;
+    final scheme = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: scheme.errorContainer,
+      ),
+    );
+  }
+
   Future<void> _removeLogo() async {
     setState(() => _saving = true);
     try {
@@ -231,7 +299,11 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     if (section != null) {
       for (final f in section.fields) {
         final g = f.group ?? 'Geral';
+        // Aparência é renderizada pela AppearanceSection dedicada.
+        // Campos do tipo 'image' (ex.: logoUrl) são tratados pelo _LogoSection — não
+        // devem aparecer como linha de texto nos grupos.
         if (g == 'Aparência') continue;
+        if (f.type == 'image') continue;
         groups.putIfAbsent(g, () => []).add(f);
       }
     }
@@ -335,6 +407,33 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
 
     if (_isTextField(field.type)) {
+      // Campo CEP: busca endereço via ViaCEP ao confirmar digitação.
+      if (field.key == 'cep') {
+        return TextFormField(
+          controller: _textCtrl[field.key],
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: field.label,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            isDense: true,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.search, size: 18),
+              tooltip: 'Buscar endereço',
+              onPressed: () {
+                final v = _textCtrl['cep']?.text ?? '';
+                _buscarCep(v);
+              },
+            ),
+          ),
+          onFieldSubmitted: _buscarCep,
+          onEditingComplete: () {
+            final v = _textCtrl['cep']?.text ?? '';
+            _buscarCep(v);
+            FocusScope.of(context).nextFocus();
+          },
+        );
+      }
+
       return TextFormField(
         controller: _textCtrl[field.key],
         keyboardType: _keyboardType(field.type),

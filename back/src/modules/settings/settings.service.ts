@@ -45,7 +45,7 @@ export class SettingsService {
       cnpj: dto.taxId,
     });
     await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company');
-    return { company: merged };
+    return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }
 
   async uploadLogo(user: AuthUser, file: UploadedImage | undefined) {
@@ -65,7 +65,7 @@ export class SettingsService {
     await this.tenancy.updateCompanySettings(user.tenantId, merged);
     await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
     if (oldKey && oldKey !== key) { try { await this.storage.remove(oldKey); } catch { /* best-effort */ } }
-    return { company: merged };
+    return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }
 
   async removeLogo(user: AuthUser) {
@@ -77,6 +77,6 @@ export class SettingsService {
     await this.tenancy.updateCompanySettings(user.tenantId, merged);
     await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company.logo');
     if (key) { try { await this.storage.remove(key); } catch { /* best-effort */ } }
-    return { company: merged };
+    return { company: await this.tenancy.getCompanyView(user.tenantId) };
   }
 }

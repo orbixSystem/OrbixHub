@@ -97,13 +97,15 @@ describe('SettingsService.getSettings', () => {
 });
 
 describe('SettingsService.updateCompany', () => {
-  it('merges with current settings, persists, syncs identity, audits, and returns merged company', async () => {
+  it('merges with current settings, persists, syncs identity, audits, and returns company view', async () => {
     const updateCompanySettings = jest.fn(async () => undefined);
     const syncCompanyIdentity = jest.fn(async () => undefined);
     const registry = { moduleSections: jest.fn(() => []) };
     const billing = { getEnabledModules: jest.fn(async () => []) };
+    const viewResult = { companyName: 'new', taxId: '123', legalName: 'Razão Social Ltda' };
     const tenancy = {
       getCompanySettings: jest.fn(async () => ({ companyName: 'old', taxId: '123' })),
+      getCompanyView: jest.fn(async () => viewResult),
       updateCompanySettings,
       syncCompanyIdentity,
     };
@@ -119,12 +121,18 @@ describe('SettingsService.updateCompany', () => {
     });
     expect(syncCompanyIdentity).toHaveBeenCalledWith('t1', { tradeName: 'new', legalName: undefined, cnpj: undefined });
     expect(log).toHaveBeenCalledWith('t1', 'u1', 'settings_change', 'company');
-    expect(result).toEqual({ company: { companyName: 'new', taxId: '123' } });
+    // Retorna a view mesclada (com fallbacks das colunas), não o JSONB puro.
+    expect(tenancy.getCompanyView).toHaveBeenCalledWith('t1');
+    expect(result).toEqual({ company: viewResult });
+    expect(result.company.companyName).toBe('new');
+    expect(result.company.legalName).toBe('Razão Social Ltda');
   });
 
   it('faz merge, persiste, sincroniza identidade e audita', async () => {
+    const viewResult2 = { companyName: 'Novo', legalName: 'Novo ME', taxId: '123' };
     const tenancy2 = {
       getCompanySettings: jest.fn(async () => ({ companyName: 'Velho' })),
+      getCompanyView: jest.fn(async () => viewResult2),
       updateCompanySettings: jest.fn(async () => undefined),
       syncCompanyIdentity: jest.fn(async () => undefined),
     };
@@ -139,6 +147,8 @@ describe('SettingsService.updateCompany', () => {
     expect(tenancy2.updateCompanySettings).toHaveBeenCalledWith('t1', expect.objectContaining({ companyName: 'Novo' }));
     expect(tenancy2.syncCompanyIdentity).toHaveBeenCalledWith('t1', { tradeName: 'Novo', legalName: 'Novo ME', cnpj: '123' });
     expect(audit2.log).toHaveBeenCalledWith('t1', 'u1', 'settings_change', 'company');
+    // Retorna a view (merge de colunas + JSONB), que inclui companyName.
+    expect(tenancy2.getCompanyView).toHaveBeenCalledWith('t1');
     expect(res.company.companyName).toBe('Novo');
   });
 });

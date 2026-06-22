@@ -25,6 +25,9 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: brightness,
+      // fidelity mantém o primary próximo à cor-semente, tornando cada preset
+      // claramente distinto (Azul visivelmente azul, Verde visivelmente verde, etc.).
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
 
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
