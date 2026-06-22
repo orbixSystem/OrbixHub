@@ -72,7 +72,7 @@ void main() {
     expect(find.text('Pré-visualização'), findsNothing);
   });
 
-  testWidgets('Tocar swatch Azul chama saveCompany com themePreset:azul',
+  testWidgets('Tocar swatch Azul chama saveAppearance com themePreset:azul',
       (tester) async {
     final fakeRepo = FakeSettingsRepository();
 

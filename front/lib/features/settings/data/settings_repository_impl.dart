@@ -20,6 +20,12 @@ class SettingsRepositoryImpl implements SettingsRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> updateAppearance(Map<String, dynamic> patch) async {
+    final res = await _dio.patch<Object?>('/settings/appearance', data: patch);
+    return ((res.data as Map)['company'] as Map).cast<String, dynamic>();
+  }
+
+  @override
   Future<Map<String, dynamic>> uploadLogo(Uint8List bytes, String filename, String contentType) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename,

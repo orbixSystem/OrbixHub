@@ -9,6 +9,8 @@ Me _me({List<String> permissions = const []}) => Me(
     );
 
 void main() {
+  // Req: Configurações visível a QUALQUER membro autenticado — a tela interna
+  // é que gatea empresa/módulos por settings.manage.
   test('Configurações aparece para quem tem settings.manage', () {
     final me = _me(permissions: ['settings.manage']);
     final items = gatedNavItems(me);
@@ -19,13 +21,23 @@ void main() {
     );
   });
 
-  test('Configurações some sem settings.manage', () {
+  test('Configurações TAMBÉM aparece para quem NÃO tem settings.manage (aparência é para todos)', () {
     final me = _me(permissions: ['os.read']);
     final items = gatedNavItems(me);
     expect(
       items.any((i) => i.route == '/configuracoes'),
-      isFalse,
-      reason: 'Item /configuracoes não deve aparecer sem settings.manage',
+      isTrue,
+      reason: 'Item /configuracoes deve aparecer para qualquer membro autenticado',
+    );
+  });
+
+  test('Configurações aparece para membro sem nenhuma permissão', () {
+    final me = _me(permissions: []);
+    final items = gatedNavItems(me);
+    expect(
+      items.any((i) => i.route == '/configuracoes'),
+      isTrue,
+      reason: 'Item /configuracoes deve aparecer independente de permissões',
     );
   });
 }

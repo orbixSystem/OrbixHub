@@ -5,7 +5,7 @@ import { BillingService } from '../billing/billing.service';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { STORAGE_PROVIDER, StorageProvider } from '../../common/storage/storage.provider';
-import { UpdateCompanyDto } from './dto/settings.dto';
+import { UpdateAppearanceDto, UpdateCompanyDto } from './dto/settings.dto';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { UploadedImage } from './settings.types';
 
@@ -48,6 +48,22 @@ export class SettingsService {
     // não deve fazer o save retornar 500 — os dados já foram persistidos acima.
     try {
       await this.audit.log(user.tenantId, user.userId, 'settings_change', 'company');
+    } catch (err) {
+      console.warn('[settings] audit.log falhou (best-effort):', err);
+    }
+    return { company: await this.tenancy.getCompanyView(user.tenantId) };
+  }
+
+  async updateAppearance(user: AuthUser, dto: UpdateAppearanceDto) {
+    const current = await this.tenancy.getCompanySettings(user.tenantId);
+    // Merge apenas os campos de aparência — nada de empresa vaza por aqui.
+    const merged = { ...current };
+    if (dto.themePreset !== undefined) (merged as Record<string, unknown>).themePreset = dto.themePreset;
+    if (dto.primaryColor !== undefined) (merged as Record<string, unknown>).primaryColor = dto.primaryColor;
+    if (dto.secondaryColor !== undefined) (merged as Record<string, unknown>).secondaryColor = dto.secondaryColor;
+    await this.tenancy.updateCompanySettings(user.tenantId, merged);
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'settings_change', 'appearance');
     } catch (err) {
       console.warn('[settings] audit.log falhou (best-effort):', err);
     }

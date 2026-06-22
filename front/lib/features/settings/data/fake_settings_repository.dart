@@ -17,6 +17,15 @@ class FakeSettingsRepository implements SettingsRepository {
     _company = {..._company, ...patch};
     return Map.of(_company);
   }
+
+  @override
+  Future<Map<String, dynamic>> updateAppearance(Map<String, dynamic> patch) async {
+    // Apenas os 3 campos de aparência são mergeados.
+    final allowed = {'themePreset', 'primaryColor', 'secondaryColor'};
+    final filtered = {for (final e in patch.entries) if (allowed.contains(e.key)) e.key: e.value};
+    _company = {..._company, ...filtered};
+    return Map.of(_company);
+  }
   @override
   Future<Map<String, dynamic>> uploadLogo(Uint8List b, String f, String c) async {
     _company = {..._company, 'logoUrl': 'https://example/logo.png'};

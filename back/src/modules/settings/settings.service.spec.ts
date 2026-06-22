@@ -1,4 +1,5 @@
 import { SettingsService } from './settings.service';
+import { UpdateAppearanceDto } from './dto/settings.dto';
 import { COMPANY_SECTION } from './settings.section-registry';
 
 const user = { userId: 'u1', tenantId: 't1', role: 'owner', jti: 'j' } as never;
@@ -126,6 +127,29 @@ describe('SettingsService.updateCompany', () => {
     expect(result).toEqual({ company: viewResult });
     expect(result.company.companyName).toBe('new');
     expect(result.company.legalName).toBe('Razão Social Ltda');
+  });
+
+  it('updateAppearance: persiste apenas campos de aparência, audita e retorna company view', async () => {
+    const updateCompanySettings = jest.fn(async () => undefined);
+    const registry = { moduleSections: jest.fn(() => []) };
+    const billing = { getEnabledModules: jest.fn(async () => []) };
+    const viewResult = { companyName: 'Empresa', themePreset: 'roxo' };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({ companyName: 'Empresa', themePreset: 'tangerina' })),
+      getCompanyView: jest.fn(async () => viewResult),
+      updateCompanySettings,
+      syncCompanyIdentity: jest.fn(),
+    };
+    const log = jest.fn(async () => undefined);
+    const audit = { log } as never;
+
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
+    const dto: UpdateAppearanceDto = { themePreset: 'roxo' };
+    const result = await svc.updateAppearance(user, dto);
+
+    expect(updateCompanySettings).toHaveBeenCalledWith('t1', expect.objectContaining({ themePreset: 'roxo', companyName: 'Empresa' }));
+    expect(log).toHaveBeenCalledWith('t1', 'u1', 'settings_change', 'appearance');
+    expect(result).toEqual({ company: viewResult });
   });
 
   it('faz merge, persiste, sincroniza identidade e audita', async () => {

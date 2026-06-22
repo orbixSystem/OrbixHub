@@ -41,7 +41,7 @@ export class CustomersModule implements OnModuleInit {
     // endpoints próprios do módulo (GET/PATCH /customers/config).
     this.registry.register({
       key: CUSTOMERS_CONFIG_KEY,
-      title: 'Clientes & Veículos',
+      title: 'Clientes',
       moduleKey: 'customers',
       fields: [
         { key: 'usaSubjects', label: 'Usa "veículos"?', type: 'bool' },

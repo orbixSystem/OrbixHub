@@ -9,15 +9,10 @@ import 'dynamic_section.dart';
 
 /// Tela de Configurações — corpo apenas (o shell é dono da moldura).
 ///
-/// Exibe:
-/// 1. [CompanyForm] para editar dados da empresa (expansível, aberto por padrão).
-/// 2. [AppearanceSection] com presets de tema e seletor claro/escuro/sistema
-///    (expansível, fechado por padrão).
-/// 3. Um [DynamicSection] por seção de módulo habilitado, cada um expansível e
-///    fechado por padrão.
-///
-/// Se o usuário não tiver permissão `settings.manage`, exibe uma mensagem de
-/// acesso negado em vez do formulário.
+/// Visível para QUALQUER membro autenticado:
+/// - [AppearanceSection] (presets de tema + claro/escuro) — sempre exibida.
+/// - [CompanyForm] e seções de módulo — exibidas apenas quando o usuário tem
+///   `settings.manage` (owner / gerente).
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -26,34 +21,9 @@ class SettingsScreen extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    // ---- Permission gate ------------------------------------------------
-    if (session is SessionAuthenticated) {
-      if (!session.me.hasPermission('settings.manage')) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline, size: 48, color: scheme.onSurfaceVariant),
-                const SizedBox(height: 16),
-                Text(
-                  'Acesso negado',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Você não tem permissão para acessar as configurações.\n'
-                  'Fale com o proprietário da conta.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-    }
+    // Determina se o usuário tem a permissão para editar empresa e módulos.
+    final canManage = session is SessionAuthenticated &&
+        session.me.hasPermission('settings.manage');
 
     // ---- Settings data --------------------------------------------------
     final settingsAsync = ref.watch(settingsControllerProvider);
@@ -104,39 +74,48 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Gerencie os dados da empresa, identidade visual e preferências dos módulos.',
+              canManage
+                  ? 'Gerencie os dados da empresa, identidade visual e preferências dos módulos.'
+                  : 'Personalize a aparência da sua interface.',
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
             ),
             const SizedBox(height: 24),
 
-            // ---- Empresa & Identidade visual (aberta por padrão) ---------
-            _CollapsibleSection(
-              title: 'Empresa & Identidade visual',
-              initiallyExpanded: true,
-              child: CompanyForm(
-                bundle: bundle,
-                company: bundle.company,
-                embedded: true,
+            // ---- Empresa & Identidade visual (apenas com settings.manage) -
+            if (canManage) ...[
+              _CollapsibleSection(
+                title: 'Empresa & Identidade visual',
+                initiallyExpanded: true,
+                child: CompanyForm(
+                  bundle: bundle,
+                  company: bundle.company,
+                  embedded: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
-            // ---- Aparência (fechada por padrão) --------------------------
+            // ---- Aparência (sempre visível a qualquer membro) ------------
             _CollapsibleSection(
               title: 'Aparência',
-              initiallyExpanded: false,
+              initiallyExpanded: !canManage, // aberta por padrão para não-owners
               child: AppearanceSection(
                 company: bundle.company,
                 embedded: true,
               ),
             ),
 
-            // ---- Module sections (cada uma fechada por padrão) -----------
-            if (moduleSections.isNotEmpty) ...[
+            // ---- Module sections (apenas com settings.manage) ------------
+            if (canManage && moduleSections.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text(
                 'Configurações por módulo',
                 style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Gerenciado pelo sistema',
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 12),
               for (final section in moduleSections) ...[

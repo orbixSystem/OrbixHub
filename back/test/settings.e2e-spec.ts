@@ -384,6 +384,71 @@ describe('Settings host (e2e)', () => {
   });
 
   // ---- Criterion 10: tenant isolation for fiscal fields -----------------
+  // ---- Criterion 11: PATCH /settings/appearance (sem settings.manage) ---
+  describe('Criterion 11 — PATCH appearance (qualquer membro autenticado)', () => {
+    it('mechanic sem settings.manage pode PATCH /settings/appearance (200)', async () => {
+      const owner = await registerOwner();
+      const mech = await inviteAccept(owner, 'mechanic');
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/appearance')
+        .set('Authorization', `Bearer ${mech.access}`)
+        .send({ themePreset: 'azul' });
+      if (res.status !== 200) {
+        // eslint-disable-next-line no-console
+        console.error('PATCH appearance unexpected status', res.status, res.body);
+      }
+      expect(res.status).toBe(200);
+      expect(res.body.company.themePreset).toBe('azul');
+    });
+
+    it('mechanic NÃO pode PATCH /settings/company (403)', async () => {
+      const owner = await registerOwner();
+      const mech = await inviteAccept(owner, 'mechanic');
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/company')
+        .set('Authorization', `Bearer ${mech.access}`)
+        .send({ companyName: 'Invadido' });
+      expect(res.status).toBe(403);
+    });
+
+    it('PATCH /settings/appearance rejeita campos de empresa (400 forbidNonWhitelisted)', async () => {
+      const owner = await registerOwner();
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/appearance')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ themePreset: 'azul', companyName: 'Tentativa de invasao' });
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH /settings/appearance rejeita themePreset inválido (400)', async () => {
+      const owner = await registerOwner();
+
+      const res = await request(app.getHttpServer())
+        .patch('/api/settings/appearance')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ themePreset: 'arcoiris' });
+      expect(res.status).toBe(400);
+    });
+
+    it('owner pode PATCH /settings/appearance e round-trip via GET /settings', async () => {
+      const owner = await registerOwner();
+
+      const patch = await request(app.getHttpServer())
+        .patch('/api/settings/appearance')
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ themePreset: 'roxo', primaryColor: '#6B21A8' });
+      expect(patch.status).toBe(200);
+      expect(patch.body.company.themePreset).toBe('roxo');
+
+      const settings = await getSettings(owner.access);
+      expect(settings.company.themePreset).toBe('roxo');
+      expect(settings.company.primaryColor).toBe('#6B21A8');
+    });
+  });
+
   describe('Criterion 10 — tenant isolation for fiscal fields', () => {
     it('fiscal fields set by tenant A are not visible to tenant B', async () => {
       const ownerA = await registerOwner();

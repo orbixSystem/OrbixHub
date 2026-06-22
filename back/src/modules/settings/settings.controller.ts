@@ -4,7 +4,7 @@ import { memoryStorage } from 'multer';
 import { Permissions, CurrentUser } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { SettingsService } from './settings.service';
-import { UpdateCompanyDto } from './dto/settings.dto';
+import { UpdateAppearanceDto, UpdateCompanyDto } from './dto/settings.dto';
 import { UploadedImage } from './settings.types';
 
 @Controller('settings')
@@ -14,6 +14,17 @@ export class SettingsController {
   @Get()
   get(@CurrentUser() user: AuthUser) {
     return this.settings.getSettings(user); // read: any authenticated member
+  }
+
+  /**
+   * Qualquer membro autenticado pode alterar aparência (themePreset + cores).
+   * Sem @Permissions: basta estar logado (JwtAuthGuard global).
+   * O ValidationPipe com whitelist/forbidNonWhitelisted bloqueia campos de empresa.
+   */
+  @Patch('appearance')
+  @HttpCode(200)
+  updateAppearance(@CurrentUser() user: AuthUser, @Body() dto: UpdateAppearanceDto) {
+    return this.settings.updateAppearance(user, dto);
   }
 
   @Patch('company')

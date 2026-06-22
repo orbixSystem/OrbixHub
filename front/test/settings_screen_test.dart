@@ -22,7 +22,7 @@ class _FakeSession extends SessionController {
       );
 }
 
-/// Session controller fixo SEM permissão settings.manage.
+/// Session controller fixo SEM permissão settings.manage (mecânico).
 class _FakeSessionNoAccess extends SessionController {
   @override
   SessionState build() => const SessionState.authenticated(
@@ -60,13 +60,13 @@ void main() {
 
     // Must show the page header.
     expect(find.text('Configurações'), findsWidgets);
-    // Must show the company section title.
+    // Owner com settings.manage vê a seção de empresa.
     expect(find.text('Empresa & Identidade visual'), findsOneWidget);
-    // Must show the appearance placeholder card.
+    // Aparência sempre visível.
     expect(find.text('Aparência'), findsOneWidget);
   });
 
-  testWidgets('SettingsScreen mostra acesso negado sem settings.manage',
+  testWidgets('SettingsScreen sem settings.manage mostra apenas Aparência (sem acesso negado)',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -84,8 +84,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Acesso negado'), findsOneWidget);
-    // The form must NOT be shown.
+    // NÃO mostra mais "Acesso negado" — a seção Aparência é pública.
+    expect(find.text('Acesso negado'), findsNothing);
+    // Seção Aparência sempre visível.
+    expect(find.text('Aparência'), findsOneWidget);
+    // Seção de empresa NÃO deve aparecer para não-owners.
     expect(find.text('Empresa & Identidade visual'), findsNothing);
   });
 }

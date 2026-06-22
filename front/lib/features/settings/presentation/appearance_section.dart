@@ -82,7 +82,7 @@ class AppearanceSection extends ConsumerWidget {
             onSelect: (key) {
               ref
                   .read(settingsControllerProvider.notifier)
-                  .saveCompany({'themePreset': key});
+                  .saveAppearance({'themePreset': key});
             },
           ),
           const SizedBox(height: 20),

@@ -43,6 +43,20 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
     }
   }
 
+  /// Salva apenas campos de aparência (themePreset, primaryColor, secondaryColor).
+  ///
+  /// Usa PATCH /settings/appearance — acessível por qualquer membro autenticado.
+  /// Invalida [brandingSeedProvider] quando o preset ou cor primária mudar.
+  Future<void> saveAppearance(Map<String, dynamic> patch) async {
+    final updatedCompany = await _repo.updateAppearance(patch);
+    state = state.whenData(
+      (bundle) => bundle.copyWith(company: updatedCompany),
+    );
+    if (patch.containsKey('themePreset') || patch.containsKey('primaryColor')) {
+      ref.invalidate(brandingSeedProvider);
+    }
+  }
+
   /// Faz upload de logo e atualiza o bundle em memória.
   Future<void> uploadLogo(
     Uint8List bytes,
