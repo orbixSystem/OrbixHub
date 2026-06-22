@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import 'appearance_section.dart';
 import 'company_form.dart';
 import 'dynamic_section.dart';
 
@@ -110,60 +111,8 @@ class SettingsScreen extends ConsumerWidget {
             CompanyForm(bundle: bundle, company: bundle.company),
             const SizedBox(height: 24),
 
-            // ---- Aparência (Task 5.1 placeholder) -----------------------
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: scheme.outlineVariant),
-              ),
-              color: scheme.surfaceContainerLowest,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Icon(Icons.palette_outlined,
-                        color: scheme.onSurfaceVariant, size: 28),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Aparência',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Personalização de cores e tema — em breve.',
-                            style: TextStyle(
-                              color: scheme.onSurfaceVariant,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Em breve',
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // ---- Aparência (Task 5.1) ------------------------------------
+            AppearanceSection(company: bundle.company),
 
             // ---- Module sections ----------------------------------------
             if (moduleSections.isNotEmpty) ...[

@@ -1,0 +1,315 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/theme/theme_presets.dart';
+import '../../../di.dart';
+
+/// Seção de Aparência na tela de Configurações.
+///
+/// Exibe:
+/// - Grade de swatches de presets de tema ([kThemePresets]).
+/// - Controle segmentado de modo claro/escuro/sistema.
+/// - Card de pré-visualização usando [ColorScheme] do tema ativo.
+///
+/// Recebe [company] (mapa de configurações da empresa) para saber qual preset
+/// está atualmente selecionado.
+class AppearanceSection extends ConsumerWidget {
+  final Map<String, dynamic> company;
+
+  const AppearanceSection({super.key, required this.company});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final themeMode = ref.watch(themeControllerProvider);
+
+    // Determina o preset selecionado a partir de company['themePreset'],
+    // ou usa 'tangerina' como padrão.
+    final selectedKey =
+        (company['themePreset'] as String?) ?? 'tangerina';
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      color: scheme.surfaceContainerLowest,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabeçalho
+            Row(
+              children: [
+                Icon(Icons.palette_outlined,
+                    color: scheme.primary, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  'Aparência',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ---- Tema do sistema (presets) --------------------------------
+            Text(
+              'Tema do sistema',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            _SwatchGrid(
+              selectedKey: selectedKey,
+              onSelect: (key) {
+                ref
+                    .read(settingsControllerProvider.notifier)
+                    .saveCompany({'themePreset': key});
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // ---- Modo (claro / escuro / sistema) -------------------------
+            Text(
+              'Modo',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            _ThemeModeSelector(
+              current: themeMode,
+              onChanged: (mode) {
+                ref.read(themeControllerProvider.notifier).set(mode);
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // ---- Pré-visualização ----------------------------------------
+            Text(
+              'Pré-visualização',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            _ThemePreview(scheme: scheme),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grade de swatches
+// ---------------------------------------------------------------------------
+
+class _SwatchGrid extends StatelessWidget {
+  final String selectedKey;
+  final ValueChanged<String> onSelect;
+
+  const _SwatchGrid({
+    required this.selectedKey,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final preset in kThemePresets)
+          _SwatchItem(
+            preset: preset,
+            isSelected: preset.key == selectedKey,
+            onTap: () => onSelect(preset.key),
+          ),
+      ],
+    );
+  }
+}
+
+class _SwatchItem extends StatelessWidget {
+  final ThemePreset preset;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SwatchItem({
+    required this.preset,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: preset.seed,
+              border: Border.all(
+                color: isSelected ? scheme.primary : Colors.transparent,
+                width: 3,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: preset.seed.withAlpha(100),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
+            ),
+            child: isSelected
+                ? Icon(Icons.check, color: Colors.white, size: 18)
+                : null,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            preset.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isSelected
+                      ? scheme.primary
+                      : scheme.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Seletor de modo claro/escuro/sistema
+// ---------------------------------------------------------------------------
+
+class _ThemeModeSelector extends StatelessWidget {
+  final ThemeMode current;
+  final ValueChanged<ThemeMode> onChanged;
+
+  const _ThemeModeSelector({
+    required this.current,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<ThemeMode>(
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(
+          value: ThemeMode.light,
+          label: Text('Claro'),
+          icon: Icon(Icons.light_mode_outlined),
+        ),
+        ButtonSegment(
+          value: ThemeMode.dark,
+          label: Text('Escuro'),
+          icon: Icon(Icons.dark_mode_outlined),
+        ),
+        ButtonSegment(
+          value: ThemeMode.system,
+          label: Text('Sistema'),
+          icon: Icon(Icons.brightness_auto_outlined),
+        ),
+      ],
+      selected: {current},
+      onSelectionChanged: (set) {
+        if (set.isNotEmpty) onChanged(set.first);
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Card de pré-visualização
+// ---------------------------------------------------------------------------
+
+class _ThemePreview extends StatelessWidget {
+  final ColorScheme scheme;
+
+  const _ThemePreview({required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Exemplo de interface',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: scheme.onSurface),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  onPressed: () {},
+                  child: const Text('Salvar'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                  onPressed: () {},
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                Chip(
+                  label: Text(
+                    'Ativo',
+                    style: TextStyle(color: scheme.onPrimaryContainer),
+                  ),
+                  backgroundColor: scheme.primaryContainer,
+                ),
+                Chip(
+                  label: Text(
+                    'Pendente',
+                    style: TextStyle(color: scheme.onSecondaryContainer),
+                  ),
+                  backgroundColor: scheme.secondaryContainer,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
