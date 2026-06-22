@@ -53,6 +53,10 @@ class OsDetailScreen extends ConsumerWidget {
     final canApprove = _has(ref, 'os.approve');
     final canRead = _has(ref, 'os.read');
     final company = _company(ref);
+    // Logo do tenant para exibir no cabeçalho da OS.
+    final logoUrl = ref
+        .watch(settingsControllerProvider)
+        .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
 
     return orderAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -80,6 +84,7 @@ class OsDetailScreen extends ConsumerWidget {
               _Header(
                 order: order,
                 company: company,
+                logoUrl: logoUrl,
                 canEdit: canEdit,
                 canRead: canRead,
                 onEdit: () => _edit(context, ref, order),
@@ -225,10 +230,12 @@ class _Header extends StatelessWidget {
     required this.onEdit,
     required this.onApplyTemplate,
     required this.onPrint,
+    this.logoUrl,
   });
 
   final ServiceOrder order;
   final OsCompany? company;
+  final String? logoUrl;
   final bool canEdit;
   final bool canRead;
   final VoidCallback onEdit;
@@ -273,17 +280,42 @@ class _Header extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (company != null) ...[
-            Text(
-              company!.name,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            if ((company!.cnpj ?? '').isNotEmpty)
-              Text(
-                'CNPJ: ${company!.cnpj}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (logoUrl != null && logoUrl!.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      logoUrl!,
+                      height: 40,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
-              ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        company!.name,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      if ((company!.cnpj ?? '').isNotEmpty)
+                        Text(
+                          'CNPJ: ${company!.cnpj}',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
           ],
           Row(

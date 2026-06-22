@@ -29,19 +29,10 @@ class SidebarContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Badge ao vivo no item Mensagens (soma de não-lidos do staff).
     final unreadMessages = ref.watch(unreadConversationsCountProvider);
-    // Logo do tenant: usa Image.network se disponível, senão BrandMark.
+    // Logo do tenant para o workspace chip.
     final logoUrl = ref
         .watch(settingsControllerProvider)
         .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
-    final brandSlot = (logoUrl != null && logoUrl.isNotEmpty)
-        ? Image.network(
-            logoUrl,
-            height: 26,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) =>
-                const BrandMark(size: 26, onDark: true),
-          )
-        : const BrandMark(size: 26, onDark: true);
     return Container(
       width: 272,
       color: AppColors.graphite,
@@ -49,16 +40,20 @@ class SidebarContent extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+            // Topo: sempre o wordmark/glifo do OrbixHub.
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 24, 22, 18),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: brandSlot,
+                child: BrandMark(size: 26, onDark: true),
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _WorkspaceChip(name: me.activeTenant?.name ?? 'Oficina'),
+              child: _WorkspaceChip(
+                name: me.activeTenant?.name ?? 'Oficina',
+                logoUrl: logoUrl,
+              ),
             ),
             const SizedBox(height: 22),
             const Padding(
@@ -112,11 +107,73 @@ class SidebarContent extends ConsumerWidget {
 }
 
 class _WorkspaceChip extends StatelessWidget {
-  const _WorkspaceChip({required this.name});
+  const _WorkspaceChip({required this.name, this.logoUrl});
   final String name;
+  final String? logoUrl;
+
+  /// Abre dialog ampliado com a logo do cliente.
+  void _showLogoDialog(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 320,
+                  maxHeight: 240,
+                ),
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => Icon(
+                    Icons.broken_image_outlined,
+                    size: 48,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Fechar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasLogo = logoUrl != null && logoUrl!.isNotEmpty;
+
+    final avatarBox = hasLogo
+        ? GestureDetector(
+            onTap: () => _showLogoDialog(context, logoUrl!),
+            child: Tooltip(
+              message: 'Ver logo',
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  logoUrl!,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _DefaultAvatar(),
+                ),
+              ),
+            ),
+          )
+        : _DefaultAvatar();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -126,18 +183,7 @@ class _WorkspaceChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.brandBright, AppColors.brandDeep],
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.garage_rounded,
-                size: 17, color: Colors.white),
-          ),
+          avatarBox,
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -165,6 +211,24 @@ class _WorkspaceChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Avatar genérico (ícone laranja) quando não há logo cadastrada.
+class _DefaultAvatar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.brandBright, AppColors.brandDeep],
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.garage_rounded, size: 19, color: Colors.white),
     );
   }
 }
