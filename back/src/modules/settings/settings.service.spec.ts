@@ -2,6 +2,7 @@ import { SettingsService } from './settings.service';
 import { COMPANY_SECTION } from './settings.section-registry';
 
 const user = { userId: 'u1', tenantId: 't1', role: 'owner', jti: 'j' } as never;
+const storage = { put: jest.fn(), delete: jest.fn(), url: jest.fn() } as never;
 
 describe('SettingsService.getSettings', () => {
   it('core-only: returns sections with exactly [company] when no module sections registered', async () => {
@@ -10,7 +11,7 @@ describe('SettingsService.getSettings', () => {
     const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit);
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
     const result = await svc.getSettings(user);
 
     expect(tenancy.getCompanySettings).toHaveBeenCalledWith('t1');
@@ -26,7 +27,7 @@ describe('SettingsService.getSettings', () => {
     const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit);
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
     const result = await svc.getSettings(user);
 
     expect(result.sections.map((s) => s.key)).toContain('os-cfg');
@@ -39,7 +40,7 @@ describe('SettingsService.getSettings', () => {
     const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
     const audit = { log: jest.fn() } as never;
 
-    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit);
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
     const result = await svc.getSettings(user);
 
     const keys = result.sections.map((s) => s.key);
@@ -62,7 +63,7 @@ describe('SettingsService.updateCompany', () => {
     const log = jest.fn(async () => undefined);
     const audit = { log } as never;
 
-    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit);
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
     const result = await svc.updateCompany(user, { companyName: 'new' });
 
     expect(updateCompanySettings).toHaveBeenCalledWith('t1', {
@@ -83,7 +84,7 @@ describe('SettingsService.updateCompany', () => {
     const audit2 = { log: jest.fn(async () => undefined) };
     const billing2 = { getEnabledModules: jest.fn(async () => []) };
     const registry2 = { moduleSections: () => [] };
-    const svc = new SettingsService(registry2 as never, billing2 as never, tenancy2 as never, audit2 as never);
+    const svc = new SettingsService(registry2 as never, billing2 as never, tenancy2 as never, audit2 as never, storage);
     const u = { tenantId: 't1', userId: 'u1' } as never;
 
     const res = await svc.updateCompany(u, { companyName: 'Novo', legalName: 'Novo ME', taxId: '123' } as never);
