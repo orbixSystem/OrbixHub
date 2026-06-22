@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/settings/domain/settings_models.dart';
+import 'package:orbixhub_front/features/settings/presentation/settings_controller.dart';
 import 'package:orbixhub_front/features/shell/presentation/nav_items.dart';
 import 'package:orbixhub_front/features/shell/presentation/sidebar.dart';
 
@@ -21,12 +24,19 @@ void main() {
     modules: ['os', 'customers'],
   );
 
+  // Stub: settingsControllerProvider retorna bundle vazio (sem logoUrl),
+  // evitando chamada de rede nos testes de layout do shell.
+  final settingsOverride = settingsControllerProvider.overrideWith(
+    () => _StubSettingsController(),
+  );
+
   testWidgets('sidebar lays out with no exception and shows gated nav',
       (tester) async {
     final items = gatedNavItems(me);
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [settingsOverride],
         child: MaterialApp(
           home: Scaffold(
             body: Row(
@@ -60,6 +70,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [settingsOverride],
         child: MaterialApp(
           home: Scaffold(
             body: Row(
@@ -83,4 +94,11 @@ void main() {
     await tester.tap(find.text('Planos'));
     expect(tapped, '/billing');
   });
+}
+
+/// Stub do SettingsController para testes: retorna SettingsBundle vazio
+/// (sem logoUrl), sem acionar chamadas de rede.
+class _StubSettingsController extends SettingsController {
+  @override
+  Future<SettingsBundle> build() async => const SettingsBundle();
 }

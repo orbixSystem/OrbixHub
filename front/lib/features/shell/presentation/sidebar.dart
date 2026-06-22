@@ -29,6 +29,19 @@ class SidebarContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Badge ao vivo no item Mensagens (soma de não-lidos do staff).
     final unreadMessages = ref.watch(unreadConversationsCountProvider);
+    // Logo do tenant: usa Image.network se disponível, senão BrandMark.
+    final logoUrl = ref
+        .watch(settingsControllerProvider)
+        .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
+    final brandSlot = (logoUrl != null && logoUrl.isNotEmpty)
+        ? Image.network(
+            logoUrl,
+            height: 26,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) =>
+                const BrandMark(size: 26, onDark: true),
+          )
+        : const BrandMark(size: 26, onDark: true);
     return Container(
       width: 272,
       color: AppColors.graphite,
@@ -40,7 +53,7 @@ class SidebarContent extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: BrandMark(size: 26, onDark: true),
+                child: brandSlot,
               ),
             ),
             Padding(
