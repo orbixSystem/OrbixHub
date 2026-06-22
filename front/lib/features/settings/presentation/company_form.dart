@@ -10,11 +10,15 @@ import '../domain/settings_models.dart';
 ///
 /// Agrupa campos por [SettingsField.group] quando presente. A ação "Salvar"
 /// envia apenas as chaves que foram modificadas em relação ao mapa original.
+///
+/// Quando [embedded] é `true`, omite o Card externo e o título (útil quando
+/// este widget é incorporado dentro de um painel expansível).
 class CompanyForm extends ConsumerStatefulWidget {
   const CompanyForm({
     super.key,
     required this.bundle,
     required this.company,
+    this.embedded = false,
   });
 
   /// Bundle completo — usado para ler as definições de campos da seção 'company'.
@@ -22,6 +26,10 @@ class CompanyForm extends ConsumerStatefulWidget {
 
   /// Mapa atual dos valores da empresa (snapshot do estado ao construir).
   final Map<String, dynamic> company;
+
+  /// Quando `true`, omite o Card externo e o título interno (para uso em
+  /// [_CollapsibleSection] que já provê o cabeçalho).
+  final bool embedded;
 
   @override
   ConsumerState<CompanyForm> createState() => _CompanyFormState();
@@ -92,11 +100,16 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
   }
 
+  /// Campos somente-leitura que nunca devem ser enviados no patch.
+  static const _readOnlyFields = {'taxId'};
+
   Map<String, dynamic> _buildPatch() {
     final patch = <String, dynamic>{};
     final section = _companySection;
     if (section == null) return patch;
     for (final field in section.fields) {
+      // CNPJ (taxId) é não editável: nunca incluir no patch.
+      if (_readOnlyFields.contains(field.key)) continue;
       final original = widget.company[field.key];
       if (_isTextField(field.type)) {
         final current = _textCtrl[field.key]?.text ?? '';
@@ -223,6 +236,69 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
     final logoUrl = widget.company['logoUrl'] as String?;
 
+    final content = Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.embedded) ...[
+            Text(
+              'Empresa & Identidade visual',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ---- Logo ---------------------------------------------------
+          _LogoSection(
+            logoUrl: logoUrl,
+            saving: _saving,
+            onUpload: _uploadLogo,
+            onRemove: _removeLogo,
+            scheme: scheme,
+          ),
+
+          if (section != null && section.fields.isNotEmpty) ...[
+            const SizedBox(height: 24),
+
+            // ---- Field groups ------------------------------------------
+            for (final entry in groups.entries) ...[
+              _GroupHeader(label: entry.key, scheme: scheme),
+              const SizedBox(height: 12),
+              for (final field in entry.value) ...[
+                _buildFieldWidget(field, scheme),
+                const SizedBox(height: 14),
+              ],
+            ],
+          ],
+
+          const SizedBox(height: 8),
+
+          // ---- Save button -------------------------------------------
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                      ),
+                      onPressed: _save,
+                      child: const Text('Salvar'),
+                    ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embedded) return content;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -230,68 +306,32 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         side: BorderSide(color: scheme.outlineVariant),
       ),
       color: scheme.surfaceContainerLowest,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Empresa & Identidade visual',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 20),
-
-            // ---- Logo ---------------------------------------------------
-            _LogoSection(
-              logoUrl: logoUrl,
-              saving: _saving,
-              onUpload: _uploadLogo,
-              onRemove: _removeLogo,
-              scheme: scheme,
-            ),
-
-            if (section != null && section.fields.isNotEmpty) ...[
-              const SizedBox(height: 24),
-
-              // ---- Field groups ------------------------------------------
-              for (final entry in groups.entries) ...[
-                _GroupHeader(label: entry.key, scheme: scheme),
-                const SizedBox(height: 12),
-                for (final field in entry.value) ...[
-                  _buildFieldWidget(field, scheme),
-                  const SizedBox(height: 14),
-                ],
-              ],
-            ],
-
-            const SizedBox(height: 8),
-
-            // ---- Save button -------------------------------------------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : FilledButton(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 48),
-                        ),
-                        onPressed: _save,
-                        child: const Text('Salvar'),
-                      ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 
   Widget _buildFieldWidget(SettingsField field, ColorScheme scheme) {
+    // Campos somente-leitura: exibe desabilitado com ícone de cadeado.
+    if (_readOnlyFields.contains(field.key)) {
+      return TextFormField(
+        controller: _textCtrl[field.key],
+        readOnly: true,
+        enabled: false,
+        decoration: InputDecoration(
+          labelText: field.label,
+          hintText: 'não editável',
+          suffixIcon: Icon(Icons.lock_outline, size: 16, color: scheme.onSurfaceVariant),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          isDense: true,
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: scheme.outlineVariant),
+          ),
+        ),
+        style: TextStyle(color: scheme.onSurfaceVariant),
+      );
+    }
+
     if (_isTextField(field.type)) {
       return TextFormField(
         controller: _textCtrl[field.key],

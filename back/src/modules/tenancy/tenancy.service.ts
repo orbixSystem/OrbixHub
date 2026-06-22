@@ -61,6 +61,27 @@ export class TenancyService {
     return this.repo.getTenantSettings(tenantId);
   }
 
+  /**
+   * Visão mesclada da empresa para pré-preenchimento de formulário:
+   * fallbacks derivados das colunas tipadas do tenant (nome, razão social, cnpj)
+   * são sobrescritos pelos valores salvos no JSONB. Assim, um tenant recém-
+   * registrado já vê seus dados básicos no formulário, sem precisar salvar
+   * nada antes.
+   *
+   * Não deve ser usado como base de merge no updateCompany — o merge usa
+   * getCompanySettings (JSONB puro) para evitar que os fallbacks sejam
+   * persistidos no JSONB desnecessariamente.
+   */
+  async getCompanyView(tenantId: string): Promise<Record<string, unknown>> {
+    const t = await this.repo.getTenant(tenantId);
+    const settings = (t?.settings as Record<string, unknown>) ?? {};
+    const fallbacks: Record<string, unknown> = {};
+    if (t?.trade_name ?? t?.name) fallbacks.companyName = t?.trade_name ?? t?.name;
+    if (t?.legal_name) fallbacks.legalName = t.legal_name;
+    if (t?.cnpj) fallbacks.taxId = t.cnpj;
+    return { ...fallbacks, ...settings };
+  }
+
   updateCompanySettings(tenantId: string, merged: Record<string, unknown>): Promise<void> {
     return this.repo.updateTenantSettings(tenantId, merged);
   }

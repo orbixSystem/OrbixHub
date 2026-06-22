@@ -13,10 +13,14 @@ import '../../../di.dart';
 ///
 /// Recebe [company] (mapa de configurações da empresa) para saber qual preset
 /// está atualmente selecionado.
+///
+/// Quando [embedded] é `true`, omite o Card externo (útil quando este widget
+/// é incorporado dentro de um painel expansível que já provê o contêiner).
 class AppearanceSection extends ConsumerWidget {
   final Map<String, dynamic> company;
+  final bool embedded;
 
-  const AppearanceSection({super.key, required this.company});
+  const AppearanceSection({super.key, required this.company, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,19 +47,13 @@ class AppearanceSection extends ConsumerWidget {
       return 'tangerina';
     }();
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      color: scheme.surfaceContainerLowest,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cabeçalho
+    final content = Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!embedded) ...[
+            // Cabeçalho (omitido quando embedded — o painel expansível provê o título)
             Row(
               children: [
                 Icon(Icons.palette_outlined,
@@ -68,56 +66,68 @@ class AppearanceSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
-
-            // ---- Tema do sistema (presets) --------------------------------
-            Text(
-              'Tema do sistema',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 12),
-            _SwatchGrid(
-              selectedKey: selectedKey,
-              onSelect: (key) {
-                ref
-                    .read(settingsControllerProvider.notifier)
-                    .saveCompany({'themePreset': key});
-              },
-            ),
-            const SizedBox(height: 20),
-
-            // ---- Modo (claro / escuro / sistema) -------------------------
-            Text(
-              'Modo',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 10),
-            _ThemeModeSelector(
-              current: themeMode,
-              onChanged: (mode) {
-                ref.read(themeControllerProvider.notifier).set(mode);
-              },
-            ),
-            const SizedBox(height: 20),
-
-            // ---- Pré-visualização ----------------------------------------
-            Text(
-              'Pré-visualização',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 10),
-            _ThemePreview(scheme: scheme),
           ],
-        ),
+
+          // ---- Tema do sistema (presets) --------------------------------
+          Text(
+            'Tema do sistema',
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          _SwatchGrid(
+            selectedKey: selectedKey,
+            onSelect: (key) {
+              ref
+                  .read(settingsControllerProvider.notifier)
+                  .saveCompany({'themePreset': key});
+            },
+          ),
+          const SizedBox(height: 20),
+
+          // ---- Modo (claro / escuro / sistema) -------------------------
+          Text(
+            'Modo',
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          _ThemeModeSelector(
+            current: themeMode,
+            onChanged: (mode) {
+              ref.read(themeControllerProvider.notifier).set(mode);
+            },
+          ),
+          const SizedBox(height: 20),
+
+          // ---- Pré-visualização ----------------------------------------
+          Text(
+            'Pré-visualização',
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          _ThemePreview(scheme: scheme),
+        ],
       ),
+    );
+
+    if (embedded) return content;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      color: scheme.surfaceContainerLowest,
+      child: content,
     );
   }
 }

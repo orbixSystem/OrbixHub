@@ -167,8 +167,11 @@ describe('Settings host (e2e)', () => {
       expect(sectionKeys(settings)).toContain('clientes_veiculos');
       expect(typeof settings.company).toBe('object');
       expect(settings.company).not.toBeNull();
-      // a fresh tenant has no company settings yet -> defaults to {}
-      expect(settings.company).toEqual({});
+      // a fresh tenant has no saved settings yet, but getSettings pre-fills
+      // from the typed columns set at registration (companyName/legalName/taxId).
+      expect(settings.company.companyName).toBeTruthy(); // tenantName → companyName
+      expect(settings.company.legalName).toBe('Razão Social Teste');
+      expect(settings.company.taxId).toBeTruthy(); // cnpj set at registration
     });
   });
 
@@ -259,9 +262,8 @@ describe('Settings host (e2e)', () => {
       expect(patch.status).toBe(200);
 
       const bSettings = await getSettings(ownerB.access);
+      // B sees its own registration data (not A's data)
       expect(bSettings.company.companyName).not.toBe('Empresa A');
-      // B sees its own defaults
-      expect(bSettings.company.companyName).toBeUndefined();
     });
   });
 
@@ -402,7 +404,8 @@ describe('Settings host (e2e)', () => {
       // Tenant B sees none of A's fiscal data
       const bSettings = await getSettings(ownerB.access);
       expect(bSettings.company.companyName).not.toBe('Empresa Alpha');
-      expect(bSettings.company.legalName).toBeUndefined();
+      // legalName comes from B's own registration ('Razão Social Teste'), not from A
+      expect(bSettings.company.legalName).not.toBe('Alpha Razão Social LTDA');
       expect(bSettings.company.regimeTributario).toBeUndefined();
       expect(bSettings.company.uf).toBeUndefined();
     });

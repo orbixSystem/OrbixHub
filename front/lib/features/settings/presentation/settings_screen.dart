@@ -10,9 +10,11 @@ import 'dynamic_section.dart';
 /// Tela de Configurações — corpo apenas (o shell é dono da moldura).
 ///
 /// Exibe:
-/// 1. [CompanyForm] para editar dados da empresa.
-/// 2. [AppearanceSection] com presets de tema e seletor claro/escuro/sistema.
-/// 3. Um [DynamicSection] por seção de módulo habilitado (moduleKey != null).
+/// 1. [CompanyForm] para editar dados da empresa (expansível, aberto por padrão).
+/// 2. [AppearanceSection] com presets de tema e seletor claro/escuro/sistema
+///    (expansível, fechado por padrão).
+/// 3. Um [DynamicSection] por seção de módulo habilitado, cada um expansível e
+///    fechado por padrão.
 ///
 /// Se o usuário não tiver permissão `settings.manage`, exibe uma mensagem de
 /// acesso negado em vez do formulário.
@@ -107,14 +109,29 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // ---- Empresa & Identidade visual ----------------------------
-            CompanyForm(bundle: bundle, company: bundle.company),
-            const SizedBox(height: 24),
+            // ---- Empresa & Identidade visual (aberta por padrão) ---------
+            _CollapsibleSection(
+              title: 'Empresa & Identidade visual',
+              initiallyExpanded: true,
+              child: CompanyForm(
+                bundle: bundle,
+                company: bundle.company,
+                embedded: true,
+              ),
+            ),
+            const SizedBox(height: 16),
 
-            // ---- Aparência (presets de tema + claro/escuro) --------------
-            AppearanceSection(company: bundle.company),
+            // ---- Aparência (fechada por padrão) --------------------------
+            _CollapsibleSection(
+              title: 'Aparência',
+              initiallyExpanded: false,
+              child: AppearanceSection(
+                company: bundle.company,
+                embedded: true,
+              ),
+            ),
 
-            // ---- Module sections ----------------------------------------
+            // ---- Module sections (cada uma fechada por padrão) -----------
             if (moduleSections.isNotEmpty) ...[
               const SizedBox(height: 24),
               Text(
@@ -123,11 +140,16 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               for (final section in moduleSections) ...[
-                DynamicSection(
-                  section: section,
-                  values: bundle.company,
+                _CollapsibleSection(
+                  title: section.title,
+                  initiallyExpanded: false,
+                  child: DynamicSection(
+                    section: section,
+                    values: bundle.company,
+                    hideTitle: true,
+                  ),
                 ),
-                if (section != moduleSections.last) const SizedBox(height: 16),
+                if (section != moduleSections.last) const SizedBox(height: 12),
               ],
             ],
 
@@ -135,6 +157,59 @@ class SettingsScreen extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Card expansível que envolve uma seção de configurações.
+///
+/// O [title] aparece no cabeçalho do painel; o [child] é exibido quando
+/// expandido. Usa [ExpansionTile] com visual alinhado ao design system do
+/// projeto (borda, cor de fundo via [ColorScheme], sem cores hardcoded).
+class _CollapsibleSection extends StatelessWidget {
+  const _CollapsibleSection({
+    required this.title,
+    required this.child,
+    this.initiallyExpanded = false,
+  });
+
+  final String title;
+  final Widget child;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      color: scheme.surfaceContainerLowest,
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        childrenPadding: EdgeInsets.zero,
+        expansionAnimationStyle: AnimationStyle(
+          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 200),
+        ),
+        backgroundColor: scheme.surfaceContainerLowest,
+        collapsedBackgroundColor: scheme.surfaceContainerLowest,
+        iconColor: scheme.onSurfaceVariant,
+        collapsedIconColor: scheme.onSurfaceVariant,
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        children: [
+          Divider(height: 1, color: scheme.outlineVariant),
+          child,
+        ],
+      ),
     );
   }
 }

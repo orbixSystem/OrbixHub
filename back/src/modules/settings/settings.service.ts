@@ -27,7 +27,7 @@ export class SettingsService {
     // Sequential, not Promise.all: getEnabledModules() opens a $transaction that
     // can reject under load; alongside a sibling in Promise.all that sibling's
     // late rejection becomes an unhandled rejection that crashes the process.
-    const company = await this.tenancy.getCompanySettings(user.tenantId);
+    const company = await this.tenancy.getCompanyView(user.tenantId);
     const enabled = await this.billing.getEnabledModules(user.tenantId);
     const moduleSections = this.registry
       .moduleSections()

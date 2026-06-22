@@ -8,13 +8,16 @@ describe('SettingsService.getSettings', () => {
   it('core-only: returns sections with exactly [company] when no module sections registered', async () => {
     const registry = { moduleSections: jest.fn(() => []) };
     const billing = { getEnabledModules: jest.fn(async () => ['os']) };
-    const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({})),
+    };
     const audit = { log: jest.fn() } as never;
 
     const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
     const result = await svc.getSettings(user);
 
-    expect(tenancy.getCompanySettings).toHaveBeenCalledWith('t1');
+    expect(tenancy.getCompanyView).toHaveBeenCalledWith('t1');
     expect(billing.getEnabledModules).toHaveBeenCalledWith('t1');
     expect(result.sections.map((s) => s.key)).toEqual(['company']);
     expect(result.sections[0]).toBe(COMPANY_SECTION);
@@ -24,7 +27,10 @@ describe('SettingsService.getSettings', () => {
     const osSection = { key: 'os-cfg', title: 'OS', moduleKey: 'os', fields: [] };
     const registry = { moduleSections: jest.fn(() => [osSection]) };
     const billing = { getEnabledModules: jest.fn(async () => ['os']) };
-    const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({})),
+    };
     const audit = { log: jest.fn() } as never;
 
     const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
@@ -37,7 +43,10 @@ describe('SettingsService.getSettings', () => {
     const osSection = { key: 'os-cfg', title: 'OS', moduleKey: 'os', fields: [] };
     const registry = { moduleSections: jest.fn(() => [osSection]) };
     const billing = { getEnabledModules: jest.fn(async () => ['customers']) };
-    const tenancy = { getCompanySettings: jest.fn(async () => ({})) };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({})),
+    };
     const audit = { log: jest.fn() } as never;
 
     const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
@@ -46,6 +55,44 @@ describe('SettingsService.getSettings', () => {
     const keys = result.sections.map((s) => s.key);
     expect(keys).not.toContain('os-cfg');
     expect(keys).toEqual(['company']);
+  });
+
+  it('getSettings returns merged company: settings values win, column fallbacks fill missing keys', async () => {
+    const registry = { moduleSections: jest.fn(() => []) };
+    const billing = { getEnabledModules: jest.fn(async () => []) };
+    // getCompanyView returns merge of fallbacks + saved settings
+    const mergedView = { companyName: 'Nome Fantasia', legalName: 'Razão Social Ltda', taxId: '12.345.678/0001-99' };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => mergedView),
+    };
+    const audit = { log: jest.fn() } as never;
+
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
+    const result = await svc.getSettings(user);
+
+    expect(tenancy.getCompanyView).toHaveBeenCalledWith('t1');
+    // company on getSettings is the merged view (column fallbacks visible)
+    expect(result.company).toEqual(mergedView);
+    expect(result.company.companyName).toBe('Nome Fantasia');
+    expect(result.company.taxId).toBe('12.345.678/0001-99');
+  });
+
+  it('getSettings: saved settings value wins over column fallback', async () => {
+    const registry = { moduleSections: jest.fn(() => []) };
+    const billing = { getEnabledModules: jest.fn(async () => []) };
+    // Simulates: registration stored trade_name='Reg Name', but settings has companyName='Edited Name'
+    // getCompanyView should return the settings value (wins over fallback)
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({ companyName: 'Edited Name', taxId: '00.000.000/0001-00' })),
+    };
+    const audit = { log: jest.fn() } as never;
+
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
+    const result = await svc.getSettings(user);
+
+    expect(result.company.companyName).toBe('Edited Name');
   });
 });
 

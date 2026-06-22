@@ -5,19 +5,58 @@ import '../domain/settings_models.dart';
 /// Renders a read-only view of a [SettingsSection] using the current [values]
 /// map.  Module-owned sections are always read-only — the section's own module
 /// settings screen (if any) is the authority; this card is just an overview.
+///
+/// Quando [hideTitle] é `true`, omite o Card externo e o título interno (útil
+/// quando incorporado em um painel expansível que já provê o cabeçalho).
 class DynamicSection extends StatelessWidget {
   const DynamicSection({
     super.key,
     required this.section,
     required this.values,
+    this.hideTitle = false,
   });
 
   final SettingsSection section;
   final Map<String, dynamic> values;
 
+  /// Quando `true`, omite Card externo e título; útil dentro de
+  /// [_CollapsibleSection] que já provê o cabeçalho.
+  final bool hideTitle;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
+    final content = Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!hideTitle)
+            Text(section.title, style: Theme.of(context).textTheme.titleMedium),
+          if (section.fields.isNotEmpty) ...[
+            if (!hideTitle) const SizedBox(height: 16),
+            for (final field in section.fields) ...[
+              _FieldRow(
+                field: field,
+                value: values[field.key],
+                scheme: scheme,
+              ),
+              if (field != section.fields.last)
+                Divider(height: 24, color: scheme.outlineVariant),
+            ],
+          ] else ...[
+            if (!hideTitle) const SizedBox(height: 8),
+            Text(
+              'Nenhuma configuração disponível.',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (hideTitle) return content;
 
     return Card(
       elevation: 0,
@@ -26,33 +65,7 @@ class DynamicSection extends StatelessWidget {
         side: BorderSide(color: scheme.outlineVariant),
       ),
       color: scheme.surfaceContainerLowest,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(section.title, style: Theme.of(context).textTheme.titleMedium),
-            if (section.fields.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              for (final field in section.fields) ...[
-                _FieldRow(
-                  field: field,
-                  value: values[field.key],
-                  scheme: scheme,
-                ),
-                if (field != section.fields.last)
-                  Divider(height: 24, color: scheme.outlineVariant),
-              ],
-            ] else ...[
-              const SizedBox(height: 8),
-              Text(
-                'Nenhuma configuração disponível.',
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-              ),
-            ],
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 }
