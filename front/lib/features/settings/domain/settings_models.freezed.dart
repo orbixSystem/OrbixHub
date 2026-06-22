@@ -562,7 +562,9 @@ as String?,
 /// @nodoc
 mixin _$SettingsSection {
 
- String get key; String get title; String? get moduleKey; List<SettingsField> get fields;
+ String get key; String get title; String? get moduleKey; List<SettingsField> get fields;/// Valores efetivos da seção (retornados pelo backend via getValues callback).
+/// Para a seção `company` este mapa estará ausente/vazio.
+ Map<String, dynamic> get values;
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -575,16 +577,16 @@ $SettingsSectionCopyWith<SettingsSection> get copyWith => _$SettingsSectionCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other.fields, fields));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other.fields, fields)&&const DeepCollectionEquality().equals(other.values, values));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(fields));
+int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(fields),const DeepCollectionEquality().hash(values));
 
 @override
 String toString() {
-  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields)';
+  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values)';
 }
 
 
@@ -595,7 +597,7 @@ abstract mixin class $SettingsSectionCopyWith<$Res>  {
   factory $SettingsSectionCopyWith(SettingsSection value, $Res Function(SettingsSection) _then) = _$SettingsSectionCopyWithImpl;
 @useResult
 $Res call({
- String key, String title, String? moduleKey, List<SettingsField> fields
+ String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values
 });
 
 
@@ -612,13 +614,14 @@ class _$SettingsSectionCopyWithImpl<$Res>
 
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,}) {
   return _then(_self.copyWith(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,moduleKey: freezed == moduleKey ? _self.moduleKey : moduleKey // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self.fields : fields // ignore: cast_nullable_to_non_nullable
-as List<SettingsField>,
+as List<SettingsField>,values: null == values ? _self.values : values // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
   ));
 }
 
@@ -703,10 +706,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SettingsSection() when $default != null:
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
   return orElse();
 
 }
@@ -724,10 +727,10 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)  $default,) {final _that = this;
 switch (_that) {
 case _SettingsSection():
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -744,10 +747,10 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)?  $default,) {final _that = this;
 switch (_that) {
 case _SettingsSection() when $default != null:
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
   return null;
 
 }
@@ -759,7 +762,7 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields);case _:
 @JsonSerializable()
 
 class _SettingsSection implements SettingsSection {
-  const _SettingsSection({required this.key, required this.title, this.moduleKey, final  List<SettingsField> fields = const <SettingsField>[]}): _fields = fields;
+  const _SettingsSection({required this.key, required this.title, this.moduleKey, final  List<SettingsField> fields = const <SettingsField>[], final  Map<String, dynamic> values = const <String, dynamic>{}}): _fields = fields,_values = values;
   factory _SettingsSection.fromJson(Map<String, dynamic> json) => _$SettingsSectionFromJson(json);
 
 @override final  String key;
@@ -770,6 +773,17 @@ class _SettingsSection implements SettingsSection {
   if (_fields is EqualUnmodifiableListView) return _fields;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_fields);
+}
+
+/// Valores efetivos da seção (retornados pelo backend via getValues callback).
+/// Para a seção `company` este mapa estará ausente/vazio.
+ final  Map<String, dynamic> _values;
+/// Valores efetivos da seção (retornados pelo backend via getValues callback).
+/// Para a seção `company` este mapa estará ausente/vazio.
+@override@JsonKey() Map<String, dynamic> get values {
+  if (_values is EqualUnmodifiableMapView) return _values;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_values);
 }
 
 
@@ -786,16 +800,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other._fields, _fields));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other._fields, _fields)&&const DeepCollectionEquality().equals(other._values, _values));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(_fields));
+int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(_fields),const DeepCollectionEquality().hash(_values));
 
 @override
 String toString() {
-  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields)';
+  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values)';
 }
 
 
@@ -806,7 +820,7 @@ abstract mixin class _$SettingsSectionCopyWith<$Res> implements $SettingsSection
   factory _$SettingsSectionCopyWith(_SettingsSection value, $Res Function(_SettingsSection) _then) = __$SettingsSectionCopyWithImpl;
 @override @useResult
 $Res call({
- String key, String title, String? moduleKey, List<SettingsField> fields
+ String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values
 });
 
 
@@ -823,13 +837,14 @@ class __$SettingsSectionCopyWithImpl<$Res>
 
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,}) {
   return _then(_SettingsSection(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,moduleKey: freezed == moduleKey ? _self.moduleKey : moduleKey // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self._fields : fields // ignore: cast_nullable_to_non_nullable
-as List<SettingsField>,
+as List<SettingsField>,values: null == values ? _self._values : values // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
   ));
 }
 

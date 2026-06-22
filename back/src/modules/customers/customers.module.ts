@@ -33,12 +33,20 @@ import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
   exports: [CustomersService],
 })
 export class CustomersModule implements OnModuleInit {
-  constructor(private readonly registry: SettingsSectionRegistry) {}
+  constructor(
+    private readonly registry: SettingsSectionRegistry,
+    private readonly customersService: CustomersService,
+  ) {}
 
   onModuleInit(): void {
     // Seção aparece em GET /settings apenas se o módulo `customers` estiver
     // habilitado no tenant. Campos ricos (subjectFields) são geridos pelos
     // endpoints próprios do módulo (GET/PATCH /customers/config).
+    //
+    // getValues: retorna o mapa plano dos valores efetivos (DEFAULT ∪ salvo).
+    // O service.getConfig já aplica mergeCustomersConfig com os defaults.
+    // Achatamos subjectLabel.{singular,plural} para bater com as chaves dos fields.
+    const svc = this.customersService;
     this.registry.register({
       key: CUSTOMERS_CONFIG_KEY,
       title: 'Clientes',
@@ -49,6 +57,15 @@ export class CustomersModule implements OnModuleInit {
         { key: 'subjectLabel.plural', label: 'Rótulo (plural)', type: 'text' },
         { key: 'documentRequired', label: 'Documento obrigatório?', type: 'bool' },
       ],
+      getValues: async (tenantId: string): Promise<Record<string, unknown>> => {
+        const cfg = await svc.getConfig(tenantId);
+        return {
+          usaSubjects: cfg.usaSubjects,
+          'subjectLabel.singular': cfg.subjectLabel.singular,
+          'subjectLabel.plural': cfg.subjectLabel.plural,
+          documentRequired: cfg.documentRequired,
+        };
+      },
     });
   }
 }

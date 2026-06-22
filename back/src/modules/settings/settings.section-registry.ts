@@ -18,6 +18,13 @@ export interface SettingsSection {
   title: string;
   moduleKey: string | null; // null = núcleo; senão aparece só se o módulo estiver habilitado
   fields: SettingsFieldSchema[];
+  /**
+   * Callback opcional invocado pelo SettingsService ao montar GET /settings.
+   * Retorna um mapa plano dos valores efetivos da seção (defaults ∪ salvos).
+   * NÃO é serializado na resposta HTTP — o service extrai o resultado e o anexa
+   * como `values` na seção. Módulos declaram aqui sem depender do schema de outro.
+   */
+  getValues?: (tenantId: string) => Promise<Record<string, unknown>>;
 }
 
 @Injectable()

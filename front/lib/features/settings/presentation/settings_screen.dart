@@ -124,7 +124,7 @@ class SettingsScreen extends ConsumerWidget {
                   initiallyExpanded: false,
                   child: DynamicSection(
                     section: section,
-                    values: bundle.company,
+                    values: section.values,
                     hideTitle: true,
                   ),
                 ),

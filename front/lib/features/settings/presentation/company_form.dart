@@ -143,6 +143,11 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
     for (final field in section.fields) {
       final raw = widget.company[field.key];
+      // CNAE especial: o Autocomplete grava em _selectValues; inicializa aqui.
+      if (field.key == 'cnae') {
+        _selectValues['cnae'] = raw?.toString();
+        continue;
+      }
       if (_isTextField(field.type)) {
         String initial = raw?.toString() ?? '';
         // Fix 3: pré-preenche email da empresa com o email do dono quando vazio.
@@ -200,6 +205,13 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     for (final field in section.fields) {
       // CNPJ (taxId) é não editável: nunca incluir no patch.
       if (_readOnlyFields.contains(field.key)) continue;
+      // CNAE especial: o Autocomplete grava em _selectValues (type == 'text' no schema).
+      if (field.key == 'cnae') {
+        final current = _selectValues['cnae'];
+        final orig = widget.company['cnae']?.toString();
+        if (current != orig) patch['cnae'] = current;
+        continue;
+      }
       final original = widget.company[field.key];
       if (_isTextField(field.type)) {
         final current = _textCtrl[field.key]?.text ?? '';

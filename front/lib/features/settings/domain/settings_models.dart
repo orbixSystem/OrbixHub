@@ -27,6 +27,9 @@ abstract class SettingsSection with _$SettingsSection {
     required String title,
     String? moduleKey,
     @Default(<SettingsField>[]) List<SettingsField> fields,
+    /// Valores efetivos da seção (retornados pelo backend via getValues callback).
+    /// Para a seção `company` este mapa estará ausente/vazio.
+    @Default(<String, dynamic>{}) Map<String, dynamic> values,
   }) = _SettingsSection;
   factory SettingsSection.fromJson(Map<String, dynamic> j) => _$SettingsSectionFromJson(j);
 }

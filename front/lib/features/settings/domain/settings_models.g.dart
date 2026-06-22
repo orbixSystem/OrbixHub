@@ -50,6 +50,8 @@ _SettingsSection _$SettingsSectionFromJson(Map<String, dynamic> json) =>
               ?.map((e) => SettingsField.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <SettingsField>[],
+      values:
+          json['values'] as Map<String, dynamic>? ?? const <String, dynamic>{},
     );
 
 Map<String, dynamic> _$SettingsSectionToJson(_SettingsSection instance) =>
@@ -58,6 +60,7 @@ Map<String, dynamic> _$SettingsSectionToJson(_SettingsSection instance) =>
       'title': instance.title,
       'moduleKey': instance.moduleKey,
       'fields': instance.fields,
+      'values': instance.values,
     };
 
 _SettingsBundle _$SettingsBundleFromJson(Map<String, dynamic> json) =>

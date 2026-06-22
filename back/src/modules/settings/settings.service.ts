@@ -32,7 +32,28 @@ export class SettingsService {
     const moduleSections = this.registry
       .moduleSections()
       .filter((s) => s.moduleKey && enabled.includes(s.moduleKey));
-    return { company, sections: [COMPANY_SECTION, ...moduleSections] };
+
+    // Para cada seção de módulo, obtém os valores efetivos via callback registrado.
+    // O callback é invocado sem transação RLS aberta — cada módulo é responsável
+    // por usar runWithTenant/withTenantTx internamente se precisar.
+    // Falha isolada de um módulo não deve derrubar o GET /settings inteiro.
+    const sectionsWithValues = await Promise.all(
+      moduleSections.map(async (section) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { getValues, ...rest } = section;
+        if (!getValues) return { ...rest, values: {} };
+        let values: Record<string, unknown> = {};
+        try {
+          values = await getValues(user.tenantId);
+        } catch (err) {
+          console.warn(`[settings] getValues para seção '${section.key}' falhou (best-effort):`, err);
+        }
+        return { ...rest, values };
+      }),
+    );
+
+    // A seção company não tem getValues — values omitido (ou {}) no response.
+    return { company, sections: [COMPANY_SECTION, ...sectionsWithValues] };
   }
 
   async updateCompany(user: AuthUser, dto: UpdateCompanyDto) {

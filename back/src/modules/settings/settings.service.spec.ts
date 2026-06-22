@@ -40,6 +40,58 @@ describe('SettingsService.getSettings', () => {
     expect(result.sections.map((s) => s.key)).toContain('os-cfg');
   });
 
+  it('getValues callback is invoked and its result is attached as values on the section', async () => {
+    const mockValues = { usaSubjects: true, 'subjectLabel.singular': 'Veículo' };
+    const customersSection = {
+      key: 'clientes_veiculos',
+      title: 'Clientes',
+      moduleKey: 'customers',
+      fields: [],
+      getValues: jest.fn(async () => mockValues),
+    };
+    const registry = { moduleSections: jest.fn(() => [customersSection]) };
+    const billing = { getEnabledModules: jest.fn(async () => ['customers']) };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({})),
+    };
+    const audit = { log: jest.fn() } as never;
+
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
+    const result = await svc.getSettings(user);
+
+    expect(customersSection.getValues).toHaveBeenCalledWith('t1');
+    const sec = result.sections.find((s) => s.key === 'clientes_veiculos');
+    expect(sec).toBeDefined();
+    expect((sec as Record<string, unknown>).values).toEqual(mockValues);
+    // getValues function must NOT be present in the returned section (not serializable)
+    expect((sec as Record<string, unknown>).getValues).toBeUndefined();
+  });
+
+  it('getValues failure is swallowed and section gets empty values', async () => {
+    const failingSection = {
+      key: 'broken',
+      title: 'Broken',
+      moduleKey: 'os',
+      fields: [],
+      getValues: jest.fn(async () => { throw new Error('DB timeout'); }),
+    };
+    const registry = { moduleSections: jest.fn(() => [failingSection]) };
+    const billing = { getEnabledModules: jest.fn(async () => ['os']) };
+    const tenancy = {
+      getCompanySettings: jest.fn(async () => ({})),
+      getCompanyView: jest.fn(async () => ({})),
+    };
+    const audit = { log: jest.fn() } as never;
+
+    const svc = new SettingsService(registry as never, billing as never, tenancy as never, audit, storage);
+    const result = await svc.getSettings(user);
+
+    const sec = result.sections.find((s) => s.key === 'broken');
+    expect(sec).toBeDefined();
+    expect((sec as Record<string, unknown>).values).toEqual({});
+  });
+
   it('module section hidden when its moduleKey is NOT enabled', async () => {
     const osSection = { key: 'os-cfg', title: 'OS', moduleKey: 'os', fields: [] };
     const registry = { moduleSections: jest.fn(() => [osSection]) };

@@ -47,6 +47,7 @@ interface SettingsSectionView {
   title: string;
   moduleKey: string | null;
   fields: unknown[];
+  values?: Record<string, unknown>;
 }
 
 interface SettingsView {
@@ -172,6 +173,23 @@ describe('Settings host (e2e)', () => {
       expect(settings.company.companyName).toBeTruthy(); // tenantName → companyName
       expect(settings.company.legalName).toBe('Razão Social Teste');
       expect(settings.company.taxId).toBeTruthy(); // cnpj set at registration
+    });
+  });
+
+  // ---- Criterion 4b: module sections include effective values -----------
+  describe('Criterion 4b — module sections include effective values', () => {
+    it('GET /settings returns clientes_veiculos section with values.usaSubjects == true for a fresh tenant', async () => {
+      const owner = await registerOwner();
+      const settings = await getSettings(owner.access);
+
+      const sec = settings.sections.find((s) => s.key === 'clientes_veiculos');
+      expect(sec).toBeDefined();
+      expect(sec?.values).toBeDefined();
+      expect(sec?.values?.usaSubjects).toBe(true);
+      // subjectLabel defaults
+      expect(sec?.values?.['subjectLabel.singular']).toBe('Veículo');
+      expect(sec?.values?.['subjectLabel.plural']).toBe('Veículos');
+      expect(sec?.values?.documentRequired).toBe(false);
     });
   });
 
