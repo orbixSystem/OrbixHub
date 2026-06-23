@@ -161,7 +161,7 @@ describe('Mensagens + Notificações (e2e)', () => {
 
       const list = await listConversations(o.access);
       expect(list.status).toBe(200);
-      const convs = list.body as ConvRow[];
+      const convs = list.body.items as ConvRow[];
       const conv = convs.find(
         (c) => c.ref_type === 'os' && c.ref_id === orderId,
       );
@@ -180,7 +180,7 @@ describe('Mensagens + Notificações (e2e)', () => {
       const customerId = await createCustomer(o.access);
       const order = await createOrder(o.access, { customerId });
       const list = await listConversations(o.access);
-      const convId = (list.body as ConvRow[])[0].id;
+      const convId = (list.body.items as ConvRow[])[0].id;
 
       const posted = await postStaffMessage(o.access, convId, 'Olá, tudo certo!');
       expect(posted.status).toBe(201);
@@ -225,7 +225,7 @@ describe('Mensagens + Notificações (e2e)', () => {
 
       // inbox: staff_unread = 1
       const list = await listConversations(o.access);
-      const row = (list.body as ConvRow[]).find((c) => c.id === conv!.id);
+      const row = (list.body.items as ConvRow[]).find((c) => c.id === conv!.id);
       expect(row!.staff_unread).toBe(1);
 
       // notificação criada (tenant-wide)
@@ -250,7 +250,7 @@ describe('Mensagens + Notificações (e2e)', () => {
       expect(msgs.some((m) => m.sender === 'customer')).toBe(true);
 
       const after = await listConversations(o.access);
-      const rowAfter = (after.body as ConvRow[]).find((c) => c.id === conv!.id);
+      const rowAfter = (after.body.items as ConvRow[]).find((c) => c.id === conv!.id);
       expect(rowAfter!.staff_unread).toBe(0);
     });
   });
@@ -304,7 +304,7 @@ describe('Mensagens + Notificações (e2e)', () => {
 
       // B não vê a conversa de A
       const bConvs = await listConversations(b.access);
-      expect((bConvs.body as ConvRow[]).map((c) => c.id)).not.toContain(
+      expect((bConvs.body.items as ConvRow[]).map((c) => c.id)).not.toContain(
         convA!.id,
       );
       // B não vê a thread de A (404)

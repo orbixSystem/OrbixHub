@@ -25,10 +25,13 @@ class MessagesInboxScreen extends ConsumerStatefulWidget {
 
 class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
   final RealtimeChat _rt = RealtimeChat();
+  final _search = TextEditingController();
+  final _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     final accessToken = ref.read(accessTokenStoreProvider).token;
     if (accessToken != null) {
       _rt.connectStaff(
@@ -43,45 +46,133 @@ class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
   @override
   void dispose() {
     _rt.dispose();
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _search.dispose();
     super.dispose();
+  }
+
+  /// Dispara o próximo lote ao chegar perto do fim do scroll (300px antes do
+  /// fundo) — o notifier ignora chamadas redundantes.
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      ref.read(conversationsProvider.notifier).loadMore();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(conversationsProvider);
+    final queryNotifier = ref.read(conversationQueryProvider.notifier);
     return Padding(
       padding: const EdgeInsets.all(28),
-      child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(e is AppException ? e.message : 'Erro ao carregar conversas.'),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: () => ref.invalidate(conversationsProvider),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Tentar de novo'),
-              ),
-            ],
-          ),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return const Center(child: Text('Nenhuma conversa ainda.'));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(conversationsProvider),
-            child: ListView.separated(
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, i) => _ConversationTile(conversation: items[i]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _search,
+            decoration: const InputDecoration(
+              isDense: true,
+              prefixIcon: Icon(Icons.search, size: 20),
+              hintText: 'Buscar conversa',
             ),
-          );
-        },
+            onChanged: queryNotifier.setQuery,
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(e is AppException
+                        ? e.message
+                        : 'Erro ao carregar conversas.'),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40)),
+                      onPressed: () => ref.invalidate(conversationsProvider),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Tentar de novo'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (page) {
+                if (page.items.isEmpty) {
+                  return const Center(child: Text('Nenhuma conversa ainda.'));
+                }
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(conversationsProvider),
+                  // +1 slot para o rodapé (loader do próximo lote / fim da lista).
+                  child: ListView.separated(
+                    controller: _scroll,
+                    itemCount: page.items.length + 1,
+                    separatorBuilder: (_, i) => i >= page.items.length - 1
+                        ? const SizedBox.shrink()
+                        : const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      if (i < page.items.length) {
+                        return _ConversationTile(conversation: page.items[i]);
+                      }
+                      return _ListFooter(
+                        loadingMore: page.loadingMore,
+                        hasMore: page.hasMore,
+                        total: page.total,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// Rodapé da lista: spinner enquanto busca o próximo lote; convite a rolar quando
+/// há mais; contagem total quando tudo foi carregado.
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.loadingMore,
+    required this.hasMore,
+    required this.total,
+  });
+
+  final bool loadingMore;
+  final bool hasMore;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      fontSize: 13,
+    );
+    final Widget child;
+    if (loadingMore) {
+      child = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2.5),
+      );
+    } else if (hasMore) {
+      child = Text('Role para carregar mais', style: style);
+    } else {
+      child = Text(
+        '$total ${total == 1 ? 'conversa' : 'conversas'} no total',
+        style: style,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Center(child: child),
     );
   }
 }

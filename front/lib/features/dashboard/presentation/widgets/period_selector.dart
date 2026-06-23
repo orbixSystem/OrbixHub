@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../period_controller.dart';
 
-/// Abre o seletor de intervalo no modo COMPACTO (diálogo com campos de data
-/// digitáveis + ícone de calendário p/ alternar p/ o calendário), em pt-BR.
-/// Usado pelo seletor de período do dashboard e por qualquer tela que precise
-/// de um range personalizado. Retorna null se o usuário cancelar.
+/// Abre o seletor de intervalo no CALENDÁRIO (toca início e fim direto nos meses),
+/// em pt-BR — o modo digitável (`input`) ficava espremido e ilegível num diálogo
+/// minúsculo. O botão de teclado no cabeçalho ainda permite digitar as datas.
+/// Usado pelo seletor de período do dashboard e por qualquer tela que precise de
+/// um range personalizado. Retorna null se o usuário cancelar.
 Future<DateTimeRange?> pickMetricsRange(
   BuildContext context, {
   DateTime? from,
@@ -18,10 +19,22 @@ Future<DateTimeRange?> pickMetricsRange(
     firstDate: DateTime(2020),
     lastDate: DateTime.now(),
     locale: const Locale('pt', 'BR'),
-    initialEntryMode: DatePickerEntryMode.input,
+    initialEntryMode: DatePickerEntryMode.calendar,
+    helpText: 'Selecione o período',
+    saveText: 'Aplicar',
     initialDateRange: from != null && to != null
         ? DateTimeRange(start: from, end: to)
         : null,
+    builder: (context, child) {
+      // Limita a largura do diálogo de calendário (cheia, ocuparia a janela toda
+      // no web/desktop) e o centraliza, dando o visual de painel de apps grandes.
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 640),
+          child: child,
+        ),
+      );
+    },
   );
 }
 

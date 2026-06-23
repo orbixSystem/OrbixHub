@@ -45,6 +45,9 @@ _OsOperationalReport _$OsOperationalReportFromJson(Map<String, dynamic> json) =>
               ?.map((e) => OsReportRow.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <OsReportRow>[],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? 50,
       byStatus:
           (json['byStatus'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(k, (e as num).toInt()),
@@ -62,6 +65,9 @@ Map<String, dynamic> _$OsOperationalReportToJson(
   _OsOperationalReport instance,
 ) => <String, dynamic>{
   'rows': instance.rows,
+  'total': instance.total,
+  'page': instance.page,
+  'pageSize': instance.pageSize,
   'byStatus': instance.byStatus,
   'byAssignedTo': instance.byAssignedTo,
 };
@@ -202,10 +208,19 @@ _InventoryReport _$InventoryReportFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const <InventoryReportRow>[],
       stockValue: json['stockValue'] as num? ?? 0,
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? 50,
     );
 
 Map<String, dynamic> _$InventoryReportToJson(_InventoryReport instance) =>
-    <String, dynamic>{'rows': instance.rows, 'stockValue': instance.stockValue};
+    <String, dynamic>{
+      'rows': instance.rows,
+      'stockValue': instance.stockValue,
+      'total': instance.total,
+      'page': instance.page,
+      'pageSize': instance.pageSize,
+    };
 
 _CustomerReportRow _$CustomerReportRowFromJson(Map<String, dynamic> json) =>
     _CustomerReportRow(

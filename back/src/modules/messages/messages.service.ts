@@ -115,11 +115,20 @@ export class MessagesService {
    * sentido quando a última mensagem é do staff (recibo de leitura estilo WhatsApp:
    * o cliente já viu a resposta).
    */
-  async listConversations(user: AuthUser) {
-    const rows = await this.tenant.withTenantTx(() =>
-      this.repo.listConversations(user.tenantId),
+  async listConversations(
+    user: AuthUser,
+    query: { q?: string; page?: number; pageSize?: number } = {},
+  ) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 30;
+    const { items, total } = await this.tenant.withTenantTx(() =>
+      this.repo.listConversations(user.tenantId, {
+        q: query.q?.trim() || undefined,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
     );
-    return rows.map((c) => {
+    const mapped = items.map((c) => {
       const last = c.messages?.[0];
       return {
         id: c.id,
@@ -134,6 +143,7 @@ export class MessagesService {
         last_message_read: last ? last.read_at != null : false,
       };
     });
+    return { items: mapped, total, page, pageSize };
   }
 
   /**

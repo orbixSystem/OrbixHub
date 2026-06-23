@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
@@ -31,6 +33,10 @@ class ReportRepositoryImpl implements ReportRepository {
     required ReportRange range,
     String? assignedTo,
     String? status,
+    String? q,
+    String sort = 'recent',
+    int page = 1,
+    int pageSize = 50,
   }) =>
       _guard(() async {
         final res = await _dio.get<Object?>(
@@ -41,6 +47,10 @@ class ReportRepositoryImpl implements ReportRepository {
             if (assignedTo != null && assignedTo.isNotEmpty)
               'assignedTo': assignedTo,
             if (status != null && status.isNotEmpty) 'status': status,
+            if (q != null && q.isNotEmpty) 'q': q,
+            'sort': sort,
+            'page': page,
+            'pageSize': pageSize,
           },
         );
         return OsOperationalReport.fromJson(_asMap(res.data));
@@ -85,9 +95,52 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
-  Future<InventoryReport> inventory() => _guard(() async {
-        final res = await _dio.get<Object?>('/report/inventory');
+  Future<InventoryReport> inventory({
+    int page = 1,
+    int pageSize = 50,
+    String? q,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/inventory',
+          queryParameters: {
+            'page': page,
+            'pageSize': pageSize,
+            if (q != null && q.isNotEmpty) 'q': q,
+          },
+        );
         return InventoryReport.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Uint8List> inventoryCsv({String? q}) => _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/inventory.csv',
+          queryParameters: {if (q != null && q.isNotEmpty) 'q': q},
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<Uint8List> inventoryPdf({
+    ReportExportCompany? company,
+    String? q,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/inventory.pdf',
+          queryParameters: {
+            if (q != null && q.isNotEmpty) 'q': q,
+            if (company != null) 'companyName': company.name,
+            if (company?.legalName != null && company!.legalName!.isNotEmpty)
+              'companyLegalName': company.legalName,
+            if (company?.cnpj != null && company!.cnpj!.isNotEmpty)
+              'companyCnpj': company.cnpj,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
       });
 
   @override

@@ -30,6 +30,7 @@ class OsRepositoryImpl implements OsRepository {
     String? q,
     String? status,
     String? customerId,
+    String sort = 'recent',
     int page = 1,
   }) =>
       _guard(() async {
@@ -40,6 +41,7 @@ class OsRepositoryImpl implements OsRepository {
             if (status != null && status.isNotEmpty) 'status': status,
             if (customerId != null && customerId.isNotEmpty)
               'customerId': customerId,
+            if (sort.isNotEmpty) 'sort': sort,
             'page': page,
           },
         );

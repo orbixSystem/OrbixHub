@@ -72,6 +72,9 @@ abstract class ConversationThread with _$ConversationThread {
 abstract class ConversationPage with _$ConversationPage {
   const factory ConversationPage({
     @Default(<Conversation>[]) List<Conversation> items,
+    @Default(0) int total,
+    @Default(1) int page,
+    @JsonKey(name: 'pageSize') @Default(30) int pageSize,
   }) = _ConversationPage;
 
   factory ConversationPage.fromJson(Map<String, dynamic> json) =>

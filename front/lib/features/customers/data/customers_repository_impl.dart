@@ -34,6 +34,7 @@ class CustomersRepositoryImpl implements CustomersRepository {
   Future<CustomerPage> listCustomers({
     String? q,
     String status = 'active',
+    String sort = 'recent',
     int page = 1,
   }) =>
       _guard(() async {
@@ -42,6 +43,7 @@ class CustomersRepositoryImpl implements CustomersRepository {
           queryParameters: {
             if (q != null && q.isNotEmpty) 'q': q,
             'status': status,
+            'sort': sort,
             'page': page,
           },
         );

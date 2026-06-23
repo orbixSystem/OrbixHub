@@ -34,3 +34,14 @@ export interface InventoryMetricsReport {
   rows: InventoryReportRow[];
   stockValue: number;
 }
+
+/** Uma página do relatório de posição: linhas da página + total + valor global. */
+export interface InventoryMetricsReportPage {
+  rows: InventoryReportRow[];
+  /** Total de itens (todas as páginas) — para o paginador. */
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Valor total em estoque (todas as páginas, não só a página atual). */
+  stockValue: number;
+}

@@ -869,7 +869,7 @@ $ConversationCopyWith<$Res> get conversation {
 /// @nodoc
 mixin _$ConversationPage {
 
- List<Conversation> get items;
+ List<Conversation> get items; int get total; int get page;@JsonKey(name: 'pageSize') int get pageSize;
 /// Create a copy of ConversationPage
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -882,16 +882,16 @@ $ConversationPageCopyWith<ConversationPage> get copyWith => _$ConversationPageCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationPage&&const DeepCollectionEquality().equals(other.items, items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),total,page,pageSize);
 
 @override
 String toString() {
-  return 'ConversationPage(items: $items)';
+  return 'ConversationPage(items: $items, total: $total, page: $page, pageSize: $pageSize)';
 }
 
 
@@ -902,7 +902,7 @@ abstract mixin class $ConversationPageCopyWith<$Res>  {
   factory $ConversationPageCopyWith(ConversationPage value, $Res Function(ConversationPage) _then) = _$ConversationPageCopyWithImpl;
 @useResult
 $Res call({
- List<Conversation> items
+ List<Conversation> items, int total, int page,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -919,10 +919,13 @@ class _$ConversationPageCopyWithImpl<$Res>
 
 /// Create a copy of ConversationPage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? total = null,Object? page = null,Object? pageSize = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<Conversation>,
+as List<Conversation>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -1007,10 +1010,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> items)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> items,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConversationPage() when $default != null:
-return $default(_that.items);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize);case _:
   return orElse();
 
 }
@@ -1028,10 +1031,10 @@ return $default(_that.items);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> items)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> items,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)  $default,) {final _that = this;
 switch (_that) {
 case _ConversationPage():
-return $default(_that.items);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1048,10 +1051,10 @@ return $default(_that.items);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> items)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> items,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)?  $default,) {final _that = this;
 switch (_that) {
 case _ConversationPage() when $default != null:
-return $default(_that.items);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize);case _:
   return null;
 
 }
@@ -1063,7 +1066,7 @@ return $default(_that.items);case _:
 @JsonSerializable()
 
 class _ConversationPage implements ConversationPage {
-  const _ConversationPage({final  List<Conversation> items = const <Conversation>[]}): _items = items;
+  const _ConversationPage({final  List<Conversation> items = const <Conversation>[], this.total = 0, this.page = 1, @JsonKey(name: 'pageSize') this.pageSize = 30}): _items = items;
   factory _ConversationPage.fromJson(Map<String, dynamic> json) => _$ConversationPageFromJson(json);
 
  final  List<Conversation> _items;
@@ -1073,6 +1076,9 @@ class _ConversationPage implements ConversationPage {
   return EqualUnmodifiableListView(_items);
 }
 
+@override@JsonKey() final  int total;
+@override@JsonKey() final  int page;
+@override@JsonKey(name: 'pageSize') final  int pageSize;
 
 /// Create a copy of ConversationPage
 /// with the given fields replaced by the non-null parameter values.
@@ -1087,16 +1093,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationPage&&const DeepCollectionEquality().equals(other._items, _items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),total,page,pageSize);
 
 @override
 String toString() {
-  return 'ConversationPage(items: $items)';
+  return 'ConversationPage(items: $items, total: $total, page: $page, pageSize: $pageSize)';
 }
 
 
@@ -1107,7 +1113,7 @@ abstract mixin class _$ConversationPageCopyWith<$Res> implements $ConversationPa
   factory _$ConversationPageCopyWith(_ConversationPage value, $Res Function(_ConversationPage) _then) = __$ConversationPageCopyWithImpl;
 @override @useResult
 $Res call({
- List<Conversation> items
+ List<Conversation> items, int total, int page,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -1124,10 +1130,13 @@ class __$ConversationPageCopyWithImpl<$Res>
 
 /// Create a copy of ConversationPage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? total = null,Object? page = null,Object? pageSize = null,}) {
   return _then(_ConversationPage(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<Conversation>,
+as List<Conversation>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

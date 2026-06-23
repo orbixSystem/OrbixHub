@@ -4,10 +4,43 @@ import { TenantContext } from '../../common/database/tenant-context';
 
 type DecimalIn = Prisma.Decimal | number;
 
+/**
+ * Ordenação da lista de OS (`created_at`). Cada chave tem um desempate estável
+ * por `id` para paginação consistente. `recent` é o default.
+ */
+const OS_ORDER_BY: Record<
+  string,
+  Prisma.service_orderOrderByWithRelationInput[]
+> = {
+  recent: [{ created_at: 'desc' }, { id: 'desc' }],
+  oldest: [{ created_at: 'asc' }, { id: 'asc' }],
+  number_asc: [{ number: 'asc' }, { id: 'asc' }],
+  number_desc: [{ number: 'desc' }, { id: 'desc' }],
+  customer_asc: [{ customer_name: 'asc' }, { id: 'asc' }],
+  customer_desc: [{ customer_name: 'desc' }, { id: 'desc' }],
+  total_desc: [{ total: 'desc' }, { id: 'desc' }],
+  total_asc: [{ total: 'asc' }, { id: 'asc' }],
+  status: [{ status: 'asc' }, { id: 'asc' }],
+};
+
+/**
+ * Mesma ordenação, mas as variantes de data usam `opened_at` (a data exibida no
+ * relatório de OS é a de abertura), com desempate estável por `id`.
+ */
+const OS_REPORT_ORDER_BY: Record<
+  string,
+  Prisma.service_orderOrderByWithRelationInput[]
+> = {
+  ...OS_ORDER_BY,
+  recent: [{ opened_at: 'desc' }, { id: 'desc' }],
+  oldest: [{ opened_at: 'asc' }, { id: 'asc' }],
+};
+
 export interface OrderListFilter {
   q?: string;
   status?: string;
   customerId?: string;
+  sort?: string;
   skip: number;
   take: number;
 }
@@ -133,7 +166,7 @@ export class OsRepository {
     const [items, total] = await Promise.all([
       db.service_order.findMany({
         where,
-        orderBy: { created_at: 'desc' },
+        orderBy: OS_ORDER_BY[filter.sort ?? 'recent'] ?? OS_ORDER_BY.recent,
         skip: filter.skip,
         take: filter.take,
       }),
@@ -596,6 +629,57 @@ export class OsRepository {
         finished_at: true,
       },
     });
+  }
+
+  /**
+   * Linhas do relatório de OS PAGINADAS (tela): OS no range/escopo + status +
+   * busca (nº/cliente) opcionais, ordenadas por `sort` (default `recent`).
+   * Retorna a página + total para o scroll infinito. Tenant-scoped por RLS.
+   */
+  async listForReportPage(
+    p: MetricsRange & {
+      status?: string;
+      q?: string;
+      sort?: string;
+      skip: number;
+      take: number;
+    },
+  ) {
+    const db = this.tenant.getClient();
+    const where: Prisma.service_orderWhereInput = {
+      ...this.metricsWhere(p),
+      ...(p.status ? { status: p.status } : {}),
+      ...(p.q
+        ? {
+            OR: [
+              { number: { contains: p.q, mode: 'insensitive' } },
+              { customer_name: { contains: p.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      db.service_order.findMany({
+        where,
+        orderBy:
+          OS_REPORT_ORDER_BY[p.sort ?? 'recent'] ?? OS_REPORT_ORDER_BY.recent,
+        skip: p.skip,
+        take: p.take,
+        select: {
+          id: true,
+          number: true,
+          customer_name: true,
+          status: true,
+          assigned_to: true,
+          total: true,
+          opened_at: true,
+          started_at: true,
+          finished_at: true,
+        },
+      }),
+      db.service_order.count({ where }),
+    ]);
+    return { rows, total };
   }
 }
 

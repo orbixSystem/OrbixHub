@@ -119,6 +119,7 @@ export class CustomersService {
       this.repo.listCustomers({
         q: query.q?.trim() || undefined,
         status: query.status ?? 'active',
+        sort: query.sort,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

@@ -59,7 +59,15 @@ _ConversationPage _$ConversationPageFromJson(Map<String, dynamic> json) =>
               ?.map((e) => Conversation.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <Conversation>[],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      pageSize: (json['pageSize'] as num?)?.toInt() ?? 30,
     );
 
 Map<String, dynamic> _$ConversationPageToJson(_ConversationPage instance) =>
-    <String, dynamic>{'items': instance.items};
+    <String, dynamic>{
+      'items': instance.items,
+      'total': instance.total,
+      'page': instance.page,
+      'pageSize': instance.pageSize,
+    };

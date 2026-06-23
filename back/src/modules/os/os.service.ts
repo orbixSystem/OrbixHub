@@ -223,6 +223,7 @@ export class OsService {
         q: query.q?.trim() || undefined,
         status: query.status,
         customerId: query.customerId,
+        sort: query.sort,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

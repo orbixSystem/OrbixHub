@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 
 export interface CreateConversationData {
@@ -55,15 +56,41 @@ export class MessagesRepository {
     return conv;
   }
 
-  /** Inbox: conversas (mais recente por last_message_at) + última mensagem embutida. */
-  async listConversations(_tenantId: string) {
+  /**
+   * Inbox PAGINADO: conversas (mais recente por last_message_at) + última mensagem
+   * embutida + busca opcional (título/rótulo). Retorna a página + total para o
+   * scroll infinito. Desempate estável por `id`.
+   */
+  async listConversations(
+    _tenantId: string,
+    filter: { q?: string; skip: number; take: number },
+  ) {
     const db = this.tenant.getClient();
-    return db.conversation.findMany({
-      orderBy: [{ last_message_at: 'desc' }, { created_at: 'desc' }],
-      include: {
-        messages: { orderBy: { created_at: 'desc' }, take: 1 },
-      },
-    });
+    const where: Prisma.conversationWhereInput = filter.q
+      ? {
+          OR: [
+            { title: { contains: filter.q, mode: 'insensitive' } },
+            { ref_label: { contains: filter.q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+    const [items, total] = await Promise.all([
+      db.conversation.findMany({
+        where,
+        orderBy: [
+          { last_message_at: 'desc' },
+          { created_at: 'desc' },
+          { id: 'desc' },
+        ],
+        skip: filter.skip,
+        take: filter.take,
+        include: {
+          messages: { orderBy: { created_at: 'desc' }, take: 1 },
+        },
+      }),
+      db.conversation.count({ where }),
+    ]);
+    return { items, total };
   }
 
   addMessage(tenantId: string, convId: string, data: AddMessageData) {

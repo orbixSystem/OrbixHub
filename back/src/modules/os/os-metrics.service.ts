@@ -7,6 +7,8 @@ import {
   OsMetricsReport,
   OsMetricsSummary,
   OsRange,
+  OsReportPage,
+  OsReportPageParams,
   OsReportRow,
   RevenueSeries,
   TeamPerformance,
@@ -104,6 +106,40 @@ export class OsMetricsService {
     }
 
     return { ...summary, rows, byAssignedTo };
+  }
+
+  /**
+   * Linhas do relatório de OS PAGINADAS (scroll infinito na tela): range/escopo +
+   * status + busca (nº/cliente) + ordenação, com a página + total. Público — o
+   * módulo `report` chama in-process (nunca a tabela). Sob withTenantTx/RLS.
+   */
+  async metricsReportPage(p: OsReportPageParams): Promise<OsReportPage> {
+    const page = p.page > 0 ? p.page : 1;
+    const pageSize = p.pageSize > 0 ? p.pageSize : 50;
+    const { rows: raw, total } = await this.tenant.withTenantTx(() =>
+      this.repo.listForReportPage({
+        from: p.from,
+        to: p.to,
+        assignedTo: p.assignedTo,
+        status: p.status,
+        q: p.q,
+        sort: p.sort,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    );
+    const rows: OsReportRow[] = raw.map((o) => ({
+      id: o.id,
+      number: o.number,
+      customer_name: o.customer_name,
+      status: o.status,
+      assigned_to: o.assigned_to,
+      total: toNum(o.total),
+      opened_at: o.opened_at.toISOString(),
+      finished_at: o.finished_at ? o.finished_at.toISOString() : null,
+      cycleMs: cycleMs(o.started_at, o.finished_at),
+    }));
+    return { rows, total, page, pageSize };
   }
 
   // ---- Fase 2: lentes públicas para o módulo `report` (chamadas in-process) ----

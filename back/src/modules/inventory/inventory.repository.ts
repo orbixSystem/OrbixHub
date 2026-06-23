@@ -280,21 +280,58 @@ export class InventoryRepository {
     return Number(rows[0]?.value ?? 0);
   }
 
-  /** Linhas do relatório de posição (Fase 2): produtos ativos. */
-  listForReport() {
+  /** Colunas do relatório de posição (compartilhadas por listForReport/Page). */
+  private static readonly REPORT_SELECT = {
+    id: true,
+    name: true,
+    sku: true,
+    current_stock: true,
+    min_stock: true,
+    cost_price: true,
+    sale_price: true,
+  } as const;
+
+  /** WHERE do relatório de posição: produtos ativos vivos (+ busca opcional). */
+  private reportWhere(q?: string): Prisma.inventory_itemWhereInput {
+    return {
+      deleted_at: null,
+      is_active: true,
+      kind: 'product',
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { sku: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  /** Linhas do relatório de posição (export): TODOS os produtos ativos. */
+  listForReport(q?: string) {
     const db = this.tenant.getClient();
     return db.inventory_item.findMany({
-      where: { deleted_at: null, is_active: true, kind: 'product' },
+      where: this.reportWhere(q),
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        sku: true,
-        current_stock: true,
-        min_stock: true,
-        cost_price: true,
-        sale_price: true,
-      },
+      select: InventoryRepository.REPORT_SELECT,
     });
+  }
+
+  /** Uma página do relatório de posição (tela) + total p/ o paginador. */
+  async listForReportPage(p: { skip: number; take: number; q?: string }) {
+    const db = this.tenant.getClient();
+    const where = this.reportWhere(p.q);
+    const [items, total] = await Promise.all([
+      db.inventory_item.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        skip: p.skip,
+        take: p.take,
+        select: InventoryRepository.REPORT_SELECT,
+      }),
+      db.inventory_item.count({ where }),
+    ]);
+    return { items, total };
   }
 }

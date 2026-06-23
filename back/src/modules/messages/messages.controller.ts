@@ -1,8 +1,17 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { MessagesService } from './messages.service';
 import { PostMessageDto } from './dto/post-message.dto';
+import { ListConversationsQueryDto } from './dto/list-conversations.dto';
 
 /**
  * Inbox de mensagens (lado staff). Módulo genérico, NÃO contratável — sem
@@ -16,8 +25,11 @@ export class MessagesController {
 
   @Get('conversations')
   @Permissions('os.read') // v1: reusa os.read (ver nota da classe)
-  listConversations(@CurrentUser() user: AuthUser) {
-    return this.messages.listConversations(user);
+  listConversations(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListConversationsQueryDto,
+  ) {
+    return this.messages.listConversations(user, query);
   }
 
   @Get('conversations/:id')

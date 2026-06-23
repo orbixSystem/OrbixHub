@@ -4,13 +4,18 @@ import { OsMetricsService } from '../os/os-metrics.service';
 import { InventoryMetricsService } from '../inventory/inventory-metrics.service';
 import { CustomersMetricsService } from '../customers/customers-metrics.service';
 import type {
-  OsMetricsParams,
   RevenueSeries,
   TeamPerformance,
   TopItems,
-  OsMetricsReport,
+  OsReportPage,
+  OsReportPageParams,
 } from '../os/dto/metrics.dto';
-import type { InventoryMetricsReport } from '../inventory/dto/metrics.dto';
+import type { InventoryMetricsReportPage } from '../inventory/dto/metrics.dto';
+import {
+  buildInventoryCsv,
+  buildInventoryPdf,
+  type ExportCompany,
+} from './export/inventory-export';
 import type {
   CustomersMetricsParams,
   CustomersMetricsReport,
@@ -52,12 +57,13 @@ export class ReportService {
     }
   }
 
+  /** OS operacional PAGINADA (scroll infinito na tela): linhas da página + total. */
   async osReport(
     tenantId: string,
-    p: OsMetricsParams,
-  ): Promise<OsMetricsReport> {
+    p: OsReportPageParams,
+  ): Promise<OsReportPage> {
     await this.assertModuleEnabled(tenantId, 'os');
-    return this.os.metricsReport(p);
+    return this.os.metricsReportPage(p);
   }
 
   async revenue(tenantId: string, range: Range): Promise<RevenueSeries> {
@@ -78,9 +84,31 @@ export class ReportService {
     return this.os.topItems(p);
   }
 
-  async inventory_(tenantId: string): Promise<InventoryMetricsReport> {
+  /** Posição de estoque PAGINADA (tela). stockValue é o total global. */
+  async inventoryPage(
+    tenantId: string,
+    p: { page: number; pageSize: number; q?: string },
+  ): Promise<InventoryMetricsReportPage> {
     await this.assertModuleEnabled(tenantId, 'inventory');
-    return this.inventory.metricsReport();
+    return this.inventory.metricsReportPage(p);
+  }
+
+  /** CSV do relatório completo de estoque (Buffer pronto p/ download). */
+  async inventoryCsv(tenantId: string, q?: string): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'inventory');
+    const report = await this.inventory.metricsReport(q);
+    return buildInventoryCsv(report);
+  }
+
+  /** PDF do relatório completo de estoque (Buffer pronto p/ download). */
+  async inventoryPdf(
+    tenantId: string,
+    company?: ExportCompany,
+    q?: string,
+  ): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'inventory');
+    const report = await this.inventory.metricsReport(q);
+    return buildInventoryPdf(report, company);
   }
 
   async customersReport(

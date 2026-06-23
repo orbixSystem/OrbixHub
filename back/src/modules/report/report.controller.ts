@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  Query,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
@@ -6,6 +13,8 @@ import { RequiresModule } from '../billing/requires-module.decorator';
 import { resolveRange } from '../../common/metrics/range';
 import { ReportService } from './report.service';
 import {
+  ReportInventoryExportQueryDto,
+  ReportInventoryQueryDto,
   ReportOsQueryDto,
   ReportRangeQueryDto,
   ReportTopItemsQueryDto,
@@ -24,7 +33,7 @@ import {
 export class ReportController {
   constructor(private readonly report: ReportService) {}
 
-  /** OS operacional: linhas + agregados por status/técnico. */
+  /** OS operacional: linhas PAGINADAS (scroll infinito) + busca + ordenação. */
   @Get('os')
   os(@CurrentUser() user: AuthUser, @Query() query: ReportOsQueryDto) {
     const { from, to } = resolveRange(query.from, query.to);
@@ -33,6 +42,10 @@ export class ReportController {
       to,
       assignedTo: query.assignedTo,
       status: query.status,
+      q: query.q,
+      sort: query.sort,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 50,
     });
   }
 
@@ -65,10 +78,55 @@ export class ReportController {
     });
   }
 
-  /** Estoque (posição atual): linhas + valor total em estoque. */
+  /** Estoque (posição atual) PAGINADO: linhas da página + total + valor global. */
   @Get('inventory')
-  inventory(@CurrentUser() user: AuthUser) {
-    return this.report.inventory_(user.tenantId);
+  inventory(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportInventoryQueryDto,
+  ) {
+    return this.report.inventoryPage(user.tenantId, {
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 50,
+      q: query.q,
+    });
+  }
+
+  /** Estoque — export CSV (relatório completo, baixado pelo browser). */
+  @Get('inventory.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="posicao-de-estoque.csv"',
+  )
+  async inventoryCsv(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportInventoryExportQueryDto,
+  ): Promise<StreamableFile> {
+    const buf = await this.report.inventoryCsv(user.tenantId, query.q);
+    return new StreamableFile(buf);
+  }
+
+  /** Estoque — export PDF (relatório completo, baixado pelo browser). */
+  @Get('inventory.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="posicao-de-estoque.pdf"',
+  )
+  async inventoryPdf(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportInventoryExportQueryDto,
+  ): Promise<StreamableFile> {
+    const buf = await this.report.inventoryPdf(
+      user.tenantId,
+      {
+        name: query.companyName,
+        legalName: query.companyLegalName,
+        cnpj: query.companyCnpj,
+      },
+      query.q,
+    );
+    return new StreamableFile(buf);
   }
 
   /** Clientes: novos no range + total ativo. */

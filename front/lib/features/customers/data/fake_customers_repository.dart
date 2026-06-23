@@ -26,10 +26,11 @@ class FakeCustomersRepository implements CustomersRepository {
   Future<CustomerPage> listCustomers({
     String? q,
     String status = 'active',
+    String sort = 'recent',
     int page = 1,
   }) async {
     final term = q?.toLowerCase();
-    final items = _customers.where((c) {
+    final filtered = _customers.where((c) {
       final statusOk =
           status == 'all' ? c.status != 'deleted' : c.status == status;
       final matches = term == null ||
@@ -38,7 +39,34 @@ class FakeCustomersRepository implements CustomersRepository {
           (c.phone?.toLowerCase().contains(term) ?? false);
       return statusOk && matches;
     }).toList();
-    return CustomerPage(items: items, total: items.length);
+    // Ordenação espelhando o contrato do backend. 'recent'/'oldest' usam a ordem
+    // de inserção (proxy de created_at) já que o fake não guarda timestamps.
+    switch (sort) {
+      case 'name_asc':
+        filtered.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      case 'name_desc':
+        filtered.sort(
+            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+      case 'oldest':
+        // já está na ordem de inserção
+        break;
+      case 'recent':
+      default:
+        // mais recentes primeiro = inversa da ordem de inserção
+        final reversed = filtered.reversed.toList();
+        filtered
+          ..clear()
+          ..addAll(reversed);
+    }
+    const pageSize = 20;
+    final total = filtered.length;
+    final start = (page - 1) * pageSize;
+    final items = start >= total
+        ? <Customer>[]
+        : filtered.sublist(start, (start + pageSize).clamp(0, total));
+    return CustomerPage(
+        items: items, total: total, page: page, pageSize: pageSize);
   }
 
   @override

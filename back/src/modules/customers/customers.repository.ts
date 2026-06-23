@@ -2,9 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 
+/** Ordenação da lista de clientes; desempate estável por `id`. */
+const CUSTOMER_ORDER_BY: Record<
+  string,
+  Prisma.customerOrderByWithRelationInput[]
+> = {
+  recent: [{ created_at: 'desc' }, { id: 'desc' }],
+  oldest: [{ created_at: 'asc' }, { id: 'asc' }],
+  name_asc: [{ name: 'asc' }, { id: 'asc' }],
+  name_desc: [{ name: 'desc' }, { id: 'desc' }],
+};
+
 export interface CustomerFilter {
   q?: string;
   status: 'active' | 'archived' | 'all';
+  sort?: string;
   skip: number;
   take: number;
 }
@@ -71,7 +83,8 @@ export class CustomersRepository {
     const [items, total] = await Promise.all([
       db.customer.findMany({
         where,
-        orderBy: { created_at: 'desc' },
+        orderBy:
+          CUSTOMER_ORDER_BY[filter.sort ?? 'recent'] ?? CUSTOMER_ORDER_BY.recent,
         skip: filter.skip,
         take: filter.take,
       }),

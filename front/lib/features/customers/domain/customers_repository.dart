@@ -8,7 +8,8 @@ abstract interface class CustomersRepository {
   Future<CustomersConfig> fetchConfig();
 
   // ---- customers ----
-  Future<CustomerPage> listCustomers({String? q, String status, int page});
+  Future<CustomerPage> listCustomers(
+      {String? q, String status, String sort, int page});
   Future<Customer> getCustomer(String id);
   Future<Customer> createCustomer(CustomerDraft draft);
   Future<Customer> updateCustomer(String id, CustomerDraft draft);

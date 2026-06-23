@@ -168,6 +168,21 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: headline(20, FontWeight.w600),
       ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: scheme.surfaceContainerLowest,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: scheme.surfaceContainerHigh,
+        headerForegroundColor: onSurface,
+        rangePickerBackgroundColor: scheme.surfaceContainerLowest,
+        rangePickerSurfaceTintColor: Colors.transparent,
+        rangePickerHeaderBackgroundColor: scheme.surfaceContainerHigh,
+        rangePickerHeaderForegroundColor: onSurface,
+        rangeSelectionBackgroundColor: scheme.primary.withValues(alpha: 0.14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius + 4),
+        ),
+        elevation: 2,
+      ),
     );
   }
 }

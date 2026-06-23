@@ -1,5 +1,5 @@
 import { IsIn, IsISO8601, IsOptional, IsUUID } from 'class-validator';
-import { OS_STATUSES, type OsStatus } from './order.dto';
+import { OS_STATUSES, type OsSort, type OsStatus } from './order.dto';
 
 /**
  * Query da camada de métricas da OS. `from`/`to` são ISO 8601 (datas); quando
@@ -50,6 +50,22 @@ export interface OsReportRow {
 export interface OsMetricsReport extends OsMetricsSummary {
   rows: OsReportRow[];
   byAssignedTo: Record<string, { count: number; revenue: number }>;
+}
+
+/** Parâmetros da página do relatório de OS (scroll infinito): range + filtros + paginação. */
+export interface OsReportPageParams extends OsMetricsParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+  sort?: OsSort;
+}
+
+/** Página do relatório de OS (linhas + total para o scroll infinito na tela). */
+export interface OsReportPage {
+  rows: OsReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // ---- Fase 2: lentes públicas sobre a OS (faturamento / equipe / top-itens) ----

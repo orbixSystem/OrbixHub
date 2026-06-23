@@ -24,6 +24,23 @@ export const OS_STATUSES = [
 export type OsStatus = (typeof OS_STATUSES)[number];
 
 /**
+ * Chaves de ordenação da lista/relatório de OS (contrato com o front). `recent`
+ * é o default. Usado tanto na lista (`os/orders`) quanto no relatório de OS.
+ */
+export const OS_SORTS = [
+  'recent',
+  'oldest',
+  'number_asc',
+  'number_desc',
+  'customer_asc',
+  'customer_desc',
+  'total_desc',
+  'total_asc',
+  'status',
+] as const;
+export type OsSort = (typeof OS_SORTS)[number];
+
+/**
  * Cria OS. Cliente (e opcionalmente veículo/subject) são ponteiros — snapshot no service.
  * Caminho "cliente existente": passe `customerId` (+ opcional `subjectId`).
  * Caminho "cliente novo na hora": omita `customerId` e passe `newCustomerName`
@@ -65,6 +82,7 @@ export class ListOrdersQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
   @IsOptional() @IsIn(OS_STATUSES) status?: OsStatus;
   @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }

@@ -359,6 +359,74 @@ describe('Módulo report (e2e) — Fase 2', () => {
     expect(inv.body.rows[0].stockValue).toBe(40);
   });
 
+  it('inventory: paginação (pageSize) + total + stockValue global', async () => {
+    const o = await registerOwner();
+    for (let i = 0; i < 3; i++) {
+      await request(srv())
+        .post('/api/inventory/items')
+        .set(auth(o.access))
+        .send({ name: `Peça ${i}`, currentStock: 2, minStock: 1, costPrice: 10 });
+    }
+
+    const p1 = await request(srv())
+      .get('/api/report/inventory?page=1&pageSize=2')
+      .set(auth(o.access));
+    expect(p1.status).toBe(200);
+    expect(p1.body.rows.length).toBe(2);
+    expect(p1.body.total).toBe(3);
+    expect(p1.body.page).toBe(1);
+    expect(p1.body.pageSize).toBe(2);
+    // stockValue é global (3 × 2 × 10 = 60), não só a página.
+    expect(p1.body.stockValue).toBe(60);
+
+    const p2 = await request(srv())
+      .get('/api/report/inventory?page=2&pageSize=2')
+      .set(auth(o.access));
+    expect(p2.body.rows.length).toBe(1);
+    expect(p2.body.page).toBe(2);
+  });
+
+  it('inventory.csv: download do relatório completo (text/csv + TOTAL)', async () => {
+    const o = await registerOwner();
+    await request(srv())
+      .post('/api/inventory/items')
+      .set(auth(o.access))
+      .send({ name: 'Peça CSV', currentStock: 4, minStock: 1, costPrice: 10 });
+
+    const r = await request(srv())
+      .get('/api/report/inventory.csv')
+      .set(auth(o.access));
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toContain('text/csv');
+    expect(r.text).toContain('Peça CSV');
+    expect(r.text).toContain('TOTAL');
+  });
+
+  it('inventory.pdf: download do relatório completo (application/pdf)', async () => {
+    const o = await registerOwner();
+    await request(srv())
+      .post('/api/inventory/items')
+      .set(auth(o.access))
+      .send({ name: 'Peça PDF', currentStock: 4, minStock: 1, costPrice: 10 });
+
+    const r = await request(srv())
+      .get('/api/report/inventory.pdf?companyName=Oficina%20X')
+      .set(auth(o.access))
+      .buffer(true);
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toContain('application/pdf');
+    expect(Buffer.from(r.body).subarray(0, 4).toString('latin1')).toBe('%PDF');
+  });
+
+  it('inventory.csv: gated por report.read (mechanic → 403)', async () => {
+    const o = await registerOwner();
+    const mech = await inviteAccept(o, 'mechanic');
+    const r = await request(srv())
+      .get('/api/report/inventory.csv')
+      .set(auth(mech.access));
+    expect(r.status).toBe(403);
+  });
+
   it('customers: novos no range + linhas', async () => {
     const o = await registerOwner();
     await createCustomer(o.access);
@@ -369,6 +437,42 @@ describe('Módulo report (e2e) — Fase 2', () => {
     expect(c.body.active).toBe(2);
     expect(c.body.newInRange).toBe(2);
     expect(c.body.rows.length).toBe(2);
+  });
+
+  it('os: linhas paginadas + total + page/pageSize', async () => {
+    const o = await registerOwner();
+    const customerId = await createCustomer(o.access);
+    for (let i = 0; i < 3; i++) {
+      const ord = await createOrder(o.access, { customerId });
+      expect(ord.status).toBe(201);
+    }
+
+    const p1 = await rep(o.access, 'os?page=1&pageSize=2');
+    expect(p1.status).toBe(200);
+    expect(p1.body.rows.length).toBe(2);
+    expect(p1.body.total).toBe(3);
+    expect(p1.body.page).toBe(1);
+    expect(p1.body.pageSize).toBe(2);
+
+    const p2 = await rep(o.access, 'os?page=2&pageSize=2');
+    expect(p2.body.rows.length).toBe(1);
+    expect(p2.body.page).toBe(2);
+  });
+
+  it('os: busca (q) por número/cliente + ordenação (sort) aceita', async () => {
+    const o = await registerOwner();
+    const customerId = await createCustomer(o.access);
+    const ord = await createOrder(o.access, { customerId });
+    const number = ord.body.number as string;
+
+    const byNumber = await rep(o.access, `os?q=${encodeURIComponent(number)}`);
+    expect(byNumber.status).toBe(200);
+    expect(byNumber.body.rows.length).toBe(1);
+    expect(byNumber.body.rows[0].number).toBe(number);
+
+    // sort válido → 200; sort inválido → 400 (whitelist do DTO).
+    expect((await rep(o.access, 'os?sort=total_desc')).status).toBe(200);
+    expect((await rep(o.access, 'os?sort=naoexiste')).status).toBe(400);
   });
 
   // ====================================================================

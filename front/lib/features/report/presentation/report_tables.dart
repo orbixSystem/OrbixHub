@@ -136,7 +136,10 @@ ReportTable topItemsTable(TopItemsReport r) => ReportTable(
       ],
     );
 
-ReportTable inventoryTable(InventoryReport r) => ReportTable(
+/// Tabela de estoque. Paginada na tela (`includeTotal: false` — o total vai no
+/// KPI acima); o export completo é gerado no servidor (não usa este builder).
+ReportTable inventoryTable(InventoryReport r, {bool includeTotal = true}) =>
+    ReportTable(
       title: 'Posição de estoque',
       headers: const [
         'Item',
@@ -160,7 +163,8 @@ ReportTable inventoryTable(InventoryReport r) => ReportTable(
             formatMoney(i.stockValue),
             i.belowMin ? 'Sim' : 'Não',
           ],
-        ['TOTAL', '', '', '', '', '', formatMoney(r.stockValue), ''],
+        if (includeTotal)
+          ['TOTAL', '', '', '', '', '', formatMoney(r.stockValue), ''],
       ],
     );
 

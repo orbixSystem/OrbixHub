@@ -4,9 +4,21 @@ import { TenantContext } from '../../common/database/tenant-context';
 import { InventoryRepository } from './inventory.repository';
 import {
   InventoryMetricsReport,
+  InventoryMetricsReportPage,
   InventoryMetricsSummary,
   InventoryReportRow,
 } from './dto/metrics.dto';
+
+/** Item cru do relatório (subset selecionado no repo). */
+interface RawReportItem {
+  id: string;
+  name: string;
+  sku: string | null;
+  current_stock: Prisma.Decimal | number;
+  min_stock: Prisma.Decimal | number | null;
+  cost_price: Prisma.Decimal | number | null;
+  sale_price: Prisma.Decimal | number | null;
+}
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -59,29 +71,69 @@ export class InventoryMetricsService {
     };
   }
 
-  async metricsReport(): Promise<InventoryMetricsReport> {
-    const raw = await this.tenant.withTenantTx(() => this.repo.listForReport());
+  /** Mapeia um item cru para a linha do relatório (valor = saldo × custo). */
+  private toReportRow(i: RawReportItem): InventoryReportRow {
+    const current = toNum(i.current_stock);
+    const cost = toNumOrNull(i.cost_price);
+    const min = toNumOrNull(i.min_stock);
+    return {
+      id: i.id,
+      name: i.name,
+      sku: i.sku,
+      current_stock: current,
+      min_stock: min,
+      cost_price: cost,
+      sale_price: toNumOrNull(i.sale_price),
+      stockValue: round2(current * (cost ?? 0)),
+      belowMin: min != null && current < min,
+    };
+  }
 
-    let stockValue = 0;
-    const rows: InventoryReportRow[] = raw.map((i) => {
-      const current = toNum(i.current_stock);
-      const cost = toNumOrNull(i.cost_price);
-      const min = toNumOrNull(i.min_stock);
-      const value = round2(current * (cost ?? 0));
-      stockValue += value;
-      return {
-        id: i.id,
-        name: i.name,
-        sku: i.sku,
-        current_stock: current,
-        min_stock: min,
-        cost_price: cost,
-        sale_price: toNumOrNull(i.sale_price),
-        stockValue: value,
-        belowMin: min != null && current < min,
-      };
-    });
-
+  /** Relatório completo (export): TODAS as linhas + valor total em estoque. */
+  async metricsReport(q?: string): Promise<InventoryMetricsReport> {
+    const raw = await this.tenant.withTenantTx(() =>
+      this.repo.listForReport(q),
+    );
+    const rows = raw.map((i) => this.toReportRow(i));
+    const stockValue = rows.reduce((a, r) => a + r.stockValue, 0);
     return { rows, stockValue: round2(stockValue) };
+  }
+
+  /**
+   * Uma página do relatório (tela). O `stockValue` é o valor GLOBAL (agregação
+   * sob RLS no banco — não só a página), para o KPI ficar correto paginando.
+   */
+  async metricsReportPage(p: {
+    page: number;
+    pageSize: number;
+    q?: string;
+  }): Promise<InventoryMetricsReportPage> {
+    const page = Math.max(1, Math.trunc(p.page) || 1);
+    const pageSize = Math.min(200, Math.max(1, Math.trunc(p.pageSize) || 50));
+    const { rows, total, stockValue } = await this.tenant.withTenantTx(
+      async () => {
+        const [pageData, value] = await Promise.all([
+          this.repo.listForReportPage({
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            q: p.q,
+          }),
+          this.repo.stockValue(),
+        ]);
+        return {
+          rows: pageData.items,
+          total: pageData.total,
+          stockValue: value,
+        };
+      },
+    );
+
+    return {
+      rows: rows.map((i) => this.toReportRow(i)),
+      total,
+      page,
+      pageSize,
+      stockValue: round2(stockValue),
+    };
   }
 }

@@ -5,7 +5,8 @@ import 'messages_models.dart';
 /// trocadas por injeção Riverpod. A UI nunca fala com o dio direto.
 abstract interface class MessagesRepository {
   /// Conversas do inbox, mais recentes primeiro (`GET /messages/conversations`).
-  Future<List<Conversation>> listConversations();
+  /// Paginada; [q] busca por título/número da OS. Devolve a página corrente.
+  Future<ConversationPage> listConversations({String? q, int page});
 
   /// Thread completo; abrir reseta `staff_unread` no servidor
   /// (`GET /messages/conversations/:id`).

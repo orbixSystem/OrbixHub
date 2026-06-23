@@ -50,11 +50,16 @@ abstract class CountRevenue with _$CountRevenue {
       _$CountRevenueFromJson(json);
 }
 
-/// Relatório operacional de OS: linhas + agregados por status e por técnico.
+/// Relatório operacional de OS PAGINADO (scroll infinito na tela): linhas da
+/// página + `total`/`page`/`pageSize`. (Os agregados `byStatus`/`byAssignedTo`
+/// ficaram opcionais — o backend paginado não os envia mais; default vazio.)
 @freezed
 abstract class OsOperationalReport with _$OsOperationalReport {
   const factory OsOperationalReport({
     @Default(<OsReportRow>[]) List<OsReportRow> rows,
+    @Default(0) int total,
+    @Default(1) int page,
+    @JsonKey(name: 'pageSize') @Default(50) int pageSize,
     @JsonKey(name: 'byStatus') @Default(<String, int>{}) Map<String, int> byStatus,
     @JsonKey(name: 'byAssignedTo')
     @Default(<String, CountRevenue>{})
@@ -183,12 +188,16 @@ abstract class InventoryReportRow with _$InventoryReportRow {
       _$InventoryReportRowFromJson(json);
 }
 
-/// Relatório de posição de estoque: linhas + valor total.
+/// Relatório de posição de estoque PAGINADO: linhas da página + valor total
+/// (global, todas as páginas) + metadados do paginador (`total`/`page`/`pageSize`).
 @freezed
 abstract class InventoryReport with _$InventoryReport {
   const factory InventoryReport({
     @Default(<InventoryReportRow>[]) List<InventoryReportRow> rows,
     @JsonKey(name: 'stockValue') @Default(0) num stockValue,
+    @Default(0) int total,
+    @Default(1) int page,
+    @JsonKey(name: 'pageSize') @Default(50) int pageSize,
   }) = _InventoryReport;
 
   factory InventoryReport.fromJson(Map<String, dynamic> json) =>

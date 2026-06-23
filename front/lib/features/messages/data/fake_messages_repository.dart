@@ -57,8 +57,20 @@ class FakeMessagesRepository implements MessagesRepository {
   int _seq = 0;
 
   @override
-  Future<List<Conversation>> listConversations() async =>
-      _conversations.values.toList();
+  Future<ConversationPage> listConversations({String? q, int page = 1}) async {
+    var all = _conversations.values.toList();
+    final term = q?.trim().toLowerCase();
+    if (term != null && term.isNotEmpty) {
+      all = all
+          .where((c) =>
+              (c.title?.toLowerCase().contains(term) ?? false) ||
+              (c.refLabel?.toLowerCase().contains(term) ?? false))
+          .toList();
+    }
+    // Paginação simples em memória — devolve tudo numa página (total = tamanho),
+    // de modo que o scroll infinito termina no 1º lote.
+    return ConversationPage(items: all, total: all.length, page: page);
+  }
 
   @override
   Future<ConversationThread> getThread(String id) async {

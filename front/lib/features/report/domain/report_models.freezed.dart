@@ -565,7 +565,7 @@ as num,
 /// @nodoc
 mixin _$OsOperationalReport {
 
- List<OsReportRow> get rows;@JsonKey(name: 'byStatus') Map<String, int> get byStatus;@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> get byAssignedTo;
+ List<OsReportRow> get rows; int get total; int get page;@JsonKey(name: 'pageSize') int get pageSize;@JsonKey(name: 'byStatus') Map<String, int> get byStatus;@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> get byAssignedTo;
 /// Create a copy of OsOperationalReport
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -578,16 +578,16 @@ $OsOperationalReportCopyWith<OsOperationalReport> get copyWith => _$OsOperationa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OsOperationalReport&&const DeepCollectionEquality().equals(other.rows, rows)&&const DeepCollectionEquality().equals(other.byStatus, byStatus)&&const DeepCollectionEquality().equals(other.byAssignedTo, byAssignedTo));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OsOperationalReport&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&const DeepCollectionEquality().equals(other.byStatus, byStatus)&&const DeepCollectionEquality().equals(other.byAssignedTo, byAssignedTo));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),const DeepCollectionEquality().hash(byStatus),const DeepCollectionEquality().hash(byAssignedTo));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),total,page,pageSize,const DeepCollectionEquality().hash(byStatus),const DeepCollectionEquality().hash(byAssignedTo));
 
 @override
 String toString() {
-  return 'OsOperationalReport(rows: $rows, byStatus: $byStatus, byAssignedTo: $byAssignedTo)';
+  return 'OsOperationalReport(rows: $rows, total: $total, page: $page, pageSize: $pageSize, byStatus: $byStatus, byAssignedTo: $byAssignedTo)';
 }
 
 
@@ -598,7 +598,7 @@ abstract mixin class $OsOperationalReportCopyWith<$Res>  {
   factory $OsOperationalReportCopyWith(OsOperationalReport value, $Res Function(OsOperationalReport) _then) = _$OsOperationalReportCopyWithImpl;
 @useResult
 $Res call({
- List<OsReportRow> rows,@JsonKey(name: 'byStatus') Map<String, int> byStatus,@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> byAssignedTo
+ List<OsReportRow> rows, int total, int page,@JsonKey(name: 'pageSize') int pageSize,@JsonKey(name: 'byStatus') Map<String, int> byStatus,@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> byAssignedTo
 });
 
 
@@ -615,10 +615,13 @@ class _$OsOperationalReportCopyWithImpl<$Res>
 
 /// Create a copy of OsOperationalReport
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? byStatus = null,Object? byAssignedTo = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? total = null,Object? page = null,Object? pageSize = null,Object? byStatus = null,Object? byAssignedTo = null,}) {
   return _then(_self.copyWith(
 rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
-as List<OsReportRow>,byStatus: null == byStatus ? _self.byStatus : byStatus // ignore: cast_nullable_to_non_nullable
+as List<OsReportRow>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,byStatus: null == byStatus ? _self.byStatus : byStatus // ignore: cast_nullable_to_non_nullable
 as Map<String, int>,byAssignedTo: null == byAssignedTo ? _self.byAssignedTo : byAssignedTo // ignore: cast_nullable_to_non_nullable
 as Map<String, CountRevenue>,
   ));
@@ -705,10 +708,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<OsReportRow> rows, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<OsReportRow> rows,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OsOperationalReport() when $default != null:
-return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
+return $default(_that.rows,_that.total,_that.page,_that.pageSize,_that.byStatus,_that.byAssignedTo);case _:
   return orElse();
 
 }
@@ -726,10 +729,10 @@ return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<OsReportRow> rows, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<OsReportRow> rows,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)  $default,) {final _that = this;
 switch (_that) {
 case _OsOperationalReport():
-return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
+return $default(_that.rows,_that.total,_that.page,_that.pageSize,_that.byStatus,_that.byAssignedTo);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -746,10 +749,10 @@ return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<OsReportRow> rows, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<OsReportRow> rows,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize, @JsonKey(name: 'byStatus')  Map<String, int> byStatus, @JsonKey(name: 'byAssignedTo')  Map<String, CountRevenue> byAssignedTo)?  $default,) {final _that = this;
 switch (_that) {
 case _OsOperationalReport() when $default != null:
-return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
+return $default(_that.rows,_that.total,_that.page,_that.pageSize,_that.byStatus,_that.byAssignedTo);case _:
   return null;
 
 }
@@ -761,7 +764,7 @@ return $default(_that.rows,_that.byStatus,_that.byAssignedTo);case _:
 @JsonSerializable()
 
 class _OsOperationalReport implements OsOperationalReport {
-  const _OsOperationalReport({final  List<OsReportRow> rows = const <OsReportRow>[], @JsonKey(name: 'byStatus') final  Map<String, int> byStatus = const <String, int>{}, @JsonKey(name: 'byAssignedTo') final  Map<String, CountRevenue> byAssignedTo = const <String, CountRevenue>{}}): _rows = rows,_byStatus = byStatus,_byAssignedTo = byAssignedTo;
+  const _OsOperationalReport({final  List<OsReportRow> rows = const <OsReportRow>[], this.total = 0, this.page = 1, @JsonKey(name: 'pageSize') this.pageSize = 50, @JsonKey(name: 'byStatus') final  Map<String, int> byStatus = const <String, int>{}, @JsonKey(name: 'byAssignedTo') final  Map<String, CountRevenue> byAssignedTo = const <String, CountRevenue>{}}): _rows = rows,_byStatus = byStatus,_byAssignedTo = byAssignedTo;
   factory _OsOperationalReport.fromJson(Map<String, dynamic> json) => _$OsOperationalReportFromJson(json);
 
  final  List<OsReportRow> _rows;
@@ -771,6 +774,9 @@ class _OsOperationalReport implements OsOperationalReport {
   return EqualUnmodifiableListView(_rows);
 }
 
+@override@JsonKey() final  int total;
+@override@JsonKey() final  int page;
+@override@JsonKey(name: 'pageSize') final  int pageSize;
  final  Map<String, int> _byStatus;
 @override@JsonKey(name: 'byStatus') Map<String, int> get byStatus {
   if (_byStatus is EqualUnmodifiableMapView) return _byStatus;
@@ -799,16 +805,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OsOperationalReport&&const DeepCollectionEquality().equals(other._rows, _rows)&&const DeepCollectionEquality().equals(other._byStatus, _byStatus)&&const DeepCollectionEquality().equals(other._byAssignedTo, _byAssignedTo));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OsOperationalReport&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&const DeepCollectionEquality().equals(other._byStatus, _byStatus)&&const DeepCollectionEquality().equals(other._byAssignedTo, _byAssignedTo));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),const DeepCollectionEquality().hash(_byStatus),const DeepCollectionEquality().hash(_byAssignedTo));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),total,page,pageSize,const DeepCollectionEquality().hash(_byStatus),const DeepCollectionEquality().hash(_byAssignedTo));
 
 @override
 String toString() {
-  return 'OsOperationalReport(rows: $rows, byStatus: $byStatus, byAssignedTo: $byAssignedTo)';
+  return 'OsOperationalReport(rows: $rows, total: $total, page: $page, pageSize: $pageSize, byStatus: $byStatus, byAssignedTo: $byAssignedTo)';
 }
 
 
@@ -819,7 +825,7 @@ abstract mixin class _$OsOperationalReportCopyWith<$Res> implements $OsOperation
   factory _$OsOperationalReportCopyWith(_OsOperationalReport value, $Res Function(_OsOperationalReport) _then) = __$OsOperationalReportCopyWithImpl;
 @override @useResult
 $Res call({
- List<OsReportRow> rows,@JsonKey(name: 'byStatus') Map<String, int> byStatus,@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> byAssignedTo
+ List<OsReportRow> rows, int total, int page,@JsonKey(name: 'pageSize') int pageSize,@JsonKey(name: 'byStatus') Map<String, int> byStatus,@JsonKey(name: 'byAssignedTo') Map<String, CountRevenue> byAssignedTo
 });
 
 
@@ -836,10 +842,13 @@ class __$OsOperationalReportCopyWithImpl<$Res>
 
 /// Create a copy of OsOperationalReport
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? byStatus = null,Object? byAssignedTo = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? total = null,Object? page = null,Object? pageSize = null,Object? byStatus = null,Object? byAssignedTo = null,}) {
   return _then(_OsOperationalReport(
 rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
-as List<OsReportRow>,byStatus: null == byStatus ? _self._byStatus : byStatus // ignore: cast_nullable_to_non_nullable
+as List<OsReportRow>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,byStatus: null == byStatus ? _self._byStatus : byStatus // ignore: cast_nullable_to_non_nullable
 as Map<String, int>,byAssignedTo: null == byAssignedTo ? _self._byAssignedTo : byAssignedTo // ignore: cast_nullable_to_non_nullable
 as Map<String, CountRevenue>,
   ));
@@ -2786,7 +2795,7 @@ as bool,
 /// @nodoc
 mixin _$InventoryReport {
 
- List<InventoryReportRow> get rows;@JsonKey(name: 'stockValue') num get stockValue;
+ List<InventoryReportRow> get rows;@JsonKey(name: 'stockValue') num get stockValue; int get total; int get page;@JsonKey(name: 'pageSize') int get pageSize;
 /// Create a copy of InventoryReport
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2799,16 +2808,16 @@ $InventoryReportCopyWith<InventoryReport> get copyWith => _$InventoryReportCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryReport&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.stockValue, stockValue) || other.stockValue == stockValue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryReport&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.stockValue, stockValue) || other.stockValue == stockValue)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),stockValue);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),stockValue,total,page,pageSize);
 
 @override
 String toString() {
-  return 'InventoryReport(rows: $rows, stockValue: $stockValue)';
+  return 'InventoryReport(rows: $rows, stockValue: $stockValue, total: $total, page: $page, pageSize: $pageSize)';
 }
 
 
@@ -2819,7 +2828,7 @@ abstract mixin class $InventoryReportCopyWith<$Res>  {
   factory $InventoryReportCopyWith(InventoryReport value, $Res Function(InventoryReport) _then) = _$InventoryReportCopyWithImpl;
 @useResult
 $Res call({
- List<InventoryReportRow> rows,@JsonKey(name: 'stockValue') num stockValue
+ List<InventoryReportRow> rows,@JsonKey(name: 'stockValue') num stockValue, int total, int page,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -2836,11 +2845,14 @@ class _$InventoryReportCopyWithImpl<$Res>
 
 /// Create a copy of InventoryReport
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? stockValue = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? stockValue = null,Object? total = null,Object? page = null,Object? pageSize = null,}) {
   return _then(_self.copyWith(
 rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
 as List<InventoryReportRow>,stockValue: null == stockValue ? _self.stockValue : stockValue // ignore: cast_nullable_to_non_nullable
-as num,
+as num,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -2925,10 +2937,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InventoryReport() when $default != null:
-return $default(_that.rows,_that.stockValue);case _:
+return $default(_that.rows,_that.stockValue,_that.total,_that.page,_that.pageSize);case _:
   return orElse();
 
 }
@@ -2946,10 +2958,10 @@ return $default(_that.rows,_that.stockValue);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)  $default,) {final _that = this;
 switch (_that) {
 case _InventoryReport():
-return $default(_that.rows,_that.stockValue);case _:
+return $default(_that.rows,_that.stockValue,_that.total,_that.page,_that.pageSize);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2966,10 +2978,10 @@ return $default(_that.rows,_that.stockValue);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<InventoryReportRow> rows, @JsonKey(name: 'stockValue')  num stockValue,  int total,  int page, @JsonKey(name: 'pageSize')  int pageSize)?  $default,) {final _that = this;
 switch (_that) {
 case _InventoryReport() when $default != null:
-return $default(_that.rows,_that.stockValue);case _:
+return $default(_that.rows,_that.stockValue,_that.total,_that.page,_that.pageSize);case _:
   return null;
 
 }
@@ -2981,7 +2993,7 @@ return $default(_that.rows,_that.stockValue);case _:
 @JsonSerializable()
 
 class _InventoryReport implements InventoryReport {
-  const _InventoryReport({final  List<InventoryReportRow> rows = const <InventoryReportRow>[], @JsonKey(name: 'stockValue') this.stockValue = 0}): _rows = rows;
+  const _InventoryReport({final  List<InventoryReportRow> rows = const <InventoryReportRow>[], @JsonKey(name: 'stockValue') this.stockValue = 0, this.total = 0, this.page = 1, @JsonKey(name: 'pageSize') this.pageSize = 50}): _rows = rows;
   factory _InventoryReport.fromJson(Map<String, dynamic> json) => _$InventoryReportFromJson(json);
 
  final  List<InventoryReportRow> _rows;
@@ -2992,6 +3004,9 @@ class _InventoryReport implements InventoryReport {
 }
 
 @override@JsonKey(name: 'stockValue') final  num stockValue;
+@override@JsonKey() final  int total;
+@override@JsonKey() final  int page;
+@override@JsonKey(name: 'pageSize') final  int pageSize;
 
 /// Create a copy of InventoryReport
 /// with the given fields replaced by the non-null parameter values.
@@ -3006,16 +3021,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryReport&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.stockValue, stockValue) || other.stockValue == stockValue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryReport&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.stockValue, stockValue) || other.stockValue == stockValue)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),stockValue);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),stockValue,total,page,pageSize);
 
 @override
 String toString() {
-  return 'InventoryReport(rows: $rows, stockValue: $stockValue)';
+  return 'InventoryReport(rows: $rows, stockValue: $stockValue, total: $total, page: $page, pageSize: $pageSize)';
 }
 
 
@@ -3026,7 +3041,7 @@ abstract mixin class _$InventoryReportCopyWith<$Res> implements $InventoryReport
   factory _$InventoryReportCopyWith(_InventoryReport value, $Res Function(_InventoryReport) _then) = __$InventoryReportCopyWithImpl;
 @override @useResult
 $Res call({
- List<InventoryReportRow> rows,@JsonKey(name: 'stockValue') num stockValue
+ List<InventoryReportRow> rows,@JsonKey(name: 'stockValue') num stockValue, int total, int page,@JsonKey(name: 'pageSize') int pageSize
 });
 
 
@@ -3043,11 +3058,14 @@ class __$InventoryReportCopyWithImpl<$Res>
 
 /// Create a copy of InventoryReport
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? stockValue = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? stockValue = null,Object? total = null,Object? page = null,Object? pageSize = null,}) {
   return _then(_InventoryReport(
 rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
 as List<InventoryReportRow>,stockValue: null == stockValue ? _self.stockValue : stockValue // ignore: cast_nullable_to_non_nullable
-as num,
+as num,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

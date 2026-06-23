@@ -298,7 +298,7 @@ describe('OS — Acompanhamento público (e2e)', () => {
       // staff vê staff_unread incrementado no inbox
       const convs = await listConversations(o.access);
       expect(convs.status).toBe(200);
-      const conv = (convs.body as Array<{
+      const conv = (convs.body.items as Array<{
         ref_type: string;
         staff_unread: number;
       }>).find((c) => c.ref_type === 'os');

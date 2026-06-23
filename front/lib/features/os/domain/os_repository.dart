@@ -11,6 +11,7 @@ abstract interface class OsRepository {
     String? q,
     String? status,
     String? customerId,
+    String sort,
     int page,
   });
   Future<ServiceOrder> getOrder(String id);

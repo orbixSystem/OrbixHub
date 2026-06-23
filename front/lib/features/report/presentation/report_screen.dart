@@ -11,8 +11,8 @@ import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart' show osStatuses, osStatusLabel;
-import '../../../core/theme/app_colors.dart';
 import '../domain/report_models.dart';
+import '../domain/report_repository.dart';
 import 'report_catalog.dart';
 import 'report_csv.dart';
 import 'report_download.dart';
@@ -65,7 +65,8 @@ class ReportScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 'Lentes detalhadas sobre os dados dos seus módulos.',
-                style: TextStyle(color: AppColors.inkMuted),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 20),
               if (wide)
@@ -105,26 +106,28 @@ class _ReportPicker extends ConsumerWidget {
       groups.putIfAbsent(r.group, () => []).add(r);
     }
 
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
+      clipBehavior: Clip.antiAlias,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final entry in groups.entries) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
                 entry.key.toUpperCase(),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.6,
-                  color: AppColors.inkMuted,
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -155,17 +158,23 @@ class _PickerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        color: selected ? AppColors.brandTint : Colors.transparent,
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
         child: Row(
           children: [
             Container(
               width: 3,
               height: 18,
-              color: selected ? AppColors.brand : Colors.transparent,
+              decoration: BoxDecoration(
+                color: selected ? scheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -174,7 +183,7 @@ class _PickerItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? AppColors.brandDeep : null,
+                  color: selected ? scheme.primary : scheme.onSurface,
                 ),
               ),
             ),
@@ -234,6 +243,8 @@ class _FiltersBar extends ConsumerWidget {
             onChanged: (v) =>
                 ref.read(reportFiltersProvider.notifier).setStatus(v),
           ),
+          const _OsSearchField(),
+          const _OsSortMenu(),
         ],
         if (kind == ReportKind.topItems) ...[
           _KindFilter(
@@ -416,12 +427,11 @@ class _ReportBody extends ConsumerWidget {
 
     switch (spec.kind) {
       case ReportKind.osOperational:
-        return _AsyncReport(
-          async: ref.watch(osOperationalReportProvider),
-          retry: () => ref.invalidate(osOperationalReportProvider),
-          tableOf: (r) => osOperationalTable(r, memberNames),
-          isEmpty: (r) => r.rows.isEmpty,
-          chartOf: null,
+        // OS pode ter milhares de linhas → lista PAGINADA (scroll infinito,
+        // render leve). Evita montar uma DataTable gigante de uma vez (causa do
+        // travamento anterior). Busca + ordenação ficam na barra de filtros.
+        return _OsOperationalReport(
+          memberNames: memberNames,
           company: _company(),
           period: _periodLabel(ref),
         );
@@ -460,16 +470,10 @@ class _ReportBody extends ConsumerWidget {
           period: _periodLabel(ref),
         );
       case ReportKind.inventoryPosition:
-        return _AsyncReport(
-          async: ref.watch(inventoryReportProvider),
-          retry: () => ref.invalidate(inventoryReportProvider),
-          tableOf: inventoryTable,
-          isEmpty: (r) => r.rows.isEmpty,
-          chartOf: null,
-          summaryOf: (r) => [('Valor em estoque', formatMoney(r.stockValue))],
-          company: _company(),
-          period: null,
-        );
+        // Estoque pode ter milhares de itens → paginado na tela; export (CSV/PDF
+        // do relatório COMPLETO) é gerado no servidor. Caso dedicado (não o
+        // genérico, que monta tudo em memória).
+        return _InventoryReport(company: _company());
       case ReportKind.customers:
         return _AsyncReport(
           async: ref.watch(customersReportProvider),
@@ -525,20 +529,27 @@ class _AsyncReport<T> extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Título do relatório em largura cheia, ACIMA do corpo (era um filho
-            // sem flex de um Row ao lado dos botões de export, o que o espremia
-            // numa coluna de ~1 caractere e o fazia quebrar verticalmente).
-            Text(
-              table.title,
-              style: Theme.of(context).textTheme.titleLarge,
+            // Cabeçalho do relatório: título à esquerda, ações de export à direita.
+            // Quebra para baixo em telas estreitas (Wrap com alinhamento entre as
+            // extremidades).
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 12,
+              spacing: 16,
+              children: [
+                Text(
+                  table.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                _ExportButtons(
+                  table: table,
+                  company: company,
+                  period: period,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _ExportButtons(
-              table: table,
-              company: company,
-              period: period,
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             if (summaryOf != null) ...[
               Wrap(
                 spacing: 24,
@@ -565,6 +576,211 @@ class _AsyncReport<T> extends StatelessWidget {
   }
 }
 
+/// Relatório de estoque dedicado: tabela PAGINADA (uma página por vez, render
+/// leve) + KPI de valor total + export gerado no servidor. Evita carregar/
+/// renderizar milhares de itens de uma vez (causa da lentidão anterior).
+class _InventoryReport extends ConsumerWidget {
+  const _InventoryReport({required this.company});
+
+  final ReportCompany? company;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(inventoryReportProvider);
+    return async.when(
+      // Mantém a página anterior visível enquanto a próxima carrega (paginador
+      // sem flicker de spinner cheio).
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) =>
+          _ErrorBox(onRetry: () => ref.invalidate(inventoryReportProvider)),
+      data: (data) {
+        final empty = data.rows.isEmpty && data.total == 0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 12,
+              spacing: 16,
+              children: [
+                Text('Posição de estoque',
+                    style: Theme.of(context).textTheme.titleLarge),
+                _ServerExportButtons(company: company),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _SummaryStat(
+                label: 'Valor em estoque',
+                value: formatMoney(data.stockValue)),
+            const SizedBox(height: 18),
+            if (empty)
+              const _Empty(message: 'Sem itens em estoque.')
+            else ...[
+              _DataTableCard(
+                  table: inventoryTable(data, includeTotal: false)),
+              const SizedBox(height: 12),
+              _InventoryPager(report: data),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Paginador do relatório de estoque: "X–Y de N" + navegação anterior/próxima.
+class _InventoryPager extends ConsumerWidget {
+  const _InventoryPager({required this.report});
+
+  final InventoryReport report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final pageCount = report.pageSize <= 0
+        ? 1
+        : ((report.total + report.pageSize - 1) ~/ report.pageSize)
+            .clamp(1, 1 << 30);
+    final page = report.page.clamp(1, pageCount);
+    final first =
+        report.total == 0 ? 0 : (page - 1) * report.pageSize + 1;
+    final last = (page * report.pageSize).clamp(0, report.total);
+
+    void go(int p) => ref.read(inventoryPageProvider.notifier).set(p);
+
+    final muted = TextStyle(color: scheme.onSurfaceVariant, fontSize: 13);
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 8,
+      spacing: 16,
+      children: [
+        Text('$first–$last de ${report.total} itens', style: muted),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Página anterior',
+              onPressed: page > 1 ? () => go(page - 1) : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Text('Página $page de $pageCount', style: muted),
+            IconButton(
+              tooltip: 'Próxima página',
+              onPressed: page < pageCount ? () => go(page + 1) : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Botões de export do estoque que baixam o arquivo COMPLETO gerado no servidor
+/// (CSV/PDF). Mostra spinner enquanto o servidor gera + trata erro com SnackBar.
+class _ServerExportButtons extends ConsumerStatefulWidget {
+  const _ServerExportButtons({required this.company});
+
+  final ReportCompany? company;
+
+  @override
+  ConsumerState<_ServerExportButtons> createState() =>
+      _ServerExportButtonsState();
+}
+
+class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
+  bool _csvBusy = false;
+  bool _pdfBusy = false;
+
+  ReportExportCompany? _exportCompany() {
+    final c = widget.company;
+    if (c == null) return null;
+    return ReportExportCompany(
+      name: c.name,
+      legalName: c.legalName,
+      cnpj: c.cnpj,
+    );
+  }
+
+  Future<void> _run({
+    required bool isPdf,
+    required Future<void> Function() task,
+  }) async {
+    setState(() => isPdf ? _pdfBusy = true : _csvBusy = true);
+    try {
+      await task();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Não foi possível gerar o arquivo. Tente novamente.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isPdf ? _pdfBusy = false : _csvBusy = false);
+      }
+    }
+  }
+
+  Future<void> _csv() => _run(
+        isPdf: false,
+        task: () async {
+          final bytes = await ref.read(reportRepositoryProvider).inventoryCsv();
+          downloadBytes(bytes, 'posicao-de-estoque.csv',
+              'text/csv;charset=utf-8');
+        },
+      );
+
+  Future<void> _pdf() => _run(
+        isPdf: true,
+        task: () async {
+          final bytes = await ref
+              .read(reportRepositoryProvider)
+              .inventoryPdf(company: _exportCompany());
+          downloadBytes(bytes, 'posicao-de-estoque.pdf', 'application/pdf');
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    const compact = Size(0, 40);
+    const pad = EdgeInsets.symmetric(horizontal: 16);
+    Widget spinner() => const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2));
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _csvBusy ? null : _csv,
+          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _csvBusy
+              ? spinner()
+              : const Icon(Icons.table_view_outlined, size: 18),
+          label: const Text('Exportar CSV'),
+        ),
+        FilledButton.icon(
+          onPressed: _pdfBusy ? null : _pdf,
+          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _pdfBusy
+              ? spinner()
+              : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+          label: const Text('Exportar PDF'),
+        ),
+      ],
+    );
+  }
+}
+
 class _SummaryStat extends StatelessWidget {
   const _SummaryStat({required this.label, required this.value});
   final String label;
@@ -579,7 +795,9 @@ class _SummaryStat extends StatelessWidget {
         Text(value, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 2),
         Text(label,
-            style: TextStyle(color: AppColors.inkMuted, fontSize: 12.5)),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12.5)),
       ],
     );
   }
@@ -593,38 +811,65 @@ class _DataTableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    bool isTotal(List<String> row) => row.isNotEmpty && row.first == 'TOTAL';
+
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(AppColors.surfaceSunken),
+          headingRowColor:
+              WidgetStateProperty.all(scheme.surfaceContainerHigh),
+          headingTextStyle: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurfaceVariant,
+            letterSpacing: 0.2,
+          ),
+          dataTextStyle: TextStyle(
+            fontSize: 13.5,
+            color: scheme.onSurface,
+          ),
+          dividerThickness: 0.5,
           columns: [
             for (final h in table.headers) DataColumn(label: Text(h)),
           ],
           rows: [
-            for (final row in table.rows)
-              DataRow(
-                color: row.isNotEmpty && row.first == 'TOTAL'
-                    ? WidgetStateProperty.all(AppColors.brandTint)
-                    : null,
-                cells: [
-                  for (final cell in row)
-                    DataCell(
-                      Text(
-                        cell,
-                        style: row.isNotEmpty && row.first == 'TOTAL'
-                            ? const TextStyle(fontWeight: FontWeight.w700)
-                            : null,
+            for (var i = 0; i < table.rows.length; i++)
+              () {
+                final row = table.rows[i];
+                final total = isTotal(row);
+                return DataRow(
+                  color: WidgetStateProperty.all(
+                    total
+                        ? scheme.primary.withValues(alpha: 0.12)
+                        : (i.isOdd
+                            ? scheme.surfaceContainerHighest
+                                .withValues(alpha: 0.4)
+                            : null),
+                  ),
+                  cells: [
+                    for (final cell in row)
+                      DataCell(
+                        Text(
+                          cell,
+                          style: total
+                              ? TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.primary,
+                                )
+                              : null,
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                );
+              }(),
           ],
         ),
       ),
@@ -646,13 +891,20 @@ class _ExportButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // O tema global define minimumSize de altura cheia (Size.fromHeight(50)), o
+    // que daria largura infinita aos botões e os esticaria/quebraria. Aqui forçamos
+    // botões compactos do tamanho do conteúdo, lado a lado numa toolbar.
+    const compact = Size(0, 40);
+    const pad = EdgeInsets.symmetric(horizontal: 16);
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: [
         OutlinedButton.icon(
           onPressed: () =>
               downloadText(buildCsv(table), csvFileName(table.title),
                   'text/csv;charset=utf-8'),
+          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
           icon: const Icon(Icons.table_view_outlined, size: 18),
           label: const Text('Exportar CSV'),
         ),
@@ -665,9 +917,7 @@ class _ExportButtons extends StatelessWidget {
               periodLabel: period,
             ),
           ),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 40),
-          ),
+          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
           icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
           label: const Text('Exportar PDF'),
         ),
@@ -683,6 +933,7 @@ class _RevenueChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final days = report.byDay;
     if (days.isEmpty) return const SizedBox.shrink();
     final maxY = days
@@ -713,7 +964,7 @@ class _RevenueChart extends StatelessWidget {
                 barRods: [
                   BarChartRodData(
                     toY: days[i].revenue.toDouble(),
-                    color: AppColors.brand,
+                    color: scheme.primary,
                     width: days.length > 20 ? 4 : 10,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -734,6 +985,7 @@ class _TeamChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final rows = report.rows;
     if (rows.isEmpty) return const SizedBox.shrink();
     final maxY = rows
@@ -768,7 +1020,8 @@ class _TeamChart extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       label.length > 8 ? '${label.substring(0, 8)}…' : label,
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(
+                          fontSize: 10, color: scheme.onSurfaceVariant),
                     ),
                   );
                 },
@@ -782,7 +1035,7 @@ class _TeamChart extends StatelessWidget {
                 barRods: [
                   BarChartRodData(
                     toY: rows[i].revenue.toDouble(),
-                    color: AppColors.graphite,
+                    color: scheme.tertiary,
                     width: 16,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -807,7 +1060,7 @@ class _ChartCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -827,16 +1080,17 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       height: 220,
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.danger, size: 28),
+          Icon(Icons.error_outline, color: scheme.error, size: 28),
           const SizedBox(height: 10),
           Text('Não foi possível carregar o relatório.',
-              style: TextStyle(color: AppColors.inkMuted)),
+              style: TextStyle(color: scheme.onSurfaceVariant)),
           const SizedBox(height: 10),
           TextButton.icon(
             onPressed: onRetry,
@@ -858,7 +1112,322 @@ class _Empty extends StatelessWidget {
     return Container(
       height: 160,
       alignment: Alignment.center,
-      child: Text(message, style: TextStyle(color: AppColors.inkMuted)),
+      child: Text(message,
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant)),
+    );
+  }
+}
+
+/// Relatório operacional de OS: lista PAGINADA com scroll infinito (render leve,
+/// um lote por vez) dentro de um card de altura limitada — não monta milhares de
+/// linhas de uma vez. Export (CSV/PDF) cobre as linhas já carregadas.
+class _OsOperationalReport extends ConsumerStatefulWidget {
+  const _OsOperationalReport({
+    required this.memberNames,
+    required this.company,
+    required this.period,
+  });
+
+  final Map<String, String> memberNames;
+  final ReportCompany? company;
+  final String? period;
+
+  @override
+  ConsumerState<_OsOperationalReport> createState() =>
+      _OsOperationalReportState();
+}
+
+class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      ref.read(osOperationalReportProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final async = ref.watch(osOperationalReportProvider);
+    return async.when(
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) =>
+          _ErrorBox(onRetry: () => ref.invalidate(osOperationalReportProvider)),
+      data: (state) {
+        // Tabela só com as linhas já carregadas — alimenta o export CSV/PDF.
+        final table = osOperationalTable(
+          OsOperationalReport(rows: state.rows),
+          widget.memberNames,
+        );
+        final empty = state.rows.isEmpty;
+        final listHeight =
+            (MediaQuery.of(context).size.height * 0.6).clamp(360.0, 820.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 12,
+              spacing: 16,
+              children: [
+                Text('OS — Operacional',
+                    style: Theme.of(context).textTheme.titleLarge),
+                _ExportButtons(
+                  table: table,
+                  company: widget.company,
+                  period: widget.period,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (empty)
+              const _Empty(message: 'Sem OS no período.')
+            else
+              SizedBox(
+                height: listHeight.toDouble(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: scheme.outlineVariant),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListView.separated(
+                    controller: _scroll,
+                    itemCount: state.rows.length + 1,
+                    separatorBuilder: (_, i) => i >= state.rows.length - 1
+                        ? const SizedBox.shrink()
+                        : const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      if (i < state.rows.length) {
+                        return _OsRowTile(
+                          row: state.rows[i],
+                          names: widget.memberNames,
+                        );
+                      }
+                      return _ListFooter(
+                        loadingMore: state.loadingMore,
+                        hasMore: state.hasMore,
+                        total: state.total,
+                        noun: 'OS',
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Linha (tile) de uma OS no relatório operacional: nº + cliente à esquerda;
+/// status + valor à direita; abertura/técnico na 2ª linha. Render leve (sem DataTable).
+class _OsRowTile extends StatelessWidget {
+  const _OsRowTile({required this.row, required this.names});
+
+  final OsReportRow row;
+  final Map<String, String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final subtitle =
+        '${fmtDate(row.openedAt)} · ${assignedLabel(row.assignedTo, names)}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${row.number} · ${row.customerName}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                osStatusLabel(row.status),
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                formatMoney(row.total),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Menu de ordenação do relatório de OS (mesmo visual do menu de Estoque).
+class _OsSortMenu extends ConsumerWidget {
+  const _OsSortMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final value = ref.watch(reportFiltersProvider).osSort;
+    return PopupMenuButton<OsReportSort>(
+      tooltip: 'Ordenar',
+      initialValue: value,
+      onSelected: (s) => ref.read(reportFiltersProvider.notifier).setOsSort(s),
+      position: PopupMenuPosition.under,
+      itemBuilder: (_) => [
+        for (final s in OsReportSort.values)
+          PopupMenuItem<OsReportSort>(
+            value: s,
+            child: Row(
+              children: [
+                Expanded(child: Text(s.label)),
+                if (s == value)
+                  Icon(Icons.check, size: 18, color: scheme.primary),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.swap_vert, size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(value.label,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Campo de busca do relatório de OS (nº ou cliente). Mantém o próprio controller
+/// para não perder o cursor quando a barra de filtros rebuilda.
+class _OsSearchField extends ConsumerStatefulWidget {
+  const _OsSearchField();
+
+  @override
+  ConsumerState<_OsSearchField> createState() => _OsSearchFieldState();
+}
+
+class _OsSearchFieldState extends ConsumerState<_OsSearchField> {
+  final _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      child: TextField(
+        controller: _c,
+        decoration: const InputDecoration(
+          isDense: true,
+          prefixIcon: Icon(Icons.search, size: 20),
+          hintText: 'Buscar nº ou cliente',
+          border: OutlineInputBorder(),
+        ),
+        onChanged: (v) => ref.read(reportFiltersProvider.notifier).setOsQ(v),
+      ),
+    );
+  }
+}
+
+/// Rodapé da lista paginada: spinner ao buscar o próximo lote; convite a rolar
+/// quando há mais; contagem total quando tudo foi carregado.
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.loadingMore,
+    required this.hasMore,
+    required this.total,
+    required this.noun,
+  });
+
+  final bool loadingMore;
+  final bool hasMore;
+  final int total;
+  final String noun;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      fontSize: 13,
+    );
+    final Widget child;
+    if (loadingMore) {
+      child = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2.5),
+      );
+    } else if (hasMore) {
+      child = Text('Role para carregar mais', style: style);
+    } else {
+      child = Text('$total $noun no total', style: style);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Center(child: child),
     );
   }
 }

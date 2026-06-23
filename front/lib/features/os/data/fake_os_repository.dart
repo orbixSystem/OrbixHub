@@ -31,11 +31,15 @@ class FakeOsRepository implements OsRepository {
   int _photoSeq = 0;
   int _tplSeq = 0;
 
+  /// Tamanho do lote — espelha o DEFAULT_PAGE_SIZE do backend (20).
+  static const _pageSize = 20;
+
   @override
   Future<OrderPage> listOrders({
     String? q,
     String? status,
     String? customerId,
+    String sort = 'recent',
     int page = 1,
   }) async {
     final term = q?.toLowerCase();
@@ -51,8 +55,53 @@ class FakeOsRepository implements OsRepository {
           o.number.toLowerCase().contains(term) ||
           (o.customerName?.toLowerCase().contains(term) ?? false));
     }
-    final items = list.toList();
-    return OrderPage(items: items, total: items.length);
+    final all = list.toList()..sort(_comparatorFor(sort));
+    final total = all.length;
+    // Paginação por skip/take (mesma semântica do backend).
+    final skip = (page - 1) * _pageSize;
+    final items = skip >= total
+        ? <ServiceOrder>[]
+        : all.skip(skip).take(_pageSize).toList();
+    return OrderPage(items: items, total: total, page: page, pageSize: _pageSize);
+  }
+
+  /// Comparador espelhando o sort do backend, com `id` como desempate final
+  /// (paginação estável). Total/cliente nulos vão para o fim.
+  int Function(ServiceOrder, ServiceOrder) _comparatorFor(String sort) {
+    double total(ServiceOrder o) => double.tryParse(o.total ?? '') ?? 0;
+    String customer(ServiceOrder o) => (o.customerName ?? '').toLowerCase();
+    int byId(ServiceOrder a, ServiceOrder b) => a.id.compareTo(b.id);
+
+    int Function(ServiceOrder, ServiceOrder) primary;
+    switch (sort) {
+      case 'oldest':
+        // Sem created_at confiável no fake: aproxima por id crescente.
+        primary = (a, b) => a.id.compareTo(b.id);
+      case 'number_asc':
+        primary = (a, b) =>
+            a.number.toLowerCase().compareTo(b.number.toLowerCase());
+      case 'number_desc':
+        primary = (a, b) =>
+            b.number.toLowerCase().compareTo(a.number.toLowerCase());
+      case 'customer_asc':
+        primary = (a, b) => customer(a).compareTo(customer(b));
+      case 'customer_desc':
+        primary = (a, b) => customer(b).compareTo(customer(a));
+      case 'total_desc':
+        primary = (a, b) => total(b).compareTo(total(a));
+      case 'total_asc':
+        primary = (a, b) => total(a).compareTo(total(b));
+      case 'status':
+        primary = (a, b) => a.status.compareTo(b.status);
+      case 'recent':
+      default:
+        // Sem created_at no fake: aproxima por id decrescente (ordem de criação).
+        primary = (a, b) => b.id.compareTo(a.id);
+    }
+    return (a, b) {
+      final p = primary(a, b);
+      return p != 0 ? p : byId(a, b);
+    };
   }
 
   @override

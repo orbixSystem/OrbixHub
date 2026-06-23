@@ -22,19 +22,30 @@ class MessagesRepositoryImpl implements MessagesRepository {
       (data as Map).cast<String, dynamic>();
 
   @override
-  Future<List<Conversation>> listConversations() => _guard(() async {
-        final res = await _dio.get<Object?>('/messages/conversations');
+  Future<ConversationPage> listConversations({String? q, int page = 1}) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/messages/conversations',
+          queryParameters: {
+            if (q != null && q.isNotEmpty) 'q': q,
+            'page': page,
+          },
+        );
         final data = res.data;
-        // O backend devolve um array cru `[ {...}, ... ]`. Toleramos também o
-        // formato `{ items: [...] }` por robustez.
-        final raw = data is List
-            ? data
-            : (data is Map
-                ? (data.cast<String, dynamic>()['items'] as List? ?? const [])
-                : const []);
-        return raw
-            .map((e) => Conversation.fromJson((e as Map).cast<String, dynamic>()))
-            .toList();
+        // O backend devolve `{ items: [...], total, page, pageSize }`. Toleramos
+        // também um array cru `[ {...}, ... ]` por robustez (formato antigo).
+        if (data is List) {
+          final items = data
+              .map(
+                  (e) => Conversation.fromJson((e as Map).cast<String, dynamic>()))
+              .toList();
+          return ConversationPage(
+            items: items,
+            total: items.length,
+            page: page,
+          );
+        }
+        return ConversationPage.fromJson(_asMap(data));
       });
 
   @override
