@@ -23,4 +23,11 @@ A lista de módulos ativos do tenant é exposta pelo endpoint `GET /me` no array
 | Financeiro | `finance` | contratável _(planejado)_ | Fluxo de caixa, contas a pagar/receber e relatórios financeiros. |
 | Relatórios | `report` | contratável _(implementado — backend)_ | Relatórios gerenciais e operacionais por período/módulo/técnico. **Sem tabela própria:** compõe on-the-fly chamando os services públicos de cada módulo (regra "aponta, não invade"). Gated por `@RequiresModule('report')` + `@Permissions('report.read')`. Habilitado em **trial + pro** (grátis hoje; paywall futuro = remover de um plano). Endpoints: `GET /report/os` (operacional), `/report/revenue` (faturamento + série por dia), `/report/team` (rendimento por responsável), `/report/top-items` (top produtos/serviços), `/report/inventory` (posição), `/report/customers` (novos + ativos). Front e export CSV/PDF nas Fases 3–4. |
 
+**Diário de estoque (`stock_movement`):** o `current_stock` é o saldo
+materializado; cada baixa/estorno é um movimento em `stock_movement` (genérico
+via `ref_type`/`ref_id`/`ref_item_id`). A OS reconcilia o consumo por linha via
+`InventoryService.reconcileConsumption` quando o status muda ou um item é editado
+(consome em `em_execucao`/`concluida`/`entregue`; estorna ao cancelar/reduzir/
+remover). O booleano `service_order.stock_applied` está deprecado.
+
 > **Nota — "planejado":** módulos marcados como _planejado_ ainda não possuem implementação de backend. Suas chaves já estão presentes no catálogo de permissões (seeds), mas nenhum `BillingModule` / guard de rota está ativo para eles nesta versão.
