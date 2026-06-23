@@ -14,6 +14,7 @@ import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { crossedIntoLowStock } from './low-stock';
+import { computeReconcile } from './stock-reconcile';
 import { InventoryRepository } from './inventory.repository';
 import {
   INVENTORY_CONFIG_KEY,
@@ -378,6 +379,63 @@ export class InventoryService {
     // min não muda nesta operação → prevMin === nextMin === min.
     await this.maybeNotifyLowStock(tenantId, item, prev, min, next, min);
     return item;
+  }
+
+  /**
+   * Reconcilia o consumo de UMA linha de origem (ex.: item de OS) para a
+   * quantidade-alvo. Idempotente: se o consumo já registrado == alvo, não faz
+   * nada. Grava o movimento e ajusta o saldo na MESMA tx; notifica estoque baixo
+   * na virada (fora da tx). Abre a própria tx (runWithTenant) — NÃO chamar de
+   * dentro de outra withTenantTx/runWithTenant.
+   */
+  async reconcileConsumption(
+    tenantId: string,
+    args: {
+      inventoryItemId: string;
+      refType: 'service_order';
+      refId: string;
+      refItemId: string;
+      targetQty: number;
+      createdBy?: string | null;
+    },
+  ): Promise<void> {
+    const result = await this.tenant.runWithTenant(tenantId, async () => {
+      const item = await this.repo.findItemById(args.inventoryItemId);
+      // Item sumiu/deletado, ou é serviço → nada a reconciliar.
+      if (!item || item.kind === 'service') return null;
+
+      const prevConsumed = await this.repo.sumConsumedByRefItem(args.refItemId);
+      const plan = computeReconcile(prevConsumed, args.targetQty);
+      if (!plan) return null; // sem mudança
+
+      const prev = toNum(item.current_stock);
+      const next = prev + plan.stockDelta;
+      if (next < 0) throw new BadRequestException('Estoque insuficiente.');
+
+      await this.repo.createStockMovement(tenantId, {
+        inventory_item_id: args.inventoryItemId,
+        stock_delta: plan.stockDelta,
+        reason: plan.reason,
+        ref_type: args.refType,
+        ref_id: args.refId,
+        ref_item_id: args.refItemId,
+        created_by: args.createdBy ?? null,
+      });
+      const updated = await this.repo.adjustStock(args.inventoryItemId, next);
+      return { item: updated, prev, next, min: toNumOrNull(item.min_stock) };
+    });
+
+    // Notifica "estoque baixo" só na virada (consumo que cruza o mínimo).
+    if (result) {
+      await this.maybeNotifyLowStock(
+        tenantId,
+        result.item,
+        result.prev,
+        result.min,
+        result.next,
+        result.min,
+      );
+    }
   }
 
   /**
