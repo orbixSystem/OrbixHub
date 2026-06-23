@@ -9,6 +9,7 @@ import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/router/navigator_key.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../di.dart';
+import '../../messages/presentation/messages_providers.dart';
 import '../domain/notifications_models.dart';
 import 'notifications_providers.dart';
 
@@ -49,6 +50,10 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
         onMessage: (_) {
           if (mounted) {
             unawaited(ref.read(notificationsProvider.notifier).refresh());
+            // Push instantâneo do WS: recarrega a lista que alimenta o badge de
+            // Mensagens na hora. É um dos DOIS gatilhos — o outro (no build, ao
+            // subir o não-lido) cobre o poll de 15s caso o WS não entregue.
+            ref.invalidate(conversationsProvider);
           }
         },
       );
@@ -70,6 +75,11 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _toast();
         unawaited(NotificationSound.play());
+        // Mesmo sinal do toast: chegou algo novo. Recarrega a lista de conversas
+        // que alimenta o badge de Mensagens da sidebar, em QUALQUER tela. O sino é
+        // o único ouvinte sempre montado, e este gatilho cobre tanto o push do WS
+        // quanto o poll de 15s — sem isto o badge só atualizava após F5.
+        if (mounted) ref.invalidate(conversationsProvider);
       });
     }
     _lastUnread = unread;
@@ -194,6 +204,8 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
     if (!mounted) return;
     if (n.refType == 'message' && (n.refId?.isNotEmpty ?? false)) {
       context.go('/mensagens/${n.refId}');
+    } else if (n.type == 'inventory_low_stock') {
+      context.go('/m/inventory');
     }
   }
 
@@ -363,6 +375,12 @@ class _NotificationRow extends StatelessWidget {
     final n = notification;
     final unread = !n.isRead;
     final isMessage = n.type == 'message' || n.refType == 'message';
+    final isLowStock = n.type == 'inventory_low_stock';
+    final iconData = isMessage
+        ? Icons.chat_bubble_outline_rounded
+        : isLowStock
+            ? Icons.inventory_2_outlined
+            : Icons.notifications_none_rounded;
     // Realce do não-lido adaptado ao tema (a wash de marca clara some no escuro):
     // um leve banho do tom de marca por cima da superfície atual.
     final highlight =
@@ -398,9 +416,7 @@ class _NotificationRow extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          isMessage
-                              ? Icons.chat_bubble_outline_rounded
-                              : Icons.notifications_none_rounded,
+                          iconData,
                           size: 18,
                           color: unread
                               ? AppColors.brand
