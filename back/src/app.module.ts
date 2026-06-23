@@ -26,6 +26,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { OsModule } from './modules/os/os.module';
+import { ReportModule } from './modules/report/report.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -54,6 +55,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     NotificationsModule,
     MessagesModule,
     OsModule,
+    ReportModule,
     RealtimeModule,
     DevtoolsModule,
   ],

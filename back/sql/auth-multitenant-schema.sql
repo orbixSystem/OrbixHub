@@ -1028,3 +1028,27 @@ CREATE INDEX IF NOT EXISTS idx_service_order_tenant_assigned
   ON service_order(tenant_id, assigned_to);
 CREATE INDEX IF NOT EXISTS idx_service_order_tenant_opened
   ON service_order(tenant_id, opened_at);
+
+-- ============================================================
+-- 0023 — Módulo `report` (Fase 2 dashboard/relatórios) — aditivo
+-- Relatórios = módulo contratável, mas habilitado em TODOS os planos hoje
+-- (trial + pro) → grátis agora; paywall futuro = remover de um plano. is_core=false.
+-- `report.read` (permissão) já está semeada acima. Backfill dos tenants existentes
+-- para que /me.modules já liste `report` (mesma lógica do reconcile: enabled,
+-- source 'plan'). Idempotente.
+-- ============================================================
+INSERT INTO module (key, name, is_core) VALUES
+  ('report','Relatórios', false)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO plan_module (plan_id, module_id)
+SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key = 'report'
+WHERE pl.key IN ('trial','pro')
+ON CONFLICT DO NOTHING;
+
+-- Backfill: todo tenant existente ganha o módulo `report` habilitado (source 'plan').
+INSERT INTO tenant_module (tenant_id, module_id, enabled, source)
+SELECT t.id, m.id, true, 'plan'
+FROM tenant t CROSS JOIN module m
+WHERE m.key = 'report'
+ON CONFLICT (tenant_id, module_id) DO NOTHING;

@@ -463,6 +463,118 @@ export class OsRepository {
     return v == null ? null : Number(v);
   }
 
+  // ---- Fase 2: lentes de faturamento / equipe / top-itens (sob RLS) ----
+  /**
+   * Faturamento por dia-calendário (servidor) das OS concluídas/entregues no
+   * range, agrupado pela DATA DE CONCLUSÃO (COALESCE(finished_at, closed_at)).
+   * Retorna também a contagem por dia. Tenant-scoped por RLS.
+   */
+  revenueByDay(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<
+      Array<{ day: string; revenue: number | null; count: bigint }>
+    >(Prisma.sql`
+      SELECT to_char(date_trunc('day', COALESCE(finished_at, closed_at)), 'YYYY-MM-DD') AS day,
+             SUM(total) AS revenue,
+             COUNT(*)   AS count
+      FROM service_order
+      WHERE deleted_at IS NULL
+        AND status IN ('concluida','entregue')
+        AND COALESCE(finished_at, closed_at) IS NOT NULL
+        AND COALESCE(finished_at, closed_at) >= ${p.from}
+        AND COALESCE(finished_at, closed_at) <= ${p.to}
+      GROUP BY 1
+      ORDER BY 1
+    `);
+  }
+
+  /**
+   * Faturamento + contagem por status, sobre OS concluídas/entregues no range
+   * (data de conclusão). Alimenta `byStatus` da série de faturamento.
+   */
+  revenueByStatus(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<
+      Array<{ status: string; revenue: number | null; count: bigint }>
+    >(Prisma.sql`
+      SELECT status, SUM(total) AS revenue, COUNT(*) AS count
+      FROM service_order
+      WHERE deleted_at IS NULL
+        AND status IN ('concluida','entregue')
+        AND COALESCE(finished_at, closed_at) IS NOT NULL
+        AND COALESCE(finished_at, closed_at) >= ${p.from}
+        AND COALESCE(finished_at, closed_at) <= ${p.to}
+      GROUP BY status
+    `);
+  }
+
+  /**
+   * Rendimento por responsável (`assigned_to`) das OS abertas no range:
+   * total de OS, concluídas (concluida+entregue), faturamento das concluídas e
+   * ciclo médio (finished_at-started_at, ms). NULL → linha com assigned_to NULL.
+   */
+  teamPerformance(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<
+      Array<{
+        assigned_to: string | null;
+        orders: bigint;
+        completed: bigint;
+        revenue: number | null;
+        avg_cycle_ms: number | null;
+      }>
+    >(Prisma.sql`
+      SELECT assigned_to,
+             COUNT(*) AS orders,
+             COUNT(*) FILTER (WHERE status IN ('concluida','entregue')) AS completed,
+             SUM(total) FILTER (WHERE status IN ('concluida','entregue')) AS revenue,
+             AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)
+               FILTER (WHERE status IN ('concluida','entregue')
+                         AND started_at IS NOT NULL AND finished_at IS NOT NULL) AS avg_cycle_ms
+      FROM service_order
+      WHERE deleted_at IS NULL
+        AND opened_at >= ${p.from} AND opened_at <= ${p.to}
+      GROUP BY assigned_to
+    `);
+  }
+
+  /**
+   * Top de itens (`service_order_item`) das OS abertas no range: agrega por item
+   * (chave name+kind+inventory_item_id), Σ quantidade, Σ total da linha e nº de OS
+   * distintas. `kind` filtra produto/serviço quando dado. Ordena por receita desc.
+   */
+  topItems(p: MetricsRange & { kind?: string; limit: number }) {
+    const db = this.tenant.getClient();
+    const kindClause = p.kind
+      ? Prisma.sql`AND i.kind = ${p.kind}`
+      : Prisma.sql``;
+    return db.$queryRaw<
+      Array<{
+        name: string;
+        kind: string;
+        inventory_item_id: string | null;
+        qty: number | null;
+        revenue: number | null;
+        orders: bigint;
+      }>
+    >(Prisma.sql`
+      SELECT i.name,
+             i.kind,
+             i.inventory_item_id,
+             SUM(i.quantity)         AS qty,
+             SUM(i.total)            AS revenue,
+             COUNT(DISTINCT i.order_id) AS orders
+      FROM service_order_item i
+      JOIN service_order o ON o.id = i.order_id
+      WHERE o.deleted_at IS NULL
+        AND o.opened_at >= ${p.from} AND o.opened_at <= ${p.to}
+        ${kindClause}
+      GROUP BY i.name, i.kind, i.inventory_item_id
+      ORDER BY revenue DESC NULLS LAST
+      LIMIT ${p.limit}
+    `);
+  }
+
   /** Linhas detalhadas do relatório (Fase 2): OS no range/escopo + status opcional. */
   listForReport(p: MetricsRange & { status?: string }) {
     const db = this.tenant.getClient();

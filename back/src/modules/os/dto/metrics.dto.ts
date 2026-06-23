@@ -51,3 +51,69 @@ export interface OsMetricsReport extends OsMetricsSummary {
   rows: OsReportRow[];
   byAssignedTo: Record<string, { count: number; revenue: number }>;
 }
+
+// ---- Fase 2: lentes públicas sobre a OS (faturamento / equipe / top-itens) ----
+
+/** Range simples (Date) — entrada das lentes de faturamento/equipe/top-itens. */
+export interface OsRange {
+  from: Date;
+  to: Date;
+}
+
+/** Faturamento por dia (calendário do servidor) no range. */
+export interface RevenueByDay {
+  day: string; // 'YYYY-MM-DD'
+  revenue: number;
+  count: number;
+}
+
+/**
+ * Série de faturamento: total + ticket médio + quebra por dia e por status, sobre
+ * OS concluídas/entregues no range (data de conclusão = COALESCE(finished_at, closed_at)).
+ */
+export interface RevenueSeries {
+  range: { from: string; to: string };
+  total: number;
+  avgTicket: number;
+  byDay: RevenueByDay[];
+  byStatus: Record<string, { count: number; revenue: number }>;
+}
+
+/** Linha do rendimento da equipe (agregada por responsável). */
+export interface TeamPerformanceRow {
+  assignedTo: string | null; // null = "Sem responsável"
+  orders: number;
+  completed: number;
+  revenue: number;
+  avgTicket: number;
+  avgCycleMs: number | null;
+}
+
+/** Rendimento da equipe: linhas por responsável no range. */
+export interface TeamPerformance {
+  range: { from: string; to: string };
+  rows: TeamPerformanceRow[];
+}
+
+/** Linha do top de produtos/serviços (agrega `service_order_item`). */
+export interface TopItemRow {
+  name: string;
+  kind: string;
+  inventoryItemId: string | null;
+  qty: number;
+  revenue: number;
+  orders: number; // nº de OS distintas que usaram o item
+}
+
+/** Top de itens: linhas ordenadas por receita desc, limitadas. */
+export interface TopItems {
+  range: { from: string; to: string };
+  kind: 'product' | 'service' | null;
+  rows: TopItemRow[];
+}
+
+/** Query do top-itens (filtro de kind + limit) — Fase 2. */
+export interface TopItemsParams extends OsRange {
+  kind?: 'product' | 'service';
+  limit?: number;
+}

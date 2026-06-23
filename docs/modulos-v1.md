@@ -21,6 +21,6 @@ A lista de módulos ativos do tenant é exposta pelo endpoint `GET /me` no array
 | Caixa | `cashier` | contratável _(planejado)_ | Controle de caixa, recebimentos e pagamentos do dia. |
 | Nota / Fiscal | `invoice` | contratável _(planejado)_ | Emissão e gestão de notas fiscais de serviço e produto. |
 | Financeiro | `finance` | contratável _(planejado)_ | Fluxo de caixa, contas a pagar/receber e relatórios financeiros. |
-| Relatórios | `report` | contratável _(planejado)_ | Relatórios gerenciais e operacionais por período, módulo e técnico. |
+| Relatórios | `report` | contratável _(implementado — backend)_ | Relatórios gerenciais e operacionais por período/módulo/técnico. **Sem tabela própria:** compõe on-the-fly chamando os services públicos de cada módulo (regra "aponta, não invade"). Gated por `@RequiresModule('report')` + `@Permissions('report.read')`. Habilitado em **trial + pro** (grátis hoje; paywall futuro = remover de um plano). Endpoints: `GET /report/os` (operacional), `/report/revenue` (faturamento + série por dia), `/report/team` (rendimento por responsável), `/report/top-items` (top produtos/serviços), `/report/inventory` (posição), `/report/customers` (novos + ativos). Front e export CSV/PDF nas Fases 3–4. |
 
 > **Nota — "planejado":** módulos marcados como _planejado_ ainda não possuem implementação de backend. Suas chaves já estão presentes no catálogo de permissões (seeds), mas nenhum `BillingModule` / guard de rota está ativo para eles nesta versão.
