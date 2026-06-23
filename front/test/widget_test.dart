@@ -18,7 +18,7 @@ void main() {
     );
   }
 
-  test('owner sees enabled modules + Planos, not disabled modules', () {
+  test('owner sees enabled modules, not disabled modules; Planos is hidden', () {
     final me = makeMe(
       role: 'owner',
       modules: ['os', 'customers'],
@@ -29,11 +29,11 @@ void main() {
     expect(labels, contains('Início'));
     expect(labels, contains('Ordens de Serviço')); // os enabled
     expect(labels, contains('Clientes')); // customers enabled
-    expect(labels, contains('Planos')); // billing.manage
+    expect(labels, isNot(contains('Planos'))); // Planos escondido do menu
     expect(labels, isNot(contains('Estoque'))); // inventory NOT enabled
   });
 
-  test('mechanic without billing.manage never sees Planos', () {
+  test('Planos is hidden from the menu even with billing.manage', () {
     final me = makeMe(
       role: 'mechanic',
       modules: ['os'],
@@ -61,6 +61,6 @@ void main() {
     final items = gatedNavItems(me);
     expect(selectedNavIndex(items, '/'), 0);
     expect(items[selectedNavIndex(items, '/m/os')].route, '/m/os');
-    expect(items[selectedNavIndex(items, '/billing')].route, '/billing');
+    expect(items[selectedNavIndex(items, '/configuracoes')].route, '/configuracoes');
   });
 }

@@ -39,10 +39,8 @@ List<NavItem> gatedNavItems(Me me) {
   if (me.hasPermission('users.manage')) {
     items.add(const NavItem('Equipe', Icons.groups_outlined, '/equipe'));
   }
-  // Billing/plans is owner-only (billing.manage); mechanics never see it.
-  if (me.hasPermission('billing.manage')) {
-    items.add(const NavItem('Planos', Icons.credit_card_outlined, '/billing'));
-  }
+  // "Planos" foi escondido do menu a pedido (a rota /billing continua existindo,
+  // só não aparece na sidebar).
   // Configurações — visível para qualquer membro autenticado.
   // A tela em si gatea empresa/módulos por settings.manage internamente.
   items.add(

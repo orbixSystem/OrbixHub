@@ -60,7 +60,8 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Ordens de Serviço'), findsOneWidget);
     expect(find.text('Clientes'), findsOneWidget);
-    expect(find.text('Planos'), findsOneWidget);
+    expect(find.text('Planos'), findsNothing); // Planos escondido do menu
+    expect(find.text('Configurações'), findsOneWidget);
     expect(find.text('Dono Teste'), findsOneWidget); // user footer
   });
 
@@ -91,8 +92,8 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Planos'));
-    expect(tapped, '/billing');
+    await tester.tap(find.text('Configurações'));
+    expect(tapped, '/configuracoes');
   });
 }
 
