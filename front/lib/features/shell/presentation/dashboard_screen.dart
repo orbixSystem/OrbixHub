@@ -7,6 +7,7 @@ import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../billing/domain/billing_models.dart';
 import '../../billing/presentation/billing_providers.dart';
+import '../../dashboard/presentation/dashboard_section.dart';
 import 'nav_items.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -66,6 +67,8 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 32),
+        DashboardMetricsSection(me: me),
         const SizedBox(height: 32),
         const _SectionTitle('Seus módulos'),
         const SizedBox(height: 14),

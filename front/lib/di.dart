@@ -17,6 +17,8 @@ import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
+import 'features/dashboard/data/dashboard_repository_impl.dart';
+import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
 import 'features/inventory/presentation/inventory_providers.dart';
 import 'features/messages/data/messages_repository_impl.dart';
@@ -111,6 +113,9 @@ final diOverrides = [
   ),
   notificationsRepositoryProvider.overrideWith(
     (ref) => NotificationsRepositoryImpl(ref.read(dioProvider)),
+  ),
+  dashboardRepositoryProvider.overrideWith(
+    (ref) => DashboardRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 
