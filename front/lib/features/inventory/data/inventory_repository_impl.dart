@@ -37,6 +37,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     String? kind,
     String active = 'true',
     bool lowStock = false,
+    String sort = 'name_asc',
     int page = 1,
   }) =>
       _guard(() async {
@@ -48,6 +49,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
             if (kind != null && kind.isNotEmpty) 'kind': kind,
             'active': active,
             if (lowStock) 'lowStock': true,
+            'sort': sort,
             'page': page,
           },
         );

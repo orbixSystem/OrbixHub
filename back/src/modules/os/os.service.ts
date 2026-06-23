@@ -760,20 +760,75 @@ export class OsService {
       'os_template_create',
       template!.id,
     );
-    return template;
+    const [enriched] = await this.enrichTemplates([template!]);
+    return enriched;
   }
 
-  listTemplates(_user: AuthUser) {
-    return this.tenant.withTenantTx(() => this.repo.listTemplates());
+  /**
+   * Enriquece templates com o preço CORRENTE do estoque e o total somado. Itens
+   * vinculados ao estoque (`inventory_item_id`) refletem o nome/preço atual via
+   * `inventory.getItemsByIds` (mesma lógica do `applyTemplate`); avulsos e itens
+   * cujo estoque sumiu mantêm o snapshot gravado. `total` = Σ(quantidade × preço).
+   * Roda FORA de qualquer tx (getItemsByIds abre a própria — não aninhar).
+   */
+  private async enrichTemplates<
+    T extends {
+      items: Array<{
+        inventory_item_id: string | null;
+        name: string;
+        kind: string;
+        quantity: Prisma.Decimal;
+        unit_price: Prisma.Decimal | null;
+      }>;
+    },
+  >(templates: T[]): Promise<Array<T & { total: string }>> {
+    const ids = [
+      ...new Set(
+        templates
+          .flatMap((t) => t.items)
+          .map((i) => i.inventory_item_id)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const live = await this.inventory.getItemsByIds(ids);
+    const byId = new Map(live.map((it) => [it.id, it]));
+
+    return templates.map((t) => {
+      const items = t.items.map((it) => {
+        const inv = it.inventory_item_id ? byId.get(it.inventory_item_id) : null;
+        return inv
+          ? {
+              ...it,
+              name: inv.name,
+              kind: inv.kind,
+              unit_price: inv.sale_price,
+            }
+          : it;
+      });
+      const total = items.reduce(
+        (acc, it) => acc + Math.max(0, toNum(it.quantity) * toNum(it.unit_price)),
+        0,
+      );
+      return { ...t, items, total: total.toFixed(2) };
+    });
+  }
+
+  async listTemplates(_user: AuthUser) {
+    const templates = await this.tenant.withTenantTx(() =>
+      this.repo.listTemplates(),
+    );
+    return this.enrichTemplates(templates);
   }
 
   async getTemplate(_user: AuthUser, id: string) {
-    return this.tenant.withTenantTx(async () => {
-      const template = await this.repo.findTemplateById(id);
-      if (!template || template.deleted_at)
+    const template = await this.tenant.withTenantTx(async () => {
+      const found = await this.repo.findTemplateById(id);
+      if (!found || found.deleted_at)
         throw new NotFoundException('Template não encontrado.');
-      return template;
+      return found;
     });
+    const [enriched] = await this.enrichTemplates([template]);
+    return enriched;
   }
 
   async updateTemplate(user: AuthUser, id: string, dto: UpdateTemplateDto) {
@@ -802,7 +857,8 @@ export class OsService {
       return this.repo.findTemplateById(id);
     });
     await this.audit.log(user.tenantId, user.userId, 'os_template_update', id);
-    return template;
+    const [enriched] = await this.enrichTemplates([template!]);
+    return enriched;
   }
 
   async deleteTemplate(user: AuthUser, id: string) {

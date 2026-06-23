@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -127,6 +128,23 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     super.initState();
     _initControllers();
     _loadCnaesAsync();
+  }
+
+  @override
+  void didUpdateWidget(covariant CompanyForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Quando o mapa `company` muda de conteúdo (ex.: troca de tenant ou novo
+    // fetch), re-semeia os controllers — caso contrário os campos manteriam os
+    // valores da empresa ANTERIOR (o State é reusado entre rebuilds). Comparação
+    // por conteúdo (não identidade) evita clobber de edições do mesmo tenant.
+    if (!mapEquals(oldWidget.company, widget.company)) {
+      for (final c in _textCtrl.values) {
+        c.dispose();
+      }
+      _textCtrl.clear();
+      _selectValues.clear();
+      _initControllers();
+    }
   }
 
   void _initControllers() {

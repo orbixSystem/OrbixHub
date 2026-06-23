@@ -84,6 +84,8 @@ abstract class OsTemplate with _$OsTemplate {
     required String name,
     String? description,
     @Default(<OsTemplateItem>[]) List<OsTemplateItem> items,
+    // Soma (quantidade × preço corrente do estoque) calculada pelo backend.
+    String? total,
   }) = _OsTemplate;
 
   factory OsTemplate.fromJson(Map<String, dynamic> json) =>

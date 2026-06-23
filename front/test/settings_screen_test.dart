@@ -15,6 +15,7 @@ class _FakeSession extends SessionController {
   SessionState build() => const SessionState.authenticated(
         Me(
           user: User(id: 'u1', email: 'owner@test.com', fullName: 'Dono Teste'),
+          activeTenant: Tenant(id: 't1', slug: 'demo', name: 'Oficina Demo'),
           role: 'owner',
           permissions: ['settings.manage', 'billing.manage', 'users.manage'],
           modules: [],
@@ -28,6 +29,7 @@ class _FakeSessionNoAccess extends SessionController {
   SessionState build() => const SessionState.authenticated(
         Me(
           user: User(id: 'u2', email: 'mech@test.com', fullName: 'Mecânico'),
+          activeTenant: Tenant(id: 't1', slug: 'demo', name: 'Oficina Demo'),
           role: 'mechanic',
           permissions: ['os.read'],
           modules: [],

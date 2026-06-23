@@ -17,6 +17,9 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<InventoryConfig> fetchConfig() async => _config;
 
+  /// Tamanho do lote — espelha o DEFAULT_PAGE_SIZE do backend (20).
+  static const _pageSize = 20;
+
   @override
   Future<ItemPage> listItems({
     String? q,
@@ -24,6 +27,7 @@ class FakeInventoryRepository implements InventoryRepository {
     String? kind,
     String active = 'true',
     bool lowStock = false,
+    String sort = 'name_asc',
     int page = 1,
   }) async {
     final term = q?.toLowerCase();
@@ -47,8 +51,55 @@ class FakeInventoryRepository implements InventoryRepository {
     if (lowStock) {
       list = list.where(_isLow);
     }
-    final items = list.toList();
-    return ItemPage(items: items, total: items.length);
+    final all = list.toList()..sort(_comparatorFor(sort));
+    final total = all.length;
+    // Paginação por skip/take (mesma semântica do backend).
+    final skip = (page - 1) * _pageSize;
+    final items =
+        skip >= total ? <InventoryItem>[] : all.skip(skip).take(_pageSize).toList();
+    return ItemPage(items: items, total: total, page: page, pageSize: _pageSize);
+  }
+
+  /// Comparador espelhando o ITEM_ORDER_BY do backend, com `id` como desempate
+  /// final (paginação estável). Preço nulo vai para o fim em ambas direções.
+  int Function(InventoryItem, InventoryItem) _comparatorFor(String sort) {
+    double? price(InventoryItem i) =>
+        i.salePrice == null ? null : double.tryParse(i.salePrice!);
+    double stock(InventoryItem i) => double.tryParse(i.currentStock) ?? 0;
+    int byId(InventoryItem a, InventoryItem b) => a.id.compareTo(b.id);
+    int priceCmp(InventoryItem a, InventoryItem b, {required bool desc}) {
+      final pa = price(a), pb = price(b);
+      if (pa == null && pb == null) return 0;
+      if (pa == null) return 1; // nulls last
+      if (pb == null) return -1;
+      return desc ? pb.compareTo(pa) : pa.compareTo(pb);
+    }
+
+    int Function(InventoryItem, InventoryItem) primary;
+    switch (sort) {
+      case 'name_desc':
+        primary = (a, b) =>
+            b.name.toLowerCase().compareTo(a.name.toLowerCase());
+      case 'price_desc':
+        primary = (a, b) => priceCmp(a, b, desc: true);
+      case 'price_asc':
+        primary = (a, b) => priceCmp(a, b, desc: false);
+      case 'stock_desc':
+        primary = (a, b) => stock(b).compareTo(stock(a));
+      case 'stock_asc':
+        primary = (a, b) => stock(a).compareTo(stock(b));
+      case 'recent':
+        // Sem created_at no fake: aproxima por id decrescente (ordem de criação).
+        primary = (a, b) => b.id.compareTo(a.id);
+      case 'name_asc':
+      default:
+        primary = (a, b) =>
+            a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    }
+    return (a, b) {
+      final p = primary(a, b);
+      return p != 0 ? p : byId(a, b);
+    };
   }
 
   @override

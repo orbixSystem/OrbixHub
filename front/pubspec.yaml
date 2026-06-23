@@ -47,6 +47,7 @@ dependencies:
   pdf: ^3.13.0
   socket_io_client: ^3.0.0
   audioplayers: ^6.1.0
+  web: ^1.1.0
   fl_chart: ^1.1.1
   csv: ^6.0.0
 

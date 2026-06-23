@@ -92,6 +92,7 @@ _OsTemplate _$OsTemplateFromJson(Map<String, dynamic> json) => _OsTemplate(
           ?.map((e) => OsTemplateItem.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <OsTemplateItem>[],
+  total: json['total'] as String?,
 );
 
 Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
@@ -100,6 +101,7 @@ Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
       'name': instance.name,
       'description': instance.description,
       'items': instance.items,
+      'total': instance.total,
     };
 
 _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>

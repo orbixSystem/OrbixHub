@@ -260,6 +260,24 @@ class _TemplateCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                money(template.total),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Total',
+                style: TextStyle(
+                    color: scheme.onSurfaceVariant, fontSize: 11),
+              ),
+            ],
+          ),
           if (canWrite) ...[
             IconButton(
               tooltip: 'Editar',

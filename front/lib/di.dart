@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
+import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
 import 'core/network/token_refresh_service.dart';
 import 'core/storage/secure_token_store.dart';
@@ -123,6 +124,9 @@ final diOverrides = [
     (ref) => ReportRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
+
+/// Reset total do app no logout/expire (reload na web, no-op fora).
+final appReloaderProvider = Provider<AppReloader>((ref) => AppReloader());
 
 final sessionControllerProvider =
     NotifierProvider<SessionController, SessionState>(SessionController.new);

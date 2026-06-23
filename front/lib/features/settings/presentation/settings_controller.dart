@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/branding.dart';
 import '../../../di.dart';
+import '../../auth/presentation/session_state.dart';
 import '../domain/settings_models.dart';
 import '../domain/settings_repository.dart';
 
@@ -20,6 +21,15 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
 
   @override
   Future<SettingsBundle> build() async {
+    // Re-busca sempre que o tenant ativo muda (login / logout / switch-tenant).
+    // Este provider é kept-alive (não autoDispose); sem reagir à sessão ele
+    // manteria em cache os dados da empresa anterior ao trocar de conta.
+    final session = ref.watch(sessionControllerProvider);
+    final tenantId =
+        session is SessionAuthenticated ? session.me.activeTenant?.id : null;
+    if (tenantId == null) {
+      throw StateError('Nenhum tenant ativo na sessão.');
+    }
     return _repo.fetch();
   }
 

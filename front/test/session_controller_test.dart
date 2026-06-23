@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/network/access_token_store.dart';
+import 'package:orbixhub_front/core/platform/app_reloader.dart';
 import 'package:orbixhub_front/core/storage/secure_token_store.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/data/fake_auth_repository.dart';
@@ -20,16 +21,25 @@ class InMemorySecureTokenStore extends SecureTokenStore {
   Future<void> clear() async => _token = null;
 }
 
+/// Registra quantas vezes o app pediu reset total (reload).
+class _RecordingReloader implements AppReloader {
+  int count = 0;
+  @override
+  void reload() => count++;
+}
+
 void main() {
   late AccessTokenStore access;
   late InMemorySecureTokenStore secure;
   late FakeAuthRepository auth;
+  late _RecordingReloader reloader;
 
   ProviderContainer makeContainer() {
     final c = ProviderContainer(overrides: [
       accessTokenStoreProvider.overrideWithValue(access),
       secureTokenStoreProvider.overrideWithValue(secure),
       authRepositoryProvider.overrideWithValue(auth),
+      appReloaderProvider.overrideWithValue(reloader),
     ]);
     addTearDown(c.dispose);
     return c;
@@ -39,6 +49,7 @@ void main() {
     access = AccessTokenStore();
     secure = InMemorySecureTokenStore();
     auth = FakeAuthRepository();
+    reloader = _RecordingReloader();
   });
 
   test(
@@ -70,6 +81,29 @@ void main() {
     expect(access.token, isNull);
     expect(await secure.readRefreshToken(), isNull);
     expect(auth.logoutCount, 1);
+  });
+
+  test('logout pede reset total do app (limpa todo estado em memória)', () async {
+    final container = makeContainer();
+    final controller = container.read(sessionControllerProvider.notifier);
+    await pumpEventQueue();
+    await controller.login(email: 'dono@teste.com', password: 'senha12345');
+
+    await controller.logout();
+
+    expect(reloader.count, 1,
+        reason: 'logout deve recarregar o app para não vazar dados entre contas');
+  });
+
+  test('expire() também pede reset total do app', () async {
+    await secure.writeRefreshToken('seed-refresh');
+    final container = makeContainer();
+    final controller = container.read(sessionControllerProvider.notifier);
+    await pumpEventQueue();
+
+    await controller.expire();
+
+    expect(reloader.count, 1);
   });
 
   test('bootstrap with a stored refresh token authenticates silently', () async {

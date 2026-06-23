@@ -1,10 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../di.dart';
+import '../../auth/presentation/session_state.dart';
 import '../domain/customers_models.dart';
 
-/// Config do módulo (rótulo/campos dinâmicos). Estável na sessão; não autoDispose.
+/// Config do módulo (rótulo/campos dinâmicos). Kept-alive (estável na sessão),
+/// mas reage ao tenant ativo: sem isso manteria em cache a config da empresa
+/// anterior ao trocar de conta (login / logout / switch-tenant).
 final customersConfigProvider = FutureProvider<CustomersConfig>((ref) {
+  final session = ref.watch(sessionControllerProvider);
+  final tenantId =
+      session is SessionAuthenticated ? session.me.activeTenant?.id : null;
+  if (tenantId == null) {
+    throw StateError('Nenhum tenant ativo na sessão.');
+  }
   return ref.read(customersRepositoryProvider).fetchConfig();
 });
 

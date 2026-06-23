@@ -14,6 +14,7 @@ abstract interface class InventoryRepository {
     String? kind,
     String active,
     bool lowStock,
+    String sort,
     int page,
   });
   Future<InventoryItem> getItem(String id);

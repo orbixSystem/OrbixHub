@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/access_token_store.dart';
+import '../../../core/platform/app_reloader.dart';
 import '../../../core/storage/secure_token_store.dart';
 import '../../../di.dart';
 import '../domain/auth_models.dart';
@@ -14,6 +15,7 @@ class SessionController extends Notifier<SessionState> {
   AuthRepository get _auth => ref.read(authRepositoryProvider);
   AccessTokenStore get _access => ref.read(accessTokenStoreProvider);
   SecureTokenStore get _secure => ref.read(secureTokenStoreProvider);
+  AppReloader get _reloader => ref.read(appReloaderProvider);
 
   @override
   SessionState build() {
@@ -115,12 +117,17 @@ class SessionController extends Notifier<SessionState> {
     }
     await _clear();
     state = const SessionState.unauthenticated();
+    // Reset total: descarta TODO o estado em memória (providers de todas as
+    // features, access token) para que dados da conta anterior nunca vazem ao
+    // logar em outra conta. Na web é um reload da página; no-op fora dela.
+    _reloader.reload();
   }
 
   /// Called by the network layer when refresh fails — drop to unauthenticated.
   Future<void> expire() async {
     await _clear();
     state = const SessionState.unauthenticated();
+    _reloader.reload();
   }
 
   Future<void> reloadMe() => _loadMe();

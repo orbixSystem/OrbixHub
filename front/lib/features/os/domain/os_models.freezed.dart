@@ -1133,7 +1133,8 @@ as String?,
 /// @nodoc
 mixin _$OsTemplate {
 
- String get id; String get name; String? get description; List<OsTemplateItem> get items;
+ String get id; String get name; String? get description; List<OsTemplateItem> get items;// Soma (quantidade × preço corrente do estoque) calculada pelo backend.
+ String? get total;
 /// Create a copy of OsTemplate
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1146,16 +1147,16 @@ $OsTemplateCopyWith<OsTemplate> get copyWith => _$OsTemplateCopyWithImpl<OsTempl
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OsTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other.items, items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OsTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.total, total) || other.total == total));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,const DeepCollectionEquality().hash(items));
+int get hashCode => Object.hash(runtimeType,id,name,description,const DeepCollectionEquality().hash(items),total);
 
 @override
 String toString() {
-  return 'OsTemplate(id: $id, name: $name, description: $description, items: $items)';
+  return 'OsTemplate(id: $id, name: $name, description: $description, items: $items, total: $total)';
 }
 
 
@@ -1166,7 +1167,7 @@ abstract mixin class $OsTemplateCopyWith<$Res>  {
   factory $OsTemplateCopyWith(OsTemplate value, $Res Function(OsTemplate) _then) = _$OsTemplateCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String? description, List<OsTemplateItem> items
+ String id, String name, String? description, List<OsTemplateItem> items, String? total
 });
 
 
@@ -1183,13 +1184,14 @@ class _$OsTemplateCopyWithImpl<$Res>
 
 /// Create a copy of OsTemplate
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? items = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? items = null,Object? total = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<OsTemplateItem>,
+as List<OsTemplateItem>,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -1274,10 +1276,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  List<OsTemplateItem> items)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  List<OsTemplateItem> items,  String? total)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OsTemplate() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.items);case _:
+return $default(_that.id,_that.name,_that.description,_that.items,_that.total);case _:
   return orElse();
 
 }
@@ -1295,10 +1297,10 @@ return $default(_that.id,_that.name,_that.description,_that.items);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  List<OsTemplateItem> items)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? description,  List<OsTemplateItem> items,  String? total)  $default,) {final _that = this;
 switch (_that) {
 case _OsTemplate():
-return $default(_that.id,_that.name,_that.description,_that.items);case _:
+return $default(_that.id,_that.name,_that.description,_that.items,_that.total);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1315,10 +1317,10 @@ return $default(_that.id,_that.name,_that.description,_that.items);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? description,  List<OsTemplateItem> items)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? description,  List<OsTemplateItem> items,  String? total)?  $default,) {final _that = this;
 switch (_that) {
 case _OsTemplate() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.items);case _:
+return $default(_that.id,_that.name,_that.description,_that.items,_that.total);case _:
   return null;
 
 }
@@ -1330,7 +1332,7 @@ return $default(_that.id,_that.name,_that.description,_that.items);case _:
 @JsonSerializable()
 
 class _OsTemplate implements OsTemplate {
-  const _OsTemplate({required this.id, required this.name, this.description, final  List<OsTemplateItem> items = const <OsTemplateItem>[]}): _items = items;
+  const _OsTemplate({required this.id, required this.name, this.description, final  List<OsTemplateItem> items = const <OsTemplateItem>[], this.total}): _items = items;
   factory _OsTemplate.fromJson(Map<String, dynamic> json) => _$OsTemplateFromJson(json);
 
 @override final  String id;
@@ -1343,6 +1345,8 @@ class _OsTemplate implements OsTemplate {
   return EqualUnmodifiableListView(_items);
 }
 
+// Soma (quantidade × preço corrente do estoque) calculada pelo backend.
+@override final  String? total;
 
 /// Create a copy of OsTemplate
 /// with the given fields replaced by the non-null parameter values.
@@ -1357,16 +1361,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OsTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other._items, _items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OsTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.total, total) || other.total == total));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,const DeepCollectionEquality().hash(_items));
+int get hashCode => Object.hash(runtimeType,id,name,description,const DeepCollectionEquality().hash(_items),total);
 
 @override
 String toString() {
-  return 'OsTemplate(id: $id, name: $name, description: $description, items: $items)';
+  return 'OsTemplate(id: $id, name: $name, description: $description, items: $items, total: $total)';
 }
 
 
@@ -1377,7 +1381,7 @@ abstract mixin class _$OsTemplateCopyWith<$Res> implements $OsTemplateCopyWith<$
   factory _$OsTemplateCopyWith(_OsTemplate value, $Res Function(_OsTemplate) _then) = __$OsTemplateCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String? description, List<OsTemplateItem> items
+ String id, String name, String? description, List<OsTemplateItem> items, String? total
 });
 
 
@@ -1394,13 +1398,14 @@ class __$OsTemplateCopyWithImpl<$Res>
 
 /// Create a copy of OsTemplate
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? items = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = freezed,Object? items = null,Object? total = freezed,}) {
   return _then(_OsTemplate(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<OsTemplateItem>,
+as List<OsTemplateItem>,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

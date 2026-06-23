@@ -4,6 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { noStore } from './common/http/no-store.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
@@ -12,6 +13,8 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
   app.use(helmet());
+  // Respostas da API nunca devem ser cacheadas pelo browser (isolamento multi-tenant).
+  app.use(noStore);
   const origins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
