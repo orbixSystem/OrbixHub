@@ -300,6 +300,106 @@ describe('Employees feature (e2e)', () => {
     });
   });
 
+  // ---- assignable members picker (no users.manage required) ------------
+  describe('GET /api/employees/assignable', () => {
+    interface AssignableMember {
+      membershipId: string;
+      userId: string;
+      fullName: string;
+    }
+
+    it('rejects unauthenticated requests (401)', async () => {
+      const res = await request(app.getHttpServer()).get(
+        '/api/employees/assignable',
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('lets a mechanic (no users.manage) list members (200) while /employees stays 403', async () => {
+      const owner = await registerOwner();
+      const mech = await inviteAccept(owner, 'mechanic');
+
+      // mechanic cannot see the full employees list (users.manage)
+      const full = await request(app.getHttpServer())
+        .get('/api/employees')
+        .set('Authorization', `Bearer ${mech.access}`);
+      expect(full.status).toBe(403);
+
+      // but CAN read the lightweight assignable list
+      const res = await request(app.getHttpServer())
+        .get('/api/employees/assignable')
+        .set('Authorization', `Bearer ${mech.access}`);
+      expect(res.status).toBe(200);
+
+      const members = res.body as AssignableMember[];
+      // owner + mechanic are both active members of the tenant
+      expect(members.length).toBe(2);
+      const emailKeys = members.map((m) => Object.keys(m));
+      // minimal shape: NO role/status/email/lastAccess leaked
+      for (const m of members) {
+        expect(m).toHaveProperty('membershipId');
+        expect(m).toHaveProperty('userId');
+        expect(m).toHaveProperty('fullName');
+        expect(m).not.toHaveProperty('role');
+        expect(m).not.toHaveProperty('status');
+        expect(m).not.toHaveProperty('email');
+        expect(m).not.toHaveProperty('lastAccess');
+        expect(m).not.toHaveProperty('accessExpiresAt');
+      }
+      void emailKeys;
+      // sorted by fullName
+      const names = members.map((m) => m.fullName);
+      expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    });
+
+    it('only returns same-tenant active members (isolation)', async () => {
+      const ownerA = await registerOwner();
+      const memberA = await inviteAccept(ownerA, 'mechanic');
+      const ownerB = await registerOwner();
+
+      const aMembers = (
+        await request(app.getHttpServer())
+          .get('/api/employees/assignable')
+          .set('Authorization', `Bearer ${ownerA.access}`)
+      ).body as AssignableMember[];
+      const bMembers = (
+        await request(app.getHttpServer())
+          .get('/api/employees/assignable')
+          .set('Authorization', `Bearer ${ownerB.access}`)
+      ).body as AssignableMember[];
+
+      const aUserIds = new Set(aMembers.map((m) => m.userId));
+      // tenant A sees its owner + mechanic; tenant B sees only its own owner
+      expect(aMembers.length).toBe(2);
+      expect(bMembers.length).toBe(1);
+      for (const m of bMembers) {
+        expect(aUserIds.has(m.userId)).toBe(false);
+      }
+      void memberA;
+    });
+
+    it('excludes deactivated members', async () => {
+      const owner = await registerOwner();
+      const gerente = await inviteAccept(owner, 'gerente');
+      const emps = await listEmployees(owner.access);
+      const gMembership = byEmail(emps, gerente.email);
+      expect(gMembership).toBeTruthy();
+
+      const deact = await request(app.getHttpServer())
+        .post(`/api/employees/${gMembership!.membershipId}/deactivate`)
+        .set('Authorization', `Bearer ${owner.access}`)
+        .send({ currentPassword: owner.password });
+      expect(deact.status).toBe(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/employees/assignable')
+        .set('Authorization', `Bearer ${owner.access}`);
+      expect(res.status).toBe(200);
+      const members = res.body as AssignableMember[];
+      expect(members.find((m) => m.membershipId === gMembership!.membershipId)).toBeUndefined();
+    });
+  });
+
   // ---- Criterion 8: deactivation revokes the live session --------------
   describe('Criterion 8 — deactivation kills the session immediately', () => {
     it('blocks a deactivated member on the existing access token AND on refresh', async () => {

@@ -23,6 +23,17 @@ export class EmployeesController {
     return this.employees.listEmployees();
   }
 
+  /**
+   * Lista mínima de membros ATIVOS para o seletor de atribuição (Responsável da
+   * OS, técnico do relatório). Sem `@Permissions` — basta ser membro ativo
+   * autenticado (JwtAuthGuard + ActiveMembershipGuard globais). NÃO expõe
+   * cargo/status/email; só `{ membershipId, userId, fullName }`.
+   */
+  @Get('employees/assignable')
+  listAssignable() {
+    return this.employees.listAssignableMembers();
+  }
+
   @Patch('employees/:membershipId/role')
   @Permissions('users.manage')
   @HttpCode(200)

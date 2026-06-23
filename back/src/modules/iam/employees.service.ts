@@ -16,6 +16,11 @@ export class EmployeesService {
     return this.repo.listEmployees();
   }
 
+  /** Membros ativos para o seletor de atribuição (sem campos sensíveis). */
+  listAssignableMembers() {
+    return this.repo.listAssignableMembers();
+  }
+
   async changeRole(
     membershipId: string,
     newRole: string,

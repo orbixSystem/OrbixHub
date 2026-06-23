@@ -6,7 +6,8 @@ import '../domain/report_repository.dart';
 
 /// [ReportRepository] real, sobre dio. Cada chamada bate em `/report/*`
 /// (gated no backend por módulo `report` + `report.read`). Membros vêm de
-/// `/employees` (mesma rota do dropdown da OS).
+/// `/employees/assignable` (mesma rota do dropdown da OS — liberada p/
+/// qualquer membro ativo, sem exigir users.manage).
 class ReportRepositoryImpl implements ReportRepository {
   ReportRepositoryImpl(this._dio);
 
@@ -101,7 +102,7 @@ class ReportRepositoryImpl implements ReportRepository {
 
   @override
   Future<List<ReportMemberOption>> members() => _guard(() async {
-        final res = await _dio.get<Object?>('/employees');
+        final res = await _dio.get<Object?>('/employees/assignable');
         return _asList(res.data).map((m) {
           final id =
               (m['userId'] ?? m['membershipId'] ?? m['id'])?.toString();

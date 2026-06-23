@@ -10,6 +10,12 @@ export interface MemberView {
   role: string | undefined;
 }
 
+export interface AssignableMemberView {
+  membershipId: string;
+  userId: string;
+  fullName: string | undefined;
+}
+
 export interface EmployeeView {
   membershipId: string;
   userId: string;
@@ -59,6 +65,35 @@ export class IamRepository {
         fullName: uMap.get(m.user_id)?.full_name,
         role: rMap.get(m.role_id)?.key,
       }));
+    });
+  }
+
+  /**
+   * Minimal list of ACTIVE members of the active tenant, for the assignee /
+   * técnico picker (Responsável da OS, filtro de relatório). Only non-sensitive
+   * fields — no role/status/email/last-access. RLS via getClient(); sorted by
+   * fullName. Any active authenticated member can read this (no users.manage).
+   */
+  async listAssignableMembers(): Promise<AssignableMemberView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const memberships = await db.membership.findMany({
+        where: { status: 'active' },
+      });
+      const userIds = memberships.map((m) => m.user_id);
+      const users = await this.prisma.users.findMany({
+        where: { id: { in: userIds } },
+      });
+      const uMap = new Map(users.map((u) => [u.id, u]));
+      return memberships
+        .map((m) => ({
+          membershipId: m.id,
+          userId: m.user_id,
+          fullName: uMap.get(m.user_id)?.full_name,
+        }))
+        .sort((a, b) =>
+          (a.fullName ?? '').localeCompare(b.fullName ?? '', 'pt-BR'),
+        );
     });
   }
 
