@@ -12,6 +12,8 @@ import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { BillingService } from '../billing/billing.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { crossedIntoLowStock } from './low-stock';
 import { InventoryRepository } from './inventory.repository';
 import {
   INVENTORY_CONFIG_KEY,
@@ -43,6 +45,9 @@ const isUniqueViolation = (e: unknown): boolean =>
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
 
+const toNumOrNull = (d: Prisma.Decimal | number | null | undefined): number | null =>
+  d == null ? null : typeof d === 'number' ? d : d.toNumber();
+
 /** Trim → null quando vazio (mesmo padrão do customers). */
 const trimOrNull = (v: string | undefined): string | null | undefined =>
   v === undefined ? undefined : v.trim() || null;
@@ -59,6 +64,7 @@ export class InventoryService {
     private readonly repo: InventoryRepository,
     private readonly billing: BillingService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
     private readonly catalogStore: CatalogProductStore,
     @Inject(CATALOG_PROVIDER) private readonly catalog: CatalogProvider,
     @Inject(ENV) private readonly env: Env,
@@ -159,6 +165,7 @@ export class InventoryService {
         category: query.category?.trim() || undefined,
         active,
         lowStock: query.lowStock ?? false,
+        sort: query.sort ?? 'name_asc',
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -191,42 +198,55 @@ export class InventoryService {
       const errs = validateAttributes(dto.attributes, config.itemFields);
       if (errs.length) throw new BadRequestException(errs.join(' '));
     }
-    const item = await this.tenant.withTenantTx(async () => {
-      const existing = await this.repo.findItemById(id);
-      if (!existing || existing.deleted_at)
-        throw new NotFoundException('Item não encontrado.');
-      // kind nunca muda; serviço não controla estoque (ignora campos de estoque).
-      const isService = existing.kind === 'service';
-      const data: Record<string, unknown> = {};
-      if (dto.name !== undefined) data.name = dto.name.trim();
-      if (dto.sku !== undefined) data.sku = trimOrNull(dto.sku);
-      if (!isService && dto.manufacturerCode !== undefined)
-        data.manufacturer_code = trimOrNull(dto.manufacturerCode);
-      if (!isService && dto.barcode !== undefined)
-        data.barcode = trimOrNull(dto.barcode);
-      if (dto.category !== undefined) data.category = trimOrNull(dto.category);
-      if (dto.brand !== undefined) data.brand = trimOrNull(dto.brand);
-      if (dto.unit !== undefined) data.unit = trimOrNull(dto.unit);
-      if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
-      if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
-      if (dto.marginPct !== undefined) data.margin_pct = dto.marginPct;
-      if (!isService && dto.currentStock !== undefined)
-        data.current_stock = dto.currentStock;
-      if (!isService && dto.minStock !== undefined) data.min_stock = dto.minStock;
-      if (dto.durationMinutes !== undefined)
-        data.duration_minutes = dto.durationMinutes;
-      if (dto.attributes !== undefined)
-        data.attributes = dto.attributes as Prisma.InputJsonValue;
-      try {
-        return await this.repo.updateItem(id, data);
-      } catch (e) {
-        if (isUniqueViolation(e))
-          throw new ConflictException('Já existe um item com este código.');
-        throw e;
-      }
-    });
+    const { item, prev, prevMin, next, nextMin, isService } =
+      await this.tenant.withTenantTx(async () => {
+        const existing = await this.repo.findItemById(id);
+        if (!existing || existing.deleted_at)
+          throw new NotFoundException('Item não encontrado.');
+        // kind nunca muda; serviço não controla estoque (ignora campos de estoque).
+        const isService = existing.kind === 'service';
+        const data: Record<string, unknown> = {};
+        if (dto.name !== undefined) data.name = dto.name.trim();
+        if (dto.sku !== undefined) data.sku = trimOrNull(dto.sku);
+        if (!isService && dto.manufacturerCode !== undefined)
+          data.manufacturer_code = trimOrNull(dto.manufacturerCode);
+        if (!isService && dto.barcode !== undefined)
+          data.barcode = trimOrNull(dto.barcode);
+        if (dto.category !== undefined) data.category = trimOrNull(dto.category);
+        if (dto.brand !== undefined) data.brand = trimOrNull(dto.brand);
+        if (dto.unit !== undefined) data.unit = trimOrNull(dto.unit);
+        if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
+        if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
+        if (dto.marginPct !== undefined) data.margin_pct = dto.marginPct;
+        if (!isService && dto.currentStock !== undefined)
+          data.current_stock = dto.currentStock;
+        if (!isService && dto.minStock !== undefined) data.min_stock = dto.minStock;
+        if (dto.durationMinutes !== undefined)
+          data.duration_minutes = dto.durationMinutes;
+        if (dto.attributes !== undefined)
+          data.attributes = dto.attributes as Prisma.InputJsonValue;
+        try {
+          const updated = await this.repo.updateItem(id, data);
+          return {
+            item: updated,
+            prev: toNum(existing.current_stock),
+            prevMin: toNumOrNull(existing.min_stock),
+            next: toNum(updated.current_stock),
+            nextMin: toNumOrNull(updated.min_stock),
+            isService,
+          };
+        } catch (e) {
+          if (isUniqueViolation(e))
+            throw new ConflictException('Já existe um item com este código.');
+          throw e;
+        }
+      });
     // audit FORA do tx (evita transação aninhada — ver deleteItem).
     await this.audit.log(user.tenantId, user.userId, 'inventory_item_update', id);
+    if (!isService)
+      await this.maybeNotifyLowStock(
+        user.tenantId, item, prev, prevMin, next, nextMin,
+      );
     return item;
   }
 
@@ -317,6 +337,16 @@ export class InventoryService {
     return this.getItemOrThrow(id);
   }
 
+  /**
+   * Busca itens vivos por id, em lote (tenant via CLS). Itens ausentes/deletados
+   * simplesmente não voltam — o chamador decide o fallback. Abre a própria tx, então
+   * NÃO chame de dentro de outra `withTenantTx` (aninhar esgota o pool).
+   */
+  getItemsByIds(ids: string[]) {
+    if (!ids.length) return Promise.resolve([]);
+    return this.tenant.withTenantTx(() => this.repo.findItemsByIds(ids));
+  }
+
   /** Entrada de estoque programática (tenant explícito — padrão runWithTenant). */
   async incrementStock(tenantId: string, id: string, qty: number) {
     return this.tenant.runWithTenant(tenantId, async () => {
@@ -329,16 +359,52 @@ export class InventoryService {
     });
   }
 
-  /** Baixa de estoque programática; valida saldo ≥ 0. */
+  /** Baixa de estoque programática; valida saldo ≥ 0. Notifica na virada (fora da tx). */
   async decrementStock(tenantId: string, id: string, qty: number) {
-    return this.tenant.runWithTenant(tenantId, async () => {
-      const item = await this.repo.findItemById(id);
-      if (!item) throw new NotFoundException('Item não encontrado.');
-      if (item.kind === 'service')
-        throw new BadRequestException('Serviço não controla estoque.');
-      const next = toNum(item.current_stock) - qty;
-      if (next < 0) throw new BadRequestException('Estoque insuficiente.');
-      return this.repo.adjustStock(id, next);
-    });
+    const { item, prev, next, min } = await this.tenant.runWithTenant(
+      tenantId,
+      async () => {
+        const item = await this.repo.findItemById(id);
+        if (!item) throw new NotFoundException('Item não encontrado.');
+        if (item.kind === 'service')
+          throw new BadRequestException('Serviço não controla estoque.');
+        const prev = toNum(item.current_stock);
+        const next = prev - qty;
+        if (next < 0) throw new BadRequestException('Estoque insuficiente.');
+        const updated = await this.repo.adjustStock(id, next);
+        return { item: updated, prev, next, min: toNumOrNull(item.min_stock) };
+      },
+    );
+    // min não muda nesta operação → prevMin === nextMin === min.
+    await this.maybeNotifyLowStock(tenantId, item, prev, min, next, min);
+    return item;
+  }
+
+  /**
+   * Best-effort: notifica "estoque baixo" só na virada (NÃO-baixo → baixo). Chamar
+   * SEMPRE fora de withTenantTx/runWithTenant (notify abre a própria tx). Falha de
+   * notificação nunca quebra a baixa de estoque.
+   */
+  private async maybeNotifyLowStock(
+    tenantId: string,
+    item: { id: string; name: string; unit: string | null },
+    prevStock: number,
+    prevMin: number | null,
+    nextStock: number,
+    nextMin: number | null,
+  ): Promise<void> {
+    if (!crossedIntoLowStock(prevStock, prevMin, nextStock, nextMin)) return;
+    try {
+      const unidade = item.unit?.trim() ? ` ${item.unit.trim()}` : '';
+      await this.notifications.notify(tenantId, {
+        type: 'inventory_low_stock',
+        title: `Estoque baixo: ${item.name}`,
+        body: `Restam ${nextStock}${unidade} (mínimo ${nextMin})`,
+        refType: 'inventory_item',
+        refId: item.id,
+      });
+    } catch {
+      // best-effort — não quebra o fluxo de estoque
+    }
   }
 }
