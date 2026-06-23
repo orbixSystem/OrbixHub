@@ -837,6 +837,43 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       expect(Number(applied.body.total)).toBe(320);
     });
 
+    it('template total + item price follow the current inventory price (list reflects edits)', async () => {
+      const o = await registerOwner();
+      const prodId = await createInventoryProduct(o.access, 10, 80);
+
+      const tpl = await createTemplate(o.access, {
+        name: 'Revisão',
+        items: [
+          { kind: 'product', inventoryItemId: prodId, quantity: 2 },
+          { kind: 'service', name: 'Mão de obra', quantity: 1, unitPrice: 120 },
+        ],
+      });
+      expect(tpl.status).toBe(201);
+      // Na criação: 2*80 (produto) + 1*120 (mão de obra) = 280.
+      expect(Number(tpl.body.total)).toBe(280);
+
+      // Sobe o preço do produto no estoque DEPOIS de criar o template.
+      const patched = await patchInventoryItem(o.access, prodId, {
+        salePrice: 100,
+      });
+      expect(patched.status).toBe(200);
+
+      // Lista reflete o preço corrente: item do estoque a 100, total = 2*100 + 120 = 320.
+      const list = await listTemplates(o.access);
+      expect(list.status).toBe(200);
+      const found = (
+        list.body as Array<{
+          id: string;
+          total: string;
+          items: Array<{ inventory_item_id: string | null; unit_price: string }>;
+        }>
+      ).find((t) => t.id === (tpl.body.id as string))!;
+      expect(found).toBeTruthy();
+      const prodItem = found.items.find((i) => i.inventory_item_id === prodId)!;
+      expect(Number(prodItem.unit_price)).toBe(100);
+      expect(Number(found.total)).toBe(320);
+    });
+
     it('soft deletes a template (gone from list)', async () => {
       const o = await registerOwner();
       const tpl = await createTemplate(o.access, {
@@ -850,6 +887,47 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       const list = await listTemplates(o.access);
       expect(ids(list.body as IdRow[])).not.toContain(tpl.body.id as string);
+    });
+  });
+
+  // ---- 9. low-stock notification on em_execucao -------------------------
+  function notifications(access: string) {
+    return request(srv()).get('/api/notifications').set(auth(access));
+  }
+
+  describe('estoque baixo ao executar a OS', () => {
+    it('baixa que cruza o mínimo ao entrar em execução gera notificação', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      // produto com saldo 5, mínimo 3 — consumir 3 derruba para 2 (cruza o mínimo)
+      const prodId = await createInventoryProduct(o.access, 5, 20);
+      await patchInventoryItem(o.access, prodId, { minStock: 3 });
+
+      const order = await createOrder(o.access, { customerId });
+      const orderId = order.body.id as string;
+
+      const added = await addItem(o.access, orderId, {
+        kind: 'product',
+        inventoryItemId: prodId,
+        quantity: 3,
+      });
+      expect(added.status).toBe(201);
+
+      const exec = await changeStatus(o.access, orderId, 'em_execucao');
+      expect(exec.status).toBe(200);
+
+      // estoque caiu de 5 para 2 (abaixo do mínimo 3)
+      const inv = await getInventoryItem(o.access, prodId);
+      expect(Number(inv.body.current_stock)).toBe(2);
+
+      // notificação inventory_low_stock deve existir para este produto
+      const notif = await notifications(o.access);
+      expect(notif.status).toBe(200);
+      const low = (notif.body.items as Array<Record<string, unknown>>).find(
+        (n) => n.type === 'inventory_low_stock' && n.ref_id === prodId,
+      );
+      expect(low).toBeTruthy();
     });
   });
 });
