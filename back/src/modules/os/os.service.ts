@@ -576,6 +576,16 @@ export class OsService {
       await this.recomputeTotal(orderId);
       return item;
     });
+    // Se a OS já consome estoque, baixa a linha recém-criada (fora da tx).
+    const orderAfterAdd = await this.getOrderOrThrow(orderId);
+    if (consumes(orderAfterAdd.status)) {
+      const created = orderAfterAdd.items.find((i) => i.id === result.id);
+      if (created)
+        await this.reconcileOrderStock(user, {
+          ...orderAfterAdd,
+          items: [created],
+        });
+    }
     return result;
   }
 
@@ -585,7 +595,7 @@ export class OsService {
     itemId: string,
     dto: UpdateItemDto,
   ) {
-    return this.tenant.withTenantTx(async () => {
+    const item = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -594,10 +604,8 @@ export class OsService {
       if (!existing || existing.order_id !== orderId)
         throw new NotFoundException('Item não encontrado.');
 
-      const quantity =
-        dto.quantity ?? toNum(existing.quantity);
-      const unitPrice =
-        dto.unitPrice ?? toNum(existing.unit_price);
+      const quantity = dto.quantity ?? toNum(existing.quantity);
+      const unitPrice = dto.unitPrice ?? toNum(existing.unit_price);
       const discount = dto.discount ?? toNum(existing.discount);
       const total = Math.max(0, quantity * unitPrice - discount);
 
@@ -607,14 +615,25 @@ export class OsService {
       if (dto.unitPrice !== undefined) data.unit_price = dto.unitPrice;
       if (dto.discount !== undefined) data.discount = dto.discount;
 
-      const item = await this.repo.updateItem(itemId, data);
+      const updated = await this.repo.updateItem(itemId, data);
       await this.recomputeTotal(orderId);
-      return item;
+      return updated;
     });
+    // Reconcilia o estoque da linha se a OS consome (fora da tx).
+    const orderAfterUpd = await this.getOrderOrThrow(orderId);
+    if (consumes(orderAfterUpd.status)) {
+      const changed = orderAfterUpd.items.find((i) => i.id === itemId);
+      if (changed)
+        await this.reconcileOrderStock(user, {
+          ...orderAfterUpd,
+          items: [changed],
+        });
+    }
+    return item;
   }
 
   async deleteItem(user: AuthUser, orderId: string, itemId: string) {
-    return this.tenant.withTenantTx(async () => {
+    const { removed, order } = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -624,8 +643,32 @@ export class OsService {
         throw new NotFoundException('Item não encontrado.');
       await this.repo.deleteItem(itemId);
       await this.recomputeTotal(orderId);
-      return { id: itemId, deleted: true };
+      return { removed: existing, order };
     });
+    // Estorna o consumo da linha removida (alvo 0) se a OS consome (fora da tx).
+    if (
+      consumes(order.status) &&
+      removed.kind === 'product' &&
+      removed.inventory_item_id
+    ) {
+      try {
+        await this.inventory.reconcileConsumption(user.tenantId, {
+          inventoryItemId: removed.inventory_item_id,
+          refType: 'service_order',
+          refId: orderId,
+          refItemId: itemId,
+          targetQty: 0,
+          createdBy: user.userId,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Estorno de estoque falhou (OS ${orderId}, item ${itemId}): ${
+            (e as Error).message
+          }`,
+        );
+      }
+    }
+    return { id: itemId, deleted: true };
   }
 
   // ===================== Templates de serviço =====================
