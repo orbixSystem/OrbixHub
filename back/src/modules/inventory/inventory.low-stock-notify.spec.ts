@@ -92,6 +92,19 @@ describe('InventoryService — notificação de estoque baixo', () => {
     expect(notify).toHaveBeenCalledTimes(1);
   });
 
+  it('updateItem em serviço NÃO notifica mesmo que saldo fique baixo', async () => {
+    const { svc, notify } = makeService({
+      ...baseItem,
+      kind: 'service',
+      current_stock: 1,
+      min_stock: 3,
+    });
+    await svc.updateItem({ tenantId: 't1', userId: 'u1' } as never, 'item-1', {
+      currentStock: 0,
+    });
+    expect(notify).not.toHaveBeenCalled();
+  });
+
   it('notify que falha não propaga (decrement conclui)', async () => {
     const { svc, notify } = makeService(baseItem);
     notify.mockRejectedValueOnce(new Error('down'));
