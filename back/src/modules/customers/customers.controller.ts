@@ -15,6 +15,9 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { CustomersService } from './customers.service';
+import { CustomersMetricsService } from './customers-metrics.service';
+import { CustomersMetricsQueryDto } from './dto/metrics.dto';
+import { resolveRange } from '../../common/metrics/range';
 import { SubjectLookupService } from './subject-lookup.service';
 import {
   CreateCustomerDto,
@@ -30,8 +33,17 @@ import { CreateSubjectDto } from './dto/subject.dto';
 export class CustomersController {
   constructor(
     private readonly customers: CustomersService,
+    private readonly metrics: CustomersMetricsService,
     private readonly lookup: SubjectLookupService,
   ) {}
+
+  // --- métricas (Dashboard) — leitura agregada, gated pelo módulo + customer.read ---
+  @Get('metrics')
+  @Permissions('customer.read')
+  metricsSummary(@Query() query: CustomersMetricsQueryDto) {
+    const { from, to } = resolveRange(query.from, query.to);
+    return this.metrics.metricsSummary({ from, to });
+  }
 
   // --- config (rotas literais antes de :id) ---
   @Get('config')

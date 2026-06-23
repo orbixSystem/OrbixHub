@@ -7,6 +7,7 @@ import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { CustomersController } from './customers.controller';
 import { SubjectsController } from './subjects.controller';
 import { CustomersService } from './customers.service';
+import { CustomersMetricsService } from './customers-metrics.service';
 import { CustomersRepository } from './customers.repository';
 import { SubjectHistoryProvider } from './subject-history.provider';
 import { CUSTOMERS_CONFIG_KEY } from './customers.config';
@@ -23,6 +24,7 @@ import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
   controllers: [CustomersController, SubjectsController],
   providers: [
     CustomersService,
+    CustomersMetricsService,
     CustomersRepository,
     // Histórico do veículo/cliente vem da OS (módulo `os` implementa o seam).
     // forwardRef p/ a dependência mútua OsModule ↔ CustomersModule.
@@ -30,7 +32,7 @@ import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
     SubjectLookupService,
     { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },
   ],
-  exports: [CustomersService],
+  exports: [CustomersService, CustomersMetricsService],
 })
 export class CustomersModule implements OnModuleInit {
   constructor(

@@ -6,6 +6,7 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { InventoryService } from './inventory.service';
+import { InventoryMetricsService } from './inventory-metrics.service';
 import {
   CreateInventoryItemDto,
   ItemQueryDto,
@@ -19,7 +20,17 @@ import { UpdateInventoryConfigDto } from './dto/config.dto';
 @UseGuards(ModuleAccessGuard)
 @RequiresModule('inventory')
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService) {}
+  constructor(
+    private readonly inventory: InventoryService,
+    private readonly metrics: InventoryMetricsService,
+  ) {}
+
+  // --- métricas (Dashboard) — leitura agregada, gated pelo módulo + inventory.read ---
+  @Get('metrics')
+  @Permissions('inventory.read')
+  metricsSummary() {
+    return this.metrics.metricsSummary();
+  }
 
   // --- rotas literais antes de items/:id ---
   @Get('config')

@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 
+/** Chaves de ordenação aceitas pela lista de itens. */
+export type ItemSort =
+  | 'name_asc'
+  | 'name_desc'
+  | 'price_desc'
+  | 'price_asc'
+  | 'stock_desc'
+  | 'stock_asc'
+  | 'recent';
+
 export interface ItemFilter {
   q?: string;
   kind?: 'product' | 'service';
@@ -9,9 +19,30 @@ export interface ItemFilter {
   /** Filtro por estado: 'active' (padrão), 'archived', ou 'all'. */
   active: 'active' | 'archived' | 'all';
   lowStock?: boolean;
+  /** Ordenação (default 'name_asc'). */
+  sort?: ItemSort;
   skip: number;
   take: number;
 }
+
+/**
+ * Mapa de ordenação → `orderBy` do Prisma. Sempre com `id` como desempate final
+ * para que a paginação por skip/take seja ESTÁVEL (sem itens repetidos/pulados
+ * quando há empates na chave primária, ex.: vários preços nulos/iguais).
+ * Preço pode ser nulo → `nulls: 'last'` mantém itens sem preço no fim.
+ */
+const ITEM_ORDER_BY: Record<
+  ItemSort,
+  Prisma.inventory_itemOrderByWithRelationInput[]
+> = {
+  name_asc: [{ name: 'asc' }, { id: 'asc' }],
+  name_desc: [{ name: 'desc' }, { id: 'asc' }],
+  price_desc: [{ sale_price: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+  price_asc: [{ sale_price: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  stock_desc: [{ current_stock: 'desc' }, { id: 'asc' }],
+  stock_asc: [{ current_stock: 'asc' }, { id: 'asc' }],
+  recent: [{ created_at: 'desc' }, { id: 'asc' }],
+};
 
 type DecimalIn = Prisma.Decimal | number;
 
@@ -59,6 +90,14 @@ export class InventoryRepository {
     return db.inventory_item.findUnique({ where: { id } });
   }
 
+  /** Itens vivos (não deletados) por id — para resolver preço corrente em lote. */
+  findItemsByIds(ids: string[]) {
+    const db = this.tenant.getClient();
+    return db.inventory_item.findMany({
+      where: { id: { in: ids }, deleted_at: null },
+    });
+  }
+
   async listItems(filter: ItemFilter) {
     const db = this.tenant.getClient();
     const where: Prisma.inventory_itemWhereInput = {
@@ -88,7 +127,7 @@ export class InventoryRepository {
     const [items, total] = await Promise.all([
       db.inventory_item.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy: ITEM_ORDER_BY[filter.sort ?? 'name_asc'],
         skip: filter.skip,
         take: filter.take,
       }),
@@ -143,6 +182,81 @@ export class InventoryRepository {
     return db.inventory_item.update({
       where: { id },
       data: { current_stock: newStock, updated_at: new Date() },
+    });
+  }
+
+  // ---- métricas (agregações sob RLS — sem WHERE tenant manual) ----
+  /** Itens vivos abaixo do mínimo (current_stock < min_stock, min definido). */
+  private belowMinWhere(): Prisma.inventory_itemWhereInput {
+    const db = this.tenant.getClient();
+    return {
+      deleted_at: null,
+      is_active: true,
+      kind: 'product',
+      min_stock: { not: null },
+      current_stock: { lt: db.inventory_item.fields.min_stock },
+    };
+  }
+
+  countBelowMin() {
+    const db = this.tenant.getClient();
+    return db.inventory_item.count({ where: this.belowMinWhere() });
+  }
+
+  /** Amostra de itens abaixo do mínimo (para a lista curta do dashboard). */
+  sampleBelowMin(take: number) {
+    const db = this.tenant.getClient();
+    return db.inventory_item.findMany({
+      where: this.belowMinWhere(),
+      orderBy: [{ current_stock: 'asc' }, { id: 'asc' }],
+      take,
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        current_stock: true,
+        min_stock: true,
+      },
+    });
+  }
+
+  /** Contagem de itens ativos por tipo (product|service). */
+  countActive(kind: 'product' | 'service') {
+    const db = this.tenant.getClient();
+    return db.inventory_item.count({
+      where: { deleted_at: null, is_active: true, kind },
+    });
+  }
+
+  /**
+   * Valor em estoque (Σ current_stock × cost_price). Prisma não soma produto de
+   * colunas — query agregada crua, tenant-scoped por RLS.
+   */
+  async stockValue(): Promise<number> {
+    const db = this.tenant.getClient();
+    const rows = await db.$queryRaw<Array<{ value: number | null }>>(Prisma.sql`
+      SELECT COALESCE(SUM(current_stock * COALESCE(cost_price, 0)), 0) AS value
+      FROM inventory_item
+      WHERE deleted_at IS NULL AND is_active = true AND kind = 'product'
+    `);
+    return Number(rows[0]?.value ?? 0);
+  }
+
+  /** Linhas do relatório de posição (Fase 2): produtos ativos. */
+  listForReport() {
+    const db = this.tenant.getClient();
+    return db.inventory_item.findMany({
+      where: { deleted_at: null, is_active: true, kind: 'product' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        current_stock: true,
+        min_stock: true,
+        cost_price: true,
+        sale_price: true,
+      },
     });
   }
 }

@@ -19,6 +19,9 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { OsService, type UploadedImage } from './os.service';
+import { OsMetricsService } from './os-metrics.service';
+import { OsMetricsQueryDto } from './dto/metrics.dto';
+import { resolveRange } from '../../common/metrics/range';
 import {
   ChangeStatusDto,
   CreateOrderDto,
@@ -33,7 +36,22 @@ import { CreateTemplateDto, UpdateTemplateDto } from './dto/template.dto';
 @UseGuards(ModuleAccessGuard)
 @RequiresModule('os')
 export class OsController {
-  constructor(private readonly os: OsService) {}
+  constructor(
+    private readonly os: OsService,
+    private readonly metrics: OsMetricsService,
+  ) {}
+
+  // --- métricas (Dashboard) — leitura agregada, gated pelo módulo + os.read ---
+  @Get('metrics')
+  @Permissions('os.read')
+  metricsSummary(@Query() query: OsMetricsQueryDto) {
+    const { from, to } = resolveRange(query.from, query.to);
+    return this.metrics.metricsSummary({
+      from,
+      to,
+      assignedTo: query.assignedTo,
+    });
+  }
 
   // --- templates de serviço ---
   // Rotas literais `/os/templates...` declaradas ANTES de `/os/orders/...` para

@@ -184,4 +184,29 @@ export class CustomersRepository {
       data: { status, updated_at: new Date() },
     });
   }
+
+  // ---- métricas (agregações sob RLS — sem WHERE tenant manual) ----
+  /** Total de clientes ativos. */
+  countActive() {
+    const db = this.tenant.getClient();
+    return db.customer.count({ where: { status: 'active' } });
+  }
+
+  /** Novos clientes (created_at no range), independente de status. */
+  countNewInRange(from: Date, to: Date) {
+    const db = this.tenant.getClient();
+    return db.customer.count({
+      where: { created_at: { gte: from, lte: to } },
+    });
+  }
+
+  /** Linhas de novos clientes no range (relatório — Fase 2). */
+  listNewInRange(from: Date, to: Date) {
+    const db = this.tenant.getClient();
+    return db.customer.findMany({
+      where: { created_at: { gte: from, lte: to } },
+      orderBy: { created_at: 'desc' },
+      select: { id: true, name: true, type: true, created_at: true },
+    });
+  }
 }

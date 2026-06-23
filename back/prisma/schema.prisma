@@ -127,6 +127,8 @@ model service_order {
   @@index([tenant_id, status], map: "idx_service_order_tenant_status")
   @@index([tenant_id, customer_id], map: "idx_service_order_tenant_customer")
   @@index([tenant_id, subject_id], map: "idx_service_order_tenant_subject")
+  @@index([tenant_id, assigned_to], map: "idx_service_order_tenant_assigned")
+  @@index([tenant_id, opened_at], map: "idx_service_order_tenant_opened")
   @@unique([tenant_id, number], map: "uq_service_order_tenant_number")
   @@unique([public_token], map: "uq_service_order_public_token")
 }

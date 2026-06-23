@@ -376,4 +376,120 @@ export class OsRepository {
       orderBy: { created_at: 'desc' },
     });
   }
+
+  // ---- métricas (agregações sob RLS — sem WHERE tenant manual) ----
+  /**
+   * Filtro-base das agregações: OS vivas (deleted_at NULL) abertas no range
+   * [from, to] (por `opened_at`), opcionalmente escopadas a um técnico.
+   */
+  private metricsWhere(p: MetricsRange): Prisma.service_orderWhereInput {
+    return {
+      deleted_at: null,
+      opened_at: { gte: p.from, lte: p.to },
+      ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
+    };
+  }
+
+  /** COUNT(*) por status no range. */
+  groupByStatus(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.service_order.groupBy({
+      by: ['status'],
+      where: this.metricsWhere(p),
+      _count: { _all: true },
+    });
+  }
+
+  /**
+   * Faturamento (Σ total) e nº de OS concluída+entregue no range. Restringe ao
+   * mesmo range/escopo das demais agregações (por `opened_at`).
+   */
+  revenueAgg(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.service_order.aggregate({
+      where: {
+        ...this.metricsWhere(p),
+        status: { in: ['concluida', 'entregue'] },
+      },
+      _sum: { total: true },
+      _count: { _all: true },
+    });
+  }
+
+  /** OS em execução no range/escopo. */
+  countInExecution(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.service_order.count({
+      where: { ...this.metricsWhere(p), status: 'em_execucao' },
+    });
+  }
+
+  /**
+   * OS atrasadas: `scheduled_end` < agora e status fora de
+   * concluida/entregue/cancelada. Independe do range (atraso é "estado agora"),
+   * mas respeita o escopo de técnico.
+   */
+  countOverdue(p: MetricsRange) {
+    const db = this.tenant.getClient();
+    return db.service_order.count({
+      where: {
+        deleted_at: null,
+        scheduled_end: { lt: new Date() },
+        status: { notIn: ['concluida', 'entregue', 'cancelada'] },
+        ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
+      },
+    });
+  }
+
+  /**
+   * Tempo médio de ciclo (finished_at - started_at) em ms, sobre OS concluídas no
+   * range com ambos os timestamps. Tenant-scoped por RLS (sem WHERE tenant).
+   */
+  async avgCycleMs(p: MetricsRange): Promise<number | null> {
+    const db = this.tenant.getClient();
+    const assignedClause = p.assignedTo
+      ? Prisma.sql`AND assigned_to = ${p.assignedTo}::uuid`
+      : Prisma.sql``;
+    const rows = await db.$queryRaw<Array<{ avg_ms: number | null }>>(Prisma.sql`
+      SELECT AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000) AS avg_ms
+      FROM service_order
+      WHERE deleted_at IS NULL
+        AND opened_at >= ${p.from} AND opened_at <= ${p.to}
+        AND status IN ('concluida','entregue')
+        AND started_at IS NOT NULL AND finished_at IS NOT NULL
+        ${assignedClause}
+    `);
+    const v = rows[0]?.avg_ms;
+    return v == null ? null : Number(v);
+  }
+
+  /** Linhas detalhadas do relatório (Fase 2): OS no range/escopo + status opcional. */
+  listForReport(p: MetricsRange & { status?: string }) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        ...this.metricsWhere(p),
+        ...(p.status ? { status: p.status } : {}),
+      },
+      orderBy: { opened_at: 'desc' },
+      select: {
+        id: true,
+        number: true,
+        customer_name: true,
+        status: true,
+        assigned_to: true,
+        total: true,
+        opened_at: true,
+        started_at: true,
+        finished_at: true,
+      },
+    });
+  }
+}
+
+/** Range + escopo resolvido para as agregações de métrica. */
+export interface MetricsRange {
+  from: Date;
+  to: Date;
+  assignedTo?: string;
 }

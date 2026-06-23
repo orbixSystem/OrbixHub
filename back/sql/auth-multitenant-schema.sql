@@ -1018,3 +1018,13 @@ ALTER TABLE tenant ADD COLUMN IF NOT EXISTS cnpj        text;
 ALTER TABLE tenant ADD COLUMN IF NOT EXISTS legal_name  text;  -- razão social
 ALTER TABLE tenant ADD COLUMN IF NOT EXISTS trade_name  text;  -- nome fantasia
 CREATE UNIQUE INDEX IF NOT EXISTS uq_tenant_cnpj ON tenant(cnpj) WHERE cnpj IS NOT NULL;
+
+-- ============================================================
+-- 0022 — Índices p/ a camada de métricas da OS (Fase 1 dashboard) — aditivo
+-- Agregações do dashboard/relatório filtram/agrupam por técnico (assigned_to)
+-- e por período de abertura (opened_at). `(tenant_id, status)` já existe.
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_service_order_tenant_assigned
+  ON service_order(tenant_id, assigned_to);
+CREATE INDEX IF NOT EXISTS idx_service_order_tenant_opened
+  ON service_order(tenant_id, opened_at);

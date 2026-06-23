@@ -4,6 +4,7 @@ import { SettingsModule } from '../settings/settings.module';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { InventoryMetricsService } from './inventory-metrics.service';
 import { InventoryRepository } from './inventory.repository';
 import { CatalogProductStore } from './catalog/catalog-product.store';
 import { catalogProviderFactory } from './catalog/catalog.providers';
@@ -23,11 +24,12 @@ import { INVENTORY_CONFIG_KEY } from './inventory.config';
   controllers: [InventoryController],
   providers: [
     InventoryService,
+    InventoryMetricsService,
     InventoryRepository,
     CatalogProductStore,
     catalogProviderFactory,
   ],
-  exports: [InventoryService],
+  exports: [InventoryService, InventoryMetricsService],
 })
 export class InventoryModule implements OnModuleInit {
   constructor(private readonly registry: SettingsSectionRegistry) {}
