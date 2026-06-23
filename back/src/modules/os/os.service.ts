@@ -491,6 +491,36 @@ export class OsService {
     const after = await this.getOrderOrThrow(id);
     await this.reconcileOrderStock(user, after);
 
+    if (to === 'cancelada') {
+      const devolvidos = after.items.filter(
+        (i) => i.kind === 'product' && i.inventory_item_id,
+      ).length;
+      if (devolvidos > 0) {
+        await this.audit.log(
+          user.tenantId,
+          user.userId,
+          'os_stock_reconcile',
+          id,
+          { event: 'cancel_reversal', items: devolvidos },
+        );
+        // Nota interna na timeline (best-effort — não bloqueia).
+        try {
+          await this.tenant.withTenantTx(() =>
+            this.repo.createEvent(user.tenantId, id, {
+              kind: 'note',
+              message: `Estoque estornado: ${devolvidos} item(ns) devolvido(s).`,
+              visiblePublic: false,
+              createdBy: user.userId,
+            }),
+          );
+        } catch (e) {
+          this.logger.warn(
+            `Nota de estorno falhou (OS ${id}): ${(e as Error).message}`,
+          );
+        }
+      }
+    }
+
     return this.getOrderOrThrow(id);
   }
 
