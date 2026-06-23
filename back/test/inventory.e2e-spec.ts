@@ -477,4 +477,70 @@ describe('Inventory — Produtos (e2e)', () => {
       expect(readCfg.body.itemFields).toEqual([]);
     });
   });
+
+  function notifications(access: string) {
+    return request(app.getHttpServer())
+      .get('/api/notifications')
+      .set(auth(access));
+  }
+
+  // ---- estoque baixo: notificação ----------------------------------------
+  describe('estoque baixo (notificação)', () => {
+    it('PATCH cruzando o mínimo gera notificação inventory_low_stock', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Filtro de óleo',
+        currentStock: 5,
+        minStock: 3,
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, { currentStock: 2 });
+      expect(patched.status).toBe(200);
+
+      const notif = await notifications(o.access);
+      expect(notif.status).toBe(200);
+      const low = (notif.body.items as Array<Record<string, unknown>>).find(
+        (n) => n.type === 'inventory_low_stock' && n.ref_id === id,
+      );
+      expect(low).toBeTruthy();
+    });
+
+    it('produto sem mínimo NÃO gera notificação ao zerar (Opção A)', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Parafuso avulso',
+        currentStock: 4,
+      });
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, { currentStock: 0 });
+      expect(patched.status).toBe(200);
+
+      const notif = await notifications(o.access);
+      const low = (notif.body.items as Array<Record<string, unknown>>).filter(
+        (n) => n.type === 'inventory_low_stock',
+      );
+      expect(low).toHaveLength(0);
+    });
+
+    it('isolamento: B não vê a notificação de estoque baixo de A', async () => {
+      const a = await registerOwner();
+      const b = await registerOwner();
+      const created = await createItem(a.access, {
+        name: 'Correia',
+        currentStock: 5,
+        minStock: 3,
+      });
+      const id = created.body.id as string;
+      await patchItem(a.access, id, { currentStock: 1 });
+
+      const notifB = await notifications(b.access);
+      const low = (notifB.body.items as Array<Record<string, unknown>>).filter(
+        (n) => n.type === 'inventory_low_stock',
+      );
+      expect(low).toHaveLength(0);
+    });
+  });
 });
