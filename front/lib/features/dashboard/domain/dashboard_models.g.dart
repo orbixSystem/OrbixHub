@@ -34,8 +34,8 @@ _LowStockItem _$LowStockItemFromJson(Map<String, dynamic> json) =>
       id: json['id'] as String,
       name: json['name'] as String,
       sku: json['sku'] as String?,
-      currentStock: json['current_stock'] as String? ?? '0',
-      minStock: json['min_stock'] as String?,
+      currentStock: json['current_stock'] as num? ?? 0,
+      minStock: json['min_stock'] as num?,
     );
 
 Map<String, dynamic> _$LowStockItemToJson(_LowStockItem instance) =>

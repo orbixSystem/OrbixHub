@@ -299,7 +299,7 @@ as num?,
 /// @nodoc
 mixin _$LowStockItem {
 
- String get id; String get name; String? get sku;@JsonKey(name: 'current_stock') String get currentStock;@JsonKey(name: 'min_stock') String? get minStock;
+ String get id; String get name; String? get sku;@JsonKey(name: 'current_stock') num get currentStock;@JsonKey(name: 'min_stock') num? get minStock;
 /// Create a copy of LowStockItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -332,7 +332,7 @@ abstract mixin class $LowStockItemCopyWith<$Res>  {
   factory $LowStockItemCopyWith(LowStockItem value, $Res Function(LowStockItem) _then) = _$LowStockItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String? sku,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock
+ String id, String name, String? sku,@JsonKey(name: 'current_stock') num currentStock,@JsonKey(name: 'min_stock') num? minStock
 });
 
 
@@ -355,8 +355,8 @@ id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,sku: freezed == sku ? _self.sku : sku // ignore: cast_nullable_to_non_nullable
 as String?,currentStock: null == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
-as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
-as String?,
+as num,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
+as num?,
   ));
 }
 
@@ -441,7 +441,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  num currentStock, @JsonKey(name: 'min_stock')  num? minStock)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LowStockItem() when $default != null:
 return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock);case _:
@@ -462,7 +462,7 @@ return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  num currentStock, @JsonKey(name: 'min_stock')  num? minStock)  $default,) {final _that = this;
 switch (_that) {
 case _LowStockItem():
 return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock);case _:
@@ -482,7 +482,7 @@ return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? sku, @JsonKey(name: 'current_stock')  num currentStock, @JsonKey(name: 'min_stock')  num? minStock)?  $default,) {final _that = this;
 switch (_that) {
 case _LowStockItem() when $default != null:
 return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock);case _:
@@ -497,14 +497,14 @@ return $default(_that.id,_that.name,_that.sku,_that.currentStock,_that.minStock)
 @JsonSerializable()
 
 class _LowStockItem implements LowStockItem {
-  const _LowStockItem({required this.id, required this.name, this.sku, @JsonKey(name: 'current_stock') this.currentStock = '0', @JsonKey(name: 'min_stock') this.minStock});
+  const _LowStockItem({required this.id, required this.name, this.sku, @JsonKey(name: 'current_stock') this.currentStock = 0, @JsonKey(name: 'min_stock') this.minStock});
   factory _LowStockItem.fromJson(Map<String, dynamic> json) => _$LowStockItemFromJson(json);
 
 @override final  String id;
 @override final  String name;
 @override final  String? sku;
-@override@JsonKey(name: 'current_stock') final  String currentStock;
-@override@JsonKey(name: 'min_stock') final  String? minStock;
+@override@JsonKey(name: 'current_stock') final  num currentStock;
+@override@JsonKey(name: 'min_stock') final  num? minStock;
 
 /// Create a copy of LowStockItem
 /// with the given fields replaced by the non-null parameter values.
@@ -539,7 +539,7 @@ abstract mixin class _$LowStockItemCopyWith<$Res> implements $LowStockItemCopyWi
   factory _$LowStockItemCopyWith(_LowStockItem value, $Res Function(_LowStockItem) _then) = __$LowStockItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String? sku,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock
+ String id, String name, String? sku,@JsonKey(name: 'current_stock') num currentStock,@JsonKey(name: 'min_stock') num? minStock
 });
 
 
@@ -562,8 +562,8 @@ id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,sku: freezed == sku ? _self.sku : sku // ignore: cast_nullable_to_non_nullable
 as String?,currentStock: null == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
-as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
-as String?,
+as num,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
+as num?,
   ));
 }
 

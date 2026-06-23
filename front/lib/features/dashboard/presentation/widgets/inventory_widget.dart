@@ -72,7 +72,7 @@ class InventoryWidget extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          '${item.currentStock}/${item.minStock ?? '—'}',
+                          '${formatQty(item.currentStock)}/${formatQty(item.minStock)}',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: scheme.onSurfaceVariant,

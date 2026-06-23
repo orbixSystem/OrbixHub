@@ -186,6 +186,14 @@ String formatMoney(num value) {
   return 'R\$ $buf,$decPart';
 }
 
+/// Formata uma quantidade numérica para exibição, removendo o `.0` quando for
+/// inteira (ex.: `5.0` → "5", `2.5` → "2,5"). Null → "—".
+String formatQty(num? value) {
+  if (value == null) return '—';
+  if (value == value.truncateToDouble()) return value.toInt().toString();
+  return value.toString().replaceAll('.', ',');
+}
+
 /// Formata uma duração (ms) como "Xh" ou "Xd" (legível para tempo de ciclo).
 /// Null → "—".
 String formatCycle(num? ms) {

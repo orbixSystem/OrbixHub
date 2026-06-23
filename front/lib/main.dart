@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/devtools/dev_inbox_overlay.dart';
@@ -65,6 +66,13 @@ class _OrbixAppState extends ConsumerState<OrbixApp> {
       theme: AppTheme.light(seed: seed),
       darkTheme: AppTheme.dark(seed: seed),
       themeMode: mode,
+      locale: const Locale('pt', 'BR'),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('pt', 'BR'), Locale('en')],
       routerConfig: router,
     );
   }

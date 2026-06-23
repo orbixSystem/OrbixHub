@@ -37,7 +37,10 @@ void main() {
     expect(m.totalOrders, 0);
   });
 
-  test('parses /inventory/metrics with snake_case sample', () {
+  test('parses /inventory/metrics with NUMERIC current/min stock', () {
+    // O backend (`GET /inventory/metrics`) devolve current_stock/min_stock como
+    // NÚMEROS, não strings. Regressão: antes o model tipava como String e o
+    // parsing estourava quando havia itens abaixo do mínimo.
     final m = InventoryMetrics.fromJson({
       'belowMin': 3,
       'stockValue': 18250.75,
@@ -48,8 +51,8 @@ void main() {
           'id': 'i1',
           'name': 'Óleo 5W30',
           'sku': 'OL-5W30',
-          'current_stock': '2',
-          'min_stock': '10',
+          'current_stock': 5,
+          'min_stock': 10,
         },
       ],
     });
@@ -59,8 +62,19 @@ void main() {
     expect(m.products, 142);
     expect(m.services, 27);
     expect(m.lowStockSample, hasLength(1));
-    expect(m.lowStockSample.first.currentStock, '2');
-    expect(m.lowStockSample.first.minStock, '10');
+    expect(m.lowStockSample.first.currentStock, 5);
+    expect(m.lowStockSample.first.minStock, 10);
+  });
+
+  test('LowStockItem aceita current/min stock fracionário e ausente', () {
+    final item = LowStockItem.fromJson({
+      'id': 'i2',
+      'name': 'Cabo',
+      'current_stock': 2.5,
+      // min_stock ausente → null
+    });
+    expect(item.currentStock, 2.5);
+    expect(item.minStock, isNull);
   });
 
   test('parses /customers/metrics', () {

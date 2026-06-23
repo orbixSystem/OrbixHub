@@ -4,6 +4,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../period_controller.dart';
 
+/// Abre o seletor de intervalo no modo COMPACTO (diálogo com campos de data
+/// digitáveis + ícone de calendário p/ alternar p/ o calendário), em pt-BR.
+/// Usado pelo seletor de período do dashboard e por qualquer tela que precise
+/// de um range personalizado. Retorna null se o usuário cancelar.
+Future<DateTimeRange?> pickMetricsRange(
+  BuildContext context, {
+  DateTime? from,
+  DateTime? to,
+}) {
+  return showDateRangePicker(
+    context: context,
+    firstDate: DateTime(2020),
+    lastDate: DateTime.now(),
+    locale: const Locale('pt', 'BR'),
+    initialEntryMode: DatePickerEntryMode.input,
+    initialDateRange: from != null && to != null
+        ? DateTimeRange(start: from, end: to)
+        : null,
+  );
+}
+
 /// Seletor de período no topo do dashboard: Hoje · 7 dias · 30 dias · Mês atual ·
 /// Personalizado (abre date range). Atualiza o `PeriodController`; os widgets de
 /// OS e Clientes reagem. Default 30 dias.
@@ -27,15 +48,10 @@ class PeriodSelector extends ConsumerWidget {
             selected: state.preset == preset,
             onTap: () async {
               if (preset == PeriodPreset.custom) {
-                final picked = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
-                  initialDateRange: state.customFrom != null &&
-                          state.customTo != null
-                      ? DateTimeRange(
-                          start: state.customFrom!, end: state.customTo!)
-                      : null,
+                final picked = await pickMetricsRange(
+                  context,
+                  from: state.customFrom,
+                  to: state.customTo,
                 );
                 if (picked != null) {
                   controller.setCustomRange(picked.start, picked.end);

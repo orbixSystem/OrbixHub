@@ -44,8 +44,8 @@ abstract class LowStockItem with _$LowStockItem {
     required String id,
     required String name,
     String? sku,
-    @JsonKey(name: 'current_stock') @Default('0') String currentStock,
-    @JsonKey(name: 'min_stock') String? minStock,
+    @JsonKey(name: 'current_stock') @Default(0) num currentStock,
+    @JsonKey(name: 'min_stock') num? minStock,
   }) = _LowStockItem;
 
   factory LowStockItem.fromJson(Map<String, dynamic> json) =>
