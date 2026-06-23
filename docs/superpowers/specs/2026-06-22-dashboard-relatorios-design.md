@@ -76,14 +76,31 @@ Núcleo (sem módulo): saudação + cards de plano/status/módulos/função (já
   **valor em estoque** (Σ `current_stock`×`cost_price`), nº de produtos/serviços ativos.
 - **Clientes** (`customer.read`): clientes ativos (total), novos no período.
 
-### Relatórios — MVP (módulo `report`, `report.read`)
-Tela com seletor de relatório + filtros; cada um com tabela + totais + export CSV/PDF.
-- **OS por período**: linhas de OS (nº, cliente, status, técnico, total, abertura,
-  conclusão, ciclo); agregados por **status** e por **técnico** (`assigned_to`);
-  faturamento, ticket médio, tempo médio de ciclo. Filtros: período, técnico, status.
+### Relatórios — MVP (módulo `report`, `report.read`), organizados POR MÓDULO/TEMA
+Tela com seletor de relatório (agrupado por módulo) + filtros; cada um com tabela +
+totais + export CSV/PDF. Só aparecem os relatórios dos módulos que o tenant tem.
+Faturamento e Rendimento da equipe são "lentes" sobre os dados de OS (ainda não há
+módulo financeiro próprio) — quando existir `finance`/`cashier`, eles publicam os seus.
+
+**Vindos do módulo `os`:**
+- **OS (operacional)**: linhas de OS (nº, cliente, status, técnico, total, abertura,
+  conclusão, ciclo); agregado por **status**. Filtros: período, técnico, status.
+- **Faturamento**: receita do período (Σ `total` de `concluida`+`entregue`), ticket
+  médio, **série temporal por dia** (p/ gráfico de evolução), quebra por status.
+  Filtros: período.
+- **Rendimento da equipe**: agregado por **responsável** (`assigned_to`): nº de OS
+  (total e concluídas), faturamento gerado, ticket médio, tempo médio de ciclo.
+  Filtros: período. (Responsável nulo → "Sem responsável".)
+- **Top produtos/serviços** *(extra)*: itens mais usados/faturados nas OS — agrega
+  `service_order_item` por item (qtde total, receita total, nº de OS). Filtros: período,
+  kind (produto/serviço). Top N.
+
+**Vindo do módulo `inventory`:**
 - **Estoque (posição)**: itens com `current_stock`, `min_stock`, `cost_price`,
   `sale_price`, valor (stock×custo); destaque dos abaixo do mínimo; totalizador de valor.
   (Histórico de movimentos fica fora do MVP — não há tabela `inventory_movement`.)
+
+**Vindo do módulo `customers`:**
 - **Clientes**: novos clientes por período + total ativo (lista + contagem).
 
 ### Visualização
@@ -109,8 +126,16 @@ Tela com seletor de relatório + filtros; cada um com tabela + totais + export C
 - `report.service` descobre os módulos do tenant (via `BillingService.getEnabledModules`)
   e oferece só os relatórios dos módulos habilitados; chama `osService.metricsReport(...)`
   etc. (público; **nunca** a tabela). Auditar geração? Não (leitura). 
-- Endpoints: `GET /report/os?from&to&assignedTo&status`, `GET /report/inventory`,
-  `GET /report/customers?from&to`. (Export é client-side; backend devolve os dados.)
+- Endpoints (todos gated `@RequiresModule('report')` + `report.read`):
+  `GET /report/os` (operacional), `GET /report/revenue` (faturamento + série temporal/dia),
+  `GET /report/team` (rendimento por responsável), `GET /report/top-items` (top
+  produtos/serviços), `GET /report/inventory` (posição), `GET /report/customers`.
+  Filtros via query: `from`,`to`,`assignedTo`,`status`,`kind`,`limit`. Export é
+  client-side; o backend devolve os dados.
+- Faturamento/Rendimento/Top-itens são lentes sobre `os` → o `OsMetricsService` ganha,
+  nesta fase, métodos públicos extras: `revenueSeries({from,to})` (Σ por dia + totais),
+  `teamPerformance({from,to})` (agregado por `assigned_to`), `topItems({from,to,kind,limit})`
+  (agrega `service_order_item`). O `report.service` só os chama e compõe.
 - Seed (migration aditiva, 3 lugares): `module('report')` + `plan_module` ligando `report`
   a **trial e pro** (grátis agora). `reconcileTenantModules` cuida do resto.
 
