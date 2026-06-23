@@ -93,6 +93,26 @@ model inventory_item {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stock_movement {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  inventory_item_id String   @db.Uuid
+  stock_delta       Decimal  @db.Decimal(14, 3)
+  reason            String
+  ref_type          String
+  ref_id            String   @db.Uuid
+  ref_item_id       String?  @db.Uuid
+  created_by        String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_stock_movement_tenant")
+  @@index([inventory_item_id], map: "idx_stock_movement_item")
+  @@index([ref_item_id], map: "idx_stock_movement_ref_item")
+  @@index([ref_type, ref_id], map: "idx_stock_movement_ref")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model service_order {
   id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id       String               @db.Uuid
@@ -457,6 +477,7 @@ model tenant {
   service_order_photo service_order_photo[]
   service_order_template      service_order_template[]
   service_order_template_item service_order_template_item[]
+  stock_movement     stock_movement[]
   subject            subject[]
   subscription       subscription?
   tenant_module      tenant_module[]
