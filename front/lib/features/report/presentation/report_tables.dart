@@ -35,13 +35,22 @@ String customerTypeLabel(String type) => switch (type) {
       _ => type,
     };
 
-/// Responsável legível (null → "Sem responsável").
-String assignedLabel(String? v) =>
-    (v == null || v.isEmpty) ? 'Sem responsável' : v;
+/// Responsável legível a partir do `assigned_to`. Null/vazio → "Sem responsável".
+/// Com [names] ({id -> nome}), resolve o uuid para o nome do membro; se o id não
+/// estiver na lista (membro removido/sem acesso), cai para "—" (nunca o uuid).
+String assignedLabel(String? v, [Map<String, String>? names]) {
+  if (v == null || v.isEmpty) return 'Sem responsável';
+  if (names == null) return v;
+  return names[v] ?? '—';
+}
 
 // --- Builders de ReportTable (fonte única p/ CSV + PDF). Linha de total no fim. ---
 
-ReportTable osOperationalTable(OsOperationalReport r) => ReportTable(
+ReportTable osOperationalTable(
+  OsOperationalReport r, [
+  Map<String, String>? names,
+]) =>
+    ReportTable(
       title: 'OS — Operacional',
       headers: const [
         'Número',
@@ -59,7 +68,7 @@ ReportTable osOperationalTable(OsOperationalReport r) => ReportTable(
             o.number,
             o.customerName,
             osStatusLabel(o.status),
-            assignedLabel(o.assignedTo),
+            assignedLabel(o.assignedTo, names),
             formatMoney(o.total),
             fmtDate(o.openedAt),
             fmtDate(o.finishedAt),
@@ -88,7 +97,8 @@ ReportTable revenueTable(RevenueReport r) => ReportTable(
       ],
     );
 
-ReportTable teamTable(TeamReport r) => ReportTable(
+ReportTable teamTable(TeamReport r, [Map<String, String>? names]) =>
+    ReportTable(
       title: 'Rendimento da equipe',
       headers: const [
         'Responsável',
@@ -101,7 +111,7 @@ ReportTable teamTable(TeamReport r) => ReportTable(
       rows: [
         for (final t in r.rows)
           [
-            assignedLabel(t.assignedTo),
+            assignedLabel(t.assignedTo, names),
             '${t.orders}',
             '${t.completed}',
             formatMoney(t.revenue),

@@ -405,12 +405,21 @@ class _ReportBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // {id -> nome} dos membros (mesma lista do dropdown "Técnico"), para resolver
+    // o `assigned_to` (uuid) para o nome nas tabelas/gráficos de OS e equipe.
+    final memberNames = <String, String>{
+      for (final m
+          in ref.watch(reportMembersProvider).value ??
+              const <ReportMemberOption>[])
+        m.id: m.name,
+    };
+
     switch (spec.kind) {
       case ReportKind.osOperational:
         return _AsyncReport(
           async: ref.watch(osOperationalReportProvider),
           retry: () => ref.invalidate(osOperationalReportProvider),
-          tableOf: osOperationalTable,
+          tableOf: (r) => osOperationalTable(r, memberNames),
           isEmpty: (r) => r.rows.isEmpty,
           chartOf: null,
           company: _company(),
@@ -434,9 +443,9 @@ class _ReportBody extends ConsumerWidget {
         return _AsyncReport(
           async: ref.watch(teamReportProvider),
           retry: () => ref.invalidate(teamReportProvider),
-          tableOf: teamTable,
+          tableOf: (r) => teamTable(r, memberNames),
           isEmpty: (r) => r.rows.isEmpty,
-          chartOf: (r) => _TeamChart(report: r),
+          chartOf: (r) => _TeamChart(report: r, names: memberNames),
           company: _company(),
           period: _periodLabel(ref),
         );
@@ -516,20 +525,18 @@ class _AsyncReport<T> extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    table.title,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                _ExportButtons(
-                  table: table,
-                  company: company,
-                  period: period,
-                ),
-              ],
+            // Título do relatório em largura cheia, ACIMA do corpo (era um filho
+            // sem flex de um Row ao lado dos botões de export, o que o espremia
+            // numa coluna de ~1 caractere e o fazia quebrar verticalmente).
+            Text(
+              table.title,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            _ExportButtons(
+              table: table,
+              company: company,
+              period: period,
             ),
             const SizedBox(height: 14),
             if (summaryOf != null) ...[
@@ -721,8 +728,9 @@ class _RevenueChart extends StatelessWidget {
 
 /// Gráfico de barras horizontais do faturamento por responsável.
 class _TeamChart extends StatelessWidget {
-  const _TeamChart({required this.report});
+  const _TeamChart({required this.report, required this.names});
   final TeamReport report;
+  final Map<String, String> names;
 
   @override
   Widget build(BuildContext context) {
@@ -755,7 +763,7 @@ class _TeamChart extends StatelessWidget {
                   if (i < 0 || i >= rows.length) {
                     return const SizedBox.shrink();
                   }
-                  final label = assignedLabel(rows[i].assignedTo);
+                  final label = assignedLabel(rows[i].assignedTo, names);
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
