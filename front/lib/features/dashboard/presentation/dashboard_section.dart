@@ -38,21 +38,21 @@ class DashboardMetricsSection extends StatelessWidget {
           spacing: 16,
           runSpacing: 16,
           children: [
-            for (final spec in specs) _widgetFor(spec.kind),
+            for (final spec in specs) _widgetFor(spec),
           ],
         ),
       ],
     );
   }
 
-  Widget _widgetFor(DashboardWidgetKind kind) {
-    switch (kind) {
+  Widget _widgetFor(DashboardWidgetSpec spec) {
+    switch (spec.kind) {
       case DashboardWidgetKind.osManagement:
         return const OsManagementWidget();
       case DashboardWidgetKind.osOperational:
         return const OsOperationalWidget();
       case DashboardWidgetKind.inventory:
-        return const InventoryWidget();
+        return InventoryWidget(showValue: spec.showValue);
       case DashboardWidgetKind.customers:
         return const CustomersWidget();
     }

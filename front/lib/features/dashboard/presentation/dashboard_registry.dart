@@ -23,11 +23,16 @@ class DashboardWidgetSpec {
     required this.kind,
     required this.moduleKey,
     required this.permission,
+    this.showValue = true,
   });
 
   final DashboardWidgetKind kind;
   final String moduleKey;
   final String permission;
+
+  /// Só relevante p/ o widget de estoque: exibe a métrica monetária ("Valor em
+  /// estoque") apenas para quem tem visibilidade gerencial (`report.read`).
+  final bool showValue;
 }
 
 /// Função pura (testada): a lista ordenada de widgets que este usuário deve ver,
@@ -55,21 +60,25 @@ List<DashboardWidgetSpec> dashboardWidgets(Me me) {
     }
   }
 
-  // Estoque.
+  // Estoque — gated por `inventory.read` (mecânico mantém). A métrica monetária
+  // ("Valor em estoque") só aparece para quem tem `report.read` (gerencial);
+  // sem ela, o widget renderiza sem o valor (o que repor, não o quanto vale).
   if (me.hasModule('inventory') && me.hasPermission('inventory.read')) {
-    specs.add(const DashboardWidgetSpec(
+    specs.add(DashboardWidgetSpec(
       kind: DashboardWidgetKind.inventory,
       moduleKey: 'inventory',
       permission: 'inventory.read',
+      showValue: me.hasPermission('report.read'),
     ));
   }
 
-  // Clientes.
-  if (me.hasModule('customers') && me.hasPermission('customer.read')) {
+  // Clientes — métrica gerencial: gated por `report.read` (owner/gerente).
+  // Mecânico/caixa não veem a contagem de clientes.
+  if (me.hasModule('customers') && me.hasPermission('report.read')) {
     specs.add(const DashboardWidgetSpec(
       kind: DashboardWidgetKind.customers,
       moduleKey: 'customers',
-      permission: 'customer.read',
+      permission: 'report.read',
     ));
   }
 

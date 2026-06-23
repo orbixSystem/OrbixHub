@@ -5,10 +5,15 @@ import '../../../../core/theme/app_colors.dart';
 import '../dashboard_providers.dart';
 import 'metric_card.dart';
 
-/// Estoque (`inventory.read`): abaixo do mínimo (contagem + lista curta), valor
-/// em estoque, produtos/serviços ativos. Point-in-time (ignora o período).
+/// Estoque (`inventory.read`): abaixo do mínimo (contagem + lista curta),
+/// produtos/serviços ativos e, quando [showValue] (usuário com `report.read`),
+/// o valor em estoque. Point-in-time (ignora o período).
 class InventoryWidget extends ConsumerWidget {
-  const InventoryWidget({super.key});
+  const InventoryWidget({super.key, this.showValue = true});
+
+  /// Exibe a métrica monetária "Valor em estoque". Falso para papéis sem
+  /// visibilidade gerencial (mecânico/caixa): mostra o que repor, não o quanto vale.
+  final bool showValue;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,11 +41,12 @@ class InventoryWidget extends ConsumerWidget {
                     value: '${m.belowMin}',
                     valueColor: m.belowMin > 0 ? AppColors.warning : null,
                   ),
-                  MetricStat(
-                    label: 'Valor em estoque',
-                    value: formatMoney(m.stockValue),
-                    valueColor: AppColors.success,
-                  ),
+                  if (showValue)
+                    MetricStat(
+                      label: 'Valor em estoque',
+                      value: formatMoney(m.stockValue),
+                      valueColor: AppColors.success,
+                    ),
                   MetricStat(label: 'Produtos', value: '${m.products}'),
                   MetricStat(label: 'Serviços', value: '${m.services}'),
                 ],

@@ -52,6 +52,30 @@ void main() {
     expect(kinds, isNot(contains(DashboardWidgetKind.customers)));
   });
 
+  test('mecânico com inventory.read: estoque presente (sem valor), sem clientes',
+      () {
+    final me = _me(
+      role: 'mechanic',
+      modules: ['os', 'inventory', 'customers'],
+      // Conjunto operacional real do mecânico: tem inventory.read e customer.read,
+      // mas NÃO tem report.read.
+      permissions: ['os.read', 'inventory.read', 'customer.read'],
+    );
+    final specs = dashboardWidgets(me);
+    final kinds = specs.map((s) => s.kind).toList();
+
+    // OS operacional + estoque; clientes é métrica gerencial (report.read).
+    expect(kinds, contains(DashboardWidgetKind.osOperational));
+    expect(kinds, contains(DashboardWidgetKind.inventory));
+    expect(kinds, isNot(contains(DashboardWidgetKind.customers)));
+    expect(kinds, isNot(contains(DashboardWidgetKind.osManagement)));
+
+    // O estoque do mecânico não expõe o valor monetário.
+    final inventory = specs
+        .firstWhere((s) => s.kind == DashboardWidgetKind.inventory);
+    expect(inventory.showValue, isFalse);
+  });
+
   test('mecânico sem os.read: nenhum widget de OS', () {
     final me = _me(
       role: 'mechanic',

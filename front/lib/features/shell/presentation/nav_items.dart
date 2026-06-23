@@ -26,6 +26,10 @@ List<NavItem> gatedNavItems(Me me) {
     const NavItem('Início', Icons.home_outlined, '/'),
   ];
   for (final key in me.modules) {
+    // Relatórios é o único módulo com visibilidade gerencial/financeira: além do
+    // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
+    // veem o item. Demais módulos seguem só pelo módulo habilitado.
+    if (key == 'report' && !me.hasPermission('report.read')) continue;
     final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
   }

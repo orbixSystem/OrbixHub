@@ -85,6 +85,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             !me.hasModule(moduleKey)) {
           return '/';
         }
+        // Relatórios também exige `report.read` (gerencial). Sem ela, manda pra
+        // home — o backend já 403a; isto evita a tela quebrada. Esconder ≠
+        // proteger, mas escondemos o que não é do papel.
+        if (moduleKey == 'report' && !me.hasPermission('report.read')) {
+          return '/';
+        }
       }
       return null;
     },

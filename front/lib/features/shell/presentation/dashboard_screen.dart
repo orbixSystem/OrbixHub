@@ -7,6 +7,7 @@ import '../../auth/presentation/session_state.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
 import '../../dashboard/presentation/dashboard_section.dart';
+import '../../dashboard/presentation/widgets/inventory_widget.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart';
 import '../../messages/presentation/messages_providers.dart';
 import '../../../di.dart';
@@ -29,8 +30,12 @@ class DashboardScreen extends ConsumerWidget {
     final sub = subAsync.asData?.value;
     final scheme = Theme.of(context).colorScheme;
 
-    final canSeeActiveOs =
-        me.hasModule('os') && me.hasPermission('os.read');
+    // `report.read` é o discriminador de visibilidade gerencial/financeira.
+    // Owner/gerente veem o cockpit; mecânico/caixa veem o home operacional.
+    final isManagement = me.hasPermission('report.read');
+    final canSeeActiveOs = me.hasModule('os') && me.hasPermission('os.read');
+    final canSeeInventory =
+        me.hasModule('inventory') && me.hasPermission('inventory.read');
     final canSeeMessages = me.hasPermission('os.read');
 
     return ListView(
@@ -41,18 +46,39 @@ class DashboardScreen extends ConsumerWidget {
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 6),
         Text(
-          'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.',
+          isManagement
+              ? 'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.'
+              : 'Seu dia de trabalho em um lugar só.',
           style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
         ),
         const SizedBox(height: 28),
-        DashboardMetricsSection(me: me),
-        if (canSeeActiveOs) ...[
-          const SizedBox(height: 32),
-          const _ActiveOrdersPanel(),
-        ],
-        if (canSeeMessages) ...[
-          const SizedBox(height: 24),
-          const _UnreadMessagesCard(),
+        if (isManagement) ...[
+          // GERENCIAL: período + métricas + OS em andamento (todas) + chat.
+          DashboardMetricsSection(me: me),
+          if (canSeeActiveOs) ...[
+            const SizedBox(height: 32),
+            const _ActiveOrdersPanel(),
+          ],
+          if (canSeeMessages) ...[
+            const SizedBox(height: 24),
+            const _UnreadMessagesCard(),
+          ],
+        ] else ...[
+          // OPERACIONAL (mecânico/caixa): foco em ação, sem período nem métricas
+          // de gestão. Minhas OS em execução + minhas atrasadas + estoque (sem
+          // valor) + chat.
+          if (canSeeActiveOs) ...[
+            _MyOverdueOrdersCard(assignedTo: me.user.id),
+            _ActiveOrdersPanel(assignedTo: me.user.id),
+          ],
+          if (canSeeInventory) ...[
+            const SizedBox(height: 24),
+            const InventoryWidget(showValue: false),
+          ],
+          if (canSeeMessages) ...[
+            const SizedBox(height: 24),
+            const _UnreadMessagesCard(),
+          ],
         ],
         const SizedBox(height: 24),
       ],
@@ -61,13 +87,16 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 /// Painel "OS em andamento": até 5 OS mais recentes em `em_execucao`. Cada linha
-/// abre o detalhe (`/m/os/:id`); o cabeçalho tem "Ver todas" (`/m/os`).
+/// abre o detalhe (`/m/os/:id`); o cabeçalho tem "Ver todas" (`/m/os`). Quando
+/// [assignedTo] é informado (home operacional), mostra só as OS do mecânico.
 class _ActiveOrdersPanel extends ConsumerWidget {
-  const _ActiveOrdersPanel();
+  const _ActiveOrdersPanel({this.assignedTo});
+
+  final String? assignedTo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(activeOrdersProvider);
+    final async = ref.watch(activeOrdersProvider(assignedTo));
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -113,7 +142,8 @@ class _ActiveOrdersPanel extends ConsumerWidget {
             error: (_, _) => Padding(
               padding: const EdgeInsets.only(top: 8),
               child: MetricError(
-                onRetry: () => ref.invalidate(activeOrdersProvider),
+                onRetry: () =>
+                    ref.invalidate(activeOrdersProvider(assignedTo)),
               ),
             ),
             data: (items) {
@@ -221,6 +251,59 @@ class _ActiveOrderRow extends StatelessWidget {
     if (d.inMinutes < 60) return 'há ${d.inMinutes} min';
     if (d.inHours < 24) return 'há ${d.inHours} h';
     return 'há ${d.inDays} d';
+  }
+}
+
+/// "Minhas OS atrasadas": card de alerta com a contagem das minhas OS cujo prazo
+/// (`scheduled_end`) já passou e que não foram concluídas. Some quando não há
+/// nenhuma (ou em loading/erro — sinal best-effort). Toca → `/m/os`.
+class _MyOverdueOrdersCard extends ConsumerWidget {
+  const _MyOverdueOrdersCard({required this.assignedTo});
+
+  final String assignedTo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myOverdueOrdersProvider(assignedTo));
+    final count = async.asData?.value.length ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: AppColors.dangerTint,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.go('/m/os'),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border:
+                  Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: AppColors.danger),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    count == 1
+                        ? '1 OS atrasada — prazo vencido'
+                        : '$count OS atrasadas — prazo vencido',
+                    style: const TextStyle(
+                        color: AppColors.danger, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.danger),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -56,11 +56,18 @@ final customersMetricsProvider =
 /// `em_execucao`, já com o nome do responsável resolvido (`assigned_to` → nome
 /// do membro via `listMembers`, serviço público — "aponta, não invade").
 /// Reusa o `OsRepository` (sem endpoint novo). autoDispose: re-busca ao reentrar.
-final activeOrdersProvider =
-    FutureProvider.autoDispose<List<ActiveOrder>>((ref) async {
+///
+/// [assignedTo] (opcional): quando informado, filtra só as OS desse responsável
+/// (visão operacional do mecânico — "minhas OS"). Null = todas (gerencial).
+final activeOrdersProvider = FutureProvider.autoDispose
+    .family<List<ActiveOrder>, String?>((ref, assignedTo) async {
   final repo = ref.read(osRepositoryProvider);
   final page = await repo.listOrders(status: 'em_execucao');
-  final orders = page.items.take(5).toList();
+  var orders = page.items;
+  if (assignedTo != null) {
+    orders = orders.where((o) => o.assignedTo == assignedTo).toList();
+  }
+  orders = orders.take(5).toList();
   // Mapa id→nome do responsável (best-effort; falha vira "—").
   Map<String, String> names = const {};
   try {
@@ -76,6 +83,26 @@ final activeOrdersProvider =
         assigneeName: o.assignedTo == null ? null : names[o.assignedTo],
       ),
   ];
+});
+
+/// "Minhas OS atrasadas": OS do responsável [assignedTo] cujo `scheduled_end` já
+/// passou e que não estão concluída/entregue/cancelada. Sinal operacional simples
+/// (contagem); reusa a lista de OS e filtra no cliente. autoDispose.
+final myOverdueOrdersProvider = FutureProvider.autoDispose
+    .family<List<ServiceOrder>, String?>((ref, assignedTo) async {
+  if (assignedTo == null) return const <ServiceOrder>[];
+  final repo = ref.read(osRepositoryProvider);
+  final page = await repo.listOrders();
+  final now = DateTime.now();
+  const done = {'concluida', 'entregue', 'cancelada'};
+  return page.items.where((o) {
+    if (o.assignedTo != assignedTo) return false;
+    if (done.contains(o.status)) return false;
+    final end = o.scheduledEnd == null
+        ? null
+        : DateTime.tryParse(o.scheduledEnd!);
+    return end != null && end.isBefore(now);
+  }).toList();
 });
 
 /// Uma OS em execução + o nome do responsável já resolvido (para o painel).
