@@ -27,6 +27,8 @@ import 'features/notifications/data/notifications_repository_impl.dart';
 import 'features/notifications/presentation/notifications_providers.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
+import 'features/report/data/report_repository_impl.dart';
+import 'features/report/presentation/report_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
 import 'features/settings/data/settings_repository_impl.dart';
@@ -116,6 +118,9 @@ final diOverrides = [
   ),
   dashboardRepositoryProvider.overrideWith(
     (ref) => DashboardRepositoryImpl(ref.read(dioProvider)),
+  ),
+  reportRepositoryProvider.overrideWith(
+    (ref) => ReportRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 
