@@ -513,6 +513,7 @@ describe('Inventory — Produtos (e2e)', () => {
         name: 'Parafuso avulso',
         currentStock: 4,
       });
+      expect(created.status).toBe(201);
       const id = created.body.id as string;
 
       const patched = await patchItem(o.access, id, { currentStock: 0 });
@@ -533,8 +534,10 @@ describe('Inventory — Produtos (e2e)', () => {
         currentStock: 5,
         minStock: 3,
       });
+      expect(created.status).toBe(201);
       const id = created.body.id as string;
-      await patchItem(a.access, id, { currentStock: 1 });
+      const patched = await patchItem(a.access, id, { currentStock: 1 });
+      expect(patched.status).toBe(200);
 
       const notifB = await notifications(b.access);
       const low = (notifB.body.items as Array<Record<string, unknown>>).filter(

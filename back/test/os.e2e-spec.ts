@@ -902,7 +902,8 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       // produto com saldo 5, mínimo 3 — consumir 3 derruba para 2 (cruza o mínimo)
       const prodId = await createInventoryProduct(o.access, 5, 20);
-      await patchInventoryItem(o.access, prodId, { minStock: 3 });
+      const minStockPatch = await patchInventoryItem(o.access, prodId, { minStock: 3 });
+      expect(minStockPatch.status).toBe(200);
 
       const order = await createOrder(o.access, { customerId });
       const orderId = order.body.id as string;
