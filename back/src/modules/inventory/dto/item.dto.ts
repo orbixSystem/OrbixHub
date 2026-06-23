@@ -3,6 +3,7 @@ import {
   Max, MaxLength, Min, MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import type { ItemSort } from '../inventory.repository';
 
 /**
  * Produto (item com estoque). Decimais (não centavos). Sem kind/sellable/track_stock/
@@ -56,6 +57,13 @@ export class ItemQueryDto {
   @IsOptional() @Type(() => Boolean) @IsBoolean() lowStock?: boolean;
   /** 'true' (padrão: só ativos), 'false' (só arquivados), 'all'. */
   @IsOptional() @IsIn(['true', 'false', 'all']) active?: 'true' | 'false' | 'all';
+  /** Ordenação da lista. Default: nome A–Z. Ver ItemSort no repository. */
+  @IsOptional()
+  @IsIn([
+    'name_asc', 'name_desc', 'price_desc', 'price_asc',
+    'stock_desc', 'stock_asc', 'recent',
+  ])
+  sort?: ItemSort;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize?: number;
 }

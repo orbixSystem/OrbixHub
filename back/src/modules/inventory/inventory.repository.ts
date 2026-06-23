@@ -185,6 +185,44 @@ export class InventoryRepository {
     });
   }
 
+  // ---- diário de estoque (stock_movement) ----
+  createStockMovement(
+    tenantId: string,
+    data: {
+      inventory_item_id: string;
+      stock_delta: Prisma.Decimal | number;
+      reason: 'os_consumption' | 'os_reversal';
+      ref_type: string;
+      ref_id: string;
+      ref_item_id: string | null;
+      created_by: string | null;
+    },
+  ) {
+    const db = this.tenant.getClient();
+    return db.stock_movement.create({
+      data: {
+        tenant_id: tenantId,
+        ...data,
+      } as Prisma.stock_movementUncheckedCreateInput,
+    });
+  }
+
+  /**
+   * Consumo já registrado para uma linha de origem (ex.: item de OS):
+   * -Σ(stock_delta) dos movimentos dessa linha. Consumo reduz o saldo
+   * (stock_delta negativo), então a soma negada dá o consumido positivo.
+   * Tenant-scoped por RLS.
+   */
+  async sumConsumedByRefItem(refItemId: string): Promise<number> {
+    const db = this.tenant.getClient();
+    const agg = await db.stock_movement.aggregate({
+      where: { ref_item_id: refItemId },
+      _sum: { stock_delta: true },
+    });
+    const sum = agg._sum.stock_delta;
+    return sum == null ? 0 : -(typeof sum === 'number' ? sum : sum.toNumber());
+  }
+
   // ---- métricas (agregações sob RLS — sem WHERE tenant manual) ----
   /** Itens vivos abaixo do mínimo (current_stock < min_stock, min definido). */
   private belowMinWhere(): Prisma.inventory_itemWhereInput {

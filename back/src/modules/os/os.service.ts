@@ -69,6 +69,15 @@ const formatBrDate = (d: Date): string => {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+/** Status em que a OS consome estoque (peça está/foi usada). */
+const CONSUMING_STATUSES = new Set<OsStatus>([
+  'em_execucao',
+  'concluida',
+  'entregue',
+]);
+const consumes = (status: string): boolean =>
+  CONSUMING_STATUSES.has(status as OsStatus);
+
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
  * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
@@ -476,43 +485,85 @@ export class OsService {
       to,
     });
 
-    // Baixa de estoque ao entrar em execução ("o produto já está sendo usado")
-    // — FORA de qualquer withTenantTx (decrementStock abre sua própria tx via
-    // runWithTenant; aninhar esgota o pool). Idempotente via stock_applied.
-    if (to === 'em_execucao' && !order.stock_applied) {
-      await this.applyStock(user, id);
+    // Baixa/estorno de estoque conforme o novo status (idempotente). Substitui o
+    // antigo applyStock/stock_applied. FORA de withTenantTx (reconcile abre a
+    // própria tx). best-effort: erro de estoque não desfaz a transição.
+    const after = await this.getOrderOrThrow(id);
+    await this.reconcileOrderStock(user, after);
+
+    if (to === 'cancelada') {
+      const devolvidos = after.items.filter(
+        (i) => i.kind === 'product' && i.inventory_item_id,
+      ).length;
+      if (devolvidos > 0) {
+        await this.audit.log(
+          user.tenantId,
+          user.userId,
+          'os_stock_reconcile',
+          id,
+          { event: 'cancel_reversal', items: devolvidos },
+        );
+        // Nota interna na timeline (best-effort — não bloqueia).
+        try {
+          await this.tenant.withTenantTx(() =>
+            this.repo.createEvent(user.tenantId, id, {
+              kind: 'note',
+              message: `Estoque estornado: ${devolvidos} item(ns) devolvido(s).`,
+              visiblePublic: false,
+              createdBy: user.userId,
+            }),
+          );
+        } catch (e) {
+          this.logger.warn(
+            `Nota de estorno falhou (OS ${id}): ${(e as Error).message}`,
+          );
+        }
+      }
     }
 
     return this.getOrderOrThrow(id);
   }
 
   /**
-   * Baixa de estoque dos itens-produto vinculados ao inventário (idempotente via
-   * stock_applied). v1 best-effort: erro num item (ex.: estoque insuficiente) NÃO
-   * bloqueia a transição — apenas loga um aviso. Roda fora de transação de banco.
+   * Reconcilia o estoque de TODAS as linhas-produto da OS para o alvo conforme o
+   * status atual (consome → quantidade; senão → 0). Idempotente (delegado ao
+   * inventory). Best-effort: erro num item (ex.: estoque insuficiente) NÃO
+   * bloqueia a operação — apenas loga. Roda FORA de transação de banco
+   * (reconcileConsumption abre a própria via runWithTenant).
    */
-  private async applyStock(user: AuthUser, orderId: string) {
-    const order = await this.getOrderOrThrow(orderId);
-    if (order.stock_applied) return;
+  private async reconcileOrderStock(
+    user: AuthUser,
+    order: {
+      id: string;
+      status: string;
+      items: Array<{
+        id: string;
+        kind: string;
+        inventory_item_id: string | null;
+        quantity: Prisma.Decimal | number;
+      }>;
+    },
+  ): Promise<void> {
+    const target = consumes(order.status);
     for (const item of order.items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
-        await this.inventory.decrementStock(
-          user.tenantId,
-          item.inventory_item_id,
-          toNum(item.quantity),
-        );
+        await this.inventory.reconcileConsumption(user.tenantId, {
+          inventoryItemId: item.inventory_item_id,
+          refType: 'service_order',
+          refId: order.id,
+          refItemId: item.id,
+          targetQty: target ? toNum(item.quantity) : 0,
+          createdBy: user.userId,
+        });
       } catch (e) {
         this.logger.warn(
-          `Baixa de estoque falhou (OS ${orderId}, item ${item.id}): ${
+          `Reconciliação de estoque falhou (OS ${order.id}, item ${item.id}): ${
             (e as Error).message
           }`,
         );
       }
     }
-    await this.tenant.withTenantTx(() =>
-      this.repo.setStatusFields(orderId, { stock_applied: true }),
-    );
   }
 
   // ===================== Items =====================
@@ -555,6 +606,16 @@ export class OsService {
       await this.recomputeTotal(orderId);
       return item;
     });
+    // Se a OS já consome estoque, baixa a linha recém-criada (fora da tx).
+    const orderAfterAdd = await this.getOrderOrThrow(orderId);
+    if (consumes(orderAfterAdd.status)) {
+      const created = orderAfterAdd.items.find((i) => i.id === result.id);
+      if (created)
+        await this.reconcileOrderStock(user, {
+          ...orderAfterAdd,
+          items: [created],
+        });
+    }
     return result;
   }
 
@@ -564,7 +625,7 @@ export class OsService {
     itemId: string,
     dto: UpdateItemDto,
   ) {
-    return this.tenant.withTenantTx(async () => {
+    const item = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -573,10 +634,8 @@ export class OsService {
       if (!existing || existing.order_id !== orderId)
         throw new NotFoundException('Item não encontrado.');
 
-      const quantity =
-        dto.quantity ?? toNum(existing.quantity);
-      const unitPrice =
-        dto.unitPrice ?? toNum(existing.unit_price);
+      const quantity = dto.quantity ?? toNum(existing.quantity);
+      const unitPrice = dto.unitPrice ?? toNum(existing.unit_price);
       const discount = dto.discount ?? toNum(existing.discount);
       const total = Math.max(0, quantity * unitPrice - discount);
 
@@ -586,14 +645,25 @@ export class OsService {
       if (dto.unitPrice !== undefined) data.unit_price = dto.unitPrice;
       if (dto.discount !== undefined) data.discount = dto.discount;
 
-      const item = await this.repo.updateItem(itemId, data);
+      const updated = await this.repo.updateItem(itemId, data);
       await this.recomputeTotal(orderId);
-      return item;
+      return updated;
     });
+    // Reconcilia o estoque da linha se a OS consome (fora da tx).
+    const orderAfterUpd = await this.getOrderOrThrow(orderId);
+    if (consumes(orderAfterUpd.status)) {
+      const changed = orderAfterUpd.items.find((i) => i.id === itemId);
+      if (changed)
+        await this.reconcileOrderStock(user, {
+          ...orderAfterUpd,
+          items: [changed],
+        });
+    }
+    return item;
   }
 
   async deleteItem(user: AuthUser, orderId: string, itemId: string) {
-    return this.tenant.withTenantTx(async () => {
+    const { removed, order } = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(orderId);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -603,8 +673,32 @@ export class OsService {
         throw new NotFoundException('Item não encontrado.');
       await this.repo.deleteItem(itemId);
       await this.recomputeTotal(orderId);
-      return { id: itemId, deleted: true };
+      return { removed: existing, order };
     });
+    // Estorna o consumo da linha removida (alvo 0) se a OS consome (fora da tx).
+    if (
+      consumes(order.status) &&
+      removed.kind === 'product' &&
+      removed.inventory_item_id
+    ) {
+      try {
+        await this.inventory.reconcileConsumption(user.tenantId, {
+          inventoryItemId: removed.inventory_item_id,
+          refType: 'service_order',
+          refId: orderId,
+          refItemId: itemId,
+          targetQty: 0,
+          createdBy: user.userId,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Estorno de estoque falhou (OS ${orderId}, item ${itemId}): ${
+            (e as Error).message
+          }`,
+        );
+      }
+    }
+    return { id: itemId, deleted: true };
   }
 
   // ===================== Templates de serviço =====================

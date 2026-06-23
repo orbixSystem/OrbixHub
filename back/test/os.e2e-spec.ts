@@ -253,6 +253,22 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       .set(auth(access))
       .send(body);
   }
+  function updateItem(
+    access: string,
+    id: string,
+    itemId: string,
+    body: Record<string, unknown>,
+  ) {
+    return request(srv())
+      .patch(`/api/os/orders/${id}/items/${itemId}`)
+      .set(auth(access))
+      .send(body);
+  }
+  function deleteItem(access: string, id: string, itemId: string) {
+    return request(srv())
+      .delete(`/api/os/orders/${id}/items/${itemId}`)
+      .set(auth(access));
+  }
 
   type IdRow = { id: string };
   const ids = (rows: IdRow[]) => rows.map((r) => r.id);
@@ -549,17 +565,51 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       // aberta → em_execucao dispara a baixa (o produto já está sendo usado)
       const exec = await changeStatus(o.access, id, 'em_execucao');
       expect(exec.status).toBe(200);
-      expect(exec.body.stock_applied).toBe(true);
 
       // estoque caiu de 10 para 7 logo na entrada em execução
       const inv = await getInventoryItem(o.access, prodId);
       expect(Number(inv.body.current_stock)).toBe(7);
 
-      // concluir não baixa de novo (idempotente via stock_applied)
+      // concluir não baixa de novo (idempotente via reconcileConsumption)
       const done = await changeStatus(o.access, id, 'concluida');
       expect(done.status).toBe(200);
       const inv2 = await getInventoryItem(o.access, prodId);
       expect(Number(inv2.body.current_stock)).toBe(7);
+    });
+  });
+
+  // ---- 4b. cancelar devolve estoque (fix do bug de cancelamento) --------
+  describe('cancelar OS em execução devolve estoque (reconciliação)', () => {
+    it('cancelar uma OS em execução devolve as peças ao estoque', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      // 1. cria item de estoque com 10 unidades
+      const invId = await createInventoryProduct(o.access, 10, 50);
+
+      // 2. abre OS com 3 unidades do item
+      const order = await createOrder(o.access, { customerId });
+      expect(order.status).toBe(201);
+      const orderId = order.body.id as string;
+
+      const added = await addItem(o.access, orderId, {
+        kind: 'product',
+        inventoryItemId: invId,
+        quantity: 3,
+      });
+      expect(added.status).toBe(201);
+
+      // 3. coloca em execução → baixa (10 - 3 = 7)
+      const exec = await changeStatus(o.access, orderId, 'em_execucao');
+      expect(exec.status).toBe(200);
+      const inv1 = await getInventoryItem(o.access, invId);
+      expect(Number(inv1.body.current_stock)).toBe(7);
+
+      // 4. cancela → estorna (7 + 3 = 10)
+      const cancel = await changeStatus(o.access, orderId, 'cancelada');
+      expect(cancel.status).toBe(200);
+      const inv2 = await getInventoryItem(o.access, invId);
+      expect(Number(inv2.body.current_stock)).toBe(10);
     });
   });
 
@@ -887,6 +937,48 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       const list = await listTemplates(o.access);
       expect(ids(list.body as IdRow[])).not.toContain(tpl.body.id as string);
+    });
+  });
+
+  // ---- 9b. reconciliar estoque ao editar item de OS em execução ----------
+  describe('reconciliar estoque ao editar item de OS em execução', () => {
+    it('reduzir a quantidade de um item em execução estorna a diferença', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      // produto com 10 unidades
+      const prodId = await createInventoryProduct(o.access, 10, 80);
+
+      const order = await createOrder(o.access, { customerId });
+      expect(order.status).toBe(201);
+      const orderId = order.body.id as string;
+
+      // adiciona 4 unidades à OS (ainda aberta)
+      const addRes = await addItem(o.access, orderId, {
+        kind: 'product',
+        inventoryItemId: prodId,
+        quantity: 4,
+      });
+      expect(addRes.status).toBe(201);
+      const itemId = addRes.body.id as string;
+
+      // coloca em execução → baixa 4 (10 - 4 = 6)
+      const exec = await changeStatus(o.access, orderId, 'em_execucao');
+      expect(exec.status).toBe(200);
+      let inv = await getInventoryItem(o.access, prodId);
+      expect(Number(inv.body.current_stock)).toBe(6);
+
+      // reduz de 4 para 1 → estorna 3 (6 + 3 = 9)
+      const updRes = await updateItem(o.access, orderId, itemId, { quantity: 1 });
+      expect(updRes.status).toBe(200);
+      inv = await getInventoryItem(o.access, prodId);
+      expect(Number(inv.body.current_stock)).toBe(9);
+
+      // remove o item → estorna o 1 restante (9 + 1 = 10)
+      const delRes = await deleteItem(o.access, orderId, itemId);
+      expect(delRes.status).toBe(200);
+      inv = await getInventoryItem(o.access, prodId);
+      expect(Number(inv.body.current_stock)).toBe(10);
     });
   });
 
