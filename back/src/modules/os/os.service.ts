@@ -69,6 +69,15 @@ const formatBrDate = (d: Date): string => {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+/** Status em que a OS consome estoque (peça está/foi usada). */
+const CONSUMING_STATUSES = new Set<OsStatus>([
+  'em_execucao',
+  'concluida',
+  'entregue',
+]);
+const consumes = (status: string): boolean =>
+  CONSUMING_STATUSES.has(status as OsStatus);
+
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
  * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
@@ -476,43 +485,55 @@ export class OsService {
       to,
     });
 
-    // Baixa de estoque ao entrar em execução ("o produto já está sendo usado")
-    // — FORA de qualquer withTenantTx (decrementStock abre sua própria tx via
-    // runWithTenant; aninhar esgota o pool). Idempotente via stock_applied.
-    if (to === 'em_execucao' && !order.stock_applied) {
-      await this.applyStock(user, id);
-    }
+    // Baixa/estorno de estoque conforme o novo status (idempotente). Substitui o
+    // antigo applyStock/stock_applied. FORA de withTenantTx (reconcile abre a
+    // própria tx). best-effort: erro de estoque não desfaz a transição.
+    const after = await this.getOrderOrThrow(id);
+    await this.reconcileOrderStock(user, after);
 
     return this.getOrderOrThrow(id);
   }
 
   /**
-   * Baixa de estoque dos itens-produto vinculados ao inventário (idempotente via
-   * stock_applied). v1 best-effort: erro num item (ex.: estoque insuficiente) NÃO
-   * bloqueia a transição — apenas loga um aviso. Roda fora de transação de banco.
+   * Reconcilia o estoque de TODAS as linhas-produto da OS para o alvo conforme o
+   * status atual (consome → quantidade; senão → 0). Idempotente (delegado ao
+   * inventory). Best-effort: erro num item (ex.: estoque insuficiente) NÃO
+   * bloqueia a operação — apenas loga. Roda FORA de transação de banco
+   * (reconcileConsumption abre a própria via runWithTenant).
    */
-  private async applyStock(user: AuthUser, orderId: string) {
-    const order = await this.getOrderOrThrow(orderId);
-    if (order.stock_applied) return;
+  private async reconcileOrderStock(
+    user: AuthUser,
+    order: {
+      id: string;
+      status: string;
+      items: Array<{
+        id: string;
+        kind: string;
+        inventory_item_id: string | null;
+        quantity: Prisma.Decimal | number;
+      }>;
+    },
+  ): Promise<void> {
+    const target = consumes(order.status);
     for (const item of order.items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
-        await this.inventory.decrementStock(
-          user.tenantId,
-          item.inventory_item_id,
-          toNum(item.quantity),
-        );
+        await this.inventory.reconcileConsumption(user.tenantId, {
+          inventoryItemId: item.inventory_item_id,
+          refType: 'service_order',
+          refId: order.id,
+          refItemId: item.id,
+          targetQty: target ? toNum(item.quantity) : 0,
+          createdBy: user.userId,
+        });
       } catch (e) {
         this.logger.warn(
-          `Baixa de estoque falhou (OS ${orderId}, item ${item.id}): ${
+          `Reconciliação de estoque falhou (OS ${order.id}, item ${item.id}): ${
             (e as Error).message
           }`,
         );
       }
     }
-    await this.tenant.withTenantTx(() =>
-      this.repo.setStatusFields(orderId, { stock_applied: true }),
-    );
   }
 
   // ===================== Items =====================

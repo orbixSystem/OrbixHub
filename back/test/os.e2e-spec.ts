@@ -549,17 +549,51 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       // aberta → em_execucao dispara a baixa (o produto já está sendo usado)
       const exec = await changeStatus(o.access, id, 'em_execucao');
       expect(exec.status).toBe(200);
-      expect(exec.body.stock_applied).toBe(true);
 
       // estoque caiu de 10 para 7 logo na entrada em execução
       const inv = await getInventoryItem(o.access, prodId);
       expect(Number(inv.body.current_stock)).toBe(7);
 
-      // concluir não baixa de novo (idempotente via stock_applied)
+      // concluir não baixa de novo (idempotente via reconcileConsumption)
       const done = await changeStatus(o.access, id, 'concluida');
       expect(done.status).toBe(200);
       const inv2 = await getInventoryItem(o.access, prodId);
       expect(Number(inv2.body.current_stock)).toBe(7);
+    });
+  });
+
+  // ---- 4b. cancelar devolve estoque (fix do bug de cancelamento) --------
+  describe('cancelar OS em execução devolve estoque (reconciliação)', () => {
+    it('cancelar uma OS em execução devolve as peças ao estoque', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      // 1. cria item de estoque com 10 unidades
+      const invId = await createInventoryProduct(o.access, 10, 50);
+
+      // 2. abre OS com 3 unidades do item
+      const order = await createOrder(o.access, { customerId });
+      expect(order.status).toBe(201);
+      const orderId = order.body.id as string;
+
+      const added = await addItem(o.access, orderId, {
+        kind: 'product',
+        inventoryItemId: invId,
+        quantity: 3,
+      });
+      expect(added.status).toBe(201);
+
+      // 3. coloca em execução → baixa (10 - 3 = 7)
+      const exec = await changeStatus(o.access, orderId, 'em_execucao');
+      expect(exec.status).toBe(200);
+      const inv1 = await getInventoryItem(o.access, invId);
+      expect(Number(inv1.body.current_stock)).toBe(7);
+
+      // 4. cancela → estorna (7 + 3 = 10)
+      const cancel = await changeStatus(o.access, orderId, 'cancelada');
+      expect(cancel.status).toBe(200);
+      const inv2 = await getInventoryItem(o.access, invId);
+      expect(Number(inv2.body.current_stock)).toBe(10);
     });
   });
 
