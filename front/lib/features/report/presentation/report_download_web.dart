@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
-/// Impl WEB: dispara o download no navegador. Cria um Blob, uma URL temporária
-/// e um `<a download>` programático; revoga a URL em seguida.
-void downloadBytes(Uint8List bytes, String filename, String mime) {
+/// Dispara o download de um arquivo no navegador (web). Cria um Blob, uma URL
+/// temporária e um `<a download>` programático; revoga a URL em seguida.
+Future<void> downloadBytes(Uint8List bytes, String filename, String mime) async {
   final blob = web.Blob(
     <JSAny>[bytes.toJS].toJS,
     web.BlobPropertyBag(type: mime),
@@ -19,8 +19,9 @@ void downloadBytes(Uint8List bytes, String filename, String mime) {
   web.URL.revokeObjectURL(url);
 }
 
-/// Texto (ex.: CSV) em UTF-8 com BOM para o Excel reconhecer acentos.
-void downloadText(String content, String filename, String mime) {
+/// Dispara o download de um texto (ex.: CSV). UTF-8 com BOM para o Excel
+/// reconhecer acentos.
+Future<void> downloadText(String content, String filename, String mime) async {
   final withBom = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(content)];
-  downloadBytes(Uint8List.fromList(withBom), filename, mime);
+  await downloadBytes(Uint8List.fromList(withBom), filename, mime);
 }

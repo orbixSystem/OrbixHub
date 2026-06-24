@@ -2,19 +2,29 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-/// Impl NÃO-WEB (desktop/mobile): salva o arquivo em disco. Tenta a pasta
-/// Downloads do usuário; se não houver acesso (ex.: sandbox do macOS), cai para
-/// o diretório temporário do sistema. Mantém a mesma API da impl web para o
-/// import condicional em report_download.dart.
-void downloadBytes(Uint8List bytes, String filename, String mime) {
-  final dir = _targetDir();
-  File('${dir.path}/$filename').writeAsBytesSync(bytes);
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+/// Salva bytes e abre o diálogo de compartilhamento nativo no mobile
+/// (Android/iOS). No desktop, salva diretamente na pasta Downloads.
+Future<void> downloadBytes(Uint8List bytes, String filename, String mime) async {
+  if (Platform.isAndroid || Platform.isIOS) {
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$filename');
+    await file.writeAsBytes(bytes, flush: true);
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: mime, name: filename)],
+    );
+  } else {
+    final dir = _targetDir();
+    File('${dir.path}/$filename').writeAsBytesSync(bytes);
+  }
 }
 
 /// Texto (ex.: CSV) em UTF-8 com BOM para o Excel reconhecer acentos.
-void downloadText(String content, String filename, String mime) {
-  final withBom = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(content)];
-  downloadBytes(Uint8List.fromList(withBom), filename, mime);
+Future<void> downloadText(String content, String filename, String mime) async {
+  final withBom = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(content)]);
+  await downloadBytes(withBom, filename, mime);
 }
 
 Directory _targetDir() {
