@@ -100,8 +100,9 @@ class _WorkshopTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: AppColors.surface,
+      color: scheme.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -110,7 +111,7 @@ class _WorkshopTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isActive ? AppColors.brand : AppColors.line,
+              color: isActive ? AppColors.brand : scheme.outlineVariant,
               width: isActive ? 1.6 : 1,
             ),
           ),

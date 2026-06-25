@@ -128,14 +128,15 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: 320,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isCurrent ? AppColors.brand : AppColors.line,
+          color: isCurrent ? AppColors.brand : scheme.outlineVariant,
           width: isCurrent ? 1.8 : 1,
         ),
       ),
@@ -233,9 +234,10 @@ class _CurrentStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final pastDue = sub.isPastDue;
-    final bg = pastDue ? AppColors.dangerTint : AppColors.surfaceSunken;
-    final fg = pastDue ? AppColors.danger : AppColors.ink;
+    final bg = pastDue ? AppColors.dangerTint : scheme.surfaceContainerHigh;
+    final fg = pastDue ? AppColors.danger : scheme.onSurface;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -244,7 +246,7 @@ class _CurrentStatus extends StatelessWidget {
         border: Border.all(
           color: pastDue
               ? AppColors.danger.withValues(alpha: 0.25)
-              : AppColors.line,
+              : scheme.outlineVariant,
         ),
       ),
       child: Row(
