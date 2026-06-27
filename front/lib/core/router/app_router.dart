@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
+import '../../features/cashier/presentation/cashier_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/invoice/presentation/invoice_screen.dart';
 import '../../features/invoice/presentation/invoice_detail_screen.dart';
@@ -264,6 +265,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               s,
               SaleDetailScreen(saleId: s.pathParameters['id'] ?? ''),
             ),
+          ),
+          // Caixa — literal antes do placeholder genérico; gated sob /m/cashier.
+          GoRoute(
+            path: '/m/cashier',
+            builder: (_, _) => const CashierScreen(),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.

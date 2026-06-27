@@ -1,0 +1,148 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/error/app_exception.dart';
+import '../domain/cashier_models.dart';
+import '../domain/cashier_repository.dart';
+
+/// [CashierRepository] real, sobre dio.
+class CashierRepositoryImpl implements CashierRepository {
+  CashierRepositoryImpl(this._dio);
+
+  final Dio _dio;
+
+  Future<T> _guard<T>(Future<T> Function() run) async {
+    try {
+      return await run();
+    } on DioException catch (e) {
+      throw AppException.fromDio(e);
+    }
+  }
+
+  Map<String, dynamic> _asMap(Object? data) =>
+      (data as Map).cast<String, dynamic>();
+
+  @override
+  Future<CashierConfig> fetchConfig() => _guard(() async {
+        final res = await _dio.get<Object?>('/cashier/config');
+        return CashierConfig.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashierConfig> updateConfig({
+    List<String>? paymentMethods,
+    bool? requireOpenSession,
+    bool? countCashOnly,
+  }) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>('/cashier/config', data: {
+          'paymentMethods': ?paymentMethods,
+          'requireOpenSession': ?requireOpenSession,
+          'countCashOnly': ?countCashOnly,
+        });
+        return CashierConfig.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashSession?> currentSession() => _guard(() async {
+        final res = await _dio.get<Object?>('/cashier/sessions/current');
+        final data = res.data;
+        if (data == null || (data is Map && data.isEmpty)) return null;
+        return CashSession.fromJson(_asMap(data));
+      });
+
+  @override
+  Future<CashSession> openSession({double? openingAmount, String? notes}) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>('/cashier/sessions/open', data: {
+          'openingAmount': ?openingAmount,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        });
+        return CashSession.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashSession> closeSession({
+    required double countedAmount,
+    String? notes,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>('/cashier/sessions/close', data: {
+          'countedAmount': countedAmount,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        });
+        return CashSession.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<SessionPage> listSessions({int page = 1}) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/cashier/sessions',
+          queryParameters: {'page': page},
+        );
+        return SessionPage.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashEntry> createEntry(EntryDraft draft) => _guard(() async {
+        final res =
+            await _dio.post<Object?>('/cashier/entries', data: draft.toJson());
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashEntry> reverseEntry(String id, String reason) => _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/cashier/entries/$id/reverse',
+          data: {'reason': reason},
+        );
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<EntryPage> listEntries({
+    String? sessionId,
+    String? direction,
+    String? method,
+    String? category,
+    String? saleKind,
+    String? saleId,
+    int page = 1,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>('/cashier/entries', queryParameters: {
+          'sessionId': ?sessionId,
+          'direction': ?direction,
+          'method': ?method,
+          'category': ?category,
+          'saleKind': ?saleKind,
+          'saleId': ?saleId,
+          'page': page,
+        });
+        return EntryPage.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashSummary> summary({String? from, String? to}) => _guard(() async {
+        final res = await _dio.get<Object?>('/cashier/summary', queryParameters: {
+          'from': ?from,
+          'to': ?to,
+        });
+        return CashSummary.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<PaymentDetail> paymentSummary({
+    required String saleKind,
+    required String saleId,
+    double? total,
+  }) =>
+      _guard(() async {
+        final res =
+            await _dio.get<Object?>('/cashier/payment-summary', queryParameters: {
+          'saleKind': saleKind,
+          'saleId': saleId,
+          'total': ?total,
+        });
+        return PaymentDetail.fromJson(_asMap(res.data));
+      });
+}

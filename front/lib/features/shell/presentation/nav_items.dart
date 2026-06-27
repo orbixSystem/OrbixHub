@@ -15,6 +15,7 @@ const Map<String, (String, IconData)> moduleMeta = {
   'os': ('Ordens de Serviço', Icons.build_outlined),
   'customers': ('Clientes', Icons.people_alt_outlined),
   'inventory': ('Estoque', Icons.inventory_2_outlined),
+  'cashier': ('Caixa', Icons.point_of_sale_outlined),
   'report': ('Relatórios', Icons.bar_chart_outlined),
   'invoice': ('Notas Fiscais', Icons.receipt_long_outlined),
   'sales': ('Vendas', Icons.point_of_sale_outlined),

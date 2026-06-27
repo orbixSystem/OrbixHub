@@ -17,6 +17,8 @@ import 'features/auth/presentation/session_controller.dart';
 import 'features/auth/presentation/session_state.dart';
 import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
+import 'features/cashier/data/cashier_repository_impl.dart';
+import 'features/cashier/presentation/cashier_providers.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/invoice/data/invoice_repository_impl.dart';
@@ -132,6 +134,9 @@ final trackingRepositoryProvider =
 final diOverrides = [
   inventoryRepositoryProvider.overrideWith(
     (ref) => InventoryRepositoryImpl(ref.read(dioProvider)),
+  ),
+  cashierRepositoryProvider.overrideWith(
+    (ref) => CashierRepositoryImpl(ref.read(dioProvider)),
   ),
   osRepositoryProvider.overrideWith(
     (ref) => OsRepositoryImpl(ref.read(dioProvider)),
