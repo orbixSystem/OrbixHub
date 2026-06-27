@@ -129,4 +129,21 @@ vertical no provisionamento do tenant (oficina semeia `vehicleApplication`; pets
 - No create/update de item, `attributes` é validado **whitelist** contra `itemFields`
   (chave desconhecida → 400; tipo errado → 400; `required` ausente → 400).
 
+### Caixa (módulo `cashier`)
+Seção registrada pelo módulo `cashier` — aparece em `GET /settings` quando o módulo
+está habilitado no tenant. Os **valores** ficam em `tenant_module.settings['cashier']`,
+lidos/gravados via `BillingService.getModuleSettings`/`setModuleSettings` ("aponta, não
+invade").
+
+| Config | Chave | Tipo | Default | Obs |
+|---|---|---|---|---|
+| Formas de pagamento | `paymentMethods` | lista de `pix\|dinheiro\|cartao_credito\|cartao_debito\|outro` | todas | oferecidas na UI; lista vazia/invalida cai no default |
+| Exigir caixa aberto | `requireOpenSession` | bool | `true` | sem caixa aberto, lançar é 400 (se `false`, abre sessão implícita) |
+| Conferir só dinheiro | `countCashOnly` | bool | `true` | `expected` no fechamento usa só dinheiro; pix/cartão são informativos |
+
+- Leitura: `GET /cashier/config` (requer `cashier.read`). Escrita:
+  `PATCH /cashier/config` (requer `settings.manage`). Os toggles escalares
+  (`requireOpenSession`, `countCashOnly`) também aparecem na seção registrada do host;
+  `paymentMethods` é lista, gerida pelo PATCH próprio.
+
 <!-- Próximos módulos: registrem e documentem a subseção de config de cada um aqui. -->

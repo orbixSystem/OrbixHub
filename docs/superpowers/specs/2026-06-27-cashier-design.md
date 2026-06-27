@@ -100,6 +100,16 @@ Camadas: **controller fino → service (lógica) → repository (único que toca
 | GET | `/cashier/config` | cashier.read | settings do módulo |
 | PATCH | `/cashier/config` | cashier.manage | `paymentMethods`, `requireOpenSession`, `countCashOnly` |
 
+> **Nota de implementação (ajuste vs. design inicial):** o branch já trazia o contrato
+> **congelado** `CashierService` (`getPaymentSummary`/`getPaymentSummaryBatch`) com binding
+> Noop, e a OS já o consumia passando o **próprio total** (`fallbackTotal`). A entrega
+> **reusou esse contrato** (swap Noop → impl real via `useExisting`), então **não** foi
+> preciso `OsService.getOrderValue` nem `forwardRef` — o caixa não depende da OS (sem
+> dependência circular). O endpoint HTTP `GET /cashier/payment-summary` recebe um `total`
+> **opcional** informado pelo dono da venda (a venda sabe seu total), preservando "aponta,
+> não invade". A integração de exibição do status no front da OS (tag) pertence ao slice
+> paralelo de OS/sales-payment.
+
 ### 2.4 Aponta, não invade (regra 1)
 
 - **Cashier → OS:** `OsService.getOrderValue(id): Promise<number>` — método público novo e fino
