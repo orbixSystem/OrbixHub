@@ -37,7 +37,9 @@ import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
+import 'features/settings/data/external_lookups_repository_impl.dart';
 import 'features/settings/data/settings_repository_impl.dart';
+import 'features/settings/domain/external_lookups_repository.dart';
 import 'features/settings/domain/settings_models.dart';
 import 'features/settings/domain/settings_repository.dart';
 import 'features/settings/presentation/settings_controller.dart';
@@ -114,6 +116,11 @@ final saleRepositoryProvider = Provider<SaleRepository>(
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
     (ref) => SettingsRepositoryImpl(ref.read(dioProvider)));
+
+/// Consultas a APIs públicas externas (IBGE CNAE, ViaCEP). Dio próprio, sem
+/// bearer — a UI consome via este repo em vez de instanciar dio na tela.
+final externalLookupsRepositoryProvider = Provider<ExternalLookupsRepository>(
+    (ref) => ExternalLookupsRepositoryImpl());
 
 /// Acompanhamento público: Dio LIMPO (sem bearer/refresh) — endpoints `@Public`.
 final trackingRepositoryProvider =

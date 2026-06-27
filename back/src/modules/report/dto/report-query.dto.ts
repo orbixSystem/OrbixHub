@@ -51,6 +51,21 @@ export class ReportOsQueryDto extends ReportRangeQueryDto {
   pageSize?: number;
 }
 
+/**
+ * Query do export de OS (CSV/PDF do relatório COMPLETO): mesmos filtros da OS
+ * (range + técnico + status + busca + ordenação) + empresa (cabeçalho do PDF).
+ * Sem paginação — o servidor gera o relatório inteiro respeitando os filtros.
+ */
+export class ReportOsExportQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsUUID() assignedTo?: string;
+  @IsOptional() @IsIn(OS_STATUSES) status?: OsStatus;
+  @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @IsString() @MaxLength(160) companyName?: string;
+  @IsOptional() @IsString() @MaxLength(200) companyLegalName?: string;
+  @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
+}
+
 /** Query da posição de estoque (tela): página + tamanho + busca opcional. */
 export class ReportInventoryQueryDto {
   @IsOptional()

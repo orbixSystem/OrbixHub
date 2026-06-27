@@ -7,6 +7,7 @@ import {
   OsMetricsReport,
   OsMetricsSummary,
   OsRange,
+  OsReportAllParams,
   OsReportPage,
   OsReportPageParams,
   OsReportRow,
@@ -140,6 +141,36 @@ export class OsMetricsService {
       cycleMs: cycleMs(o.started_at, o.finished_at),
     }));
     return { rows, total, page, pageSize };
+  }
+
+  /**
+   * TODAS as linhas do relatório de OS (export COMPLETO): mesmos filtros da
+   * página (range/escopo + status + busca + ordenação), sem paginação. Público —
+   * o módulo `report` chama in-process para gerar CSV/PDF do relatório inteiro.
+   * Sob withTenantTx/RLS.
+   */
+  async metricsReportAll(p: OsReportAllParams): Promise<OsReportRow[]> {
+    const raw = await this.tenant.withTenantTx(() =>
+      this.repo.listAllForReport({
+        from: p.from,
+        to: p.to,
+        assignedTo: p.assignedTo,
+        status: p.status,
+        q: p.q,
+        sort: p.sort,
+      }),
+    );
+    return raw.map((o) => ({
+      id: o.id,
+      number: o.number,
+      customer_name: o.customer_name,
+      status: o.status,
+      assigned_to: o.assigned_to,
+      total: toNum(o.total),
+      opened_at: o.opened_at.toISOString(),
+      finished_at: o.finished_at ? o.finished_at.toISOString() : null,
+      cycleMs: cycleMs(o.started_at, o.finished_at),
+    }));
   }
 
   // ---- Fase 2: lentes públicas para o módulo `report` (chamadas in-process) ----

@@ -15,6 +15,7 @@ import { ReportService } from './report.service';
 import {
   ReportInventoryExportQueryDto,
   ReportInventoryQueryDto,
+  ReportOsExportQueryDto,
   ReportOsQueryDto,
   ReportRangeQueryDto,
   ReportTopItemsQueryDto,
@@ -47,6 +48,54 @@ export class ReportController {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 50,
     });
+  }
+
+  /** OS — export CSV (relatório completo, respeitando os filtros ativos). */
+  @Get('os.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="os-operacional.csv"')
+  async osCsv(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportOsExportQueryDto,
+  ): Promise<StreamableFile> {
+    const { from, to } = resolveRange(query.from, query.to);
+    const buf = await this.report.osCsv(user.tenantId, {
+      from,
+      to,
+      assignedTo: query.assignedTo,
+      status: query.status,
+      q: query.q,
+      sort: query.sort,
+    });
+    return new StreamableFile(buf);
+  }
+
+  /** OS — export PDF (relatório completo, respeitando os filtros ativos). */
+  @Get('os.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Content-Disposition', 'attachment; filename="os-operacional.pdf"')
+  async osPdf(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportOsExportQueryDto,
+  ): Promise<StreamableFile> {
+    const { from, to } = resolveRange(query.from, query.to);
+    const buf = await this.report.osPdf(
+      user.tenantId,
+      {
+        from,
+        to,
+        assignedTo: query.assignedTo,
+        status: query.status,
+        q: query.q,
+        sort: query.sort,
+      },
+      {
+        name: query.companyName,
+        legalName: query.companyLegalName,
+        cnpj: query.companyCnpj,
+      },
+    );
+    return new StreamableFile(buf);
   }
 
   /** Faturamento: total, ticket médio, série por dia, quebra por status. */

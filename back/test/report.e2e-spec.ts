@@ -475,6 +475,60 @@ describe('Módulo report (e2e) — Fase 2', () => {
     expect((await rep(o.access, 'os?sort=naoexiste')).status).toBe(400);
   });
 
+  it('os.csv: download do relatório completo (text/csv + TOTAL)', async () => {
+    const o = await registerOwner();
+    const customerId = await createCustomer(o.access);
+    const ord = await createOrder(o.access, { customerId });
+    const number = ord.body.number as string;
+
+    const r = await request(srv())
+      .get('/api/report/os.csv')
+      .set(auth(o.access));
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toContain('text/csv');
+    expect(r.text).toContain(number);
+    expect(r.text).toContain('TOTAL');
+  });
+
+  it('os.pdf: download do relatório completo (application/pdf)', async () => {
+    const o = await registerOwner();
+    const customerId = await createCustomer(o.access);
+    await createOrder(o.access, { customerId });
+
+    const r = await request(srv())
+      .get('/api/report/os.pdf?companyName=Oficina%20X')
+      .set(auth(o.access))
+      .buffer(true);
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toContain('application/pdf');
+    expect(Buffer.from(r.body).subarray(0, 4).toString('latin1')).toBe('%PDF');
+  });
+
+  it('os.csv: respeita o filtro de busca (q) — só a OS casada', async () => {
+    const o = await registerOwner();
+    const customerId = await createCustomer(o.access);
+    const a = await createOrder(o.access, { customerId });
+    const b = await createOrder(o.access, { customerId });
+    const numA = a.body.number as string;
+    const numB = b.body.number as string;
+
+    const r = await request(srv())
+      .get(`/api/report/os.csv?q=${encodeURIComponent(numA)}`)
+      .set(auth(o.access));
+    expect(r.status).toBe(200);
+    expect(r.text).toContain(numA);
+    expect(r.text).not.toContain(numB);
+  });
+
+  it('os.csv: gated por report.read (mechanic → 403)', async () => {
+    const o = await registerOwner();
+    const mech = await inviteAccept(o, 'mechanic');
+    const r = await request(srv())
+      .get('/api/report/os.csv')
+      .set(auth(mech.access));
+    expect(r.status).toBe(403);
+  });
+
   // ====================================================================
   // 8. Tenant isolation — A exclui B
   // ====================================================================

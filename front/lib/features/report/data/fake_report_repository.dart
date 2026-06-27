@@ -60,6 +60,28 @@ class FakeReportRepository implements ReportRepository {
   }
 
   @override
+  Future<Uint8List> osCsv({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+  }) async =>
+      Uint8List.fromList(
+          utf8.encode('Número;Cliente\r\nOS-0001;Maria Silva\r\n'));
+
+  @override
+  Future<Uint8List> osPdf({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+    ReportExportCompany? company,
+  }) async =>
+      Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) async =>
       const RevenueReport(
         total: 1730.90,

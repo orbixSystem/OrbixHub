@@ -26,6 +26,27 @@ abstract class ReportRepository {
     int pageSize,
   });
 
+  /// `GET /report/os.csv` — CSV do relatório COMPLETO de OS (gerado no servidor,
+  /// respeitando os filtros ativos). Retorna os bytes prontos para download.
+  Future<Uint8List> osCsv({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort,
+  });
+
+  /// `GET /report/os.pdf` — PDF do relatório COMPLETO de OS (gerado no servidor,
+  /// respeitando os filtros ativos). `company` vai no cabeçalho.
+  Future<Uint8List> osPdf({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort,
+    ReportExportCompany? company,
+  });
+
   /// `GET /report/revenue` — faturamento: total, ticket, série/dia, por status.
   Future<RevenueReport> revenue({required ReportRange range});
 

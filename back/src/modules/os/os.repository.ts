@@ -793,6 +793,46 @@ export class OsRepository {
     ]);
     return { rows, total };
   }
+
+  /**
+   * TODAS as linhas do relatório de OS (export COMPLETO) — mesmos filtros do
+   * `listForReportPage` (range/escopo + status + busca + ordenação), porém SEM
+   * paginação. Alimenta o export server-side (CSV/PDF do relatório inteiro que o
+   * usuário está vendo, respeitando os filtros ativos). Tenant-scoped por RLS.
+   */
+  listAllForReport(
+    p: MetricsRange & { status?: string; q?: string; sort?: string },
+  ) {
+    const db = this.tenant.getClient();
+    const where: Prisma.service_orderWhereInput = {
+      ...this.metricsWhere(p),
+      ...(p.status ? { status: p.status } : {}),
+      ...(p.q
+        ? {
+            OR: [
+              { number: { contains: p.q, mode: 'insensitive' } },
+              { customer_name: { contains: p.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    return db.service_order.findMany({
+      where,
+      orderBy:
+        OS_REPORT_ORDER_BY[p.sort ?? 'recent'] ?? OS_REPORT_ORDER_BY.recent,
+      select: {
+        id: true,
+        number: true,
+        customer_name: true,
+        status: true,
+        assigned_to: true,
+        total: true,
+        opened_at: true,
+        started_at: true,
+        finished_at: true,
+      },
+    });
+  }
 }
 
 /** Range + escopo resolvido para as agregações de métrica. */

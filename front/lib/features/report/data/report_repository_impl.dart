@@ -57,6 +57,62 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
+  Future<Uint8List> osCsv({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/os.csv',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (assignedTo != null && assignedTo.isNotEmpty)
+              'assignedTo': assignedTo,
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (q != null && q.isNotEmpty) 'q': q,
+            'sort': sort,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<Uint8List> osPdf({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+    ReportExportCompany? company,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/os.pdf',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (assignedTo != null && assignedTo.isNotEmpty)
+              'assignedTo': assignedTo,
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (q != null && q.isNotEmpty) 'q': q,
+            'sort': sort,
+            if (company != null) 'companyName': company.name,
+            if (company?.legalName != null && company!.legalName!.isNotEmpty)
+              'companyLegalName': company.legalName,
+            if (company?.cnpj != null && company!.cnpj!.isNotEmpty)
+              'companyCnpj': company.cnpj,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) =>
       _guard(() async {
         final res = await _dio.get<Object?>(

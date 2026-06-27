@@ -68,6 +68,15 @@ export interface OsReportPage {
   pageSize: number;
 }
 
+/**
+ * Parâmetros do relatório de OS COMPLETO (export) — mesmos filtros da página
+ * (range + escopo + status + busca + ordenação), sem paginação.
+ */
+export interface OsReportAllParams extends OsMetricsParams {
+  q?: string;
+  sort?: OsSort;
+}
+
 // ---- Fase 2: lentes públicas sobre a OS (faturamento / equipe / top-itens) ----
 
 /** Range simples (Date) — entrada das lentes de faturamento/equipe/top-itens. */

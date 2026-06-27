@@ -3,10 +3,12 @@ import { BillingService } from '../billing/billing.service';
 import { OsMetricsService } from '../os/os-metrics.service';
 import { InventoryMetricsService } from '../inventory/inventory-metrics.service';
 import { CustomersMetricsService } from '../customers/customers-metrics.service';
+import { EmployeesService } from '../iam/employees.service';
 import type {
   RevenueSeries,
   TeamPerformance,
   TopItems,
+  OsReportAllParams,
   OsReportPage,
   OsReportPageParams,
 } from '../os/dto/metrics.dto';
@@ -16,6 +18,7 @@ import {
   buildInventoryPdf,
   type ExportCompany,
 } from './export/inventory-export';
+import { buildOsCsv, buildOsPdf } from './export/os-export';
 import type {
   CustomersMetricsParams,
   CustomersMetricsReport,
@@ -42,7 +45,28 @@ export class ReportService {
     private readonly os: OsMetricsService,
     private readonly inventory: InventoryMetricsService,
     private readonly customers: CustomersMetricsService,
+    private readonly employees: EmployeesService,
   ) {}
+
+  /**
+   * Mapa {userId → nome} dos membros ativos (mesma fonte do dropdown "Técnico" e
+   * do front), para resolver o `assigned_to` (uuid) no export de OS. "aponta, não
+   * invade": via service público do IAM, nunca a tabela. Membro inativo/removido
+   * fica fora do mapa → o export rotula "—" (igual ao front).
+   */
+  private async memberNameMap(): Promise<Map<string, string>> {
+    const members = await this.employees.listAssignableMembers();
+    const map = new Map<string, string>();
+    for (const m of members) if (m.fullName) map.set(m.userId, m.fullName);
+    return map;
+  }
+
+  /** Rótulo "dd/mm/aaaa – dd/mm/aaaa" do período (cabeçalho do PDF). */
+  private periodLabel(from: Date, to: Date): string {
+    const fmt = (d: Date): string =>
+      d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    return `${fmt(from)} – ${fmt(to)}`;
+  }
 
   /** Garante que o módulo-fonte do relatório está habilitado para o tenant. */
   private async assertModuleEnabled(
@@ -64,6 +88,33 @@ export class ReportService {
   ): Promise<OsReportPage> {
     await this.assertModuleEnabled(tenantId, 'os');
     return this.os.metricsReportPage(p);
+  }
+
+  /** CSV do relatório COMPLETO de OS (respeita os filtros ativos). Buffer pronto. */
+  async osCsv(tenantId: string, p: OsReportAllParams): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'os');
+    const [rows, names] = await Promise.all([
+      this.os.metricsReportAll(p),
+      this.memberNameMap(),
+    ]);
+    return buildOsCsv(rows, names);
+  }
+
+  /** PDF do relatório COMPLETO de OS (respeita os filtros ativos). Buffer pronto. */
+  async osPdf(
+    tenantId: string,
+    p: OsReportAllParams,
+    company?: ExportCompany,
+  ): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'os');
+    const [rows, names] = await Promise.all([
+      this.os.metricsReportAll(p),
+      this.memberNameMap(),
+    ]);
+    return buildOsPdf(rows, names, {
+      company,
+      periodLabel: this.periodLabel(p.from, p.to),
+    });
   }
 
   async revenue(tenantId: string, range: Range): Promise<RevenueSeries> {

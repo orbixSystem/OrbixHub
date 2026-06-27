@@ -1438,6 +1438,118 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
   }
 }
 
+/// Export do relatório de OS gerado no SERVIDOR (CSV/PDF do relatório COMPLETO,
+/// respeitando os filtros ativos — período/técnico/status/busca/ordenação), não
+/// só as linhas já roladas na tela. Spinner enquanto gera + SnackBar em erro.
+class _OsExportButtons extends ConsumerStatefulWidget {
+  const _OsExportButtons({required this.company});
+
+  final ReportCompany? company;
+
+  @override
+  ConsumerState<_OsExportButtons> createState() => _OsExportButtonsState();
+}
+
+class _OsExportButtonsState extends ConsumerState<_OsExportButtons> {
+  bool _csvBusy = false;
+  bool _pdfBusy = false;
+
+  ReportExportCompany? _exportCompany() {
+    final c = widget.company;
+    if (c == null) return null;
+    return ReportExportCompany(
+      name: c.name,
+      legalName: c.legalName,
+      cnpj: c.cnpj,
+    );
+  }
+
+  Future<void> _run({
+    required bool isPdf,
+    required Future<void> Function() task,
+  }) async {
+    setState(() => isPdf ? _pdfBusy = true : _csvBusy = true);
+    try {
+      await task();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Não foi possível gerar o arquivo. Tente novamente.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isPdf ? _pdfBusy = false : _csvBusy = false);
+      }
+    }
+  }
+
+  Future<void> _csv() => _run(
+        isPdf: false,
+        task: () async {
+          final f = ref.read(reportFiltersProvider);
+          final bytes = await ref.read(reportRepositoryProvider).osCsv(
+                range: ref.read(reportRangeProvider),
+                assignedTo: f.assignedTo,
+                status: f.status,
+                q: f.osQ,
+                sort: f.osSort.key,
+              );
+          downloadBytes(bytes, 'os-operacional.csv', 'text/csv;charset=utf-8');
+        },
+      );
+
+  Future<void> _pdf() => _run(
+        isPdf: true,
+        task: () async {
+          final f = ref.read(reportFiltersProvider);
+          final bytes = await ref.read(reportRepositoryProvider).osPdf(
+                range: ref.read(reportRangeProvider),
+                assignedTo: f.assignedTo,
+                status: f.status,
+                q: f.osQ,
+                sort: f.osSort.key,
+                company: _exportCompany(),
+              );
+          downloadBytes(bytes, 'os-operacional.pdf', 'application/pdf');
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    const compact = Size(0, 40);
+    const pad = EdgeInsets.symmetric(horizontal: 16);
+    Widget spinner() => const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2));
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _csvBusy ? null : _csv,
+          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _csvBusy
+              ? spinner()
+              : const Icon(Icons.table_view_outlined, size: 18),
+          label: const Text('Exportar CSV'),
+        ),
+        FilledButton.icon(
+          onPressed: _pdfBusy ? null : _pdf,
+          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _pdfBusy
+              ? spinner()
+              : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+          label: const Text('Exportar PDF'),
+        ),
+      ],
+    );
+  }
+}
+
 class _SummaryStat extends StatelessWidget {
   const _SummaryStat({required this.label, required this.value});
   final String label;
@@ -2260,11 +2372,6 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
       error: (e, _) =>
           _ErrorBox(onRetry: () => ref.invalidate(osOperationalReportProvider)),
       data: (state) {
-        // Tabela só com as linhas já carregadas — alimenta o export CSV/PDF.
-        final table = osOperationalTable(
-          OsOperationalReport(rows: state.rows),
-          widget.memberNames,
-        );
         final empty = state.rows.isEmpty;
         final listHeight =
             (MediaQuery.of(context).size.height * 0.6).clamp(360.0, 820.0);
@@ -2279,11 +2386,7 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
               children: [
                 Text('OS — Operacional',
                     style: Theme.of(context).textTheme.titleLarge),
-                _ExportButtons(
-                  table: table,
-                  company: widget.company,
-                  period: widget.period,
-                ),
+                _OsExportButtons(company: widget.company),
               ],
             ),
             const SizedBox(height: 18),
