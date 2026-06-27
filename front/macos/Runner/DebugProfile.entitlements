@@ -2,17 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Dev local: App Sandbox DESLIGADO no debug. Com ad-hoc signing (sem
+	     certificado de desenvolvedor) a combinação sandbox + keychain-access-groups
+	     falha (-34018 / "requires a development certificate"). Sem sandbox, o
+	     flutter_secure_storage acessa o Keychain e a rede de saída funciona, tudo
+	     com assinatura local. O Release mantém a sandbox ligada. -->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
-	<key>com.apple.security.network.server</key>
-	<true/>
-	<key>com.apple.security.network.client</key>
-	<true/>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	</array>
 </dict>
 </plist>

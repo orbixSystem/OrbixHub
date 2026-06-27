@@ -6,9 +6,10 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	</array>
+	<!-- Para distribuir (release assinado) usando flutter_secure_storage, assine
+	     com um time de desenvolvedor (Signing & Capabilities) e adicione:
+	         <key>keychain-access-groups</key>
+	         <array><string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string></array>
+	     Sem certificado de desenvolvedor isso quebra o build (ad-hoc signing). -->
 </dict>
 </plist>
