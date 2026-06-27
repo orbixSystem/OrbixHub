@@ -75,30 +75,29 @@
       "args": ["--dart-define=DEV_TOOLS=true"]
     },
     {
-      // Android no emulador "Medium Phone". deviceId = id do AVD → a extensão Dart
-      // faz cold-boot do emulador automaticamente se ele não estiver aberto.
-      // (Ajuste o deviceId se o nome do seu AVD mudar: veja `flutter emulators`.)
+      // Android — sem device fixo (portável): usa o device selecionado na barra de
+      // status do VSCode ou abre o seletor (que oferece dar boot num emulador).
+      // Selecione/abra um emulador Android antes de rodar (ex.: o seu "Medium Phone").
+      // API_BASE_URL=10.0.2.2 porque no emulador Android o host/backend NÃO é localhost.
       "name": "Front: Flutter Android",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
-      "deviceId": "Medium_Phone",
-      // No emulador Android, o host (backend) é 10.0.2.2, não localhost.
       "args": [
         "--dart-define=DEV_TOOLS=true",
         "--dart-define=API_BASE_URL=http://10.0.2.2:3000/api"
       ]
     },
     {
-      // iOS (somente em macOS). Pré-requisitos: `flutter create --platforms=ios .` + Xcode +
-      // CocoaPods + um simulador iOS aberto ou device físico.
+      // iOS (somente em macOS) — sem device fixo: usa o device selecionado ou abre
+      // o seletor. Pré-requisitos: `flutter create --platforms=ios .` + Xcode +
+      // CocoaPods + um simulador iOS. (No simulador iOS o backend é localhost mesmo.)
       "name": "Front: Flutter iOS",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
-      "deviceId": "ios",
       "args": ["--dart-define=DEV_TOOLS=true"]
     }
   ]
