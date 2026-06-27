@@ -53,6 +53,48 @@
       "cwd": "${workspaceFolder}/front",
       "deviceId": "chrome",
       "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Desktop Windows. Só roda EM uma máquina Windows. (target `windows/` já existe.)
+      "name": "Front: Flutter Windows",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "windows",
+      "args": ["--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Desktop macOS. Pré-requisito: gerar o target → `cd front && flutter create --platforms=macos .`
+      "name": "Front: Flutter macOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "macos",
+      "args": ["--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Android. Pré-requisitos: `flutter create --platforms=android .` + Android SDK +
+      // um emulador rodando ou device físico (a extensão usa o device Android conectado).
+      "name": "Front: Flutter Android",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "android",
+      "args": ["--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // iOS (somente em macOS). Pré-requisitos: `flutter create --platforms=ios .` + Xcode +
+      // CocoaPods + um simulador iOS aberto ou device físico.
+      "name": "Front: Flutter iOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "ios",
+      "args": ["--dart-define=DEV_TOOLS=true"]
     }
   ]
 }

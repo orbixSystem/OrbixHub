@@ -43,3 +43,43 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================================================
+# Artefatos de build por plataforma (macOS, iOS, Android, Windows, Linux)
+# Garante que saídas de build nunca sejam versionadas, mesmo após gerar um
+# target novo com `flutter create --platforms=...`. Só as fontes ficam no git.
+# ============================================================
+
+# Comum a todas as plataformas
+**/build/
+**/Flutter/ephemeral/
+**/flutter/ephemeral/
+**/.symbols/
+
+# Apple (iOS + macOS)
+**/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/.last_build_id
+**/macos/Flutter/Generated.xcconfig
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/Pods/
+**/.symlinks/
+**/xcuserdata/
+**/DerivedData/
+**/*.xcuserstate
+**/*.moved-aside
+
+# Android
+**/android/.gradle/
+**/android/.cxx/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/*.jks
+**/*.keystore
+
+# Windows / Linux desktop
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
