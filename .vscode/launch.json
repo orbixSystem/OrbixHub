@@ -75,30 +75,26 @@
       "args": ["--dart-define=DEV_TOOLS=true"]
     },
     {
-      // Android — sem device fixo (portável): usa o device selecionado na barra de
-      // status do VSCode ou abre o seletor (que oferece dar boot num emulador).
-      // Selecione/abra um emulador Android antes de rodar (ex.: o seu "Medium Phone").
+      // Android — detecta o device/emulador Android conectado (sem hardcode de id)
+      // e roda nele. Se não houver nenhum, o script avisa como abrir um emulador.
       // API_BASE_URL=10.0.2.2 porque no emulador Android o host/backend NÃO é localhost.
+      // (node-terminal: hot reload pelo terminal com 'r'. Para breakpoints, use o
+      //  seletor de device da barra de status + uma config "dart".)
       "name": "Front: Flutter Android",
-      "type": "dart",
+      "type": "node-terminal",
       "request": "launch",
-      "program": "lib/main.dart",
-      "cwd": "${workspaceFolder}/front",
-      "args": [
-        "--dart-define=DEV_TOOLS=true",
-        "--dart-define=API_BASE_URL=http://10.0.2.2:3000/api"
-      ]
+      "command": "bash scripts/run-flutter.sh android --dart-define=DEV_TOOLS=true --dart-define=API_BASE_URL=http://10.0.2.2:3000/api",
+      "cwd": "${workspaceFolder}/front"
     },
     {
-      // iOS (somente em macOS) — sem device fixo: usa o device selecionado ou abre
-      // o seletor. Pré-requisitos: `flutter create --platforms=ios .` + Xcode +
-      // CocoaPods + um simulador iOS. (No simulador iOS o backend é localhost mesmo.)
+      // iOS (somente em macOS) — detecta o simulador/device iOS e roda nele.
+      // Pré-requisitos: `flutter create --platforms=ios .` + Xcode + CocoaPods +
+      // um simulador iOS aberto. (No simulador iOS o backend é localhost mesmo.)
       "name": "Front: Flutter iOS",
-      "type": "dart",
+      "type": "node-terminal",
       "request": "launch",
-      "program": "lib/main.dart",
-      "cwd": "${workspaceFolder}/front",
-      "args": ["--dart-define=DEV_TOOLS=true"]
+      "command": "bash scripts/run-flutter.sh ios --dart-define=DEV_TOOLS=true",
+      "cwd": "${workspaceFolder}/front"
     }
   ]
 }
