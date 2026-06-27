@@ -10,6 +10,31 @@ export interface MemberView {
   role: string | undefined;
 }
 
+export interface AssignableMemberView {
+  membershipId: string;
+  userId: string;
+  fullName: string | undefined;
+}
+
+export interface EmployeeView {
+  membershipId: string;
+  userId: string;
+  fullName: string | undefined;
+  email: string | undefined;
+  role: string | undefined;
+  status: string;
+  lastAccess: Date | null;
+  accessExpiresAt: Date | null;
+}
+
+export interface PendingInviteView {
+  id: string;
+  email: string;
+  role: string | undefined;
+  expiresAt: Date | null;
+  createdAt: Date;
+}
+
 @Injectable()
 export class IamRepository {
   constructor(
@@ -43,10 +68,119 @@ export class IamRepository {
     });
   }
 
-  async removeMember(membershipId: string): Promise<void> {
+  /**
+   * Minimal list of ACTIVE members of the active tenant, for the assignee /
+   * técnico picker (Responsável da OS, filtro de relatório). Only non-sensitive
+   * fields — no role/status/email/last-access. RLS via getClient(); sorted by
+   * fullName. Any active authenticated member can read this (no users.manage).
+   */
+  async listAssignableMembers(): Promise<AssignableMemberView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const memberships = await db.membership.findMany({
+        where: { status: 'active' },
+      });
+      const userIds = memberships.map((m) => m.user_id);
+      const users = await this.prisma.users.findMany({
+        where: { id: { in: userIds } },
+      });
+      const uMap = new Map(users.map((u) => [u.id, u]));
+      return memberships
+        .map((m) => ({
+          membershipId: m.id,
+          userId: m.user_id,
+          fullName: uMap.get(m.user_id)?.full_name,
+        }))
+        .sort((a, b) =>
+          (a.fullName ?? '').localeCompare(b.fullName ?? '', 'pt-BR'),
+        );
+    });
+  }
+
+  async listEmployees(): Promise<EmployeeView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const memberships = await db.membership.findMany();
+      const userIds = memberships.map((m) => m.user_id);
+      const roleIds = memberships.map((m) => m.role_id);
+      const [users, roles, lastLogins] = await Promise.all([
+        this.prisma.users.findMany({ where: { id: { in: userIds } } }),
+        this.prisma.role.findMany({ where: { id: { in: roleIds } } }),
+        this.prisma.login_attempt.groupBy({
+          by: ['user_id'],
+          where: { success: true, user_id: { in: userIds } },
+          _max: { created_at: true },
+        }),
+      ]);
+      const uMap = new Map(users.map((u) => [u.id, u]));
+      const rMap = new Map(roles.map((r) => [r.id, r]));
+      const lMap = new Map(
+        lastLogins.map((l) => [l.user_id, l._max.created_at ?? null]),
+      );
+      return memberships.map((m) => ({
+        membershipId: m.id,
+        userId: m.user_id,
+        fullName: uMap.get(m.user_id)?.full_name,
+        email: uMap.get(m.user_id)?.email_normalized,
+        role: rMap.get(m.role_id)?.key,
+        status: m.status,
+        lastAccess: lMap.get(m.user_id) ?? null,
+        accessExpiresAt: m.access_expires_at ?? null,
+      }));
+    });
+  }
+
+  /** {id, userId, roleKey, status} of ONE membership in the active tenant, or null. */
+  async getMembership(membershipId: string) {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const m = await db.membership.findUnique({ where: { id: membershipId } });
+      if (!m) return null;
+      const role = await this.prisma.role.findUnique({
+        where: { id: m.role_id },
+      });
+      return { id: m.id, userId: m.user_id, roleKey: role?.key, status: m.status };
+    });
+  }
+
+  /** How many ACTIVE owners exist in the active tenant. */
+  async countActiveOwners(): Promise<number> {
+    const owner = await this.prisma.role.findUnique({
+      where: { key: 'owner' },
+    });
+    if (!owner) return 0;
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      return db.membership.count({
+        where: { role_id: owner.id, status: 'active' },
+      });
+    });
+  }
+
+  async setRole(membershipId: string, roleKey: string): Promise<void> {
+    const role = await this.prisma.role.findUnique({
+      where: { key: roleKey },
+    });
+    if (!role) throw new Error(`unknown role ${roleKey}`);
     await this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
-      await db.membership.delete({ where: { id: membershipId } });
+      await db.membership.update({
+        where: { id: membershipId },
+        data: { role_id: role.id },
+      });
+    });
+  }
+
+  async setStatus(
+    membershipId: string,
+    status: 'active' | 'disabled',
+  ): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.membership.update({
+        where: { id: membershipId },
+        data: { status },
+      });
     });
   }
 
@@ -65,7 +199,8 @@ export class IamRepository {
     roleId: string;
     tokenHash: string;
     invitedBy: string;
-    ttlMinutes: number;
+    expiresAt: Date | null;
+    accessExpiresAt: Date | null;
   }) {
     return this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
@@ -76,8 +211,66 @@ export class IamRepository {
           role_id: data.roleId,
           token_hash: data.tokenHash,
           invited_by: data.invitedBy,
-          expires_at: new Date(Date.now() + data.ttlMinutes * 60_000),
+          expires_at: data.expiresAt,
+          access_expires_at: data.accessExpiresAt,
         },
+      });
+    });
+  }
+
+  /** Pending (not accepted, not canceled, not expired) invites of active tenant. */
+  async listPendingInvites(): Promise<PendingInviteView[]> {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const invites = await db.invite.findMany({
+        where: {
+          accepted_at: null,
+          canceled_at: null,
+          OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+        },
+      });
+      const roleIds = invites.map((i) => i.role_id);
+      const roles = await this.prisma.role.findMany({
+        where: { id: { in: roleIds } },
+      });
+      const rMap = new Map(roles.map((r) => [r.id, r.key]));
+      return invites.map((i) => ({
+        id: i.id,
+        email: i.email_normalized,
+        role: rMap.get(i.role_id),
+        expiresAt: i.expires_at,
+        createdAt: i.created_at,
+      }));
+    });
+  }
+
+  async getInvite(id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      return db.invite.findUnique({ where: { id } });
+    });
+  }
+
+  async rotateInviteToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date | null,
+  ): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.invite.update({
+        where: { id },
+        data: { token_hash: tokenHash, expires_at: expiresAt },
+      });
+    });
+  }
+
+  async cancelInvite(id: string): Promise<void> {
+    await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      await db.invite.update({
+        where: { id },
+        data: { canceled_at: new Date() },
       });
     });
   }

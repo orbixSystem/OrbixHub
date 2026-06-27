@@ -6,7 +6,29 @@ export type AuditAction =
   | 'login'
   | 'password_change'
   | 'invite'
-  | 'subscription_change';
+  | 'subscription_change'
+  | 'role_change'
+  | 'member_activate'
+  | 'member_deactivate'
+  | 'settings_change'
+  | 'customer_delete'
+  | 'subject_delete'
+  | 'inventory_item_create'
+  | 'inventory_item_update'
+  | 'inventory_item_archive'
+  | 'inventory_item_unarchive'
+  | 'inventory_item_delete'
+  | 'os_create'
+  | 'os_update'
+  | 'os_status_change'
+  | 'os_delete'
+  | 'os_photo_add'
+  | 'os_photo_delete'
+  | 'os_template_create'
+  | 'os_template_update'
+  | 'os_template_delete'
+  | 'os_template_apply'
+  | 'os_stock_reconcile';
 
 @Injectable()
 export class AuditService {

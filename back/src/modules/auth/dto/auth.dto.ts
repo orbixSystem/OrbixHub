@@ -1,11 +1,25 @@
-import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsString() @MinLength(2) tenantName!: string;
   @IsString() slug!: string;
+  // 14 dígitos (com ou sem máscara); os dígitos verificadores são checados no service.
+  @IsString() @MinLength(14) cnpj!: string;
+  @IsString() @MinLength(2) legalName!: string; // razão social
+  @IsOptional() @IsString() tradeName?: string; // nome fantasia
   @IsString() @MinLength(2) fullName!: string;
   @IsEmail() email!: string;
   @IsString() @MinLength(8) password!: string;
+}
+
+export class CnpjLookupDto {
+  @IsString() @MinLength(14) cnpj!: string;
 }
 
 export class LoginDto {

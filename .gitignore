@@ -5,3 +5,11 @@ dist/
 coverage/
 front/build/
 .DS_Store
+
+tmp-pw/
+
+# Local object storage (LocalStorageProvider dev fallback)
+back/.storage/
+
+# Local StorageProvider uploads (dev)
+.storage/

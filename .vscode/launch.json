@@ -1,0 +1,58 @@
+{
+  // OrbixHub — configs de execução/depuração.
+  // "node-terminal" usa o depurador JS embutido do VSCode (sem extensão extra).
+  // A config Flutter exige a extensão Dart/Flutter + Flutter SDK instalado.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Back: dev (watch)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run start:dev --workspace back",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Back: build",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run build --workspace back",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Back: e2e tests",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run test:e2e --workspace back",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Popula a oficina-demo (clientes, veículos, estoque, OS, chat). Idempotente.
+      "name": "Back: seed (dev data)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run back:seed",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Web na porta 8090 (já está em CORS_ORIGINS do back e em APP_PUBLIC_URL).
+      // Chrome não instalado nesta máquina → web-server: abra a URL em qualquer browser.
+      "name": "Front: Flutter web (8090)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "web-server",
+      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Alternativa: rodar no Chrome (instale o Google Chrome para habilitar).
+      "name": "Front: Flutter (chrome)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "chrome",
+      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+    }
+  ]
+}

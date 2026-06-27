@@ -23,6 +23,286 @@ model audit_log {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model customer {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  name       String
+  type       String    @default("PF")
+  document   String?
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
+  status     String    @default("active")
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  tenant     tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subject    subject[]
+
+  // Partial unique index `(tenant_id, document) WHERE document IS NOT NULL` is
+  // created in SQL (Prisma can't express partial uniqueness). See sql baseline.
+  @@index([tenant_id, created_at], map: "idx_customer_tenant_time")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subject {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  customer_id String   @db.Uuid
+  label       String?
+  identifier  String?
+  attributes  Json?
+  status      String   @default("active")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  customer    customer @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, identifier], map: "idx_subject_tenant_identifier")
+  @@index([tenant_id, customer_id], map: "idx_subject_tenant_customer")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model inventory_item {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  name              String
+  sku               String?
+  manufacturer_code String?
+  barcode           String?
+  category          String?
+  brand             String?
+  unit              String?
+  sale_price        Decimal? @db.Decimal(14, 2)
+  cost_price        Decimal? @db.Decimal(14, 2)
+  margin_pct        Decimal? @db.Decimal(7, 2)
+  current_stock     Decimal  @default(0) @db.Decimal(14, 3)
+  min_stock         Decimal? @db.Decimal(14, 3)
+  attributes        Json     @default(dbgenerated("'{}'::jsonb"))
+  is_active         Boolean  @default(true)
+  deleted_at        DateTime? @db.Timestamptz(6)
+  kind              String   @default("product")
+  duration_minutes  Int?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, barcode], map: "idx_inventory_item_tenant_barcode")
+  @@index([tenant_id, manufacturer_code], map: "idx_inventory_item_tenant_mfrcode")
+  @@index([tenant_id, sku], map: "idx_inventory_item_tenant_sku")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model stock_movement {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  inventory_item_id String   @db.Uuid
+  stock_delta       Decimal  @db.Decimal(14, 3)
+  reason            String
+  ref_type          String
+  ref_id            String   @db.Uuid
+  ref_item_id       String?  @db.Uuid
+  created_by        String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_stock_movement_tenant")
+  @@index([inventory_item_id], map: "idx_stock_movement_item")
+  @@index([ref_item_id], map: "idx_stock_movement_ref_item")
+  @@index([ref_type, ref_id], map: "idx_stock_movement_ref")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String               @db.Uuid
+  number          String
+  customer_id     String               @db.Uuid
+  customer_name   String
+  subject_id      String?              @db.Uuid
+  subject_label   String?
+  status          String               @default("aberta")
+  assigned_to     String?              @db.Uuid
+  opened_by       String?              @db.Uuid
+  complaint       String?
+  diagnosis       String?
+  scheduled_start DateTime?            @db.Timestamptz(6)
+  scheduled_end   DateTime?            @db.Timestamptz(6)
+  started_at      DateTime?            @db.Timestamptz(6)
+  finished_at     DateTime?            @db.Timestamptz(6)
+  opened_at       DateTime             @default(now()) @db.Timestamptz(6)
+  closed_at       DateTime?            @db.Timestamptz(6)
+  discount        Decimal              @default(0) @db.Decimal(14, 2)
+  total           Decimal              @default(0) @db.Decimal(14, 2)
+  stock_applied   Boolean              @default(false)
+  public_token    String               @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deleted_at      DateTime?            @db.Timestamptz(6)
+  created_at      DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime             @default(now()) @db.Timestamptz(6)
+  tenant          tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items           service_order_item[]
+  events          service_order_event[]
+  photos          service_order_photo[]
+
+  @@index([tenant_id, status], map: "idx_service_order_tenant_status")
+  @@index([tenant_id, customer_id], map: "idx_service_order_tenant_customer")
+  @@index([tenant_id, subject_id], map: "idx_service_order_tenant_subject")
+  @@index([tenant_id, assigned_to], map: "idx_service_order_tenant_assigned")
+  @@index([tenant_id, opened_at], map: "idx_service_order_tenant_opened")
+  @@unique([tenant_id, number], map: "uq_service_order_tenant_number")
+  @@unique([public_token], map: "uq_service_order_public_token")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_item {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String        @db.Uuid
+  order_id          String        @db.Uuid
+  kind              String
+  inventory_item_id String?       @db.Uuid
+  name              String
+  quantity          Decimal       @default(1) @db.Decimal(14, 3)
+  unit_price        Decimal       @default(0) @db.Decimal(14, 2)
+  discount          Decimal       @default(0) @db.Decimal(14, 2)
+  total             Decimal       @default(0) @db.Decimal(14, 2)
+  created_at        DateTime      @default(now()) @db.Timestamptz(6)
+  order             service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, order_id], map: "idx_service_order_item_tenant_order")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_template {
+  id          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String                        @db.Uuid
+  name        String
+  description String?
+  deleted_at  DateTime?                     @db.Timestamptz(6)
+  created_at  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime                      @default(now()) @db.Timestamptz(6)
+  tenant      tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items       service_order_template_item[]
+
+  @@index([tenant_id], map: "idx_service_order_template_tenant")
+  @@index([tenant_id, name], map: "idx_service_order_template_tenant_name")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_template_item {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                 @db.Uuid
+  template_id       String                 @db.Uuid
+  kind              String
+  inventory_item_id String?                @db.Uuid
+  name              String
+  quantity          Decimal                @default(1) @db.Decimal(14, 3)
+  unit_price        Decimal?               @db.Decimal(14, 2)
+  created_at        DateTime               @default(now()) @db.Timestamptz(6)
+  template          service_order_template @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, template_id], map: "idx_service_order_template_item_tenant_template")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_event {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String        @db.Uuid
+  order_id        String        @db.Uuid
+  kind            String
+  message         String?
+  status_snapshot String?
+  photo_id        String?       @db.Uuid
+  visible_public  Boolean       @default(false)
+  created_by      String?       @db.Uuid
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  order           service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant          tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, order_id, created_at], map: "idx_service_order_event_tenant_order_created")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_order_photo {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String        @db.Uuid
+  order_id    String        @db.Uuid
+  storage_key String
+  url         String
+  caption     String?
+  uploaded_by String?       @db.Uuid
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  order       service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, order_id], map: "idx_service_order_photo_tenant_order")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model conversation {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  ref_type        String
+  ref_id          String    @db.Uuid
+  title           String?
+  ref_label       String?
+  channel         String    @default("public_link")
+  staff_unread    Int       @default(0)
+  last_message_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  tenant          tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages        message[]
+
+  @@unique([tenant_id, ref_type, ref_id], map: "uq_conversation_tenant_ref")
+  @@index([tenant_id, last_message_at], map: "idx_conversation_tenant_last_message")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model message {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String       @db.Uuid
+  conversation_id String       @db.Uuid
+  sender          String
+  author_name     String?
+  body            String
+  read_at         DateTime?    @db.Timestamptz(6)
+  created_by      String?      @db.Uuid
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  conversation    conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant          tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, conversation_id, created_at], map: "idx_message_tenant_conversation_created")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  type       String
+  title      String
+  body       String?
+  ref_type   String?
+  ref_id     String?   @db.Uuid
+  read_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  tenant     tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, read_at, created_at], map: "idx_notification_tenant_read_created")
+}
+
+model catalog_product {
+  gtin       String   @id
+  name       String
+  brand      String?
+  ncm        String?
+  category   String?
+  source     String
+  fetched_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invite {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id        String    @db.Uuid
@@ -31,7 +311,9 @@ model invite {
   token_hash       String    @unique
   invited_by       String?   @db.Uuid
   accepted_at      DateTime? @db.Timestamptz(6)
-  expires_at       DateTime  @db.Timestamptz(6)
+  expires_at       DateTime? @db.Timestamptz(6)
+  canceled_at      DateTime? @db.Timestamptz(6)
+  access_expires_at DateTime? @db.Timestamptz(6)
   created_at       DateTime  @default(now()) @db.Timestamptz(6)
   users            users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
   role             role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -58,6 +340,8 @@ model membership {
   tenant_id  String   @db.Uuid
   user_id    String   @db.Uuid
   role_id    String   @db.Uuid
+  status     String   @default("active")
+  access_expires_at DateTime? @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   role       role     @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -173,14 +457,31 @@ model tenant {
   id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
   slug          String          @unique
+  cnpj          String?         @unique
+  legal_name    String?
+  trade_name    String?
+  settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  audit_log     audit_log[]
-  invite        invite[]
-  membership    membership[]
-  refresh_token refresh_token[]
-  subscription  subscription?
-  tenant_module tenant_module[]
-  users         users[]
+  audit_log          audit_log[]
+  conversation       conversation[]
+  customer           customer[]
+  inventory_item     inventory_item[]
+  invite             invite[]
+  membership         membership[]
+  message            message[]
+  notification       notification[]
+  refresh_token      refresh_token[]
+  service_order       service_order[]
+  service_order_event service_order_event[]
+  service_order_item  service_order_item[]
+  service_order_photo service_order_photo[]
+  service_order_template      service_order_template[]
+  service_order_template_item service_order_template_item[]
+  stock_movement     stock_movement[]
+  subject            subject[]
+  subscription       subscription?
+  tenant_module      tenant_module[]
+  users              users[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

@@ -25,6 +25,12 @@ export class AuthRepository {
     return this.prisma.users.findUnique({ where: { id } });
   }
 
+  // ---- tenant (no RLS — global table) ----
+  /** Looks a tenant up by its (normalized) CNPJ. Used to enforce uniqueness. */
+  findTenantByCnpj(cnpj: string) {
+    return this.prisma.tenant.findUnique({ where: { cnpj } });
+  }
+
   /** Uses the SECURITY DEFINER function so the picker works pre-context. */
   async findUserMemberships(userId: string): Promise<MembershipRow[]> {
     return this.prisma.$queryRaw<MembershipRow[]>`
@@ -179,6 +185,9 @@ export class AuthRepository {
   async createTenantWithOwner(params: {
     tenantName: string;
     slug: string;
+    cnpj: string;
+    legalName: string;
+    tradeName: string | null;
     fullName: string;
     emailNormalized: string;
     passwordHash: string;
@@ -187,7 +196,13 @@ export class AuthRepository {
     return this.prisma.$transaction(
       async (tx) => {
         const tenant = await tx.tenant.create({
-          data: { name: params.tenantName, slug: params.slug },
+          data: {
+            name: params.tenantName,
+            slug: params.slug,
+            cnpj: params.cnpj,
+            legal_name: params.legalName,
+            trade_name: params.tradeName,
+          },
         });
         const user = await tx.users.create({
           data: {

@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { IamService } from './iam.service';
 import { Public, Permissions, CurrentUser } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
@@ -20,13 +12,6 @@ export class IamController {
   @Permissions('users.manage')
   members() {
     return this.iam.listMembers();
-  }
-
-  @Delete('iam/members/:id')
-  @Permissions('users.manage')
-  @HttpCode(204)
-  async remove(@Param('id') id: string) {
-    await this.iam.removeMember(id);
   }
 
   @Get('iam/roles')
