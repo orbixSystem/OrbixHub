@@ -1,10 +1,10 @@
 {
-  // Caminho do Flutter SDK desta máquina — o VSCode aberto pela GUI no macOS não
-  // herda o PATH do shell, então a extensão Dart/Flutter não acha o `flutter` sozinho
-  // e trata o projeto como "Dart-only". Apontar o SDK aqui resolve.
-  // ⚠️ Caminho específico desta máquina; cada dev ajusta o seu (ou move p/ User settings).
-  "dart.flutterSdkPath": "/Users/gabriel.sila/Documents/flutter",
-
-  // A app Flutter fica em front/ (subpasta). Garante que a extensão ache projetos aninhados.
+  // A app Flutter fica em front/ (subpasta). Garante que a extensão Dart/Flutter
+  // ache projetos aninhados a partir da raiz do monorepo.
   "dart.projectSearchDepth": 5
+
+  // NOTE: o caminho do Flutter SDK (dart.flutterSdkPath) fica nas *User Settings*
+  // do VSCode de cada dev — é específico da máquina e não deve ir no repo.
+  // No macOS, o VSCode aberto pela GUI não herda o PATH do shell; sem o SDK
+  // apontado, a extensão trata o projeto como "Dart-only".
 }
