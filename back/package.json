@@ -13,7 +13,8 @@
     "test:e2e": "jest --config test/jest-e2e.config.ts --runInBand",
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "seed:dev": "ts-node scripts/seed-dev.ts"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",

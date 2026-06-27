@@ -705,23 +705,10 @@ END $$;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON stock_movement TO app_user;
 
--- Backfill: para OS já aplicadas (stock_applied) e ainda consumindo, insere um
--- movimento-espelho por linha-produto para que o consumo DERIVADO bata com o
--- saldo histórico. NÃO ajusta current_stock (o saldo já reflete a baixa).
--- Guardado por NOT EXISTS → idempotente em re-execução.
-INSERT INTO stock_movement
-  (tenant_id, inventory_item_id, stock_delta, reason, ref_type, ref_id, ref_item_id)
-SELECT i.tenant_id, i.inventory_item_id, -i.quantity, 'os_consumption',
-       'service_order', i.order_id, i.id
-FROM service_order_item i
-JOIN service_order o ON o.id = i.order_id
-WHERE o.stock_applied = true
-  AND o.status IN ('em_execucao','concluida','entregue')
-  AND i.kind = 'product'
-  AND i.inventory_item_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM stock_movement sm WHERE sm.ref_item_id = i.id
-  );
+-- NOTE: o backfill de stock_movement a partir de service_order_item foi movido
+-- para DEPOIS da criação de service_order_item (logo após a seção 0014) — num
+-- apply fresh este bloco rodava antes da tabela existir e quebrava com
+-- relation "service_order_item" does not exist.
 
 -- ============================================================
 -- 0014 — Ordens de Serviço (service_order + service_order_item) — aditivo, idempotente
@@ -821,6 +808,25 @@ END $$;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON service_order TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON service_order_item TO app_user;
+
+-- Backfill (movido da seção 0024 stock_movement): para OS já aplicadas
+-- (stock_applied) e ainda consumindo, insere um movimento-espelho por
+-- linha-produto para que o consumo DERIVADO bata com o saldo histórico. NÃO
+-- ajusta current_stock (o saldo já reflete a baixa). Guardado por NOT EXISTS →
+-- idempotente. Precisa de service_order_item já criada, por isso roda aqui.
+INSERT INTO stock_movement
+  (tenant_id, inventory_item_id, stock_delta, reason, ref_type, ref_id, ref_item_id)
+SELECT i.tenant_id, i.inventory_item_id, -i.quantity, 'os_consumption',
+       'service_order', i.order_id, i.id
+FROM service_order_item i
+JOIN service_order o ON o.id = i.order_id
+WHERE o.stock_applied = true
+  AND o.status IN ('em_execucao','concluida','entregue')
+  AND i.kind = 'product'
+  AND i.inventory_item_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM stock_movement sm WHERE sm.ref_item_id = i.id
+  );
 
 -- ============================================================
 -- 0015 — Timeline da OS (service_order_event) — aditivo, idempotente
