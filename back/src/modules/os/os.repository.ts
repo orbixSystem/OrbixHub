@@ -69,6 +69,12 @@ export interface UpdateOrderData {
   discount?: DecimalIn;
 }
 
+export interface FiscalSnapshotFields {
+  fiscal_status: string | null;
+  fiscal_external_id: string | null;
+  fiscal_emitted_at: Date | null;
+}
+
 export interface StatusFields {
   status?: string;
   started_at?: Date | null;
@@ -203,6 +209,15 @@ export class OsRepository {
     return db.service_order.update({
       where: { id },
       data: { ...data, updated_at: new Date() },
+    });
+  }
+
+  /** Snapshot do status fiscal devolvido pelo Fiscal (só p/ exibir; Fiscal é dono). */
+  setFiscalSnapshot(id: string, fields: FiscalSnapshotFields) {
+    const db = this.tenant.getClient();
+    return db.service_order.update({
+      where: { id },
+      data: { ...fields, updated_at: new Date() },
     });
   }
 

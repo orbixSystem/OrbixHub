@@ -25,6 +25,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { CashierModule } from './modules/cashier/cashier.module';
 import { OsModule } from './modules/os/os.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { ReportModule } from './modules/report/report.module';
@@ -55,6 +56,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     SettingsModule,
     CustomersModule,
     InventoryModule,
+    CashierModule,
     NotificationsModule,
     MessagesModule,
     OsModule,

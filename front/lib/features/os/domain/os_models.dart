@@ -180,6 +180,13 @@ abstract class ServiceOrder with _$ServiceOrder {
     @JsonKey(name: 'public_token') String? publicToken,
     String? discount,
     String? total,
+    // Status de pagamento DERIVADO do caixa (a_receber | parcial | pago). Vem
+    // flat tanto na listagem quanto no detalhe; a venda nasce 'a_receber'.
+    @JsonKey(name: 'payment_status')
+    @Default('a_receber')
+    String paymentStatus,
+    // Snapshot do status fiscal (o Fiscal é dono): nao_emitida|processando|emitida|rejeitada.
+    @JsonKey(name: 'fiscal_status') String? fiscalStatus,
     @Default(<OrderItem>[]) List<OrderItem> items,
     @Default(<OrderEvent>[]) List<OrderEvent> events,
     @Default(<OrderPhoto>[]) List<OrderPhoto> photos,

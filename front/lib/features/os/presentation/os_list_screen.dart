@@ -9,6 +9,7 @@ import '../../../di.dart';
 import 'order_form_dialog.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
+import 'payment_status.dart';
 
 /// Lista de ordens de serviço — adaptativa (spec 2026-07-04):
 /// desktop = linhas densas + paginação numerada; mobile = cards grandes +
@@ -303,6 +304,7 @@ class _Body extends ConsumerWidget {
               customerName: o.customerName,
               subjectLabel: o.subjectLabel,
               status: o.status,
+              paymentStatus: o.paymentStatus,
               total: o.total,
               dense: !isMobile,
               onTap: () => context.go('/m/os/${o.id}'),
@@ -342,6 +344,7 @@ class _OrderTile extends StatelessWidget {
     required this.customerName,
     required this.subjectLabel,
     required this.status,
+    required this.paymentStatus,
     required this.total,
     required this.dense,
     required this.onTap,
@@ -351,6 +354,7 @@ class _OrderTile extends StatelessWidget {
   final String? customerName;
   final String? subjectLabel;
   final String status;
+  final String paymentStatus;
   final String? total;
   final bool dense;
   final VoidCallback onTap;
@@ -376,6 +380,8 @@ class _OrderTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          PaymentTag(status: paymentStatus, dense: true),
+          const SizedBox(width: 8),
           OsStatusChip(status: status),
           const SizedBox(width: 14),
           Text(

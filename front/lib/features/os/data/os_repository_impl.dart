@@ -85,6 +85,15 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<ServiceOrder> emitInvoice(String id) => _guard(() async {
+        // O endpoint devolve o resultado fiscal; refazemos o GET para trazer a OS
+        // com o snapshot atualizado de `fiscalStatus` (padrão addItem/etc.).
+        await _dio.post<Object?>('/os/orders/$id/invoice');
+        final res = await _dio.get<Object?>('/os/orders/$id');
+        return ServiceOrder.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<ServiceOrder> createNote(
     String id, {
     required String message,

@@ -147,6 +147,8 @@ _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
       publicToken: json['public_token'] as String?,
       discount: json['discount'] as String?,
       total: json['total'] as String?,
+      paymentStatus: json['payment_status'] as String? ?? 'a_receber',
+      fiscalStatus: json['fiscal_status'] as String?,
       items:
           (json['items'] as List<dynamic>?)
               ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
@@ -184,6 +186,8 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'public_token': instance.publicToken,
       'discount': instance.discount,
       'total': instance.total,
+      'payment_status': instance.paymentStatus,
+      'fiscal_status': instance.fiscalStatus,
       'items': instance.items,
       'events': instance.events,
       'photos': instance.photos,

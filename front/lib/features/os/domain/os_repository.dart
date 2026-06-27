@@ -24,6 +24,12 @@ abstract interface class OsRepository {
   /// Transição de status (FSM no backend). `aprovada` exige `os.approve`.
   Future<ServiceOrder> changeStatus(String id, String status);
 
+  /// Emite a nota fiscal da venda via o módulo Fiscal (`POST /os/orders/:id/invoice`).
+  /// Exige `invoice.issue`. Não altera pagamento nem status da OS. Retorna a OS
+  /// atualizada (com o snapshot de `fiscalStatus`). Lança [AppException] quando o
+  /// Fiscal está indisponível (503) — a UI trata com elegância.
+  Future<ServiceOrder> emitInvoice(String id);
+
   /// Adiciona uma nota à linha do tempo da OS. `visiblePublic` controla se o
   /// cliente a vê no acompanhamento. Retorna a OS atualizada (com `events`).
   Future<ServiceOrder> createNote(

@@ -19,6 +19,7 @@ import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
 import { IamService } from '../iam/iam.service';
+import { CashierService } from '../cashier/cashier.service';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -113,6 +114,9 @@ export class OsService {
     private readonly inventory: InventoryService,
     private readonly messages: MessagesService,
     private readonly iam: IamService,
+    // "Aponta, não invade": o pagamento é de OUTRO módulo (Caixa) — só via
+    // service público por id; a OS nunca lê/escreve as tabelas do caixa.
+    private readonly cashier: CashierService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
@@ -230,11 +234,21 @@ export class OsService {
         take: pageSize,
       }),
     );
-    return { items, total, page, pageSize };
+    // Tag de pagamento na listagem: status DERIVADO do caixa em UMA chamada batch
+    // (evita N+1). Caixa Noop ⇒ todas `a_receber`. "Aponta, não invade".
+    const summaries = await this.cashier.getPaymentSummaryBatch(
+      user.tenantId,
+      items.map((o) => ({ id: o.id, total: toNum(o.total) })),
+    );
+    const enriched = items.map((o) => ({
+      ...o,
+      payment_status: (summaries.get(o.id)?.status ?? 'a_receber') as string,
+    }));
+    return { items: enriched, total, page, pageSize };
   }
 
-  async getOrderOrThrow(id: string) {
-    return this.tenant.withTenantTx(async () => {
+  async getOrderOrThrow(id: string, tenantId?: string) {
+    const result = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(id);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -243,8 +257,25 @@ export class OsService {
         this.repo.listEvents(id),
         this.repo.listPhotos(id),
       ]);
-      return { ...order, events, photos };
+      return { order, events, photos };
     });
+    // Resumo de pagamento derivado do caixa (fora da tx da OS — o caixa abre a
+    // própria via). Caixa Noop ⇒ `a_receber`. `fiscal_status` é snapshot do Fiscal.
+    const tid = tenantId ?? result.order.tenant_id;
+    const payment = await this.cashier.getPaymentSummary(
+      tid,
+      id,
+      toNum(result.order.total),
+    );
+    return {
+      ...result.order,
+      events: result.events,
+      photos: result.photos,
+      payment,
+      // Campo flat espelhando `payment.status` — uniformiza com a listagem
+      // (a tag de pagamento no front lê sempre `payment_status`).
+      payment_status: payment.status,
+    };
   }
 
   /**

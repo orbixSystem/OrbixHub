@@ -38,7 +38,12 @@ export type AuditAction =
   | 'schedule_item_assign'
   | 'schedule_item_unassign'
   | 'sale_create'
-  | 'sale_cancel';
+  | 'sale_cancel'
+  | 'os_emit_invoice'
+  | 'cashier_session_open'
+  | 'cashier_session_close'
+  | 'cashier_entry_create'
+  | 'cashier_entry_reverse';
 
 @Injectable()
 export class AuditService {
