@@ -75,15 +75,20 @@
       "args": ["--dart-define=DEV_TOOLS=true"]
     },
     {
-      // Android. Pré-requisitos: `flutter create --platforms=android .` + Android SDK +
-      // um emulador rodando ou device físico (a extensão usa o device Android conectado).
+      // Android no emulador "Medium Phone". deviceId = id do AVD → a extensão Dart
+      // faz cold-boot do emulador automaticamente se ele não estiver aberto.
+      // (Ajuste o deviceId se o nome do seu AVD mudar: veja `flutter emulators`.)
       "name": "Front: Flutter Android",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
-      "deviceId": "android",
-      "args": ["--dart-define=DEV_TOOLS=true"]
+      "deviceId": "Medium_Phone",
+      // No emulador Android, o host (backend) é 10.0.2.2, não localhost.
+      "args": [
+        "--dart-define=DEV_TOOLS=true",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:3000/api"
+      ]
     },
     {
       // iOS (somente em macOS). Pré-requisitos: `flutter create --platforms=ios .` + Xcode +
