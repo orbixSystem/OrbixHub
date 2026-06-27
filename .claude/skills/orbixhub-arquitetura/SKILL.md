@@ -123,30 +123,85 @@ Permissões genéricas (`customer.*`, `subject.*`, `os.*`…), nunca por vertica
 11. **Evidência antes de "pronto":** `npm run back:lint` (0 warnings) + `back:test` + `back:test:e2e`;
     `flutter analyze` (0 issues) + `flutter test`. Cite o output real.
 
-## Estado atual (código = fonte de verdade)
+## Estado atual (código = fonte de verdade — atualizado 2026-06-26)
 
-**Backend — 6 módulos:** `auth`, `iam`, `tenancy`, `billing` (núcleo) · `settings` (host, gated por
-`@RequiresModule('settings')`) · `devtools` (dev-only). Detalhe e endpoints no `README.md`/`CLAUDE.md`.
+> O **código está à frente dos docs**: `docs/modulos-v1.md`/`pendencias.md` ainda listam
+> `tracking`/`report` como "planejado", mas já estão implementados (ver abaixo). Em conflito,
+> vale o que está wired em `back/src/app.module.ts` e em `front/lib/features/`.
 
-**DB — tabelas RLS+FORCE:** `membership`, `invite`, `subscription`, `tenant_module`, `audit_log`
-(policy `tenant_id = current_tenant_id()`). Globais sem RLS: `tenant`, `users`, `role`, `permission`,
-`role_permission`, `refresh_token`, `one_time_token`, `login_attempt`, `module`, `plan`,
-`plan_module`, `billing_webhook_event`. Roles PG: `app_owner` (dono/DDL), `app_migrator` (BYPASSRLS),
-`app_user` (NOBYPASSRLS, runtime). Funções `SECURITY DEFINER`: `current_tenant_id`,
-`auth_find_user_memberships`, `auth_find_invite_by_hash`, `billing_resolve_tenant_by_subscription`,
-`billing_find_expired_trials`, `auth_membership_active`.
+**Backend — módulos wired em `app.module.ts` (14 + infra comum):**
+- **Núcleo:** `auth`, `iam` (+ `employees`, `invites`, `reauth`), `tenancy` (`/me`), `billing`.
+- **Host:** `settings` (registry incremental de seções de config).
+- **Contratável implementado:** `os`, `customers` (+ `subjects`), `inventory` (+ catálogo EAN), `report`.
+- **Transversais implementados:** `messages` (chat/conversation), `notifications` (+ sino),
+  `realtime` (**WebSocket/socket.io** — `@SubscribeMessage('subscribe:public'|'subscribe:staff')`,
+  salas por conversa e por tenant, emite `message`), `storage` (`/files`, providers local/MinIO — **fotos da OS**).
+- **Dev-only:** `devtools` (dev-inbox/"besouro", gated por `DEV_TOOLS_ENABLED`).
+- **Rotas (`@Controller`):** `auth`, `billing`, `customers`, `subjects`, `inventory`, `os`,
+  `public/track` (acompanhamento público via `public_token` + função `SECURITY DEFINER`),
+  `messages`, `notifications`, `report`, `settings`, `files`, `health`.
+
+**Tracking (acompanhamento cliente↔mecânico):** **funciona** via `os` (`public_token`) +
+`public/track` + `realtime` (websocket) + tela `tracking/public_tracking_screen` no front,
+**porém `tracking` ainda NÃO é um `module` semeado/gated** — é recurso da OS, não módulo comercial separado.
+
+**DB — 31 tabelas.** RLS+FORCE (policy `tenant_id = current_tenant_id()`) nas de tenant:
+`membership`, `invite`, `subscription`, `tenant_module`, `audit_log`, `customer`, `subject`,
+`inventory_item`, `stock_movement`, `service_order`, `service_order_item`, `service_order_event`,
+`service_order_photo`, `service_order_template(_item)`, `conversation`, `message`, `notification`.
+Globais sem RLS: `tenant`, `users`, `role`, `permission`, `role_permission`, `refresh_token`,
+`one_time_token`, `login_attempt`, `module`, `plan`, `plan_module`, `billing_webhook_event`,
+`catalog_product` (cache EAN global 60d). Roles PG: `app_owner` (dono/DDL), `app_migrator`
+(BYPASSRLS), `app_user` (NOBYPASSRLS, runtime).
 
 **Seeds reais (use estes nomes, não invente):**
-- **Cargos (`role`):** `owner` (Dono), `mechanic` (Mecânico), `gerente` (Gerente),
-  `caixa` (Caixa / Atendente).
-- **Planos (`plan`):** `trial` (os, customers) · `pro` (os, inventory, customers).
-- **Módulos (`module`):** `os`, `inventory`, `customers`.
-- **Permissões genéricas:** `os.*`, `inventory.*`, `customer.*`, `subject.*`, `cashier.*`,
-  `invoice.issue`, `finance.*`, `report.read`, `tracking.manage`, `users.manage`, `billing.manage`,
-  `tenant.manage`, `settings.manage`.
+- **Cargos (`role`):** `owner`, `mechanic`, `gerente`, `caixa`.
+- **Planos (`plan`):** `trial` (os, customers) · `pro` (os, inventory, customers, report).
+- **Módulos semeados (`module`):** `os`, `inventory`, `customers`, `report`.
+- **Permissões:** `os.*`, `inventory.*`, `customer.*`, `subject.*`, `cashier.*`, `invoice.issue`,
+  `finance.*`, `report.read`, `tracking.manage`, `users.manage`, `billing.manage`, `tenant.manage`, `settings.manage`.
 
-**Módulos planejados (em `docs/modulos-v1.md`):** `tracking`, `cashier`, `invoice`, `finance`,
-`report` — permissões já semeadas, sem implementação de backend ainda.
+**Frontend — app Flutter completo (web + Windows).** Riverpod 3 · go_router 17 · dio · freezed ·
+`socket_io_client` (realtime) · `printing`/`pdf` (export OS/relatórios) · `fl_chart` (dashboards) ·
+`flutter_secure_storage` (refresh token) · `file_picker`. Features em `front/lib/features/`:
+`auth` (login/register/verify/forgot/reset/accept-invite/tenant-picker), `shell` (app_shell, sidebar,
+`gatedNavItems`), `dashboard` (widgets operacional/gestão, donut, métricas), `os` (lista/detalhe/form/
+templates/PDF), `customers`, `inventory`, `report` (catálogo + CSV/PDF), `messages` (inbox+thread),
+`notifications` (sino), `team` (membros/convite/troca de cargo/reauth/guards), `billing` (planos),
+`settings` (aparência/empresa/seções dinâmicas), `tracking` (tela pública). Cada feature tem
+`domain` (interface), `data` (impl dio **+ impl fake** p/ dev/teste) e `presentation`. ~30 testes em `front/test/`.
 
-**Documentos canônicos:** o código + `docs/modulos-v1.md` + `docs/configuracao.md` + `README.md`.
-Specs antigas em `docs/superpowers/` podem ter divergido — **não** são fonte de verdade.
+### Paralelo — PRONTO vs FALTA
+
+✅ **Pronto:** plataforma SaaS (auth/RLS/RBAC/billing/módulos) · OS completa (itens, timeline,
+fotos, templates, métricas) · clientes+subjects · estoque com diário (`stock_movement`) e catálogo
+EAN · relatórios (6 endpoints + CSV/PDF) · chat + notificações · **tempo real (websocket)** ·
+acompanhamento público da OS · storage de fotos · front multiplataforma (web/Windows) com todas as telas acima.
+
+🚧 **Falta (backlog em `docs/pendencias.md` + brainstorm):**
+- **Offline-first / sync (SQLite local ↔ nuvem)** — **NÃO existe** (sem sqflite/drift/hive no front;
+  os "fake repositories" são p/ dev/teste, não persistência offline). Pedido de produto ainda em aberto.
+- Módulos **planejados sem backend:** `cashier`, `invoice` (NF-e), `finance`.
+- `tracking` como **módulo comercial gated** (hoje é recurso da OS).
+- Entitlements por feature (freemium intra-módulo: `plan_feature`/`features[]` em `/me`).
+- OS: envio do link público por **WhatsApp/e-mail** (hoje só "copiar link").
+- Estoque avançado/pro: valorização, curva ABC, fornecedores, kits/combos, import CSV, IA de preço.
+
+**Documentos canônicos:** o código + `docs/modulos-v1.md` + `docs/pendencias.md` +
+`docs/configuracao.md` + `docs/audit-arquitetura.md` + `README.md`. Specs antigas em
+`docs/superpowers/` podem ter divergido — **não** são fonte de verdade.
+
+## Setup local desta máquina (sem container)
+
+Não há Podman/Docker aqui — usamos **Postgres nativo (Homebrew) na porta 5432** (não 55432) e
+**Redis nativo** (`brew services`). O `back/.env` aponta para `localhost:5432`. Fluxo:
+`npm install` (raiz) → `ADMIN_DATABASE_URL=postgresql://app_owner:owner_pw@localhost:5432/orbixhub
+npx ts-node scripts/ci-db-setup.ts` (cria roles+tabelas+RLS+seeds) → `npm run prisma:generate
+--workspace back` → `npm run back:dev`. Health em `GET /api/health`. Regenerar o Prisma client
+após qualquer mudança no schema (senão o build do back quebra).
+
+**Front:** Flutter **3.44.4** (stable) em `~/Documents/flutter` (Dart 3.12+ — o projeto exige
+`sdk ^3.12.1`). `cd front && flutter pub get && flutter analyze && flutter test`. Alvo runnable
+nesta máquina = **web** (Chrome não instalado → `web-server`; targets do projeto: `web`+`windows`,
+sem `macos`). `.vscode/launch.json`: "Back: dev/build/e2e", "Front: Flutter web (8090)" e
+"Front: Flutter (chrome)". Porta 8090 já está em `CORS_ORIGINS` do back e em `APP_PUBLIC_URL`.
