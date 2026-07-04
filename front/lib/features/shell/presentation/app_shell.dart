@@ -73,7 +73,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                   title: items[selected].label,
                   showMenu: !isDesktop && !isMobile,
                 ),
-                Expanded(child: widget.child),
+                // Cross-fade suave ao trocar de tela (o sidebar fica parado).
+                Expanded(
+                  child: NeuContentSwitcher(
+                    routeKey: location,
+                    child: widget.child,
+                  ),
+                ),
               ],
             ),
           ),

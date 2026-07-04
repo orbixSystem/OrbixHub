@@ -29,6 +29,7 @@ import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../devtools/dev_flag.dart';
 import '../devtools/ui_showcase_screen.dart';
+import '../ui/neu_transitions.dart';
 import '../widgets/splash_screen.dart';
 import 'navigator_key.dart';
 
@@ -99,22 +100,47 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
-      GoRoute(path: '/verify', builder: (_, _) => const VerifyScreen()),
-      GoRoute(path: '/forgot', builder: (_, _) => const ForgotScreen()),
-      GoRoute(path: '/reset', builder: (_, _) => const ResetScreen()),
-      GoRoute(path: '/picker', builder: (_, _) => const TenantPickerScreen()),
+      GoRoute(
+        path: '/splash',
+        pageBuilder: (_, s) => neuPage(s, const SplashScreen()),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, s) => neuPage(s, const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (_, s) => neuPage(s, const RegisterScreen()),
+      ),
+      GoRoute(
+        path: '/verify',
+        pageBuilder: (_, s) => neuPage(s, const VerifyScreen()),
+      ),
+      GoRoute(
+        path: '/forgot',
+        pageBuilder: (_, s) => neuPage(s, const ForgotScreen()),
+      ),
+      GoRoute(
+        path: '/reset',
+        pageBuilder: (_, s) => neuPage(s, const ResetScreen()),
+      ),
+      GoRoute(
+        path: '/picker',
+        pageBuilder: (_, s) => neuPage(s, const TenantPickerScreen()),
+      ),
       GoRoute(
         path: '/t/:token',
-        builder: (_, state) =>
-            PublicTrackingScreen(token: state.pathParameters['token'] ?? ''),
+        pageBuilder: (_, s) => neuPage(
+          s,
+          PublicTrackingScreen(token: s.pathParameters['token'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/convite/:token',
-        builder: (_, state) =>
-            AcceptInviteScreen(token: state.pathParameters['token'] ?? ''),
+        pageBuilder: (_, s) => neuPage(
+          s,
+          AcceptInviteScreen(token: s.pathParameters['token'] ?? ''),
+        ),
       ),
       // Vitrine dev do design system neumórfico (fora do shell; some em release).
       if (kDevTools)
