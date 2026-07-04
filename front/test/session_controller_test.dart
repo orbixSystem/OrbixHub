@@ -53,18 +53,27 @@ void main() {
   });
 
   test(
-      'criterion 3: login keeps access token in memory, refresh in secure storage only',
+      'criterion 3: access em memória; refresh persiste no secure APENAS com "manter conectado"',
       () async {
     final container = makeContainer();
     final controller = container.read(sessionControllerProvider.notifier);
+    final refresh = container.read(refreshTokenStoreProvider);
     await pumpEventQueue(); // let bootstrap settle (no stored token)
 
+    // Opt-out (default): sessão só em memória, nada no secure storage.
     await controller.login(email: 'dono@teste.com', password: 'senha12345');
-
     expect(container.read(sessionControllerProvider), isA<SessionAuthenticated>());
     expect(access.token, isNotNull, reason: 'access token lives in memory');
+    expect(refresh.token, 'fake-refresh',
+        reason: 'refresh token lives in memory for the session');
+    expect(await secure.readRefreshToken(), isNull,
+        reason: 'sem "manter conectado" NÃO persiste no secure storage');
+
+    // Opt-in: persiste no secure storage (cold start restaura).
+    await controller.login(
+        email: 'dono@teste.com', password: 'senha12345', remember: true);
     expect(await secure.readRefreshToken(), 'fake-refresh',
-        reason: 'refresh token persisted to secure storage');
+        reason: 'com "manter conectado" persiste no secure storage');
   });
 
   test('criterion 1: logout revokes, clears both stores, goes unauthenticated',

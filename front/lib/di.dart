@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
+import 'core/network/refresh_token_store.dart';
 import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
 import 'core/network/token_refresh_service.dart';
@@ -54,6 +55,10 @@ final secureTokenStoreProvider =
 final accessTokenStoreProvider =
     Provider<AccessTokenStore>((ref) => AccessTokenStore());
 
+/// In-memory refresh token for the session (+ the "remember" persistence flag).
+final refreshTokenStoreProvider =
+    Provider<RefreshTokenStore>((ref) => RefreshTokenStore());
+
 /// Bare dio with NO interceptors — used only by the refresh service so the
 /// refresh call can never recurse into the 401 handler.
 final bareDioProvider = Provider<Dio>((ref) => Dio(_baseOptions()));
@@ -62,6 +67,7 @@ final tokenRefreshServiceProvider = Provider<TokenRefreshService>((ref) {
   return TokenRefreshService(
     bareDio: ref.read(bareDioProvider),
     accessStore: ref.read(accessTokenStoreProvider),
+    refreshStore: ref.read(refreshTokenStoreProvider),
     secureStore: ref.read(secureTokenStoreProvider),
   );
 });

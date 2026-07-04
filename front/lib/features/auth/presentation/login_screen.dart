@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/devtools/dev_flag.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
@@ -18,6 +19,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _remember = false;
   String? _error;
 
   @override
@@ -38,6 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await controller.login(
         email: _email.text.trim(),
         password: _password.text,
+        remember: _remember,
       );
       if (!mounted) return;
       // >1 workshop → show the picker first; otherwise straight to the app.
@@ -48,6 +51,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Dev-only: fills the fields with a seed account (does NOT submit).
+  void _fillSeed(String email) {
+    _email.text = email;
+    _password.text = 'Dev@12345';
+    setState(() {});
   }
 
   @override
@@ -78,7 +88,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   (v == null || v.isEmpty) ? 'Informe a senha' : null,
               onFieldSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 4),
+            // "Manter conectado" (opt-in): persiste a sessão por ~1 mês.
+            CheckboxListTile(
+              value: _remember,
+              onChanged: _loading
+                  ? null
+                  : (v) => setState(() => _remember = v ?? false),
+              title: const Text('Manter conectado'),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            const SizedBox(height: 12),
             FilledButton(
               onPressed: _loading ? null : _submit,
               child: _loading
@@ -99,9 +121,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: () => context.go('/register'),
               child: const Text('Criar uma oficina'),
             ),
+            if (kDevTools) _DevQuickLogin(onPick: _fillSeed),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dev-only quick-login: buttons that FILL the credentials of seed accounts
+/// (does not submit). Tree-shaken out of release builds via [kDevTools].
+class _DevQuickLogin extends StatelessWidget {
+  const _DevQuickLogin({required this.onPick});
+
+  final void Function(String email) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 24),
+        Text(
+          'Login rápido (dev)',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 8),
+        // Wrap → nunca estoura a largura no mobile; empilha se faltar espaço.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => onPick('dono@oficina-demo.dev'),
+              icon: const Icon(Icons.person_outline, size: 18),
+              label: const Text('Dono'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => onPick('mecanico@oficina-demo.dev'),
+              icon: const Icon(Icons.build_outlined, size: 18),
+              label: const Text('Mecânico'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
