@@ -6,9 +6,10 @@ import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
-import '../../dashboard/presentation/dashboard_section.dart';
-import '../../dashboard/presentation/widgets/inventory_widget.dart';
+import '../../dashboard/presentation/widgets/kpi.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart';
+import '../../dashboard/presentation/widgets/period_selector.dart';
+import '../../dashboard/presentation/widgets/status_donut.dart';
 import '../../messages/presentation/messages_providers.dart';
 import '../../../di.dart';
 
@@ -114,22 +115,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 22),
         if (isManagement) ...[
-          // GERENCIAL: período + métricas + OS em andamento (todas) + chat.
-          KeyedSubtree(key: _metricsKey, child: DashboardMetricsSection(me: me)),
-          if (canSeeActiveOs) ...[
-            const SizedBox(height: 32),
-            KeyedSubtree(key: _ordersKey, child: const _ActiveOrdersPanel()),
-          ],
-          if (canSeeMessages) ...[
-            const SizedBox(height: 24),
-            KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard()),
-          ],
+          // GERENCIAL: período + KPIs + (status × OS em andamento) + (estoque
+          // baixo × mensagens).
+          const Align(alignment: Alignment.centerLeft, child: PeriodSelector()),
+          const SizedBox(height: 18),
+          KeyedSubtree(key: _metricsKey, child: const ManagementKpiStrip()),
+          const SizedBox(height: 16),
+          _TwoCol(
+            leftFlex: 4,
+            rightFlex: 5,
+            left: const _StatusCard(),
+            right: canSeeActiveOs
+                ? KeyedSubtree(key: _ordersKey, child: const _ActiveOrdersPanel())
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
+          _TwoCol(
+            left: canSeeInventory ? const _LowStockPanel() : const SizedBox.shrink(),
+            right: canSeeMessages
+                ? KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard())
+                : const SizedBox.shrink(),
+          ),
         ] else ...[
-          // OPERACIONAL (mecânico/caixa): foco em ação, sem período nem métricas
-          // de gestão. Minhas OS em execução + minhas atrasadas + estoque (sem
-          // valor) + chat.
+          // OPERACIONAL (mecânico/caixa): foco em ação.
+          KeyedSubtree(
+            key: _metricsKey,
+            child: OperationalKpiStrip(userId: me.user.id),
+          ),
+          const SizedBox(height: 16),
           if (canSeeActiveOs) ...[
             _MyOverdueOrdersCard(assignedTo: me.user.id),
             KeyedSubtree(
@@ -137,17 +152,190 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: _ActiveOrdersPanel(assignedTo: me.user.id),
             ),
           ],
-          if (canSeeInventory) ...[
-            const SizedBox(height: 24),
-            const InventoryWidget(showValue: false),
-          ],
-          if (canSeeMessages) ...[
-            const SizedBox(height: 24),
-            KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard()),
-          ],
+          const SizedBox(height: 16),
+          _TwoCol(
+            left: canSeeInventory ? const _LowStockPanel() : const SizedBox.shrink(),
+            right: canSeeMessages
+                ? KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard())
+                : const SizedBox.shrink(),
+          ),
         ],
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+/// Duas colunas no desktop/tablet (alturas iguais), empilhadas no mobile.
+/// Colapsa quando um dos lados é vazio.
+class _TwoCol extends StatelessWidget {
+  const _TwoCol({
+    required this.left,
+    required this.right,
+    this.leftFlex = 1,
+    this.rightFlex = 1,
+  });
+
+  final Widget left;
+  final Widget right;
+  final int leftFlex;
+  final int rightFlex;
+
+  bool _empty(Widget w) => w is SizedBox && w.child == null;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_empty(left) && _empty(right)) return const SizedBox.shrink();
+    if (_empty(left)) return right;
+    if (_empty(right)) return left;
+    if (context.isMobile) {
+      return Column(
+        children: [left, const SizedBox(height: 16), right],
+      );
+    }
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(flex: leftFlex, child: left),
+          const SizedBox(width: 16),
+          Expanded(flex: rightFlex, child: right),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card "Ordens por status" com o donut (visão gerencial).
+class _StatusCard extends ConsumerWidget {
+  const _StatusCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(osManagementMetricsProvider);
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              NeuIconChip.glyph(context,
+                  icon: Icons.donut_large_rounded, index: 0, size: 38),
+              const SizedBox(width: 12),
+              Text('Ordens por status',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 18),
+          async.when(
+            loading: () => const MetricLoading(),
+            error: (_, _) => MetricError(
+                onRetry: () => ref.invalidate(osManagementMetricsProvider)),
+            data: (m) => m.totalOrders == 0
+                ? SizedBox(
+                    height: 120,
+                    child: Center(
+                      child: Text('Sem OS no período.',
+                          style: TextStyle(color: neu.inkMuted)),
+                    ),
+                  )
+                : StatusDonut(byStatus: m.byStatus),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Painel "Estoque baixo": amostra de itens no/abaixo do mínimo.
+class _LowStockPanel extends ConsumerWidget {
+  const _LowStockPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(inventoryMetricsProvider);
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              NeuIconChip.glyph(context,
+                  icon: Icons.inventory_2_outlined, index: 5, size: 38),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Estoque baixo',
+                    style: Theme.of(context).textTheme.titleMedium),
+              ),
+              TextButton(
+                onPressed: () => context.go('/m/inventory'),
+                child: const Text('Ver estoque'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          async.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+            ),
+            error: (_, _) => MetricError(
+                onRetry: () => ref.invalidate(inventoryMetricsProvider)),
+            data: (m) {
+              final items = m.lowStockSample;
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 18, color: neu.success),
+                      const SizedBox(width: 8),
+                      Text('Tudo acima do mínimo',
+                          style: TextStyle(color: neu.inkMuted)),
+                    ],
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: neu.line),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              items[i].name,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: neu.ink,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          NeuStatusChip(
+                            label:
+                                '${items[i].currentStock}/${items[i].minStock ?? 0}',
+                            color: neu.warning,
+                            tint: neu.warningTint,
+                            icon: Icons.warning_amber_rounded,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
