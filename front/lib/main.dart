@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/devtools/dev_inbox_overlay.dart';
 import 'core/router/app_router.dart';
@@ -10,7 +11,8 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/branding.dart';
 import 'di.dart';
 
-void main() {
+Future<void> main() async {
+  await initializeDateFormatting('pt_BR', null);
   runApp(ProviderScope(overrides: diOverrides, child: const OrbixApp()));
 }
 

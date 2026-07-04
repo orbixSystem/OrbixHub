@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../customers/domain/customers_models.dart';
@@ -63,6 +64,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   CustomersConfig _config = const CustomersConfig();
   bool get _usaSubjects => _config.usaSubjects;
   String get _subjectLabelSingular => _config.subjectLabel.singular;
+
+  DateTime? _scheduledStart;
+  DateTime? _scheduledEnd;
+
+  static final _dtFmt = DateFormat('dd/MM/yyyy HH:mm');
 
   bool _saving = false;
   String? _error;
@@ -151,6 +157,43 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   String? _opt(String v) => v.trim().isEmpty ? null : v.trim();
 
+  Future<void> _pickDateTime({required bool isStart}) async {
+    final initial = isStart
+        ? (_scheduledStart ?? DateTime.now())
+        : (_scheduledEnd ?? _scheduledStart ?? DateTime.now());
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (time == null || !mounted) return;
+
+    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() {
+      if (isStart) {
+        _scheduledStart = dt;
+        // Se fim já está definido e ficou antes do início, reseta.
+        if (_scheduledEnd != null && _scheduledEnd!.isBefore(dt)) {
+          _scheduledEnd = null;
+        }
+      } else {
+        _scheduledEnd = dt;
+      }
+    });
+  }
+
   bool get _canSubmit => _mode == _CustomerMode.existing
       ? _customer != null
       : _newName.text.trim().isNotEmpty;
@@ -174,14 +217,17 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   OrderDraft _buildDraft() {
     final complaint = _opt(_complaint.text);
-    // _assignedTo já é o uuid do membro (ou null) — nunca string vazia.
     final assignedTo = _assignedTo;
+    final startIso = _scheduledStart?.toUtc().toIso8601String();
+    final endIso = _scheduledEnd?.toUtc().toIso8601String();
     if (_mode == _CustomerMode.existing) {
       return OrderDraft(
         customerId: _customer!.id,
         subjectId: _subject?.id,
         complaint: complaint,
         assignedTo: assignedTo,
+        scheduledStart: startIso,
+        scheduledEnd: endIso,
       );
     }
     // Cliente novo: monta identifier (placa) + atributos do veículo a partir dos
@@ -208,6 +254,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       newSubjectAttributes: attrs,
       complaint: complaint,
       assignedTo: assignedTo,
+      scheduledStart: startIso,
+      scheduledEnd: endIso,
     );
   }
 
@@ -311,6 +359,44 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                       _saving ? null : (id) => setState(() => _assignedTo = id),
                   validator: (v) =>
                       (v == null) ? 'Selecione um responsável' : null,
+                ),
+                const SizedBox(height: 12),
+                // ---- Datas de previsão (obrigatórias) ----
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DateTimeField(
+                        label: 'Início previsto *',
+                        value: _scheduledStart,
+                        fmt: _dtFmt,
+                        enabled: !_saving,
+                        onTap: () => _pickDateTime(isStart: true),
+                        validator: (_) => _scheduledStart == null
+                            ? 'Informe a data/hora de início'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DateTimeField(
+                        label: 'Término previsto *',
+                        value: _scheduledEnd,
+                        fmt: _dtFmt,
+                        enabled: !_saving,
+                        onTap: () => _pickDateTime(isStart: false),
+                        validator: (_) {
+                          if (_scheduledEnd == null) {
+                            return 'Informe a data/hora de término';
+                          }
+                          if (_scheduledStart != null &&
+                              !_scheduledEnd!.isAfter(_scheduledStart!)) {
+                            return 'Deve ser após o início';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
@@ -553,6 +639,64 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       ),
     );
   }
+}
+
+/// Campo de data+hora somente-leitura que abre picker ao ser tocado.
+/// Valida via [FormField] para integrar com o [Form] do dialog.
+class _DateTimeField extends FormField<DateTime?> {
+  _DateTimeField({
+    required String label,
+    required DateTime? value,
+    required DateFormat fmt,
+    required bool enabled,
+    required VoidCallback onTap,
+    super.validator,
+  }) : super(
+          initialValue: value,
+          builder: (state) {
+            final scheme = state.context.findAncestorWidgetOfExactType<MaterialApp>() != null
+                ? Theme.of(state.context).colorScheme
+                : Theme.of(state.context).colorScheme;
+            final hasError = state.hasError;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: enabled ? onTap : null,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: label,
+                      prefixIcon: const Icon(Icons.calendar_month_outlined),
+                      errorText: hasError ? state.errorText : null,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: hasError
+                              ? scheme.error
+                              : scheme.outlineVariant,
+                        ),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      value != null ? fmt.format(value) : '—',
+                      style: TextStyle(
+                        color: value != null
+                            ? scheme.onSurface
+                            : scheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
 }
 
 /// Campo de texto com sugestões (não-obrigatórias) vindas do repo de OS
