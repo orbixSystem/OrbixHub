@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/ui/ui.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
 
@@ -12,29 +12,24 @@ class BusinessHoursScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final neu = context.neu;
     final hoursAsync = ref.watch(businessHoursProvider);
     return Scaffold(
-      backgroundColor: neu.base,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        backgroundColor: neu.surface,
-        foregroundColor: neu.ink,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.ink,
         elevation: 0,
         title: const Text(
           'Horários de funcionamento',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
       ),
       body: hoursAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Erro ao carregar horários: $e',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: neu.danger)),
-          ),
+          child: Text('Erro ao carregar horários: $e',
+              style: const TextStyle(color: AppColors.danger)),
         ),
         data: (hours) => _HoursList(hours: hours),
       ),
@@ -73,7 +68,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${updated.dayLabel} atualizado.'),
-            backgroundColor: context.neu.success,
+            backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -83,7 +78,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao salvar: $e'),
-            backgroundColor: context.neu.danger,
+            backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -98,7 +93,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _hours.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) => _DayCard(
         hours: _hours[i],
         saving: _saving,
@@ -188,25 +183,29 @@ class _DayCardState extends State<_DayCard> {
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
-    return NeuCard(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.line),
+      ),
       child: Row(
         children: [
           SizedBox(
-            width: 80,
+            width: 72,
             child: Text(
               widget.hours.dayLabel,
               style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _isOpen ? neu.ink : neu.inkFaint,
+                fontWeight: FontWeight.w600,
+                color: _isOpen ? AppColors.ink : AppColors.inkFaint,
               ),
             ),
           ),
           Switch(
             value: _isOpen,
             onChanged: widget.saving ? null : _toggleOpen,
-            activeThumbColor: neu.navy,
+            activeColor: AppColors.brand,
           ),
           const SizedBox(width: 8),
           if (_isOpen) ...[
@@ -216,7 +215,8 @@ class _DayCardState extends State<_DayCard> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('–', style: TextStyle(color: neu.inkMuted)),
+              child: Text('–',
+                  style: TextStyle(color: AppColors.inkMuted)),
             ),
             _TimeChip(
               label: _close,
@@ -224,7 +224,7 @@ class _DayCardState extends State<_DayCard> {
             ),
           ] else
             Text('Fechado',
-                style: TextStyle(color: neu.inkFaint, fontSize: 13)),
+                style: TextStyle(color: AppColors.inkFaint, fontSize: 13)),
         ],
       ),
     );
@@ -239,30 +239,22 @@ class _TimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(NeuTokens.rChip),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: neu.accentTint,
-          borderRadius: BorderRadius.circular(NeuTokens.rChip),
+          color: AppColors.brandTint,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.brand.withValues(alpha: 0.4)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule_rounded, size: 15, color: neu.navy),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: neu.navy,
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.brandDeep,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
         ),
       ),
     );
