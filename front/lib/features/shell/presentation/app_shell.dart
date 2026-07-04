@@ -145,22 +145,22 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-/// Recorta a faixa do topo com um BURACO côncavo simétrico no centro: as
-/// laterais descem até o fim (`h`) e o meio é "escavado" para cima (`h - dip`),
-/// como o topo da referência. Espelhado e responsivo (depende só da largura).
+/// Recorta a faixa do topo com um grande BURACO em "U": uma única parábola que
+/// começa já nas bordas (`h`) e escava o centro quase até o limite superior
+/// (`~0.24·h`). Simétrica e responsiva (depende só da largura).
 class _HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
-    const dip = 22.0;
-    final edge = h - dip;
+    // Vértice do U (ponto mais alto do buraco) quase encostando no topo.
+    final centerY = h * 0.24;
+    // Controle da bézier quadrática tal que o ponto médio caia em centerY.
+    final controlY = 2 * centerY - h;
     final path = Path()
+      ..moveTo(0, 0)
       ..lineTo(0, h)
-      // Sobe suavemente das laterais até o topo do buraco no centro...
-      ..cubicTo(w * 0.34, h, w * 0.40, edge, w * 0.50, edge)
-      // ...e desce de volta, espelhado.
-      ..cubicTo(w * 0.60, edge, w * 0.66, h, w, h)
+      ..quadraticBezierTo(w / 2, controlY, w, h)
       ..lineTo(w, 0)
       ..close();
     return path;
