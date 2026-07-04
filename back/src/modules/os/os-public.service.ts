@@ -153,16 +153,33 @@ export class OsPublicService {
     return created.id;
   }
 
-  /** Mensagens do chat (lado cliente), ordem cronológica. */
-  async getPublicMessages(token: string) {
+  /** Página padrão do chat público (rota polled a cada 15s — nunca sem limite). */
+  private static readonly PUBLIC_THREAD_PAGE = 50;
+
+  /**
+   * Mensagens do chat (lado cliente), ordem cronológica — PAGINADA por cursor:
+   * sem `before` = as 50 mais recentes; com `before` (ISO da mais antiga
+   * carregada) = página anterior.
+   */
+  async getPublicMessages(token: string, before?: string) {
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) {
+      throw new BadRequestException('Cursor `before` inválido.');
+    }
+    const take = OsPublicService.PUBLIC_THREAD_PAGE;
     const { tenantId, orderId } = await this.resolveToken(token);
     const conversationId = await this.resolveConversationId(tenantId, orderId);
-    const messages = await this.tenant.runWithTenant(tenantId, () =>
-      this.listMessages(conversationId),
+    const page = await this.tenant.runWithTenant(tenantId, () =>
+      this.listMessages(conversationId, { before: cursor, take: take + 1 }),
     );
-    // O cliente está vendo a conversa: marca as respostas do staff como lidas
-    // (recibo de leitura no inbox). Fora da tx acima — abre a sua própria.
-    await this.messages.markStaffMessagesRead(tenantId, conversationId);
+    const messages = page.slice(0, take).reverse(); // asc p/ exibição
+    if (!cursor) {
+      // O cliente está vendo a conversa: marca as respostas do staff como
+      // lidas (recibo de leitura no inbox). Fora da tx acima.
+      await this.messages.markStaffMessagesRead(tenantId, conversationId);
+    }
+    // Shape mantido como ARRAY (compat com o app público atual). O cliente
+    // infere "há mais antigas" quando a página vem cheia (length == 50).
     return messages.map((m) => ({
       sender: m.sender,
       authorName: m.author_name,
@@ -173,11 +190,18 @@ export class OsPublicService {
     }));
   }
 
-  private listMessages(conversationId: string) {
+  private listMessages(
+    conversationId: string,
+    opts: { before?: Date; take: number },
+  ) {
     const db = this.tenant.getClient();
     return db.message.findMany({
-      where: { conversation_id: conversationId },
-      orderBy: { created_at: 'asc' },
+      where: {
+        conversation_id: conversationId,
+        ...(opts.before ? { created_at: { lt: opts.before } } : {}),
+      },
+      orderBy: { created_at: 'desc' },
+      take: opts.take,
     });
   }
 

@@ -157,17 +157,39 @@ export class MessagesService {
     );
   }
 
+  /** Página padrão da thread (chat cresce para sempre — nunca sem limite). */
+  static readonly THREAD_PAGE_SIZE = 50;
+
   /**
-   * Thread completa. Ao abrir, o staff "leu": zera staff_unread e marca como lidas
-   * as mensagens pendentes do cliente.
+   * Thread PAGINADA por cursor: sem `before` retorna as 50 mais recentes (e o
+   * staff "leu": zera staff_unread e marca como lidas as pendentes do cliente);
+   * com `before` (ISO da mensagem mais antiga carregada) retorna a página
+   * anterior, sem tocar nos contadores. `hasMore` indica se há mais antigas.
    */
-  async getThread(user: AuthUser, convId: string) {
+  async getThread(user: AuthUser, convId: string, before?: string) {
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) {
+      throw new BadRequestException('Cursor `before` inválido.');
+    }
+    const take = MessagesService.THREAD_PAGE_SIZE;
     return this.tenant.withTenantTx(async () => {
       const conversation = await this.repo.getConversationOrThrow(convId);
-      await this.repo.resetStaffUnread(convId);
-      await this.repo.markMessagesRead(convId);
-      const messages = await this.repo.listMessages(convId);
-      return { conversation: { ...conversation, staff_unread: 0 }, messages };
+      if (!cursor) {
+        await this.repo.resetStaffUnread(convId);
+        await this.repo.markMessagesRead(convId);
+      }
+      // take+1 para saber se existe página anterior sem um COUNT extra.
+      const page = await this.repo.listMessagesPage(convId, {
+        before: cursor,
+        take: take + 1,
+      });
+      const hasMore = page.length > take;
+      const messages = page.slice(0, take).reverse(); // asc p/ exibição
+      return {
+        conversation: { ...conversation, staff_unread: 0 },
+        messages,
+        hasMore,
+      };
     });
   }
 
