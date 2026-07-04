@@ -73,13 +73,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   title: items[selected].label,
                   showMenu: !isDesktop && !isMobile,
                 ),
-                // Cross-fade suave ao trocar de tela (o sidebar fica parado).
-                Expanded(
-                  child: NeuContentSwitcher(
-                    routeKey: location,
-                    child: widget.child,
-                  ),
-                ),
+                // A transição entre telas é feita pelo Navigator do ShellRoute
+                // (pageBuilder + neuPage), não aqui — envolver o child num
+                // AnimatedSwitcher duplicava a GlobalKey da página do go_router.
+                Expanded(child: widget.child),
               ],
             ),
           ),

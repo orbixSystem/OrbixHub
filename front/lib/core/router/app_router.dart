@@ -149,69 +149,89 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (_, _, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
-          GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
-          GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
+          // pageBuilder + neuPage → o Navigator do shell faz o cross-fade da
+          // troca de tela (sem duplicar a GlobalKey da página, como acontecia
+          // ao envolver o child num AnimatedSwitcher).
+          GoRoute(
+            path: '/',
+            pageBuilder: (_, s) => neuPage(s, const DashboardScreen()),
+          ),
+          GoRoute(
+            path: '/billing',
+            pageBuilder: (_, s) => neuPage(s, const PlansScreen()),
+          ),
+          GoRoute(
+            path: '/equipe',
+            pageBuilder: (_, s) => neuPage(s, const TeamScreen()),
+          ),
           GoRoute(
             path: '/configuracoes',
-            builder: (_, _) => const SettingsScreen(),
+            pageBuilder: (_, s) => neuPage(s, const SettingsScreen()),
           ),
           // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
           // só por autenticação (já está dentro da shell autenticada).
           GoRoute(
             path: '/mensagens',
-            builder: (_, _) => const MessagesInboxScreen(),
+            pageBuilder: (_, s) => neuPage(s, const MessagesInboxScreen()),
           ),
           GoRoute(
             path: '/mensagens/:id',
-            builder: (_, state) => MessageThreadScreen(
-              conversationId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              MessageThreadScreen(
+                conversationId: s.pathParameters['id'] ?? '',
+              ),
             ),
           ),
           // Customers module — literal routes declared before the generic
           // /m/:moduleKey placeholder so they take precedence.
           GoRoute(
             path: '/m/customers',
-            builder: (_, _) => const CustomersScreen(),
+            pageBuilder: (_, s) => neuPage(s, const CustomersScreen()),
           ),
           GoRoute(
             path: '/m/customers/:id',
-            builder: (_, state) => CustomerDetailScreen(
-              customerId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              CustomerDetailScreen(customerId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Inventory module — literal route before the generic placeholder.
           GoRoute(
             path: '/m/inventory',
-            builder: (_, _) => const InventoryScreen(),
+            pageBuilder: (_, s) => neuPage(s, const InventoryScreen()),
           ),
           // OS module — literal routes before the generic placeholder so they
           // take precedence; both stay gated under /m/os.
           GoRoute(
             path: '/m/os',
-            builder: (_, _) => const OsListScreen(),
+            pageBuilder: (_, s) => neuPage(s, const OsListScreen()),
           ),
           // Templates de OS — antes de /m/os/:id para não ser capturado como id.
           GoRoute(
             path: '/m/os/templates',
-            builder: (_, _) => const TemplatesScreen(),
+            pageBuilder: (_, s) => neuPage(s, const TemplatesScreen()),
           ),
           GoRoute(
             path: '/m/os/:id',
-            builder: (_, state) => OsDetailScreen(
-              orderId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              OsDetailScreen(orderId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.
           GoRoute(
             path: '/m/report',
-            builder: (_, _) => const ReportScreen(),
+            pageBuilder: (_, s) => neuPage(s, const ReportScreen()),
           ),
           GoRoute(
             path: '/m/:moduleKey',
-            builder: (_, state) => ModulePlaceholderScreen(
-              moduleKey: state.pathParameters['moduleKey'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              ModulePlaceholderScreen(
+                moduleKey: s.pathParameters['moduleKey'] ?? '',
+              ),
             ),
           ),
         ],
