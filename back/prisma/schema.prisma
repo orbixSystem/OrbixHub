@@ -507,6 +507,80 @@ model billing_webhook_event {
   processed_at      DateTime? @db.Timestamptz(6)
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String          @db.Uuid
+  document_type     String          @default("nfse")
+  status            String          @default("draft")
+  environment       String          @default("homologacao")
+  order_id          String?         @db.Uuid
+  order_number      String?
+  customer_id       String?         @db.Uuid
+  customer_name     String?
+  customer_document String?
+  series            String?
+  number            String?
+  access_key        String?
+  service_amount    Decimal         @default(0) @db.Decimal(14, 2)
+  product_amount    Decimal         @default(0) @db.Decimal(14, 2)
+  total_amount      Decimal         @default(0) @db.Decimal(14, 2)
+  external_id       String?
+  pdf_url           String?
+  xml_url           String?
+  rejection_reason  String?
+  issued_by         String?         @db.Uuid
+  canceled_at       DateTime?       @db.Timestamptz(6)
+  authorized_at     DateTime?       @db.Timestamptz(6)
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime        @default(now()) @db.Timestamptz(6)
+  lines             invoice_line[]
+  events            invoice_event[]
+
+  @@index([tenant_id, status], map: "idx_invoice_tenant_status")
+  @@index([tenant_id, order_id], map: "idx_invoice_tenant_order")
+  @@index([tenant_id, created_at], map: "idx_invoice_tenant_created")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice_line {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  invoice_id String   @db.Uuid
+  kind       String
+  name       String
+  quantity   Decimal  @default(1) @db.Decimal(14, 3)
+  unit_price Decimal  @default(0) @db.Decimal(14, 2)
+  total      Decimal  @default(0) @db.Decimal(14, 2)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  invoice    invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, invoice_id], map: "idx_invoice_line_tenant_invoice")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice_event {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  invoice_id      String   @db.Uuid
+  kind            String
+  message         String?
+  status_snapshot String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  invoice         invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, invoice_id], map: "idx_invoice_event_tenant_invoice")
+}
+
+model invoice_webhook_event {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_event_id String    @unique
+  type              String
+  payload           Json
+  received_at       DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at      DateTime? @db.Timestamptz(6)
+}
+
 model users {
   id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email_normalized   String           @unique

@@ -1,0 +1,10 @@
+{
+  // A app Flutter fica em front/ (subpasta). Garante que a extensão Dart/Flutter
+  // ache projetos aninhados a partir da raiz do monorepo.
+  "dart.projectSearchDepth": 5
+
+  // NOTE: o caminho do Flutter SDK (dart.flutterSdkPath) fica nas *User Settings*
+  // do VSCode de cada dev — é específico da máquina e não deve ir no repo.
+  // No macOS, o VSCode aberto pela GUI não herda o PATH do shell; sem o SDK
+  // apontado, a extensão trata o projeto como "Dart-only".
+}

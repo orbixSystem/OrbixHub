@@ -53,6 +53,48 @@
       "cwd": "${workspaceFolder}/front",
       "deviceId": "chrome",
       "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Desktop Windows. Só roda EM uma máquina Windows. (target `windows/` já existe.)
+      "name": "Front: Flutter Windows",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "windows",
+      "args": ["--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Desktop macOS. Pré-requisito: gerar o target → `cd front && flutter create --platforms=macos .`
+      "name": "Front: Flutter macOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/front",
+      "deviceId": "macos",
+      "args": ["--dart-define=DEV_TOOLS=true"]
+    },
+    {
+      // Android — detecta o device/emulador Android conectado (sem hardcode de id)
+      // e roda nele. Se não houver nenhum, o script avisa como abrir um emulador.
+      // API_BASE_URL=10.0.2.2 porque no emulador Android o host/backend NÃO é localhost.
+      // (node-terminal: hot reload pelo terminal com 'r'. Para breakpoints, use o
+      //  seletor de device da barra de status + uma config "dart".)
+      "name": "Front: Flutter Android",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/run-flutter.sh android --dart-define=DEV_TOOLS=true --dart-define=API_BASE_URL=http://10.0.2.2:3000/api",
+      "cwd": "${workspaceFolder}/front"
+    },
+    {
+      // iOS (somente em macOS) — detecta o simulador/device iOS e roda nele.
+      // Pré-requisitos: `flutter create --platforms=ios .` + Xcode + CocoaPods +
+      // um simulador iOS aberto. (No simulador iOS o backend é localhost mesmo.)
+      "name": "Front: Flutter iOS",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/run-flutter.sh ios --dart-define=DEV_TOOLS=true",
+      "cwd": "${workspaceFolder}/front"
     }
   ]
 }

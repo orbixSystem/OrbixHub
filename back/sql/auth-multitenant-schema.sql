@@ -1126,3 +1126,160 @@ SELECT t.id, m.id, true, 'plan'
 FROM tenant t CROSS JOIN module m
 WHERE m.key = 'report'
 ON CONFLICT (tenant_id, module_id) DO NOTHING;
+
+-- ============================================================
+-- 0025 — Módulo `invoice` (Nota Fiscal) — aditivo, idempotente
+-- Emissão de nota a partir da OS (ONLINE-ONLY). Documento agnóstico
+-- (nfse|nfce|nfe; MVP = nfse). Snapshot das linhas da OS (serviço E produto).
+-- "Aponta não invade": só guarda id da OS/cliente. RLS + FORCE. Gateway fiscal
+-- abstrato (Noop dev / GovBrNfseGateway real); status por webhook idempotente
+-- (invoice_webhook_event global) + tenant resolvido por SECURITY DEFINER.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS invoice (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  document_type     text NOT NULL DEFAULT 'nfse',
+  status            text NOT NULL DEFAULT 'draft',
+  environment       text NOT NULL DEFAULT 'homologacao',
+  order_id          uuid,
+  order_number      text,
+  customer_id       uuid,
+  customer_name     text,
+  customer_document text,
+  series            text,
+  number            text,
+  access_key        text,
+  service_amount    numeric(14,2) NOT NULL DEFAULT 0,
+  product_amount    numeric(14,2) NOT NULL DEFAULT 0,
+  total_amount      numeric(14,2) NOT NULL DEFAULT 0,
+  external_id       text,
+  pdf_url           text,
+  xml_url           text,
+  rejection_reason  text,
+  issued_by         uuid,
+  canceled_at       timestamptz,
+  authorized_at     timestamptz,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now()
+);
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_document_type_chk') THEN
+    ALTER TABLE invoice ADD CONSTRAINT invoice_document_type_chk
+      CHECK (document_type IN ('nfse','nfce','nfe'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_status_chk') THEN
+    ALTER TABLE invoice ADD CONSTRAINT invoice_status_chk
+      CHECK (status IN ('draft','processing','authorized','rejected','canceled','error'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_environment_chk') THEN
+    ALTER TABLE invoice ADD CONSTRAINT invoice_environment_chk
+      CHECK (environment IN ('homologacao','producao'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_status ON invoice(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_order ON invoice(tenant_id, order_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_created ON invoice(tenant_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_external_id ON invoice(external_id) WHERE external_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS invoice_line (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  invoice_id   uuid NOT NULL REFERENCES invoice(id) ON DELETE CASCADE,
+  kind         text NOT NULL,
+  name         text NOT NULL,
+  quantity     numeric(14,3) NOT NULL DEFAULT 1,
+  unit_price   numeric(14,2) NOT NULL DEFAULT 0,
+  total        numeric(14,2) NOT NULL DEFAULT 0,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_kind_chk') THEN
+    ALTER TABLE invoice_line ADD CONSTRAINT invoice_line_kind_chk
+      CHECK (kind IN ('product','service'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_invoice_line_tenant_invoice ON invoice_line(tenant_id, invoice_id);
+
+CREATE TABLE IF NOT EXISTS invoice_event (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  invoice_id   uuid NOT NULL REFERENCES invoice(id) ON DELETE CASCADE,
+  kind         text NOT NULL,
+  message      text,
+  status_snapshot text,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoice_event_tenant_invoice ON invoice_event(tenant_id, invoice_id);
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['invoice','invoice_line','invoice_event']
+  LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = 'tenant_isolation') THEN
+      EXECUTE format($f$
+        CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+      $f$, t);
+    END IF;
+  END LOOP;
+END $$;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON invoice TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON invoice_line TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON invoice_event TO app_user;
+
+CREATE TABLE IF NOT EXISTS invoice_webhook_event (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_event_id text NOT NULL UNIQUE,
+  type              text NOT NULL,
+  payload           jsonb NOT NULL,
+  received_at       timestamptz NOT NULL DEFAULT now(),
+  processed_at      timestamptz
+);
+GRANT SELECT, INSERT, UPDATE ON invoice_webhook_event TO app_user;
+
+CREATE OR REPLACE FUNCTION invoice_resolve_by_external_id(p_external_id text)
+RETURNS TABLE (tenant_id uuid, invoice_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT tenant_id, id FROM invoice WHERE external_id = p_external_id
+$$;
+REVOKE ALL ON FUNCTION invoice_resolve_by_external_id(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION invoice_resolve_by_external_id(text) TO app_user;
+
+INSERT INTO permission (key, name) VALUES
+  ('invoice.read','Ver notas fiscais')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.read'
+WHERE r.key IN ('owner','gerente','caixa','mechanic')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.issue'
+WHERE r.key IN ('owner','gerente','caixa')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO module (key, name, is_core) VALUES
+  ('invoice','Nota Fiscal', false)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO plan_module (plan_id, module_id)
+SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key = 'invoice'
+WHERE pl.key IN ('trial','pro')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tenant_module (tenant_id, module_id, enabled, source)
+SELECT t.id, m.id, true, 'plan'
+FROM tenant t CROSS JOIN module m
+WHERE m.key = 'invoice'
+ON CONFLICT (tenant_id, module_id) DO NOTHING;
