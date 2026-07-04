@@ -67,10 +67,10 @@ class NeuPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final neu = context.neu;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // No claro o painel é navy; no escuro invertemos para um painel claro
-    // perder o protagonismo (o fundo já é navy).
-    final bg = isDark ? neu.surfaceHi : neu.navy;
-    final fg = isDark ? neu.ink : neu.onNavy;
+    // No claro o painel é o navy ESCURO fixo (contraste — não segue o roxo
+    // primário); no escuro usamos a superfície elevada.
+    final bg = isDark ? neu.surfaceHi : const Color(0xFF2B2F44);
+    final fg = isDark ? neu.ink : const Color(0xFFF2F3F8);
     return NeuSurface(
       elevation: NeuElevation.raisedHigh,
       radius: radius,

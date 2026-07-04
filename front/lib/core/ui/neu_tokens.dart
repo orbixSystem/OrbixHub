@@ -113,11 +113,13 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         inkMuted: Color(0xFF7B8094),
         inkFaint: Color(0xFFA6AABC),
         line: Color(0xFFD8DAE5),
-        navy: Color(0xFF2B2F44),
-        navyHover: Color(0xFF383D5B),
-        onNavy: Color(0xFFF2F3F8),
-        onNavyMuted: Color(0xFF9EA3BC),
-        accent: Color(0xFF6A70A3),
+        // Ação primária = ROXO principal (não o navy escuro — botões "pretos"
+        // liam como quebrados). O navy escuro segue nos painéis (sidebar/NeuPanel).
+        navy: Color(0xFF6C72C4),
+        navyHover: Color(0xFF7B81D4),
+        onNavy: Color(0xFFFFFFFF),
+        onNavyMuted: Color(0xFFD8DAF2),
+        accent: Color(0xFF767CC0),
         accentTint: Color(0xFFDFE1F0),
         success: Color(0xFF0E9F6E),
         successTint: Color(0xFFDDF0E8),
@@ -128,47 +130,47 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         info: Color(0xFF2E90FA),
         infoTint: Color(0xFFDFECFD),
         glyphs: [
-          Color(0xFFF5C518), // amarelo
-          Color(0xFFF2762E), // laranja
-          Color(0xFF3B82F6), // azul
-          Color(0xFF10B981), // verde
-          Color(0xFF8B5CF6), // roxo
-          Color(0xFFEC4899), // rosa
+          Color(0xFF8B5CF6), // violeta
+          Color(0xFF5B8DEF), // azul
+          Color(0xFF2DB9A8), // teal
+          Color(0xFFE86FA8), // rosa
+          Color(0xFFD9A13B), // âmbar suave
+          Color(0xFF818CF8), // índigo
         ],
       );
 
-  /// Tema escuro — navy.
+  /// Tema escuro — navy-roxo (mescla lavanda, como a referência).
   factory NeuTokens.dark() => const NeuTokens(
-        base: Color(0xFF262A3D),
-        surface: Color(0xFF2D3248),
-        surfaceHi: Color(0xFF343A54),
-        shadowLight: Color(0x3345507A),
-        shadowDark: Color(0x8014172A),
-        ink: Color(0xFFECEDF5),
-        inkMuted: Color(0xFF9BA0B8),
-        inkFaint: Color(0xFF6E7390),
-        line: Color(0xFF3B4160),
-        navy: Color(0xFFE3E5F2),
-        navyHover: Color(0xFFF2F3FA),
-        onNavy: Color(0xFF262A3D),
-        onNavyMuted: Color(0xFF5A5F7C),
-        accent: Color(0xFF9BA2DB),
-        accentTint: Color(0xFF363C5C),
-        success: Color(0xFF34C596),
-        successTint: Color(0xFF23372F),
-        danger: Color(0xFFF06A6E),
-        dangerTint: Color(0xFF3D2528),
-        warning: Color(0xFFE8B93E),
-        warningTint: Color(0xFF3B3423),
-        info: Color(0xFF5CA8FF),
-        infoTint: Color(0xFF24314A),
+        base: Color(0xFF23263B),
+        surface: Color(0xFF2C3050),
+        surfaceHi: Color(0xFF373C63),
+        shadowLight: Color(0x40525C96),
+        shadowDark: Color(0x8612142A),
+        ink: Color(0xFFEDEEFA),
+        inkMuted: Color(0xFFA2A7CB),
+        inkFaint: Color(0xFF6F7499),
+        line: Color(0xFF3E4370),
+        navy: Color(0xFFAEB4F0),
+        navyHover: Color(0xFFC2C7F7),
+        onNavy: Color(0xFF1E2136),
+        onNavyMuted: Color(0xFF4C5178),
+        accent: Color(0xFFA5ABE8),
+        accentTint: Color(0xFF3B4066),
+        success: Color(0xFF3ECFA0),
+        successTint: Color(0xFF243B34),
+        danger: Color(0xFFF0787C),
+        dangerTint: Color(0xFF3F282D),
+        warning: Color(0xFFE8BC52),
+        warningTint: Color(0xFF3B3526),
+        info: Color(0xFF6FB1FF),
+        infoTint: Color(0xFF283452),
         glyphs: [
-          Color(0xFFF5C518),
-          Color(0xFFF2762E),
-          Color(0xFF60A5FA),
-          Color(0xFF34D399),
-          Color(0xFFA78BFA),
-          Color(0xFFF472B6),
+          Color(0xFFA78BFA), // violeta
+          Color(0xFF7CA6F7), // azul
+          Color(0xFF4ED0BF), // teal
+          Color(0xFFF08BBE), // rosa
+          Color(0xFFE3B45C), // âmbar suave
+          Color(0xFF97A0FA), // índigo
         ],
       );
 

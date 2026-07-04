@@ -19,13 +19,29 @@ class _SideColors {
   final NeuTokens _neu;
   final bool _light;
 
-  Color get bg => _light ? _neu.navy : const Color(0xFF222639);
-  Color get bgHi => _light ? _neu.navyHover : _neu.surfaceHi;
+  // Painel navy ESCURO fixo (não segue o roxo primário — o contraste da
+  // sidebar com o canvas lavanda é parte da identidade).
+  Color get bg => _light ? const Color(0xFF2B2F44) : const Color(0xFF222639);
+  Color get bgHi => _light ? const Color(0xFF383D5B) : _neu.surfaceHi;
   Color get line => _light ? const Color(0xFF3D4360) : _neu.line;
-  Color get fg => _light ? _neu.onNavy : _neu.ink;
-  Color get fgMuted => _light ? _neu.onNavyMuted : _neu.inkMuted;
+  Color get fg => const Color(0xFFF2F3F8);
+  Color get fgMuted => const Color(0xFF9EA3BC);
   Color get accent => _neu.accent;
   Color get badge => _neu.danger;
+
+  /// Relevo neumórfico DENTRO do painel escuro (sombras próprias do navy).
+  List<BoxShadow> get raised => const [
+        BoxShadow(
+          color: Color(0x59101321),
+          blurRadius: 10,
+          offset: Offset(4, 4),
+        ),
+        BoxShadow(
+          color: Color(0x2E4E5580),
+          blurRadius: 10,
+          offset: Offset(-3, -3),
+        ),
+      ];
 }
 
 /// The navy navigation sidebar content, shared by the persistent desktop
@@ -202,6 +218,7 @@ class _WorkspaceChip extends StatelessWidget {
         color: c.bgHi,
         borderRadius: BorderRadius.circular(NeuTokens.rChip),
         border: Border.all(color: c.line),
+        boxShadow: c.raised,
       ),
       child: Row(
         children: [
@@ -300,6 +317,8 @@ class _SideNavItemState extends State<_SideNavItem> {
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(NeuTokens.rChip),
+              // Item ativo ganha relevo (neumorfismo dentro do painel).
+              boxShadow: active ? c.raised : null,
             ),
             child: Row(
               children: [

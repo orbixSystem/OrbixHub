@@ -42,7 +42,7 @@ class DashboardScreen extends ConsumerWidget {
       padding: EdgeInsets.all(context.isMobile ? 16 : 28),
       children: [
         if (sub != null && sub.isPastDue) const _PastDueBanner(),
-        Text('Olá, $firstName 👋',
+        Text('Olá, $firstName',
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 6),
         Text(
