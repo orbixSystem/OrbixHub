@@ -25,24 +25,26 @@ export class ScheduleService implements OnModuleInit {
       title: 'Agenda & Horários de funcionamento',
       moduleKey: 'os',
       fields: [
-        // A seção tem campos informativos mas o editor real de horários
-        // é uma tela dedicada (/schedule/business-hours). Por isso os campos
-        // são de leitura apenas aqui — a UI do settings exibe um link/botão.
+        { key: 'diasAbertos', label: 'Dias de funcionamento', type: 'text' },
+        { key: 'horario', label: 'Horário padrão', type: 'text' },
       ],
       getValues: async (tenantId: string) => {
-        // Retorna os horários para exibição no painel de configurações.
         const rows = await this.tenant.runWithTenant(tenantId, () =>
           this.repo.getBusinessHours(tenantId),
         );
-        return {
-          businessHours: rows.map((r) => ({
-            dayOfWeek: r.day_of_week,
-            dayLabel: DAY_LABELS[r.day_of_week],
-            isOpen: r.is_open,
-            openTime: r.open_time,
-            closeTime: r.close_time,
-          })),
-        };
+        const open = rows.filter((r) => r.is_open);
+        const diasAbertos = open.length === 0
+          ? 'Nenhum dia configurado'
+          : open.map((r) => DAY_LABELS[r.day_of_week].slice(0, 3)).join(', ');
+
+        // Horário representativo: intervalo mais comum entre os dias abertos
+        const horarios = open
+          .filter((r) => r.open_time && r.close_time)
+          .map((r) => `${r.open_time} às ${r.close_time}`);
+        const unique = [...new Set(horarios)];
+        const horario = unique.length === 0 ? '—' : unique.length === 1 ? unique[0] : unique.join(' / ');
+
+        return { diasAbertos, horario };
       },
     });
   }

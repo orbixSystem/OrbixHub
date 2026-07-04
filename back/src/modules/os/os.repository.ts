@@ -306,6 +306,30 @@ export class OsRepository {
     });
   }
 
+  /** OSes com agendamento (scheduled_start) no período — alimenta a agenda. */
+  async getScheduledOrders(filter: AgendaFilter) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        scheduled_start: { gte: filter.from, lt: filter.to },
+        scheduled_end: { not: null },
+        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        customer_name: true,
+        subject_label: true,
+        assigned_to: true,
+        scheduled_start: true,
+        scheduled_end: true,
+        complaint: true,
+      },
+      orderBy: { scheduled_start: 'asc' },
+    });
+  }
+
   // ---- eventos (timeline) ----
   /** Cria um evento na timeline. Usa o cliente tx-scoped — roda na MESMA tx do chamador. */
   createEvent(tenantId: string, orderId: string, data: CreateEventData) {
