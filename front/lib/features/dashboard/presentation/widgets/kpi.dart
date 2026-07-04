@@ -220,23 +220,31 @@ class _KpiGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         const gap = 14.0;
-        final cols = (c.maxWidth / 210).floor().clamp(2, 4);
+        final n = tiles.length;
+        final maxCols = (c.maxWidth / 210).floor().clamp(1, 4);
+        // Escolhe o nº de colunas que DIVIDE os KPIs (linhas cheias, sem
+        // buracos). Ex.: 6 KPIs em telas largas → 3×2; em tablet → 2×3.
+        var cols = n <= maxCols ? n : maxCols;
+        for (var k = maxCols; k >= 2; k--) {
+          if (n % k == 0) {
+            cols = k;
+            break;
+          }
+        }
         final rows = <Widget>[];
-        for (var i = 0; i < tiles.length; i += cols) {
+        for (var i = 0; i < n; i += cols) {
           final slice = tiles.skip(i).take(cols).toList();
           rows.add(Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                // Cada tile é Expanded → a linha (mesmo a última parcial) sempre
+                // preenche a largura, sem slots vazios/buracos.
                 children: [
-                  for (var j = 0; j < cols; j++) ...[
+                  for (var j = 0; j < slice.length; j++) ...[
                     if (j > 0) const SizedBox(width: gap),
-                    Expanded(
-                      child: j < slice.length
-                          ? slice[j]
-                          : const SizedBox.shrink(),
-                    ),
+                    Expanded(child: slice[j]),
                   ],
                 ],
               ),

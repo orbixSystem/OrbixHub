@@ -52,6 +52,7 @@ dependencies:
   web: ^1.1.0
   fl_chart: ^1.1.1
   csv: ^6.0.0
+  animations: ^2.0.11
 
 dev_dependencies:
   flutter_test:

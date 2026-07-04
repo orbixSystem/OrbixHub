@@ -41,15 +41,21 @@ class _AppShellState extends ConsumerState<AppShell> {
       _scaffoldKey.currentState?.closeDrawer();
     }
 
+    final isMobile = size == ScreenSize.mobile;
+    final isDesktop = size == ScreenSize.desktop;
+    // Colapso só no desktop; no drawer (tablet) sempre expandido.
+    final collapsed = isDesktop && ref.watch(sidebarCollapsedProvider);
+
     final sidebar = SidebarContent(
       me: me,
       items: items,
       selectedIndex: selected,
       onNavigate: navigate,
+      collapsed: collapsed,
+      onToggleCollapse: isDesktop
+          ? () => ref.read(sidebarCollapsedProvider.notifier).toggle()
+          : null,
     );
-
-    final isMobile = size == ScreenSize.mobile;
-    final isDesktop = size == ScreenSize.desktop;
 
     return Scaffold(
       key: _scaffoldKey,
