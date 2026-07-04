@@ -98,31 +98,41 @@ final itemListQueryProvider =
     NotifierProvider<ItemListQueryNotifier, ItemListQuery>(
         ItemListQueryNotifier.new);
 
-/// Estado da lista paginada: itens acumulados + se há mais lotes a carregar.
+/// Estado da lista paginada. Dois modos (spec): mobile acumula lotes
+/// (infinite scroll via [ItemListNotifier.loadMore]); desktop navega por
+/// página numerada ([ItemListNotifier.goToPage] substitui os itens).
 class ItemListState {
   const ItemListState({
     required this.items,
     required this.total,
     required this.hasMore,
     this.loadingMore = false,
+    this.page = 1,
+    this.pageSize = 20,
   });
 
   final List<InventoryItem> items;
   final int total;
   final bool hasMore;
   final bool loadingMore;
+  final int page;
+  final int pageSize;
 
   ItemListState copyWith({
     List<InventoryItem>? items,
     int? total,
     bool? hasMore,
     bool? loadingMore,
+    int? page,
+    int? pageSize,
   }) =>
       ItemListState(
         items: items ?? this.items,
         total: total ?? this.total,
         hasMore: hasMore ?? this.hasMore,
         loadingMore: loadingMore ?? this.loadingMore,
+        page: page ?? this.page,
+        pageSize: pageSize ?? this.pageSize,
       );
 }
 
@@ -142,7 +152,29 @@ class ItemListNotifier extends AsyncNotifier<ItemListState> {
       items: page.items,
       total: page.total,
       hasMore: page.items.length < page.total,
+      page: page.page,
+      pageSize: page.pageSize,
     );
+  }
+
+  /// Modo desktop (página numerada): SUBSTITUI os itens pela página pedida.
+  Future<void> goToPage(int target) async {
+    final current = state.asData?.value;
+    if (current == null || current.loadingMore || target < 1) return;
+    state = AsyncData(current.copyWith(loadingMore: true));
+    try {
+      final next = await _fetch(target);
+      _page = target;
+      state = AsyncData(ItemListState(
+        items: next.items,
+        total: next.total,
+        hasMore: target * next.pageSize < next.total,
+        page: target,
+        pageSize: next.pageSize,
+      ));
+    } catch (_) {
+      state = AsyncData(current.copyWith(loadingMore: false));
+    }
   }
 
   Future<ItemPage> _fetch(int page) =>
@@ -171,6 +203,8 @@ class ItemListNotifier extends AsyncNotifier<ItemListState> {
         items: merged,
         total: next.total,
         hasMore: merged.length < next.total && next.items.isNotEmpty,
+        page: _page,
+        pageSize: next.pageSize,
       ));
     } catch (_) {
       state = AsyncData(current.copyWith(loadingMore: false));

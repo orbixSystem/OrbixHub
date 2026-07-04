@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/inventory_models.dart';
@@ -26,9 +26,10 @@ bool isLowStock(InventoryItem i) {
   return qty <= min;
 }
 
-/// Lista de produtos: barra de filtros (status + estoque baixo + busca + novo)
-/// e linhas expansíveis com menu (editar/arquivar/excluir). Sem tela de detalhe
-/// separada — a ficha do item abre inline. Corpo apenas — a moldura é do shell.
+/// Lista de itens — adaptativa (spec 2026-07-04): desktop = linhas densas +
+/// paginação numerada; mobile = cards + pull-to-refresh + infinite scroll +
+/// FAB "Novo item". Linhas expansíveis com a ficha do item inline.
+/// Corpo apenas — a moldura é do shell.
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
@@ -54,10 +55,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     super.dispose();
   }
 
-  /// Dispara o carregamento do próximo lote ao chegar perto do fim do scroll
-  /// (300px antes do fundo) — o notifier ignora chamadas redundantes.
+  /// Infinite scroll (mobile): dispara o próximo lote perto do fim.
   void _onScroll() {
-    if (!_scroll.hasClients) return;
+    if (!_scroll.hasClients || !mounted || !context.isMobile) return;
     final pos = _scroll.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
       ref.read(itemListProvider.notifier).loadMore();
@@ -76,146 +76,251 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final listAsync = ref.watch(itemListProvider);
-    final query = ref.watch(itemListQueryProvider);
-    final notifier = ref.read(itemListQueryProvider.notifier);
     final canWrite = _canWrite();
+    final isMobile = context.isMobile;
 
-    return Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Barra de ações: filtros à esquerda; novo + busca à direita.
-          // Dois clusters em um Wrap com spaceBetween — reflui em telas estreitas
-          // sem Spacer (que exige um Flex, não cabe num Wrap).
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'all', label: Text('Todos')),
-                      ButtonSegment(value: 'product', label: Text('Produtos')),
-                      ButtonSegment(value: 'service', label: Text('Serviços')),
-                    ],
-                    selected: {query.kind ?? 'all'},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (sel) => notifier
-                        .setKind(sel.first == 'all' ? null : sel.first),
-                  ),
-                  FilterChip(
-                    label: const Text('Só estoque baixo'),
-                    avatar: Icon(
-                      query.lowStock
-                          ? Icons.warning_amber_rounded
-                          : Icons.warning_amber_outlined,
-                      size: 18,
-                    ),
-                    selected: query.lowStock,
-                    onSelected: notifier.setLowStock,
-                  ),
-                  _SortMenu(
-                    value: query.sort,
-                    onChanged: notifier.setSort,
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (canWrite)
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 48)),
-                      onPressed: _create,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Novo item'),
-                    ),
-                  SizedBox(
-                    width: 260,
-                    child: TextField(
-                      controller: _search,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        hintText: 'Buscar produto',
-                      ),
-                      onChanged: notifier.setQuery,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: listAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      e is AppException
-                          ? e.message
-                          : 'Erro ao carregar itens.',
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 40)),
-                      onPressed: () => ref.invalidate(itemListProvider),
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Tentar de novo'),
-                    ),
-                  ],
-                ),
-              ),
-              data: (page) {
-                if (page.items.isEmpty) {
-                  return const Center(child: Text('Nenhum item encontrado.'));
-                }
-                // +1 slot para o rodapé (loader do próximo lote ou "fim da lista").
-                return ListView.separated(
-                  controller: _scroll,
-                  itemCount: page.items.length + 1,
-                  separatorBuilder: (_, i) =>
-                      i >= page.items.length - 1
-                          ? const SizedBox.shrink()
-                          : const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    if (i < page.items.length) {
-                      return _ItemTile(item: page.items[i], canWrite: canWrite);
-                    }
-                    return _ListFooter(
-                      loadingMore: page.loadingMore,
-                      hasMore: page.hasMore,
-                      shown: page.items.length,
-                      total: page.total,
-                    );
-                  },
-                );
-              },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: (isMobile && canWrite)
+          ? FloatingActionButton.extended(
+              onPressed: _create,
+              backgroundColor: context.neu.navy,
+              foregroundColor: context.neu.onNavy,
+              icon: const Icon(Icons.add),
+              label: const Text('Novo item'),
+            )
+          : null,
+      body: Padding(
+        padding: EdgeInsets.all(isMobile ? 16 : 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Toolbar(
+              search: _search,
+              canWrite: canWrite,
+              onCreate: _create,
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Expanded(child: _Body(scroll: _scroll, canWrite: canWrite)),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Menu de ordenação: gatilho estilo botão (ícone + rótulo atual) que abre a
-/// lista de opções. Marca a opção selecionada com um check tangerina.
+class _Toolbar extends ConsumerWidget {
+  const _Toolbar({
+    required this.search,
+    required this.canWrite,
+    required this.onCreate,
+  });
+
+  final TextEditingController search;
+  final bool canWrite;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final query = ref.watch(itemListQueryProvider);
+    final notifier = ref.read(itemListQueryProvider.notifier);
+    final isMobile = context.isMobile;
+
+    final kindSegmented = NeuSegmented<String>(
+      segments: const {
+        'all': 'Todos',
+        'product': 'Produtos',
+        'service': 'Serviços',
+      },
+      selected: query.kind ?? 'all',
+      onChanged: (v) => notifier.setKind(v == 'all' ? null : v),
+    );
+
+    final lowStockToggle = InkWell(
+      onTap: () => notifier.setLowStock(!query.lowStock),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: query.lowStock ? neu.warning : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: query.lowStock ? null : neu.raised(),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              query.lowStock
+                  ? Icons.warning_amber_rounded
+                  : Icons.warning_amber_outlined,
+              size: 16,
+              color: query.lowStock ? Colors.white : neu.inkMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Só estoque baixo',
+              style: TextStyle(
+                color: query.lowStock ? Colors.white : neu.inkMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final sortMenu = _SortMenu(value: query.sort, onChanged: notifier.setSort);
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          NeuSearchBar(
+            hint: 'Buscar produto ou serviço',
+            controller: search,
+            onChanged: notifier.setQuery,
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                kindSegmented,
+                const SizedBox(width: 8),
+                lowStockToggle,
+                const SizedBox(width: 8),
+                sortMenu,
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: NeuSearchBar(
+                  hint: 'Buscar produto ou serviço',
+                  controller: search,
+                  onChanged: notifier.setQuery,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            sortMenu,
+            if (canWrite) ...[
+              const SizedBox(width: 12),
+              NeuButton(
+                label: 'Novo item',
+                icon: Icons.add_rounded,
+                onPressed: onCreate,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            kindSegmented,
+            const SizedBox(width: 12),
+            lowStockToggle,
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Body extends ConsumerWidget {
+  const _Body({required this.scroll, required this.canWrite});
+
+  final ScrollController scroll;
+  final bool canWrite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final listAsync = ref.watch(itemListProvider);
+    final isMobile = context.isMobile;
+
+    return listAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(e is AppException ? e.message : 'Erro ao carregar itens.'),
+            const SizedBox(height: 12),
+            NeuButton(
+              label: 'Tentar de novo',
+              kind: NeuButtonKind.secondary,
+              icon: Icons.refresh,
+              onPressed: () => ref.invalidate(itemListProvider),
+            ),
+          ],
+        ),
+      ),
+      data: (page) {
+        if (page.items.isEmpty) {
+          return const NeuEmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: 'Nenhum item encontrado',
+            message:
+                'Cadastre produtos e serviços para usá-los nas ordens de serviço e controlar o estoque.',
+          );
+        }
+
+        final list = ListView.separated(
+          controller: scroll,
+          padding: EdgeInsets.only(bottom: isMobile ? 88 : 8),
+          itemCount: page.items.length + (isMobile ? 1 : 0),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (_, i) {
+            if (isMobile && i >= page.items.length) {
+              return NeuListFooter(
+                loading: page.loadingMore,
+                hasMore: page.hasMore,
+                total: page.total,
+              );
+            }
+            return _ItemTile(item: page.items[i], canWrite: canWrite);
+          },
+        );
+
+        if (isMobile) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(itemListProvider),
+            child: list,
+          );
+        }
+
+        return Column(
+          children: [
+            Expanded(child: list),
+            const SizedBox(height: 12),
+            NeuPageControls(
+              page: page.page,
+              pageSize: page.pageSize,
+              total: page.total,
+              onPage: (p) => ref.read(itemListProvider.notifier).goToPage(p),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Menu de ordenação neumórfico.
 class _SortMenu extends StatelessWidget {
   const _SortMenu({required this.value, required this.onChanged});
 
@@ -234,7 +339,7 @@ class _SortMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return PopupMenuButton<ItemSort>(
       tooltip: 'Ordenar',
       initialValue: value,
@@ -246,32 +351,34 @@ class _SortMenu extends StatelessWidget {
             value: s,
             child: Row(
               children: [
-                Icon(_iconFor(s),
-                    size: 18, color: scheme.onSurfaceVariant),
+                Icon(_iconFor(s), size: 18, color: neu.inkMuted),
                 const SizedBox(width: 12),
                 Expanded(child: Text(s.label)),
                 if (s == value)
-                  const Icon(Icons.check, size: 18, color: AppColors.brand),
+                  Icon(Icons.check, size: 18, color: neu.accent),
               ],
             ),
           ),
       ],
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(12),
-        ),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_vert, size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(value.label,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, color: scheme.onSurfaceVariant),
+            Icon(Icons.swap_vert, size: 18, color: neu.inkMuted),
+            if (!context.isMobile) ...[
+              const SizedBox(width: 8),
+              Text(
+                value.label,
+                style: TextStyle(
+                  color: neu.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            Icon(Icons.arrow_drop_down, color: neu.inkMuted),
           ],
         ),
       ),
@@ -279,51 +386,8 @@ class _SortMenu extends StatelessWidget {
   }
 }
 
-/// Rodapé da lista: spinner enquanto busca o próximo lote; convite a rolar quando
-/// há mais; contagem total quando tudo foi carregado.
-class _ListFooter extends StatelessWidget {
-  const _ListFooter({
-    required this.loadingMore,
-    required this.hasMore,
-    required this.shown,
-    required this.total,
-  });
-
-  final bool loadingMore;
-  final bool hasMore;
-  final int shown;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = TextStyle(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 13,
-    );
-    final Widget child;
-    if (loadingMore) {
-      child = const SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(strokeWidth: 2.5),
-      );
-    } else if (hasMore) {
-      child = Text('Role para carregar mais', style: style);
-    } else {
-      child = Text(
-        '$total ${total == 1 ? 'item' : 'itens'} no total',
-        style: style,
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Center(child: child),
-    );
-  }
-}
-
-/// Linha expansível de produto. O cabeçalho (menos o kebab) alterna a expansão;
-/// o corpo expandido reusa a grade de fatos da antiga ficha de detalhe.
+/// Linha expansível de item. O cabeçalho (menos o kebab) alterna a expansão;
+/// o corpo expandido mostra a grade de fatos do item.
 class _ItemTile extends ConsumerStatefulWidget {
   const _ItemTile({required this.item, required this.canWrite});
 
@@ -368,10 +432,10 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancelar'),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+          NeuButton(
+            label: 'Excluir',
+            kind: NeuButtonKind.danger,
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Excluir'),
           ),
         ],
       ),
@@ -388,6 +452,7 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final item = _item;
     final isService = item.kind == 'service';
     final low = isService ? false : isLowStock(item);
@@ -399,157 +464,131 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
         : 'Estoque: ${item.currentStock}$unit · ${money(item.salePrice)}';
     final archived = !item.isActive;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.brandTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isService
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      radius: NeuTokens.rField,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(NeuTokens.rField),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  NeuIconChip.glyph(
+                    context,
+                    icon: isService
                         ? Icons.design_services_outlined
                         : Icons.inventory_2_outlined,
-                    color: AppColors.brandDeep,
-                    size: 22,
+                    index: isService ? 5 : 2,
+                    size: 42,
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (low) ...[
-                  const _LowChip(),
-                  const SizedBox(width: 6),
-                ],
-                if (archived) ...[
-                  _ArchivedChip(),
-                  const SizedBox(width: 6),
-                ],
-                if (widget.canWrite)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    tooltip: 'Mais ações',
-                    onSelected: _onMenu,
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'editar',
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.edit_outlined),
-                          title: Text('Editar'),
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.delete_outline,
-                              color: AppColors.danger),
-                          title: Text(
-                            'Excluir',
-                            style: TextStyle(color: AppColors.danger),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: neu.ink,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style:
+                              TextStyle(color: neu.inkMuted, fontSize: 13),
+                        ),
+                      ],
+                    ),
                   ),
-                AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: const Icon(Icons.expand_more),
-                ),
-              ],
+                  if (low) ...[
+                    NeuStatusChip(
+                      label: 'Baixo',
+                      color: neu.warning,
+                      tint: neu.warningTint,
+                      icon: Icons.warning_amber_rounded,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (archived) ...[
+                    NeuStatusChip(
+                      label: 'Arquivado',
+                      color: neu.inkMuted,
+                      tint: neu.inkMuted.withValues(alpha: .14),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (widget.canWrite)
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, color: neu.inkMuted),
+                      tooltip: 'Mais ações',
+                      onSelected: _onMenu,
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'editar',
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('Editar'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading:
+                                Icon(Icons.delete_outline, color: neu.danger),
+                            title: Text(
+                              'Excluir',
+                              style: TextStyle(color: neu.danger),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(Icons.expand_more, color: neu.inkFaint),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          alignment: Alignment.topCenter,
-          curve: Curves.easeInOut,
-          child: _expanded
-              ? Padding(
-                  padding: const EdgeInsets.only(
-                      left: 60, right: 4, bottom: 14, top: 2),
-                  child: _FactsCard(item: item),
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-      ],
-    );
-  }
-}
-
-class _LowChip extends StatelessWidget {
-  const _LowChip();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Chip(
-      visualDensity: VisualDensity.compact,
-      avatar: Icon(Icons.warning_amber_rounded,
-          size: 16, color: AppColors.brandDeep),
-      backgroundColor: AppColors.brandTint,
-      side: BorderSide(color: AppColors.brand),
-      label: Text(
-        'Baixo',
-        style: TextStyle(
-          color: AppColors.brandDeep,
-          fontWeight: FontWeight.w700,
-        ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            alignment: Alignment.topCenter,
+            curve: Curves.easeInOut,
+            child: _expanded
+                ? Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    child: _FactsCard(item: item),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ArchivedChip extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      label: const Text('Arquivado'),
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-    );
-  }
-}
-
 /// Grade de fatos do item (preço, custo, margem, estoque, categoria, atributos
-/// da vertical…). Reusa o visual tangerina da antiga ficha de detalhe.
+/// da vertical…) — cavada dentro do cartão expandido.
 class _FactsCard extends StatelessWidget {
   const _FactsCard({required this.item});
   final InventoryItem item;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final isService = item.kind == 'service';
     final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
     final facts = <(IconData, String, String?)>[
@@ -583,13 +622,10 @@ class _FactsCard extends StatelessWidget {
               : entry.value?.toString()
         ),
     ];
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(14),
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -604,25 +640,26 @@ class _FactsCard extends StatelessWidget {
 }
 
 class _FactTile extends StatelessWidget {
-  const _FactTile({required this.icon, required this.label, required this.value});
+  const _FactTile(
+      {required this.icon, required this.label, required this.value});
   final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return Container(
       width: 200,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
+        color: neu.surfaceHi,
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+          Icon(icon, size: 18, color: neu.inkMuted),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -630,13 +667,15 @@ class _FactTile extends StatelessWidget {
               children: [
                 Text(label,
                     style: TextStyle(
-                        color: scheme.onSurfaceVariant,
+                        color: neu.inkMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 3),
                 Text(value,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: neu.ink)),
               ],
             ),
           ),
