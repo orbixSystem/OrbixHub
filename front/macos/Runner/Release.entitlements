@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Para distribuir (release assinado) usando flutter_secure_storage, assine
+	     com um time de desenvolvedor (Signing & Capabilities) e adicione:
+	         <key>keychain-access-groups</key>
+	         <array><string>$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string></array>
+	     Sem certificado de desenvolvedor isso quebra o build (ad-hoc signing). -->
+</dict>
+</plist>

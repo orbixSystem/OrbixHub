@@ -1,27 +1,9 @@
-import 'dart:convert';
-import 'dart:js_interop';
-import 'dart:typed_data';
-
-import 'package:web/web.dart' as web;
-
-/// Dispara o download de um arquivo no navegador (web). Cria um Blob, uma URL
-/// temporária e um `<a download>` programático; revoga a URL em seguida.
-void downloadBytes(Uint8List bytes, String filename, String mime) {
-  final blob = web.Blob(
-    <JSAny>[bytes.toJS].toJS,
-    web.BlobPropertyBag(type: mime),
-  );
-  final url = web.URL.createObjectURL(blob);
-  final anchor = web.HTMLAnchorElement()
-    ..href = url
-    ..download = filename;
-  anchor.click();
-  web.URL.revokeObjectURL(url);
-}
-
-/// Dispara o download de um texto (ex.: CSV). UTF-8 com BOM para o Excel
-/// reconhecer acentos.
-void downloadText(String content, String filename, String mime) {
-  final withBom = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(content)];
-  downloadBytes(Uint8List.fromList(withBom), filename, mime);
-}
+// Download de arquivos (CSV/PDF dos relatórios) — multiplataforma.
+//
+// Na web dispara o download do navegador (Blob + <a download>); em
+// desktop/mobile salva o arquivo em disco. As duas impls expõem
+// downloadBytes/downloadText com a mesma assinatura; o export condicional
+// escolhe a certa por plataforma, evitando que package:web/dart:js_interop
+// (web-only) sejam compilados para targets nativos (macOS/Android/iOS/Windows).
+export 'report_download_io.dart'
+    if (dart.library.js_interop) 'report_download_web.dart';
