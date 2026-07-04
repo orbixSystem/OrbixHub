@@ -145,20 +145,22 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-/// Recorta a faixa do topo com um VALE simétrico no centro (parábola suave):
-/// laterais planas em `h - dip`, descendo até o ponto mais baixo em `w/2` e
-/// subindo de volta espelhado. Responsivo — depende só da largura.
+/// Recorta a faixa do topo com um BURACO côncavo simétrico no centro: as
+/// laterais descem até o fim (`h`) e o meio é "escavado" para cima (`h - dip`),
+/// como o topo da referência. Espelhado e responsivo (depende só da largura).
 class _HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
-    const dip = 20.0;
+    const dip = 22.0;
     final edge = h - dip;
     final path = Path()
-      ..lineTo(0, edge)
-      ..cubicTo(w * 0.30, edge, w * 0.38, h, w * 0.50, h)
-      ..cubicTo(w * 0.62, h, w * 0.70, edge, w, edge)
+      ..lineTo(0, h)
+      // Sobe suavemente das laterais até o topo do buraco no centro...
+      ..cubicTo(w * 0.34, h, w * 0.40, edge, w * 0.50, edge)
+      // ...e desce de volta, espelhado.
+      ..cubicTo(w * 0.60, edge, w * 0.66, h, w, h)
       ..lineTo(w, 0)
       ..close();
     return path;

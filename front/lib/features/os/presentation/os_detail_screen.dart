@@ -89,13 +89,18 @@ class OsDetailScreen extends ConsumerWidget {
 
         final isDesktop = context.isDesktop;
         final body = isDesktop
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 3, child: _stack(mainSections)),
-                  const SizedBox(width: 24),
-                  Expanded(flex: 2, child: _stack(asideSections)),
-                ],
+            // IntrinsicHeight + stretch: as duas colunas ficam da mesma altura
+            // (a principal manda), e a última seção da lateral (fotos) é
+            // esticada para preencher — sem "buraco" no fim da coluna.
+            ? IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 3, child: _stack(mainSections)),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 2, child: _asideStack(asideSections)),
+                  ],
+                ),
               )
             : _stack([...mainSections, ...asideSections]);
 
@@ -225,6 +230,24 @@ class OsDetailScreen extends ConsumerWidget {
       }
     }
   }
+}
+
+/// Empilha as seções da coluna LATERAL como [_stack], mas ESTICA a última
+/// (fotos) para ocupar a altura restante — evita o "buraco" no fim da coluna
+/// quando a coluna principal é mais alta.
+Widget _asideStack(List<Widget> sections) {
+  if (sections.isEmpty) return const SizedBox.shrink();
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var i = 0; i < sections.length - 1; i++) ...[
+        if (i > 0) const SizedBox(height: 20),
+        sections[i],
+      ],
+      if (sections.length > 1) const SizedBox(height: 20),
+      Expanded(child: sections.last),
+    ],
+  );
 }
 
 /// Empilha seções com espaçamento padrão de 20px entre elas.
