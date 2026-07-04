@@ -210,10 +210,29 @@ class NeuDialog extends StatelessWidget {
   }
 }
 
+/// Abre um [NeuDialog] com animação de surgimento/desaparecimento (fade +
+/// scale suave), em vez de só "aparecer" na tela.
 Future<T?> showNeuDialog<T>(BuildContext context, {required NeuDialog dialog}) {
-  return showDialog<T>(
+  return showGeneralDialog<T>(
     context: context,
-    barrierColor: Colors.black38,
-    builder: (_) => dialog,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, _, _) => dialog,
+    transitionBuilder: (context, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.92, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
   );
 }

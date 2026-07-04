@@ -99,13 +99,25 @@ class SidebarContent extends ConsumerWidget {
         .watch(settingsControllerProvider)
         .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeInOutCubic,
       width: collapsed ? 76 : 272,
       decoration: BoxDecoration(color: c.bg, boxShadow: c.edge),
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOut,
+          // Constraints justas (largura corrente) para os dois layouts durante
+          // a animação — evita overflow ao encolher/expandir.
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            fit: StackFit.expand,
+            children: [...previousChildren, ?currentChild],
+          ),
+          child: Column(
+            key: ValueKey(collapsed),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Topo: marca (+ botão de colapsar no desktop).
             Padding(
               padding: EdgeInsets.fromLTRB(collapsed ? 0 : 22, 22, collapsed ? 0 : 14, 14),
@@ -197,6 +209,7 @@ class SidebarContent extends ConsumerWidget {
               ),
             _UserFooter(me: me, collapsed: collapsed),
           ],
+          ),
         ),
       ),
     );

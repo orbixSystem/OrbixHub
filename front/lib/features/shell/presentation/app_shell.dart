@@ -101,34 +101,62 @@ class _ContentHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    return Container(
-      height: 66,
-      color: neu.base,
-      padding: EdgeInsets.only(left: showMenu ? 8 : 28, right: 20),
-      child: Row(
-        children: [
-          if (showMenu)
-            Builder(
-              builder: (context) => IconButton(
-                icon: Icon(Icons.menu_rounded, color: neu.ink),
-                tooltip: 'Menu',
-                onPressed: () => Scaffold.of(context).openDrawer(),
+    // Faixa do topo com borda inferior ONDULADA e cor levemente diferente do
+    // canvas (neu.surface sobre neu.base) — o visual "soft" da referência.
+    return PhysicalShape(
+      clipper: _HeaderWaveClipper(),
+      color: neu.surface,
+      elevation: 3,
+      shadowColor: neu.shadowDark,
+      child: SizedBox(
+        height: 82,
+        child: Padding(
+          padding: EdgeInsets.only(left: showMenu ? 8 : 28, right: 20, bottom: 14),
+          child: Row(
+            children: [
+              if (showMenu)
+                Builder(
+                  builder: (context) => IconButton(
+                    icon: Icon(Icons.menu_rounded, color: neu.ink),
+                    tooltip: 'Menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(color: neu.ink),
               ),
-            ),
-          Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(color: neu.ink),
+              const Spacer(),
+              // Sino + toggle de tema vivem no overlay global (GlobalControls).
+            ],
           ),
-          const Spacer(),
-          // Sino + toggle de tema vivem no overlay global (GlobalControls),
-          // lado a lado no topo-direita — evita a sobreposição.
-        ],
+        ),
       ),
     );
   }
+}
+
+/// Recorta a faixa do topo com uma borda inferior em onda suave.
+class _HeaderWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..lineTo(0, h - 20)
+      // Onda suave: desce, sobe e assenta na direita.
+      ..quadraticBezierTo(w * 0.28, h - 2, w * 0.52, h - 14)
+      ..quadraticBezierTo(w * 0.78, h - 28, w, h - 12)
+      ..lineTo(w, 0)
+      ..close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 /// Bottom navigation neumórfica do mobile: até 3 destinos principais + "Mais"
