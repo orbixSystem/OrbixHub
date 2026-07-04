@@ -145,22 +145,26 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-/// Recorta a faixa do topo com um grande BURACO em "U": uma única parábola que
-/// começa já nas bordas (`h`) e escava o centro quase até o limite superior
-/// (`~0.24·h`). Simétrica e responsiva (depende só da largura).
+/// Recorta a faixa do topo com um ENTALHE circular pequeno e centralizado (um
+/// "berço", como o notch do FAB na referência): borda inferior reta, com um
+/// recorte suave no centro. Simétrico e responsivo (só depende da largura).
 class _HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
-    // Vértice do U (ponto mais alto do buraco) quase encostando no topo.
-    final centerY = h * 0.24;
-    // Controle da bézier quadrática tal que o ponto médio caia em centerY.
-    final controlY = 2 * centerY - h;
+    final cx = w / 2;
+    const r = 44.0; // meia-largura do entalhe (~88px de largura)
+    const depth = 26.0; // profundidade do recorte
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo(0, h)
-      ..quadraticBezierTo(w / 2, controlY, w, h)
+      ..lineTo(cx - r - 10, h)
+      // Entra no entalhe (sobe até o centro)...
+      ..cubicTo(cx - r + 6, h, cx - r + 12, h - depth, cx, h - depth)
+      // ...e sai, espelhado.
+      ..cubicTo(cx + r - 12, h - depth, cx + r - 6, h, cx + r + 10, h)
+      ..lineTo(w, h)
       ..lineTo(w, 0)
       ..close();
     return path;
