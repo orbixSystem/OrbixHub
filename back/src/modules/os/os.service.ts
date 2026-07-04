@@ -245,6 +245,21 @@ export class OsService {
     });
   }
 
+  /**
+   * Cabeçalho da OS + itens para consumo por OUTRO módulo (ex.: `invoice`) via
+   * service público — "aponta, não invade": o chamador guarda só o id e busca
+   * aqui, sem tocar as tabelas da OS. Não inclui timeline/fotos (não são fiscais).
+   */
+  async getOrderWithItems(id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const order = await this.repo.findOrderById(id);
+      if (!order || order.deleted_at)
+        throw new NotFoundException('OS não encontrada.');
+      const items = await this.repo.listItems(id);
+      return { order, items };
+    });
+  }
+
   async updateOrder(user: AuthUser, id: string, dto: UpdateOrderDto) {
     const order = await this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findOrderById(id);
