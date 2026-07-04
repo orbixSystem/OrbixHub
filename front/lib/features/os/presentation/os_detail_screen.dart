@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
@@ -19,7 +20,7 @@ import 'os_pdf.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
 
-const _maxContentWidth = 940.0;
+const _maxContentWidth = 1200.0;
 
 /// Ficha da OS: cabeçalho (nº/cliente/veículo/status) editável, lista de itens
 /// (adicionar via picker do estoque ou avulso, editar, remover) com totais ao
@@ -70,9 +71,42 @@ class OsDetailScreen extends ConsumerWidget {
         // espelha o backend; cancelada volta a editar reabrindo-a.
         final terminal = osIsTerminal(order.status);
         final canEdit = canWrite && !terminal;
+        final hasTracking =
+            order.publicToken != null && order.publicToken!.isNotEmpty;
+
+        // Seções da coluna PRINCIPAL e da LATERAL (desktop). No mobile tudo
+        // empilha numa coluna só, em ordem sensata.
+        final mainSections = <Widget>[
+          _DiagnosisSection(order: order, canWrite: canEdit),
+          _ItemsSection(order: order, canWrite: canEdit),
+          _TotalsCard(order: order),
+          _TimelineSection(order: order, canWrite: canEdit),
+        ];
+        final asideSections = <Widget>[
+          if (hasTracking) _TrackingLinkCard(token: order.publicToken!),
+          _PhotosSection(order: order, canWrite: canEdit),
+        ];
+
+        final isDesktop = context.isDesktop;
+        final body = isDesktop
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: _stack(mainSections)),
+                  const SizedBox(width: 24),
+                  Expanded(flex: 2, child: _stack(asideSections)),
+                ],
+              )
+            : _stack([...mainSections, ...asideSections]);
+
         return _Bounded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 28 : 16,
+              12,
+              isDesktop ? 28 : 16,
+              28,
+            ),
             children: [
               Align(
                 alignment: Alignment.centerLeft,
@@ -106,20 +140,7 @@ class OsDetailScreen extends ConsumerWidget {
                     _changeStatus(context, ref, order, target),
               ),
               const SizedBox(height: 24),
-              _DiagnosisSection(order: order, canWrite: canEdit),
-              const SizedBox(height: 24),
-              _ItemsSection(order: order, canWrite: canEdit),
-              const SizedBox(height: 24),
-              _TotalsCard(order: order),
-              if (order.publicToken != null &&
-                  order.publicToken!.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _TrackingLinkCard(token: order.publicToken!),
-              ],
-              const SizedBox(height: 24),
-              _PhotosSection(order: order, canWrite: canEdit),
-              const SizedBox(height: 24),
-              _TimelineSection(order: order, canWrite: canEdit),
+              body,
             ],
           ),
         );
@@ -206,6 +227,19 @@ class OsDetailScreen extends ConsumerWidget {
       }
     }
   }
+}
+
+/// Empilha seções com espaçamento padrão de 20px entre elas.
+Widget _stack(List<Widget> sections) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var i = 0; i < sections.length; i++) ...[
+        if (i > 0) const SizedBox(height: 20),
+        sections[i],
+      ],
+    ],
+  );
 }
 
 class _Bounded extends StatelessWidget {
