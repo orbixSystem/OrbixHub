@@ -127,12 +127,10 @@ class OsDetailScreen extends ConsumerWidget {
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
                 onPrint: () => _printOrder(context, order, company),
               ),
-              if (terminal && canWrite) ...[
-                const SizedBox(height: 16),
-                _TerminalNotice(status: order.status),
-              ],
               const SizedBox(height: 20),
-              _StatusBar(
+              // Painel de workflow: mostra em qual etapa a OS está (stepper) e
+              // qual o PRÓXIMO passo, com a ação principal em destaque.
+              _WorkflowPanel(
                 order: order,
                 canWrite: canWrite,
                 canApprove: canApprove,
@@ -290,7 +288,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final facts = <(String, String?)>[
       ('Cliente', order.customerName),
       ('Veículo', order.subjectLabel),
@@ -305,13 +302,9 @@ class _Header extends StatelessWidget {
         order.scheduledEnd == null ? null : _fmtDate(order.scheduledEnd!)
       ),
     ];
-    return Container(
+    final neu = context.neu;
+    return NeuCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -324,7 +317,7 @@ class _Header extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     child: Image.network(
                       logoUrl!,
-                      height: 40,
+                      height: 36,
                       fit: BoxFit.contain,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
@@ -337,69 +330,77 @@ class _Header extends StatelessWidget {
                     children: [
                       Text(
                         company!.name,
-                        style: Theme.of(context).textTheme.titleSmall,
+                        style: TextStyle(
+                            color: neu.inkMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700),
                       ),
                       if ((company!.cnpj ?? '').isNotEmpty)
                         Text(
                           'CNPJ: ${company!.cnpj}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
+                          style: TextStyle(
+                              color: neu.inkFaint, fontSize: 12),
                         ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            Divider(height: 1, color: neu.base),
+            const SizedBox(height: 14),
           ],
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.brandTint,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.build_outlined,
-                    color: AppColors.brandDeep, size: 26),
-              ),
+              NeuIconChip.glyph(context,
+                  icon: Icons.build_rounded, index: 0, size: 52),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(order.number,
-                        style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      order.number,
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     OsStatusChip(status: order.status),
                   ],
                 ),
               ),
               if (canEdit)
-                IconButton(
+                NeuIconButton(
                   tooltip: 'Aplicar template',
-                  icon: const Icon(Icons.dashboard_customize_outlined),
+                  icon: Icons.dashboard_customize_outlined,
+                  size: 42,
                   onPressed: onApplyTemplate,
                 ),
-              if (canRead)
-                IconButton(
+              if (canRead) ...[
+                const SizedBox(width: 8),
+                NeuIconButton(
                   tooltip: 'Imprimir',
-                  icon: const Icon(Icons.print_outlined),
+                  icon: Icons.print_outlined,
+                  size: 42,
                   onPressed: onPrint,
                 ),
-              if (canEdit)
-                IconButton(
+              ],
+              if (canEdit) ...[
+                const SizedBox(width: 8),
+                NeuIconButton(
                   tooltip: 'Editar',
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: Icons.edit_outlined,
+                  size: 42,
                   onPressed: onEdit,
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 28,
             runSpacing: 4,
@@ -422,7 +423,7 @@ class _InlineFact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: ConstrainedBox(
@@ -432,11 +433,15 @@ class _InlineFact extends StatelessWidget {
           children: [
             Text(label,
                 style: TextStyle(
-                    color: scheme.onSurfaceVariant,
+                    color: neu.inkFaint,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text(value, style: const TextStyle(fontSize: 15)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 15,
+                    color: neu.ink,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -444,49 +449,77 @@ class _InlineFact extends StatelessWidget {
   }
 }
 
-// ===================== Aviso de OS travada =====================
+// ===================== Card de seção padrão =====================
 
-/// Faixa informativa quando a OS está em estado terminal e a edição está
-/// bloqueada. Para `cancelada`, orienta a reabrir; para `entregue`, é só leitura.
-class _TerminalNotice extends StatelessWidget {
-  const _TerminalNotice({required this.status});
+/// Card de seção do detalhe da OS: relevo neumórfico + cabeçalho com glyph
+/// colorido, título e uma ação opcional à direita. Unifica o visual de todas
+/// as seções (diagnóstico, itens, totais, timeline, fotos, link).
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.glyphIndex = 5,
+    this.action,
+  });
 
-  final String status;
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final int glyphIndex;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isCancelled = status == 'cancelada';
-    final message = isCancelled
-        ? 'OS cancelada — edição bloqueada. Reabra a OS para voltar a editá-la.'
-        : 'OS entregue — somente leitura.';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Row(
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.lock_outline, size: 18, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-            ),
+          Row(
+            children: [
+              NeuIconChip.glyph(context,
+                  icon: icon, index: glyphIndex, size: 34),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              ?action,
+            ],
           ),
+          const SizedBox(height: 16),
+          child,
         ],
       ),
     );
   }
 }
 
-// ===================== Barra de status (workflow) =====================
+// ===================== Workflow (stepper + próximo passo) =====================
 
-class _StatusBar extends StatelessWidget {
-  const _StatusBar({
+/// Etapas do fluxo "feliz" da OS, em ordem. `cancelada` fica fora — é desvio.
+const _happyFlow = <String>[
+  'aberta',
+  'aguardando_aprovacao',
+  'aprovada',
+  'em_execucao',
+  'concluida',
+  'entregue',
+];
+
+/// Painel de workflow: um STEPPER mostrando em que etapa a OS está + o PRÓXIMO
+/// passo, com a ação principal em destaque (secundárias/cancelar discretas).
+/// Responde "o que está acontecendo aqui?" logo de cara.
+class _WorkflowPanel extends StatelessWidget {
+  const _WorkflowPanel({
     required this.order,
     required this.canWrite,
     required this.canApprove,
@@ -500,59 +533,340 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!canWrite) return const SizedBox.shrink();
-    final targets = osTransitions[order.status] ?? const <String>[];
-    // "Aprovar" e "Reabrir" (cancelada → aberta) exigem a permissão os.approve.
-    final isReopen = order.status == 'cancelada';
-    final visible = targets.where((t) {
+    final neu = context.neu;
+    final status = order.status;
+    final cancelled = status == 'cancelada';
+
+    // Ações válidas a partir do status atual (respeitando permissões).
+    final targets = osTransitions[status] ?? const <String>[];
+    bool allowed(String t) {
       if (t == 'aprovada') return canApprove;
-      if (isReopen && t == 'aberta') return canApprove;
+      if (cancelled && t == 'aberta') return canApprove; // reabrir é privilegiado
       return true;
-    }).toList();
-    if (visible.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final target in visible)
-          target == 'cancelada'
-              ? OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    foregroundColor: AppColors.danger,
+    }
+
+    final available = canWrite ? targets.where(allowed).toList() : <String>[];
+    final hasCancel = available.contains('cancelada');
+    final forward = available.where((t) => t != 'cancelada').toList();
+
+    // Ação principal = o avanço "para frente" (maior índice > atual no fluxo);
+    // se não houver avanço (ex.: reabrir cancelada), usa o primeiro disponível.
+    final curIdx = _happyFlow.indexOf(status);
+    String? primary;
+    for (final t in forward) {
+      final i = _happyFlow.indexOf(t);
+      if (i > curIdx && (primary == null || i > _happyFlow.indexOf(primary))) {
+        primary = t;
+      }
+    }
+    primary ??= forward.isNotEmpty ? forward.first : null;
+    final secondary = forward.where((t) => t != primary).toList();
+
+    return NeuCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ProgressStepper(status: status),
+          if (cancelled)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _WorkflowNote(
+                icon: Icons.cancel_outlined,
+                color: neu.danger,
+                text: canWrite
+                    ? 'OS cancelada — edição bloqueada. Reabra para voltar a editá-la.'
+                    : 'OS cancelada.',
+              ),
+            )
+          else if (status == 'entregue')
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _WorkflowNote(
+                icon: Icons.verified_outlined,
+                color: neu.success,
+                text: 'OS entregue — finalizada (somente leitura).',
+              ),
+            ),
+          if (available.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Divider(height: 1, color: neu.base),
+            const SizedBox(height: 16),
+            Text(
+              'Próximo passo',
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (primary != null)
+                  NeuButton(
+                    label: osTransitionLabel(primary),
+                    icon: _transitionIcon(primary),
+                    onPressed: () => onChange(primary!),
                   ),
-                  onPressed: () => onChange(target),
-                  icon: const Icon(Icons.close, size: 18),
-                  label: Text(osTransitionLabel(target)),
-                )
-              : FilledButton.icon(
-                  style:
-                      FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                  onPressed: () => onChange(target),
-                  icon: Icon(_transitionIcon(target), size: 18),
-                  label: Text(osTransitionLabel(target)),
-                ),
-      ],
+                for (final t in secondary)
+                  NeuButton(
+                    label: osTransitionLabel(t),
+                    icon: _transitionIcon(t),
+                    kind: NeuButtonKind.secondary,
+                    onPressed: () => onChange(t),
+                  ),
+                if (hasCancel)
+                  NeuButton(
+                    label: osTransitionLabel('cancelada'),
+                    icon: Icons.close_rounded,
+                    kind: NeuButtonKind.danger,
+                    onPressed: () => onChange('cancelada'),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
+}
 
-  IconData _transitionIcon(String target) {
-    switch (target) {
-      case 'aguardando_aprovacao':
-        return Icons.outbox_outlined;
-      case 'aprovada':
-        return Icons.check_circle_outline;
-      case 'aberta':
-        return Icons.undo;
-      case 'em_execucao':
-        return Icons.play_arrow_outlined;
-      case 'concluida':
-        return Icons.task_alt;
-      case 'entregue':
-        return Icons.local_shipping_outlined;
-      default:
-        return Icons.arrow_forward;
+/// Faixa informativa (tint) usada para estados terminais dentro do painel.
+class _WorkflowNote extends StatelessWidget {
+  const _WorkflowNote({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _transitionIcon(String target) {
+  switch (target) {
+    case 'aguardando_aprovacao':
+      return Icons.outbox_outlined;
+    case 'aprovada':
+      return Icons.check_circle_outline;
+    case 'aberta':
+      return Icons.undo_rounded;
+    case 'em_execucao':
+      return Icons.play_arrow_rounded;
+    case 'concluida':
+      return Icons.task_alt;
+    case 'entregue':
+      return Icons.local_shipping_outlined;
+    default:
+      return Icons.arrow_forward;
+  }
+}
+
+/// Stepper do ciclo de vida da OS. Desktop/tablet: nós ligados horizontalmente
+/// (feito ✓ / atual ● / futuro nº). Mobile: "Etapa X de N" + barra segmentada.
+class _ProgressStepper extends StatelessWidget {
+  const _ProgressStepper({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final cancelled = status == 'cancelada';
+    final curIdx = cancelled ? -1 : _happyFlow.indexOf(status);
+    return context.isMobile
+        ? _StepperMobile(curIdx: curIdx, cancelled: cancelled)
+        : _StepperWide(curIdx: curIdx, cancelled: cancelled);
+  }
+}
+
+class _StepperWide extends StatelessWidget {
+  const _StepperWide({required this.curIdx, required this.cancelled});
+  final int curIdx;
+  final bool cancelled;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final children = <Widget>[];
+    for (var i = 0; i < _happyFlow.length; i++) {
+      if (i > 0) {
+        final done = !cancelled && i <= curIdx;
+        children.add(Expanded(
+          child: Container(
+            height: 3,
+            margin: const EdgeInsets.only(top: 13),
+            decoration: BoxDecoration(
+              color: done ? neu.navy : neu.base,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ));
+      }
+      children.add(_StepNode(
+        index: i,
+        curIdx: curIdx,
+        cancelled: cancelled,
+        label: osStatusLabel(_happyFlow[i]),
+      ));
     }
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+}
+
+class _StepNode extends StatelessWidget {
+  const _StepNode({
+    required this.index,
+    required this.curIdx,
+    required this.cancelled,
+    required this.label,
+  });
+
+  final int index;
+  final int curIdx;
+  final bool cancelled;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final done = !cancelled && index < curIdx;
+    final current = !cancelled && index == curIdx;
+    final Color circle;
+    final Color fg;
+    if (current) {
+      circle = neu.navy;
+      fg = neu.onNavy;
+    } else if (done) {
+      circle = neu.navy.withValues(alpha: 0.16);
+      fg = neu.navy;
+    } else {
+      circle = neu.base;
+      fg = neu.inkFaint;
+    }
+    return SizedBox(
+      width: 92,
+      child: Column(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: circle),
+            child: done
+                ? Icon(Icons.check_rounded, size: 18, color: fg)
+                : Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: current ? neu.ink : neu.inkMuted,
+              fontSize: 11.5,
+              fontWeight: current ? FontWeight.w800 : FontWeight.w600,
+              height: 1.15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepperMobile extends StatelessWidget {
+  const _StepperMobile({required this.curIdx, required this.cancelled});
+  final int curIdx;
+  final bool cancelled;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final total = _happyFlow.length;
+    final idx = curIdx < 0 ? 0 : curIdx;
+    final label = cancelled ? 'Cancelada' : osStatusLabel(_happyFlow[idx]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(
+              cancelled ? 'Fluxo interrompido' : 'Etapa ${idx + 1} de $total',
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              label,
+              style: TextStyle(
+                color: cancelled ? neu.danger : neu.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (var i = 0; i < total; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: !cancelled && i <= curIdx ? neu.navy : neu.base,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -625,100 +939,106 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final diagnosis = widget.order.diagnosis?.trim() ?? '';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.search_outlined,
-                size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              'Diagnóstico',
-              style: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-            const Spacer(),
-            if (widget.canWrite && !_editing)
-              TextButton.icon(
-                onPressed: () => setState(() => _editing = true),
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: Text(diagnosis.isEmpty ? 'Adicionar' : 'Editar'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          child: _editing
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    return _SectionCard(
+      icon: Icons.search_rounded,
+      title: 'Diagnóstico',
+      glyphIndex: 1,
+      action: widget.canWrite && !_editing
+          ? _HeaderAction(
+              icon: Icons.edit_outlined,
+              label: diagnosis.isEmpty ? 'Adicionar' : 'Editar',
+              onTap: () => setState(() => _editing = true),
+            )
+          : null,
+      child: _editing
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                NeuTextField(
+                  controller: _controller,
+                  label: 'Diagnóstico técnico (visível ao cliente)',
+                  hint: 'Descreva o que foi identificado no veículo.',
+                  minLines: 3,
+                  maxLines: 8,
+                  enabled: !_saving,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextField(
-                      controller: _controller,
-                      autofocus: true,
-                      minLines: 3,
-                      maxLines: 8,
-                      enabled: !_saving,
-                      decoration: const InputDecoration(
-                        hintText:
-                            'Descreva o diagnóstico técnico (visível ao cliente).',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
+                    NeuButton(
+                      label: 'Cancelar',
+                      kind: NeuButtonKind.secondary,
+                      onPressed: _saving
+                          ? null
+                          : () => setState(() {
+                                _editing = false;
+                                _controller.text =
+                                    widget.order.diagnosis ?? '';
+                              }),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _saving
-                              ? null
-                              : () => setState(() {
-                                    _editing = false;
-                                    _controller.text =
-                                        widget.order.diagnosis ?? '';
-                                  }),
-                          child: const Text('Cancelar'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 44)),
-                          onPressed: _saving ? null : _save,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Icon(Icons.check, size: 18),
-                          label: const Text('Salvar diagnóstico'),
-                        ),
-                      ],
+                    const SizedBox(width: 10),
+                    NeuButton(
+                      label: 'Salvar',
+                      icon: Icons.check_rounded,
+                      loading: _saving,
+                      onPressed: _saving ? null : _save,
                     ),
                   ],
-                )
-              : Text(
-                  diagnosis.isEmpty ? 'Sem diagnóstico ainda.' : diagnosis,
-                  style: TextStyle(
-                    color: diagnosis.isEmpty ? scheme.onSurfaceVariant : null,
-                    fontSize: 15,
-                  ),
                 ),
+              ],
+            )
+          : Text(
+              diagnosis.isEmpty ? 'Sem diagnóstico ainda.' : diagnosis,
+              style: TextStyle(
+                color: diagnosis.isEmpty ? neu.inkFaint : neu.ink,
+                fontSize: 15,
+                height: 1.4,
+              ),
+            ),
+    );
+  }
+}
+
+/// Ação compacta no cabeçalho de uma seção (adicionar/editar). Menor que um
+/// [NeuButton] cheio, sem quebrar o alinhamento do título.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rChip),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: neu.navy),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: neu.navy,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -763,64 +1083,88 @@ class _ItemsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.list_alt_outlined, size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              'Itens',
-              style: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+    final neu = context.neu;
+    return _SectionCard(
+      icon: Icons.list_alt_rounded,
+      title: 'Peças e serviços',
+      glyphIndex: 0,
+      action: canWrite
+          ? _HeaderAction(
+              icon: Icons.add_rounded,
+              label: 'Adicionar',
+              onTap: () => _add(context, ref),
+            )
+          : null,
+      child: order.items.isEmpty
+          ? _InlineEmpty(
+              icon: Icons.add_shopping_cart_outlined,
+              text: 'Nenhum item ainda.',
+              hint: 'Adicione peças do estoque ou serviços de mão de obra.',
+            )
+          : NeuSurface(
+              elevation: NeuElevation.inset,
+              radius: NeuTokens.rField,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                children: [
+                  for (var i = 0; i < order.items.length; i++) ...[
+                    if (i > 0)
+                      Divider(height: 1, color: neu.base, indent: 14, endIndent: 14),
+                    _ItemRow(
+                      order: order,
+                      item: order.items[i],
+                      canWrite: canWrite,
+                      onRemove: () => _remove(context, ref, order.items[i]),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const Spacer(),
-            if (canWrite)
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: () => _add(context, ref),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Adicionar item'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant),
+    );
+  }
+}
+
+/// Estado vazio compacto dentro de uma seção (mais enxuto que [NeuEmptyState],
+/// que é para tela inteira). Ícone, frase curta e uma dica em cinza.
+class _InlineEmpty extends StatelessWidget {
+  const _InlineEmpty({required this.icon, required this.text, this.hint});
+  final IconData icon;
+  final String text;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 16),
+      decoration: BoxDecoration(
+        color: neu.base,
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 30, color: neu.inkFaint),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          child: order.items.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 28),
-                  child: Center(
-                    child: Text(
-                      'Nenhum item ainda.',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    for (var i = 0; i < order.items.length; i++) ...[
-                      if (i > 0) const Divider(height: 1),
-                      _ItemRow(
-                        order: order,
-                        item: order.items[i],
-                        canWrite: canWrite,
-                        onRemove: () => _remove(context, ref, order.items[i]),
-                      ),
-                    ],
-                  ],
-                ),
-        ),
-      ],
+          if (hint != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              hint!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5, height: 1.3),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -856,7 +1200,7 @@ class _ItemRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final isService = item.kind == 'service';
     final disc = double.tryParse(item.discount) ?? 0;
     final detail = [
@@ -864,7 +1208,7 @@ class _ItemRow extends ConsumerWidget {
       if (disc > 0) '- ${money(item.discount)}',
     ].join('  ');
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       child: Row(
         children: [
           Icon(
@@ -872,7 +1216,7 @@ class _ItemRow extends ConsumerWidget {
                 ? Icons.design_services_outlined
                 : Icons.inventory_2_outlined,
             size: 20,
-            color: scheme.onSurfaceVariant,
+            color: neu.inkMuted,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -880,17 +1224,17 @@ class _ItemRow extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: neu.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(detail,
-                    style: TextStyle(
-                        color: scheme.onSurfaceVariant, fontSize: 13)),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
               ],
             ),
           ),
           const SizedBox(width: 12),
           Text(money(item.total),
-              style: const TextStyle(fontWeight: FontWeight.w700)),
+              style: TextStyle(color: neu.ink, fontWeight: FontWeight.w800)),
           if (canWrite) ...[
             const SizedBox(width: 4),
             PopupMenuButton<String>(
@@ -1044,19 +1388,16 @@ class _TotalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final itemsTotal = order.items.fold<double>(
       0,
       (acc, it) => acc + (double.tryParse(it.total) ?? 0),
     );
     final discount = double.tryParse(order.discount ?? '0') ?? 0;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+    return _SectionCard(
+      icon: Icons.payments_rounded,
+      title: 'Resumo financeiro',
+      glyphIndex: 2,
       child: Column(
         children: [
           _TotalRow(label: 'Itens', value: money(itemsTotal.toString())),
@@ -1066,23 +1407,32 @@ class _TotalsCard extends StatelessWidget {
                 label: 'Desconto da OS',
                 value: '- ${money(discount.toString())}'),
           ],
-          const SizedBox(height: 12),
-          Divider(height: 1, color: scheme.outlineVariant),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Total',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              Text(
-                money(order.total),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: AppColors.brandDeep,
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: neu.navy.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(NeuTokens.rField),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total',
+                    style: TextStyle(
+                        color: neu.ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16)),
+                Text(
+                  money(order.total),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    color: neu.navy,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1097,12 +1447,13 @@ class _TotalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: scheme.onSurfaceVariant)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 14)),
+        Text(value,
+            style: TextStyle(color: neu.ink, fontWeight: FontWeight.w700)),
       ],
     );
   }
@@ -1137,74 +1488,49 @@ class _TrackingLinkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+    final neu = context.neu;
+    return _SectionCard(
+      icon: Icons.link_rounded,
+      title: 'Link de acompanhamento',
+      glyphIndex: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.link_outlined,
-                  size: 18, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Text(
-                'Link de acompanhamento',
-                style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
+          Text(
+            'Compartilhe com o cliente para ele acompanhar a OS em tempo real.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
           ),
           const SizedBox(height: 12),
-          Container(
+          NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rField,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-            ),
             child: SelectableText(
               _url,
-              style: const TextStyle(fontSize: 13),
+              style: TextStyle(fontSize: 13, color: neu.inkMuted),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              NeuButton(
+                label: 'Copiar link',
+                icon: Icons.copy_rounded,
                 onPressed: () => _copy(context),
-                icon: const Icon(Icons.copy_outlined, size: 18),
-                label: const Text('Copiar'),
               ),
-              Tooltip(
-                message: 'Em breve',
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 44)),
-                  onPressed: null,
-                  icon: const Icon(Icons.chat_outlined, size: 18),
-                  label: const Text('WhatsApp'),
-                ),
+              NeuButton(
+                label: 'WhatsApp',
+                icon: Icons.chat_outlined,
+                kind: NeuButtonKind.secondary,
+                onPressed: null,
               ),
-              Tooltip(
-                message: 'Em breve',
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 44)),
-                  onPressed: null,
-                  icon: const Icon(Icons.email_outlined, size: 18),
-                  label: const Text('E-mail'),
-                ),
+              NeuButton(
+                label: 'E-mail',
+                icon: Icons.email_outlined,
+                kind: NeuButtonKind.secondary,
+                onPressed: null,
               ),
             ],
           ),
@@ -1242,64 +1568,34 @@ class _TimelineSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     final events = order.events;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.timeline_outlined,
-                size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              'Linha do tempo',
-              style: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-            const Spacer(),
-            if (canWrite)
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: () => _addNote(context, ref),
-                icon: const Icon(Icons.add_comment_outlined, size: 18),
-                label: const Text('Adicionar nota'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: events.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text(
-                      'Nenhum evento ainda.',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
+    return _SectionCard(
+      icon: Icons.timeline_rounded,
+      title: 'Linha do tempo',
+      glyphIndex: 4,
+      action: canWrite
+          ? _HeaderAction(
+              icon: Icons.add_comment_outlined,
+              label: 'Nota',
+              onTap: () => _addNote(context, ref),
+            )
+          : null,
+      child: events.isEmpty
+          ? _InlineEmpty(
+              icon: Icons.history_rounded,
+              text: 'Nenhum evento ainda.',
+              hint: 'As mudanças de status e notas aparecem aqui.',
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < events.length; i++)
+                  _EventRow(
+                    event: events[i],
+                    isFirst: i == 0,
+                    isLast: i == events.length - 1,
                   ),
-                )
-              : Column(
-                  children: [
-                    for (var i = 0; i < events.length; i++)
-                      _EventRow(
-                        event: events[i],
-                        isFirst: i == 0,
-                        isLast: i == events.length - 1,
-                      ),
-                  ],
-                ),
-        ),
-      ],
+              ],
+            ),
     );
   }
 }
@@ -1317,95 +1613,85 @@ class _EventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dotColor = _dotColor();
+    final neu = context.neu;
+    final dotColor = _dotColor(context);
     return IntrinsicHeight(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Trilho vertical com o ponto/ícone.
-            SizedBox(
-              width: 36,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: isFirst
-                          ? Colors.transparent
-                          : scheme.outlineVariant,
-                    ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Trilho vertical com o ponto/ícone.
+          SizedBox(
+            width: 34,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isFirst ? Colors.transparent : neu.base,
                   ),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: dotColor.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(_kindIcon(), size: 16, color: dotColor),
+                ),
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: dotColor.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
                   ),
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color:
-                          isLast ? Colors.transparent : scheme.outlineVariant,
-                    ),
+                  child: Icon(_kindIcon(), size: 16, color: dotColor),
+                ),
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: isLast ? Colors.transparent : neu.base,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _label(),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _label(),
+                          style: TextStyle(
+                              color: neu.ink, fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(width: 8),
-                        Tooltip(
-                          message: event.visiblePublic
-                              ? 'Visível ao cliente'
-                              : 'Interno (não visível ao cliente)',
-                          child: Icon(
-                            event.visiblePublic
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            size: 16,
-                            color: event.visiblePublic
-                                ? AppColors.brand
-                                : scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (event.createdAt != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _fmtTimestamp(event.createdAt!),
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 12,
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: event.visiblePublic
+                            ? 'Visível ao cliente'
+                            : 'Interno (não visível ao cliente)',
+                        child: Icon(
+                          event.visiblePublic
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          size: 16,
+                          color: event.visiblePublic ? neu.navy : neu.inkFaint,
                         ),
                       ),
                     ],
+                  ),
+                  if (event.createdAt != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _fmtTimestamp(event.createdAt!),
+                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1430,18 +1716,19 @@ class _EventRow extends StatelessWidget {
     }
   }
 
-  Color _dotColor() {
+  Color _dotColor(BuildContext context) {
+    final neu = context.neu;
     switch (event.kind) {
       case 'status_change':
         return event.statusSnapshot == null
-            ? AppColors.brand
+            ? neu.navy
             : osStatusColor(event.statusSnapshot!);
       case 'created':
-        return AppColors.success;
+        return neu.success;
       case 'photo':
-        return AppColors.info;
+        return neu.glyphs[1];
       default:
-        return AppColors.graphite;
+        return neu.inkMuted;
     }
   }
 
@@ -1642,73 +1929,37 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final photos = order.photos;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.photo_library_outlined,
-                size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              'Fotos',
-              style: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+    return _SectionCard(
+      icon: Icons.photo_library_rounded,
+      title: 'Fotos',
+      glyphIndex: 5,
+      action: widget.canWrite
+          ? _HeaderAction(
+              icon: _busy ? Icons.hourglass_top_rounded : Icons.add_a_photo_outlined,
+              label: _busy ? 'Enviando…' : 'Adicionar',
+              onTap: _busy ? () {} : _add,
+            )
+          : null,
+      child: photos.isEmpty
+          ? _InlineEmpty(
+              icon: Icons.image_outlined,
+              text: 'Sem fotos.',
+              hint: 'Registre o estado do veículo antes e depois do serviço.',
+            )
+          : SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: photos.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (_, i) => _PhotoThumb(
+                  photo: photos[i],
+                  canWrite: widget.canWrite,
+                  onRemove: () => _remove(photos[i]),
+                ),
               ),
             ),
-            const Spacer(),
-            if (widget.canWrite)
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: _busy ? null : _add,
-                icon: _busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_a_photo_outlined, size: 18),
-                label: Text(_busy ? 'Enviando…' : 'Adicionar foto'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: photos.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: Text(
-                      'Sem fotos',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                  ),
-                )
-              : SizedBox(
-                  height: 96,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: photos.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) => _PhotoThumb(
-                      photo: photos[i],
-                      canWrite: widget.canWrite,
-                      onRemove: () => _remove(photos[i]),
-                    ),
-                  ),
-                ),
-        ),
-      ],
     );
   }
 }

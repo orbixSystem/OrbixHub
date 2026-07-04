@@ -101,37 +101,43 @@ class _ContentHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    // Faixa do topo com borda inferior ONDULADA e cor levemente diferente do
-    // canvas (neu.surface sobre neu.base) — o visual "soft" da referência.
+    // Faixa do topo com borda inferior em ONDA SIMÉTRICA (vale no centro, tipo
+    // parábola) e cor levemente diferente do canvas (neu.surface sobre neu.base)
+    // — o visual "soft" da referência. SafeArea(top) garante que no mobile o
+    // conteúdo/botões não colidam com a barra de status.
     return PhysicalShape(
       clipper: _HeaderWaveClipper(),
       color: neu.surface,
       elevation: 3,
       shadowColor: neu.shadowDark,
-      child: SizedBox(
-        height: 82,
-        child: Padding(
-          padding: EdgeInsets.only(left: showMenu ? 8 : 28, right: 20, bottom: 14),
-          child: Row(
-            children: [
-              if (showMenu)
-                Builder(
-                  builder: (context) => IconButton(
-                    icon: Icon(Icons.menu_rounded, color: neu.ink),
-                    tooltip: 'Menu',
-                    onPressed: () => Scaffold.of(context).openDrawer(),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 68,
+          child: Padding(
+            padding:
+                EdgeInsets.only(left: showMenu ? 8 : 28, right: 20, bottom: 16),
+            child: Row(
+              children: [
+                if (showMenu)
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: Icon(Icons.menu_rounded, color: neu.ink),
+                      tooltip: 'Menu',
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                    ),
                   ),
+                Text(
+                  title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(color: neu.ink),
                 ),
-              Text(
-                title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(color: neu.ink),
-              ),
-              const Spacer(),
-              // Sino + toggle de tema vivem no overlay global (GlobalControls).
-            ],
+                const Spacer(),
+                // Sino + toggle de tema vivem no overlay global (GlobalControls).
+              ],
+            ),
           ),
         ),
       ),
@@ -139,17 +145,20 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-/// Recorta a faixa do topo com uma borda inferior em onda suave.
+/// Recorta a faixa do topo com um VALE simétrico no centro (parábola suave):
+/// laterais planas em `h - dip`, descendo até o ponto mais baixo em `w/2` e
+/// subindo de volta espelhado. Responsivo — depende só da largura.
 class _HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
+    const dip = 20.0;
+    final edge = h - dip;
     final path = Path()
-      ..lineTo(0, h - 20)
-      // Onda suave: desce, sobe e assenta na direita.
-      ..quadraticBezierTo(w * 0.28, h - 2, w * 0.52, h - 14)
-      ..quadraticBezierTo(w * 0.78, h - 28, w, h - 12)
+      ..lineTo(0, edge)
+      ..cubicTo(w * 0.30, edge, w * 0.38, h, w * 0.50, h)
+      ..cubicTo(w * 0.62, h, w * 0.70, edge, w, edge)
       ..lineTo(w, 0)
       ..close();
     return path;
