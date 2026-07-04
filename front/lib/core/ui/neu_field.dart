@@ -89,8 +89,12 @@ class NeuTextField extends StatelessWidget {
                 horizontal: 16,
                 vertical: 14,
               ),
-              // O erro é renderizado por fora (abaixo), com mais destaque.
-              errorStyle: const TextStyle(height: 0, fontSize: 0),
+              // Erros de validator (Form.validate) aparecem abaixo do campo.
+              errorStyle: TextStyle(
+                color: neu.danger,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
