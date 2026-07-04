@@ -251,6 +251,73 @@ export class OsRepository {
     });
   }
 
+
+  updateItemSchedule(itemId: string, data: UpdateItemScheduleData) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.update({ where: { id: itemId }, data });
+  }
+
+  /** Verifica sobreposição de agenda para um técnico (conflito de horário). */
+  async findConflicts(
+    assignedTo: string,
+    start: Date,
+    end: Date,
+    excludeItemId?: string,
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.findMany({
+      where: {
+        assigned_to: assignedTo,
+        id: excludeItemId ? { not: excludeItemId } : undefined,
+        scheduled_start: { not: null, lt: end },
+        scheduled_end: { not: null, gt: start },
+      },
+      select: { id: true, name: true, order_id: true, scheduled_start: true, scheduled_end: true },
+    });
+  }
+
+  /** Itens com agendamento no período (para a tela de agenda). */
+  async getScheduledItems(filter: AgendaFilter) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.findMany({
+      where: {
+        scheduled_start: { gte: filter.from, lt: filter.to },
+        scheduled_end: { not: null },
+        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
+      },
+      include: {
+        order: {
+          select: { id: true, number: true, status: true, customer_name: true, subject_label: true },
+        },
+      },
+      orderBy: [{ scheduled_start: 'asc' }, { assigned_to: 'asc' }],
+    });
+  }
+
+  /** OSes com agendamento (scheduled_start) no período — alimenta a agenda. */
+  async getScheduledOrders(filter: AgendaFilter) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        scheduled_start: { gte: filter.from, lt: filter.to },
+        scheduled_end: { not: null },
+        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        customer_name: true,
+        subject_label: true,
+        assigned_to: true,
+        scheduled_start: true,
+        scheduled_end: true,
+        complaint: true,
+      },
+      orderBy: { scheduled_start: 'asc' },
+    });
+  }
+
   // ---- eventos (timeline) ----
   /** Cria um evento na timeline. Usa o cliente tx-scoped — roda na MESMA tx do chamador. */
   createEvent(tenantId: string, orderId: string, data: CreateEventData) {

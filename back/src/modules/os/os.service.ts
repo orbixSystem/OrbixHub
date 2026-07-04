@@ -18,6 +18,7 @@ import {
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
+import { IamService } from '../iam/iam.service';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -111,6 +112,7 @@ export class OsService {
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
     private readonly messages: MessagesService,
+    private readonly iam: IamService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
@@ -967,6 +969,125 @@ export class OsService {
       { templateId },
     );
     return updated;
+  }
+
+  // ===================== Agenda / Agendamento de itens =====================
+
+  /**
+   * Retorna as OSes com scheduled_start no período, no formato AgendaItem
+   * (mesmo contrato do endpoint GET /schedule/agenda). Chamado pelo ScheduleModule.
+   */
+  async getAgendaItems(
+    user: AuthUser,
+    opts: { from: Date; to: Date; assignedTo?: string },
+  ) {
+    const orders = await this.tenant.withTenantTx(() =>
+      this.repo.getScheduledOrders({
+        from: opts.from,
+        to: opts.to,
+        assignedTo: opts.assignedTo,
+      }),
+    );
+
+    // Resolve member names (userId → fullName) for any assigned_to present.
+    // assigned_to guarda o userId (não o membershipId) — ver os_repository_impl.dart.
+    const memberIds = [...new Set(orders.map((o) => o.assigned_to).filter(Boolean))] as string[];
+    let memberNameMap = new Map<string, string>();
+    if (memberIds.length > 0) {
+      const members = await this.iam.listMembers();
+      memberNameMap = new Map(
+        members
+          .filter((m) => m.userId && m.fullName)
+          .map((m) => [m.userId, m.fullName as string]),
+      );
+    }
+
+    return orders.map((o) => {
+      const start = o.scheduled_start;
+      const end = o.scheduled_end;
+      const estimated_duration =
+        start && end
+          ? Math.round((end.getTime() - start.getTime()) / 60_000)
+          : null;
+      return {
+        id: o.id,
+        order_id: o.id,
+        name: o.complaint ?? '',
+        assigned_to: o.assigned_to,
+        assigned_to_name: o.assigned_to ? (memberNameMap.get(o.assigned_to) ?? null) : null,
+        scheduled_start: start?.toISOString() ?? null,
+        scheduled_end: end?.toISOString() ?? null,
+        estimated_duration,
+        order: {
+          id: o.id,
+          number: o.number,
+          status: o.status,
+          customer_name: o.customer_name,
+          subject_label: o.subject_label,
+        },
+      };
+    });
+  }
+
+  /**
+   * Agenda/atribui um item de OS: define técnico, horário de início e duração
+   * estimada. Calcula `scheduled_end = start + duration` e verifica conflito de
+   * agenda para o técnico antes de persistir. Chamado pelo ScheduleModule.
+   */
+  async scheduleItem(
+    user: AuthUser,
+    orderId: string,
+    itemId: string,
+    opts: {
+      assignedTo?: string | null;
+      scheduledStart?: string | null;
+      estimatedDuration?: number | null;
+    },
+  ) {
+    return this.tenant.withTenantTx(async () => {
+      const item = await this.repo.findItemById(itemId);
+      if (!item || item.order_id !== orderId)
+        throw new NotFoundException('Item não encontrado.');
+
+      const start = opts.scheduledStart ? new Date(opts.scheduledStart) : null;
+      const duration = opts.estimatedDuration ?? null;
+      const end =
+        start && duration ? new Date(start.getTime() + duration * 60_000) : null;
+      const assignedTo =
+        opts.assignedTo !== undefined ? opts.assignedTo : item.assigned_to;
+
+      // Checagem de conflito: só quando há técnico + janela de tempo definidos.
+      if (assignedTo && start && end) {
+        const conflicts = await this.repo.findConflicts(assignedTo, start, end, itemId);
+        if (conflicts.length > 0) {
+          throw new BadRequestException(
+            `Conflito de agenda: técnico já tem ${conflicts.length} item(ns) no mesmo horário.`,
+          );
+        }
+      }
+
+      return this.repo.updateItemSchedule(itemId, {
+        assigned_to: opts.assignedTo,
+        scheduled_start: start,
+        estimated_duration: duration,
+        scheduled_end: end,
+      });
+    });
+  }
+
+  /** Remove atribuição e agendamento de um item. Chamado pelo ScheduleModule. */
+  async unscheduleItem(user: AuthUser, orderId: string, itemId: string) {
+    return this.tenant.withTenantTx(async () => {
+      const item = await this.repo.findItemById(itemId);
+      if (!item || item.order_id !== orderId)
+        throw new NotFoundException('Item não encontrado.');
+      return this.repo.updateItemSchedule(itemId, {
+        assigned_to: null,
+        scheduled_start: null,
+        estimated_duration: null,
+        scheduled_end: null,
+      });
+    });
   }
 
   // ===================== Internos =====================
