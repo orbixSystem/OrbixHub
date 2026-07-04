@@ -34,6 +34,12 @@ List<NavItem> gatedNavItems(Me me) {
     final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
   }
+  // Agenda — disponível quando o módulo OS está habilitado.
+  if (me.modules.contains('os') && me.hasPermission('os.read')) {
+    items.add(
+      const NavItem('Agenda', Icons.calendar_month_outlined, '/agenda'),
+    );
+  }
   // Mensagens é genérico (não é módulo de tenant). v1 reusa as permissões de OS:
   // mostra para quem pode ler OS; owners também têm essa permissão.
   if (me.hasPermission('os.read')) {

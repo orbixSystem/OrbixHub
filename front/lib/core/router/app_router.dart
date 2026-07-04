@@ -26,6 +26,8 @@ import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
+import '../../features/schedule/presentation/agenda_screen.dart';
+import '../../features/schedule/presentation/business_hours_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../devtools/dev_flag.dart';
 import '../devtools/ui_showcase_screen.dart';
@@ -170,6 +172,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
           // só por autenticação (já está dentro da shell autenticada).
+          // Agenda — gated por os.read (verificação na nav_items + backend).
+          GoRoute(
+            path: '/agenda',
+            builder: (_, _) => const AgendaScreen(),
+          ),
+          GoRoute(
+            path: '/agenda/horarios',
+            builder: (_, _) => const BusinessHoursScreen(),
+          ),
           GoRoute(
             path: '/mensagens',
             pageBuilder: (_, s) => neuPage(s, const MessagesInboxScreen()),

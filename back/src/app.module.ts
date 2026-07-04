@@ -31,6 +31,7 @@ import { ReportModule } from './modules/report/report.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { ScheduleModule } from './modules/schedule/schedule.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
@@ -57,6 +58,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     MessagesModule,
     OsModule,
     InvoiceModule,
+    ScheduleModule,
     ReportModule,
     RealtimeModule,
     DevtoolsModule,

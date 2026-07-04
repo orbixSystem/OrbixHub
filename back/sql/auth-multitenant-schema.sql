@@ -1283,3 +1283,55 @@ SELECT t.id, m.id, true, 'plan'
 FROM tenant t CROSS JOIN module m
 WHERE m.key = 'invoice'
 ON CONFLICT (tenant_id, module_id) DO NOTHING;
+
+-- ============================================================
+-- 0025b — Horário de funcionamento por tenant (agenda)
+-- 7 linhas por tenant (0=Dom … 6=Sáb), única por (tenant_id, day_of_week).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS business_hours (
+  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    uuid        NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  day_of_week  smallint    NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  is_open      boolean     NOT NULL DEFAULT true,
+  open_time    varchar(5)  NOT NULL DEFAULT '08:00',
+  close_time   varchar(5)  NOT NULL DEFAULT '18:00',
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT business_hours_tenant_day_uq UNIQUE (tenant_id, day_of_week)
+);
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'business_hours' AND c.relkind = 'r'
+      AND EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'business_hours' AND policyname = 'tenant_isolation')
+  ) THEN
+    ALTER TABLE business_hours ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE business_hours FORCE ROW LEVEL SECURITY;
+    CREATE POLICY tenant_isolation ON business_hours
+      USING (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_business_hours_tenant ON business_hours (tenant_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON business_hours TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON business_hours TO app_migrator;
+
+-- ============================================================
+-- 0026 — Agendamento por item de OS
+-- ============================================================
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'service_order_item' AND column_name = 'assigned_to') THEN
+    ALTER TABLE service_order_item
+      ADD COLUMN assigned_to        uuid        REFERENCES users(id) ON DELETE SET NULL,
+      ADD COLUMN scheduled_start    timestamptz,
+      ADD COLUMN estimated_duration integer     CHECK (estimated_duration > 0 AND estimated_duration % 30 = 0),
+      ADD COLUMN scheduled_end      timestamptz;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_soi_assigned_schedule
+  ON service_order_item (tenant_id, assigned_to, scheduled_start, scheduled_end)
+  WHERE assigned_to IS NOT NULL AND scheduled_start IS NOT NULL AND scheduled_end IS NOT NULL;
