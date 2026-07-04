@@ -50,7 +50,6 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
 
   static const _durations = [30, 60, 90, 120, 180, 240];
   static final _dateFmt = DateFormat('dd/MM/yyyy');
-  static final _timeFmt = DateFormat('HH:mm');
 
   @override
   void initState() {
