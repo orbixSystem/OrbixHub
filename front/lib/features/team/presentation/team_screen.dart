@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
@@ -34,6 +35,9 @@ class TeamScreen extends ConsumerStatefulWidget {
 class _TeamScreenState extends ConsumerState<TeamScreen> {
   Timer? _poll;
 
+  /// Aba ativa: 0 = Funcionários, 1 = Convites.
+  int _tab = 0;
+
   @override
   void initState() {
     super.initState();
@@ -59,14 +63,19 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final me = session.me;
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
+    final isMobile = context.isMobile;
     final employeesAsync = ref.watch(teamEmployeesProvider);
     final invitesAsync = ref.watch(pendingInvitesProvider);
 
+    final inviteCount = invitesAsync.asData?.value.length ?? 0;
+
     return ListView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(isMobile ? 16 : 28),
       children: [
+        // Cabeçalho: título + botão Convidar.
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
@@ -77,124 +86,139 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Gerencie funcionários, cargos e convites da sua oficina.',
-                    style: TextStyle(
-                        color: scheme.onSurfaceVariant, fontSize: 15),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 15),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 16),
-            FilledButton.icon(
-              // The global filled-button theme uses Size.fromHeight(50) (width =
-              // infinity), which is fine in stretch columns but explodes as a
-              // non-flex child of a Row (measured with unbounded width). Pin a
-              // finite minimum width here.
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            NeuButton(
+              label: 'Convidar',
+              icon: Icons.person_add_alt_1,
               onPressed: () => showInviteDialog(context, ref),
-              icon: const Icon(Icons.person_add_alt_1, size: 18),
-              label: const Text('Convidar'),
             ),
           ],
         ),
+        const SizedBox(height: 20),
+
+        // Abas: Funcionários · Convites (N).
+        Align(
+          alignment: Alignment.centerLeft,
+          child: NeuSegmented<int>(
+            segments: {
+              0: 'Funcionários',
+              1: inviteCount > 0 ? 'Convites ($inviteCount)' : 'Convites',
+            },
+            selected: _tab,
+            onChanged: (v) => setState(() => _tab = v),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Conteúdo da aba (troca com fade suave).
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _tab == 0
+              ? _EmployeesTab(
+                  key: const ValueKey('funcionarios'),
+                  employeesAsync: employeesAsync,
+                  me: me,
+                )
+              : _InvitesTab(
+                  key: const ValueKey('convites'),
+                  invitesAsync: invitesAsync,
+                ),
+        ),
         const SizedBox(height: 24),
+      ],
+    );
+  }
+}
 
-        // ---- Funcionários (ativos) ----------------------------------------
-        employeesAsync.when(
-          skipLoadingOnReload: true,
-          loading: () => const _SectionFallback(
-            title: 'Funcionários',
-            child: _LoadingBox(),
-          ),
-          error: (e, _) => _SectionFallback(
-            title: 'Funcionários',
-            child: _ErrorBox(
-              message: e is AppException
-                  ? e.message
-                  : 'Erro ao carregar funcionários.',
-            ),
-          ),
-          data: (employees) {
-            final active =
-                employees.where((e) => e.status == 'active').toList();
-            return _CollapsibleSection(
-              title: 'Funcionários',
-              count: active.length,
-              initiallyExpanded: true,
-              child: active.isEmpty
-                  ? const _EmptyHint('Nenhum funcionário ativo.')
-                  : Column(
-                      children: [
-                        for (final emp in active)
-                          _EmployeeCard(
-                            employee: emp,
-                            me: me,
-                            employees: employees,
-                          ),
-                      ],
-                    ),
-            );
-          },
-        ),
-        const SizedBox(height: 28),
+/// Aba "Funcionários": ativos + (se houver) desativados num collapsible.
+class _EmployeesTab extends StatelessWidget {
+  const _EmployeesTab({
+    super.key,
+    required this.employeesAsync,
+    required this.me,
+  });
 
-        // ---- Convites pendentes -------------------------------------------
-        invitesAsync.when(
-          skipLoadingOnReload: true,
-          loading: () => const _SectionFallback(
-            title: 'Convites pendentes',
-            child: _LoadingBox(),
-          ),
-          error: (e, _) => _SectionFallback(
-            title: 'Convites pendentes',
-            child: _ErrorBox(
-              message:
-                  e is AppException ? e.message : 'Erro ao carregar convites.',
-            ),
-          ),
-          data: (invites) => _CollapsibleSection(
-            title: 'Convites pendentes',
-            count: invites.length,
-            initiallyExpanded: true,
-            child: invites.isEmpty
-                ? const _EmptyHint('Nenhum convite pendente.')
-                : Column(
-                    children: [
-                      for (final inv in invites) _InviteCard(invite: inv),
-                    ],
-                  ),
-          ),
-        ),
+  final AsyncValue<List<Employee>> employeesAsync;
+  final Me me;
 
-        // ---- Funcionários desativados (only when there are any) -----------
-        employeesAsync.maybeWhen(
-          data: (employees) {
-            final disabled =
-                employees.where((e) => e.status != 'active').toList();
-            if (disabled.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(top: 28),
-              child: _CollapsibleSection(
-                title: 'Funcionários desativados',
+  @override
+  Widget build(BuildContext context) {
+    return employeesAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const _LoadingBox(),
+      error: (e, _) => _ErrorBox(
+        message:
+            e is AppException ? e.message : 'Erro ao carregar funcionários.',
+      ),
+      data: (employees) {
+        final active = employees.where((e) => e.status == 'active').toList();
+        final disabled =
+            employees.where((e) => e.status != 'active').toList();
+        return Column(
+          children: [
+            if (active.isEmpty)
+              const NeuEmptyState(
+                icon: Icons.groups_outlined,
+                title: 'Nenhum funcionário ativo',
+                message:
+                    'Convide sua equipe para que cada um acesse o sistema com o próprio cargo.',
+              )
+            else
+              for (final emp in active)
+                _EmployeeCard(employee: emp, me: me, employees: employees),
+            if (disabled.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _CollapsibleSection(
+                title: 'Desativados',
                 count: disabled.length,
                 initiallyExpanded: false,
                 child: Column(
                   children: [
                     for (final emp in disabled)
                       _EmployeeCard(
-                        employee: emp,
-                        me: me,
-                        employees: employees,
-                      ),
+                          employee: emp, me: me, employees: employees),
                   ],
                 ),
               ),
-            );
-          },
-          orElse: () => const SizedBox.shrink(),
-        ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
 
-        const SizedBox(height: 24),
-      ],
+/// Aba "Convites": convites pendentes.
+class _InvitesTab extends StatelessWidget {
+  const _InvitesTab({super.key, required this.invitesAsync});
+
+  final AsyncValue<List<PendingInvite>> invitesAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return invitesAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const _LoadingBox(),
+      error: (e, _) => _ErrorBox(
+        message: e is AppException ? e.message : 'Erro ao carregar convites.',
+      ),
+      data: (invites) => invites.isEmpty
+          ? const NeuEmptyState(
+              icon: Icons.mark_email_unread_outlined,
+              title: 'Nenhum convite pendente',
+              message:
+                  'Convites que você enviar aparecem aqui até serem aceitos.',
+            )
+          : Column(
+              children: [
+                for (final inv in invites) _InviteCard(invite: inv),
+              ],
+            ),
     );
   }
 }
@@ -776,36 +800,6 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
   }
 }
 
-/// Header + body used while a section's data is still loading or errored —
-/// keeps the title visible (and the layout stable) without the toggle chrome.
-class _SectionFallback extends StatelessWidget {
-  const _SectionFallback({required this.title, required this.child});
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(title),
-        const SizedBox(height: 14),
-        child,
-      ],
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.titleLarge);
-  }
-}
-
 class _LoadingBox extends StatelessWidget {
   const _LoadingBox();
 
@@ -841,22 +835,3 @@ class _ErrorBox extends StatelessWidget {
   }
 }
 
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
-    );
-  }
-}
