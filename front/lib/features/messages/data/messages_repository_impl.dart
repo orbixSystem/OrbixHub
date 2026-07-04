@@ -49,8 +49,12 @@ class MessagesRepositoryImpl implements MessagesRepository {
       });
 
   @override
-  Future<ConversationThread> getThread(String id) => _guard(() async {
-        final res = await _dio.get<Object?>('/messages/conversations/$id');
+  Future<ConversationThread> getThread(String id, {String? before}) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/messages/conversations/$id',
+          queryParameters: {'before': ?before},
+        );
         return ConversationThread.fromJson(_asMap(res.data));
       });
 

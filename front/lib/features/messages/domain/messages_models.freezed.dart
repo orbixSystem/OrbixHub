@@ -584,7 +584,7 @@ as String?,
 /// @nodoc
 mixin _$ConversationThread {
 
- Conversation get conversation; List<Message> get messages;
+ Conversation get conversation; List<Message> get messages; bool get hasMore;
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -595,16 +595,16 @@ $ConversationThreadCopyWith<ConversationThread> get copyWith => _$ConversationTh
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other.messages, messages));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other.messages, messages)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(messages));
+int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(messages),hasMore);
 
 @override
 String toString() {
-  return 'ConversationThread(conversation: $conversation, messages: $messages)';
+  return 'ConversationThread(conversation: $conversation, messages: $messages, hasMore: $hasMore)';
 }
 
 
@@ -615,7 +615,7 @@ abstract mixin class $ConversationThreadCopyWith<$Res>  {
   factory $ConversationThreadCopyWith(ConversationThread value, $Res Function(ConversationThread) _then) = _$ConversationThreadCopyWithImpl;
 @useResult
 $Res call({
- Conversation conversation, List<Message> messages
+ Conversation conversation, List<Message> messages, bool hasMore
 });
 
 
@@ -632,11 +632,12 @@ class _$ConversationThreadCopyWithImpl<$Res>
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? conversation = null,Object? messages = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? conversation = null,Object? messages = null,Object? hasMore = null,}) {
   return _then(_self.copyWith(
 conversation: null == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
 as Conversation,messages: null == messages ? _self.messages : messages // ignore: cast_nullable_to_non_nullable
-as List<Message>,
+as List<Message>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 /// Create a copy of ConversationThread
@@ -730,10 +731,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages,  bool hasMore)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConversationThread() when $default != null:
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   return orElse();
 
 }
@@ -751,10 +752,10 @@ return $default(_that.conversation,_that.messages);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages,  bool hasMore)  $default,) {final _that = this;
 switch (_that) {
 case _ConversationThread():
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -771,10 +772,10 @@ return $default(_that.conversation,_that.messages);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Conversation conversation,  List<Message> messages)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Conversation conversation,  List<Message> messages,  bool hasMore)?  $default,) {final _that = this;
 switch (_that) {
 case _ConversationThread() when $default != null:
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   return null;
 
 }
@@ -786,7 +787,7 @@ return $default(_that.conversation,_that.messages);case _:
 
 
 class _ConversationThread implements ConversationThread {
-  const _ConversationThread({required this.conversation, final  List<Message> messages = const <Message>[]}): _messages = messages;
+  const _ConversationThread({required this.conversation, final  List<Message> messages = const <Message>[], this.hasMore = false}): _messages = messages;
   
 
 @override final  Conversation conversation;
@@ -797,6 +798,7 @@ class _ConversationThread implements ConversationThread {
   return EqualUnmodifiableListView(_messages);
 }
 
+@override@JsonKey() final  bool hasMore;
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
@@ -808,16 +810,16 @@ _$ConversationThreadCopyWith<_ConversationThread> get copyWith => __$Conversatio
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other._messages, _messages));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other._messages, _messages)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(_messages));
+int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(_messages),hasMore);
 
 @override
 String toString() {
-  return 'ConversationThread(conversation: $conversation, messages: $messages)';
+  return 'ConversationThread(conversation: $conversation, messages: $messages, hasMore: $hasMore)';
 }
 
 
@@ -828,7 +830,7 @@ abstract mixin class _$ConversationThreadCopyWith<$Res> implements $Conversation
   factory _$ConversationThreadCopyWith(_ConversationThread value, $Res Function(_ConversationThread) _then) = __$ConversationThreadCopyWithImpl;
 @override @useResult
 $Res call({
- Conversation conversation, List<Message> messages
+ Conversation conversation, List<Message> messages, bool hasMore
 });
 
 
@@ -845,11 +847,12 @@ class __$ConversationThreadCopyWithImpl<$Res>
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? conversation = null,Object? messages = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? conversation = null,Object? messages = null,Object? hasMore = null,}) {
   return _then(_ConversationThread(
 conversation: null == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
 as Conversation,messages: null == messages ? _self._messages : messages // ignore: cast_nullable_to_non_nullable
-as List<Message>,
+as List<Message>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

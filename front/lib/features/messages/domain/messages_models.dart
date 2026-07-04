@@ -41,15 +41,18 @@ abstract class Message with _$Message {
       _$MessageFromJson(json);
 }
 
-/// Thread completo: a conversa + suas mensagens (`GET /messages/conversations/:id`).
+/// Thread PAGINADA: a conversa + a página de mensagens
+/// (`GET /messages/conversations/:id?before=`). [hasMore] = existem mensagens
+/// mais antigas que a primeira desta página.
 @freezed
 abstract class ConversationThread with _$ConversationThread {
   const factory ConversationThread({
     required Conversation conversation,
     @Default(<Message>[]) List<Message> messages,
+    @Default(false) bool hasMore,
   }) = _ConversationThread;
 
-  /// O backend devolve `{ conversation: {...}, messages: [...] }` (aninhado).
+  /// O backend devolve `{ conversation: {...}, messages: [...], hasMore }`.
   /// Toleramos também o formato plano `{ ...campos, messages: [...] }`.
   factory ConversationThread.fromJson(Map<String, dynamic> json) {
     final messages = (json['messages'] as List?)
@@ -63,6 +66,7 @@ abstract class ConversationThread with _$ConversationThread {
     return ConversationThread(
       conversation: Conversation.fromJson(convJson),
       messages: messages,
+      hasMore: json['hasMore'] == true,
     );
   }
 }

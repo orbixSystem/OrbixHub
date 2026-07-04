@@ -73,9 +73,11 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Future<ConversationThread> getThread(String id) async {
-    // Abrir reseta o não-lido (espelha o servidor).
-    _conversations[id] = _conversations[id]!.copyWith(staffUnread: 0);
+  Future<ConversationThread> getThread(String id, {String? before}) async {
+    // Abrir (página inicial) reseta o não-lido (espelha o servidor).
+    if (before == null) {
+      _conversations[id] = _conversations[id]!.copyWith(staffUnread: 0);
+    }
     return ConversationThread(
       conversation: _conversations[id]!,
       messages: _threads[id] ?? const <Message>[],
