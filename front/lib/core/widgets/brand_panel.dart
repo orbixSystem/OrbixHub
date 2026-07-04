@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'brand_mark.dart';
 
-/// The dark brand hero shown beside auth forms on wide screens: a graphite
-/// field with a tangerine gradient bloom, a faint engineering grid, the Orbix
-/// mark, a confident headline and a few product proof-points.
+/// The dark brand hero shown beside auth forms on wide screens: a navy field
+/// with a lavender gradient bloom, a faint engineering grid, the Orbix mark,
+/// a confident headline and a few product proof-points.
 class BrandPanel extends StatelessWidget {
   const BrandPanel({super.key});
 
@@ -17,7 +17,7 @@ class BrandPanel extends StatelessWidget {
         gradient: RadialGradient(
           center: Alignment(-0.7, -0.9),
           radius: 1.4,
-          colors: [Color(0xFF272A33), AppColors.graphite],
+          colors: [Color(0xFF343A5C), AppColors.graphite],
         ),
       ),
       child: Stack(
@@ -29,7 +29,7 @@ class BrandPanel extends StatelessWidget {
               gradient: RadialGradient(
                 center: Alignment(-0.9, 1.1),
                 radius: 0.9,
-                colors: [Color(0x33EC5E12), Color(0x00EC5E12)],
+                colors: [Color(0x408B90E8), Color(0x008B90E8)],
               ),
             ),
           ),
