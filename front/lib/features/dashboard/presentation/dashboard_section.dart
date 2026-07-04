@@ -34,12 +34,26 @@ class DashboardMetricsSection extends StatelessWidget {
         const SizedBox(height: 14),
         const PeriodSelector(),
         const SizedBox(height: 18),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            for (final spec in specs) _widgetFor(spec),
-          ],
+        // Grid responsivo: colunas calculadas pela largura disponível
+        // (mín. ~330px por card); no mobile vira 1 coluna cheia.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 16.0;
+            const minCol = 330.0;
+            final cols = (constraints.maxWidth / (minCol + gap))
+                .floor()
+                .clamp(1, 3);
+            final colW =
+                (constraints.maxWidth - gap * (cols - 1)) / cols;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final spec in specs)
+                  SizedBox(width: colW, child: _widgetFor(spec)),
+              ],
+            );
+          },
         ),
       ],
     );

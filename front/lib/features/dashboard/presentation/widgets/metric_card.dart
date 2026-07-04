@@ -1,55 +1,46 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ui/ui.dart';
 
-/// Casca padrão de um widget de métrica: cabeçalho (ícone + título) e corpo.
-/// Mantém o estilo de card do dashboard atual (surface clara, borda, raio 18).
+/// Casca padrão de um widget de métrica: cartão neumórfico com cabeçalho
+/// (glyph colorido + título) e corpo. A largura é fluida — o grid adaptativo
+/// do dashboard decide as colunas.
 class MetricCard extends StatelessWidget {
   const MetricCard({
     super.key,
     required this.title,
     required this.icon,
     required this.child,
-    this.accent = AppColors.brand,
+    this.accent,
     this.trailing,
   });
 
   final String title;
   final IconData icon;
   final Widget child;
-  final Color accent;
+  final Color? accent;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 360,
+    final neu = context.neu;
+    final color = accent ?? neu.accent;
+    return NeuCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: accent, size: 19),
-              ),
+              NeuIconChip(icon: icon, color: color, size: 38),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(color: neu.ink),
                 ),
               ),
               ?trailing,
@@ -84,7 +75,7 @@ class MetricError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return SizedBox(
       height: 120,
       child: Column(
@@ -93,13 +84,12 @@ class MetricError extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.error_outline,
-                  color: AppColors.danger, size: 20),
+              Icon(Icons.error_outline, color: neu.danger, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Não foi possível carregar.',
-                  style: TextStyle(color: scheme.onSurfaceVariant),
+                  style: TextStyle(color: neu.inkMuted),
                 ),
               ),
             ],
@@ -124,14 +114,11 @@ class MetricEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return SizedBox(
       height: 120,
       child: Center(
-        child: Text(
-          message,
-          style: TextStyle(color: scheme.onSurfaceVariant),
-        ),
+        child: Text(message, style: TextStyle(color: neu.inkMuted)),
       ),
     );
   }
@@ -152,7 +139,7 @@ class MetricStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -162,11 +149,10 @@ class MetricStat extends StatelessWidget {
           style: Theme.of(context)
               .textTheme
               .titleLarge
-              ?.copyWith(color: valueColor),
+              ?.copyWith(color: valueColor ?? neu.ink),
         ),
         const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12.5)),
+        Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
       ],
     );
   }

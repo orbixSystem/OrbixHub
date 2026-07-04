@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../messages/presentation/messages_providers.dart';
 import 'nav_items.dart';
 
-/// The graphite navigation rail content, shared by the persistent desktop
-/// sidebar and the mobile drawer. Bounded layout (Column + Expanded list) — no
+/// Cores da sidebar derivadas dos tokens neumórficos: painel navy no tema
+/// claro (bloco de contraste, como na referência visual); painel escuro
+/// levemente distinto do fundo no tema escuro.
+class _SideColors {
+  _SideColors(BuildContext context)
+      : _neu = context.neu,
+        _light = Theme.of(context).brightness == Brightness.light;
+
+  final NeuTokens _neu;
+  final bool _light;
+
+  Color get bg => _light ? _neu.navy : const Color(0xFF222639);
+  Color get bgHi => _light ? _neu.navyHover : _neu.surfaceHi;
+  Color get line => _light ? const Color(0xFF3D4360) : _neu.line;
+  Color get fg => _light ? _neu.onNavy : _neu.ink;
+  Color get fgMuted => _light ? _neu.onNavyMuted : _neu.inkMuted;
+  Color get accent => _neu.accent;
+  Color get badge => _neu.danger;
+}
+
+/// The navy navigation sidebar content, shared by the persistent desktop
+/// sidebar and the tablet drawer. Bounded layout (Column + Expanded list) — no
 /// unbounded-constraint traps.
 class SidebarContent extends ConsumerWidget {
   const SidebarContent({
@@ -27,6 +47,7 @@ class SidebarContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = _SideColors(context);
     // Badge ao vivo no item Mensagens (soma de não-lidos do staff).
     final unreadMessages = ref.watch(unreadConversationsCountProvider);
     // Logo do tenant para o workspace chip.
@@ -35,7 +56,7 @@ class SidebarContent extends ConsumerWidget {
         .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
     return Container(
       width: 272,
-      color: AppColors.graphite,
+      color: c.bg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,12 +77,12 @@ class SidebarContent extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 22),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 0, 24, 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
               child: Text(
                 'MENU',
                 style: TextStyle(
-                  color: AppColors.onGraphiteMuted,
+                  color: c.fgMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.4,
@@ -84,7 +105,7 @@ class SidebarContent extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(color: AppColors.graphiteLine, height: 1),
+            Divider(color: c.line, height: 1),
             if (me.hasMultipleTenants)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
@@ -153,6 +174,7 @@ class _WorkspaceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = _SideColors(context);
     final hasLogo = logoUrl != null && logoUrl!.isNotEmpty;
 
     final avatarBox = hasLogo
@@ -167,19 +189,19 @@ class _WorkspaceChip extends StatelessWidget {
                   width: 36,
                   height: 36,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => _DefaultAvatar(),
+                  errorBuilder: (_, _, _) => const _DefaultAvatar(),
                 ),
               ),
             ),
           )
-        : _DefaultAvatar();
+        : const _DefaultAvatar();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.graphiteHi,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.graphiteLine),
+        color: c.bgHi,
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        border: Border.all(color: c.line),
       ),
       child: Row(
         children: [
@@ -193,18 +215,15 @@ class _WorkspaceChip extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.onGraphite,
+                  style: TextStyle(
+                    color: c.fg,
                     fontWeight: FontWeight.w700,
                     fontSize: 13.5,
                   ),
                 ),
-                const Text(
+                Text(
                   'Workspace',
-                  style: TextStyle(
-                    color: AppColors.onGraphiteMuted,
-                    fontSize: 11.5,
-                  ),
+                  style: TextStyle(color: c.fgMuted, fontSize: 11.5),
                 ),
               ],
             ),
@@ -215,16 +234,19 @@ class _WorkspaceChip extends StatelessWidget {
   }
 }
 
-/// Avatar genérico (ícone laranja) quando não há logo cadastrada.
+/// Avatar genérico quando não há logo cadastrada.
 class _DefaultAvatar extends StatelessWidget {
+  const _DefaultAvatar();
+
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.brandBright, AppColors.brandDeep],
+        gradient: LinearGradient(
+          colors: [neu.accent, neu.accent.withValues(alpha: .7)],
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -255,13 +277,14 @@ class _SideNavItemState extends State<_SideNavItem> {
 
   @override
   Widget build(BuildContext context) {
+    final c = _SideColors(context);
     final active = widget.active;
     final bg = active
-        ? AppColors.brand.withValues(alpha: 0.16)
+        ? c.accent.withValues(alpha: 0.22)
         : _hover
-            ? AppColors.graphiteHi
+            ? c.bgHi
             : Colors.transparent;
-    final fg = active ? AppColors.brandBright : AppColors.onGraphiteMuted;
+    final fg = active ? c.fg : c.fgMuted;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -276,7 +299,7 @@ class _SideNavItemState extends State<_SideNavItem> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(NeuTokens.rChip),
             ),
             child: Row(
               children: [
@@ -288,7 +311,7 @@ class _SideNavItemState extends State<_SideNavItem> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: active ? AppColors.onGraphite : fg,
+                      color: fg,
                       fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -301,7 +324,7 @@ class _SideNavItemState extends State<_SideNavItem> {
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: AppColors.brand,
+                      color: c.badge,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -317,8 +340,8 @@ class _SideNavItemState extends State<_SideNavItem> {
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.brand,
+                    decoration: BoxDecoration(
+                      color: c.accent,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -345,6 +368,7 @@ class _UserFooter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = _SideColors(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
       child: Row(
@@ -354,14 +378,14 @@ class _UserFooter extends ConsumerWidget {
             height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.graphiteHi,
+              color: c.bgHi,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.graphiteLine),
+              border: Border.all(color: c.line),
             ),
             child: Text(
               _initials,
-              style: const TextStyle(
-                color: AppColors.onGraphite,
+              style: TextStyle(
+                color: c.fg,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
               ),
@@ -376,18 +400,15 @@ class _UserFooter extends ConsumerWidget {
                   me.user.fullName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.onGraphite,
+                  style: TextStyle(
+                    color: c.fg,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
                 Text(
                   me.role,
-                  style: const TextStyle(
-                    color: AppColors.onGraphiteMuted,
-                    fontSize: 11.5,
-                  ),
+                  style: TextStyle(color: c.fgMuted, fontSize: 11.5),
                 ),
               ],
             ),
@@ -395,8 +416,7 @@ class _UserFooter extends ConsumerWidget {
           IconButton(
             tooltip: 'Sair',
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.logout_rounded,
-                size: 19, color: AppColors.onGraphiteMuted),
+            icon: Icon(Icons.logout_rounded, size: 19, color: c.fgMuted),
             onPressed: () =>
                 ref.read(sessionControllerProvider.notifier).logout(),
           ),

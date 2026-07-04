@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../billing/presentation/billing_providers.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
@@ -28,7 +28,7 @@ class DashboardScreen extends ConsumerWidget {
     final firstName = me.user.fullName.split(' ').first;
     final subAsync = ref.watch(subscriptionProvider);
     final sub = subAsync.asData?.value;
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
 
     // `report.read` é o discriminador de visibilidade gerencial/financeira.
     // Owner/gerente veem o cockpit; mecânico/caixa veem o home operacional.
@@ -39,7 +39,7 @@ class DashboardScreen extends ConsumerWidget {
     final canSeeMessages = me.hasPermission('os.read');
 
     return ListView(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(context.isMobile ? 16 : 28),
       children: [
         if (sub != null && sub.isPastDue) const _PastDueBanner(),
         Text('Olá, $firstName 👋',
@@ -49,7 +49,7 @@ class DashboardScreen extends ConsumerWidget {
           isManagement
               ? 'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.'
               : 'Seu dia de trabalho em um lugar só.',
-          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
+          style: TextStyle(color: neu.inkMuted, fontSize: 15),
         ),
         const SizedBox(height: 28),
         if (isManagement) ...[
@@ -97,29 +97,20 @@ class _ActiveOrdersPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(activeOrdersProvider(assignedTo));
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
 
-    return Container(
+    return NeuCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.build_circle_outlined,
-                    color: AppColors.brand, size: 19),
+              NeuIconChip.glyph(
+                context,
+                icon: Icons.build_circle_outlined,
+                index: 1, // laranja
+                size: 38,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -153,11 +144,10 @@ class _ActiveOrdersPanel extends ConsumerWidget {
                   child: Row(
                     children: [
                       Icon(Icons.check_circle_outline,
-                          size: 18, color: scheme.onSurfaceVariant),
+                          size: 18, color: neu.inkMuted),
                       const SizedBox(width: 8),
                       Text('Nenhuma OS em execução',
-                          style:
-                              TextStyle(color: scheme.onSurfaceVariant)),
+                          style: TextStyle(color: neu.inkMuted)),
                     ],
                   ),
                 );
@@ -165,7 +155,7 @@ class _ActiveOrdersPanel extends ConsumerWidget {
               return Column(
                 children: [
                   for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) Divider(height: 1, color: scheme.outlineVariant),
+                    if (i > 0) Divider(height: 1, color: neu.line),
                     _ActiveOrderRow(active: items[i]),
                   ],
                 ],
@@ -184,7 +174,7 @@ class _ActiveOrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final o = active.order;
     final elapsed = _elapsedLabel(o.startedAt);
     return InkWell(
@@ -197,12 +187,12 @@ class _ActiveOrderRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.brandTint,
+                color: neu.accentTint,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text('#${o.number}',
-                  style: const TextStyle(
-                      color: AppColors.brandDeep,
+                  style: TextStyle(
+                      color: neu.navy,
                       fontWeight: FontWeight.w700,
                       fontSize: 12.5)),
             ),
@@ -219,8 +209,7 @@ class _ActiveOrderRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     active.assigneeName ?? 'Sem responsável',
-                    style: TextStyle(
-                        color: scheme.onSurfaceVariant, fontSize: 12.5),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -229,12 +218,10 @@ class _ActiveOrderRow extends StatelessWidget {
             if (elapsed != null) ...[
               const SizedBox(width: 10),
               Text(elapsed,
-                  style: TextStyle(
-                      color: scheme.onSurfaceVariant, fontSize: 12)),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12)),
             ],
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right,
-                size: 20, color: scheme.onSurfaceVariant),
+            Icon(Icons.chevron_right, size: 20, color: neu.inkMuted),
           ],
         ),
       ),
@@ -264,43 +251,33 @@ class _MyOverdueOrdersCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
     final async = ref.watch(myOverdueOrdersProvider(assignedTo));
     final count = async.asData?.value.length ?? 0;
     if (count == 0) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: AppColors.dangerTint,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => context.go('/m/os'),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+      child: NeuCard(
+        onTap: () => context.go('/m/os'),
+        color: neu.dangerTint,
+        padding: const EdgeInsets.all(16),
+        radius: NeuTokens.rField,
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: neu.danger),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                count == 1
+                    ? '1 OS atrasada — prazo vencido'
+                    : '$count OS atrasadas — prazo vencido',
+                style: TextStyle(
+                    color: neu.danger, fontWeight: FontWeight.w700),
+              ),
             ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: AppColors.danger),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    count == 1
-                        ? '1 OS atrasada — prazo vencido'
-                        : '$count OS atrasadas — prazo vencido',
-                    style: const TextStyle(
-                        color: AppColors.danger, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: AppColors.danger),
-              ],
-            ),
-          ),
+            Icon(Icons.chevron_right, color: neu.danger),
+          ],
         ),
       ),
     );
@@ -315,61 +292,40 @@ class _UnreadMessagesCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unread = ref.watch(unreadConversationsCountProvider);
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final hasUnread = unread > 0;
-    final accent = hasUnread ? AppColors.brand : AppColors.info;
+    final accent = hasUnread ? neu.glyphs[1] : neu.info;
 
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => context.go('/mensagens'),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: scheme.outlineVariant),
+    return NeuCard(
+      onTap: () => context.go('/mensagens'),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          NeuIconChip(
+            icon: hasUnread
+                ? Icons.mark_chat_unread_outlined
+                : Icons.chat_bubble_outline,
+            color: accent,
           ),
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasUnread
+                      ? '$unread ${unread == 1 ? 'mensagem não lida' : 'mensagens não lidas'}'
+                      : 'Nenhuma mensagem nova',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                child: Icon(
-                    hasUnread
-                        ? Icons.mark_chat_unread_outlined
-                        : Icons.chat_bubble_outline,
-                    color: accent,
-                    size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasUnread
-                          ? '$unread ${unread == 1 ? 'mensagem não lida' : 'mensagens não lidas'}'
-                          : 'Nenhuma mensagem nova',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text('Abrir Mensagens',
-                        style: TextStyle(
-                            color: scheme.onSurfaceVariant, fontSize: 12.5)),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_outward_rounded,
-                  size: 18, color: scheme.onSurfaceVariant),
-            ],
+                const SizedBox(height: 2),
+                Text('Abrir Mensagens',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+              ],
+            ),
           ),
-        ),
+          Icon(Icons.arrow_outward_rounded, size: 18, color: neu.inkMuted),
+        ],
       ),
     );
   }
@@ -380,24 +336,25 @@ class _PastDueBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return Container(
       margin: const EdgeInsets.only(bottom: 22),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.dangerTint,
+        color: neu.dangerTint,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+        border: Border.all(color: neu.danger.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+          Icon(Icons.warning_amber_rounded, color: neu.danger),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               'Pagamento pendente. Regularize a assinatura para manter o '
               'acesso de escrita aos módulos.',
               style: TextStyle(
-                  color: AppColors.danger, fontWeight: FontWeight.w600),
+                  color: neu.danger, fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
