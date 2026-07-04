@@ -53,10 +53,10 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
   DateTime? _parse(String? iso) =>
       (iso == null || iso.isEmpty) ? null : DateTime.tryParse(iso)?.toLocal();
 
-  /// dd/MM/yyyy (pt-BR) para exibir a data escolhida.
+  /// dd/MM/yyyy HH:mm (pt-BR) para exibir data+hora escolhida.
   String _fmtDate(DateTime d) {
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(d.day)}/${two(d.month)}/${d.year}';
+    return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
   }
 
   Future<void> _loadMembers() async {
@@ -91,19 +91,32 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
 
   Future<void> _pickDate({required bool start}) async {
     final initial = (start ? _scheduledStart : _scheduledEnd) ?? DateTime.now();
-    final picked = await showDatePicker(
+    final date = await showDatePicker(
       context: context,
       initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
       helpText: start ? 'Previsão de início' : 'Previsão de fim',
     );
-    if (picked == null || !mounted) return;
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (time == null || !mounted) return;
+    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     setState(() {
       if (start) {
-        _scheduledStart = picked;
+        _scheduledStart = dt;
+        if (_scheduledEnd != null && _scheduledEnd!.isBefore(dt)) {
+          _scheduledEnd = null;
+        }
       } else {
-        _scheduledEnd = picked;
+        _scheduledEnd = dt;
       }
     });
   }
@@ -124,9 +137,8 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
     final patch = OrderPatch(
       complaint: _opt(_complaint.text),
       assignedTo: _assignedTo,
-      // ISO-8601 (date-only) — o backend faz `new Date(v)` (aceita yyyy-MM-dd).
-      scheduledStart: _scheduledStart?.toIso8601String(),
-      scheduledEnd: _scheduledEnd?.toIso8601String(),
+      scheduledStart: _scheduledStart?.toUtc().toIso8601String(),
+      scheduledEnd: _scheduledEnd?.toUtc().toIso8601String(),
       discount: _toDouble(_discount.text),
     );
     try {
@@ -293,7 +305,7 @@ class _DateField extends StatelessWidget {
               : const Icon(Icons.calendar_month_outlined, size: 18),
         ),
         child: Text(
-          value ?? 'Selecionar data',
+          value ?? 'Selecionar data e hora',
           style: value == null
               ? TextStyle(color: Theme.of(context).hintColor)
               : null,

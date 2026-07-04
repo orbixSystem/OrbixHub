@@ -63,6 +63,7 @@ abstract class AgendaItem with _$AgendaItem {
     required String name,
     @Default('service') String kind,
     @JsonKey(name: 'assigned_to') String? assignedTo,
+    @JsonKey(name: 'assigned_to_name') String? assignedToName,
     @JsonKey(name: 'scheduled_start') String? scheduledStart,
     @JsonKey(name: 'scheduled_end') String? scheduledEnd,
     @JsonKey(name: 'estimated_duration') int? estimatedDuration,

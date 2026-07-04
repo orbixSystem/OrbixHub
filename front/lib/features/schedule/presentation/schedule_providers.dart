@@ -61,3 +61,37 @@ final agendaProvider = FutureProvider.autoDispose<AgendaResult>((ref) {
         assignedTo: q.assignedTo,
       );
 });
+
+/// Chave de mês (ano + mês) para o provider de pontos do calendário.
+class MonthKey {
+  const MonthKey({required this.year, required this.month});
+
+  final int year;
+  final int month;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MonthKey && other.year == year && other.month == month;
+
+  @override
+  int get hashCode => Object.hash(year, month);
+}
+
+/// Conjunto de dias do mês que possuem pelo menos um item agendado.
+/// Usado para renderizar os pontos no calendário.
+final monthScheduledDaysProvider =
+    FutureProvider.autoDispose.family<Set<int>, MonthKey>((ref, key) async {
+  final from = DateTime(key.year, key.month, 1);
+  final to = DateTime(key.year, key.month + 1, 1);
+  final result = await ref.read(scheduleRepositoryProvider).getAgenda(
+        from: from,
+        to: to,
+      );
+  return result.items
+      .map((item) {
+        final dt = DateTime.tryParse(item.scheduledStart ?? '')?.toLocal();
+        return dt?.day ?? 0;
+      })
+      .where((d) => d > 0)
+      .toSet();
+});
