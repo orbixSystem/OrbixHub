@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -84,5 +85,8 @@ export class ListOrdersQueryDto {
   @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
+  // Cap igual ao dos demais módulos — sem ele um cliente pode pedir uma
+  // página arbitrariamente grande (full-table scan disfarçado).
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
+  pageSize?: number;
 }

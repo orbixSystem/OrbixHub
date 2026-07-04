@@ -8,7 +8,7 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: z.string().default('15m'),
-  REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(14),
+  REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
   CORS_ORIGINS: z
     .string()
     .transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),

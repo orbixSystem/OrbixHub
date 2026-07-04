@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-
 /// Os 7 status da OS, em ordem de fluxo.
 const osStatuses = <String>[
   'aberta',
@@ -35,24 +33,26 @@ String osStatusLabel(String status) {
   }
 }
 
-/// Cor de fundo do chip por status (do design system: grafite + tangerina).
+/// Cor por status — paleta fixa do redesign (violeta/azul/verde; sem laranja).
+/// Cores escolhidas para funcionar como TINT (fundo alpha) + texto pleno nos
+/// dois temas.
 Color osStatusColor(String status) {
   switch (status) {
     case 'em_execucao':
-      return AppColors.brand;
+      return const Color(0xFF8B5CF6); // violeta — trabalho acontecendo
     case 'aprovada':
-      return AppColors.info;
+      return const Color(0xFF5B8DEF); // azul
     case 'concluida':
-      return AppColors.success;
+      return const Color(0xFF10B981); // verde
     case 'entregue':
-      return AppColors.graphite;
+      return const Color(0xFF64748B); // slate — arquivada
     case 'cancelada':
-      return AppColors.danger;
+      return const Color(0xFFE5484D); // vermelho
     case 'aguardando_aprovacao':
-      return AppColors.warning;
+      return const Color(0xFFD9A13B); // âmbar
     case 'aberta':
     default:
-      return AppColors.inkMuted;
+      return const Color(0xFF8B90B8); // lavanda neutra
   }
 }
 
@@ -97,7 +97,8 @@ String osTransitionLabel(String target) {
   }
 }
 
-/// Chip colorido de status (texto branco sobre a cor do status).
+/// Chip de status em estilo tint (fundo suave + texto na cor) — mais leve que
+/// o bloco sólido e legível nos dois temas.
 class OsStatusChip extends StatelessWidget {
   const OsStatusChip({super.key, required this.status});
 
@@ -106,16 +107,18 @@ class OsStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = osStatusColor(status);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color,
+        color: color.withValues(alpha: dark ? .22 : .14),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         osStatusLabel(status),
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          // No escuro, clareia o texto para manter contraste sobre o tint.
+          color: dark ? Color.lerp(color, Colors.white, .35) : color,
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),

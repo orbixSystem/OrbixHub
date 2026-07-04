@@ -66,13 +66,17 @@ final orderListQueryProvider =
     NotifierProvider<OrderListQueryNotifier, OrderListQuery>(
         OrderListQueryNotifier.new);
 
-/// Estado da lista paginada: ordens acumuladas + se há mais lotes a carregar.
+/// Estado da lista paginada. Serve os DOIS modos do spec: mobile acumula
+/// lotes (infinite scroll via [OrderListNotifier.loadMore]); desktop navega
+/// por página numerada ([OrderListNotifier.goToPage] substitui os itens).
 class OrderListState {
   const OrderListState({
     required this.items,
     required this.total,
     required this.hasMore,
     this.loadingMore = false,
+    this.page = 1,
+    this.pageSize = 20,
   });
 
   final List<ServiceOrder> items;
@@ -80,17 +84,25 @@ class OrderListState {
   final bool hasMore;
   final bool loadingMore;
 
+  /// Página corrente (modo desktop; no modo scroll é a última carregada).
+  final int page;
+  final int pageSize;
+
   OrderListState copyWith({
     List<ServiceOrder>? items,
     int? total,
     bool? hasMore,
     bool? loadingMore,
+    int? page,
+    int? pageSize,
   }) =>
       OrderListState(
         items: items ?? this.items,
         total: total ?? this.total,
         hasMore: hasMore ?? this.hasMore,
         loadingMore: loadingMore ?? this.loadingMore,
+        page: page ?? this.page,
+        pageSize: pageSize ?? this.pageSize,
       );
 }
 
@@ -111,7 +123,29 @@ class OrderListNotifier extends AsyncNotifier<OrderListState> {
       items: page.items,
       total: page.total,
       hasMore: page.items.length < page.total,
+      page: page.page,
+      pageSize: page.pageSize,
     );
+  }
+
+  /// Modo desktop (página numerada): SUBSTITUI os itens pela página pedida.
+  Future<void> goToPage(int target) async {
+    final current = state.asData?.value;
+    if (current == null || current.loadingMore || target < 1) return;
+    state = AsyncData(current.copyWith(loadingMore: true));
+    try {
+      final next = await _fetch(target);
+      _page = target;
+      state = AsyncData(OrderListState(
+        items: next.items,
+        total: next.total,
+        hasMore: target * next.pageSize < next.total,
+        page: target,
+        pageSize: next.pageSize,
+      ));
+    } catch (_) {
+      state = AsyncData(current.copyWith(loadingMore: false));
+    }
   }
 
   Future<OrderPage> _fetch(int page) =>
@@ -137,6 +171,8 @@ class OrderListNotifier extends AsyncNotifier<OrderListState> {
         items: merged,
         total: next.total,
         hasMore: merged.length < next.total && next.items.isNotEmpty,
+        page: _page,
+        pageSize: next.pageSize,
       ));
     } catch (_) {
       state = AsyncData(current.copyWith(loadingMore: false));

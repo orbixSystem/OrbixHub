@@ -27,6 +27,9 @@ import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
+import '../devtools/dev_flag.dart';
+import '../devtools/ui_showcase_screen.dart';
+import '../ui/neu_transitions.dart';
 import '../widgets/splash_screen.dart';
 import 'navigator_key.dart';
 
@@ -36,7 +39,9 @@ const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
 bool _isPublic(String location) =>
     _authRoutes.contains(location) ||
     location.startsWith('/t/') ||
-    location.startsWith('/convite/');
+    location.startsWith('/convite/') ||
+    // Vitrine do design system — só existe em dev (kDevTools).
+    (kDevTools && location == '/dev/ui');
 
 /// go_router wired to the session. `refreshListenable` re-runs `redirect` on
 /// every session change. Guards run server-truth-first: the client only reflects
@@ -95,90 +100,138 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
-      GoRoute(path: '/verify', builder: (_, _) => const VerifyScreen()),
-      GoRoute(path: '/forgot', builder: (_, _) => const ForgotScreen()),
-      GoRoute(path: '/reset', builder: (_, _) => const ResetScreen()),
-      GoRoute(path: '/picker', builder: (_, _) => const TenantPickerScreen()),
+      GoRoute(
+        path: '/splash',
+        pageBuilder: (_, s) => neuPage(s, const SplashScreen()),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, s) => neuPage(s, const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (_, s) => neuPage(s, const RegisterScreen()),
+      ),
+      GoRoute(
+        path: '/verify',
+        pageBuilder: (_, s) => neuPage(s, const VerifyScreen()),
+      ),
+      GoRoute(
+        path: '/forgot',
+        pageBuilder: (_, s) => neuPage(s, const ForgotScreen()),
+      ),
+      GoRoute(
+        path: '/reset',
+        pageBuilder: (_, s) => neuPage(s, const ResetScreen()),
+      ),
+      GoRoute(
+        path: '/picker',
+        pageBuilder: (_, s) => neuPage(s, const TenantPickerScreen()),
+      ),
       GoRoute(
         path: '/t/:token',
-        builder: (_, state) =>
-            PublicTrackingScreen(token: state.pathParameters['token'] ?? ''),
+        pageBuilder: (_, s) => neuPage(
+          s,
+          PublicTrackingScreen(token: s.pathParameters['token'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/convite/:token',
-        builder: (_, state) =>
-            AcceptInviteScreen(token: state.pathParameters['token'] ?? ''),
+        pageBuilder: (_, s) => neuPage(
+          s,
+          AcceptInviteScreen(token: s.pathParameters['token'] ?? ''),
+        ),
       ),
+      // Vitrine dev do design system neumórfico (fora do shell; some em release).
+      if (kDevTools)
+        GoRoute(path: '/dev/ui', builder: (_, _) => const UiShowcaseScreen()),
       // Authenticated shell.
       ShellRoute(
         builder: (_, _, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/', builder: (_, _) => const DashboardScreen()),
-          GoRoute(path: '/billing', builder: (_, _) => const PlansScreen()),
-          GoRoute(path: '/equipe', builder: (_, _) => const TeamScreen()),
+          // pageBuilder + neuPage → o Navigator do shell faz o cross-fade da
+          // troca de tela (sem duplicar a GlobalKey da página, como acontecia
+          // ao envolver o child num AnimatedSwitcher).
+          GoRoute(
+            path: '/',
+            pageBuilder: (_, s) => neuPage(s, const DashboardScreen()),
+          ),
+          GoRoute(
+            path: '/billing',
+            pageBuilder: (_, s) => neuPage(s, const PlansScreen()),
+          ),
+          GoRoute(
+            path: '/equipe',
+            pageBuilder: (_, s) => neuPage(s, const TeamScreen()),
+          ),
           GoRoute(
             path: '/configuracoes',
-            builder: (_, _) => const SettingsScreen(),
+            pageBuilder: (_, s) => neuPage(s, const SettingsScreen()),
           ),
           // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
           // só por autenticação (já está dentro da shell autenticada).
           GoRoute(
             path: '/mensagens',
-            builder: (_, _) => const MessagesInboxScreen(),
+            pageBuilder: (_, s) => neuPage(s, const MessagesInboxScreen()),
           ),
           GoRoute(
             path: '/mensagens/:id',
-            builder: (_, state) => MessageThreadScreen(
-              conversationId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              MessageThreadScreen(
+                conversationId: s.pathParameters['id'] ?? '',
+              ),
             ),
           ),
           // Customers module — literal routes declared before the generic
           // /m/:moduleKey placeholder so they take precedence.
           GoRoute(
             path: '/m/customers',
-            builder: (_, _) => const CustomersScreen(),
+            pageBuilder: (_, s) => neuPage(s, const CustomersScreen()),
           ),
           GoRoute(
             path: '/m/customers/:id',
-            builder: (_, state) => CustomerDetailScreen(
-              customerId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              CustomerDetailScreen(customerId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Inventory module — literal route before the generic placeholder.
           GoRoute(
             path: '/m/inventory',
-            builder: (_, _) => const InventoryScreen(),
+            pageBuilder: (_, s) => neuPage(s, const InventoryScreen()),
           ),
           // OS module — literal routes before the generic placeholder so they
           // take precedence; both stay gated under /m/os.
           GoRoute(
             path: '/m/os',
-            builder: (_, _) => const OsListScreen(),
+            pageBuilder: (_, s) => neuPage(s, const OsListScreen()),
           ),
           // Templates de OS — antes de /m/os/:id para não ser capturado como id.
           GoRoute(
             path: '/m/os/templates',
-            builder: (_, _) => const TemplatesScreen(),
+            pageBuilder: (_, s) => neuPage(s, const TemplatesScreen()),
           ),
           GoRoute(
             path: '/m/os/:id',
-            builder: (_, state) => OsDetailScreen(
-              orderId: state.pathParameters['id'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              OsDetailScreen(orderId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.
           GoRoute(
             path: '/m/report',
-            builder: (_, _) => const ReportScreen(),
+            pageBuilder: (_, s) => neuPage(s, const ReportScreen()),
           ),
           GoRoute(
             path: '/m/:moduleKey',
-            builder: (_, state) => ModulePlaceholderScreen(
-              moduleKey: state.pathParameters['moduleKey'] ?? '',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              ModulePlaceholderScreen(
+                moduleKey: s.pathParameters['moduleKey'] ?? '',
+              ),
             ),
           ),
         ],

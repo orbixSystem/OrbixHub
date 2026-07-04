@@ -3,15 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/realtime/realtime_chat.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/widgets/read_ticks.dart';
 import '../../../di.dart';
 import '../domain/messages_models.dart';
 import 'messages_providers.dart';
 
 /// Thread de conversa (chat): bolhas do cliente à esquerda, do staff à direita,
-/// com autor + hora; campo de resposta + enviar. Ao abrir, marca como lido e
-/// invalida o inbox para zerar o badge. Corpo apenas — moldura é do shell.
+/// com autor + hora; campo de resposta + enviar. PAGINADA: carrega as 50 mais
+/// recentes; "Carregar anteriores" busca páginas antigas por cursor (as antigas
+/// ficam acumuladas em estado local — o provider só cuida da página corrente).
+/// Ao abrir, marca como lido e invalida o inbox. Corpo apenas — moldura do shell.
 class MessageThreadScreen extends ConsumerStatefulWidget {
   const MessageThreadScreen({super.key, required this.conversationId});
 
@@ -28,6 +30,17 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
   bool _sending = false;
   bool _didInitialJump = false;
   final RealtimeChat _rt = RealtimeChat();
+
+  /// Mensagens ANTERIORES às da página corrente (acumuladas via cursor).
+  List<Message> _older = const [];
+
+  /// Há páginas anteriores além das já puxadas para [_older]?
+  bool? _olderHasMore;
+  bool _loadingOlder = false;
+
+  /// Última mensagem exibida — auto-scroll só quando ELA muda (mensagem nova
+  /// no fim), nunca ao prepender antigas.
+  String? _lastMessageId;
 
   @override
   void initState() {
@@ -60,14 +73,14 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
     super.dispose();
   }
 
-  /// Leva a conversa para o final, acompanhando a última mensagem. Agendado
-  /// após o frame para que o ListView já tenha medido a nova extensão.
-  void _scrollToBottom() {
+  /// Leva a conversa para o final quando chega mensagem nova no fim.
+  void _maybeScrollToBottom(List<Message> visible) {
+    final lastId = visible.isEmpty ? null : visible.last.id;
+    if (lastId == _lastMessageId) return;
+    _lastMessageId = lastId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
       final target = _scroll.position.maxScrollExtent;
-      // Ao abrir, pula direto para o fim (sem animação visível). Depois disso,
-      // anima suavemente ao chegar/enviar mensagens.
       if (!_didInitialJump) {
         _didInitialJump = true;
         _scroll.jumpTo(target);
@@ -104,6 +117,42 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
     }
   }
 
+  /// Puxa a página ANTERIOR (cursor = createdAt da mensagem mais antiga
+  /// visível) e prepende ao acumulado local.
+  Future<void> _loadOlder(ConversationThread thread) async {
+    if (_loadingOlder) return;
+    final oldest = _older.isNotEmpty
+        ? _older.first
+        : (thread.messages.isNotEmpty ? thread.messages.first : null);
+    final cursor = oldest?.createdAt;
+    if (cursor == null) return;
+    setState(() => _loadingOlder = true);
+    try {
+      final page = await ref
+          .read(messagesRepositoryProvider)
+          .getThread(widget.conversationId, before: cursor);
+      setState(() {
+        _older = [...page.messages, ..._older];
+        _olderHasMore = page.hasMore;
+      });
+    } on AppException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _loadingOlder = false);
+    }
+  }
+
+  /// Antigas acumuladas + página corrente, sem duplicar (o realtime pode
+  /// re-buscar a página corrente com sobreposição).
+  List<Message> _visible(ConversationThread thread) {
+    if (_older.isEmpty) return thread.messages;
+    final seen = _older.map((m) => m.id).toSet();
+    return [
+      ..._older,
+      ...thread.messages.where((m) => !seen.contains(m.id)),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(threadProvider(widget.conversationId));
@@ -120,22 +169,27 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
                       ? e.message
                       : 'Erro ao carregar a conversa.'),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    style:
-                        OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                    onPressed: () => ref
-                        .invalidate(threadProvider(widget.conversationId)),
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('Tentar de novo'),
+                  NeuButton(
+                    label: 'Tentar de novo',
+                    kind: NeuButtonKind.secondary,
+                    icon: Icons.refresh,
+                    onPressed: () =>
+                        ref.invalidate(threadProvider(widget.conversationId)),
                   ),
                 ],
               ),
             ),
             data: (thread) {
-              // Sempre que a thread renderiza (abrir, nova mensagem enviada
-              // ou recebida no refresh), acompanha a última mensagem.
-              _scrollToBottom();
-              return _ThreadBody(thread: thread, controller: _scroll);
+              final visible = _visible(thread);
+              _maybeScrollToBottom(visible);
+              final hasMore = _olderHasMore ?? thread.hasMore;
+              return _ThreadBody(
+                messages: visible,
+                controller: _scroll,
+                hasMore: hasMore,
+                loadingOlder: _loadingOlder,
+                onLoadOlder: () => _loadOlder(thread),
+              );
             },
           ),
         ),
@@ -150,36 +204,61 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
 }
 
 class _ThreadBody extends StatelessWidget {
-  const _ThreadBody({required this.thread, required this.controller});
-  final ConversationThread thread;
+  const _ThreadBody({
+    required this.messages,
+    required this.controller,
+    required this.hasMore,
+    required this.loadingOlder,
+    required this.onLoadOlder,
+  });
+
+  final List<Message> messages;
   final ScrollController controller;
+  final bool hasMore;
+  final bool loadingOlder;
+  final VoidCallback onLoadOlder;
 
   @override
   Widget build(BuildContext context) {
-    final messages = thread.messages;
     return _ChatBackground(
       child: messages.isEmpty
           ? const Center(child: Text('Nenhuma mensagem ainda.'))
           : ListView.builder(
               controller: controller,
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-              itemCount: messages.length,
-              itemBuilder: (_, i) => _Bubble(message: messages[i]),
+              itemCount: messages.length + (hasMore ? 1 : 0),
+              itemBuilder: (context, i) {
+                if (hasMore && i == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Center(
+                      child: NeuButton(
+                        label: 'Carregar mensagens anteriores',
+                        kind: NeuButtonKind.secondary,
+                        icon: Icons.history_rounded,
+                        loading: loadingOlder,
+                        onPressed: onLoadOlder,
+                      ),
+                    ),
+                  );
+                }
+                final index = hasMore ? i - 1 : i;
+                return _Bubble(message: messages[index]);
+              },
             ),
     );
   }
 }
 
-/// Fundo decorativo da conversa: um leve degradê on-brand com uma trama de
-/// pontos sutil por cima, para a tela não ficar "sem graça". O padrão é
-/// discreto o bastante para não competir com as bolhas de mensagem.
+/// Fundo decorativo da conversa: um leve degradê lavanda com uma trama de
+/// pontos sutil por cima. Discreto o bastante para não competir com as bolhas.
 class _ChatBackground extends StatelessWidget {
   const _ChatBackground({required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -187,17 +266,17 @@ class _ChatBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            scheme.surface,
+            neu.base,
             Color.alphaBlend(
-              AppColors.brand.withValues(alpha: dark ? 0.06 : 0.04),
-              scheme.surface,
+              neu.accent.withValues(alpha: dark ? 0.06 : 0.05),
+              neu.base,
             ),
           ],
         ),
       ),
       child: CustomPaint(
         painter: _DotGridPainter(
-          color: AppColors.brand.withValues(alpha: dark ? 0.10 : 0.07),
+          color: neu.accent.withValues(alpha: dark ? 0.12 : 0.10),
         ),
         child: child,
       ),
@@ -243,14 +322,13 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final isStaff = message.sender == 'staff';
     final time = _time(message.createdAt);
-    final bg = isStaff ? AppColors.brand : scheme.surfaceContainerHigh;
-    final fg = isStaff ? Colors.white : scheme.onSurface;
-    final metaColor = isStaff
-        ? Colors.white.withValues(alpha: 0.85)
-        : scheme.onSurfaceVariant;
+    final bg = isStaff ? neu.navy : neu.surfaceHi;
+    final fg = isStaff ? neu.onNavy : neu.ink;
+    final metaColor =
+        isStaff ? neu.onNavy.withValues(alpha: 0.8) : neu.inkMuted;
 
     return Align(
       alignment: isStaff ? Alignment.centerRight : Alignment.centerLeft,
@@ -266,6 +344,13 @@ class _Bubble extends StatelessWidget {
             bottomLeft: Radius.circular(isStaff ? 16 : 4),
             bottomRight: Radius.circular(isStaff ? 4 : 16),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: neu.shadowDark.withValues(alpha: .35),
+              blurRadius: 6,
+              offset: const Offset(2, 3),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment:
@@ -319,44 +404,44 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(top: BorderSide(color: scheme.outlineVariant)),
-      ),
+      color: neu.base,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.send,
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Escreva uma resposta…',
+            child: NeuSurface(
+              elevation: NeuElevation.inset,
+              radius: NeuTokens.rField,
+              child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.send,
+                style: TextStyle(color: neu.ink, fontSize: 14.5),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Escreva uma resposta…',
+                  hintStyle: TextStyle(color: neu.inkFaint),
+                  border: InputBorder.none,
+                  filled: false,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 13,
+                  ),
+                ),
+                onSubmitted: (_) => onSend(),
               ),
-              onSubmitted: (_) => onSend(),
             ),
           ),
           const SizedBox(width: 12),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
+          NeuIconButton(
+            icon: Icons.send_rounded,
+            tooltip: 'Enviar',
+            color: neu.navy,
             onPressed: sending ? null : onSend,
-            child: sending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.send_rounded, size: 20),
           ),
         ],
       ),

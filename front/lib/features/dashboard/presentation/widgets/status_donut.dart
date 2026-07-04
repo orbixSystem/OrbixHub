@@ -1,9 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/ui.dart';
 import '../../../os/presentation/os_status.dart';
 
-/// Donut de "OS por status" + legenda. Usa as cores/rótulos do módulo OS.
+/// Donut de "OS por status" + legenda. Usa as cores/rótulos do módulo OS
+/// (paleta violeta/azul/verde do redesign — sem laranja).
 class StatusDonut extends StatelessWidget {
   const StatusDonut({super.key, required this.byStatus});
 
@@ -11,15 +13,15 @@ class StatusDonut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final entries = byStatus.entries.where((e) => e.value > 0).toList();
     final total = entries.fold<int>(0, (a, e) => a + e.value);
     if (total == 0) {
-      final scheme = Theme.of(context).colorScheme;
       return SizedBox(
-        height: 120,
+        height: 130,
         child: Center(
           child: Text('Nenhuma OS no período.',
-              style: TextStyle(color: scheme.onSurfaceVariant)),
+              style: TextStyle(color: neu.inkMuted)),
         ),
       );
     }
@@ -28,21 +30,22 @@ class StatusDonut extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 120,
-          height: 120,
+          width: 132,
+          height: 132,
           child: Stack(
             alignment: Alignment.center,
             children: [
               PieChart(
                 PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 36,
+                  sectionsSpace: 3,
+                  centerSpaceRadius: 42,
+                  startDegreeOffset: -90,
                   sections: [
                     for (final e in entries)
                       PieChartSectionData(
                         value: e.value.toDouble(),
                         color: osStatusColor(e.key),
-                        radius: 18,
+                        radius: 16,
                         showTitle: false,
                       ),
                   ],
@@ -51,18 +54,21 @@ class StatusDonut extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('$total',
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    '$total',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(color: neu.ink),
+                  ),
                   Text('OS',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 12)),
+                      style: TextStyle(color: neu.inkMuted, fontSize: 12)),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 20),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +76,7 @@ class StatusDonut extends StatelessWidget {
             children: [
               for (final e in entries)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(
                     children: [
                       Container(
@@ -78,20 +84,26 @@ class StatusDonut extends StatelessWidget {
                         height: 10,
                         decoration: BoxDecoration(
                           color: osStatusColor(e.key),
-                          borderRadius: BorderRadius.circular(3),
+                          shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           osStatusLabel(e.key),
-                          style: const TextStyle(fontSize: 12.5),
+                          style:
+                              TextStyle(fontSize: 12.5, color: neu.inkMuted),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text('${e.value}',
-                          style: const TextStyle(
-                              fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      Text(
+                        '${e.value}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: neu.ink,
+                        ),
+                      ),
                     ],
                   ),
                 ),

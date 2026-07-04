@@ -1,34 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../ui/neu_tokens.dart';
 import 'app_colors.dart';
 
 /// The OrbixHub theme. Display type is Sora (geometric, confident); body/UI is
-/// Manrope (clean, humanist-geometric). Components are flat with soft radii,
-/// hairline borders and a single tangerine accent.
+/// Manrope (clean, humanist-geometric).
 ///
-/// Both the light and dark variants are seedable: colors are derived from a
-/// [ColorScheme.fromSeed] so the workshop's primary color can re-tint the whole
-/// app while remaining legible in either brightness.
+/// Desde o redesign neumórfico (spec 2026-07-04) a paleta é FIXA — lavanda +
+/// navy, derivada de [NeuTokens]. O parâmetro `seed` é aceito por
+/// compatibilidade mas IGNORADO (os presets por tenant foram descontinuados;
+/// a UI de aparência é removida na fase 8).
 class AppTheme {
   const AppTheme._();
 
-  static const radius = 14.0;
+  static const radius = 16.0;
 
   static ThemeData light({Color seed = AppColors.brand}) =>
-      _build(Brightness.light, seed);
+      _build(Brightness.light);
 
   static ThemeData dark({Color seed = AppColors.brand}) =>
-      _build(Brightness.dark, seed);
+      _build(Brightness.dark);
 
-  static ThemeData _build(Brightness brightness, Color seed) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
+  /// Mapeia os tokens neumórficos para os papéis do Material ColorScheme —
+  /// assim TODAS as telas legadas (que leem roles do scheme) já rendem na
+  /// identidade nova antes mesmo de serem migradas para componentes Neu*.
+  static ColorScheme _schemeFrom(NeuTokens neu, Brightness brightness) {
+    final light = brightness == Brightness.light;
+    return ColorScheme(
       brightness: brightness,
-      // fidelity mantém o primary próximo à cor-semente, tornando cada preset
-      // claramente distinto (Azul visivelmente azul, Verde visivelmente verde, etc.).
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+      primary: neu.navy,
+      onPrimary: neu.onNavy,
+      primaryContainer: neu.accentTint,
+      onPrimaryContainer: light ? neu.navy : neu.ink,
+      secondary: neu.accent,
+      onSecondary: light ? Colors.white : neu.onNavy,
+      secondaryContainer: neu.accentTint,
+      onSecondaryContainer: light ? neu.navy : neu.ink,
+      tertiary: neu.info,
+      onTertiary: Colors.white,
+      tertiaryContainer: neu.infoTint,
+      onTertiaryContainer: neu.info,
+      error: neu.danger,
+      onError: Colors.white,
+      errorContainer: neu.dangerTint,
+      onErrorContainer: neu.danger,
+      surface: neu.base,
+      onSurface: neu.ink,
+      onSurfaceVariant: neu.inkMuted,
+      surfaceContainerLowest: neu.surfaceHi,
+      surfaceContainerLow: neu.surface,
+      surfaceContainer: neu.surface,
+      surfaceContainerHigh: neu.surface,
+      surfaceContainerHighest: light
+          ? const Color(0xFFDBDCE8)
+          : const Color(0xFF3A4060),
+      outline: neu.inkFaint,
+      outlineVariant: neu.line,
+      shadow: neu.shadowDark,
+      scrim: Colors.black54,
+      inverseSurface: light ? neu.navy : neu.ink,
+      onInverseSurface: light ? neu.onNavy : neu.base,
+      inversePrimary: neu.accent,
+      surfaceTint: Colors.transparent,
     );
+  }
+
+  static ThemeData _build(Brightness brightness) {
+    final neu = brightness == Brightness.dark
+        ? NeuTokens.dark()
+        : NeuTokens.light();
+    final scheme = _schemeFrom(neu, brightness);
 
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
 
@@ -51,6 +93,11 @@ class AppTheme {
         );
 
     return base.copyWith(
+      // Tokens do design system neumórfico — disponíveis via `context.neu`
+      // em qualquer tela (a migração tela-a-tela lê daqui).
+      extensions: [
+        brightness == Brightness.dark ? NeuTokens.dark() : NeuTokens.light(),
+      ],
       scaffoldBackgroundColor: scheme.surface,
       splashFactory: InkSparkle.splashFactory,
       textTheme: text.copyWith(

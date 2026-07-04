@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
+import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
@@ -10,7 +11,8 @@ import '../../auth/presentation/session_state.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
-import '../../os/presentation/os_status.dart' show osStatuses, osStatusLabel;
+import '../../os/presentation/os_status.dart'
+    show osStatuses, osStatusLabel, OsStatusChip;
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
@@ -106,28 +108,22 @@ class _ReportPicker extends ConsumerWidget {
       groups.putIfAbsent(r.group, () => []).add(r);
     }
 
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final entry in groups.entries) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
               child: Text(
                 entry.key.toUpperCase(),
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: neu.inkFaint,
                 ),
               ),
             ),
@@ -158,36 +154,42 @@ class _PickerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        color: selected
-            ? scheme.primary.withValues(alpha: 0.12)
-            : Colors.transparent,
-        child: Row(
-          children: [
-            Container(
-              width: 3,
-              height: 18,
-              decoration: BoxDecoration(
-                color: selected ? scheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? scheme.primary : scheme.onSurface,
+    final neu = context.neu;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected ? neu.accentTint : Colors.transparent,
+            borderRadius: BorderRadius.circular(NeuTokens.rChip),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: selected ? neu.navy : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: selected ? neu.ink : neu.inkMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -285,7 +287,6 @@ class _MemberFilter extends ConsumerWidget {
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Técnico',
-            border: OutlineInputBorder(),
             isDense: true,
           ),
           items: [
@@ -318,7 +319,6 @@ class _StatusFilter extends StatelessWidget {
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Status',
-          border: OutlineInputBorder(),
           isDense: true,
         ),
         items: [
@@ -347,7 +347,6 @@ class _KindFilter extends StatelessWidget {
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Tipo',
-          border: OutlineInputBorder(),
           isDense: true,
         ),
         items: const [
@@ -376,7 +375,6 @@ class _LimitFilter extends StatelessWidget {
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Top',
-          border: OutlineInputBorder(),
           isDense: true,
         ),
         items: const [
@@ -641,43 +639,11 @@ class _InventoryPager extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final pageCount = report.pageSize <= 0
-        ? 1
-        : ((report.total + report.pageSize - 1) ~/ report.pageSize)
-            .clamp(1, 1 << 30);
-    final page = report.page.clamp(1, pageCount);
-    final first =
-        report.total == 0 ? 0 : (page - 1) * report.pageSize + 1;
-    final last = (page * report.pageSize).clamp(0, report.total);
-
-    void go(int p) => ref.read(inventoryPageProvider.notifier).set(p);
-
-    final muted = TextStyle(color: scheme.onSurfaceVariant, fontSize: 13);
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      runSpacing: 8,
-      spacing: 16,
-      children: [
-        Text('$first–$last de ${report.total} itens', style: muted),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Página anterior',
-              onPressed: page > 1 ? () => go(page - 1) : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Text('Página $page de $pageCount', style: muted),
-            IconButton(
-              tooltip: 'Próxima página',
-              onPressed: page < pageCount ? () => go(page + 1) : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
-        ),
-      ],
+    return NeuPageControls(
+      page: report.page <= 0 ? 1 : report.page,
+      pageSize: report.pageSize <= 0 ? 20 : report.pageSize,
+      total: report.total,
+      onPage: (p) => ref.read(inventoryPageProvider.notifier).set(p),
     );
   }
 }
@@ -750,31 +716,22 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
 
   @override
   Widget build(BuildContext context) {
-    const compact = Size(0, 40);
-    const pad = EdgeInsets.symmetric(horizontal: 16);
-    Widget spinner() => const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2));
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        OutlinedButton.icon(
+        NeuButton(
+          label: 'Exportar CSV',
+          kind: NeuButtonKind.secondary,
+          icon: Icons.table_view_outlined,
+          loading: _csvBusy,
           onPressed: _csvBusy ? null : _csv,
-          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
-          icon: _csvBusy
-              ? spinner()
-              : const Icon(Icons.table_view_outlined, size: 18),
-          label: const Text('Exportar CSV'),
         ),
-        FilledButton.icon(
+        NeuButton(
+          label: 'Exportar PDF',
+          icon: Icons.picture_as_pdf_outlined,
+          loading: _pdfBusy,
           onPressed: _pdfBusy ? null : _pdf,
-          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
-          icon: _pdfBusy
-              ? spinner()
-              : const Icon(Icons.picture_as_pdf_outlined, size: 18),
-          label: const Text('Exportar PDF'),
         ),
       ],
     );
@@ -788,17 +745,24 @@ class _SummaryStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12.5)),
-      ],
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(color: neu.ink),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+        ],
+      ),
     );
   }
 }
@@ -811,66 +775,59 @@ class _DataTableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     bool isTotal(List<String> row) => row.isNotEmpty && row.first == 'TOTAL';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor:
-              WidgetStateProperty.all(scheme.surfaceContainerHigh),
-          headingTextStyle: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurfaceVariant,
-            letterSpacing: 0.2,
-          ),
-          dataTextStyle: TextStyle(
-            fontSize: 13.5,
-            color: scheme.onSurface,
-          ),
-          dividerThickness: 0.5,
-          columns: [
-            for (final h in table.headers) DataColumn(label: Text(h)),
-          ],
-          rows: [
-            for (var i = 0; i < table.rows.length; i++)
-              () {
-                final row = table.rows[i];
-                final total = isTotal(row);
-                return DataRow(
-                  color: WidgetStateProperty.all(
-                    total
-                        ? scheme.primary.withValues(alpha: 0.12)
-                        : (i.isOdd
-                            ? scheme.surfaceContainerHighest
-                                .withValues(alpha: 0.4)
-                            : null),
-                  ),
-                  cells: [
-                    for (final cell in row)
-                      DataCell(
-                        Text(
-                          cell,
-                          style: total
-                              ? TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: scheme.primary,
-                                )
-                              : null,
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(neu.surfaceHi),
+            headingTextStyle: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: neu.inkMuted,
+              letterSpacing: 0.2,
+            ),
+            dataTextStyle: TextStyle(fontSize: 13.5, color: neu.ink),
+            dividerThickness: 0.5,
+            columns: [
+              for (final h in table.headers) DataColumn(label: Text(h)),
+            ],
+            rows: [
+              for (var i = 0; i < table.rows.length; i++)
+                () {
+                  final row = table.rows[i];
+                  final total = isTotal(row);
+                  return DataRow(
+                    color: WidgetStateProperty.all(
+                      total
+                          ? neu.accentTint
+                          : (i.isOdd
+                              ? neu.base.withValues(alpha: 0.5)
+                              : null),
+                    ),
+                    cells: [
+                      for (final cell in row)
+                        DataCell(
+                          Text(
+                            cell,
+                            style: total
+                                ? TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: neu.navy,
+                                  )
+                                : null,
+                          ),
                         ),
-                      ),
-                  ],
-                );
-              }(),
-          ],
+                    ],
+                  );
+                }(),
+            ],
+          ),
         ),
       ),
     );
@@ -891,24 +848,21 @@ class _ExportButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // O tema global define minimumSize de altura cheia (Size.fromHeight(50)), o
-    // que daria largura infinita aos botões e os esticaria/quebraria. Aqui forçamos
-    // botões compactos do tamanho do conteúdo, lado a lado numa toolbar.
-    const compact = Size(0, 40);
-    const pad = EdgeInsets.symmetric(horizontal: 16);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        OutlinedButton.icon(
-          onPressed: () =>
-              downloadText(buildCsv(table), csvFileName(table.title),
-                  'text/csv;charset=utf-8'),
-          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
-          icon: const Icon(Icons.table_view_outlined, size: 18),
-          label: const Text('Exportar CSV'),
+        NeuButton(
+          label: 'Exportar CSV',
+          kind: NeuButtonKind.secondary,
+          icon: Icons.table_view_outlined,
+          onPressed: () => downloadText(
+              buildCsv(table), csvFileName(table.title),
+              'text/csv;charset=utf-8'),
         ),
-        FilledButton.icon(
+        NeuButton(
+          label: 'Exportar PDF',
+          icon: Icons.picture_as_pdf_outlined,
           onPressed: () => Printing.layoutPdf(
             onLayout: (format) => buildReportPdf(
               table,
@@ -917,9 +871,6 @@ class _ExportButtons extends StatelessWidget {
               periodLabel: period,
             ),
           ),
-          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
-          icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-          label: const Text('Exportar PDF'),
         ),
       ],
     );
@@ -933,19 +884,25 @@ class _RevenueChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final days = report.byDay;
     if (days.isEmpty) return const SizedBox.shrink();
     final maxY = days
         .map((d) => d.revenue.toDouble())
         .fold<double>(0, (a, b) => b > a ? b : a);
 
-    return _ChartCard(
+    return NeuChartCard(
       title: 'Evolução do faturamento',
       child: BarChart(
         BarChartData(
           maxY: maxY <= 0 ? 1 : maxY * 1.2,
-          gridData: const FlGridData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: neu.line, strokeWidth: 1),
+          ),
           borderData: FlBorderData(show: false),
           titlesData: const FlTitlesData(
             leftTitles:
@@ -957,16 +914,19 @@ class _RevenueChart extends StatelessWidget {
             bottomTitles:
                 AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
+          barTouchData: neuBarTouch(
+            context,
+            label: (i, v) => formatMoney(v),
+          ),
           barGroups: [
             for (var i = 0; i < days.length; i++)
               BarChartGroupData(
                 x: i,
                 barRods: [
-                  BarChartRodData(
-                    toY: days[i].revenue.toDouble(),
-                    color: scheme.primary,
-                    width: days.length > 20 ? 4 : 10,
-                    borderRadius: BorderRadius.circular(3),
+                  neuBarRod(
+                    context,
+                    days[i].revenue.toDouble(),
+                    width: days.length > 20 ? 5 : 12,
                   ),
                 ],
               ),
@@ -985,19 +945,25 @@ class _TeamChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final rows = report.rows;
     if (rows.isEmpty) return const SizedBox.shrink();
     final maxY = rows
         .map((r) => r.revenue.toDouble())
         .fold<double>(0, (a, b) => b > a ? b : a);
 
-    return _ChartCard(
+    return NeuChartCard(
       title: 'Faturamento por responsável',
       child: BarChart(
         BarChartData(
           maxY: maxY <= 0 ? 1 : maxY * 1.2,
-          gridData: const FlGridData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: neu.line, strokeWidth: 1),
+          ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
             leftTitles:
@@ -1020,55 +986,29 @@ class _TeamChart extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       label.length > 8 ? '${label.substring(0, 8)}…' : label,
-                      style: TextStyle(
-                          fontSize: 10, color: scheme.onSurfaceVariant),
+                      style: TextStyle(fontSize: 10, color: neu.inkMuted),
                     ),
                   );
                 },
               ),
             ),
           ),
+          barTouchData: neuBarTouch(context, label: (i, v) => formatMoney(v)),
           barGroups: [
             for (var i = 0; i < rows.length; i++)
               BarChartGroupData(
                 x: i,
                 barRods: [
-                  BarChartRodData(
-                    toY: rows[i].revenue.toDouble(),
-                    color: scheme.tertiary,
-                    width: 16,
-                    borderRadius: BorderRadius.circular(3),
+                  neuBarRod(
+                    context,
+                    rows[i].revenue.toDouble(),
+                    width: 18,
+                    color: neu.glyphs[i % neu.glyphs.length],
                   ),
                 ],
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ChartCard extends StatelessWidget {
-  const _ChartCard({required this.title, required this.child});
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          SizedBox(height: 200, child: child),
-        ],
       ),
     );
   }
@@ -1080,24 +1020,14 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      height: 220,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, color: scheme.error, size: 28),
-          const SizedBox(height: 10),
-          Text('Não foi possível carregar o relatório.',
-              style: TextStyle(color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Tentar novamente'),
-          ),
-        ],
+    return SizedBox(
+      height: 260,
+      child: NeuEmptyState(
+        icon: Icons.error_outline_rounded,
+        title: 'Não foi possível carregar',
+        message: 'Tente novamente em instantes.',
+        actionLabel: 'Tentar novamente',
+        onAction: onRetry,
       ),
     );
   }
@@ -1109,12 +1039,13 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 160,
-      alignment: Alignment.center,
-      child: Text(message,
-          style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant)),
+    return SizedBox(
+      height: 200,
+      child: NeuEmptyState(
+        icon: Icons.bar_chart_rounded,
+        title: 'Sem dados',
+        message: message,
+      ),
     );
   }
 }
@@ -1164,7 +1095,6 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final async = ref.watch(osOperationalReportProvider);
     return async.when(
       skipLoadingOnReload: true,
@@ -1207,19 +1137,16 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
             else
               SizedBox(
                 height: listHeight.toDouble(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: scheme.outlineVariant),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: ListView.separated(
+                child: NeuCard(
+                  padding: EdgeInsets.zero,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(NeuTokens.rCard),
+                    child: ListView.separated(
                     controller: _scroll,
                     itemCount: state.rows.length + 1,
                     separatorBuilder: (_, i) => i >= state.rows.length - 1
                         ? const SizedBox.shrink()
-                        : const Divider(height: 1),
+                        : Divider(height: 1, color: context.neu.line),
                     itemBuilder: (_, i) {
                       if (i < state.rows.length) {
                         return _OsRowTile(
@@ -1234,6 +1161,7 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
                         noun: 'OS',
                       );
                     },
+                    ),
                   ),
                 ),
               ),
@@ -1254,7 +1182,7 @@ class _OsRowTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final subtitle =
         '${fmtDate(row.openedAt)} · ${assignedLabel(row.assignedTo, names)}';
     return Padding(
@@ -1268,17 +1196,13 @@ class _OsRowTile extends StatelessWidget {
               children: [
                 Text(
                   '${row.number} · ${row.customerName}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, color: neu.ink),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
+                Text(subtitle,
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
               ],
             ),
           ),
@@ -1286,18 +1210,11 @@ class _OsRowTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                osStatusLabel(row.status),
-                style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
+              OsStatusChip(status: row.status),
+              const SizedBox(height: 4),
               Text(
                 formatMoney(row.total),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(fontWeight: FontWeight.w800, color: neu.ink),
               ),
             ],
           ),
@@ -1313,7 +1230,7 @@ class _OsSortMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final value = ref.watch(reportFiltersProvider).osSort;
     return PopupMenuButton<OsReportSort>(
       tooltip: 'Ordenar',
@@ -1327,28 +1244,23 @@ class _OsSortMenu extends ConsumerWidget {
             child: Row(
               children: [
                 Expanded(child: Text(s.label)),
-                if (s == value)
-                  Icon(Icons.check, size: 18, color: scheme.primary),
+                if (s == value) Icon(Icons.check, size: 18, color: neu.accent),
               ],
             ),
           ),
       ],
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
-        ),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_vert, size: 18, color: scheme.onSurfaceVariant),
+            Icon(Icons.swap_vert, size: 18, color: neu.inkMuted),
             const SizedBox(width: 8),
             Text(value.label,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, color: scheme.onSurfaceVariant),
+                style: TextStyle(fontWeight: FontWeight.w600, color: neu.ink)),
+            Icon(Icons.arrow_drop_down, color: neu.inkMuted),
           ],
         ),
       ),
@@ -1378,14 +1290,9 @@ class _OsSearchFieldState extends ConsumerState<_OsSearchField> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 240,
-      child: TextField(
+      child: NeuSearchBar(
+        hint: 'Buscar nº ou cliente',
         controller: _c,
-        decoration: const InputDecoration(
-          isDense: true,
-          prefixIcon: Icon(Icons.search, size: 20),
-          hintText: 'Buscar nº ou cliente',
-          border: OutlineInputBorder(),
-        ),
         onChanged: (v) => ref.read(reportFiltersProvider.notifier).setOsQ(v),
       ),
     );

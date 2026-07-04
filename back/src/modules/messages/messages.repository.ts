@@ -107,11 +107,20 @@ export class MessagesRepository {
     });
   }
 
-  listMessages(convId: string) {
+  /**
+   * Página de mensagens por CURSOR (threads crescem para sempre — nunca sem
+   * limite). Busca as `take` mais recentes antes de [before] (exclusivo), em
+   * ordem DESC; o service reverte para asc e calcula hasMore pedindo take+1.
+   */
+  listMessagesPage(convId: string, opts: { before?: Date; take: number }) {
     const db = this.tenant.getClient();
     return db.message.findMany({
-      where: { conversation_id: convId },
-      orderBy: { created_at: 'asc' },
+      where: {
+        conversation_id: convId,
+        ...(opts.before ? { created_at: { lt: opts.before } } : {}),
+      },
+      orderBy: { created_at: 'desc' },
+      take: opts.take,
     });
   }
 

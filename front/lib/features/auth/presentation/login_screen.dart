@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/devtools/dev_flag.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
@@ -18,6 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _remember = false;
   String? _error;
 
   @override
@@ -38,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await controller.login(
         email: _email.text.trim(),
         password: _password.text,
+        remember: _remember,
       );
       if (!mounted) return;
       // >1 workshop → show the picker first; otherwise straight to the app.
@@ -48,6 +52,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Dev-only: fills the fields with a seed account (does NOT submit).
+  void _fillSeed(String email) {
+    _email.text = email;
+    _password.text = 'Dev@12345';
+    setState(() {});
   }
 
   @override
@@ -61,33 +72,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_error != null) AuthErrorBanner(message: _error!),
-            TextFormField(
+            NeuTextField(
+              label: 'E-mail',
               controller: _email,
-              decoration: const InputDecoration(labelText: 'E-mail'),
+              hint: 'voce@oficina.com',
+              prefixIcon: Icons.mail_outline_rounded,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
               validator: (v) =>
                   (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
+            const SizedBox(height: 14),
+            NeuTextField(
+              label: 'Senha',
               controller: _password,
-              decoration: const InputDecoration(labelText: 'Senha'),
               obscureText: true,
+              prefixIcon: Icons.lock_outline_rounded,
               validator: (v) =>
                   (v == null || v.isEmpty) ? 'Informe a senha' : null,
               onFieldSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 20),
-            FilledButton(
+            const SizedBox(height: 12),
+            // "Manter conectado" (opt-in): persiste a sessão por ~1 mês.
+            _RememberToggle(
+              value: _remember,
+              enabled: !_loading,
+              onChanged: (v) => setState(() => _remember = v),
+            ),
+            const SizedBox(height: 16),
+            NeuButton(
+              label: 'Entrar',
+              expanded: true,
+              loading: _loading,
               onPressed: _loading ? null : _submit,
-              child: _loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Entrar'),
             ),
             const SizedBox(height: 8),
             TextButton(
@@ -99,9 +116,116 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: () => context.go('/register'),
               child: const Text('Criar uma oficina'),
             ),
+            if (kDevTools) _DevQuickLogin(onPick: _fillSeed),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Toggle "Manter conectado" neumórfico: trilha cavada com o marcador que
+/// desliza; rótulo sempre visível (alvo grande, usuário pouco digital).
+class _RememberToggle extends StatelessWidget {
+  const _RememberToggle({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Semantics(
+      toggled: value,
+      label: 'Manter conectado',
+      child: InkWell(
+        onTap: enabled ? () => onChanged(!value) : null,
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              NeuSurface(
+                elevation: NeuElevation.inset,
+                radius: 999,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 44,
+                  height: 26,
+                  padding: const EdgeInsets.all(3),
+                  alignment:
+                      value ? Alignment.centerRight : Alignment.centerLeft,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: value ? neu.navy : neu.inkFaint,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Manter conectado',
+                style: TextStyle(
+                  color: neu.inkMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dev-only quick-login: buttons that FILL the credentials of seed accounts
+/// (does not submit). Tree-shaken out of release builds via [kDevTools].
+class _DevQuickLogin extends StatelessWidget {
+  const _DevQuickLogin({required this.onPick});
+
+  final void Function(String email) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 24),
+        Text(
+          'Login rápido (dev)',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 8),
+        // Wrap → nunca estoura a largura no mobile; empilha se faltar espaço.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            NeuButton(
+              label: 'Dono',
+              kind: NeuButtonKind.secondary,
+              icon: Icons.person_outline,
+              onPressed: () => onPick('dono@oficina-demo.dev'),
+            ),
+            NeuButton(
+              label: 'Mecânico',
+              kind: NeuButtonKind.secondary,
+              icon: Icons.build_outlined,
+              onPressed: () => onPick('mecanico@oficina-demo.dev'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

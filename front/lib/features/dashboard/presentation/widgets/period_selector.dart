@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ui/ui.dart';
 import '../period_controller.dart';
 
 /// Abre o seletor de intervalo no CALENDÁRIO (toca início e fim direto nos meses),
@@ -103,28 +103,24 @@ class _PeriodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? AppColors.brandTint : scheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppColors.brand : scheme.outlineVariant,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppColors.brandDeep : scheme.onSurface,
-            ),
+    final neu = context.neu;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: selected ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? neu.navy : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: selected ? null : neu.raised(),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: selected ? neu.onNavy : neu.inkMuted,
           ),
         ),
       ),

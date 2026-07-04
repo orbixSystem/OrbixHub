@@ -1,4 +1,5 @@
 import {
+  Query,
   Body,
   Controller,
   Get,
@@ -38,8 +39,11 @@ export class OsPublicController {
   }
 
   @Get(':token/messages')
-  getMessages(@Param('token') token: string) {
-    return this.osPublic.getPublicMessages(token);
+  getMessages(
+    @Param('token') token: string,
+    @Query('before') before?: string,
+  ) {
+    return this.osPublic.getPublicMessages(token, before);
   }
 
   @Post(':token/messages')
