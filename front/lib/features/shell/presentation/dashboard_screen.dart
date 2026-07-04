@@ -15,11 +15,55 @@ import '../../../di.dart';
 /// Home ("Início"): saudação + visão geral (período + métricas role-aware) +
 /// painel de OS em andamento + atalho de mensagens não lidas. Tudo gated por
 /// `me` (módulo + permissão); a moldura é do shell, a tela só devolve o corpo.
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  // Alvos do tutorial (spotlight).
+  final _metricsKey = GlobalKey();
+  final _ordersKey = GlobalKey();
+  final _messagesKey = GlobalKey();
+
+  List<CoachStep> _coachSteps() => [
+        if (_metricsKey.currentContext != null)
+          CoachStep(
+            targetKey: _metricsKey,
+            title: 'Sua visão geral',
+            text:
+                'Os números da oficina no período escolhido — faturamento, OS, estoque e clientes.',
+          ),
+        if (_ordersKey.currentContext != null)
+          CoachStep(
+            targetKey: _ordersKey,
+            title: 'OS em andamento',
+            text:
+                'Acompanhe as ordens em execução e toque para abrir os detalhes.',
+          ),
+        if (_messagesKey.currentContext != null)
+          CoachStep(
+            targetKey: _messagesKey,
+            title: 'Fale com o cliente',
+            text:
+                'Mensagens trocadas pelo link de acompanhamento da OS aparecem aqui.',
+          ),
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CoachMark.maybeStart(context, id: 'dashboard', steps: _coachSteps());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final session = ref.watch(sessionControllerProvider);
     if (session is! SessionAuthenticated) {
       return const Center(child: CircularProgressIndicator());
@@ -42,26 +86,45 @@ class DashboardScreen extends ConsumerWidget {
       padding: EdgeInsets.all(context.isMobile ? 16 : 28),
       children: [
         if (sub != null && sub.isPastDue) const _PastDueBanner(),
-        Text('Olá, $firstName',
-            style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 6),
-        Text(
-          isManagement
-              ? 'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.'
-              : 'Seu dia de trabalho em um lugar só.',
-          style: TextStyle(color: neu.inkMuted, fontSize: 15),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Olá, $firstName',
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    isManagement
+                        ? 'Aqui está o resumo de ${me.activeTenant?.name ?? 'sua oficina'}.'
+                        : 'Seu dia de trabalho em um lugar só.',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+            NeuIconButton(
+              icon: Icons.help_outline_rounded,
+              tooltip: 'Rever tutorial',
+              size: 42,
+              onPressed: () =>
+                  CoachMark.start(context, id: 'dashboard', steps: _coachSteps()),
+            ),
+          ],
         ),
         const SizedBox(height: 28),
         if (isManagement) ...[
           // GERENCIAL: período + métricas + OS em andamento (todas) + chat.
-          DashboardMetricsSection(me: me),
+          KeyedSubtree(key: _metricsKey, child: DashboardMetricsSection(me: me)),
           if (canSeeActiveOs) ...[
             const SizedBox(height: 32),
-            const _ActiveOrdersPanel(),
+            KeyedSubtree(key: _ordersKey, child: const _ActiveOrdersPanel()),
           ],
           if (canSeeMessages) ...[
             const SizedBox(height: 24),
-            const _UnreadMessagesCard(),
+            KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard()),
           ],
         ] else ...[
           // OPERACIONAL (mecânico/caixa): foco em ação, sem período nem métricas
@@ -69,7 +132,10 @@ class DashboardScreen extends ConsumerWidget {
           // valor) + chat.
           if (canSeeActiveOs) ...[
             _MyOverdueOrdersCard(assignedTo: me.user.id),
-            _ActiveOrdersPanel(assignedTo: me.user.id),
+            KeyedSubtree(
+              key: _ordersKey,
+              child: _ActiveOrdersPanel(assignedTo: me.user.id),
+            ),
           ],
           if (canSeeInventory) ...[
             const SizedBox(height: 24),
@@ -77,7 +143,7 @@ class DashboardScreen extends ConsumerWidget {
           ],
           if (canSeeMessages) ...[
             const SizedBox(height: 24),
-            const _UnreadMessagesCard(),
+            KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard()),
           ],
         ],
         const SizedBox(height: 24),
