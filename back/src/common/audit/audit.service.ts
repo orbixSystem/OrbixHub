@@ -28,7 +28,12 @@ export type AuditAction =
   | 'os_template_update'
   | 'os_template_delete'
   | 'os_template_apply'
-  | 'os_stock_reconcile';
+  | 'os_stock_reconcile'
+  | 'invoice_issue'
+  | 'invoice_authorized'
+  | 'invoice_rejected'
+  | 'invoice_cancel'
+  | 'invoice_webhook';
 
 @Injectable()
 export class AuditService {

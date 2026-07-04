@@ -123,16 +123,18 @@ Permissões genéricas (`customer.*`, `subject.*`, `os.*`…), nunca por vertica
 11. **Evidência antes de "pronto":** `npm run back:lint` (0 warnings) + `back:test` + `back:test:e2e`;
     `flutter analyze` (0 issues) + `flutter test`. Cite o output real.
 
-## Estado atual (código = fonte de verdade — atualizado 2026-06-26)
+## Estado atual (código = fonte de verdade — atualizado 2026-07-04)
 
 > O **código está à frente dos docs**: `docs/modulos-v1.md`/`pendencias.md` ainda listam
 > `tracking`/`report` como "planejado", mas já estão implementados (ver abaixo). Em conflito,
 > vale o que está wired em `back/src/app.module.ts` e em `front/lib/features/`.
 
-**Backend — módulos wired em `app.module.ts` (14 + infra comum):**
+**Backend — módulos wired em `app.module.ts` (15 + infra comum):**
 - **Núcleo:** `auth`, `iam` (+ `employees`, `invites`, `reauth`), `tenancy` (`/me`), `billing`.
 - **Host:** `settings` (registry incremental de seções de config).
-- **Contratável implementado:** `os`, `customers` (+ `subjects`), `inventory` (+ catálogo EAN), `report`.
+- **Contratável implementado:** `os`, `customers` (+ `subjects`), `inventory` (+ catálogo EAN), `report`,
+  `invoice` (**Nota Fiscal — backend**: emite NF da OS, online-only, via gateway fiscal abstrato Noop;
+  ver skill `orbixhub-fiscal-invoice`).
 - **Transversais implementados:** `messages` (chat/conversation), `notifications` (+ sino),
   `realtime` (**WebSocket/socket.io** — `@SubscribeMessage('subscribe:public'|'subscribe:staff')`,
   salas por conversa e por tenant, emite `message`), `storage` (`/files`, providers local/MinIO — **fotos da OS**).
@@ -145,21 +147,23 @@ Permissões genéricas (`customer.*`, `subject.*`, `os.*`…), nunca por vertica
 `public/track` + `realtime` (websocket) + tela `tracking/public_tracking_screen` no front,
 **porém `tracking` ainda NÃO é um `module` semeado/gated** — é recurso da OS, não módulo comercial separado.
 
-**DB — 31 tabelas.** RLS+FORCE (policy `tenant_id = current_tenant_id()`) nas de tenant:
+**DB — 35 tabelas.** RLS+FORCE (policy `tenant_id = current_tenant_id()`) nas de tenant:
 `membership`, `invite`, `subscription`, `tenant_module`, `audit_log`, `customer`, `subject`,
 `inventory_item`, `stock_movement`, `service_order`, `service_order_item`, `service_order_event`,
-`service_order_photo`, `service_order_template(_item)`, `conversation`, `message`, `notification`.
+`service_order_photo`, `service_order_template(_item)`, `conversation`, `message`, `notification`,
+`invoice`, `invoice_line`, `invoice_event`.
 Globais sem RLS: `tenant`, `users`, `role`, `permission`, `role_permission`, `refresh_token`,
 `one_time_token`, `login_attempt`, `module`, `plan`, `plan_module`, `billing_webhook_event`,
-`catalog_product` (cache EAN global 60d). Roles PG: `app_owner` (dono/DDL), `app_migrator`
-(BYPASSRLS), `app_user` (NOBYPASSRLS, runtime).
+`invoice_webhook_event`, `catalog_product` (cache EAN global 60d). Roles PG: `app_owner` (dono/DDL),
+`app_migrator` (BYPASSRLS), `app_user` (NOBYPASSRLS, runtime).
 
 **Seeds reais (use estes nomes, não invente):**
 - **Cargos (`role`):** `owner`, `mechanic`, `gerente`, `caixa`.
-- **Planos (`plan`):** `trial` (os, customers) · `pro` (os, inventory, customers, report).
-- **Módulos semeados (`module`):** `os`, `inventory`, `customers`, `report`.
+- **Planos (`plan`):** `trial` (os, customers, invoice) · `pro` (os, inventory, customers, report, invoice).
+- **Módulos semeados (`module`):** `os`, `inventory`, `customers`, `report`, `invoice`.
 - **Permissões:** `os.*`, `inventory.*`, `customer.*`, `subject.*`, `cashier.*`, `invoice.issue`,
-  `finance.*`, `report.read`, `tracking.manage`, `users.manage`, `billing.manage`, `tenant.manage`, `settings.manage`.
+  `invoice.read`, `finance.*`, `report.read`, `tracking.manage`, `users.manage`, `billing.manage`,
+  `tenant.manage`, `settings.manage`.
 
 **Frontend — app Flutter completo (web + Windows).** Riverpod 3 · go_router 17 · dio · freezed ·
 `socket_io_client` (realtime) · `printing`/`pdf` (export OS/relatórios) · `fl_chart` (dashboards) ·
@@ -180,8 +184,9 @@ acompanhamento público da OS · storage de fotos · front multiplataforma (web/
 
 🚧 **Falta (backlog em `docs/pendencias.md` + brainstorm):**
 - **Offline-first / sync (SQLite local ↔ nuvem)** — **NÃO existe** (sem sqflite/drift/hive no front;
-  os "fake repositories" são p/ dev/teste, não persistência offline). Pedido de produto ainda em aberto.
-- Módulos **planejados sem backend:** `cashier`, `invoice` (NF-e), `finance`.
+  os "fake repositories" são p/ dev/teste, não persistência offline). Requisito do MVP.
+- Módulo `invoice`: **backend pronto**; falta config sensível (certificado A1/série/CSC), testes e2e,
+  `GovBrNfseGateway` real e a feature no front. Módulos **planejados sem backend:** `cashier`, `finance`.
 - `tracking` como **módulo comercial gated** (hoje é recurso da OS).
 - Entitlements por feature (freemium intra-módulo: `plan_feature`/`features[]` em `/me`).
 - OS: envio do link público por **WhatsApp/e-mail** (hoje só "copiar link").

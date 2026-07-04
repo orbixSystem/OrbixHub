@@ -28,6 +28,14 @@ export const envSchema = z.object({
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
   APP_PUBLIC_URL: z.string().default('http://localhost:8090'),
+  // --- Nota Fiscal (módulo invoice) ---
+  // Gateway fiscal. 'noop' = autoriza sintético em dev (sem chamada externa);
+  // 'govbr' = API NFS-e Nacional (gov.br), gratuita — impl real.
+  FISCAL_PROVIDER: z.enum(['noop', 'govbr']).default('noop'),
+  // Ambiente fiscal default de novas notas.
+  FISCAL_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
+  // HMAC do webhook fiscal (assinatura sobre o corpo cru). Secret — nunca no front.
+  INVOICE_WEBHOOK_SECRET: z.string().min(16).default('dev_invoice_webhook_secret_change_me'),
   // --- Inventory catalog lookup (código-first) ---
   // External GTIN/EAN catalog provider. 'noop' = always empty (validation phase).
   CATALOG_PROVIDER: z.enum(['noop', 'cosmos', 'openfoodfacts']).default('noop'),

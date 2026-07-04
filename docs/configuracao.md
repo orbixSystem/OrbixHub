@@ -43,10 +43,13 @@
 
 > **Legado:** o campo `address` (texto livre) foi substituído pelo endereço estruturado acima. Dados anteriores permanecem preservados no JSONB do tenant; o campo não é mais exposto na seção registrada.
 
-### Nota Fiscal (módulo `invoice`) — planejado
+### Nota Fiscal (módulo `invoice`)
 
-Este módulo ainda não existe, mas a fronteira de responsabilidade já está definida
-(princípio "aponta, não invade"):
+O módulo já existe no backend (emissão a partir da OS, **online-only**, via gateway
+fiscal abstrato — `NoopFiscalGateway` em dev; `GovBrNfseGateway` real futuro, API
+NFS-e Nacional gov.br). A seção de config é registrada no host quando o módulo está
+habilitado; as credenciais sensíveis abaixo terão endpoints próprios do módulo. A
+fronteira de responsabilidade segue o princípio "aponta, não invade":
 
 **No config da empresa (núcleo — já disponível agora):**
 Os campos abaixo são **identidade do tenant** e úteis a múltiplos módulos. Ficam em
@@ -58,7 +61,7 @@ Os campos abaixo são **identidade do tenant** e úteis a múltiplos módulos. F
 - Regime tributário (`regimeTributario`) e CNAE (`cnae`)
 - Endereço fiscal completo (campos `cep` → `uf`)
 
-**No próprio módulo `invoice` (quando existir, via seção registrada):**
+**No próprio módulo `invoice` (via seção registrada + endpoints próprios):**
 Dados **operacionais e sensíveis** que pertencem exclusivamente ao módulo:
 
 | Dado | Obs |
