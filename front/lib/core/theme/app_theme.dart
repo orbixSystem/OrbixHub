@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../ui/neu_tokens.dart';
 import 'app_colors.dart';
 
 /// The OrbixHub theme. Display type is Sora (geometric, confident); body/UI is
@@ -51,6 +52,11 @@ class AppTheme {
         );
 
     return base.copyWith(
+      // Tokens do design system neumórfico — disponíveis via `context.neu`
+      // em qualquer tela (a migração tela-a-tela lê daqui).
+      extensions: [
+        brightness == Brightness.dark ? NeuTokens.dark() : NeuTokens.light(),
+      ],
       scaffoldBackgroundColor: scheme.surface,
       splashFactory: InkSparkle.splashFactory,
       textTheme: text.copyWith(

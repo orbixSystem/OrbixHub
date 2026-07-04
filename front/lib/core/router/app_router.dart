@@ -27,6 +27,8 @@ import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
+import '../devtools/dev_flag.dart';
+import '../devtools/ui_showcase_screen.dart';
 import '../widgets/splash_screen.dart';
 import 'navigator_key.dart';
 
@@ -36,7 +38,9 @@ const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
 bool _isPublic(String location) =>
     _authRoutes.contains(location) ||
     location.startsWith('/t/') ||
-    location.startsWith('/convite/');
+    location.startsWith('/convite/') ||
+    // Vitrine do design system — só existe em dev (kDevTools).
+    (kDevTools && location == '/dev/ui');
 
 /// go_router wired to the session. `refreshListenable` re-runs `redirect` on
 /// every session change. Guards run server-truth-first: the client only reflects
@@ -112,6 +116,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             AcceptInviteScreen(token: state.pathParameters['token'] ?? ''),
       ),
+      // Vitrine dev do design system neumórfico (fora do shell; some em release).
+      if (kDevTools)
+        GoRoute(path: '/dev/ui', builder: (_, _) => const UiShowcaseScreen()),
       // Authenticated shell.
       ShellRoute(
         builder: (_, _, child) => AppShell(child: child),
