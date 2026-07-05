@@ -119,48 +119,79 @@ class _ContentHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    // Faixa do topo com borda inferior em ONDA SIMÉTRICA (vale no centro, tipo
-    // parábola) e cor levemente diferente do canvas (neu.surface sobre neu.base)
-    // — o visual "soft" da referência. SafeArea(top) garante que no mobile o
-    // conteúdo/botões não colidam com a barra de status.
-    return PhysicalShape(
-      clipper: _HeaderWaveClipper(),
-      color: neu.surface,
-      elevation: 3,
-      shadowColor: neu.shadowDark,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 68,
-          child: Padding(
-            padding:
-                EdgeInsets.only(left: showMenu ? 8 : 28, right: 20, bottom: 16),
-            child: Row(
-              children: [
-                if (showMenu)
-                  Builder(
-                    builder: (context) => IconButton(
-                      icon: Icon(Icons.menu_rounded, color: neu.ink),
-                      tooltip: 'Menu',
-                      onPressed: () => Scaffold.of(context).openDrawer(),
+    // Faixa do topo com borda inferior em ENTALHE (berço do FAB) e cor levemente
+    // diferente do canvas (neu.surface sobre neu.base) — o visual "soft" da
+    // referência. SafeArea(top) impede o conteúdo de colidir com a barra de
+    // status no mobile. Uma linha sobre a curva evita que a faixa se funda com
+    // os cards abaixo (nos dois temas).
+    return Stack(
+      children: [
+        PhysicalShape(
+          clipper: _HeaderWaveClipper(),
+          color: neu.surface,
+          elevation: 3,
+          shadowColor: neu.shadowDark,
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: 68,
+              child: Padding(
+                padding: EdgeInsets.only(
+                    left: showMenu ? 8 : 28, right: 20, bottom: 16),
+                child: Row(
+                  children: [
+                    if (showMenu)
+                      Builder(
+                        builder: (context) => IconButton(
+                          icon: Icon(Icons.menu_rounded, color: neu.ink),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                      ),
+                    Text(
+                      title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(color: neu.ink),
                     ),
-                  ),
-                Text(
-                  title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(color: neu.ink),
+                    const Spacer(),
+                    // Sino + toggle de tema vivem no overlay global (GlobalControls).
+                  ],
                 ),
-                const Spacer(),
-                // Sino + toggle de tema vivem no overlay global (GlobalControls).
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _HeaderBorderPainter(
+                color: neu.ink.withValues(alpha: 0.14),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+const double _headerNotchR = 60.0; // meia-largura do entalhe (~120px, cabe o FAB)
+const double _headerNotchDepth = 34.0; // profundidade do recorte
+
+/// Traça a borda INFERIOR do header (reta com o entalhe circular no centro),
+/// assumindo que o ponto atual já está em `(0, h)`. Compartilhada pelo clipper
+/// (recorte) e pelo painter (linha da borda) para não divergirem.
+void _traceHeaderBottom(Path path, double w, double h) {
+  final cx = w / 2;
+  const r = _headerNotchR;
+  const depth = _headerNotchDepth;
+  path
+    ..lineTo(cx - r - 14, h)
+    ..cubicTo(cx - r + 8, h, cx - r + 16, h - depth, cx, h - depth)
+    ..cubicTo(cx + r - 16, h - depth, cx + r - 8, h, cx + r + 14, h)
+    ..lineTo(w, h);
 }
 
 /// Recorta a faixa do topo com um ENTALHE circular pequeno e centralizado (um
@@ -171,18 +202,11 @@ class _HeaderWaveClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final w = size.width;
     final h = size.height;
-    final cx = w / 2;
-    const r = 60.0; // meia-largura do entalhe (~120px, cabe o FAB)
-    const depth = 34.0; // profundidade do recorte
     final path = Path()
       ..moveTo(0, 0)
-      ..lineTo(0, h)
-      ..lineTo(cx - r - 14, h)
-      // Entra no entalhe (sobe até o centro)...
-      ..cubicTo(cx - r + 8, h, cx - r + 16, h - depth, cx, h - depth)
-      // ...e sai, espelhado.
-      ..cubicTo(cx + r - 16, h - depth, cx + r - 8, h, cx + r + 14, h)
-      ..lineTo(w, h)
+      ..lineTo(0, h);
+    _traceHeaderBottom(path, w, h);
+    path
       ..lineTo(w, 0)
       ..close();
     return path;
@@ -190,6 +214,30 @@ class _HeaderWaveClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// Desenha a linha da borda inferior do header (na própria curva do entalhe),
+/// para a faixa não se fundir com os cards abaixo. Cor derivada do `ink` →
+/// contrasta nos dois temas (hairline escuro no claro, claro no escuro).
+class _HeaderBorderPainter extends CustomPainter {
+  const _HeaderBorderPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..moveTo(0, size.height);
+    _traceHeaderBottom(path, size.width, size.height);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeaderBorderPainter old) => old.color != color;
 }
 
 /// Bottom navigation neumórfica do mobile: até 3 destinos principais + "Mais"
