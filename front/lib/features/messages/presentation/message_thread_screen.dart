@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/realtime/realtime_chat.dart';
@@ -236,6 +237,7 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
     final async = ref.watch(threadProvider(widget.conversationId));
     return Column(
       children: [
+        _ThreadHeader(conversation: async.asData?.value.conversation),
         Expanded(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -287,6 +289,72 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
   }
 }
 
+/// Header da conversa: voltar para a lista + com quem se está falando.
+class _ThreadHeader extends StatelessWidget {
+  const _ThreadHeader({required this.conversation});
+
+  final Conversation? conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final title = conversation?.title?.trim();
+    final subtitle = conversation?.refLabel?.trim();
+    return Container(
+      decoration: BoxDecoration(
+        color: neu.surface,
+        border: Border(
+          bottom: BorderSide(color: neu.ink.withValues(alpha: 0.14)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          NeuIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'Voltar para as conversas',
+            size: 42,
+            onPressed: () => context.go('/mensagens'),
+          ),
+          const SizedBox(width: 10),
+          NeuIconChip.glyph(
+            context,
+            icon: Icons.person_rounded,
+            index: 3,
+            size: 40,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  (title == null || title.isEmpty) ? 'Conversa' : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ThreadBody extends StatelessWidget {
   const _ThreadBody({
     required this.messages,
@@ -307,11 +375,13 @@ class _ThreadBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChatBackground(
+      // As mensagens ocupam a largura toda (cliente à esquerda, staff à
+      // direita), com uma margem lateral pequena para não grudarem nas bordas.
       child: messages.isEmpty
           ? const Center(child: Text('Nenhuma mensagem ainda.'))
           : ListView.builder(
               controller: controller,
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               itemCount: messages.length + (hasMore ? 1 : 0),
               itemBuilder: (context, i) {
                 if (hasMore && i == 0) {

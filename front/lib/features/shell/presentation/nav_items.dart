@@ -17,6 +17,7 @@ const Map<String, (String, IconData)> moduleMeta = {
   'inventory': ('Estoque', Icons.inventory_2_outlined),
   'report': ('Relatórios', Icons.bar_chart_outlined),
   'invoice': ('Notas Fiscais', Icons.receipt_long_outlined),
+  'sales': ('Vendas', Icons.point_of_sale_outlined),
 };
 
 /// Pure gating: the navigation items a user may see, derived ONLY from their

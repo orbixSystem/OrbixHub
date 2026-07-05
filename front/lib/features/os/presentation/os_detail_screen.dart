@@ -13,6 +13,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../invoice/presentation/invoice_providers.dart';
+import '../../invoice/presentation/invoice_status.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
@@ -206,6 +208,55 @@ class OsDetailScreen extends ConsumerWidget {
       await ref.read(osRepositoryProvider).changeStatus(order.id, target);
       ref.invalidate(orderProvider(orderId));
       ref.invalidate(orderListProvider);
+      // Ao finalizar a OS (concluída/entregue) sem nota ativa, oferece emitir.
+      if (context.mounted &&
+          (target == 'concluida' || target == 'entregue')) {
+        await _maybeOfferInvoice(context, ref, order);
+      }
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  /// Ao finalizar a OS, se o módulo fiscal estiver ligado, o usuário puder
+  /// emitir e ainda NÃO houver nota ativa, abre um modal oferecendo emitir agora.
+  Future<void> _maybeOfferInvoice(
+    BuildContext context,
+    WidgetRef ref,
+    ServiceOrder order,
+  ) async {
+    if (!(_hasModule(ref, 'invoice') && _has(ref, 'invoice.issue'))) return;
+    try {
+      final page =
+          await ref.read(invoiceRepositoryProvider).list(orderId: order.id);
+      final hasActive = page.items.any((i) =>
+          i.status == 'draft' ||
+          i.status == 'processing' ||
+          i.status == 'authorized');
+      if (hasActive || !context.mounted) return;
+    } on AppException {
+      return; // falha ao consultar não interrompe o fluxo da OS
+    }
+    final go = await showNeuConfirm(
+      context,
+      title: 'Emitir nota fiscal?',
+      message:
+          'A OS ${order.number} foi finalizada. Deseja emitir a nota fiscal '
+          'agora?',
+      confirmLabel: 'Emitir nota',
+      cancelLabel: 'Agora não',
+      danger: false,
+      icon: Icons.receipt_long_outlined,
+    );
+    if (!go || !context.mounted) return;
+    try {
+      final inv =
+          await ref.read(invoiceRepositoryProvider).issue(orderId: order.id);
+      ref.invalidate(orderInvoicesProvider(order.id));
+      if (context.mounted) context.go('/m/invoice/${inv.id}');
     } on AppException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -452,10 +503,6 @@ class _Header extends StatelessWidget {
                   onPressed: onPrint,
                 ),
               ],
-              if (invoiceAction != null) ...[
-                const SizedBox(width: 8),
-                invoiceAction!,
-              ],
               if (canEdit) ...[
                 const SizedBox(width: 8),
                 NeuIconButton(
@@ -477,6 +524,12 @@ class _Header extends StatelessWidget {
                   _InlineFact(label: label, value: value),
             ],
           ),
+          // Ação fiscal em destaque (botão rotulado, largura total) — só com
+          // módulo `invoice` + permissão. Emitir nota ou ver a nota existente.
+          if (invoiceAction != null) ...[
+            const SizedBox(height: 18),
+            invoiceAction!,
+          ],
         ],
       ),
     );
@@ -536,8 +589,11 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final invoice =
-          await ref.read(invoiceRepositoryProvider).issue(widget.orderId);
+      final invoice = await ref
+          .read(invoiceRepositoryProvider)
+          .issue(orderId: widget.orderId);
+      // Reflete na OS que agora há uma nota (ao voltar, mostra "ver nota").
+      ref.invalidate(orderInvoicesProvider(widget.orderId));
       if (mounted) context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (mounted) {
@@ -551,31 +607,30 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
-    if (_loading) {
-      return NeuSurface(
-        elevation: NeuElevation.raised,
-        radius: 21,
-        child: SizedBox(
-          width: 42,
-          height: 42,
-          child: Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child:
-                  CircularProgressIndicator(strokeWidth: 2, color: neu.navy),
-            ),
-          ),
-        ),
+    // Já existe nota ATIVA (rascunho/processando/autorizada) para esta OS?
+    // Se sim, o botão vira "ver nota" (a OS reflete o estado fiscal em vez de
+    // só oferecer emitir e bater no 409).
+    final page = ref.watch(orderInvoicesProvider(widget.orderId)).asData?.value;
+    final active = (page?.items ?? const []).where((i) =>
+        i.status == 'draft' ||
+        i.status == 'processing' ||
+        i.status == 'authorized');
+    if (active.isNotEmpty) {
+      final inv = active.first;
+      return NeuButton(
+        label: 'Ver nota fiscal · ${invoiceStatusLabel(inv.status)}',
+        icon: Icons.receipt_long,
+        kind: NeuButtonKind.secondary,
+        expanded: true,
+        onPressed: () => context.go('/m/invoice/${inv.id}'),
       );
     }
-    return NeuIconButton(
-      tooltip: 'Emitir nota fiscal',
+    return NeuButton(
+      label: 'Emitir nota fiscal',
       icon: Icons.receipt_long_outlined,
-      size: 42,
-      color: neu.navy,
-      onPressed: _issue,
+      expanded: true,
+      loading: _loading,
+      onPressed: _loading ? null : _issue,
     );
   }
 }

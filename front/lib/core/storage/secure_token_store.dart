@@ -21,10 +21,33 @@ class SecureTokenStore {
   final FlutterSecureStorage _storage;
   static const _refreshKey = 'orbix_refresh_token';
 
-  Future<String?> readRefreshToken() => _storage.read(key: _refreshKey);
+  // O secure storage é um "nice-to-have" (persistir o refresh token p/ "lembrar
+  // login"). Se o keychain falhar — ex.: macOS dev com assinatura ad-hoc, que
+  // ainda pode retornar -34018 / errSecMissingEntitlement mesmo no keychain
+  // legado — NÃO derrubamos o login: degradamos (token fica só em memória na
+  // sessão; não persiste entre cold starts). Vale p/ qualquer plataforma.
 
-  Future<void> writeRefreshToken(String token) =>
-      _storage.write(key: _refreshKey, value: token);
+  Future<String?> readRefreshToken() async {
+    try {
+      return await _storage.read(key: _refreshKey);
+    } catch (_) {
+      return null;
+    }
+  }
 
-  Future<void> clear() => _storage.delete(key: _refreshKey);
+  Future<void> writeRefreshToken(String token) async {
+    try {
+      await _storage.write(key: _refreshKey, value: token);
+    } catch (_) {
+      // keychain indisponível — "lembrar login" não persiste; sessão segue.
+    }
+  }
+
+  Future<void> clear() async {
+    try {
+      await _storage.delete(key: _refreshKey);
+    } catch (_) {
+      // idem — falha ao limpar não deve quebrar logout/login.
+    }
+  }
 }

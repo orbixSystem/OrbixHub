@@ -26,6 +26,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     int page = 1,
     String? status,
     String? orderId,
+    String? saleId,
   }) =>
       _guard(() async {
         final res = await _dio.get<Object?>(
@@ -34,6 +35,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
             'page': page,
             if (status != null && status.isNotEmpty) 'status': status,
             if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+            if (saleId != null && saleId.isNotEmpty) 'saleId': saleId,
           },
         );
         return InvoicePage.fromJson(_asMap(res.data));
@@ -46,12 +48,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       });
 
   @override
-  Future<Invoice> issue(String orderId, {String? documentType}) =>
+  Future<Invoice> issue({String? orderId, String? saleId, String? documentType}) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
           '/invoices',
           data: {
-            'orderId': orderId,
+            'orderId': ?orderId,
+            'saleId': ?saleId,
             'documentType': ?documentType,
           },
         );

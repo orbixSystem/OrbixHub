@@ -392,7 +392,7 @@ export class InventoryService {
     tenantId: string,
     args: {
       inventoryItemId: string;
-      refType: 'service_order';
+      refType: 'service_order' | 'sale';
       refId: string;
       refItemId: string;
       targetQty: number;

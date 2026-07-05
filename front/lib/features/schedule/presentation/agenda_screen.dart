@@ -140,16 +140,34 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
             ),
           )
         // Desktop/tablet: duas colunas — calendário à esquerda, agenda à direita.
-        : Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 7, child: calendar),
-                const SizedBox(width: 16),
-                Expanded(flex: 3, child: events),
-              ],
-            ),
+        // Em telas altas, limita a altura (senão as células do mês ficam
+        // gigantes); em notebooks usa a altura disponível. Alinha ao topo.
+        : LayoutBuilder(
+            builder: (context, c) {
+              const maxH = 680.0;
+              final avail = c.maxHeight - 32; // desconta o padding vertical
+              final h = (avail > maxH ? maxH : avail).clamp(280.0, maxH);
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1500),
+                    child: SizedBox(
+                      height: h,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 7, child: calendar),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 3, child: events),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           );
 
     return ColoredBox(color: context.neu.base, child: body);
@@ -287,8 +305,10 @@ class _CalendarHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, 12, isMobile ? 8 : 12, 12),
       child: Row(
         children: [
-          Flexible(child: title),
-          const Spacer(),
+          // Expanded (não Flexible+Spacer) → o título fica com todo o espaço
+          // restante e não corta ("Julho 2026" inteiro no mobile).
+          Expanded(child: title),
+          const SizedBox(width: 8),
           // "Hoje": botão rotulado no desktop, ícone compacto no mobile.
           if (isMobile)
             NeuIconButton(

@@ -16,7 +16,8 @@ export interface CreateInvoiceData {
   tenant_id: string;
   document_type: string;
   environment: string;
-  order_id: string;
+  order_id: string | null;
+  sale_id: string | null;
   order_number: string | null;
   customer_id: string | null;
   customer_name: string | null;
@@ -104,11 +105,29 @@ export class InvoiceRepository {
     });
   }
 
-  listInvoices(filters: { status?: InvoiceStatus; orderId?: string; skip: number; take: number }) {
+  /** Notas ativas (rascunho/processando/autorizada) de uma venda. */
+  countAuthorizedBySale(saleId: string) {
+    const db = this.tenant.getClient();
+    return db.invoice.count({
+      where: {
+        sale_id: saleId,
+        status: { in: ['draft', 'processing', 'authorized'] },
+      },
+    });
+  }
+
+  listInvoices(filters: {
+    status?: InvoiceStatus;
+    orderId?: string;
+    saleId?: string;
+    skip: number;
+    take: number;
+  }) {
     const db = this.tenant.getClient();
     const where: Prisma.invoiceWhereInput = {};
     if (filters.status) where.status = filters.status;
     if (filters.orderId) where.order_id = filters.orderId;
+    if (filters.saleId) where.sale_id = filters.saleId;
     return Promise.all([
       db.invoice.findMany({
         where,

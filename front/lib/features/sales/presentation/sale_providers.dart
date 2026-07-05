@@ -1,39 +1,37 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../di.dart';
-import '../domain/invoice_models.dart';
+import '../domain/sale_models.dart';
 
-/// Filtro de status da lista (chip = chave do contrato com o backend + rótulo
-/// PT-BR). `all` (key null) não envia filtro.
-enum InvoiceStatusFilter {
+/// Filtro de status da lista (chip = chave do contrato + rótulo PT-BR).
+/// `all` (key null) não envia filtro.
+enum SaleStatusFilter {
   all(null, 'Todas'),
-  authorized('authorized', 'Emitidas'),
-  processing('processing', 'Processando'),
-  rejected('rejected', 'Rejeitadas'),
-  canceled('canceled', 'Canceladas');
+  concluida('concluida', 'Concluídas'),
+  cancelada('cancelada', 'Canceladas');
 
-  const InvoiceStatusFilter(this.key, this.label);
+  const SaleStatusFilter(this.key, this.label);
   final String? key;
   final String label;
 }
 
-/// Estado do filtro de status corrente da lista de notas.
-class InvoiceStatusNotifier extends Notifier<InvoiceStatusFilter> {
+/// Estado do filtro de status corrente da lista de vendas.
+class SaleStatusNotifier extends Notifier<SaleStatusFilter> {
   @override
-  InvoiceStatusFilter build() => InvoiceStatusFilter.all;
+  SaleStatusFilter build() => SaleStatusFilter.all;
 
-  void set(InvoiceStatusFilter filter) => state = filter;
+  void set(SaleStatusFilter filter) => state = filter;
 }
 
-final invoiceStatusFilterProvider =
-    NotifierProvider<InvoiceStatusNotifier, InvoiceStatusFilter>(
-        InvoiceStatusNotifier.new);
+final saleStatusFilterProvider =
+    NotifierProvider<SaleStatusNotifier, SaleStatusFilter>(
+        SaleStatusNotifier.new);
 
-/// Estado da lista paginada de notas. Dois modos: mobile acumula lotes
+/// Estado da lista paginada de vendas. Dois modos: mobile acumula lotes
 /// (infinite scroll via [loadMore]); desktop navega por página numerada
 /// ([goToPage] substitui os itens).
-class InvoiceListState {
-  const InvoiceListState({
+class SaleListState {
+  const SaleListState({
     required this.items,
     required this.total,
     required this.hasMore,
@@ -42,22 +40,22 @@ class InvoiceListState {
     this.pageSize = 20,
   });
 
-  final List<Invoice> items;
+  final List<Sale> items;
   final int total;
   final bool hasMore;
   final bool loadingMore;
   final int page;
   final int pageSize;
 
-  InvoiceListState copyWith({
-    List<Invoice>? items,
+  SaleListState copyWith({
+    List<Sale>? items,
     int? total,
     bool? hasMore,
     bool? loadingMore,
     int? page,
     int? pageSize,
   }) =>
-      InvoiceListState(
+      SaleListState(
         items: items ?? this.items,
         total: total ?? this.total,
         hasMore: hasMore ?? this.hasMore,
@@ -67,20 +65,20 @@ class InvoiceListState {
       );
 }
 
-/// Lista de notas paginada. `build` carrega a 1ª página e reage ao filtro de
+/// Lista de vendas paginada. `build` carrega a 1ª página e reage ao filtro de
 /// status (qualquer mudança reinicia da página 1); [loadMore] anexa o próximo
 /// lote (mobile); [goToPage] substitui os itens (desktop). autoDispose: re-busca
 /// ao reentrar na tela.
-class InvoiceListNotifier extends AsyncNotifier<InvoiceListState> {
+class SaleListNotifier extends AsyncNotifier<SaleListState> {
   int _page = 1;
   String? _status;
 
   @override
-  Future<InvoiceListState> build() async {
-    _status = ref.watch(invoiceStatusFilterProvider).key;
+  Future<SaleListState> build() async {
+    _status = ref.watch(saleStatusFilterProvider).key;
     _page = 1;
     final page = await _fetch(1);
-    return InvoiceListState(
+    return SaleListState(
       items: page.items,
       total: page.total,
       hasMore: page.items.length < page.total,
@@ -89,8 +87,8 @@ class InvoiceListNotifier extends AsyncNotifier<InvoiceListState> {
     );
   }
 
-  Future<InvoicePage> _fetch(int page) =>
-      ref.read(invoiceRepositoryProvider).list(page: page, status: _status);
+  Future<SalePage> _fetch(int page) =>
+      ref.read(saleRepositoryProvider).list(page: page, status: _status);
 
   /// Modo desktop (página numerada): SUBSTITUI os itens pela página pedida.
   Future<void> goToPage(int target) async {
@@ -100,7 +98,7 @@ class InvoiceListNotifier extends AsyncNotifier<InvoiceListState> {
     try {
       final next = await _fetch(target);
       _page = target;
-      state = AsyncData(InvoiceListState(
+      state = AsyncData(SaleListState(
         items: next.items,
         total: next.total,
         hasMore: target * next.pageSize < next.total,
@@ -122,7 +120,7 @@ class InvoiceListNotifier extends AsyncNotifier<InvoiceListState> {
       final next = await _fetch(_page + 1);
       _page += 1;
       final merged = [...current.items, ...next.items];
-      state = AsyncData(InvoiceListState(
+      state = AsyncData(SaleListState(
         items: merged,
         total: next.total,
         hasMore: merged.length < next.total && next.items.isNotEmpty,
@@ -135,25 +133,12 @@ class InvoiceListNotifier extends AsyncNotifier<InvoiceListState> {
   }
 }
 
-final invoiceListProvider =
-    AsyncNotifierProvider.autoDispose<InvoiceListNotifier, InvoiceListState>(
-        InvoiceListNotifier.new);
+final saleListProvider =
+    AsyncNotifierProvider.autoDispose<SaleListNotifier, SaleListState>(
+        SaleListNotifier.new);
 
-/// Uma nota por id (tela de detalhe), com linhas e eventos.
-final invoiceProvider =
-    FutureProvider.autoDispose.family<Invoice, String>((ref, id) {
-  return ref.read(invoiceRepositoryProvider).getOne(id);
-});
-
-/// Notas de uma OS (para a integração natural na tela da OS: mostrar se já há
-/// nota emitida e linkar, em vez de só um botão "Emitir").
-final orderInvoicesProvider =
-    FutureProvider.autoDispose.family<InvoicePage, String>((ref, orderId) {
-  return ref.read(invoiceRepositoryProvider).list(orderId: orderId);
-});
-
-/// Notas de uma VENDA (integração natural na tela da venda).
-final saleInvoicesProvider =
-    FutureProvider.autoDispose.family<InvoicePage, String>((ref, saleId) {
-  return ref.read(invoiceRepositoryProvider).list(saleId: saleId);
+/// Uma venda por id (tela de detalhe), com itens.
+final saleProvider =
+    FutureProvider.autoDispose.family<Sale, String>((ref, id) {
+  return ref.read(saleRepositoryProvider).getOne(id);
 });

@@ -133,11 +133,13 @@ class FakeInvoiceRepository implements InvoiceRepository {
     int page = 1,
     String? status,
     String? orderId,
+    String? saleId,
   }) async {
     final filtered = _invoices.where((i) {
       final statusOk = status == null || status.isEmpty || i.status == status;
       final orderOk = orderId == null || orderId.isEmpty || i.orderId == orderId;
-      return statusOk && orderOk;
+      final saleOk = saleId == null || saleId.isEmpty || i.saleId == saleId;
+      return statusOk && orderOk && saleOk;
     }).toList();
     return InvoicePage(
       items: filtered,
@@ -156,14 +158,14 @@ class FakeInvoiceRepository implements InvoiceRepository {
   }
 
   @override
-  Future<Invoice> issue(String orderId, {String? documentType}) async {
+  Future<Invoice> issue({String? orderId, String? saleId, String? documentType}) async {
     final created = Invoice(
       id: 'inv-${_seq++}',
       documentType: documentType ?? 'nfse',
       status: 'authorized',
       environment: 'homologacao',
       orderId: orderId,
-      orderNumber: 'OS-$orderId',
+      orderNumber: orderId != null ? 'OS-$orderId' : 'VD-$saleId',
       series: '1',
       number: '$_seq',
       accessKey: '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
