@@ -274,31 +274,20 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
             },
           ),
         ),
-        // Em telas largas (monitor grande), o composer acompanha a mesma
-        // largura máxima da conversa — centralizado, não esticado de ponta a ponta.
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _chatMaxWidth),
-            child: _Composer(
-              controller: _reply,
-              sending: _sending,
-              replyTo: _replyTo,
-              photoUrl: _photoUrl,
-              onSend: _send,
-              onPickPhoto: _pickOsPhoto,
-              onCancelReply: _cancelReply,
-              onCancelPhoto: _cancelPhoto,
-            ),
-          ),
+        _Composer(
+          controller: _reply,
+          sending: _sending,
+          replyTo: _replyTo,
+          photoUrl: _photoUrl,
+          onSend: _send,
+          onPickPhoto: _pickOsPhoto,
+          onCancelReply: _cancelReply,
+          onCancelPhoto: _cancelPhoto,
         ),
       ],
     );
   }
 }
-
-/// Largura máxima da conversa: em monitores grandes (27") as bolhas não se
-/// espalham de ponta a ponta — ficam num "corredor" central legível.
-const double _chatMaxWidth = 900.0;
 
 /// Header da conversa: voltar para a lista + com quem se está falando.
 class _ThreadHeader extends StatelessWidget {
@@ -386,17 +375,14 @@ class _ThreadBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ChatBackground(
-      // O fundo ocupa a tela toda; as mensagens ficam num corredor central de
-      // largura máxima — em monitores grandes não grudam nas bordas opostas.
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _chatMaxWidth),
-          child: messages.isEmpty
-              ? const Center(child: Text('Nenhuma mensagem ainda.'))
-              : ListView.builder(
-                  controller: controller,
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                  itemCount: messages.length + (hasMore ? 1 : 0),
+      // As mensagens ocupam a largura toda (cliente à esquerda, staff à
+      // direita), com uma margem lateral pequena para não grudarem nas bordas.
+      child: messages.isEmpty
+          ? const Center(child: Text('Nenhuma mensagem ainda.'))
+          : ListView.builder(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              itemCount: messages.length + (hasMore ? 1 : 0),
               itemBuilder: (context, i) {
                 if (hasMore && i == 0) {
                   return Padding(
@@ -419,8 +405,6 @@ class _ThreadBody extends StatelessWidget {
                 );
               },
             ),
-        ),
-      ),
     );
   }
 }
