@@ -535,6 +535,9 @@ class _QuickCreateFab extends ConsumerWidget {
       case 'product':
         final ok = await ItemFormDialog.show(context);
         if (ok == true) ref.invalidate(itemListProvider);
+      case 'sale':
+        // Venda avulsa = tela de balcão (rota própria), não um dialog.
+        context.go('/m/sales/nova');
     }
   }
 
@@ -542,6 +545,9 @@ class _QuickCreateFab extends ConsumerWidget {
     return [
       if (me.hasModule('os') && me.hasPermission('os.write'))
         const _QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
+      if (me.hasModule('sales') && me.hasPermission('cashier.write'))
+        const _QuickAction(
+            'sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
       if (me.hasModule('customers') && me.hasPermission('customer.write'))
         const _QuickAction(
             'customer', Icons.person_add_alt_1_rounded, 3, 'Novo cliente'),
