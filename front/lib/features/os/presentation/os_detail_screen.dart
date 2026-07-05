@@ -536,8 +536,9 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final invoice =
-          await ref.read(invoiceRepositoryProvider).issue(widget.orderId);
+      final invoice = await ref
+          .read(invoiceRepositoryProvider)
+          .issue(orderId: widget.orderId);
       if (mounted) context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (mounted) {

@@ -603,6 +603,7 @@ model invoice {
   status            String          @default("draft")
   environment       String          @default("homologacao")
   order_id          String?         @db.Uuid
+  sale_id           String?         @db.Uuid
   order_number      String?
   customer_id       String?         @db.Uuid
   customer_name     String?

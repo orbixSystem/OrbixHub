@@ -26,6 +26,25 @@ class SaleDetailScreen extends ConsumerWidget {
     return s is SessionAuthenticated && s.me.hasPermission(perm);
   }
 
+  bool _hasModule(WidgetRef ref, String key) {
+    final s = ref.read(sessionControllerProvider);
+    return s is SessionAuthenticated && s.me.hasModule(key);
+  }
+
+  /// Emite a NF a partir desta venda e abre a nota criada.
+  Future<void> _issueNf(BuildContext context, WidgetRef ref, Sale sale) async {
+    try {
+      final invoice =
+          await ref.read(invoiceRepositoryProvider).issue(saleId: sale.id);
+      if (context.mounted) context.go('/m/invoice/${invoice.id}');
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   Future<void> _cancel(BuildContext context, WidgetRef ref, Sale sale) async {
     final reason = await _CancelDialog.show(context);
     if (reason == null || !context.mounted) return;
@@ -59,6 +78,11 @@ class SaleDetailScreen extends ConsumerWidget {
       ),
       data: (sale) {
         final canCancel = sale.status == 'concluida' && canSell;
+        // Emitir NF só faz sentido para venda concluída, com o módulo invoice
+        // habilitado e permissão de emissão.
+        final canIssueNf = sale.status == 'concluida' &&
+            _hasModule(ref, 'invoice') &&
+            _has(ref, 'invoice.issue');
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxContentWidth),
@@ -86,6 +110,10 @@ class SaleDetailScreen extends ConsumerWidget {
                 _ItemsSection(items: sale.items),
                 const SizedBox(height: 20),
                 _TotalsSection(sale: sale),
+                if (canIssueNf) ...[
+                  const SizedBox(height: 20),
+                  _IssueNfSection(onIssue: () => _issueNf(context, ref, sale)),
+                ],
                 if (canCancel) ...[
                   const SizedBox(height: 20),
                   _CancelSection(onCancel: () => _cancel(context, ref, sale)),
@@ -419,6 +447,43 @@ class _TotalRow extends StatelessWidget {
         Text(value,
             style: TextStyle(color: neu.ink, fontWeight: FontWeight.w700)),
       ],
+    );
+  }
+}
+
+// ===================== Emitir NF =====================
+
+class _IssueNfSection extends StatelessWidget {
+  const _IssueNfSection({required this.onIssue});
+
+  final VoidCallback onIssue;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return _SectionCard(
+      icon: Icons.receipt_long_rounded,
+      title: 'Nota fiscal',
+      glyphIndex: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Emita a nota fiscal desta venda. A nota abre em seguida para você '
+            'acompanhar a autorização.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: NeuButton(
+              label: 'Emitir NF',
+              icon: Icons.receipt_long_rounded,
+              onPressed: onIssue,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

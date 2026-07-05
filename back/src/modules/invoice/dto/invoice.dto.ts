@@ -19,10 +19,16 @@ export type InvoiceStatus =
   | 'canceled'
   | 'error';
 
-/** Emite uma nota a partir de uma OS. Documento default = NFS-e (serviço). */
+/// Emite uma nota a partir de uma OS OU de uma venda (exatamente um dos dois —
+/// validado no service). Documento default = NFS-e (serviço).
 export class IssueInvoiceDto {
+  @IsOptional()
   @IsUUID()
-  orderId!: string;
+  orderId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  saleId?: string;
 
   // MVP = 'nfse'. Agnóstico p/ suportar produto (nfce/nfe) sem retrabalho.
   @IsOptional()

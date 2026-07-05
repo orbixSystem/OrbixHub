@@ -156,14 +156,14 @@ class FakeInvoiceRepository implements InvoiceRepository {
   }
 
   @override
-  Future<Invoice> issue(String orderId, {String? documentType}) async {
+  Future<Invoice> issue({String? orderId, String? saleId, String? documentType}) async {
     final created = Invoice(
       id: 'inv-${_seq++}',
       documentType: documentType ?? 'nfse',
       status: 'authorized',
       environment: 'homologacao',
       orderId: orderId,
-      orderNumber: 'OS-$orderId',
+      orderNumber: orderId != null ? 'OS-$orderId' : 'VD-$saleId',
       series: '1',
       number: '$_seq',
       accessKey: '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',

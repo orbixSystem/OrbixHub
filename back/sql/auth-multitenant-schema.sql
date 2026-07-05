@@ -1142,6 +1142,7 @@ CREATE TABLE IF NOT EXISTS invoice (
   status            text NOT NULL DEFAULT 'draft',
   environment       text NOT NULL DEFAULT 'homologacao',
   order_id          uuid,
+  sale_id           uuid,
   order_number      text,
   customer_id       uuid,
   customer_name     text,
@@ -1180,6 +1181,7 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_invoice_tenant_status ON invoice(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_invoice_tenant_order ON invoice(tenant_id, order_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_tenant_sale ON invoice(tenant_id, sale_id) WHERE sale_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invoice_tenant_created ON invoice(tenant_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invoice_external_id ON invoice(external_id) WHERE external_id IS NOT NULL;
 

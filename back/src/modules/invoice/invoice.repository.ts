@@ -16,7 +16,8 @@ export interface CreateInvoiceData {
   tenant_id: string;
   document_type: string;
   environment: string;
-  order_id: string;
+  order_id: string | null;
+  sale_id: string | null;
   order_number: string | null;
   customer_id: string | null;
   customer_name: string | null;
@@ -99,6 +100,17 @@ export class InvoiceRepository {
     return db.invoice.count({
       where: {
         order_id: orderId,
+        status: { in: ['draft', 'processing', 'authorized'] },
+      },
+    });
+  }
+
+  /** Notas ativas (rascunho/processando/autorizada) de uma venda. */
+  countAuthorizedBySale(saleId: string) {
+    const db = this.tenant.getClient();
+    return db.invoice.count({
+      where: {
+        sale_id: saleId,
         status: { in: ['draft', 'processing', 'authorized'] },
       },
     });

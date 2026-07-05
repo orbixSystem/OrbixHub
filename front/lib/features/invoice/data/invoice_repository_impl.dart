@@ -46,12 +46,13 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       });
 
   @override
-  Future<Invoice> issue(String orderId, {String? documentType}) =>
+  Future<Invoice> issue({String? orderId, String? saleId, String? documentType}) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
           '/invoices',
           data: {
-            'orderId': orderId,
+            'orderId': ?orderId,
+            'saleId': ?saleId,
             'documentType': ?documentType,
           },
         );
