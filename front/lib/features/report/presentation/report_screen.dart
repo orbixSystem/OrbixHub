@@ -19,6 +19,7 @@ import 'report_catalog.dart';
 import 'report_csv.dart';
 import 'report_download.dart';
 import 'report_pdf.dart';
+import 'report_xlsx.dart';
 import 'report_providers.dart';
 import 'report_tables.dart';
 
@@ -859,6 +860,20 @@ class _ExportButtons extends StatelessWidget {
           onPressed: () => downloadText(
               buildCsv(table), csvFileName(table.title),
               'text/csv;charset=utf-8'),
+        ),
+        NeuButton(
+          label: 'Exportar Excel',
+          kind: NeuButtonKind.secondary,
+          icon: Icons.grid_on_outlined,
+          onPressed: () => downloadBytes(
+            buildXlsx(
+              table,
+              company: company?.name,
+              period: period,
+            ),
+            xlsxFileName(table.title),
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
         ),
         NeuButton(
           label: 'Exportar PDF',
