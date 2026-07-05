@@ -47,10 +47,13 @@ class _SideColors {
   final bool light;
 
   /// Painel escuro tingido com o MATIZ do tema (segue a cor-semente escolhida),
-  /// para o sidebar acompanhar a paleta em vez de ficar navy fixo.
+  /// para o sidebar acompanhar a paleta em vez de ficar navy fixo. Em temas
+  /// acromáticos (Preto & Branco), o navy é um cinza neutro: não forçamos
+  /// saturação (senão o mínimo tom residual viraria um azul-arroxeado).
   Color _panel(double lightness, double saturation) {
-    final h = HSLColor.fromColor(_neu.navy).hue;
-    return HSLColor.fromAHSL(1, h, saturation, lightness).toColor();
+    final navy = HSLColor.fromColor(_neu.navy);
+    final s = navy.saturation < 0.08 ? 0.0 : saturation;
+    return HSLColor.fromAHSL(1, navy.hue, s, lightness).toColor();
   }
 
   // Dark: bem mais escuro que o canvas — separa a sidebar. Claro: painel médio.
