@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
 
@@ -12,24 +12,29 @@ class BusinessHoursScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
     final hoursAsync = ref.watch(businessHoursProvider);
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: neu.base,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.ink,
+        backgroundColor: neu.surface,
+        foregroundColor: neu.ink,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text(
           'Horários de funcionamento',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
         ),
       ),
       body: hoursAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Erro ao carregar horários: $e',
-              style: const TextStyle(color: AppColors.danger)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Erro ao carregar horários: $e',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: neu.danger)),
+          ),
         ),
         data: (hours) => _HoursList(hours: hours),
       ),
@@ -68,7 +73,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${updated.dayLabel} atualizado.'),
-            backgroundColor: AppColors.success,
+            backgroundColor: context.neu.success,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -78,7 +83,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao salvar: $e'),
-            backgroundColor: AppColors.danger,
+            backgroundColor: context.neu.danger,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -183,29 +188,25 @@ class _DayCardState extends State<_DayCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final neu = context.neu;
+    return NeuCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.line),
-      ),
       child: Row(
         children: [
           SizedBox(
-            width: 72,
+            width: 80,
             child: Text(
               widget.hours.dayLabel,
               style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: _isOpen ? AppColors.ink : AppColors.inkFaint,
+                fontWeight: FontWeight.w700,
+                color: _isOpen ? neu.ink : neu.inkFaint,
               ),
             ),
           ),
           Switch(
             value: _isOpen,
             onChanged: widget.saving ? null : _toggleOpen,
-            activeThumbColor: AppColors.brand,
+            activeThumbColor: neu.navy,
           ),
           const SizedBox(width: 8),
           if (_isOpen) ...[
@@ -215,8 +216,7 @@ class _DayCardState extends State<_DayCard> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('–',
-                  style: TextStyle(color: AppColors.inkMuted)),
+              child: Text('–', style: TextStyle(color: neu.inkMuted)),
             ),
             _TimeChip(
               label: _close,
@@ -224,7 +224,7 @@ class _DayCardState extends State<_DayCard> {
             ),
           ] else
             Text('Fechado',
-                style: TextStyle(color: AppColors.inkFaint, fontSize: 13)),
+                style: TextStyle(color: neu.inkFaint, fontSize: 13)),
         ],
       ),
     );
@@ -239,22 +239,30 @@ class _TimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final neu = context.neu;
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rChip),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.brandTint,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.brand.withValues(alpha: 0.4)),
+          color: neu.accentTint,
+          borderRadius: BorderRadius.circular(NeuTokens.rChip),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.brandDeep,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule_rounded, size: 15, color: neu.navy),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: neu.navy,
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

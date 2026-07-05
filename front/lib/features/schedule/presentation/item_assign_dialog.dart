@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/ui/ui.dart';
+import '../../../core/ui/ui.dart';
 import '../../os/domain/os_models.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
@@ -153,41 +152,55 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final hasSchedule = widget.item.assignedTo != null ||
         widget.item.scheduledStart != null;
 
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: const Text(
-        'Agendar item',
-        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-      ),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.item.name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkMuted,
-                  fontSize: 13),
+    return NeuDialog(
+      title: 'Agendar item',
+      maxWidth: 420,
+      actions: [
+        if (hasSchedule)
+          NeuButton(
+            label: 'Remover',
+            kind: NeuButtonKind.danger,
+            onPressed: _saving ? null : _unschedule,
+          ),
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.item.name,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: neu.inkMuted,
+              fontSize: 13.5,
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 18),
 
-            // Técnico
-            const Text('Técnico',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkMuted)),
-            const SizedBox(height: 4),
-            DropdownButtonFormField<String?>(
-              initialValue: _assignedTo,
-              decoration: const InputDecoration(isDense: true),
-              hint: const Text('Sem atribuição'),
+          // Técnico
+          _label(neu, 'Técnico'),
+          _dropdownShell(
+            neu,
+            DropdownButton<String?>(
+              value: _assignedTo,
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              hint: Text('Sem atribuição',
+                  style: TextStyle(color: neu.inkFaint)),
               items: [
                 const DropdownMenuItem<String?>(
                     value: null, child: Text('— Sem atribuição —')),
@@ -199,116 +212,88 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
               onChanged:
                   _saving ? null : (v) => setState(() => _assignedTo = v),
             ),
+          ),
+          const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-
-            // Data e hora
-            const Text('Data e hora de início',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkMuted)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _saving ? null : _pickDate,
-                    icon: const Icon(Icons.calendar_today_outlined, size: 14),
-                    label: Text(_startDate != null
-                        ? _dateFmt.format(_startDate!)
-                        : 'Data'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.ink,
-                      side: const BorderSide(color: AppColors.line),
-                    ),
-                  ),
+          // Data e hora
+          _label(neu, 'Data e hora de início'),
+          Row(
+            children: [
+              Expanded(
+                child: NeuButton(
+                  label: _startDate != null
+                      ? _dateFmt.format(_startDate!)
+                      : 'Data',
+                  icon: Icons.calendar_today_outlined,
+                  kind: NeuButtonKind.secondary,
+                  expanded: true,
+                  onPressed: _saving ? null : _pickDate,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _saving ? null : _pickTime,
-                    icon: const Icon(Icons.access_time_outlined, size: 14),
-                    label: Text(_startTime != null
-                        ? _startTime!.format(context)
-                        : 'Hora'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.ink,
-                      side: const BorderSide(color: AppColors.line),
-                    ),
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: NeuButton(
+                  label: _startTime != null
+                      ? _startTime!.format(context)
+                      : 'Hora',
+                  icon: Icons.access_time_outlined,
+                  kind: NeuButtonKind.secondary,
+                  expanded: true,
+                  onPressed: _saving ? null : _pickTime,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-
-            // Duração
-            const Text('Duração estimada',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkMuted)),
-            const SizedBox(height: 4),
-            DropdownButtonFormField<int?>(
-              initialValue: _duration,
-              decoration: const InputDecoration(isDense: true),
-              hint: const Text('Não definida'),
+          // Duração
+          _label(neu, 'Duração estimada'),
+          _dropdownShell(
+            neu,
+            DropdownButton<int?>(
+              value: _duration,
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              hint: Text('Não definida', style: TextStyle(color: neu.inkFaint)),
               items: [
                 const DropdownMenuItem<int?>(
                     value: null, child: Text('— Não definida —')),
                 ..._durations.map((d) => DropdownMenuItem(
                       value: d,
-                      child: Text(
-                          d < 60 ? '$d min' : '${d ~/ 60}h${d % 60 != 0 ? ' ${d % 60}min' : ''}'),
+                      child: Text(d < 60
+                          ? '$d min'
+                          : '${d ~/ 60}h${d % 60 != 0 ? ' ${d % 60}min' : ''}'),
                     )),
               ],
-              onChanged:
-                  _saving ? null : (v) => setState(() => _duration = v),
+              onChanged: _saving ? null : (v) => setState(() => _duration = v),
             ),
+          ),
 
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!,
-                  style: const TextStyle(
-                      color: AppColors.danger, fontSize: 12)),
-            ],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Text(_error!, style: TextStyle(color: neu.danger, fontSize: 13)),
           ],
-        ),
+        ],
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        if (hasSchedule)
-          TextButton(
-            onPressed: _saving ? null : _unschedule,
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Remover'),
-          )
-        else
-          const SizedBox.shrink(),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed:
-                  _saving ? null : () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(backgroundColor: AppColors.brand),
-              child: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('Salvar'),
-            ),
-          ],
-        ),
-      ],
     );
   }
+
+  Widget _label(NeuTokens neu, String text) => Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 6),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: neu.inkMuted,
+          ),
+        ),
+      );
+
+  Widget _dropdownShell(NeuTokens neu, Widget child) => NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: DropdownButtonHideUnderline(child: child),
+      );
 }
