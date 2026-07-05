@@ -87,14 +87,11 @@ class ReportScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    // stretch: o rail preenche toda a altura (como em Configurações);
+                    // rola internamente só se houver muitos relatórios.
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Sidebar fixa (rola internamente só se houver muitos
-                      // relatórios), não acompanha o scroll do conteúdo.
-                      SizedBox(
-                        width: 240,
-                        child: SingleChildScrollView(child: picker),
-                      ),
+                      SizedBox(width: 240, child: picker),
                       const SizedBox(width: 24),
                       Expanded(
                         child: SingleChildScrollView(child: content),
@@ -1441,11 +1438,19 @@ class _DataTableCardState extends State<_DataTableCard> {
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(NeuTokens.rCard),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            sortColumnIndex: _sortCol,
-            sortAscending: _asc,
+        // Ocupa a largura toda do card: força a DataTable a no mínimo a largura
+        // disponível (ela distribui o excedente entre as colunas); rola na
+        // horizontal só se o conteúdo passar da tela.
+        child: LayoutBuilder(
+          builder: (context, c) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: c.maxWidth),
+              child: DataTable(
+                columnSpacing: 28,
+                horizontalMargin: 20,
+                sortColumnIndex: _sortCol,
+                sortAscending: _asc,
             headingRowColor: WidgetStateProperty.all(neu.surfaceHi),
             headingTextStyle: TextStyle(
               fontSize: 12.5,
@@ -1496,6 +1501,8 @@ class _DataTableCardState extends State<_DataTableCard> {
                   );
                 }(),
             ],
+              ),
+            ),
           ),
         ),
       ),
