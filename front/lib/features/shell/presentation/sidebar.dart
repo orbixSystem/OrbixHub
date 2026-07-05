@@ -46,12 +46,19 @@ class _SideColors {
   final NeuTokens _neu;
   final bool light;
 
-  // Dark: navy bem mais escuro que o canvas (0xFF23263B) — separa a sidebar.
-  Color get bg => light ? const Color(0xFF2B2F44) : const Color(0xFF141726);
-  Color get bgHi => light ? const Color(0xFF383D5B) : const Color(0xFF232740);
-  Color get line => light ? const Color(0xFF3D4360) : const Color(0xFF2C3050);
+  /// Painel escuro tingido com o MATIZ do tema (segue a cor-semente escolhida),
+  /// para o sidebar acompanhar a paleta em vez de ficar navy fixo.
+  Color _panel(double lightness, double saturation) {
+    final h = HSLColor.fromColor(_neu.navy).hue;
+    return HSLColor.fromAHSL(1, h, saturation, lightness).toColor();
+  }
+
+  // Dark: bem mais escuro que o canvas — separa a sidebar. Claro: painel médio.
+  Color get bg => light ? _panel(0.215, 0.24) : _panel(0.105, 0.34);
+  Color get bgHi => light ? _panel(0.29, 0.22) : _panel(0.16, 0.30);
+  Color get line => light ? _panel(0.315, 0.22) : _panel(0.235, 0.26);
   Color get fg => const Color(0xFFF2F3F8);
-  Color get fgMuted => light ? const Color(0xFF9EA3BC) : const Color(0xFF888EB5);
+  Color get fgMuted => _panel(light ? 0.70 : 0.66, 0.16);
   Color get accent => _neu.accent;
   Color get badge => _neu.danger;
 

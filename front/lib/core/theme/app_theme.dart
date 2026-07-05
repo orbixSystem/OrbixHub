@@ -2,25 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../ui/neu_tokens.dart';
-import 'app_colors.dart';
 
 /// The OrbixHub theme. Display type is Sora (geometric, confident); body/UI is
 /// Manrope (clean, humanist-geometric).
 ///
-/// Desde o redesign neumórfico (spec 2026-07-04) a paleta é FIXA — lavanda +
-/// navy, derivada de [NeuTokens]. O parâmetro `seed` é aceito por
-/// compatibilidade mas IGNORADO (os presets por tenant foram descontinuados;
-/// a UI de aparência é removida na fase 8).
+/// A paleta neumórfica é gerada a partir de uma cor-semente (o brand primário
+/// escolhido pelo tenant em Configurações → Aparência). [NeuTokens.forSeed]
+/// deriva canvas, relevo, texto e ação em claro e escuro; Lavanda (seed padrão)
+/// reproduz o hand-tuned canônico. Semânticas (sucesso/erro/…) são constantes.
 class AppTheme {
   const AppTheme._();
 
   static const radius = 16.0;
 
-  static ThemeData light({Color seed = AppColors.brand}) =>
-      _build(Brightness.light);
+  static ThemeData light({Color seed = NeuTokens.lavanderSeed}) =>
+      _build(Brightness.light, seed);
 
-  static ThemeData dark({Color seed = AppColors.brand}) =>
-      _build(Brightness.dark);
+  static ThemeData dark({Color seed = NeuTokens.lavanderSeed}) =>
+      _build(Brightness.dark, seed);
 
   /// Mapeia os tokens neumórficos para os papéis do Material ColorScheme —
   /// assim TODAS as telas legadas (que leem roles do scheme) já rendem na
@@ -66,10 +65,8 @@ class AppTheme {
     );
   }
 
-  static ThemeData _build(Brightness brightness) {
-    final neu = brightness == Brightness.dark
-        ? NeuTokens.dark()
-        : NeuTokens.light();
+  static ThemeData _build(Brightness brightness, Color seed) {
+    final neu = NeuTokens.forSeed(seed, brightness);
     final scheme = _schemeFrom(neu, brightness);
 
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
@@ -95,9 +92,7 @@ class AppTheme {
     return base.copyWith(
       // Tokens do design system neumórfico — disponíveis via `context.neu`
       // em qualquer tela (a migração tela-a-tela lê daqui).
-      extensions: [
-        brightness == Brightness.dark ? NeuTokens.dark() : NeuTokens.light(),
-      ],
+      extensions: [neu],
       scaffoldBackgroundColor: scheme.surface,
       splashFactory: InkSparkle.splashFactory,
       textTheme: text.copyWith(

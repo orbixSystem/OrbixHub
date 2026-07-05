@@ -30,7 +30,7 @@ class AppearanceSection extends ConsumerWidget {
     // Determina o preset selecionado: 3-tier resolution.
     // 1. themePreset não-vazio → usa diretamente.
     // 2. primaryColor válido (#RRGGBB) → converte para Color e busca preset.
-    // 3. fallback → 'tangerina'.
+    // 3. fallback → 'lavanda' (padrão).
     final String selectedKey = () {
       final preset = company['themePreset'];
       if (preset is String && preset.isNotEmpty) return preset;
@@ -44,7 +44,7 @@ class AppearanceSection extends ConsumerWidget {
         }
       }
 
-      return 'tangerina';
+      return 'lavanda';
     }();
 
     final content = Column(
@@ -174,41 +174,128 @@ class _SwatchItem extends StatelessWidget {
         child: NeuSurface(
           elevation: isSelected ? NeuElevation.pressed : NeuElevation.raised,
           radius: NeuTokens.rCard,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.all(12),
           border: isSelected ? Border.all(color: neu.navy, width: 2) : null,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: preset.seed,
-                  boxShadow: [
-                    BoxShadow(
-                      color: preset.seed.withValues(alpha: .40),
-                      blurRadius: 8,
-                      spreadRadius: 1,
+          child: SizedBox(
+            width: 108,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Preview lado a lado: a paleta pinta os DOIS temas.
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MiniTheme(
+                        seed: preset.seed,
+                        brightness: Brightness.light,
+                        rounded: const BorderRadius.horizontal(
+                            left: Radius.circular(10)),
+                      ),
+                    ),
+                    Expanded(
+                      child: _MiniTheme(
+                        seed: preset.seed,
+                        brightness: Brightness.dark,
+                        rounded: const BorderRadius.horizontal(
+                            right: Radius.circular(10)),
+                      ),
                     ),
                   ],
                 ),
-                child: isSelected
-                    ? const Icon(Icons.check, color: Colors.white, size: 20)
-                    : null,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                preset.label,
-                style: TextStyle(
-                  color: isSelected ? neu.navy : neu.inkMuted,
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isSelected) ...[
+                      Icon(Icons.check_circle, size: 15, color: neu.navy),
+                      const SizedBox(width: 5),
+                    ],
+                    Flexible(
+                      child: Text(
+                        preset.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? neu.navy : neu.inkMuted,
+                          fontSize: 12.5,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Miniatura de um tema (claro ou escuro) gerado a partir do [seed]: mostra o
+/// canvas, uma superfície e a ação primária — o resultado real de aplicar a
+/// paleta. Assim o usuário vê que a cor repinta os dois temas.
+class _MiniTheme extends StatelessWidget {
+  const _MiniTheme({
+    required this.seed,
+    required this.brightness,
+    required this.rounded,
+  });
+
+  final Color seed;
+  final Brightness brightness;
+  final BorderRadius rounded;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = NeuTokens.forSeed(seed, brightness);
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Container(
+        decoration: BoxDecoration(color: t.base, borderRadius: rounded),
+        padding: const EdgeInsets.all(7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // "cartão" de superfície
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: t.surface,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.shadowDark,
+                    blurRadius: 3,
+                    offset: const Offset(1, 1),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                // ação primária
+                Container(
+                  width: 18,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: t.navy,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // acento
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: t.accent, shape: BoxShape.circle),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

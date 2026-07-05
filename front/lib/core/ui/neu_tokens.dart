@@ -129,14 +129,7 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         warningTint: Color(0xFFF5ECD3),
         info: Color(0xFF2E90FA),
         infoTint: Color(0xFFDFECFD),
-        glyphs: [
-          Color(0xFF8B5CF6), // violeta
-          Color(0xFF5B8DEF), // azul
-          Color(0xFF2DB9A8), // teal
-          Color(0xFFE86FA8), // rosa
-          Color(0xFFD9A13B), // âmbar suave
-          Color(0xFF818CF8), // índigo
-        ],
+        glyphs: _glyphsLight,
       );
 
   /// Tema escuro — navy-roxo (mescla lavanda, como a referência).
@@ -164,15 +157,130 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         warningTint: Color(0xFF3B3526),
         info: Color(0xFF6FB1FF),
         infoTint: Color(0xFF283452),
-        glyphs: [
-          Color(0xFFA78BFA), // violeta
-          Color(0xFF7CA6F7), // azul
-          Color(0xFF4ED0BF), // teal
-          Color(0xFFF08BBE), // rosa
-          Color(0xFFE3B45C), // âmbar suave
-          Color(0xFF97A0FA), // índigo
-        ],
+        glyphs: _glyphsDark,
       );
+
+  // ---- Paletas por cor-semente ----------------------------------------
+  //
+  // A partir da spec de temas (2026-07): a paleta neumórfica deixa de ser fixa.
+  // Uma cor-semente (o brand primário) gera TODA a paleta — canvas, relevo,
+  // texto e ação — em claro e escuro, mantendo o mesmo "esqueleto" soft-UI.
+  // As cores semânticas (sucesso/erro/aviso/info) e os glyphs de módulo
+  // permanecem constantes: verde é sempre verde, vermelho é sempre vermelho.
+
+  /// Seed da paleta canônica (Lavanda) — reproduz o hand-tuned de [light]/[dark].
+  static const lavanderSeed = Color(0xFF6C72C4);
+
+  static const _glyphsLight = <Color>[
+    Color(0xFF8B5CF6), // violeta
+    Color(0xFF5B8DEF), // azul
+    Color(0xFF2DB9A8), // teal
+    Color(0xFFE86FA8), // rosa
+    Color(0xFFD9A13B), // âmbar suave
+    Color(0xFF818CF8), // índigo
+  ];
+
+  static const _glyphsDark = <Color>[
+    Color(0xFFA78BFA), // violeta
+    Color(0xFF7CA6F7), // azul
+    Color(0xFF4ED0BF), // teal
+    Color(0xFFF08BBE), // rosa
+    Color(0xFFE3B45C), // âmbar suave
+    Color(0xFF97A0FA), // índigo
+  ];
+
+  /// Monta os tokens para uma [seed] + [brightness]. Lavanda usa a paleta
+  /// hand-tuned canônica; as demais são derivadas mantendo o mesmo esqueleto.
+  static NeuTokens forSeed(Color seed, Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    if (seed.toARGB32() == lavanderSeed.toARGB32()) {
+      return dark ? NeuTokens.dark() : NeuTokens.light();
+    }
+    return dark ? _deriveDark(seed) : _deriveLight(seed);
+  }
+
+  static Color _hsl(double h, double s, double l, [double a = 1]) =>
+      HSLColor.fromAHSL(a, h % 360, s.clamp(0.0, 1.0), l.clamp(0.0, 1.0))
+          .toColor();
+
+  /// Deriva a paleta clara de uma cor-semente, tingindo sutilmente o canvas
+  /// (base/superfície) com o matiz e normalizando o brilho da ação primária
+  /// para contraste consistente entre matizes.
+  static NeuTokens _deriveLight(Color seed) {
+    final s = HSLColor.fromColor(seed);
+    final h = s.hue;
+    final navSat = s.saturation.clamp(0.32, 0.85);
+    final navy = _hsl(h, navSat, 0.575);
+    // Texto sobre a ação: branco por padrão; escuro só se o navy ficar claro.
+    final whiteOnNavy = navy.computeLuminance() <= 0.62;
+    final onNavy =
+        whiteOnNavy ? const Color(0xFFFFFFFF) : const Color(0xFF2B2F44);
+    return NeuTokens(
+      base: _hsl(h, 0.13, 0.915),
+      surface: _hsl(h, 0.22, 0.945),
+      surfaceHi: _hsl(h, 0.30, 0.968),
+      shadowLight: const Color(0xFFFFFFFF),
+      shadowDark: _hsl(h, 0.22, 0.70, 0.40),
+      ink: _hsl(h, 0.24, 0.205),
+      inkMuted: _hsl(h, 0.11, 0.53),
+      inkFaint: _hsl(h, 0.11, 0.69),
+      line: _hsl(h, 0.16, 0.855),
+      navy: navy,
+      navyHover: _hsl(h, navSat, 0.645),
+      onNavy: onNavy,
+      onNavyMuted:
+          whiteOnNavy ? _hsl(h, 0.45, 0.88) : _hsl(h, 0.30, 0.38),
+      accent: _hsl(h, (s.saturation * 0.9).clamp(0.34, 0.72), 0.56),
+      accentTint: _hsl(h, 0.42, 0.90),
+      success: const Color(0xFF0E9F6E),
+      successTint: const Color(0xFFDDF0E8),
+      danger: const Color(0xFFE5484D),
+      dangerTint: const Color(0xFFF8E2E3),
+      warning: const Color(0xFFCC8F02),
+      warningTint: const Color(0xFFF5ECD3),
+      info: const Color(0xFF2E90FA),
+      infoTint: const Color(0xFFDFECFD),
+      glyphs: _glyphsLight,
+    );
+  }
+
+  /// Deriva a paleta escura: navy vira uma tinta CLARA do matiz (ação de alto
+  /// contraste sobre o canvas escuro), base/superfície escuras tingidas.
+  static NeuTokens _deriveDark(Color seed) {
+    final s = HSLColor.fromColor(seed);
+    final h = s.hue;
+    final navSat = s.saturation.clamp(0.45, 0.85);
+    final navy = _hsl(h, navSat, 0.80);
+    final onNavy = navy.computeLuminance() > 0.55
+        ? const Color(0xFF1E2136)
+        : const Color(0xFFFFFFFF);
+    return NeuTokens(
+      base: _hsl(h, 0.28, 0.175),
+      surface: _hsl(h, 0.26, 0.24),
+      surfaceHi: _hsl(h, 0.25, 0.305),
+      shadowLight: _hsl(h, 0.30, 0.45, 0.25),
+      shadowDark: _hsl(h, 0.45, 0.055, 0.52),
+      ink: _hsl(h, 0.40, 0.955),
+      inkMuted: _hsl(h, 0.22, 0.71),
+      inkFaint: _hsl(h, 0.16, 0.52),
+      line: _hsl(h, 0.28, 0.34),
+      navy: navy,
+      navyHover: _hsl(h, navSat, 0.865),
+      onNavy: onNavy,
+      onNavyMuted: _hsl(h, 0.30, 0.47),
+      accent: _hsl(h, 0.58, 0.78),
+      accentTint: _hsl(h, 0.30, 0.30),
+      success: const Color(0xFF3ECFA0),
+      successTint: const Color(0xFF243B34),
+      danger: const Color(0xFFF0787C),
+      dangerTint: const Color(0xFF3F282D),
+      warning: const Color(0xFFE8BC52),
+      warningTint: const Color(0xFF3B3526),
+      info: const Color(0xFF6FB1FF),
+      infoTint: const Color(0xFF283452),
+      glyphs: _glyphsDark,
+    );
+  }
 
   /// Sombra dupla do relevo extrudado.
   List<BoxShadow> raised({bool high = false}) {
