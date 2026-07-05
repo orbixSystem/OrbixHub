@@ -3,7 +3,22 @@ import { IsEmail, IsIn, IsOptional, IsString, IsUrl, Matches } from 'class-valid
 const HEX = /^#([0-9a-fA-F]{6})$/;
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 const REGIMES = ['simples', 'mei', 'presumido', 'real'];
-export const PRESETS = ['tangerina', 'vermelho', 'azul', 'verde', 'roxo', 'petroleo', 'ambar'];
+// Paletas de tema oferecidas ao tenant (Configurações → Aparência). Espelha
+// kThemePresets no front (lib/core/theme/theme_presets.dart). `roxo`/`ambar`
+// são mantidos por compatibilidade com tenants que já os salvaram.
+export const PRESETS = [
+  'roxo',
+  'azul',
+  'petroleo',
+  'verde',
+  'tangerina',
+  'rosa',
+  'vermelho',
+  'amarelo',
+  'ardosia',
+  'mono',
+  'ambar', // mantido por compatibilidade
+];
 
 /**
  * DTO exclusivo para o endpoint PATCH /settings/appearance.

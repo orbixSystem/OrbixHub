@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
 
-/// Um tema do sistema = uma cor-semente curada. O ColorScheme.fromSeed gera
-/// claro e escuro a partir dela; a sidebar grafite é constante em todos.
+import '../ui/neu_tokens.dart';
+
+/// Um tema do sistema = uma cor-semente curada. A partir dela [NeuTokens.forSeed]
+/// gera toda a paleta neumórfica (canvas, relevo, texto, ação) em claro e escuro.
+/// A escolha é do tenant (Configurações → Aparência) e vale para toda a oficina.
 class ThemePreset {
   final String key;
   final String label;
@@ -10,23 +12,30 @@ class ThemePreset {
   const ThemePreset(this.key, this.label, this.seed);
 }
 
+/// Cores pré-definidas oferecidas na tela de Aparência. Lavanda é o padrão
+/// (reproduz o hand-tuned canônico); as demais são derivadas do seed.
 const kThemePresets = <ThemePreset>[
-  ThemePreset('tangerina', 'Tangerina', AppColors.brand), // #EC5E12 (padrão atual)
-  ThemePreset('vermelho', 'Vermelho', Color(0xFFD7263D)),
-  ThemePreset('azul', 'Azul', Color(0xFF2E6BE6)),
-  ThemePreset('verde', 'Verde', Color(0xFF0E9F6E)),
-  ThemePreset('roxo', 'Roxo', Color(0xFF7C3AED)),
-  ThemePreset('petroleo', 'Petróleo', Color(0xFF0E7C86)),
-  ThemePreset('ambar', 'Âmbar', Color(0xFFE8A302)),
+  ThemePreset('roxo', 'Roxo', NeuTokens.lavanderSeed), // padrão (roxo anterior)
+  ThemePreset('azul', 'Azul', Color(0xFF3F6FE5)),
+  ThemePreset('petroleo', 'Petróleo', Color(0xFF0E8C8C)),
+  ThemePreset('verde', 'Verde', Color(0xFF1E9E63)),
+  ThemePreset('tangerina', 'Tangerina', Color(0xFFE8631A)),
+  ThemePreset('rosa', 'Rosa', Color(0xFFDB4B8A)),
+  ThemePreset('vermelho', 'Vermelho', Color(0xFFDE3B4B)),
+  ThemePreset('amarelo', 'Amarelo', Color(0xFFEFB100)),
+  ThemePreset('ardosia', 'Ardósia', Color(0xFF5C6B87)),
+  ThemePreset('mono', 'Preto & Branco', Color(0xFF1C1C1E)),
 ];
 
+/// Seed do preset (por chave). Desconhecido/nulo → Lavanda (padrão).
 Color seedForPreset(String? key) {
   for (final p in kThemePresets) {
     if (p.key == key) return p.seed;
   }
-  return AppColors.brand;
+  return NeuTokens.lavanderSeed;
 }
 
+/// Chave do preset a partir de um seed exato (usado ao ler `primaryColor` hex).
 String? presetForSeed(Color seed) {
   for (final p in kThemePresets) {
     if (p.seed.toARGB32() == seed.toARGB32()) return p.key;

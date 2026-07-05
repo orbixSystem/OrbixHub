@@ -169,6 +169,10 @@ class NeuSearchBar extends StatelessWidget {
                 hintText: hint,
                 hintStyle: TextStyle(color: neu.inkFaint),
                 border: InputBorder.none,
+                // Sem fill próprio: o fundo é o NeuSurface (inset) do tema.
+                // Sem isto, herda o filled:true global (fillColor fixo) e pinta
+                // um retângulo que não combina com a paleta.
+                filled: false,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 13),
               ),
