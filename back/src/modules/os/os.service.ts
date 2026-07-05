@@ -441,6 +441,55 @@ export class OsService {
     return { id: photoId, deleted: true };
   }
 
+  // ---- Comentários das fotos (thread staff + cliente) ----
+
+  /** Garante que a foto existe E pertence à OS (tenant-scoped). */
+  private async assertPhotoInOrder(orderId: string, photoId: string) {
+    const found = await this.repo.findPhotoById(photoId);
+    if (!found || found.order_id !== orderId) {
+      throw new NotFoundException('Foto não encontrada.');
+    }
+  }
+
+  async listPhotoComments(user: AuthUser, orderId: string, photoId: string) {
+    return this.tenant.withTenantTx(async () => {
+      await this.assertPhotoInOrder(orderId, photoId);
+      const comments = await this.repo.listPhotoComments(photoId);
+      return comments.map((c) => ({
+        authorKind: c.author_kind,
+        authorName: c.author_name,
+        body: c.body,
+        createdAt: c.created_at,
+      }));
+    });
+  }
+
+  async addPhotoComment(
+    user: AuthUser,
+    orderId: string,
+    photoId: string,
+    body: string,
+  ) {
+    const text = body?.trim();
+    if (!text) throw new BadRequestException('O comentário não pode ser vazio.');
+    const created = await this.tenant.withTenantTx(async () => {
+      await this.assertPhotoInOrder(orderId, photoId);
+      return this.repo.addPhotoComment(user.tenantId, {
+        photoId,
+        authorKind: 'staff',
+        authorUserId: user.userId,
+        authorName: 'Equipe',
+        body: text,
+      });
+    });
+    return {
+      authorKind: created.author_kind,
+      authorName: created.author_name,
+      body: created.body,
+      createdAt: created.created_at,
+    };
+  }
+
   /**
    * Bloqueia edição de conteúdo quando a OS está num estado terminal
    * (`cancelada`/`entregue`). Cancelada pode voltar a ser editável reabrindo-a.

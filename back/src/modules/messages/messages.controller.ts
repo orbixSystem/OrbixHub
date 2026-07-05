@@ -52,7 +52,11 @@ export class MessagesController {
     @Param('id') id: string,
     @Body() dto: PostMessageDto,
   ) {
-    return this.messages.postStaffMessage(user, id, dto.body);
+    return this.messages.postStaffMessage(user, id, dto.body, {
+      replyToId: dto.replyToId,
+      photoId: dto.photoId,
+      photoUrl: dto.photoUrl,
+    });
   }
 
   @Post('conversations/:id/read')

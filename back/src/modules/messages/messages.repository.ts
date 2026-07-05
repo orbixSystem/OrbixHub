@@ -15,6 +15,19 @@ export interface AddMessageData {
   authorName?: string | null;
   body: string;
   createdBy?: string | null;
+  /** Resposta a outra mensagem (quote, estilo WhatsApp) — id da mensagem citada. */
+  replyToId?: string | null;
+  /** Foto da OS citada (ponteiro puro) + snapshot da url p/ a bolha. */
+  photoId?: string | null;
+  photoUrl?: string | null;
+}
+
+/** Preview de uma mensagem citada (reply-to). */
+export interface PreviewRow {
+  id: string;
+  sender: string;
+  author_name: string | null;
+  body: string;
 }
 
 /**
@@ -103,8 +116,32 @@ export class MessagesRepository {
         author_name: data.authorName ?? null,
         body: data.body,
         created_by: data.createdBy ?? null,
+        reply_to_id: data.replyToId ?? null,
+        photo_id: data.photoId ?? null,
+        photo_url: data.photoUrl ?? null,
       },
     });
+  }
+
+  /** True se a mensagem existe e pertence à conversa dada (valida citação). */
+  async messageBelongsToConversation(messageId: string, convId: string) {
+    const db = this.tenant.getClient();
+    const found = await db.message.findFirst({
+      where: { id: messageId, conversation_id: convId },
+      select: { id: true },
+    });
+    return found != null;
+  }
+
+  /** Preview das mensagens citadas (reply-to): id → { sender, authorName, body }. */
+  async previewByIds(ids: string[]) {
+    if (ids.length === 0) return new Map<string, PreviewRow>();
+    const db = this.tenant.getClient();
+    const rows = await db.message.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, sender: true, author_name: true, body: true },
+    });
+    return new Map<string, PreviewRow>(rows.map((r) => [r.id, r]));
   }
 
   /**

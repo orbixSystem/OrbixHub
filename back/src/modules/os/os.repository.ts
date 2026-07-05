@@ -388,6 +388,39 @@ export class OsRepository {
     });
   }
 
+  // ---- comentários das fotos (thread staff + cliente) ----
+
+  listPhotoComments(photoId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo_comment.findMany({
+      where: { photo_id: photoId },
+      orderBy: { created_at: 'asc' },
+    });
+  }
+
+  addPhotoComment(
+    tenantId: string,
+    data: {
+      photoId: string;
+      authorKind: 'staff' | 'customer';
+      authorUserId?: string | null;
+      authorName?: string | null;
+      body: string;
+    },
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo_comment.create({
+      data: {
+        tenant_id: tenantId,
+        photo_id: data.photoId,
+        author_kind: data.authorKind,
+        author_user_id: data.authorUserId ?? null,
+        author_name: data.authorName ?? null,
+        body: data.body,
+      },
+    });
+  }
+
   // ---- templates de serviço ----
   createTemplate(
     tenantId: string,
