@@ -19,6 +19,8 @@ import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
+import 'features/invoice/data/invoice_repository_impl.dart';
+import 'features/invoice/domain/invoice_repository.dart';
 import 'features/dashboard/data/dashboard_repository_impl.dart';
 import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
@@ -101,6 +103,9 @@ final teamRepositoryProvider = Provider<TeamRepository>(
 
 final customersRepositoryProvider = Provider<CustomersRepository>(
     (ref) => CustomersRepositoryImpl(ref.read(dioProvider)));
+
+final invoiceRepositoryProvider = Provider<InvoiceRepository>(
+    (ref) => InvoiceRepositoryImpl(ref.read(dioProvider)));
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
     (ref) => SettingsRepositoryImpl(ref.read(dioProvider)));
