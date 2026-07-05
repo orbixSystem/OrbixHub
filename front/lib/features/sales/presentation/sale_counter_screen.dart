@@ -177,6 +177,7 @@ class _SaleCounterScreenState extends ConsumerState<SaleCounterScreen> {
       canFinish: _canFinish,
       submitting: _submitting,
       onFinish: _finish,
+      pinFooter: isDesktop,
     );
 
     return Scaffold(
@@ -220,10 +221,9 @@ class _SaleCounterScreenState extends ConsumerState<SaleCounterScreen> {
                             child: SingleChildScrollView(child: left),
                           ),
                           const SizedBox(width: 20),
-                          Expanded(
-                            flex: 2,
-                            child: SingleChildScrollView(child: right),
-                          ),
+                          // Direita: o próprio painel fixa o rodapé (Total +
+                          // Finalizar) e rola só o conteúdo de cima.
+                          Expanded(flex: 2, child: right),
                         ],
                       ),
                     )
@@ -695,6 +695,7 @@ class _CheckoutPanel extends StatelessWidget {
     required this.canFinish,
     required this.submitting,
     required this.onFinish,
+    this.pinFooter = false,
   });
 
   final String? customerName;
@@ -710,13 +711,15 @@ class _CheckoutPanel extends StatelessWidget {
   final bool submitting;
   final VoidCallback onFinish;
 
+  /// Desktop: fixa Total + "Finalizar venda" num rodapé sempre visível (só a
+  /// parte de cima rola). Mobile: tudo empilhado no scroll da tela.
+  final bool pinFooter;
+
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
     final hasCustomer = (customerName ?? '').isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+    final body = <Widget>[
         // Cliente
         NeuCard(
           padding: const EdgeInsets.all(16),
@@ -854,55 +857,78 @@ class _CheckoutPanel extends StatelessWidget {
                   ],
                 ),
               ],
-              const SizedBox(height: 14),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(
-                  color: neu.navy.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(NeuTokens.rField),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total',
-                        style: TextStyle(
-                            color: neu.ink,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 18)),
-                    Text(
-                      money(total.toStringAsFixed(2)),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 30,
-                        color: neu.navy,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        // Finalizar
-        NeuButton(
-          label: 'Finalizar venda',
-          icon: Icons.check_circle_outline_rounded,
-          expanded: true,
-          loading: submitting,
-          onPressed: canFinish ? onFinish : null,
+    ];
+
+    // Rodapé: Total + "Finalizar venda". No desktop fica FIXO (pinFooter) —
+    // sempre visível; só o conteúdo acima rola. No mobile acompanha o scroll.
+    final footer = <Widget>[
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: neu.navy.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(NeuTokens.rField),
         ),
-        if (!canFinish && !submitting) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Adicione ao menos um item e escolha a forma de pagamento.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
-          ),
-        ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Total',
+                style: TextStyle(
+                    color: neu.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16)),
+            Text(
+              money(total.toStringAsFixed(2)),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 26,
+                color: neu.navy,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      NeuButton(
+        label: 'Finalizar venda',
+        icon: Icons.check_circle_outline_rounded,
+        expanded: true,
+        loading: submitting,
+        onPressed: canFinish ? onFinish : null,
+      ),
+      if (!canFinish && !submitting) ...[
+        const SizedBox(height: 8),
+        Text(
+          'Adicione ao menos um item e escolha a forma de pagamento.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+        ),
       ],
+    ];
+
+    if (pinFooter) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: body,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...footer,
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [...body, const SizedBox(height: 12), ...footer],
     );
   }
 }
