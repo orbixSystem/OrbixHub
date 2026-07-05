@@ -393,32 +393,39 @@ class _ThreadBody extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: _chatMaxWidth),
           child: messages.isEmpty
               ? const Center(child: Text('Nenhuma mensagem ainda.'))
-              : ListView.builder(
-                  controller: controller,
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                  itemCount: messages.length + (hasMore ? 1 : 0),
-              itemBuilder: (context, i) {
-                if (hasMore && i == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Center(
-                      child: NeuButton(
-                        label: 'Carregar mensagens anteriores',
-                        kind: NeuButtonKind.secondary,
-                        icon: Icons.history_rounded,
-                        loading: loadingOlder,
-                        onPressed: onLoadOlder,
+              // Ancora as mensagens EMBAIXO (padrão de chat): com poucas
+              // mensagens elas ficam junto do campo de resposta, não grudadas no
+              // topo com um vazio enorme. Rola quando passam da altura da tela.
+              : LayoutBuilder(
+                  builder: (context, c) => SingleChildScrollView(
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: c.maxHeight - 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (hasMore)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Center(
+                                child: NeuButton(
+                                  label: 'Carregar mensagens anteriores',
+                                  kind: NeuButtonKind.secondary,
+                                  icon: Icons.history_rounded,
+                                  loading: loadingOlder,
+                                  onPressed: onLoadOlder,
+                                ),
+                              ),
+                            ),
+                          for (final m in messages)
+                            _Bubble(message: m, onReply: onReply),
+                        ],
                       ),
                     ),
-                  );
-                }
-                final index = hasMore ? i - 1 : i;
-                return _Bubble(
-                  message: messages[index],
-                  onReply: onReply,
-                );
-              },
-            ),
+                  ),
+                ),
         ),
       ),
     );
