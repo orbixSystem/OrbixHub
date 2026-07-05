@@ -26,6 +26,15 @@ class AppTheme {
   /// identidade nova antes mesmo de serem migradas para componentes Neu*.
   static ColorScheme _schemeFrom(NeuTokens neu, Brightness brightness) {
     final light = brightness == Brightness.light;
+    // Superfície "cavada" derivada da base do tema (antes era um azul fixo):
+    // usada como fill de inputs Material. Mais escura que a base no claro,
+    // mais clara no escuro — acompanha qualquer paleta.
+    final baseHsl = HSLColor.fromColor(neu.base);
+    final sunken = baseHsl
+        .withLightness(
+          (baseHsl.lightness + (light ? -0.04 : 0.055)).clamp(0.0, 1.0),
+        )
+        .toColor();
     return ColorScheme(
       brightness: brightness,
       primary: neu.navy,
@@ -51,9 +60,7 @@ class AppTheme {
       surfaceContainerLow: neu.surface,
       surfaceContainer: neu.surface,
       surfaceContainerHigh: neu.surface,
-      surfaceContainerHighest: light
-          ? const Color(0xFFDBDCE8)
-          : const Color(0xFF3A4060),
+      surfaceContainerHighest: sunken,
       outline: neu.inkFaint,
       outlineVariant: neu.line,
       shadow: neu.shadowDark,
