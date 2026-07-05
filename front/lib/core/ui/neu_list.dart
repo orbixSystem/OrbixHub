@@ -45,6 +45,11 @@ class NeuListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DefaultTextStyle.merge(
+                  // Trunca dados dinâmicos (nomes/e-mails vindos do backend) em
+                  // vez de quebrar em várias linhas e explodir a linha. Um Text
+                  // filho que defina o próprio maxLines/overflow sobrescreve.
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: neu.ink,
                     fontSize: 15,
@@ -55,6 +60,8 @@ class NeuListTile extends StatelessWidget {
                 if (subtitle != null) ...[
                   const SizedBox(height: 3),
                   DefaultTextStyle.merge(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: neu.inkMuted, fontSize: 13),
                     child: subtitle!,
                   ),

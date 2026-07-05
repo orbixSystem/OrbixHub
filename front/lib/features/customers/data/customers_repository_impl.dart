@@ -138,6 +138,31 @@ class CustomersRepositoryImpl implements CustomersRepository {
       });
 
   @override
+  Future<Subject> setSubjectPhoto(
+    String id, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) =>
+      _guard(() async {
+        final form = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType.parse(contentType),
+          ),
+        });
+        final res = await _dio.post<Object?>('/subjects/$id/photo', data: form);
+        return Subject.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Subject> removeSubjectPhoto(String id) => _guard(() async {
+        final res = await _dio.delete<Object?>('/subjects/$id/photo');
+        return Subject.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<Subject> deleteSubject(String id) => _guard(() async {
         final res = await _dio.delete<Object?>('/subjects/$id');
         return Subject.fromJson(_asMap(res.data));

@@ -480,6 +480,8 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                       children: [
                         Text(
                           item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: neu.ink,
@@ -488,6 +490,8 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                         const SizedBox(height: 2),
                         Text(
                           subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style:
                               TextStyle(color: neu.inkMuted, fontSize: 13),
                         ),
@@ -653,12 +657,16 @@ class _FactTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: neu.inkMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 3),
                 Text(value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,

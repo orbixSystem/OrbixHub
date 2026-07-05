@@ -178,6 +178,27 @@ class FakeCustomersRepository implements CustomersRepository {
   Future<Subject> deleteSubject(String id) async =>
       _setSubjectStatus(id, 'deleted');
 
+  @override
+  Future<Subject> setSubjectPhoto(
+    String id, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    final i = _subjects.indexWhere((s) => s.id == id);
+    _subjects[i] = _subjects[i].copyWith(
+      photoUrl: 'https://picsum.photos/seed/$id/640/480',
+    );
+    return _subjects[i];
+  }
+
+  @override
+  Future<Subject> removeSubjectPhoto(String id) async {
+    final i = _subjects.indexWhere((s) => s.id == id);
+    _subjects[i] = _subjects[i].copyWith(photoUrl: null);
+    return _subjects[i];
+  }
+
   Subject _setSubjectStatus(String id, String status) {
     final i = _subjects.indexWhere((s) => s.id == id);
     _subjects[i] = _subjects[i].copyWith(status: status);

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../domain/customers_models.dart';
 import 'brand_logo.dart';
 import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
+import 'os_report_dialog.dart';
 import 'subject_form_dialog.dart';
 
 const _maxContentWidth = 940.0;
@@ -272,6 +274,8 @@ class _CustomerHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   customer.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
@@ -328,17 +332,27 @@ class _InlineFact extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 15)),
-        ],
+      // Limita a largura de cada fato para valores longos (e-mail/endereço)
+      // truncarem com reticências em vez de estourar o Wrap na horizontal.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15)),
+          ],
+        ),
       ),
     );
   }
@@ -416,6 +430,7 @@ class _VehicleCard extends ConsumerStatefulWidget {
 
 class _VehicleCardState extends ConsumerState<_VehicleCard> {
   bool _expanded = false;
+  bool _photoBusy = false;
 
   Subject get _s => widget.subject;
   String get _title => _s.label?.isNotEmpty == true
@@ -424,6 +439,57 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
 
   void _invalidate() =>
       ref.invalidate(subjectsForCustomerProvider(widget.customerId));
+
+  Future<void> _pickPhoto() async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    final ext = (file.extension ?? 'jpeg').toLowerCase();
+    setState(() => _photoBusy = true);
+    try {
+      await ref.read(customersRepositoryProvider).setSubjectPhoto(
+            _s.id,
+            bytes: bytes,
+            filename: file.name,
+            contentType: 'image/$ext',
+          );
+      _invalidate();
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Remover foto?',
+      message: 'A foto de "$_title" será removida.',
+      confirmLabel: 'Remover',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _photoBusy = true);
+    try {
+      await ref.read(customersRepositoryProvider).removeSubjectPhoto(_s.id);
+      _invalidate();
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
 
   Future<void> _edit() async {
     final ok = await SubjectFormDialog.show(
@@ -477,7 +543,10 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  _BrandAvatar(name: _s.attributes['marca']?.toString()),
+                  _SubjectThumb(
+                    photoUrl: _s.photoUrl,
+                    brand: _s.attributes['marca']?.toString(),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -519,6 +588,9 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
               config: widget.config,
               canWrite: widget.canWrite,
               archived: archived,
+              photoBusy: _photoBusy,
+              onPickPhoto: _pickPhoto,
+              onRemovePhoto: _removePhoto,
               onEdit: _edit,
               onArchive: _toggleArchive,
               onDelete: _delete,
@@ -534,7 +606,29 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
   }
 }
 
-/// Avatar 44x44 com o logo da marca (best-effort); cai no ícone de carro quando
+/// Miniatura 48x48 do veículo: mostra a FOTO (com placeholder de erro) quando há;
+/// senão cai no avatar da marca (_BrandAvatar).
+class _SubjectThumb extends StatelessWidget {
+  const _SubjectThumb({required this.photoUrl, required this.brand});
+
+  final String? photoUrl;
+  final String? brand;
+
+  @override
+  Widget build(BuildContext context) {
+    if (photoUrl != null && photoUrl!.trim().isNotEmpty) {
+      return NeuNetworkImage(
+        url: photoUrl,
+        width: 48,
+        height: 48,
+        radius: 12,
+      );
+    }
+    return _BrandAvatar(name: brand);
+  }
+}
+
+/// Avatar 48x48 com o logo da marca (best-effort); cai no ícone de carro quando
 /// não há marca ou a imagem não carrega.
 class _BrandAvatar extends StatelessWidget {
   const _BrandAvatar({required this.name});
@@ -547,8 +641,8 @@ class _BrandAvatar extends StatelessWidget {
     const fallback = Icon(Icons.directions_car_outlined,
         color: AppColors.brandDeep, size: 22);
     return Container(
-      width: 44,
-      height: 44,
+      width: 48,
+      height: 48,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.brandTint,
@@ -568,12 +662,136 @@ class _BrandAvatar extends StatelessWidget {
   }
 }
 
+/// Bloco de foto do veículo no corpo expandido: preview (com placeholder de erro)
+/// + ações "Trocar"/"Remover"; ou, quando não há foto e o usuário pode escrever,
+/// um estado vazio tocável para adicionar.
+class _SubjectPhotoBlock extends StatelessWidget {
+  const _SubjectPhotoBlock({
+    required this.photoUrl,
+    required this.busy,
+    required this.canWrite,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String? photoUrl;
+  final bool busy;
+  final bool canWrite;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+
+  bool get _hasPhoto => photoUrl != null && photoUrl!.trim().isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    if (!_hasPhoto) {
+      // Sem foto (só chega aqui com canWrite): estado vazio tocável.
+      return GestureDetector(
+        onTap: busy ? null : onPick,
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rField,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_a_photo_outlined, size: 30, color: neu.navy),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Adicionar foto',
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AspectRatio(
+          aspectRatio: 4 / 3,
+          child: GestureDetector(
+            onTap: (busy || !canWrite) ? null : onPick,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                NeuNetworkImage(
+                  url: photoUrl,
+                  radius: NeuTokens.rField,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+                if (busy)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(NeuTokens.rField),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (canWrite) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                  onPressed: busy ? null : onPick,
+                  icon: const Icon(Icons.sync_rounded, size: 18),
+                  label: const Text('Trocar'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  foregroundColor: neu.danger,
+                ),
+                onPressed: busy ? null : onRemove,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Remover'),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _VehicleBody extends StatelessWidget {
   const _VehicleBody({
     required this.subject,
     required this.config,
     required this.canWrite,
     required this.archived,
+    required this.photoBusy,
+    required this.onPickPhoto,
+    required this.onRemovePhoto,
     required this.onEdit,
     required this.onArchive,
     required this.onDelete,
@@ -583,6 +801,9 @@ class _VehicleBody extends StatelessWidget {
   final CustomersConfig config;
   final bool canWrite;
   final bool archived;
+  final bool photoBusy;
+  final VoidCallback onPickPhoto;
+  final VoidCallback onRemovePhoto;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
@@ -590,6 +811,57 @@ class _VehicleBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final fieldsWrap = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final f in config.subjectFields)
+          _FieldTile(
+            icon: _fieldIcon(f.chave),
+            label: f.rotulo,
+            value: f.chave == 'identifier'
+                ? subject.identifier
+                : subject.attributes[f.chave]?.toString(),
+          ),
+      ],
+    );
+
+    // Foto aparece quando existe OU quando o usuário pode adicioná-la.
+    final showPhoto = (subject.photoUrl?.trim().isNotEmpty ?? false) || canWrite;
+    final photoBlock = showPhoto
+        ? _SubjectPhotoBlock(
+            photoUrl: subject.photoUrl,
+            busy: photoBusy,
+            canWrite: canWrite,
+            onPick: onPickPhoto,
+            onRemove: onRemovePhoto,
+          )
+        : null;
+
+    // Desktop: foto ao lado dos dados; mobile/tablet: foto em cima, empilhado.
+    final Widget content;
+    if (photoBlock == null) {
+      content = fieldsWrap;
+    } else if (context.isDesktop) {
+      content = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 220, child: photoBlock),
+          const SizedBox(width: 20),
+          Expanded(child: fieldsWrap),
+        ],
+      );
+    } else {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          photoBlock,
+          const SizedBox(height: 16),
+          fieldsWrap,
+        ],
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -597,20 +869,7 @@ class _VehicleBody extends StatelessWidget {
         children: [
           Divider(height: 1, color: scheme.outlineVariant),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final f in config.subjectFields)
-                _FieldTile(
-                  icon: _fieldIcon(f.chave),
-                  label: f.rotulo,
-                  value: f.chave == 'identifier'
-                      ? subject.identifier
-                      : subject.attributes[f.chave]?.toString(),
-                ),
-            ],
-          ),
+          content,
           if (canWrite) ...[
             const SizedBox(height: 16),
             Wrap(
@@ -799,6 +1058,82 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Entradas de OS são clicáveis e abrem o relatório detalhado da OS.
+    final isOs = entry.kind == 'os';
+
+    final cardInner = Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (entry.subjectLabel?.isNotEmpty == true)
+                      entry.subjectLabel!,
+                    entry.kind,
+                    entry.occurredAt,
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: scheme.onSurfaceVariant, fontSize: 13),
+                ),
+                if (isOs) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.description_outlined,
+                          size: 15, color: scheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ver detalhes',
+                        style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _Pill(icon: Icons.flag_outlined, text: entry.status),
+          if (isOs) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          ],
+        ],
+      ),
+    );
+
+    final decoration = BoxDecoration(
+      color: scheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: scheme.outlineVariant),
+    );
+
+    final Widget card = isOs
+        ? Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => showOsReportDialog(context, entry.id),
+              child: Ink(decoration: decoration, child: cardInner),
+            ),
+          )
+        : Container(decoration: decoration, child: cardInner);
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -833,39 +1168,7 @@ class _TimelineItem extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.title,
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 2),
-                          Text(
-                            [
-                              if (entry.subjectLabel?.isNotEmpty == true)
-                                entry.subjectLabel!,
-                              entry.kind,
-                              entry.occurredAt,
-                            ].join(' · '),
-                            style: TextStyle(
-                                color: scheme.onSurfaceVariant, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _Pill(icon: Icons.flag_outlined, text: entry.status),
-                  ],
-                ),
-              ),
+              child: card,
             ),
           ),
         ],

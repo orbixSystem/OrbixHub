@@ -477,10 +477,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
               index: gi,
             ),
             const SizedBox(height: 16),
-            for (var fi = 0; fi < groupList[gi].value.length; fi++) ...[
-              if (fi > 0) const SizedBox(height: 16),
-              _buildFieldWidget(groupList[gi].value[fi]),
-            ],
+            _buildFieldsGrid(groupList[gi].value),
           ],
         ],
 
@@ -537,6 +534,95 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     return Icons.tune_rounded;
   }
 
+  /// Campos que ocupam a LINHA INTEIRA no grid de 2 colunas (conteúdo longo:
+  /// razão social, e-mail, site, logradouro e o CNAE buscável). Os demais são
+  /// curtos e ficam lado a lado.
+  static const _fullWidthFields = {
+    'legalName',
+    'email',
+    'website',
+    'logradouro',
+    'cnae',
+  };
+
+  /// Texto de ajuda curto (PT-BR) exibido abaixo do campo, por chave.
+  /// Retorna `null` quando o campo dispensa contexto.
+  String? _helperFor(String key) {
+    switch (key) {
+      case 'companyName':
+        return 'Nome como sua empresa é conhecida pelos clientes.';
+      case 'legalName':
+        return 'Razão social registrada no CNPJ.';
+      case 'taxId':
+        return 'Somente números. Não é editável aqui.';
+      case 'phone':
+        return 'Aparece nas comunicações com o cliente.';
+      case 'email':
+        return 'Usado nas comunicações e no link público de acompanhamento.';
+      case 'website':
+        return 'Endereço do site da empresa, se houver.';
+      case 'inscricaoEstadual':
+        return 'Deixe ISENTO se a empresa não tiver.';
+      case 'inscricaoMunicipal':
+        return 'Número da inscrição na prefeitura (usado na NFS-e).';
+      case 'regimeTributario':
+        return 'Regime de tributação (ex.: Simples Nacional).';
+      case 'cnae':
+        return 'Atividade econômica principal — busque por código ou descrição.';
+      case 'cep':
+        return 'Digite o CEP e toque na lupa para preencher o endereço.';
+      case 'logradouro':
+        return 'Rua ou avenida — preenchido automaticamente pelo CEP.';
+      case 'numero':
+        return 'Número do endereço.';
+      case 'complemento':
+        return 'Sala, andar ou bloco (opcional).';
+      case 'bairro':
+        return 'Bairro — preenchido pelo CEP.';
+      case 'municipio':
+        return 'Cidade — preenchida pelo CEP.';
+      case 'uf':
+        return 'Estado (UF) — preenchido pelo CEP.';
+      default:
+        return null;
+    }
+  }
+
+  /// Distribui os campos de um grupo em um grid responsivo de 2 colunas.
+  ///
+  /// - Telas largas (não-mobile e largura ≥ ~536px): 2 campos por linha; campos
+  ///   longos ([_fullWidthFields]) ocupam a linha inteira.
+  /// - Mobile ou largura estreita: 1 campo por linha (empilhado).
+  /// Usa [Wrap] com gap de 16px horizontal e vertical; cada campo vive em um
+  /// [SizedBox] com largura calculada a partir do espaço disponível.
+  Widget _buildFieldsGrid(List<SettingsField> fields) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 16.0;
+        const minField = 260.0;
+        final maxW = constraints.maxWidth;
+        // Duas colunas só quando cabem dois campos de ~260px lado a lado.
+        final twoCols = !context.isMobile && maxW >= (minField * 2 + gap);
+        // floorToDouble garante que 2*half + gap nunca estoure maxW.
+        final halfW =
+            twoCols ? ((maxW - gap) / 2).floorToDouble() : maxW;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final field in fields)
+              SizedBox(
+                width: (!twoCols || _fullWidthFields.contains(field.key))
+                    ? maxW
+                    : halfW,
+                child: _buildFieldWidget(field),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildFieldWidget(SettingsField field) {
     final neu = context.neu;
 
@@ -547,7 +633,11 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         controller: _textCtrl[field.key],
         hint: 'não editável',
         enabled: false,
-        suffix: Icon(Icons.lock_outline, size: 18, color: neu.inkFaint),
+        helper: _helperFor(field.key),
+        suffix: Tooltip(
+          message: 'Não editável aqui. Altere em Identidade fiscal.',
+          child: Icon(Icons.lock_outline, size: 18, color: neu.inkFaint),
+        ),
       );
     }
 
@@ -563,6 +653,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
           label: field.label,
           controller: _textCtrl[field.key],
           keyboardType: TextInputType.number,
+          helper: _helperFor(field.key),
           onFieldSubmitted: _buscarCep,
           suffix: Padding(
             padding: const EdgeInsets.only(right: 6),
@@ -583,6 +674,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         label: field.label,
         controller: _textCtrl[field.key],
         keyboardType: _keyboardType(field.type),
+        helper: _helperFor(field.key),
       );
     }
 
@@ -656,6 +748,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     final neu = context.neu;
     return _labeledInset(
       label: field.label,
+      helper: _helperFor(field.key),
       child: SizedBox(
         height: 48,
         child: DropdownButton<String>(
@@ -772,6 +865,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return _labeledInset(
           label: field.label,
+          helper: _helperFor(field.key),
           child: TextFormField(
             controller: controller,
             focusNode: focusNode,

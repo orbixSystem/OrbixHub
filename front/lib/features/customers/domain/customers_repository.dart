@@ -27,6 +27,18 @@ abstract interface class CustomersRepository {
   Future<Subject> archiveSubject(String id);
   Future<Subject> unarchiveSubject(String id);
 
+  /// Define a foto do veículo (upload multipart p/ o storage/S3). Retorna o
+  /// subject atualizado (com `photoUrl`).
+  Future<Subject> setSubjectPhoto(
+    String id, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  });
+
+  /// Remove a foto do veículo.
+  Future<Subject> removeSubjectPhoto(String id);
+
   /// Exclui o subject — soft delete no backend (status 'deleted'); some das
   /// listagens. Nunca apaga de fato.
   Future<Subject> deleteSubject(String id);

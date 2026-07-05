@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
@@ -36,6 +37,11 @@ class OsDetailScreen extends ConsumerWidget {
     return s is SessionAuthenticated && s.me.hasPermission(perm);
   }
 
+  bool _hasModule(WidgetRef ref, String key) {
+    final s = ref.read(sessionControllerProvider);
+    return s is SessionAuthenticated && s.me.hasModule(key);
+  }
+
   /// Identificação da empresa (tenant ativo) p/ exibir e imprimir na OS.
   OsCompany? _company(WidgetRef ref) {
     final s = ref.read(sessionControllerProvider);
@@ -55,6 +61,10 @@ class OsDetailScreen extends ConsumerWidget {
     final canWrite = _has(ref, 'os.write');
     final canApprove = _has(ref, 'os.approve');
     final canRead = _has(ref, 'os.read');
+    // "Emitir NF" só aparece com o módulo fiscal habilitado E a permissão de
+    // emissão — o backend é a verdade (aqui só refletimos para UX).
+    final canIssueInvoice =
+        _hasModule(ref, 'invoice') && _has(ref, 'invoice.issue');
     final company = _company(ref);
     // Logo do tenant para exibir no cabeçalho da OS.
     final logoUrl = ref
@@ -131,6 +141,9 @@ class OsDetailScreen extends ConsumerWidget {
                 onEdit: () => _edit(context, ref, order),
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
                 onPrint: () => _printOrder(context, order, company),
+                invoiceAction: canIssueInvoice
+                    ? _IssueInvoiceButton(orderId: order.id)
+                    : null,
               ),
               const SizedBox(height: 20),
               // Painel de workflow: mostra em qual etapa a OS está (stepper) e
@@ -311,6 +324,7 @@ class _Header extends StatelessWidget {
     required this.onApplyTemplate,
     required this.onPrint,
     this.logoUrl,
+    this.invoiceAction,
   });
 
   final ServiceOrder order;
@@ -321,6 +335,9 @@ class _Header extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onApplyTemplate;
   final VoidCallback onPrint;
+
+  /// Ação opcional "Emitir NF" (só com módulo fiscal + permissão).
+  final Widget? invoiceAction;
 
   /// Formata uma data ISO-8601 para dd/MM/yyyy (pt-BR); se não parsear, devolve
   /// o valor original.
@@ -435,6 +452,10 @@ class _Header extends StatelessWidget {
                   onPressed: onPrint,
                 ),
               ],
+              if (invoiceAction != null) ...[
+                const SizedBox(width: 8),
+                invoiceAction!,
+              ],
               if (canEdit) ...[
                 const SizedBox(width: 8),
                 NeuIconButton(
@@ -491,6 +512,70 @@ class _InlineFact extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Botão "Emitir NF" do cabeçalho da OS: emite a nota a partir desta OS e, em
+/// sucesso, navega para o detalhe da nota. Só é montado quando o módulo fiscal
+/// está habilitado e o usuário tem `invoice.issue`.
+class _IssueInvoiceButton extends ConsumerStatefulWidget {
+  const _IssueInvoiceButton({required this.orderId});
+
+  final String orderId;
+
+  @override
+  ConsumerState<_IssueInvoiceButton> createState() =>
+      _IssueInvoiceButtonState();
+}
+
+class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
+  bool _loading = false;
+
+  Future<void> _issue() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final invoice =
+          await ref.read(invoiceRepositoryProvider).issue(widget.orderId);
+      if (mounted) context.go('/m/invoice/${invoice.id}');
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    if (_loading) {
+      return NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: 21,
+        child: SizedBox(
+          width: 42,
+          height: 42,
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: neu.navy),
+            ),
+          ),
+        ),
+      );
+    }
+    return NeuIconButton(
+      tooltip: 'Emitir nota fiscal',
+      icon: Icons.receipt_long_outlined,
+      size: 42,
+      color: neu.navy,
+      onPressed: _issue,
     );
   }
 }
@@ -1514,8 +1599,8 @@ class _TotalRow extends StatelessWidget {
 
 // ===================== Link de acompanhamento =====================
 
-/// Card com o link público de acompanhamento da OS. Copiar funciona; WhatsApp
-/// e e-mail aparecem desabilitados ("Em breve"). A origem do link vem de
+/// Card com o link público de acompanhamento da OS: copiar, compartilhar por
+/// WhatsApp (wa.me) e por e-mail (mailto) via url_launcher. A origem do link vem de
 /// `Uri.base.origin` na WEB; em desktop/mobile `Uri.base` é `file://` (sem
 /// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
 /// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
@@ -1538,6 +1623,33 @@ class _TrackingLinkCard extends StatelessWidget {
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Link copiado')));
   }
+
+  /// Mensagem padrão compartilhada por WhatsApp/e-mail (link de acompanhamento).
+  String get _shareText =>
+      'Acompanhe sua ordem de serviço em tempo real: $_url';
+
+  Future<void> _openExternal(BuildContext context, Uri uri) async {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o aplicativo.')),
+      );
+    }
+  }
+
+  Future<void> _whatsApp(BuildContext context) => _openExternal(
+        context,
+        Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
+      );
+
+  Future<void> _email(BuildContext context) => _openExternal(
+        context,
+        Uri(
+          scheme: 'mailto',
+          query: 'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
+              '&body=${Uri.encodeComponent(_shareText)}',
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1577,13 +1689,13 @@ class _TrackingLinkCard extends StatelessWidget {
                 label: 'WhatsApp',
                 icon: Icons.chat_outlined,
                 kind: NeuButtonKind.secondary,
-                onPressed: null,
+                onPressed: () => _whatsApp(context),
               ),
               NeuButton(
                 label: 'E-mail',
                 icon: Icons.email_outlined,
                 kind: NeuButtonKind.secondary,
-                onPressed: null,
+                onPressed: () => _email(context),
               ),
             ],
           ),

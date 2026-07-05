@@ -8,17 +8,21 @@ import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../dashboard/presentation/dashboard_providers.dart'
+    show osManagementMetricsProvider;
+import '../../dashboard/presentation/widgets/kpi.dart' show KpiTile;
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
-    show osStatuses, osStatusLabel, OsStatusChip;
+    show osStatuses, osStatusColor, osStatusLabel, OsStatusChip;
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
 import 'report_csv.dart';
 import 'report_download.dart';
 import 'report_pdf.dart';
+import 'report_xlsx.dart';
 import 'report_providers.dart';
 import 'report_tables.dart';
 
@@ -57,34 +61,61 @@ class ReportScreen extends ConsumerWidget {
         final picker = _ReportPicker(reports: reports, selected: spec.kind);
         final content = _ReportContent(me: me, spec: spec);
 
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Relatórios',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(
+              'Lentes detalhadas sobre os dados dos seus módulos.',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        );
+
+        // Desktop: cabeçalho + picker FIXOS; só o conteúdo rola. O picker fica
+        // "grudado" no topo mesmo com o relatório rolando (sidebar fixa).
+        if (wide) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Row(
+                    // stretch: o rail preenche toda a altura (como em Configurações);
+                    // rola internamente só se houver muitos relatórios.
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(width: 240, child: picker),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: SingleChildScrollView(child: content),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Mobile/estreito: navegação COMPACTA (chips roláveis no topo, 1 linha)
+        // + conteúdo. Nada de card-picker gigante ocupando meia tela.
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Relatórios',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text(
-                'Lentes detalhadas sobre os dados dos seus módulos.',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 20),
-              if (wide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 240, child: picker),
-                    const SizedBox(width: 24),
-                    Expanded(child: content),
-                  ],
-                )
-              else ...[
-                picker,
-                const SizedBox(height: 20),
-                content,
-              ],
+              header,
+              const SizedBox(height: 16),
+              _ReportChipsBar(reports: reports, selected: spec.kind),
+              const SizedBox(height: 16),
+              content,
             ],
           ),
         );
@@ -196,6 +227,78 @@ class _PickerItem extends StatelessWidget {
   }
 }
 
+/// Navegação compacta de relatório no MOBILE: uma linha rolável na horizontal de
+/// "pílulas". O relatório selecionado fica em navy; os demais como superfície
+/// extrudada. Substitui o card-picker grande (que ocupava meia tela no topo).
+class _ReportChipsBar extends ConsumerWidget {
+  const _ReportChipsBar({required this.reports, required this.selected});
+
+  final List<ReportSpec> reports;
+  final ReportKind selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        physics: const BouncingScrollPhysics(),
+        itemCount: reports.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final r = reports[i];
+          return _ReportChip(
+            label: r.label,
+            selected: r.kind == selected,
+            onTap: () =>
+                ref.read(selectedReportProvider.notifier).select(r.kind),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReportChip extends StatelessWidget {
+  const _ReportChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: selected ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: selected ? neu.navy : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: selected ? null : neu.raised(),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: selected ? neu.onNavy : neu.inkMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Corpo do relatório selecionado: filtros + export + tabela/gráfico.
 class _ReportContent extends ConsumerWidget {
   const _ReportContent({required this.me, required this.spec});
@@ -228,6 +331,64 @@ class _FiltersBar extends ConsumerWidget {
     final usesPeriod = kind != ReportKind.inventoryPosition;
     final filters = ref.watch(reportFiltersProvider);
 
+    final member = _MemberFilter(
+      value: filters.assignedTo,
+      onChanged: (v) =>
+          ref.read(reportFiltersProvider.notifier).setAssignedTo(v),
+    );
+    final status = _StatusFilter(
+      value: filters.status,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setStatus(v),
+    );
+    final kindFilter = _KindFilter(
+      value: filters.kind,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setKind(v),
+    );
+    final limitFilter = _LimitFilter(
+      value: filters.limit,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setLimit(v),
+    );
+
+    // Mobile: layout enxuto — presets em chips (PeriodSelector) e os campos
+    // pareados em 2 colunas, sem itens soltos empilhados com muito respiro.
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (usesPeriod) const PeriodSelector(),
+          if (kind == ReportKind.osOperational) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: member),
+                const SizedBox(width: 12),
+                Expanded(child: status),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(child: _OsSearchField()),
+                const SizedBox(width: 12),
+                const _OsSortMenu(),
+              ],
+            ),
+          ],
+          if (kind == ReportKind.topItems) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: kindFilter),
+                const SizedBox(width: 12),
+                Expanded(child: limitFilter),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
     return Wrap(
       spacing: 16,
       runSpacing: 12,
@@ -235,30 +396,14 @@ class _FiltersBar extends ConsumerWidget {
       children: [
         if (usesPeriod) const PeriodSelector(),
         if (kind == ReportKind.osOperational) ...[
-          _MemberFilter(
-            value: filters.assignedTo,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setAssignedTo(v),
-          ),
-          _StatusFilter(
-            value: filters.status,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setStatus(v),
-          ),
+          member,
+          status,
           const _OsSearchField(),
           const _OsSortMenu(),
         ],
         if (kind == ReportKind.topItems) ...[
-          _KindFilter(
-            value: filters.kind,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setKind(v),
-          ),
-          _LimitFilter(
-            value: filters.limit,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setLimit(v),
-          ),
+          kindFilter,
+          limitFilter,
         ],
       ],
     );
@@ -424,6 +569,10 @@ class _ReportBody extends ConsumerWidget {
     };
 
     switch (spec.kind) {
+      case ReportKind.overview:
+        // Painel BI: KPIs + gráficos sobre os dados JÁ existentes do período.
+        // Sem tabela/export — é um dashboard.
+        return _OverviewReport(me: me, memberNames: memberNames);
       case ReportKind.osOperational:
         // OS pode ter milhares de linhas → lista PAGINADA (scroll infinito,
         // render leve). Evita montar uma DataTable gigante de uma vez (causa do
@@ -463,7 +612,7 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(topItemsReportProvider),
           tableOf: topItemsTable,
           isEmpty: (r) => r.rows.isEmpty,
-          chartOf: null,
+          chartOf: (r) => _TopItemsChart(report: r),
           company: _company(),
           period: _periodLabel(ref),
         );
@@ -478,7 +627,7 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(customersReportProvider),
           tableOf: customersTable,
           isEmpty: (r) => r.rows.isEmpty,
-          chartOf: null,
+          chartOf: (r) => _CustomersChart(report: r),
           summaryOf: (r) => [
             ('Clientes ativos', '${r.active}'),
             ('Novos no período', '${r.newInRange}'),
@@ -487,6 +636,533 @@ class _ReportBody extends ConsumerWidget {
           period: _periodLabel(ref),
         );
     }
+  }
+}
+
+/// Painel BI da "Visão geral": KPIs + gráficos sobre os dados JÁ existentes do
+/// período selecionado. O faturamento é obrigatório (módulo `os`); clientes e
+/// estoque só entram quando o tenant tem esses módulos. Sem tabela/export — é um
+/// dashboard. Respeita o seletor de período (via `revenueReportProvider` etc.).
+class _OverviewReport extends ConsumerWidget {
+  const _OverviewReport({required this.me, required this.memberNames});
+
+  final Me me;
+  final Map<String, String> memberNames;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Faturamento é a fonte obrigatória: dita loading/erro do painel inteiro.
+    final revenueAsync = ref.watch(revenueReportProvider);
+    return revenueAsync.when(
+      loading: () => const SizedBox(
+        height: 320,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) =>
+          _ErrorBox(onRetry: () => ref.invalidate(revenueReportProvider)),
+      data: (revenue) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Visão geral', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 18),
+          _OverviewKpis(me: me, revenue: revenue),
+          const SizedBox(height: 20),
+          _OverviewCharts(
+            revenue: revenue,
+            memberNames: memberNames,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Faixa de KPIs da Visão geral. Faturamento/Nº de OS/Ticket médio saem do
+/// `RevenueReport`; "OS atrasadas" da métrica gerencial de OS (mesmo período);
+/// "Novos clientes"/"Valor em estoque" só aparecem se o módulo-fonte existir.
+class _OverviewKpis extends ConsumerWidget {
+  const _OverviewKpis({required this.me, required this.revenue});
+
+  final Me me;
+  final RevenueReport revenue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    // Nº de OS no período = soma das contagens por status do faturamento.
+    final osCount =
+        revenue.byStatus.values.fold<int>(0, (a, b) => a + b.count);
+    // "Atrasadas" não vem do RevenueReport (não há esse recorte lá); usa a
+    // métrica gerencial de OS, que reage ao MESMO período selecionado.
+    final osMetrics = ref.watch(osManagementMetricsProvider);
+    final overdue = osMetrics.asData?.value.overdue ?? 0;
+
+    final tiles = <Widget>[
+      KpiTile(
+        icon: Icons.payments_outlined,
+        glyphIndex: 2,
+        label: 'Faturamento',
+        value: formatMoney(revenue.total),
+        valueColor: neu.success,
+      ),
+      KpiTile(
+        icon: Icons.receipt_long_outlined,
+        glyphIndex: 1,
+        label: 'Nº de OS',
+        value: '$osCount',
+      ),
+      KpiTile(
+        icon: Icons.calculate_outlined,
+        glyphIndex: 0,
+        label: 'Ticket médio',
+        value: formatMoney(revenue.avgTicket),
+      ),
+      KpiTile(
+        icon: Icons.warning_amber_rounded,
+        glyphIndex: 4,
+        label: 'OS atrasadas',
+        loading: osMetrics.isLoading,
+        value: '$overdue',
+        valueColor: overdue > 0 ? neu.danger : null,
+      ),
+    ];
+
+    if (me.hasModule('customers')) {
+      final cust = ref.watch(customersReportProvider);
+      final data = cust.asData?.value;
+      tiles.add(KpiTile(
+        icon: Icons.people_alt_outlined,
+        glyphIndex: 3,
+        label: 'Novos clientes',
+        loading: cust.isLoading,
+        value: '${data?.newInRange ?? 0}',
+        sub: data != null && data.active > 0 ? '${data.active} ativos' : null,
+      ));
+    }
+
+    if (me.hasModule('inventory')) {
+      final inv = ref.watch(inventoryReportProvider);
+      tiles.add(KpiTile(
+        icon: Icons.inventory_2_outlined,
+        glyphIndex: 5,
+        label: 'Valor em estoque',
+        loading: inv.isLoading,
+        value: formatMoney(inv.asData?.value.stockValue ?? 0),
+      ));
+    }
+
+    return _OverviewKpiGrid(tiles: tiles);
+  }
+}
+
+/// Grade de KPIs sem buracos: escolhe o nº de colunas que divide os tiles
+/// (linhas cheias) e faz cada tile Expanded. Espelha o grid do dashboard.
+class _OverviewKpiGrid extends StatelessWidget {
+  const _OverviewKpiGrid({required this.tiles});
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        const gap = 14.0;
+        final n = tiles.length;
+        final maxCols = (c.maxWidth / 210).floor().clamp(1, 4);
+        var cols = n <= maxCols ? n : maxCols;
+        for (var k = maxCols; k >= 2; k--) {
+          if (n % k == 0) {
+            cols = k;
+            break;
+          }
+        }
+        final rows = <Widget>[];
+        for (var i = 0; i < n; i += cols) {
+          final slice = tiles.skip(i).take(cols).toList();
+          rows.add(Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var j = 0; j < slice.length; j++) ...[
+                    if (j > 0) const SizedBox(width: gap),
+                    Expanded(child: slice[j]),
+                  ],
+                ],
+              ),
+            ),
+          ));
+        }
+        return Column(children: rows);
+      },
+    );
+  }
+}
+
+/// Grade de gráficos da Visão geral: 2 colunas no desktop, 1 no mobile.
+/// Faturamento no tempo (linha/área) + OS por status (rosca) do RevenueReport;
+/// Top produtos/serviços + Rendimento da equipe assistem seus próprios providers.
+class _OverviewCharts extends ConsumerWidget {
+  const _OverviewCharts({required this.revenue, required this.memberNames});
+
+  final RevenueReport revenue;
+  final Map<String, String> memberNames;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final team = ref.watch(teamReportProvider);
+    final topItems = ref.watch(topItemsReportProvider);
+
+    final cards = <Widget>[
+      _RevenueLineCard(report: revenue),
+      _StatusDonutCard(report: revenue),
+      _OverviewTopItemsCard(async: topItems),
+      _OverviewTeamCard(async: team, names: memberNames),
+    ];
+
+    if (context.isMobile) {
+      return Column(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(height: 16),
+            cards[i],
+          ],
+        ],
+      );
+    }
+
+    const gap = 16.0;
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      final right = i + 1 < cards.length ? cards[i + 1] : null;
+      rows.add(Padding(
+        padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: cards[i]),
+            const SizedBox(width: gap),
+            Expanded(child: right ?? const SizedBox.shrink()),
+          ],
+        ),
+      ));
+    }
+    return Column(children: rows);
+  }
+}
+
+/// Rótulo curto de um dia da série ('YYYY-MM-DD' → 'dd/MM') para eixos.
+String _dayShort(String day) {
+  final parts = day.split('-');
+  if (parts.length != 3) return day;
+  return '${parts[2]}/${parts[1]}';
+}
+
+/// Trunca um rótulo para caber no eixo (com reticências).
+String _clip(String s, int max) =>
+    s.length > max ? '${s.substring(0, max)}…' : s;
+
+/// Faturamento no tempo (linha suave com área preenchida) — `RevenueReport.byDay`.
+class _RevenueLineCard extends StatelessWidget {
+  const _RevenueLineCard({required this.report});
+  final RevenueReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final days = report.byDay;
+    if (days.isEmpty) {
+      return const NeuChartCard(
+          title: 'Faturamento no tempo', child: _ChartEmpty());
+    }
+    final maxY = days
+        .map((d) => d.revenue.toDouble())
+        .fold<double>(0, (a, b) => b > a ? b : a);
+    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
+    final spots = <FlSpot>[
+      for (var i = 0; i < days.length; i++)
+        FlSpot(i.toDouble(), days[i].revenue.toDouble()),
+    ];
+
+    return NeuChartCard(
+      title: 'Faturamento no tempo',
+      child: LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: (days.length - 1).toDouble(),
+          minY: 0,
+          maxY: top,
+          gridData: neuGrid(context, interval: top / 4),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            leftTitles: neuLeftTitles(
+              context,
+              format: neuShortMoney,
+              interval: top / 4,
+            ),
+            rightTitles: neuNoAxis,
+            topTitles: neuNoAxis,
+            bottomTitles: neuBottomTitles(
+              context,
+              count: days.length,
+              label: (i) => _dayShort(days[i].day),
+            ),
+          ),
+          lineTouchData: neuLineTouch(
+            context,
+            label: (i, v) => formatMoney(v),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              curveSmoothness: 0.25,
+              barWidth: 3,
+              color: neu.accent,
+              dotData: FlDotData(show: days.length <= 14),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    neu.accent.withValues(alpha: .28),
+                    neu.accent.withValues(alpha: .02),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// OS por status (rosca) — `RevenueReport.byStatus`, cor por `osStatusColor`.
+/// Legenda ao lado com contagem por status.
+class _StatusDonutCard extends StatelessWidget {
+  const _StatusDonutCard({required this.report});
+  final RevenueReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    // Ordena pelo fluxo canônico dos status; inclui só os presentes (count > 0).
+    final entries = <MapEntry<String, CountRevenue>>[
+      for (final s in osStatuses)
+        if ((report.byStatus[s]?.count ?? 0) > 0)
+          MapEntry(s, report.byStatus[s]!),
+      // Defensivo: status fora da lista canônica (se o backend enviar).
+      for (final e in report.byStatus.entries)
+        if (!osStatuses.contains(e.key) && e.value.count > 0) e,
+    ];
+    if (entries.isEmpty) {
+      return const NeuChartCard(
+          title: 'OS por status', child: _ChartEmpty());
+    }
+
+    final total = entries.fold<int>(0, (a, e) => a + e.value.count);
+
+    return NeuChartCard(
+      title: 'OS por status',
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections: [
+                  for (final e in entries)
+                    PieChartSectionData(
+                      value: e.value.count.toDouble(),
+                      color: osStatusColor(e.key),
+                      // Rótulo direto só na fatia grande (≥12%); as pequenas
+                      // ficam só na legenda para não sobrepor.
+                      title: total > 0 && e.value.count / total >= 0.12
+                          ? '${e.value.count}'
+                          : '',
+                      radius: 44,
+                      titleStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final e in entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: osStatusColor(e.key),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            osStatusLabel(e.key),
+                            style:
+                                TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${e.value.count}',
+                          style: TextStyle(
+                            color: neu.ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Top produtos/serviços (barras) — assiste `topItemsReportProvider`.
+class _OverviewTopItemsCard extends StatelessWidget {
+  const _OverviewTopItemsCard({required this.async});
+  final AsyncValue<TopItemsReport> async;
+
+  @override
+  Widget build(BuildContext context) {
+    const title = 'Top produtos/serviços';
+    return async.when(
+      loading: () => const NeuChartCard(title: title, child: _ChartLoading()),
+      error: (_, _) => const NeuChartCard(
+        title: title,
+        child: _ChartEmpty(message: 'Não foi possível carregar.'),
+      ),
+      data: (report) {
+        final neu = context.neu;
+        final rows = report.rows.take(8).toList();
+        if (rows.isEmpty) {
+          return const NeuChartCard(title: title, child: _ChartEmpty());
+        }
+        final maxY = rows
+            .map((r) => r.revenue.toDouble())
+            .fold<double>(0, (a, b) => b > a ? b : a);
+        final top = maxY <= 0 ? 1.0 : maxY * 1.2;
+
+        return NeuChartCard(
+          title: title,
+          child: BarChart(
+            BarChartData(
+              maxY: top,
+              gridData: neuGrid(context, interval: top / 4),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: neuLeftTitles(
+                  context,
+                  format: neuShortMoney,
+                  interval: top / 4,
+                ),
+                rightTitles: neuNoAxis,
+                topTitles: neuNoAxis,
+                bottomTitles: neuBottomTitles(
+                  context,
+                  count: rows.length,
+                  label: (i) => _clip(rows[i].name, 8),
+                ),
+              ),
+              barTouchData: neuBarTouch(
+                context,
+                label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
+              ),
+              barGroups: [
+                for (var i = 0; i < rows.length; i++)
+                  BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      neuBarRod(
+                        context,
+                        rows[i].revenue.toDouble(),
+                        width: 16,
+                        color: neu.accent,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Rendimento da equipe (barras) — assiste `teamReportProvider`; reusa o
+/// `_TeamChart` já existente quando há dados.
+class _OverviewTeamCard extends StatelessWidget {
+  const _OverviewTeamCard({required this.async, required this.names});
+  final AsyncValue<TeamReport> async;
+  final Map<String, String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    const title = 'Faturamento por responsável';
+    return async.when(
+      loading: () => const NeuChartCard(title: title, child: _ChartLoading()),
+      error: (_, _) => const NeuChartCard(
+        title: title,
+        child: _ChartEmpty(message: 'Não foi possível carregar.'),
+      ),
+      data: (report) => report.rows.isEmpty
+          ? const NeuChartCard(title: title, child: _ChartEmpty())
+          : _TeamChart(report: report, names: names),
+    );
+  }
+}
+
+/// Corpo vazio de um gráfico (dentro do `NeuChartCard`, altura fixa).
+class _ChartEmpty extends StatelessWidget {
+  const _ChartEmpty({this.message = 'Sem dados no período.'});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        message,
+        style: TextStyle(color: context.neu.inkMuted, fontSize: 13),
+      ),
+    );
+  }
+}
+
+/// Corpo de carregamento de um gráfico (spinner centralizado).
+class _ChartLoading extends StatelessWidget {
+  const _ChartLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
   }
 }
 
@@ -716,6 +1392,30 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      final busy = _csvBusy || _pdfBusy;
+      return NeuButton(
+        label: 'Exportar',
+        icon: Icons.file_download_outlined,
+        loading: busy,
+        onPressed: busy
+            ? null
+            : () => _showExportSheet(
+                  context,
+                  options: [
+                    _ExportOption(
+                        label: 'Exportar CSV',
+                        icon: Icons.table_view_outlined,
+                        onTap: _csv),
+                    _ExportOption(
+                        label: 'Exportar PDF',
+                        icon: Icons.picture_as_pdf_outlined,
+                        onTap: _pdf),
+                  ],
+                ),
+      );
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -767,24 +1467,129 @@ class _SummaryStat extends StatelessWidget {
   }
 }
 
-/// Tabela responsiva (DataTable em scroll horizontal) com a última linha de
-/// total destacada quando o builder a inclui (rótulo 'TOTAL').
-class _DataTableCard extends StatelessWidget {
+// --- Ordenação de tabela (heurística por conteúdo das células) ---------------
+
+/// Tipo de coluna inferido do conteúdo (para alinhar/ordenar corretamente).
+enum _ColType { number, date, text }
+
+bool _isTotalRow(List<String> r) => r.isNotEmpty && r.first == 'TOTAL';
+
+bool _isEmptyCell(String s) {
+  final t = s.trim();
+  return t.isEmpty || t == '—';
+}
+
+final _dateRe = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
+
+/// Converte uma célula BR/moeda/qtd/ciclo em número ("R\$ 1.625,02" → 1625.02,
+/// "3,4h" → 3.4, "40%" → 40). Retorna null se não for numérica.
+double? _parseBrNumber(String raw) {
+  var s = raw.replaceAll(RegExp(r'(R\$|\s|%)'), '');
+  s = s.replaceAll(RegExp(r'[a-zA-Z]+$'), ''); // unidade do ciclo (h/d)
+  if (s.isEmpty || !RegExp(r'^-?[\d.,]+$').hasMatch(s)) return null;
+  s = s.replaceAll('.', '').replaceAll(',', '.');
+  return double.tryParse(s);
+}
+
+/// Chave numérica de ordenação (número, ou ms da data). Null → vai pro fim.
+double? _numKey(String s, _ColType type) {
+  if (_isEmptyCell(s)) return null;
+  if (type == _ColType.date) {
+    final m = _dateRe.firstMatch(s.trim());
+    if (m == null) return null;
+    return DateTime(int.parse(m[3]!), int.parse(m[2]!), int.parse(m[1]!))
+        .millisecondsSinceEpoch
+        .toDouble();
+  }
+  return _parseBrNumber(s);
+}
+
+/// Infere o tipo de uma coluna a partir das células de dados (ignora TOTAL).
+_ColType _colType(ReportTable t, int col) {
+  var numeric = 0, date = 0, seen = 0;
+  for (final r in t.rows) {
+    if (_isTotalRow(r) || col >= r.length) continue;
+    final s = r[col].trim();
+    if (_isEmptyCell(s)) continue;
+    seen++;
+    if (_dateRe.hasMatch(s)) {
+      date++;
+    } else if (_parseBrNumber(s) != null) {
+      numeric++;
+    }
+  }
+  if (seen == 0) return _ColType.text;
+  if (date >= seen * 0.6) return _ColType.date;
+  if (numeric >= seen * 0.6) return _ColType.number;
+  return _ColType.text;
+}
+
+/// Tabela responsiva: DataTable ordenável (desktop) ou lista de cards (mobile).
+/// A linha de total (rótulo 'TOTAL') fica sempre fixada no fim e destacada.
+class _DataTableCard extends StatefulWidget {
   const _DataTableCard({required this.table});
   final ReportTable table;
 
   @override
+  State<_DataTableCard> createState() => _DataTableCardState();
+}
+
+class _DataTableCardState extends State<_DataTableCard> {
+  int? _sortCol;
+  bool _asc = true;
+
+  int _cmp(List<String> a, List<String> b, int col, _ColType type) {
+    final av = col < a.length ? a[col] : '';
+    final bv = col < b.length ? b[col] : '';
+    final aEmpty = _isEmptyCell(av);
+    final bEmpty = _isEmptyCell(bv);
+    // Vazios ("—") sempre no fim, independente da direção.
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    int r;
+    if (type == _ColType.text) {
+      r = av.toLowerCase().compareTo(bv.toLowerCase());
+    } else {
+      r = (_numKey(av, type) ?? 0).compareTo(_numKey(bv, type) ?? 0);
+    }
+    return _asc ? r : -r;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final table = widget.table;
+    if (context.isMobile) return _MobileTableCards(table: table);
+
     final neu = context.neu;
-    bool isTotal(List<String> row) => row.isNotEmpty && row.first == 'TOTAL';
+    final headers = table.headers;
+    final types = [
+      for (var c = 0; c < headers.length; c++) _colType(table, c),
+    ];
+    final dataRows = [for (final r in table.rows) if (!_isTotalRow(r)) r];
+    final totalRows = [for (final r in table.rows) if (_isTotalRow(r)) r];
+    if (_sortCol != null && _sortCol! < headers.length) {
+      dataRows.sort((a, b) => _cmp(a, b, _sortCol!, types[_sortCol!]));
+    }
+    final ordered = [...dataRows, ...totalRows];
 
     return NeuCard(
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(NeuTokens.rCard),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
+        // Ocupa a largura toda do card: força a DataTable a no mínimo a largura
+        // disponível (ela distribui o excedente entre as colunas); rola na
+        // horizontal só se o conteúdo passar da tela.
+        child: LayoutBuilder(
+          builder: (context, c) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: c.maxWidth),
+              child: DataTable(
+                columnSpacing: 28,
+                horizontalMargin: 20,
+                sortColumnIndex: _sortCol,
+                sortAscending: _asc,
             headingRowColor: WidgetStateProperty.all(neu.surfaceHi),
             headingTextStyle: TextStyle(
               fontSize: 12.5,
@@ -795,13 +1600,21 @@ class _DataTableCard extends StatelessWidget {
             dataTextStyle: TextStyle(fontSize: 13.5, color: neu.ink),
             dividerThickness: 0.5,
             columns: [
-              for (final h in table.headers) DataColumn(label: Text(h)),
+              for (var c = 0; c < headers.length; c++)
+                DataColumn(
+                  label: Text(headers[c]),
+                  numeric: types[c] == _ColType.number,
+                  onSort: (i, asc) => setState(() {
+                    _sortCol = i;
+                    _asc = asc;
+                  }),
+                ),
             ],
             rows: [
-              for (var i = 0; i < table.rows.length; i++)
+              for (var i = 0; i < ordered.length; i++)
                 () {
-                  final row = table.rows[i];
-                  final total = isTotal(row);
+                  final row = ordered[i];
+                  final total = _isTotalRow(row);
                   return DataRow(
                     color: WidgetStateProperty.all(
                       total
@@ -827,6 +1640,8 @@ class _DataTableCard extends StatelessWidget {
                   );
                 }(),
             ],
+              ),
+            ),
           ),
         ),
       ),
@@ -834,7 +1649,182 @@ class _DataTableCard extends StatelessWidget {
   }
 }
 
-/// Botões "Exportar CSV" (baixa via browser) e "Exportar PDF" (Printing).
+/// Lista de cards compactos (mobile): 1ª coluna vira título; demais colunas
+/// viram pares rótulo→valor. A linha de total ganha um card destacado.
+class _MobileTableCards extends StatelessWidget {
+  const _MobileTableCards({required this.table});
+  final ReportTable table;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final headers = table.headers;
+    final rows = table.rows;
+
+    final cards = <Widget>[];
+    for (final row in rows) {
+      final total = _isTotalRow(row);
+      if (total) {
+        // Card de total: label→valor das colunas preenchidas (fora a 1ª).
+        final pairs = <(String, String)>[
+          for (var c = 1; c < row.length && c < headers.length; c++)
+            if (!_isEmptyCell(row[c])) (headers[c], row[c]),
+        ];
+        cards.add(NeuCard(
+          color: neu.accentTint,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Text('TOTAL',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, color: neu.navy)),
+              const Spacer(),
+              for (final p in pairs) ...[
+                Text('${p.$1}: ',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                Text(p.$2,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, color: neu.navy)),
+                const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        ));
+        continue;
+      }
+      cards.add(NeuCard(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              row.isNotEmpty ? row.first : '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
+            ),
+            const SizedBox(height: 8),
+            for (var c = 1; c < row.length && c < headers.length; c++)
+              if (!_isEmptyCell(row[c]))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          headers[c],
+                          style:
+                              TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          row[c],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                              color: neu.ink, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
+      ));
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < cards.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          cards[i],
+        ],
+      ],
+    );
+  }
+}
+
+/// Uma opção do menu de export (bottom sheet do mobile).
+class _ExportOption {
+  const _ExportOption({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+}
+
+/// Bottom sheet padrão do app (mesma "pega" e cantos do menu do shell) com as
+/// opções de export. Usado no mobile para não empilhar 3 botões grandes.
+void _showExportSheet(
+  BuildContext context, {
+  required List<_ExportOption> options,
+}) {
+  final neu = context.neu;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: neu.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: neu.inkFaint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 10),
+              child: Text(
+                'Exportar relatório',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final o in options)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: NeuListTile(
+                  leading: Icon(o.icon, color: neu.inkMuted, size: 22),
+                  title: Text(o.label),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    o.onTap();
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Export do relatório: CSV (browser), Excel e PDF (Printing). No desktop são 3
+/// botões; no mobile viram um único "Exportar" que abre um bottom sheet com as
+/// 3 opções (economiza espaço vertical).
 class _ExportButtons extends StatelessWidget {
   const _ExportButtons({
     required this.table,
@@ -846,8 +1836,50 @@ class _ExportButtons extends StatelessWidget {
   final ReportCompany? company;
   final String? period;
 
+  void _csv() => downloadText(
+      buildCsv(table), csvFileName(table.title), 'text/csv;charset=utf-8');
+
+  void _excel() => downloadBytes(
+        buildXlsx(table, company: company?.name, period: period),
+        xlsxFileName(table.title),
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+
+  void _pdf() => Printing.layoutPdf(
+        onLayout: (format) => buildReportPdf(
+          table,
+          format,
+          company: company,
+          periodLabel: period,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return NeuButton(
+        label: 'Exportar',
+        icon: Icons.file_download_outlined,
+        onPressed: () => _showExportSheet(
+          context,
+          options: [
+            _ExportOption(
+                label: 'Exportar CSV',
+                icon: Icons.table_view_outlined,
+                onTap: _csv),
+            _ExportOption(
+                label: 'Exportar Excel',
+                icon: Icons.grid_on_outlined,
+                onTap: _excel),
+            _ExportOption(
+                label: 'Exportar PDF',
+                icon: Icons.picture_as_pdf_outlined,
+                onTap: _pdf),
+          ],
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -856,79 +1888,80 @@ class _ExportButtons extends StatelessWidget {
           label: 'Exportar CSV',
           kind: NeuButtonKind.secondary,
           icon: Icons.table_view_outlined,
-          onPressed: () => downloadText(
-              buildCsv(table), csvFileName(table.title),
-              'text/csv;charset=utf-8'),
+          onPressed: _csv,
+        ),
+        NeuButton(
+          label: 'Exportar Excel',
+          kind: NeuButtonKind.secondary,
+          icon: Icons.grid_on_outlined,
+          onPressed: _excel,
         ),
         NeuButton(
           label: 'Exportar PDF',
           icon: Icons.picture_as_pdf_outlined,
-          onPressed: () => Printing.layoutPdf(
-            onLayout: (format) => buildReportPdf(
-              table,
-              format,
-              company: company,
-              periodLabel: period,
-            ),
-          ),
+          onPressed: _pdf,
         ),
       ],
     );
   }
 }
 
-/// Gráfico de barras do faturamento por dia (série temporal).
+/// Gráfico de barras do faturamento por dia (série temporal). Eixo X em dd/MM,
+/// eixo Y em R\$ abreviado; grid recessivo e tooltip no toque. Poucos pontos →
+/// barra mais larga (sem "área vazia").
 class _RevenueChart extends StatelessWidget {
   const _RevenueChart({required this.report});
   final RevenueReport report;
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
     final days = report.byDay;
     if (days.isEmpty) return const SizedBox.shrink();
     final maxY = days
         .map((d) => d.revenue.toDouble())
         .fold<double>(0, (a, b) => b > a ? b : a);
+    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
+    // Largura da barra adaptada à densidade (poucos dias → barras largas).
+    final width = days.length > 20
+        ? 6.0
+        : days.length > 10
+            ? 12.0
+            : days.length > 4
+                ? 20.0
+                : 30.0;
 
     return NeuChartCard(
       title: 'Evolução do faturamento',
       child: BarChart(
         BarChartData(
-          maxY: maxY <= 0 ? 1 : maxY * 1.2,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
-            getDrawingHorizontalLine: (_) =>
-                FlLine(color: neu.line, strokeWidth: 1),
-          ),
+          maxY: top,
+          alignment: BarChartAlignment.spaceAround,
+          gridData: neuGrid(context, interval: top / 4),
           borderData: FlBorderData(show: false),
-          titlesData: const FlTitlesData(
-            leftTitles:
-                AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles:
-                AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles:
-                AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles:
-                AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          titlesData: FlTitlesData(
+            leftTitles: neuLeftTitles(
+              context,
+              format: neuShortMoney,
+              interval: top / 4,
+            ),
+            rightTitles: neuNoAxis,
+            topTitles: neuNoAxis,
+            bottomTitles: neuBottomTitles(
+              context,
+              count: days.length,
+              label: (i) => _dayShort(days[i].day),
+            ),
           ),
           barTouchData: neuBarTouch(
             context,
-            label: (i, v) => formatMoney(v),
+            label: (i, v) => '${_dayShort(days[i].day)}\n${formatMoney(v)}',
           ),
           barGroups: [
             for (var i = 0; i < days.length; i++)
               BarChartGroupData(
                 x: i,
-                barRods: [
-                  neuBarRod(
-                    context,
-                    days[i].revenue.toDouble(),
-                    width: days.length > 20 ? 5 : 12,
-                  ),
-                ],
+                barRods: [neuBarRod(context, days[i].revenue.toDouble(),
+                    width: width)],
               ),
           ],
         ),
@@ -951,49 +1984,35 @@ class _TeamChart extends StatelessWidget {
     final maxY = rows
         .map((r) => r.revenue.toDouble())
         .fold<double>(0, (a, b) => b > a ? b : a);
+    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
 
     return NeuChartCard(
       title: 'Faturamento por responsável',
       child: BarChart(
         BarChartData(
-          maxY: maxY <= 0 ? 1 : maxY * 1.2,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
-            getDrawingHorizontalLine: (_) =>
-                FlLine(color: neu.line, strokeWidth: 1),
-          ),
+          maxY: top,
+          alignment: BarChartAlignment.spaceAround,
+          gridData: neuGrid(context, interval: top / 4),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
-            leftTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 38,
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= rows.length) {
-                    return const SizedBox.shrink();
-                  }
-                  final label = assignedLabel(rows[i].assignedTo, names);
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      label.length > 8 ? '${label.substring(0, 8)}…' : label,
-                      style: TextStyle(fontSize: 10, color: neu.inkMuted),
-                    ),
-                  );
-                },
-              ),
+            leftTitles: neuLeftTitles(
+              context,
+              format: neuShortMoney,
+              interval: top / 4,
+            ),
+            rightTitles: neuNoAxis,
+            topTitles: neuNoAxis,
+            bottomTitles: neuBottomTitles(
+              context,
+              count: rows.length,
+              label: (i) => _clip(assignedLabel(rows[i].assignedTo, names), 8),
             ),
           ),
-          barTouchData: neuBarTouch(context, label: (i, v) => formatMoney(v)),
+          barTouchData: neuBarTouch(
+            context,
+            label: (i, v) =>
+                '${assignedLabel(rows[i].assignedTo, names)}\n${formatMoney(v)}',
+          ),
           barGroups: [
             for (var i = 0; i < rows.length; i++)
               BarChartGroupData(
@@ -1002,13 +2021,149 @@ class _TeamChart extends StatelessWidget {
                   neuBarRod(
                     context,
                     rows[i].revenue.toDouble(),
-                    width: 18,
-                    color: neu.glyphs[i % neu.glyphs.length],
+                    width: rows.length > 8 ? 14 : 22,
+                    color: neu.accent,
                   ),
                 ],
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Top produtos/serviços (barras verticais, série única por receita) — aba
+/// "Top produtos/serviços". Mostra até 12 itens (a régua fina é o filtro "Top").
+class _TopItemsChart extends StatelessWidget {
+  const _TopItemsChart({required this.report});
+  final TopItemsReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final rows = report.rows.take(12).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final maxY = rows
+        .map((r) => r.revenue.toDouble())
+        .fold<double>(0, (a, b) => b > a ? b : a);
+    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
+
+    return NeuChartCard(
+      title: 'Receita por item',
+      height: 260,
+      child: BarChart(
+        BarChartData(
+          maxY: top,
+          alignment: BarChartAlignment.spaceAround,
+          gridData: neuGrid(context, interval: top / 4),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            leftTitles: neuLeftTitles(
+              context,
+              format: neuShortMoney,
+              interval: top / 4,
+            ),
+            rightTitles: neuNoAxis,
+            topTitles: neuNoAxis,
+            bottomTitles: neuBottomTitles(
+              context,
+              count: rows.length,
+              label: (i) => _clip(rows[i].name, 8),
+              maxLabels: 12,
+            ),
+          ),
+          barTouchData: neuBarTouch(
+            context,
+            label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
+          ),
+          barGroups: [
+            for (var i = 0; i < rows.length; i++)
+              BarChartGroupData(
+                x: i,
+                barRods: [
+                  neuBarRod(context, rows[i].revenue.toDouble(),
+                      width: rows.length > 8 ? 14 : 20, color: neu.accent),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Composição dos clientes novos no período por tipo (rosca PF × PJ) — aba
+/// "Clientes". Parte-do-todo com legenda; cor por tipo (glyphs fixos).
+class _CustomersChart extends StatelessWidget {
+  const _CustomersChart({required this.report});
+  final CustomersReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    // Conta por tipo entre os clientes novos do período.
+    var pf = 0, pj = 0, other = 0;
+    for (final c in report.rows) {
+      switch (c.type) {
+        case 'pf':
+          pf++;
+        case 'pj':
+          pj++;
+        default:
+          other++;
+      }
+    }
+    final slices = <(String, int, Color)>[
+      if (pf > 0) ('Pessoa física', pf, neu.glyphs[0]),
+      if (pj > 0) ('Pessoa jurídica', pj, neu.glyphs[1]),
+      if (other > 0) ('Outros', other, neu.glyphs[4]),
+    ];
+    if (slices.isEmpty) {
+      return const NeuChartCard(
+          title: 'Novos clientes por tipo', child: _ChartEmpty());
+    }
+    final total = slices.fold<int>(0, (a, s) => a + s.$2);
+
+    return NeuChartCard(
+      title: 'Novos clientes por tipo',
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections: [
+                  for (final s in slices)
+                    PieChartSectionData(
+                      value: s.$2.toDouble(),
+                      color: s.$3,
+                      title: total > 0 && s.$2 / total >= 0.12 ? '${s.$2}' : '',
+                      radius: 44,
+                      titleStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 4,
+            child: NeuChartLegend(
+              items: [
+                for (final s in slices)
+                  NeuLegendItem(
+                      color: s.$3, label: s.$1, value: '${s.$2}'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1202,6 +2357,8 @@ class _OsRowTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: neu.inkMuted, fontSize: 13)),
               ],
             ),

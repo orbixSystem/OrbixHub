@@ -198,6 +198,22 @@ export class CustomersRepository {
     });
   }
 
+  /** Define/limpa a foto do subject (url pública + chave do storage). */
+  updateSubjectPhoto(
+    id: string,
+    data: { url: string | null; storageKey: string | null },
+  ) {
+    const db = this.tenant.getClient();
+    return db.subject.update({
+      where: { id },
+      data: {
+        photo_url: data.url,
+        photo_storage_key: data.storageKey,
+        updated_at: new Date(),
+      },
+    });
+  }
+
   // ---- métricas (agregações sob RLS — sem WHERE tenant manual) ----
   /** Total de clientes ativos. */
   countActive() {

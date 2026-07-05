@@ -6,6 +6,8 @@ import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/invoice/presentation/invoice_screen.dart';
+import '../../features/invoice/presentation/invoice_detail_screen.dart';
 import '../../features/messages/presentation/messages_inbox_screen.dart';
 import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
@@ -228,6 +230,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, s) => neuPage(
               s,
               OsDetailScreen(orderId: s.pathParameters['id'] ?? ''),
+            ),
+          ),
+          // Notas Fiscais — literais antes do placeholder genérico; gated sob
+          // /m/invoice (módulo `invoice`).
+          GoRoute(
+            path: '/m/invoice',
+            pageBuilder: (_, s) => neuPage(s, const InvoiceScreen()),
+          ),
+          GoRoute(
+            path: '/m/invoice/:id',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              InvoiceDetailScreen(invoiceId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/

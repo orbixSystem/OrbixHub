@@ -163,6 +163,7 @@ class NeuDialog extends StatelessWidget {
           elevation: NeuElevation.raisedHigh,
           radius: NeuTokens.rPanel,
           color: neu.surface,
+          glow: false,
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

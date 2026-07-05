@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'neu_surface.dart';
 import 'neu_tokens.dart';
@@ -25,6 +26,7 @@ class NeuTextField extends StatelessWidget {
     this.maxLines = 1,
     this.minLines,
     this.textInputAction,
+    this.inputFormatters,
   });
 
   final String label;
@@ -44,6 +46,7 @@ class NeuTextField extends StatelessWidget {
   final int maxLines;
   final int? minLines;
   final TextInputAction? textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +80,7 @@ class NeuTextField extends StatelessWidget {
             maxLines: maxLines,
             minLines: minLines,
             textInputAction: textInputAction,
+            inputFormatters: inputFormatters,
             style: TextStyle(color: neu.ink, fontSize: 15),
             decoration: InputDecoration(
               hintText: hint,

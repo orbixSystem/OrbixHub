@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/theme_ext.dart';
+import '../../../core/ui/ui.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
 
 // ─── Formatters (locale já inicializado em main.dart) ────────────────────────
 final _monthFmt = DateFormat('MMMM', 'pt_BR');
+final _monthAbbrFmt = DateFormat('MMM', 'pt_BR');
 final _dayLongFmt = DateFormat("EEE', 'dd/MM/yyyy", 'pt_BR');
 final _dtFmt = DateFormat('dd/MM HH:mm');
 
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// Abreviação capitalizada do mês (1..12), sem ponto final. Ex.: "Jan", "Fev".
+String _monthAbbr(int month) =>
+    _cap(_monthAbbrFmt.format(DateTime(2020, month)).replaceAll('.', ''));
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
@@ -63,6 +68,38 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
     });
   }
 
+  /// Aplica o mês/ano escolhidos no seletor. O resto da tela reage sozinho
+  /// (providers dependem de `_viewYear`/`_viewMonth`).
+  void _pickMonthYear(int year, int month) => setState(() {
+        _viewYear = year;
+        _viewMonth = month;
+      });
+
+  void _refresh() {
+    ref.invalidate(agendaProvider);
+    ref.invalidate(monthScheduledDaysProvider);
+  }
+
+  /// Abre o seletor de mês/ano (grade 12 meses + navegação de ano).
+  void _openMonthYearPicker() {
+    showNeuDialog<void>(
+      context,
+      dialog: NeuDialog(
+        title: 'Selecionar mês',
+        maxWidth: 380,
+        child: _MonthYearPicker(
+          initialYear: _viewYear,
+          selectedYear: _viewYear,
+          selectedMonth: _viewMonth,
+          onPick: (year, month) {
+            Navigator.of(context).maybePop();
+            _pickMonthYear(year, month);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = ref.watch(agendaQueryProvider);
@@ -71,57 +108,51 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
       monthScheduledDaysProvider(MonthKey(year: _viewYear, month: _viewMonth)),
     );
 
-    return Scaffold(
-      backgroundColor: context.canvas,
-      appBar: AppBar(
-        title: const Text('Agenda'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Recarregar',
-            onPressed: () {
-              ref.invalidate(agendaProvider);
-              ref.invalidate(monthScheduledDaysProvider);
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Calendário (70%) ───────────────────────────────────────
-            Expanded(
-              flex: 7,
-              child: _CalendarPanel(
-                viewYear: _viewYear,
-                viewMonth: _viewMonth,
-                selectedDate: query.date,
-                markedDays: monthDots.asData?.value ?? {},
-                onPrev: _prevMonth,
-                onNext: _nextMonth,
-                onToday: _goToday,
-                onSelectDay: (d) =>
-                    ref.read(agendaQueryProvider.notifier).setDate(d),
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // ── Painel de agendamentos (30%) ───────────────────────────
-            Expanded(
-              flex: 3,
-              child: _EventsPanel(
-                selectedDate: query.date,
-                agendaAsync: agendaAsync,
-              ),
-            ),
-          ],
-        ),
-      ),
+    final calendar = _CalendarPanel(
+      viewYear: _viewYear,
+      viewMonth: _viewMonth,
+      selectedDate: query.date,
+      markedDays: monthDots.asData?.value ?? {},
+      onPrev: _prevMonth,
+      onNext: _nextMonth,
+      onToday: _goToday,
+      onRefresh: _refresh,
+      onOpenPicker: _openMonthYearPicker,
+      onSelectDay: (d) => ref.read(agendaQueryProvider.notifier).setDate(d),
     );
+
+    final events = _EventsPanel(
+      selectedDate: query.date,
+      agendaAsync: agendaAsync,
+    );
+
+    final body = context.isMobile
+        // Mobile: calendário em cima (altura fixa) + agenda do dia embaixo.
+        ? Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: 372, child: calendar),
+                const SizedBox(height: 12),
+                Expanded(child: events),
+              ],
+            ),
+          )
+        // Desktop/tablet: duas colunas — calendário à esquerda, agenda à direita.
+        : Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 7, child: calendar),
+                const SizedBox(width: 16),
+                Expanded(flex: 3, child: events),
+              ],
+            ),
+          );
+
+    return ColoredBox(color: context.neu.base, child: body);
   }
 }
 
@@ -136,6 +167,8 @@ class _CalendarPanel extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.onToday,
+    required this.onRefresh,
+    required this.onOpenPicker,
     required this.onSelectDay,
   });
 
@@ -146,16 +179,16 @@ class _CalendarPanel extends StatelessWidget {
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onToday;
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenPicker;
   final ValueChanged<DateTime> onSelectDay;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.borderColor),
-      ),
+    final neu = context.neu;
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      radius: NeuTokens.rPanel,
       child: Column(
         children: [
           _CalendarHeader(
@@ -164,8 +197,10 @@ class _CalendarPanel extends StatelessWidget {
             onPrev: onPrev,
             onNext: onNext,
             onToday: onToday,
+            onRefresh: onRefresh,
+            onOpenPicker: onOpenPicker,
           ),
-          Divider(height: 1, color: context.borderColor),
+          Divider(height: 1, color: neu.line),
           Expanded(
             child: _CalendarGrid(
               viewYear: viewYear,
@@ -190,6 +225,8 @@ class _CalendarHeader extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.onToday,
+    required this.onRefresh,
+    required this.onOpenPicker,
   });
 
   final int viewYear;
@@ -197,85 +234,99 @@ class _CalendarHeader extends StatelessWidget {
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onToday;
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenPicker;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          Text(
-            _cap(_monthFmt.format(DateTime(viewYear, viewMonth))),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: context.textPrimary,
+    final neu = context.neu;
+    final isMobile = context.isMobile;
+
+    // Título tocável (mês + ano) → abre o seletor de mês/ano.
+    final title = InkWell(
+      onTap: onOpenPicker,
+      borderRadius: BorderRadius.circular(NeuTokens.rChip),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: RichText(
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: _cap(_monthFmt.format(DateTime(viewYear, viewMonth))),
+                      style: TextStyle(
+                        fontSize: isMobile ? 17 : 19,
+                        fontWeight: FontWeight.w800,
+                        color: neu.ink,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '  $viewYear',
+                      style: TextStyle(
+                        fontSize: isMobile ? 17 : 19,
+                        fontWeight: FontWeight.w400,
+                        color: neu.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$viewYear',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w400,
-              color: context.textSecondary,
-            ),
-          ),
-          const Spacer(),
-          // Botão Hoje
-          OutlinedButton(
-            onPressed: onToday,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.textPrimary,
-              side: BorderSide(color: context.borderColor),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            child: const Text('Hoje'),
-          ),
-          const SizedBox(width: 10),
-          // Navegação
-          _NavButton(icon: Icons.chevron_left, onPressed: onPrev, tooltip: 'Mês anterior'),
-          const SizedBox(width: 4),
-          _NavButton(icon: Icons.chevron_right, onPressed: onNext, tooltip: 'Próximo mês'),
-        ],
+            const SizedBox(width: 4),
+            Icon(Icons.expand_more_rounded, size: 20, color: neu.inkMuted),
+          ],
+        ),
       ),
     );
-  }
-}
 
-class _NavButton extends StatelessWidget {
-  const _NavButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: context.borderColor),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, 12, isMobile ? 8 : 12, 12),
+      child: Row(
+        children: [
+          Flexible(child: title),
+          const Spacer(),
+          // "Hoje": botão rotulado no desktop, ícone compacto no mobile.
+          if (isMobile)
+            NeuIconButton(
+              icon: Icons.today_rounded,
+              tooltip: 'Hoje',
+              size: 40,
+              onPressed: onToday,
+            )
+          else ...[
+            NeuButton(
+              label: 'Hoje',
+              icon: Icons.today_rounded,
+              kind: NeuButtonKind.secondary,
+              onPressed: onToday,
+            ),
+            const SizedBox(width: 8),
+            NeuIconButton(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Recarregar',
+              size: 44,
+              onPressed: onRefresh,
+            ),
+          ],
+          const SizedBox(width: 8),
+          NeuIconButton(
+            icon: Icons.chevron_left_rounded,
+            tooltip: 'Mês anterior',
+            size: isMobile ? 40 : 44,
+            onPressed: onPrev,
           ),
-          alignment: Alignment.center,
-          child: Icon(icon, size: 18, color: context.textSecondary),
-        ),
+          const SizedBox(width: 6),
+          NeuIconButton(
+            icon: Icons.chevron_right_rounded,
+            tooltip: 'Próximo mês',
+            size: isMobile ? 40 : 44,
+            onPressed: onNext,
+          ),
+        ],
       ),
     );
   }
@@ -302,6 +353,7 @@ class _CalendarGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final now = DateTime.now();
     final todayDay =
         now.year == viewYear && now.month == viewMonth ? now.day : -1;
@@ -337,7 +389,7 @@ class _CalendarGrid extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: context.textSecondary,
+                            color: neu.inkMuted,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -346,11 +398,11 @@ class _CalendarGrid extends StatelessWidget {
                 .toList(),
           ),
         ),
-        Divider(height: 1, color: context.borderColor),
+        Divider(height: 1, color: neu.line),
         // ── Células dos dias (6 linhas fixas) ────────────────────────
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
             child: Column(
               children: List.generate(6, (week) {
                 return Expanded(
@@ -435,38 +487,46 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = context.accent;
-    final onAccent = context.onAccent;
+    final neu = context.neu;
 
-    // Hierarquia visual: hoje > selecionado > padrão
+    // Hierarquia visual: selecionado (preenchido navy) > hoje (anel navy) > padrão.
     final Color bgColor;
     final Color textColor;
     final Border? border;
 
-    if (isToday) {
-      bgColor = accent;
-      textColor = onAccent;
+    if (isSelected) {
+      bgColor = neu.navy;
+      textColor = neu.onNavy;
       border = null;
-    } else if (isSelected) {
-      bgColor = context.accentSubtle;
-      textColor = context.onAccentSubtle;
-      border = Border.all(color: accent, width: 1.5);
+    } else if (isToday) {
+      bgColor = Colors.transparent;
+      textColor = neu.navy;
+      border = Border.all(color: neu.navy, width: 1.5);
     } else {
       bgColor = Colors.transparent;
-      textColor = isOtherMonth
-          ? context.textDisabled
-          : context.textPrimary;
+      textColor = isOtherMonth ? neu.inkFaint : neu.ink;
       border = null;
+    }
+
+    final Color dotColor;
+    if (isSelected) {
+      dotColor = neu.onNavy.withValues(alpha: 0.9);
+    } else if (isToday) {
+      dotColor = neu.navy;
+    } else {
+      dotColor = neu.accent;
     }
 
     return Expanded(
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(3),
+          constraints: const BoxConstraints(minHeight: 40),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(NeuTokens.rChip),
             border: border,
           ),
           child: Column(
@@ -476,31 +536,27 @@ class _DayCell extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight:
-                      (isToday || isSelected) && !isOtherMonth
-                          ? FontWeight.w700
-                          : FontWeight.w400,
+                  fontSize: 15,
+                  fontWeight: (isToday || isSelected) && !isOtherMonth
+                      ? FontWeight.w800
+                      : FontWeight.w500,
                   color: textColor,
                 ),
               ),
               const Spacer(),
-              // Pontinhos de agendamento
+              // Pontinho de dia com agendamento.
               SizedBox(
-                height: 10,
+                height: 8,
                 child: hasDot && !isOtherMonth
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isToday ? onAccent.withValues(alpha: 0.85) : accent,
-                              shape: BoxShape.circle,
-                            ),
+                    ? Center(
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: dotColor,
+                            shape: BoxShape.circle,
                           ),
-                        ],
+                        ),
                       )
                     : null,
               ),
@@ -526,55 +582,56 @@ class _EventsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.borderColor),
-      ),
+    final neu = context.neu;
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      radius: NeuTokens.rPanel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Agendamentos',
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontSize: 16,
-                    color: context.textPrimary,
+                    color: neu.ink,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   _cap(_dayLongFmt.format(selectedDate)),
                   style: TextStyle(
-                    fontSize: 12,
-                    color: context.textSecondary,
+                    fontSize: 12.5,
+                    color: neu.inkMuted,
                   ),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: context.borderColor),
+          Divider(height: 1, color: neu.line),
           Expanded(
             child: agendaAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'Erro: $e',
-                    style: TextStyle(color: context.textError, fontSize: 13),
+                    style: TextStyle(color: neu.danger, fontSize: 13),
                   ),
                 ),
               ),
               data: (result) => result.items.isEmpty
-                  ? _EmptyEvents(selectedDate: selectedDate)
+                  ? const NeuEmptyState(
+                      icon: Icons.event_available_outlined,
+                      title: 'Nenhum agendamento',
+                      message: 'Não há serviços agendados para este dia.',
+                    )
                   : _EventsList(items: result.items),
             ),
           ),
@@ -586,44 +643,6 @@ class _EventsPanel extends StatelessWidget {
 
 // ─── Lista de eventos ─────────────────────────────────────────────────────────
 
-class _EmptyEvents extends StatelessWidget {
-  const _EmptyEvents({required this.selectedDate});
-
-  final DateTime selectedDate;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final isToday = selectedDate.year == now.year &&
-        selectedDate.month == now.month &&
-        selectedDate.day == now.day;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_available_outlined,
-                size: 40, color: context.textDisabled),
-            const SizedBox(height: 10),
-            Text(
-              isToday
-                  ? 'Nenhum serviço\nagendado para hoje.'
-                  : 'Nenhum serviço\nagendado para este dia.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: context.textSecondary,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EventsList extends StatelessWidget {
   const _EventsList({required this.items});
 
@@ -632,10 +651,10 @@ class _EventsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (ctx, i) => _EventCard(item: items[i]),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (ctx, i) => _EventCard(item: items[i], index: i),
     );
   }
 }
@@ -643,15 +662,18 @@ class _EventsList extends StatelessWidget {
 // ─── Card de evento ───────────────────────────────────────────────────────────
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.item});
+  const _EventCard({required this.item, required this.index});
 
   final AgendaItem item;
+  final int index;
 
-  Color _statusColor(String status) => switch (status) {
-        'em_execucao' => const Color(0xFFE8A302),
-        'concluida' || 'entregue' => const Color(0xFF0E9F6E),
-        'cancelada' => const Color(0xFFE5484D),
-        _ => const Color(0xFF2E90FA),
+  /// Cor + tint semânticos do status (design system).
+  (Color, Color) _statusColors(NeuTokens neu, String status) =>
+      switch (status) {
+        'em_execucao' => (neu.warning, neu.warningTint),
+        'concluida' || 'entregue' => (neu.success, neu.successTint),
+        'cancelada' => (neu.danger, neu.dangerTint),
+        _ => (neu.info, neu.infoTint),
       };
 
   String _statusLabel(String status) => switch (status) {
@@ -667,148 +689,126 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final start = item.scheduledStart != null
         ? DateTime.tryParse(item.scheduledStart!)?.toLocal()
         : null;
     final end = item.scheduledEnd != null
         ? DateTime.tryParse(item.scheduledEnd!)?.toLocal()
         : null;
-    final statusColor = _statusColor(item.order.status);
+    final (statusColor, statusTint) = _statusColors(neu, item.order.status);
 
-    return InkWell(
+    return NeuCard(
+      padding: const EdgeInsets.all(12),
+      radius: NeuTokens.rCard,
       onTap: () => context.go('/os/orders/${item.order.id}'),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: context.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: context.borderColor),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho: glyph + número da OS + status + seta.
+          Row(
             children: [
-              // Barra de status colorida
-              Container(width: 4, color: statusColor),
-              // Conteúdo
+              NeuIconChip.glyph(
+                context,
+                icon: item.kind == 'part'
+                    ? Icons.inventory_2_outlined
+                    : Icons.build_rounded,
+                index: index,
+                size: 38,
+              ),
+              const SizedBox(width: 10),
               Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // OS + status badge + seta
-                    Row(
-                      children: [
-                        Text(
-                          item.order.number,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            color: context.accent,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _statusLabel(item.order.status),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: statusColor,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(Icons.arrow_forward_ios_rounded,
-                            size: 12, color: context.textDisabled),
-                      ],
+                    Text(
+                      item.order.number,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: neu.navy,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    // Relato
-                    if (item.name.isNotEmpty)
-                      Text(
-                        item.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: context.textPrimary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    // Cliente
-                    if (item.order.customerName != null) ...[
-                      const SizedBox(height: 2),
-                      _InfoRow(
-                        icon: Icons.person_outline_rounded,
-                        value: item.order.customerName!,
-                      ),
-                    ],
-                    // Veículo
-                    if (item.order.subjectLabel != null) ...[
-                      const SizedBox(height: 2),
-                      _InfoRow(
-                        icon: Icons.directions_car_outlined,
-                        value: item.order.subjectLabel!,
-                      ),
-                    ],
-                    const SizedBox(height: 4),
-                    // Datas estimadas
-                    if (start != null)
-                      _InfoRow(
-                        icon: Icons.play_circle_outline_rounded,
-                        value: 'Início: ${_dtFmt.format(start)}',
-                      ),
-                    if (end != null) ...[
-                      const SizedBox(height: 2),
-                      _InfoRow(
-                        icon: Icons.stop_circle_outlined,
-                        value: 'Fim: ${_dtFmt.format(end)}',
-                      ),
-                    ],
-                    // Responsável
-                    if (item.assignedToName != null) ...[
-                      const SizedBox(height: 2),
-                      _InfoRow(
-                        icon: Icons.engineering_outlined,
-                        value: item.assignedToName!,
-                      ),
-                    ],
-                    // Duração estimada
-                    if (item.estimatedDuration != null) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: context.surfaceHigher,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _fmtDuration(item.estimatedDuration!),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: context.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
+                    NeuStatusChip(
+                      label: _statusLabel(item.order.status),
+                      color: statusColor,
+                      tint: statusTint,
+                    ),
                   ],
                 ),
               ),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 13, color: neu.inkFaint),
+            ],
+          ),
+          // Relato / nome do serviço.
+          if (item.name.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              item.name,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: neu.ink,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
-        ),
+          // Cliente
+          if (item.order.customerName != null) ...[
+            const SizedBox(height: 8),
+            _InfoRow(
+              icon: Icons.person_outline_rounded,
+              value: item.order.customerName!,
+            ),
+          ],
+          // Veículo
+          if (item.order.subjectLabel != null) ...[
+            const SizedBox(height: 4),
+            _InfoRow(
+              icon: Icons.directions_car_outlined,
+              value: item.order.subjectLabel!,
+            ),
+          ],
+          // Datas estimadas
+          if (start != null) ...[
+            const SizedBox(height: 4),
+            _InfoRow(
+              icon: Icons.play_circle_outline_rounded,
+              value: 'Início: ${_dtFmt.format(start)}',
+            ),
+          ],
+          if (end != null) ...[
+            const SizedBox(height: 4),
+            _InfoRow(
+              icon: Icons.stop_circle_outlined,
+              value: 'Fim: ${_dtFmt.format(end)}',
+            ),
+          ],
+          // Responsável
+          if (item.assignedToName != null) ...[
+            const SizedBox(height: 4),
+            _InfoRow(
+              icon: Icons.engineering_outlined,
+              value: item.assignedToName!,
+            ),
+          ],
+          // Duração estimada
+          if (item.estimatedDuration != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: NeuStatusChip(
+                label: _fmtDuration(item.estimatedDuration!),
+                color: neu.inkMuted,
+                tint: neu.surfaceHi,
+                icon: Icons.schedule_rounded,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -821,7 +821,7 @@ class _EventCard extends StatelessWidget {
   }
 }
 
-// ─── Linha de info (ícone + label + valor) ────────────────────────────────────
+// ─── Linha de info (ícone + valor) ────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
@@ -834,22 +834,160 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return Row(
       children: [
-        Icon(icon, size: 11, color: context.textSecondary),
-        const SizedBox(width: 3),
+        Icon(icon, size: 13, color: neu.inkMuted),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
-              fontSize: 11,
-              color: context.textSecondary,
+              fontSize: 12,
+              color: neu.inkMuted,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Seletor de mês/ano ───────────────────────────────────────────────────────
+
+/// Conteúdo do diálogo de seleção de mês/ano: navegação de ano por setas ‹ ›
+/// e grade 3×4 dos 12 meses. Toca num mês → aplica (ano + mês) via [onPick].
+class _MonthYearPicker extends StatefulWidget {
+  const _MonthYearPicker({
+    required this.initialYear,
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.onPick,
+  });
+
+  final int initialYear;
+  final int selectedYear;
+  final int selectedMonth;
+  final void Function(int year, int month) onPick;
+
+  @override
+  State<_MonthYearPicker> createState() => _MonthYearPickerState();
+}
+
+class _MonthYearPickerState extends State<_MonthYearPicker> {
+  late int _year;
+
+  @override
+  void initState() {
+    super.initState();
+    _year = widget.initialYear;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Navegação de ano.
+        Row(
+          children: [
+            NeuIconButton(
+              icon: Icons.chevron_left_rounded,
+              tooltip: 'Ano anterior',
+              size: 44,
+              onPressed: () => setState(() => _year--),
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '$_year',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: neu.ink,
+                  ),
+                ),
+              ),
+            ),
+            NeuIconButton(
+              icon: Icons.chevron_right_rounded,
+              tooltip: 'Próximo ano',
+              size: 44,
+              onPressed: () => setState(() => _year++),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        // Grade 3×4 de meses.
+        Column(
+          children: List.generate(4, (row) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: row < 3 ? 10 : 0),
+              child: Row(
+                children: List.generate(3, (col) {
+                  final month = row * 3 + col + 1;
+                  final isSelected =
+                      month == widget.selectedMonth && _year == widget.selectedYear;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: col < 2 ? 10 : 0),
+                      child: _MonthChip(
+                        label: _monthAbbr(month),
+                        isSelected: isSelected,
+                        onTap: () => widget.onPick(_year, month),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthChip extends StatelessWidget {
+  const _MonthChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: NeuSurface(
+          elevation: isSelected ? NeuElevation.flat : NeuElevation.raised,
+          radius: NeuTokens.rChip,
+          color: isSelected ? neu.navy : neu.surface,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? neu.onNavy : neu.ink,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

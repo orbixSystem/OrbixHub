@@ -302,7 +302,7 @@ as String,
 /// @nodoc
 mixin _$Subject {
 
- String get id;@JsonKey(name: 'customer_id') String get customerId; String? get label; String? get identifier; Map<String, dynamic> get attributes; String get status;
+ String get id;@JsonKey(name: 'customer_id') String get customerId; String? get label; String? get identifier; Map<String, dynamic> get attributes;@JsonKey(name: 'photo_url') String? get photoUrl; String get status;
 /// Create a copy of Subject
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -315,16 +315,16 @@ $SubjectCopyWith<Subject> get copyWith => _$SubjectCopyWithImpl<Subject>(this as
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Subject&&(identical(other.id, id) || other.id == id)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.label, label) || other.label == label)&&(identical(other.identifier, identifier) || other.identifier == identifier)&&const DeepCollectionEquality().equals(other.attributes, attributes)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Subject&&(identical(other.id, id) || other.id == id)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.label, label) || other.label == label)&&(identical(other.identifier, identifier) || other.identifier == identifier)&&const DeepCollectionEquality().equals(other.attributes, attributes)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,customerId,label,identifier,const DeepCollectionEquality().hash(attributes),status);
+int get hashCode => Object.hash(runtimeType,id,customerId,label,identifier,const DeepCollectionEquality().hash(attributes),photoUrl,status);
 
 @override
 String toString() {
-  return 'Subject(id: $id, customerId: $customerId, label: $label, identifier: $identifier, attributes: $attributes, status: $status)';
+  return 'Subject(id: $id, customerId: $customerId, label: $label, identifier: $identifier, attributes: $attributes, photoUrl: $photoUrl, status: $status)';
 }
 
 
@@ -335,7 +335,7 @@ abstract mixin class $SubjectCopyWith<$Res>  {
   factory $SubjectCopyWith(Subject value, $Res Function(Subject) _then) = _$SubjectCopyWithImpl;
 @useResult
 $Res call({
- String id,@JsonKey(name: 'customer_id') String customerId, String? label, String? identifier, Map<String, dynamic> attributes, String status
+ String id,@JsonKey(name: 'customer_id') String customerId, String? label, String? identifier, Map<String, dynamic> attributes,@JsonKey(name: 'photo_url') String? photoUrl, String status
 });
 
 
@@ -352,14 +352,15 @@ class _$SubjectCopyWithImpl<$Res>
 
 /// Create a copy of Subject
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? customerId = null,Object? label = freezed,Object? identifier = freezed,Object? attributes = null,Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? customerId = null,Object? label = freezed,Object? identifier = freezed,Object? attributes = null,Object? photoUrl = freezed,Object? status = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,customerId: null == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
 as String,label: freezed == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String?,identifier: freezed == identifier ? _self.identifier : identifier // ignore: cast_nullable_to_non_nullable
 as String?,attributes: null == attributes ? _self.attributes : attributes // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
+as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -445,10 +446,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes, @JsonKey(name: 'photo_url')  String? photoUrl,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Subject() when $default != null:
-return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.status);case _:
+return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.photoUrl,_that.status);case _:
   return orElse();
 
 }
@@ -466,10 +467,10 @@ return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.att
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes,  String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes, @JsonKey(name: 'photo_url')  String? photoUrl,  String status)  $default,) {final _that = this;
 switch (_that) {
 case _Subject():
-return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.status);case _:
+return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.photoUrl,_that.status);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -486,10 +487,10 @@ return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.att
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes,  String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id, @JsonKey(name: 'customer_id')  String customerId,  String? label,  String? identifier,  Map<String, dynamic> attributes, @JsonKey(name: 'photo_url')  String? photoUrl,  String status)?  $default,) {final _that = this;
 switch (_that) {
 case _Subject() when $default != null:
-return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.status);case _:
+return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.attributes,_that.photoUrl,_that.status);case _:
   return null;
 
 }
@@ -501,7 +502,7 @@ return $default(_that.id,_that.customerId,_that.label,_that.identifier,_that.att
 @JsonSerializable()
 
 class _Subject implements Subject {
-  const _Subject({required this.id, @JsonKey(name: 'customer_id') required this.customerId, this.label, this.identifier, final  Map<String, dynamic> attributes = const <String, dynamic>{}, this.status = 'active'}): _attributes = attributes;
+  const _Subject({required this.id, @JsonKey(name: 'customer_id') required this.customerId, this.label, this.identifier, final  Map<String, dynamic> attributes = const <String, dynamic>{}, @JsonKey(name: 'photo_url') this.photoUrl, this.status = 'active'}): _attributes = attributes;
   factory _Subject.fromJson(Map<String, dynamic> json) => _$SubjectFromJson(json);
 
 @override final  String id;
@@ -515,6 +516,7 @@ class _Subject implements Subject {
   return EqualUnmodifiableMapView(_attributes);
 }
 
+@override@JsonKey(name: 'photo_url') final  String? photoUrl;
 @override@JsonKey() final  String status;
 
 /// Create a copy of Subject
@@ -530,16 +532,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Subject&&(identical(other.id, id) || other.id == id)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.label, label) || other.label == label)&&(identical(other.identifier, identifier) || other.identifier == identifier)&&const DeepCollectionEquality().equals(other._attributes, _attributes)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Subject&&(identical(other.id, id) || other.id == id)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.label, label) || other.label == label)&&(identical(other.identifier, identifier) || other.identifier == identifier)&&const DeepCollectionEquality().equals(other._attributes, _attributes)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,customerId,label,identifier,const DeepCollectionEquality().hash(_attributes),status);
+int get hashCode => Object.hash(runtimeType,id,customerId,label,identifier,const DeepCollectionEquality().hash(_attributes),photoUrl,status);
 
 @override
 String toString() {
-  return 'Subject(id: $id, customerId: $customerId, label: $label, identifier: $identifier, attributes: $attributes, status: $status)';
+  return 'Subject(id: $id, customerId: $customerId, label: $label, identifier: $identifier, attributes: $attributes, photoUrl: $photoUrl, status: $status)';
 }
 
 
@@ -550,7 +552,7 @@ abstract mixin class _$SubjectCopyWith<$Res> implements $SubjectCopyWith<$Res> {
   factory _$SubjectCopyWith(_Subject value, $Res Function(_Subject) _then) = __$SubjectCopyWithImpl;
 @override @useResult
 $Res call({
- String id,@JsonKey(name: 'customer_id') String customerId, String? label, String? identifier, Map<String, dynamic> attributes, String status
+ String id,@JsonKey(name: 'customer_id') String customerId, String? label, String? identifier, Map<String, dynamic> attributes,@JsonKey(name: 'photo_url') String? photoUrl, String status
 });
 
 
@@ -567,14 +569,15 @@ class __$SubjectCopyWithImpl<$Res>
 
 /// Create a copy of Subject
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? customerId = null,Object? label = freezed,Object? identifier = freezed,Object? attributes = null,Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? customerId = null,Object? label = freezed,Object? identifier = freezed,Object? attributes = null,Object? photoUrl = freezed,Object? status = null,}) {
   return _then(_Subject(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,customerId: null == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
 as String,label: freezed == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
 as String?,identifier: freezed == identifier ? _self.identifier : identifier // ignore: cast_nullable_to_non_nullable
 as String?,attributes: null == attributes ? _self._attributes : attributes // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
+as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
