@@ -329,6 +329,9 @@ class _NeuBottomBar extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: neu.surface,
+      // Permite a folha crescer e evita overflow: a lista rola quando há muitos
+      // itens (telas baixas). O punho fica fixo no topo.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -350,18 +353,28 @@ class _NeuBottomBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              for (final item in overflow)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: NeuListTile(
-                    leading: Icon(item.icon, color: neu.inkMuted, size: 22),
-                    title: Text(item.label),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      onNavigate(item.route);
-                    },
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final item in overflow)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: NeuListTile(
+                            leading: Icon(item.icon,
+                                color: neu.inkMuted, size: 22),
+                            title: Text(item.label),
+                            onTap: () {
+                              Navigator.of(sheetContext).pop();
+                              onNavigate(item.route);
+                            },
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),
