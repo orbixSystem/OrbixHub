@@ -133,11 +133,13 @@ class FakeInvoiceRepository implements InvoiceRepository {
     int page = 1,
     String? status,
     String? orderId,
+    String? saleId,
   }) async {
     final filtered = _invoices.where((i) {
       final statusOk = status == null || status.isEmpty || i.status == status;
       final orderOk = orderId == null || orderId.isEmpty || i.orderId == orderId;
-      return statusOk && orderOk;
+      final saleOk = saleId == null || saleId.isEmpty || i.saleId == saleId;
+      return statusOk && orderOk && saleOk;
     }).toList();
     return InvoicePage(
       items: filtered,

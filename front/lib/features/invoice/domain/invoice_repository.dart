@@ -7,7 +7,8 @@ import 'invoice_models.dart';
 abstract interface class InvoiceRepository {
   /// Lista paginada (`GET /invoices`). `status` filtra por situação; `orderId`
   /// filtra as notas de uma OS. `page` é 1-based.
-  Future<InvoicePage> list({int page, String? status, String? orderId});
+  Future<InvoicePage> list(
+      {int page, String? status, String? orderId, String? saleId});
 
   /// Uma nota por id, com `lines` e `events` (`GET /invoices/:id`).
   Future<Invoice> getOne(String id);

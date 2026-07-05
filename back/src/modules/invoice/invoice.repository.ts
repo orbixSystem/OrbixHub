@@ -116,11 +116,18 @@ export class InvoiceRepository {
     });
   }
 
-  listInvoices(filters: { status?: InvoiceStatus; orderId?: string; skip: number; take: number }) {
+  listInvoices(filters: {
+    status?: InvoiceStatus;
+    orderId?: string;
+    saleId?: string;
+    skip: number;
+    take: number;
+  }) {
     const db = this.tenant.getClient();
     const where: Prisma.invoiceWhereInput = {};
     if (filters.status) where.status = filters.status;
     if (filters.orderId) where.order_id = filters.orderId;
+    if (filters.saleId) where.sale_id = filters.saleId;
     return Promise.all([
       db.invoice.findMany({
         where,

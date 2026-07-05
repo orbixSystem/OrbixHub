@@ -151,3 +151,9 @@ final orderInvoicesProvider =
     FutureProvider.autoDispose.family<InvoicePage, String>((ref, orderId) {
   return ref.read(invoiceRepositoryProvider).list(orderId: orderId);
 });
+
+/// Notas de uma VENDA (integração natural na tela da venda).
+final saleInvoicesProvider =
+    FutureProvider.autoDispose.family<InvoicePage, String>((ref, saleId) {
+  return ref.read(invoiceRepositoryProvider).list(saleId: saleId);
+});

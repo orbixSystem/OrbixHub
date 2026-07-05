@@ -294,6 +294,7 @@ export class InvoiceService {
       this.repo.listInvoices({
         status: query.status,
         orderId: query.orderId,
+        saleId: query.saleId,
         skip: (page - 1) * DEFAULT_PAGE_SIZE,
         take: DEFAULT_PAGE_SIZE,
       }),

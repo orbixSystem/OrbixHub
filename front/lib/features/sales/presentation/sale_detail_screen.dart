@@ -6,6 +6,9 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../invoice/domain/invoice_models.dart';
+import '../../invoice/presentation/invoice_providers.dart';
+import '../../invoice/presentation/invoice_status.dart';
 import '../../os/presentation/os_status.dart' show money;
 import '../domain/sale_models.dart';
 import 'sale_providers.dart';
@@ -36,6 +39,8 @@ class SaleDetailScreen extends ConsumerWidget {
     try {
       final invoice =
           await ref.read(invoiceRepositoryProvider).issue(saleId: sale.id);
+      // Reflete na venda que agora há nota (ao voltar, mostra "ver nota").
+      ref.invalidate(saleInvoicesProvider(sale.id));
       if (context.mounted) context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (context.mounted) {
@@ -78,11 +83,21 @@ class SaleDetailScreen extends ConsumerWidget {
       ),
       data: (sale) {
         final canCancel = sale.status == 'concluida' && canSell;
-        // Emitir NF só faz sentido para venda concluída, com o módulo invoice
-        // habilitado e permissão de emissão.
-        final canIssueNf = sale.status == 'concluida' &&
-            _hasModule(ref, 'invoice') &&
-            _has(ref, 'invoice.issue');
+        // Seção fiscal: só p/ venda concluída com o módulo invoice habilitado.
+        // Se já há nota ATIVA, mostra "ver nota"; senão, "emitir" (com permissão).
+        Widget? nfSection;
+        if (sale.status == 'concluida' && _hasModule(ref, 'invoice')) {
+          final invPage = ref.watch(saleInvoicesProvider(sale.id)).asData?.value;
+          final active = (invPage?.items ?? const <Invoice>[]).where((i) =>
+              i.status == 'draft' ||
+              i.status == 'processing' ||
+              i.status == 'authorized');
+          if (active.isNotEmpty) {
+            nfSection = _NfExistingSection(invoice: active.first);
+          } else if (_has(ref, 'invoice.issue')) {
+            nfSection = _IssueNfSection(onIssue: () => _issueNf(context, ref, sale));
+          }
+        }
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _maxContentWidth),
@@ -110,9 +125,9 @@ class SaleDetailScreen extends ConsumerWidget {
                 _ItemsSection(items: sale.items),
                 const SizedBox(height: 20),
                 _TotalsSection(sale: sale),
-                if (canIssueNf) ...[
+                if (nfSection != null) ...[
                   const SizedBox(height: 20),
-                  _IssueNfSection(onIssue: () => _issueNf(context, ref, sale)),
+                  nfSection,
                 ],
                 if (canCancel) ...[
                   const SizedBox(height: 20),
@@ -480,6 +495,48 @@ class _IssueNfSection extends StatelessWidget {
               label: 'Emitir NF',
               icon: Icons.receipt_long_rounded,
               onPressed: onIssue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nota já emitida para esta venda: mostra o status e link para ver a nota.
+class _NfExistingSection extends StatelessWidget {
+  const _NfExistingSection({required this.invoice});
+
+  final Invoice invoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return _SectionCard(
+      icon: Icons.receipt_long_rounded,
+      title: 'Nota fiscal',
+      glyphIndex: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              InvoiceStatusChip(status: invoice.status),
+              if ((invoice.number ?? '').isNotEmpty) ...[
+                const SizedBox(width: 10),
+                Text('Nº ${invoice.number}',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13.5)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: NeuButton(
+              label: 'Ver nota',
+              icon: Icons.open_in_new_rounded,
+              kind: NeuButtonKind.secondary,
+              onPressed: () => context.go('/m/invoice/${invoice.id}'),
             ),
           ),
         ],

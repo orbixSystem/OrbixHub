@@ -15,6 +15,7 @@ abstract class Invoice with _$Invoice {
     @Default('draft') String status,
     String? environment,
     @JsonKey(name: 'order_id') String? orderId,
+    @JsonKey(name: 'sale_id') String? saleId,
     @JsonKey(name: 'order_number') String? orderNumber,
     @JsonKey(name: 'customer_id') String? customerId,
     @JsonKey(name: 'customer_name') String? customerName,

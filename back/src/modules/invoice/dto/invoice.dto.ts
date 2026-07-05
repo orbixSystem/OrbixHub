@@ -50,6 +50,10 @@ export class ListInvoicesQueryDto {
   @IsOptional()
   @IsUUID()
   orderId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  saleId?: string;
 }
 
 export class CancelInvoiceDto {
