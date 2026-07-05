@@ -8,8 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
@@ -19,6 +23,13 @@ import {
   ListSubjectsQueryDto,
   UpdateSubjectDto,
 } from './dto/subject.dto';
+
+/** Subset do arquivo multer (memory storage) — foto do veículo. */
+interface UploadedImage {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
 
 @Controller('subjects')
 @UseGuards(ModuleAccessGuard)
@@ -66,6 +77,30 @@ export class SubjectsController {
   @HttpCode(200)
   unarchive(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.customers.unarchiveSubject(user, id);
+  }
+
+  // --- foto do veículo (multipart) ---
+  @Post(':id/photo')
+  @Permissions('subject.write')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 8 * 1024 * 1024 },
+    }),
+  )
+  setPhoto(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedImage | undefined,
+  ) {
+    return this.customers.setSubjectPhoto(user, id, file);
+  }
+
+  @Delete(':id/photo')
+  @Permissions('subject.write')
+  @HttpCode(200)
+  removePhoto(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.customers.removeSubjectPhoto(user, id);
   }
 
   // Exclusão = soft delete (status 'deleted'); some das listas, linha preservada.

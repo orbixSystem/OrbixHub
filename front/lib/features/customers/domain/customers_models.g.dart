@@ -37,6 +37,7 @@ _Subject _$SubjectFromJson(Map<String, dynamic> json) => _Subject(
   identifier: json['identifier'] as String?,
   attributes:
       json['attributes'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+  photoUrl: json['photo_url'] as String?,
   status: json['status'] as String? ?? 'active',
 );
 
@@ -46,6 +47,7 @@ Map<String, dynamic> _$SubjectToJson(_Subject instance) => <String, dynamic>{
   'label': instance.label,
   'identifier': instance.identifier,
   'attributes': instance.attributes,
+  'photo_url': instance.photoUrl,
   'status': instance.status,
 };
 

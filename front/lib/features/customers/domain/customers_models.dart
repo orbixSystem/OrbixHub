@@ -32,6 +32,7 @@ abstract class Subject with _$Subject {
     String? label,
     String? identifier,
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
+    @JsonKey(name: 'photo_url') String? photoUrl,
     @Default('active') String status,
   }) = _Subject;
 

@@ -1,13 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
+import {
+  STORAGE_PROVIDER,
+  StorageProvider,
+} from '../../common/storage/storage.provider';
 import { BillingService } from '../billing/billing.service';
 import { CustomersRepository } from './customers.repository';
 import { SubjectHistoryProvider } from './subject-history.provider';
@@ -44,7 +50,11 @@ export class CustomersService {
     private readonly billing: BillingService,
     private readonly audit: AuditService,
     private readonly history: SubjectHistoryProvider,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
+
+  /** Limite de tamanho do upload da foto do veículo (~8 MB). */
+  static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
   // ===================== Config =====================
 
@@ -276,6 +286,75 @@ export class CustomersService {
       if (dto.attributes !== undefined) data.attributes = dto.attributes;
       return this.repo.updateSubject(id, data);
     });
+  }
+
+  /**
+   * Define a foto do subject (veículo). Espelha o upload de fotos da OS: valida
+   * o arquivo, faz o upload do binário FORA de transação (regra de ouro) e só
+   * então persiste a url + a chave. Substitui a foto anterior (remove o binário
+   * antigo, best-effort).
+   */
+  async setSubjectPhoto(
+    user: AuthUser,
+    id: string,
+    file: { buffer: Buffer; mimetype: string; size: number } | undefined,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException('Arquivo de imagem é obrigatório.');
+    }
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('O arquivo deve ser uma imagem.');
+    }
+    if (file.size > CustomersService.MAX_PHOTO_BYTES) {
+      throw new BadRequestException('Imagem muito grande (máx. 8 MB).');
+    }
+    await this.assertSubjectsEnabled(user.tenantId);
+    const existing = await this.tenant.withTenantTx(() =>
+      this.repo.findSubjectById(id),
+    );
+    if (!existing) throw new NotFoundException('Objeto não encontrado.');
+
+    const ext = (file.mimetype.split('/')[1] || 'bin').replace(
+      /[^a-z0-9]/gi,
+      '',
+    );
+    const key = `subject/${id}/${randomUUID()}.${ext}`;
+
+    await this.storage.put(key, file.buffer, file.mimetype); // fora de tx
+    const url = this.storage.url(key);
+
+    const updated = await this.tenant.withTenantTx(() =>
+      this.repo.updateSubjectPhoto(id, { url, storageKey: key }),
+    );
+    // Remove o binário antigo, se havia (best-effort, fora de tx).
+    const oldKey = existing.photo_storage_key;
+    if (oldKey && oldKey !== key) {
+      try {
+        await this.storage.remove(oldKey);
+      } catch {
+        // arquivo órfão é aceitável — não falha a operação
+      }
+    }
+    return updated;
+  }
+
+  /** Remove a foto do subject (limpa a url e apaga o binário, best-effort). */
+  async removeSubjectPhoto(user: AuthUser, id: string) {
+    await this.assertSubjectsEnabled(user.tenantId);
+    const existing = await this.tenant.withTenantTx(() =>
+      this.repo.findSubjectById(id),
+    );
+    if (!existing) throw new NotFoundException('Objeto não encontrado.');
+    if (existing.photo_storage_key) {
+      try {
+        await this.storage.remove(existing.photo_storage_key);
+      } catch {
+        // best-effort
+      }
+    }
+    return this.tenant.withTenantTx(() =>
+      this.repo.updateSubjectPhoto(id, { url: null, storageKey: null }),
+    );
   }
 
   archiveSubject(user: AuthUser, id: string) {

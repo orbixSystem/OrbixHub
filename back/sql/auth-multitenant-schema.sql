@@ -1374,3 +1374,12 @@ ALTER TABLE message
   ADD COLUMN IF NOT EXISTS reply_to_id uuid REFERENCES message(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS photo_id    uuid,
   ADD COLUMN IF NOT EXISTS photo_url   text;
+
+-- ============================================================
+-- 0028 — Foto do objeto/veículo (subject) — aditivo, idempotente.
+-- Uma foto por subject (avatar do veículo), no storage (S3/local): url pública
+-- + chave do storage (p/ remover o binário depois).
+-- ============================================================
+ALTER TABLE subject
+  ADD COLUMN IF NOT EXISTS photo_url         text,
+  ADD COLUMN IF NOT EXISTS photo_storage_key text;

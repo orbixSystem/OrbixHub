@@ -8,11 +8,14 @@ import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../dashboard/presentation/dashboard_providers.dart'
+    show osManagementMetricsProvider;
+import '../../dashboard/presentation/widgets/kpi.dart' show KpiTile;
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
-    show osStatuses, osStatusLabel, OsStatusChip;
+    show osStatuses, osStatusColor, osStatusLabel, OsStatusChip;
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
@@ -425,6 +428,10 @@ class _ReportBody extends ConsumerWidget {
     };
 
     switch (spec.kind) {
+      case ReportKind.overview:
+        // Painel BI: KPIs + gráficos sobre os dados JÁ existentes do período.
+        // Sem tabela/export — é um dashboard.
+        return _OverviewReport(me: me, memberNames: memberNames);
       case ReportKind.osOperational:
         // OS pode ter milhares de linhas → lista PAGINADA (scroll infinito,
         // render leve). Evita montar uma DataTable gigante de uma vez (causa do
@@ -488,6 +495,543 @@ class _ReportBody extends ConsumerWidget {
           period: _periodLabel(ref),
         );
     }
+  }
+}
+
+/// Painel BI da "Visão geral": KPIs + gráficos sobre os dados JÁ existentes do
+/// período selecionado. O faturamento é obrigatório (módulo `os`); clientes e
+/// estoque só entram quando o tenant tem esses módulos. Sem tabela/export — é um
+/// dashboard. Respeita o seletor de período (via `revenueReportProvider` etc.).
+class _OverviewReport extends ConsumerWidget {
+  const _OverviewReport({required this.me, required this.memberNames});
+
+  final Me me;
+  final Map<String, String> memberNames;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Faturamento é a fonte obrigatória: dita loading/erro do painel inteiro.
+    final revenueAsync = ref.watch(revenueReportProvider);
+    return revenueAsync.when(
+      loading: () => const SizedBox(
+        height: 320,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) =>
+          _ErrorBox(onRetry: () => ref.invalidate(revenueReportProvider)),
+      data: (revenue) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Visão geral', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 18),
+          _OverviewKpis(me: me, revenue: revenue),
+          const SizedBox(height: 20),
+          _OverviewCharts(
+            revenue: revenue,
+            memberNames: memberNames,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Faixa de KPIs da Visão geral. Faturamento/Nº de OS/Ticket médio saem do
+/// `RevenueReport`; "OS atrasadas" da métrica gerencial de OS (mesmo período);
+/// "Novos clientes"/"Valor em estoque" só aparecem se o módulo-fonte existir.
+class _OverviewKpis extends ConsumerWidget {
+  const _OverviewKpis({required this.me, required this.revenue});
+
+  final Me me;
+  final RevenueReport revenue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    // Nº de OS no período = soma das contagens por status do faturamento.
+    final osCount =
+        revenue.byStatus.values.fold<int>(0, (a, b) => a + b.count);
+    // "Atrasadas" não vem do RevenueReport (não há esse recorte lá); usa a
+    // métrica gerencial de OS, que reage ao MESMO período selecionado.
+    final osMetrics = ref.watch(osManagementMetricsProvider);
+    final overdue = osMetrics.asData?.value.overdue ?? 0;
+
+    final tiles = <Widget>[
+      KpiTile(
+        icon: Icons.payments_outlined,
+        glyphIndex: 2,
+        label: 'Faturamento',
+        value: formatMoney(revenue.total),
+        valueColor: neu.success,
+      ),
+      KpiTile(
+        icon: Icons.receipt_long_outlined,
+        glyphIndex: 1,
+        label: 'Nº de OS',
+        value: '$osCount',
+      ),
+      KpiTile(
+        icon: Icons.calculate_outlined,
+        glyphIndex: 0,
+        label: 'Ticket médio',
+        value: formatMoney(revenue.avgTicket),
+      ),
+      KpiTile(
+        icon: Icons.warning_amber_rounded,
+        glyphIndex: 4,
+        label: 'OS atrasadas',
+        loading: osMetrics.isLoading,
+        value: '$overdue',
+        valueColor: overdue > 0 ? neu.danger : null,
+      ),
+    ];
+
+    if (me.hasModule('customers')) {
+      final cust = ref.watch(customersReportProvider);
+      final data = cust.asData?.value;
+      tiles.add(KpiTile(
+        icon: Icons.people_alt_outlined,
+        glyphIndex: 3,
+        label: 'Novos clientes',
+        loading: cust.isLoading,
+        value: '${data?.newInRange ?? 0}',
+        sub: data != null && data.active > 0 ? '${data.active} ativos' : null,
+      ));
+    }
+
+    if (me.hasModule('inventory')) {
+      final inv = ref.watch(inventoryReportProvider);
+      tiles.add(KpiTile(
+        icon: Icons.inventory_2_outlined,
+        glyphIndex: 5,
+        label: 'Valor em estoque',
+        loading: inv.isLoading,
+        value: formatMoney(inv.asData?.value.stockValue ?? 0),
+      ));
+    }
+
+    return _OverviewKpiGrid(tiles: tiles);
+  }
+}
+
+/// Grade de KPIs sem buracos: escolhe o nº de colunas que divide os tiles
+/// (linhas cheias) e faz cada tile Expanded. Espelha o grid do dashboard.
+class _OverviewKpiGrid extends StatelessWidget {
+  const _OverviewKpiGrid({required this.tiles});
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        const gap = 14.0;
+        final n = tiles.length;
+        final maxCols = (c.maxWidth / 210).floor().clamp(1, 4);
+        var cols = n <= maxCols ? n : maxCols;
+        for (var k = maxCols; k >= 2; k--) {
+          if (n % k == 0) {
+            cols = k;
+            break;
+          }
+        }
+        final rows = <Widget>[];
+        for (var i = 0; i < n; i += cols) {
+          final slice = tiles.skip(i).take(cols).toList();
+          rows.add(Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var j = 0; j < slice.length; j++) ...[
+                    if (j > 0) const SizedBox(width: gap),
+                    Expanded(child: slice[j]),
+                  ],
+                ],
+              ),
+            ),
+          ));
+        }
+        return Column(children: rows);
+      },
+    );
+  }
+}
+
+/// Grade de gráficos da Visão geral: 2 colunas no desktop, 1 no mobile.
+/// Faturamento no tempo (linha/área) + OS por status (rosca) do RevenueReport;
+/// Top produtos/serviços + Rendimento da equipe assistem seus próprios providers.
+class _OverviewCharts extends ConsumerWidget {
+  const _OverviewCharts({required this.revenue, required this.memberNames});
+
+  final RevenueReport revenue;
+  final Map<String, String> memberNames;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final team = ref.watch(teamReportProvider);
+    final topItems = ref.watch(topItemsReportProvider);
+
+    final cards = <Widget>[
+      _RevenueLineCard(report: revenue),
+      _StatusDonutCard(report: revenue),
+      _OverviewTopItemsCard(async: topItems),
+      _OverviewTeamCard(async: team, names: memberNames),
+    ];
+
+    if (context.isMobile) {
+      return Column(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(height: 16),
+            cards[i],
+          ],
+        ],
+      );
+    }
+
+    const gap = 16.0;
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      final right = i + 1 < cards.length ? cards[i + 1] : null;
+      rows.add(Padding(
+        padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: cards[i]),
+            const SizedBox(width: gap),
+            Expanded(child: right ?? const SizedBox.shrink()),
+          ],
+        ),
+      ));
+    }
+    return Column(children: rows);
+  }
+}
+
+/// Faturamento no tempo (linha suave com área preenchida) — `RevenueReport.byDay`.
+class _RevenueLineCard extends StatelessWidget {
+  const _RevenueLineCard({required this.report});
+  final RevenueReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final days = report.byDay;
+    if (days.isEmpty) {
+      return const NeuChartCard(
+          title: 'Faturamento no tempo', child: _ChartEmpty());
+    }
+    final maxY = days
+        .map((d) => d.revenue.toDouble())
+        .fold<double>(0, (a, b) => b > a ? b : a);
+    final spots = <FlSpot>[
+      for (var i = 0; i < days.length; i++)
+        FlSpot(i.toDouble(), days[i].revenue.toDouble()),
+    ];
+
+    return NeuChartCard(
+      title: 'Faturamento no tempo',
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: maxY <= 0 ? 1 : maxY * 1.2,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: neu.line, strokeWidth: 1),
+          ),
+          borderData: FlBorderData(show: false),
+          titlesData: const FlTitlesData(
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles:
+                AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => neu.navy,
+              getTooltipItems: (spots) => [
+                for (final s in spots)
+                  LineTooltipItem(
+                    formatMoney(s.y),
+                    TextStyle(
+                      color: neu.onNavy,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              curveSmoothness: 0.25,
+              barWidth: 3,
+              color: neu.accent,
+              dotData: FlDotData(show: days.length <= 14),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    neu.accent.withValues(alpha: .28),
+                    neu.accent.withValues(alpha: .02),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// OS por status (rosca) — `RevenueReport.byStatus`, cor por `osStatusColor`.
+/// Legenda ao lado com contagem por status.
+class _StatusDonutCard extends StatelessWidget {
+  const _StatusDonutCard({required this.report});
+  final RevenueReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    // Ordena pelo fluxo canônico dos status; inclui só os presentes (count > 0).
+    final entries = <MapEntry<String, CountRevenue>>[
+      for (final s in osStatuses)
+        if ((report.byStatus[s]?.count ?? 0) > 0)
+          MapEntry(s, report.byStatus[s]!),
+      // Defensivo: status fora da lista canônica (se o backend enviar).
+      for (final e in report.byStatus.entries)
+        if (!osStatuses.contains(e.key) && e.value.count > 0) e,
+    ];
+    if (entries.isEmpty) {
+      return const NeuChartCard(
+          title: 'OS por status', child: _ChartEmpty());
+    }
+
+    return NeuChartCard(
+      title: 'OS por status',
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 34,
+                sections: [
+                  for (final e in entries)
+                    PieChartSectionData(
+                      value: e.value.count.toDouble(),
+                      color: osStatusColor(e.key),
+                      title: '${e.value.count}',
+                      radius: 46,
+                      titleStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final e in entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: osStatusColor(e.key),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            osStatusLabel(e.key),
+                            style:
+                                TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${e.value.count}',
+                          style: TextStyle(
+                            color: neu.ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Top produtos/serviços (barras) — assiste `topItemsReportProvider`.
+class _OverviewTopItemsCard extends StatelessWidget {
+  const _OverviewTopItemsCard({required this.async});
+  final AsyncValue<TopItemsReport> async;
+
+  @override
+  Widget build(BuildContext context) {
+    const title = 'Top produtos/serviços';
+    return async.when(
+      loading: () => const NeuChartCard(title: title, child: _ChartLoading()),
+      error: (_, _) => const NeuChartCard(
+        title: title,
+        child: _ChartEmpty(message: 'Não foi possível carregar.'),
+      ),
+      data: (report) {
+        final neu = context.neu;
+        final rows = report.rows.take(8).toList();
+        if (rows.isEmpty) {
+          return const NeuChartCard(title: title, child: _ChartEmpty());
+        }
+        final maxY = rows
+            .map((r) => r.revenue.toDouble())
+            .fold<double>(0, (a, b) => b > a ? b : a);
+
+        return NeuChartCard(
+          title: title,
+          child: BarChart(
+            BarChartData(
+              maxY: maxY <= 0 ? 1 : maxY * 1.2,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: (maxY <= 0 ? 1 : maxY) / 3,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: neu.line, strokeWidth: 1),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 38,
+                    getTitlesWidget: (value, meta) {
+                      final i = value.toInt();
+                      if (i < 0 || i >= rows.length) {
+                        return const SizedBox.shrink();
+                      }
+                      final label = rows[i].name;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          label.length > 8
+                              ? '${label.substring(0, 8)}…'
+                              : label,
+                          style: TextStyle(fontSize: 10, color: neu.inkMuted),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              barTouchData:
+                  neuBarTouch(context, label: (i, v) => formatMoney(v)),
+              barGroups: [
+                for (var i = 0; i < rows.length; i++)
+                  BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      neuBarRod(
+                        context,
+                        rows[i].revenue.toDouble(),
+                        width: 16,
+                        color: neu.glyphs[i % neu.glyphs.length],
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Rendimento da equipe (barras) — assiste `teamReportProvider`; reusa o
+/// `_TeamChart` já existente quando há dados.
+class _OverviewTeamCard extends StatelessWidget {
+  const _OverviewTeamCard({required this.async, required this.names});
+  final AsyncValue<TeamReport> async;
+  final Map<String, String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    const title = 'Faturamento por responsável';
+    return async.when(
+      loading: () => const NeuChartCard(title: title, child: _ChartLoading()),
+      error: (_, _) => const NeuChartCard(
+        title: title,
+        child: _ChartEmpty(message: 'Não foi possível carregar.'),
+      ),
+      data: (report) => report.rows.isEmpty
+          ? const NeuChartCard(title: title, child: _ChartEmpty())
+          : _TeamChart(report: report, names: names),
+    );
+  }
+}
+
+/// Corpo vazio de um gráfico (dentro do `NeuChartCard`, altura fixa).
+class _ChartEmpty extends StatelessWidget {
+  const _ChartEmpty({this.message = 'Sem dados no período.'});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        message,
+        style: TextStyle(color: context.neu.inkMuted, fontSize: 13),
+      ),
+    );
+  }
+}
+
+/// Corpo de carregamento de um gráfico (spinner centralizado).
+class _ChartLoading extends StatelessWidget {
+  const _ChartLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
   }
 }
 
