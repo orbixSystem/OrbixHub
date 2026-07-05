@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/devtools/dev_role.dart';
 import '../../../core/network/access_token_store.dart';
 import '../../../core/network/refresh_token_store.dart';
 import '../../../core/platform/app_reloader.dart';
@@ -38,11 +39,30 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
+  /// `me` real (sem override de cargo dev). Usado para reaplicar o override.
+  Me? _realMe;
+
   @override
   SessionState build() {
+    // Dev (besouro): reaplica o override de cargo sempre que ele muda, mantendo
+    // o resto da sessão. Sem efeito em produção (override fica null).
+    ref.listen<String?>(devRoleOverrideProvider, (_, role) {
+      final real = _realMe;
+      if (real != null) {
+        state = SessionState.authenticated(_applyDevRole(real, role));
+      }
+    });
     // Kick off the silent-login attempt; build returns synchronously.
     Future.microtask(_bootstrap);
     return const SessionState.loading();
+  }
+
+  /// Aplica o override de cargo (dev) sobre o `me` real: troca cargo + permissões
+  /// pelo mapa do cargo escolhido. `null` = cargo real (no-op). Não toca módulos
+  /// (são entitlements do tenant, independem de cargo).
+  Me _applyDevRole(Me me, String? role) {
+    if (role == null || role.isEmpty) return me;
+    return me.copyWith(role: role, permissions: devPermissionsFor(role));
   }
 
   Me? get currentMe {
@@ -164,7 +184,10 @@ class SessionController extends Notifier<SessionState> {
 
   Future<void> _loadMe() async {
     final me = await _auth.fetchMe();
-    state = SessionState.authenticated(me);
+    _realMe = me;
+    state = SessionState.authenticated(
+      _applyDevRole(me, ref.read(devRoleOverrideProvider)),
+    );
   }
 
   Future<void> _clear() async {

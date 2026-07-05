@@ -69,3 +69,41 @@ class CashierController extends AsyncNotifier<CashierState> {
 
 final cashierControllerProvider =
     AsyncNotifierProvider<CashierController, CashierState>(CashierController.new);
+
+// ===================== Histórico do caixa (movimentos por período) =====================
+
+/// Preset de período do Histórico do Caixa (relatório baseado nos MOVIMENTOS do
+/// caixa — o que de fato entrou/saiu). 'hoje' | '7d' | '30d'.
+final cashierHistoryPresetProvider =
+    NotifierProvider<CashierHistoryPreset, String>(CashierHistoryPreset.new);
+
+class CashierHistoryPreset extends Notifier<String> {
+  @override
+  String build() => '7d';
+  void set(String preset) => state = preset;
+}
+
+/// Dados do Histórico do Caixa no período: totais (por método/origem) + extrato.
+/// Lê só via repository. Reage ao preset selecionado.
+class CashierHistoryData {
+  const CashierHistoryData({required this.summary, required this.entries});
+  final CashSummary summary;
+  final List<CashEntry> entries;
+}
+
+final cashierHistoryProvider =
+    FutureProvider.autoDispose<CashierHistoryData>((ref) async {
+  final preset = ref.watch(cashierHistoryPresetProvider);
+  final now = DateTime.now();
+  final from = switch (preset) {
+    'hoje' => DateTime(now.year, now.month, now.day),
+    '30d' => now.subtract(const Duration(days: 30)),
+    _ => now.subtract(const Duration(days: 7)),
+  };
+  final fromIso = from.toUtc().toIso8601String();
+  final toIso = now.toUtc().toIso8601String();
+  final repo = ref.read(cashierRepositoryProvider);
+  final summary = await repo.summary(from: fromIso, to: toIso);
+  final page = await repo.listEntries(from: fromIso, to: toIso, page: 1);
+  return CashierHistoryData(summary: summary, entries: page.items);
+});

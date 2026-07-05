@@ -45,6 +45,12 @@ export interface OrderListFilter {
   take: number;
 }
 
+export interface TemplateListFilter {
+  q?: string;
+  skip: number;
+  take: number;
+}
+
 export interface CreateOrderData {
   number: string;
   customer_id: string;
@@ -459,13 +465,30 @@ export class OsRepository {
     });
   }
 
-  listTemplates() {
+  async listTemplates(filter: TemplateListFilter) {
     const db = this.tenant.getClient();
-    return db.service_order_template.findMany({
-      where: { deleted_at: null },
-      orderBy: { name: 'asc' },
-      include: { items: { orderBy: { created_at: 'asc' } } },
-    });
+    const where: Prisma.service_order_templateWhereInput = {
+      deleted_at: null,
+      ...(filter.q
+        ? {
+            OR: [
+              { name: { contains: filter.q, mode: 'insensitive' } },
+              { description: { contains: filter.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      db.service_order_template.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        include: { items: { orderBy: { created_at: 'asc' } } },
+        skip: filter.skip,
+        take: filter.take,
+      }),
+      db.service_order_template.count({ where }),
+    ]);
+    return { items, total };
   }
 
   updateTemplate(

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -245,6 +246,18 @@ export class CashierServiceImpl extends CashierService {
   // ===================== Lançamentos =====================
   async createEntry(user: AuthUser, dto: CreateEntryDto) {
     const category = dto.category as EntryCategory;
+    // Despesa/sangria/suprimento (ajustes da gaveta) são privilégio de gestão.
+    // Recebimento (os_payment/venda_avulsa) o atendente faz com `cashier.write`.
+    if (
+      (category === 'despesa' ||
+        category === 'sangria' ||
+        category === 'suprimento') &&
+      !(await this.hasPermission(user.role, 'cashier.manage'))
+    ) {
+      throw new ForbiddenException(
+        'Apenas dono/gerente podem lançar despesa, sangria ou suprimento.',
+      );
+    }
     const direction = directionForCategory(category);
     const { saleKind, saleId } = this.resolveSale(category, dto);
     const config = await this.getConfig(user.tenantId);
@@ -393,6 +406,23 @@ export class CashierServiceImpl extends CashierService {
       return { paid, entries };
     });
     return { ...buildPaymentSummary(total ?? 0, paid), entries };
+  }
+
+  /**
+   * Cargo tem a permissão? (role/role_permission/permission são globais, sem RLS —
+   * mesma consulta do PermissionsGuard). Usado para o gate fino de categorias
+   * sensíveis dentro de `createEntry`.
+   */
+  private async hasPermission(role: string, perm: string): Promise<boolean> {
+    const db = this.tenant.getClient();
+    const rows = await db.$queryRaw<Array<{ key: string }>>`
+      SELECT p.key FROM role r
+      JOIN role_permission rp ON rp.role_id = r.id
+      JOIN permission p ON p.id = rp.permission_id
+      WHERE r.key = ${role} AND p.key = ${perm}
+      LIMIT 1
+    `;
+    return rows.length > 0;
   }
 }
 

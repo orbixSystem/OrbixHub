@@ -17,6 +17,39 @@ class ReportRange {
 }
 
 // ---------------------------------------------------------------------------
+// Lente "Vendas" — GET /report/sales (histórico unificado OS + venda avulsa)
+// ---------------------------------------------------------------------------
+
+/// Uma linha da lente "Vendas": OS (serviço) ou venda avulsa (produto).
+@freezed
+abstract class SalesLedgerRow with _$SalesLedgerRow {
+  const factory SalesLedgerRow({
+    @Default('') String id,
+    @Default('') String date, // ISO
+    @Default('servico') String type, // 'servico' | 'produto'
+    @Default('os') String origin, // 'os' | 'sale'
+    @JsonKey(name: 'originNumber') @Default('') String originNumber,
+    @JsonKey(name: 'customerName') String? customerName,
+    @Default(0) num value,
+    @JsonKey(name: 'paymentStatus') @Default('a_receber') String paymentStatus,
+  }) = _SalesLedgerRow;
+
+  factory SalesLedgerRow.fromJson(Map<String, dynamic> json) =>
+      _$SalesLedgerRowFromJson(json);
+}
+
+/// Lente "Vendas" (`GET /report/sales`): linhas unificadas OS + venda.
+@freezed
+abstract class SalesLedger with _$SalesLedger {
+  const factory SalesLedger({
+    @Default(<SalesLedgerRow>[]) List<SalesLedgerRow> rows,
+  }) = _SalesLedger;
+
+  factory SalesLedger.fromJson(Map<String, dynamic> json) =>
+      _$SalesLedgerFromJson(json);
+}
+
+// ---------------------------------------------------------------------------
 // OS operacional — GET /report/os
 // ---------------------------------------------------------------------------
 

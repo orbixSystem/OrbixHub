@@ -112,6 +112,25 @@ abstract class OsTemplate with _$OsTemplate {
       _$OsTemplateFromJson(json);
 }
 
+/// Uma página de templates (busca server-side em `GET /os/templates`):
+/// itens da página + total do conjunto filtrado. `hasMore` indica se há mais
+/// páginas a carregar (rolagem infinita). Classe simples — não precisa freezed.
+class OsTemplatePage {
+  const OsTemplatePage({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<OsTemplate> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  bool get hasMore => page * pageSize < total;
+}
+
 /// Draft de item de template (create/update). `inventoryItemId` aponta para o
 /// estoque OU usa `name`/`unitPrice` para item avulso.
 class OsTemplateItemDraft {

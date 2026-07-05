@@ -29,6 +29,10 @@ List<NavItem> gatedNavItems(Me me) {
     const NavItem('Início', Icons.home_outlined, '/'),
   ];
   for (final key in me.modules) {
+    // `sale` (venda avulsa) NÃO é um destino de menu — é uma ação rápida dentro
+    // do Caixa. O entitlement existe no backend, mas não vira item de navegação
+    // (não vazar estrutura interna pro usuário).
+    if (key == 'sale') continue;
     // Relatórios é o único módulo com visibilidade gerencial/financeira: além do
     // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
     // veem o item. Demais módulos seguem só pelo módulo habilitado.

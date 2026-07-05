@@ -106,6 +106,8 @@ class CashierRepositoryImpl implements CashierRepository {
     String? category,
     String? saleKind,
     String? saleId,
+    String? from,
+    String? to,
     int page = 1,
   }) =>
       _guard(() async {
@@ -116,6 +118,8 @@ class CashierRepositoryImpl implements CashierRepository {
           'category': ?category,
           'saleKind': ?saleKind,
           'saleId': ?saleId,
+          'from': ?from,
+          'to': ?to,
           'page': page,
         });
         return EntryPage.fromJson(_asMap(res.data));

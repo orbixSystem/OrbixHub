@@ -98,6 +98,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             !me.hasModule(moduleKey)) {
           return '/';
         }
+        // `sale` é entitlement, mas NÃO tem tela própria (venda avulsa é ação no
+        // Caixa). Deep-link a /m/sale volta pra home (sem placeholder).
+        if (moduleKey == 'sale') return '/';
         // Relatórios também exige `report.read` (gerencial). Sem ela, manda pra
         // home — o backend já 403a; isto evita a tela quebrada. Esconder ≠
         // proteger, mas escondemos o que não é do papel.

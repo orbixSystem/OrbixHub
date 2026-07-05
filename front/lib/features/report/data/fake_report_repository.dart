@@ -222,6 +222,46 @@ class FakeReportRepository implements ReportRepository {
       );
 
   @override
+  Future<SalesLedger> salesLedger({
+    required ReportRange range,
+    String? type,
+    String? paymentStatus,
+  }) async {
+    const rows = [
+      SalesLedgerRow(
+        id: 'os-1',
+        date: '2026-06-12T10:00:00.000Z',
+        type: 'servico',
+        origin: 'os',
+        originNumber: 'OS-0001',
+        customerName: 'Maria Silva',
+        value: 320,
+        paymentStatus: 'pago',
+      ),
+      SalesLedgerRow(
+        id: 'sale-1',
+        date: '2026-06-11T15:30:00.000Z',
+        type: 'produto',
+        origin: 'sale',
+        originNumber: 'VND-0001',
+        customerName: null,
+        value: 80,
+        paymentStatus: 'a_receber',
+      ),
+    ];
+    final filtered = rows.where((r) {
+      if (type != null && type.isNotEmpty && r.type != type) return false;
+      if (paymentStatus != null &&
+          paymentStatus.isNotEmpty &&
+          r.paymentStatus != paymentStatus) {
+        return false;
+      }
+      return true;
+    }).toList();
+    return SalesLedger(rows: filtered);
+  }
+
+  @override
   Future<List<ReportMemberOption>> members() async => const [
         ReportMemberOption(id: 'm1', name: 'João Mecânico'),
         ReportMemberOption(id: 'm2', name: 'Ana Atendente'),

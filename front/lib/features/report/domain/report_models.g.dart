@@ -6,6 +6,41 @@ part of 'report_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_SalesLedgerRow _$SalesLedgerRowFromJson(Map<String, dynamic> json) =>
+    _SalesLedgerRow(
+      id: json['id'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      type: json['type'] as String? ?? 'servico',
+      origin: json['origin'] as String? ?? 'os',
+      originNumber: json['originNumber'] as String? ?? '',
+      customerName: json['customerName'] as String?,
+      value: json['value'] as num? ?? 0,
+      paymentStatus: json['paymentStatus'] as String? ?? 'a_receber',
+    );
+
+Map<String, dynamic> _$SalesLedgerRowToJson(_SalesLedgerRow instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'date': instance.date,
+      'type': instance.type,
+      'origin': instance.origin,
+      'originNumber': instance.originNumber,
+      'customerName': instance.customerName,
+      'value': instance.value,
+      'paymentStatus': instance.paymentStatus,
+    };
+
+_SalesLedger _$SalesLedgerFromJson(Map<String, dynamic> json) => _SalesLedger(
+  rows:
+      (json['rows'] as List<dynamic>?)
+          ?.map((e) => SalesLedgerRow.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <SalesLedgerRow>[],
+);
+
+Map<String, dynamic> _$SalesLedgerToJson(_SalesLedger instance) =>
+    <String, dynamic>{'rows': instance.rows};
+
 _OsReportRow _$OsReportRowFromJson(Map<String, dynamic> json) => _OsReportRow(
   number: json['number'] as String,
   customerName: json['customer_name'] as String? ?? '',

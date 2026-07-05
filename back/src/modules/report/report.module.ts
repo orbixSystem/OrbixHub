@@ -3,6 +3,8 @@ import { BillingModule } from '../billing/billing.module';
 import { OsModule } from '../os/os.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { CustomersModule } from '../customers/customers.module';
+import { CashierModule } from '../cashier/cashier.module';
+import { SaleModule } from '../sale/sale.module';
 import { IamModule } from '../iam/iam.module';
 import { ReportController } from './report.controller';
 import { ReportService } from './report.service';
@@ -20,6 +22,8 @@ import { ReportService } from './report.service';
     OsModule,
     InventoryModule,
     CustomersModule,
+    CashierModule,
+    SaleModule,
     IamModule,
   ],
   controllers: [ReportController],

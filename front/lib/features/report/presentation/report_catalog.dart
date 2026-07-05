@@ -19,6 +19,10 @@ enum ReportKind {
   /// Top produtos/serviços. Filtros: período, kind, limit.
   topItems,
 
+  /// Caixa: recebido por forma de pagamento (entrou/saiu/saldo). Filtro: período.
+  /// É "recebido" (movimento do caixa), não faturamento.
+  cashFlow,
+
   /// Estoque (posição). Point-in-time.
   inventoryPosition,
 
@@ -82,6 +86,15 @@ const List<ReportSpec> _allReports = [
     moduleKey: 'os',
     group: 'Ordens de Serviço',
     label: 'Top produtos/serviços',
+  ),
+  // Lente "Caixa": recebido por forma (entrou/saiu/saldo). Gated pelo módulo
+  // `cashier`; a feature toda já exige report.read (só gestão vê Relatórios), e
+  // gestão tem cashier.manage — então o endpoint /cashier/summary responde.
+  ReportSpec(
+    kind: ReportKind.cashFlow,
+    moduleKey: 'cashier',
+    group: 'Caixa',
+    label: 'Recebido por forma',
   ),
   ReportSpec(
     kind: ReportKind.inventoryPosition,

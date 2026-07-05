@@ -191,7 +191,11 @@ export class InventoryRepository {
     data: {
       inventory_item_id: string;
       stock_delta: Prisma.Decimal | number;
-      reason: 'os_consumption' | 'os_reversal';
+      reason:
+        | 'os_consumption'
+        | 'os_reversal'
+        | 'sale_consumption'
+        | 'sale_reversal';
       ref_type: string;
       ref_id: string;
       ref_item_id: string | null;

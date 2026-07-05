@@ -148,6 +148,8 @@ class FakeCashierRepository implements CashierRepository {
     String? category,
     String? saleKind,
     String? saleId,
+    String? from,
+    String? to,
     int page = 1,
   }) async {
     final filtered = _entries.where((e) {

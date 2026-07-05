@@ -334,18 +334,41 @@ describe('Cashier — Caixa (e2e)', () => {
   // 6. Autorização por cargo
   // ====================================================================
   describe('autorização', () => {
-    it('caixa opera; mechanic recebe 403', async () => {
+    it('atendente recebe mas NÃO gerencia; gerente gerencia; mechanic 403', async () => {
       const o = await registerOwner();
       const caixa = await inviteAccept(o, 'caixa');
+      const gerente = await inviteAccept(o, 'gerente');
       const mechanic = await inviteAccept(o, 'mechanic');
 
-      // caixa: cashier.write → pode abrir e lançar
-      expect((await openSession(caixa, { openingAmount: 0 })).status).toBe(201);
-      expect((await createEntry(caixa, { amount: 10, method: 'dinheiro', category: 'suprimento' })).status).toBe(201);
+      // owner (gestão) abre o caixa
+      expect((await openSession(o.access, { openingAmount: 0 })).status).toBe(201);
 
-      // mechanic: sem cashier.* → 403 em leitura e escrita
+      // caixa (cashier.write, SEM cashier.manage): NÃO abre, NÃO ajusta gaveta,
+      // NÃO vê o resumo/histórico de gestão.
+      expect((await openSession(caixa, {})).status).toBe(403);
+      expect((await createEntry(caixa, { amount: 10, method: 'dinheiro', category: 'suprimento' })).status).toBe(403);
+      expect((await createEntry(caixa, { amount: 10, method: 'dinheiro', category: 'despesa' })).status).toBe(403);
+      expect((await summary(caixa)).status).toBe(403);
+      expect((await closeSession(caixa, { countedAmount: 0 })).status).toBe(403);
+
+      // caixa PODE ler o caixa e receber OS (operação do dia)
+      expect((await listEntries(caixa)).status).toBe(200);
+      const orderId = await createOrderWithTotal(o.access, 100);
+      const rec = await createEntry(caixa, {
+        amount: 50, method: 'dinheiro', category: 'os_payment', saleKind: 'os', saleId: orderId,
+      });
+      expect(rec.status).toBe(201);
+      // estorno é gestão → caixa 403
+      expect((await reverseEntry(caixa, rec.body.id as string, { reason: 'teste' })).status).toBe(403);
+
+      // gerente (cashier.manage): gerencia
+      expect((await summary(gerente)).status).toBe(200);
+      expect((await createEntry(gerente, { amount: 5, method: 'dinheiro', category: 'suprimento' })).status).toBe(201);
+      expect((await reverseEntry(gerente, rec.body.id as string, { reason: 'estorno de teste' })).status).toBe(200);
+
+      // mechanic: sem cashier.* → 403 em tudo
       expect((await listEntries(mechanic)).status).toBe(403);
-      expect((await createEntry(mechanic, { amount: 10, method: 'dinheiro', category: 'suprimento' })).status).toBe(403);
+      expect((await createEntry(mechanic, { amount: 10, method: 'dinheiro', category: 'os_payment', saleKind: 'os', saleId: orderId })).status).toBe(403);
     });
   });
 

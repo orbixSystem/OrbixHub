@@ -210,6 +210,26 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
+  Future<SalesLedger> salesLedger({
+    required ReportRange range,
+    String? type,
+    String? paymentStatus,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/sales',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (type != null && type.isNotEmpty) 'type': type,
+            if (paymentStatus != null && paymentStatus.isNotEmpty)
+              'paymentStatus': paymentStatus,
+          },
+        );
+        return SalesLedger.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<List<ReportMemberOption>> members() => _guard(() async {
         final res = await _dio.get<Object?>('/employees/assignable');
         return _asList(res.data).map((m) {

@@ -18,6 +18,7 @@ import {
   ReportOsExportQueryDto,
   ReportOsQueryDto,
   ReportRangeQueryDto,
+  ReportSalesQueryDto,
   ReportTopItemsQueryDto,
 } from './dto/report-query.dto';
 
@@ -103,6 +104,22 @@ export class ReportController {
   revenue(@CurrentUser() user: AuthUser, @Query() query: ReportRangeQueryDto) {
     const { from, to } = resolveRange(query.from, query.to);
     return this.report.revenue(user.tenantId, { from, to });
+  }
+
+  /**
+   * Lente "Vendas": histórico unificado (OS serviço + venda avulsa produto) em
+   * ordem de tempo. Read-only, composto via services. Filtros: período, tipo,
+   * status de pagamento.
+   */
+  @Get('sales')
+  sales(@CurrentUser() user: AuthUser, @Query() query: ReportSalesQueryDto) {
+    const { from, to } = resolveRange(query.from, query.to);
+    return this.report.salesLedger(user.tenantId, {
+      from,
+      to,
+      type: query.type,
+      paymentStatus: query.paymentStatus,
+    });
   }
 
   /** Rendimento da equipe: agregado por responsável. */

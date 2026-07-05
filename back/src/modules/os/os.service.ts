@@ -32,6 +32,7 @@ import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
 import {
   CreateTemplateDto,
+  ListTemplatesQueryDto,
   TemplateItemDto,
   UpdateTemplateDto,
 } from './dto/template.dto';
@@ -911,11 +912,18 @@ export class OsService {
     });
   }
 
-  async listTemplates(_user: AuthUser) {
-    const templates = await this.tenant.withTenantTx(() =>
-      this.repo.listTemplates(),
+  async listTemplates(_user: AuthUser, query: ListTemplatesQueryDto = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const { items, total } = await this.tenant.withTenantTx(() =>
+      this.repo.listTemplates({
+        q: query.q?.trim() || undefined,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
     );
-    return this.enrichTemplates(templates);
+    const enriched = await this.enrichTemplates(items);
+    return { items: enriched, total, page, pageSize };
   }
 
   async getTemplate(_user: AuthUser, id: string) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -271,18 +273,9 @@ class OsDetailScreen extends ConsumerWidget {
     ServiceOrder order,
   ) async {
     final repo = ref.read(osRepositoryProvider);
-    List<OsTemplate> templates;
-    try {
-      templates = await repo.listTemplates();
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-      return;
-    }
-    if (!context.mounted) return;
-    final chosen = await _TemplatePickerDialog.show(context, templates);
+    // O seletor carrega os templates sob demanda (busca + rolagem infinita),
+    // então não pré-carregamos a lista inteira aqui.
+    final chosen = await _TemplatePickerDialog.show(context);
     if (chosen == null) return;
     try {
       await repo.applyTemplate(order.id, chosen.id);
@@ -2485,19 +2478,120 @@ class _CommentTile extends StatelessWidget {
 /// Dialog para escolher um template de OS a aplicar. Lista cada template como
 /// um ListTile clicável; devolve o escolhido (ou null em Cancelar). Vazio →
 /// mensagem orientando a criar templates.
-class _TemplatePickerDialog extends StatelessWidget {
-  const _TemplatePickerDialog({required this.templates});
+class _TemplatePickerDialog extends ConsumerStatefulWidget {
+  const _TemplatePickerDialog();
 
-  final List<OsTemplate> templates;
-
-  static Future<OsTemplate?> show(
-    BuildContext context,
-    List<OsTemplate> templates,
-  ) {
+  static Future<OsTemplate?> show(BuildContext context) {
     return showDialog<OsTemplate>(
       context: context,
-      builder: (_) => _TemplatePickerDialog(templates: templates),
+      builder: (_) => const _TemplatePickerDialog(),
     );
+  }
+
+  @override
+  ConsumerState<_TemplatePickerDialog> createState() =>
+      _TemplatePickerDialogState();
+}
+
+class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
+  static const _pageSize = 20;
+
+  final _scroll = ScrollController();
+  final _search = TextEditingController();
+  Timer? _debounce;
+
+  final List<OsTemplate> _items = [];
+  String _query = '';
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loading = true;
+  bool _loadingMore = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _scroll.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final q = value.trim();
+      if (q == _query) return;
+      _query = q;
+      _load(reset: true);
+    });
+  }
+
+  Future<void> _load({required bool reset}) async {
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _page = 1;
+      });
+    }
+    try {
+      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+            query: _query.isEmpty ? null : _query,
+            page: _page,
+            pageSize: _pageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        if (reset) _items.clear();
+        _items.addAll(pageData.items);
+        _hasMore = pageData.hasMore;
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _loading) return;
+    setState(() => _loadingMore = true);
+    _page += 1;
+    try {
+      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+            query: _query.isEmpty ? null : _query,
+            page: _page,
+            pageSize: _pageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(pageData.items);
+        _hasMore = pageData.hasMore;
+        _loadingMore = false;
+      });
+    } on AppException {
+      if (!mounted) return;
+      setState(() {
+        _page -= 1;
+        _loadingMore = false;
+      });
+    }
   }
 
   @override
@@ -2506,31 +2600,23 @@ class _TemplatePickerDialog extends StatelessWidget {
     return AlertDialog(
       title: const Text('Aplicar template'),
       content: SizedBox(
-        width: 420,
-        child: templates.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Nenhum template — crie em Templates.'),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final t in templates)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.dashboard_customize_outlined),
-                      title: Text(t.name),
-                      subtitle: (t.description != null &&
-                              t.description!.isNotEmpty)
-                          ? Text(
-                              t.description!,
-                              style: TextStyle(color: scheme.onSurfaceVariant),
-                            )
-                          : null,
-                      onTap: () => Navigator.of(context).pop(t),
-                    ),
-                ],
+        width: 440,
+        height: 460,
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              onChanged: _onSearchChanged,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Buscar template',
+                prefixIcon: Icon(Icons.search),
               ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(child: _body(scheme)),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -2538,6 +2624,57 @@ class _TemplatePickerDialog extends StatelessWidget {
           child: const Text('Cancelar'),
         ),
       ],
+    );
+  }
+
+  Widget _body(ColorScheme scheme) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Text(_error is AppException
+            ? (_error as AppException).message
+            : 'Erro ao carregar os templates.'),
+      );
+    }
+    if (_items.isEmpty) {
+      return Center(
+        child: Text(
+          _query.isEmpty
+              ? 'Nenhum template — crie em Templates.'
+              : 'Nenhum template para "$_query".',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: scheme.onSurfaceVariant),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      itemCount: _items.length + (_hasMore ? 1 : 0),
+      itemBuilder: (_, i) {
+        if (i >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final t = _items[i];
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: Text(t.name),
+          subtitle: (t.description != null && t.description!.isNotEmpty)
+              ? Text(
+                  t.description!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                )
+              : null,
+          onTap: () => Navigator.of(context).pop(t),
+        );
+      },
     );
   }
 }

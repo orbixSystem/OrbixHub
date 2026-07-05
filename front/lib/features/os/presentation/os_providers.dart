@@ -191,9 +191,3 @@ final orderProvider =
   return ref.read(osRepositoryProvider).getOrder(id);
 });
 
-/// Lista de templates (com itens) — tela de gestão. autoDispose para re-buscar
-/// ao reentrar; invalida após criar/editar/excluir.
-final templateListProvider =
-    FutureProvider.autoDispose<List<OsTemplate>>((ref) {
-  return ref.read(osRepositoryProvider).listTemplatesFull();
-});

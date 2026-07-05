@@ -66,6 +66,17 @@ export class ReportOsExportQueryDto extends ReportRangeQueryDto {
   @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
 }
 
+/**
+ * Query da lente "Vendas" (histórico unificado OS + venda avulsa): range + filtro
+ * por tipo (servico = OS / produto = venda) e por status de pagamento.
+ */
+export class ReportSalesQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsIn(['servico', 'produto']) type?: 'servico' | 'produto';
+  @IsOptional()
+  @IsIn(['a_receber', 'parcial', 'pago'])
+  paymentStatus?: 'a_receber' | 'parcial' | 'pago';
+}
+
 /** Query da posição de estoque (tela): página + tamanho + busca opcional. */
 export class ReportInventoryQueryDto {
   @IsOptional()

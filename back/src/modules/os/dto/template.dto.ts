@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -35,6 +36,16 @@ export class CreateTemplateDto {
   @ValidateNested({ each: true })
   @Type(() => TemplateItemDto)
   items!: TemplateItemDto[];
+}
+
+/**
+ * Lista paginada de templates: busca por nome/descrição (`q`) e paginação
+ * (`page`/`pageSize`). Espelha o contrato de `ListOrdersQueryDto`.
+ */
+export class ListTemplatesQueryDto {
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }
 
 export class UpdateTemplateDto {

@@ -69,6 +69,15 @@ abstract interface class OsRepository {
   /// Templates com seus itens (`GET /os/templates` — para a tela de gestão).
   Future<List<OsTemplate>> listTemplatesFull();
 
+  /// Página de templates com busca server-side
+  /// (`GET /os/templates?q=&page=&pageSize=`). Usada pela tela de gestão e pelo
+  /// seletor "Aplicar template" — ambos com busca + rolagem infinita.
+  Future<OsTemplatePage> listTemplatesPage({
+    String? query,
+    int page,
+    int pageSize,
+  });
+
   /// Um template com seus itens (`GET /os/templates/:id`).
   Future<OsTemplate> getTemplate(String id);
 

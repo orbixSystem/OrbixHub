@@ -74,6 +74,14 @@ abstract class ReportRepository {
   /// `GET /report/customers` — novos no range + total ativo.
   Future<CustomersReport> customers({required ReportRange range});
 
+  /// `GET /report/sales` — lente "Vendas": histórico unificado OS (serviço) +
+  /// venda avulsa (produto). Filtros: período, tipo, status de pagamento.
+  Future<SalesLedger> salesLedger({
+    required ReportRange range,
+    String? type, // 'servico' | 'produto'
+    String? paymentStatus, // 'a_receber' | 'parcial' | 'pago'
+  });
+
   /// Membros da equipe (`GET /employees`) para o filtro "técnico" dos
   /// relatórios de OS. Reusa a mesma rota/forma do dropdown da OS.
   Future<List<ReportMemberOption>> members();

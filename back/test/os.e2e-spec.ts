@@ -847,7 +847,10 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       const list = await listTemplates(o.access);
       expect(list.status).toBe(200);
-      expect(ids(list.body as IdRow[])).toContain(created.body.id as string);
+      expect(ids(list.body.items as IdRow[])).toContain(
+        created.body.id as string,
+      );
+      expect(typeof list.body.total).toBe('number');
     });
 
     it('applies a template to an OS: pre-fills items, recomputes total, re-snapshots current price', async () => {
@@ -912,7 +915,7 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       const list = await listTemplates(o.access);
       expect(list.status).toBe(200);
       const found = (
-        list.body as Array<{
+        list.body.items as Array<{
           id: string;
           total: string;
           items: Array<{ inventory_item_id: string | null; unit_price: string }>;
@@ -936,7 +939,38 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       expect(del.status).toBe(200);
 
       const list = await listTemplates(o.access);
-      expect(ids(list.body as IdRow[])).not.toContain(tpl.body.id as string);
+      expect(ids(list.body.items as IdRow[])).not.toContain(
+        tpl.body.id as string,
+      );
+    });
+
+    it('paginates and searches templates (q matches name, page/pageSize)', async () => {
+      const o = await registerOwner();
+      for (const name of ['Alpha brake', 'Beta brake', 'Gamma filter']) {
+        const r = await createTemplate(o.access, {
+          name,
+          items: [{ kind: 'service', name: 'X', quantity: 1, unitPrice: 10 }],
+        });
+        expect(r.status).toBe(201);
+      }
+
+      // Busca por nome: só os dois "brake".
+      const search = await request(srv())
+        .get('/api/os/templates')
+        .query({ q: 'brake' })
+        .set(auth(o.access));
+      expect(search.status).toBe(200);
+      expect(search.body.total).toBe(2);
+      expect((search.body.items as IdRow[]).length).toBe(2);
+
+      // Paginação: pageSize 1 devolve 1 item mas total reflete o conjunto todo.
+      const page1 = await request(srv())
+        .get('/api/os/templates')
+        .query({ pageSize: 1, page: 1 })
+        .set(auth(o.access));
+      expect(page1.status).toBe(200);
+      expect((page1.body.items as IdRow[]).length).toBe(1);
+      expect(page1.body.total).toBe(3);
     });
   });
 

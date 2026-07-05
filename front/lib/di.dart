@@ -37,6 +37,8 @@ import 'features/sales/data/sale_repository_impl.dart';
 import 'features/sales/domain/sale_repository.dart';
 import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
+import 'features/sale/data/sale_repository_impl.dart';
+import 'features/sale/presentation/sale_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
 import 'features/team/domain/team_repository.dart';
 import 'features/settings/data/external_lookups_repository_impl.dart';
@@ -155,6 +157,9 @@ final diOverrides = [
   ),
   scheduleRepositoryProvider.overrideWith(
     (ref) => ScheduleRepositoryImpl(ref.read(dioProvider)),
+  ),
+  saleRepositoryProvider.overrideWith(
+    (ref) => SaleRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 

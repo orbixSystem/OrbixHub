@@ -13,6 +13,565 @@ part of 'report_models.dart';
 T _$identity<T>(T value) => value;
 
 /// @nodoc
+mixin _$SalesLedgerRow {
+
+ String get id; String get date;// ISO
+ String get type;// 'servico' | 'produto'
+ String get origin;// 'os' | 'sale'
+@JsonKey(name: 'originNumber') String get originNumber;@JsonKey(name: 'customerName') String? get customerName; num get value;@JsonKey(name: 'paymentStatus') String get paymentStatus;
+/// Create a copy of SalesLedgerRow
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$SalesLedgerRowCopyWith<SalesLedgerRow> get copyWith => _$SalesLedgerRowCopyWithImpl<SalesLedgerRow>(this as SalesLedgerRow, _$identity);
+
+  /// Serializes this SalesLedgerRow to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SalesLedgerRow&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.type, type) || other.type == type)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.originNumber, originNumber) || other.originNumber == originNumber)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.value, value) || other.value == value)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,date,type,origin,originNumber,customerName,value,paymentStatus);
+
+@override
+String toString() {
+  return 'SalesLedgerRow(id: $id, date: $date, type: $type, origin: $origin, originNumber: $originNumber, customerName: $customerName, value: $value, paymentStatus: $paymentStatus)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $SalesLedgerRowCopyWith<$Res>  {
+  factory $SalesLedgerRowCopyWith(SalesLedgerRow value, $Res Function(SalesLedgerRow) _then) = _$SalesLedgerRowCopyWithImpl;
+@useResult
+$Res call({
+ String id, String date, String type, String origin,@JsonKey(name: 'originNumber') String originNumber,@JsonKey(name: 'customerName') String? customerName, num value,@JsonKey(name: 'paymentStatus') String paymentStatus
+});
+
+
+
+
+}
+/// @nodoc
+class _$SalesLedgerRowCopyWithImpl<$Res>
+    implements $SalesLedgerRowCopyWith<$Res> {
+  _$SalesLedgerRowCopyWithImpl(this._self, this._then);
+
+  final SalesLedgerRow _self;
+  final $Res Function(SalesLedgerRow) _then;
+
+/// Create a copy of SalesLedgerRow
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? date = null,Object? type = null,Object? origin = null,Object? originNumber = null,Object? customerName = freezed,Object? value = null,Object? paymentStatus = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
+as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,origin: null == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
+as String,originNumber: null == originNumber ? _self.originNumber : originNumber // ignore: cast_nullable_to_non_nullable
+as String,customerName: freezed == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String?,value: null == value ? _self.value : value // ignore: cast_nullable_to_non_nullable
+as num,paymentStatus: null == paymentStatus ? _self.paymentStatus : paymentStatus // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [SalesLedgerRow].
+extension SalesLedgerRowPatterns on SalesLedgerRow {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _SalesLedgerRow value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _SalesLedgerRow() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _SalesLedgerRow value)  $default,){
+final _that = this;
+switch (_that) {
+case _SalesLedgerRow():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _SalesLedgerRow value)?  $default,){
+final _that = this;
+switch (_that) {
+case _SalesLedgerRow() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String date,  String type,  String origin, @JsonKey(name: 'originNumber')  String originNumber, @JsonKey(name: 'customerName')  String? customerName,  num value, @JsonKey(name: 'paymentStatus')  String paymentStatus)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _SalesLedgerRow() when $default != null:
+return $default(_that.id,_that.date,_that.type,_that.origin,_that.originNumber,_that.customerName,_that.value,_that.paymentStatus);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String date,  String type,  String origin, @JsonKey(name: 'originNumber')  String originNumber, @JsonKey(name: 'customerName')  String? customerName,  num value, @JsonKey(name: 'paymentStatus')  String paymentStatus)  $default,) {final _that = this;
+switch (_that) {
+case _SalesLedgerRow():
+return $default(_that.id,_that.date,_that.type,_that.origin,_that.originNumber,_that.customerName,_that.value,_that.paymentStatus);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String date,  String type,  String origin, @JsonKey(name: 'originNumber')  String originNumber, @JsonKey(name: 'customerName')  String? customerName,  num value, @JsonKey(name: 'paymentStatus')  String paymentStatus)?  $default,) {final _that = this;
+switch (_that) {
+case _SalesLedgerRow() when $default != null:
+return $default(_that.id,_that.date,_that.type,_that.origin,_that.originNumber,_that.customerName,_that.value,_that.paymentStatus);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _SalesLedgerRow implements SalesLedgerRow {
+  const _SalesLedgerRow({this.id = '', this.date = '', this.type = 'servico', this.origin = 'os', @JsonKey(name: 'originNumber') this.originNumber = '', @JsonKey(name: 'customerName') this.customerName, this.value = 0, @JsonKey(name: 'paymentStatus') this.paymentStatus = 'a_receber'});
+  factory _SalesLedgerRow.fromJson(Map<String, dynamic> json) => _$SalesLedgerRowFromJson(json);
+
+@override@JsonKey() final  String id;
+@override@JsonKey() final  String date;
+// ISO
+@override@JsonKey() final  String type;
+// 'servico' | 'produto'
+@override@JsonKey() final  String origin;
+// 'os' | 'sale'
+@override@JsonKey(name: 'originNumber') final  String originNumber;
+@override@JsonKey(name: 'customerName') final  String? customerName;
+@override@JsonKey() final  num value;
+@override@JsonKey(name: 'paymentStatus') final  String paymentStatus;
+
+/// Create a copy of SalesLedgerRow
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$SalesLedgerRowCopyWith<_SalesLedgerRow> get copyWith => __$SalesLedgerRowCopyWithImpl<_SalesLedgerRow>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$SalesLedgerRowToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SalesLedgerRow&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.type, type) || other.type == type)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.originNumber, originNumber) || other.originNumber == originNumber)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.value, value) || other.value == value)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,date,type,origin,originNumber,customerName,value,paymentStatus);
+
+@override
+String toString() {
+  return 'SalesLedgerRow(id: $id, date: $date, type: $type, origin: $origin, originNumber: $originNumber, customerName: $customerName, value: $value, paymentStatus: $paymentStatus)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$SalesLedgerRowCopyWith<$Res> implements $SalesLedgerRowCopyWith<$Res> {
+  factory _$SalesLedgerRowCopyWith(_SalesLedgerRow value, $Res Function(_SalesLedgerRow) _then) = __$SalesLedgerRowCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String date, String type, String origin,@JsonKey(name: 'originNumber') String originNumber,@JsonKey(name: 'customerName') String? customerName, num value,@JsonKey(name: 'paymentStatus') String paymentStatus
+});
+
+
+
+
+}
+/// @nodoc
+class __$SalesLedgerRowCopyWithImpl<$Res>
+    implements _$SalesLedgerRowCopyWith<$Res> {
+  __$SalesLedgerRowCopyWithImpl(this._self, this._then);
+
+  final _SalesLedgerRow _self;
+  final $Res Function(_SalesLedgerRow) _then;
+
+/// Create a copy of SalesLedgerRow
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? date = null,Object? type = null,Object? origin = null,Object? originNumber = null,Object? customerName = freezed,Object? value = null,Object? paymentStatus = null,}) {
+  return _then(_SalesLedgerRow(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
+as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as String,origin: null == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
+as String,originNumber: null == originNumber ? _self.originNumber : originNumber // ignore: cast_nullable_to_non_nullable
+as String,customerName: freezed == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String?,value: null == value ? _self.value : value // ignore: cast_nullable_to_non_nullable
+as num,paymentStatus: null == paymentStatus ? _self.paymentStatus : paymentStatus // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$SalesLedger {
+
+ List<SalesLedgerRow> get rows;
+/// Create a copy of SalesLedger
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$SalesLedgerCopyWith<SalesLedger> get copyWith => _$SalesLedgerCopyWithImpl<SalesLedger>(this as SalesLedger, _$identity);
+
+  /// Serializes this SalesLedger to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SalesLedger&&const DeepCollectionEquality().equals(other.rows, rows));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows));
+
+@override
+String toString() {
+  return 'SalesLedger(rows: $rows)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $SalesLedgerCopyWith<$Res>  {
+  factory $SalesLedgerCopyWith(SalesLedger value, $Res Function(SalesLedger) _then) = _$SalesLedgerCopyWithImpl;
+@useResult
+$Res call({
+ List<SalesLedgerRow> rows
+});
+
+
+
+
+}
+/// @nodoc
+class _$SalesLedgerCopyWithImpl<$Res>
+    implements $SalesLedgerCopyWith<$Res> {
+  _$SalesLedgerCopyWithImpl(this._self, this._then);
+
+  final SalesLedger _self;
+  final $Res Function(SalesLedger) _then;
+
+/// Create a copy of SalesLedger
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,}) {
+  return _then(_self.copyWith(
+rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
+as List<SalesLedgerRow>,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [SalesLedger].
+extension SalesLedgerPatterns on SalesLedger {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _SalesLedger value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _SalesLedger() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _SalesLedger value)  $default,){
+final _that = this;
+switch (_that) {
+case _SalesLedger():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _SalesLedger value)?  $default,){
+final _that = this;
+switch (_that) {
+case _SalesLedger() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<SalesLedgerRow> rows)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _SalesLedger() when $default != null:
+return $default(_that.rows);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<SalesLedgerRow> rows)  $default,) {final _that = this;
+switch (_that) {
+case _SalesLedger():
+return $default(_that.rows);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<SalesLedgerRow> rows)?  $default,) {final _that = this;
+switch (_that) {
+case _SalesLedger() when $default != null:
+return $default(_that.rows);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _SalesLedger implements SalesLedger {
+  const _SalesLedger({final  List<SalesLedgerRow> rows = const <SalesLedgerRow>[]}): _rows = rows;
+  factory _SalesLedger.fromJson(Map<String, dynamic> json) => _$SalesLedgerFromJson(json);
+
+ final  List<SalesLedgerRow> _rows;
+@override@JsonKey() List<SalesLedgerRow> get rows {
+  if (_rows is EqualUnmodifiableListView) return _rows;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_rows);
+}
+
+
+/// Create a copy of SalesLedger
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$SalesLedgerCopyWith<_SalesLedger> get copyWith => __$SalesLedgerCopyWithImpl<_SalesLedger>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$SalesLedgerToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SalesLedger&&const DeepCollectionEquality().equals(other._rows, _rows));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows));
+
+@override
+String toString() {
+  return 'SalesLedger(rows: $rows)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$SalesLedgerCopyWith<$Res> implements $SalesLedgerCopyWith<$Res> {
+  factory _$SalesLedgerCopyWith(_SalesLedger value, $Res Function(_SalesLedger) _then) = __$SalesLedgerCopyWithImpl;
+@override @useResult
+$Res call({
+ List<SalesLedgerRow> rows
+});
+
+
+
+
+}
+/// @nodoc
+class __$SalesLedgerCopyWithImpl<$Res>
+    implements _$SalesLedgerCopyWith<$Res> {
+  __$SalesLedgerCopyWithImpl(this._self, this._then);
+
+  final _SalesLedger _self;
+  final $Res Function(_SalesLedger) _then;
+
+/// Create a copy of SalesLedger
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,}) {
+  return _then(_SalesLedger(
+rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
+as List<SalesLedgerRow>,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$OsReportRow {
 
  String get number;@JsonKey(name: 'customer_name') String get customerName; String get status;@JsonKey(name: 'assigned_to') String? get assignedTo; num get total;@JsonKey(name: 'opened_at') String? get openedAt;@JsonKey(name: 'finished_at') String? get finishedAt;@JsonKey(name: 'cycleMs') num? get cycleMs;

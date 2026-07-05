@@ -48,15 +48,16 @@ export class CashierController {
   }
 
   // --- sessões (caixa do dia) ---
+  // Abrir/fechar o caixa é privilégio de gestão (dono/gerente), não do atendente.
   @Post('sessions/open')
-  @Permissions('cashier.write')
+  @Permissions('cashier.manage')
   @HttpCode(201)
   openSession(@CurrentUser() user: AuthUser, @Body() dto: OpenSessionDto) {
     return this.cashier.openSession(user, dto);
   }
 
   @Post('sessions/close')
-  @Permissions('cashier.write')
+  @Permissions('cashier.manage')
   @HttpCode(200)
   closeSession(@CurrentUser() user: AuthUser, @Body() dto: CloseSessionDto) {
     return this.cashier.closeSession(user, dto);
@@ -81,8 +82,9 @@ export class CashierController {
     return this.cashier.createEntry(user, dto);
   }
 
+  // Estorno é sensível (encobre desvio) → só gestão (dono/gerente).
   @Post('entries/:id/reverse')
-  @Permissions('cashier.write')
+  @Permissions('cashier.manage')
   @HttpCode(200)
   reverseEntry(
     @CurrentUser() user: AuthUser,
@@ -99,8 +101,9 @@ export class CashierController {
   }
 
   // --- resumos ---
+  // Resumo por período = base do Histórico do caixa (relatório de gestão).
   @Get('summary')
-  @Permissions('cashier.read')
+  @Permissions('cashier.manage')
   summary(@CurrentUser() user: AuthUser, @Query() query: SummaryQueryDto) {
     return this.cashier.getCashSummary(user, query);
   }

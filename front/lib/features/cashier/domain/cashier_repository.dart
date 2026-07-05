@@ -29,6 +29,8 @@ abstract interface class CashierRepository {
     String? category,
     String? saleKind,
     String? saleId,
+    String? from,
+    String? to,
     int page,
   });
 

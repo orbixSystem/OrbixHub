@@ -405,7 +405,11 @@ export class InventoryService {
       if (!item || item.kind === 'service') return null;
 
       const prevConsumed = await this.repo.sumConsumedByRefItem(args.refItemId);
-      const plan = computeReconcile(prevConsumed, args.targetQty);
+      const plan = computeReconcile(
+        prevConsumed,
+        args.targetQty,
+        args.refType === 'sale' ? 'sale' : 'os',
+      );
       if (!plan) return null; // sem mudança
 
       const prev = toNum(item.current_stock);

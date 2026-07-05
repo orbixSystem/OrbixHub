@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/presentation/cashier_providers.dart';
 import '../../dashboard/domain/dashboard_models.dart';
 import '../../dashboard/presentation/period_controller.dart';
 import '../domain/report_models.dart';
@@ -60,6 +62,8 @@ class ReportFilters {
     this.limit = 10,
     this.osQ,
     this.osSort = OsReportSort.recent,
+    this.saleType,
+    this.salePaymentStatus,
   });
 
   /// Técnico (uuid do membro) — OS operacional.
@@ -80,6 +84,12 @@ class ReportFilters {
   /// Ordenação — OS operacional.
   final OsReportSort osSort;
 
+  /// Tipo (servico/produto) — lente Vendas.
+  final String? saleType;
+
+  /// Status de pagamento (a_receber/parcial/pago) — lente Vendas.
+  final String? salePaymentStatus;
+
   ReportFilters copyWith({
     String? assignedTo,
     bool clearAssignedTo = false,
@@ -91,6 +101,10 @@ class ReportFilters {
     String? osQ,
     bool clearOsQ = false,
     OsReportSort? osSort,
+    String? saleType,
+    bool clearSaleType = false,
+    String? salePaymentStatus,
+    bool clearSalePaymentStatus = false,
   }) =>
       ReportFilters(
         assignedTo: clearAssignedTo ? null : (assignedTo ?? this.assignedTo),
@@ -99,6 +113,10 @@ class ReportFilters {
         limit: limit ?? this.limit,
         osQ: clearOsQ ? null : (osQ ?? this.osQ),
         osSort: osSort ?? this.osSort,
+        saleType: clearSaleType ? null : (saleType ?? this.saleType),
+        salePaymentStatus: clearSalePaymentStatus
+            ? null
+            : (salePaymentStatus ?? this.salePaymentStatus),
       );
 }
 
@@ -130,6 +148,14 @@ class ReportFiltersController extends Notifier<ReportFilters> {
       : state.copyWith(osQ: q.trim());
 
   void setOsSort(OsReportSort sort) => state = state.copyWith(osSort: sort);
+
+  void setSaleType(String? type) => state = (type == null || type.isEmpty)
+      ? state.copyWith(clearSaleType: true)
+      : state.copyWith(saleType: type);
+
+  void setSalePaymentStatus(String? s) => state = (s == null || s.isEmpty)
+      ? state.copyWith(clearSalePaymentStatus: true)
+      : state.copyWith(salePaymentStatus: s);
 }
 
 /// Membros da equipe (para o filtro "técnico"). autoDispose: re-busca ao reentrar.
@@ -283,4 +309,24 @@ final customersReportProvider =
     FutureProvider.autoDispose<CustomersReport>((ref) {
   final range = ref.watch(reportRangeProvider);
   return ref.read(reportRepositoryProvider).customers(range: range);
+});
+
+/// Detalhamento linha-a-linha do faturamento (OS + venda avulsa) no período —
+/// alimenta a seção "Detalhamento" da lente Faturamento. Reage ao período.
+final salesLedgerReportProvider =
+    FutureProvider.autoDispose<SalesLedger>((ref) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(reportRepositoryProvider).salesLedger(range: range);
+});
+
+/// Recebido no caixa por forma de pagamento (entrou/saiu/saldo) no período —
+/// alimenta a lente "Caixa" do Relatório. Vem do módulo Caixa (`/cashier/summary`,
+/// gated por cashier.manage — que o gestor já tem). É "recebido", não faturamento.
+final cashierRecebidoReportProvider =
+    FutureProvider.autoDispose<CashSummary>((ref) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(cashierRepositoryProvider).summary(
+        from: range.fromIso,
+        to: range.toIso,
+      );
 });

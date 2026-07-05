@@ -193,6 +193,33 @@ class OsRepositoryImpl implements OsRepository {
   Future<List<OsTemplate>> listTemplatesFull() => listTemplates();
 
   @override
+  Future<OsTemplatePage> listTemplatesPage({
+    String? query,
+    int page = 1,
+    int pageSize = 20,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/os/templates',
+          queryParameters: {
+            if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+            'page': page,
+            'pageSize': pageSize,
+          },
+        );
+        final map = _asMap(res.data);
+        final raw = map['items'] as List? ?? const [];
+        final items =
+            raw.cast<Map<String, dynamic>>().map(OsTemplate.fromJson).toList();
+        return OsTemplatePage(
+          items: items,
+          total: (map['total'] as num?)?.toInt() ?? items.length,
+          page: (map['page'] as num?)?.toInt() ?? page,
+          pageSize: (map['pageSize'] as num?)?.toInt() ?? pageSize,
+        );
+      });
+
+  @override
   Future<OsTemplate> getTemplate(String id) => _guard(() async {
         final res = await _dio.get<Object?>('/os/templates/$id');
         return OsTemplate.fromJson(_asMap(res.data));
