@@ -1968,6 +1968,18 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
     }
   }
 
+  /// Abre a thread de comentários da foto (staff lê e adiciona).
+  void _openComments(OrderPhoto photo) {
+    showNeuDialog<void>(
+      context,
+      dialog: NeuDialog(
+        title: 'Comentários da foto',
+        maxWidth: 520,
+        child: _PhotoCommentsPanel(orderId: order.id, photo: photo),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final photos = order.photos;
@@ -1998,6 +2010,7 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
                   photo: photos[i],
                   canWrite: widget.canWrite,
                   onRemove: () => _remove(photos[i]),
+                  onTap: () => _openComments(photos[i]),
                 ),
               ),
             ),
@@ -2010,55 +2023,43 @@ class _PhotoThumb extends StatelessWidget {
     required this.photo,
     required this.canWrite,
     required this.onRemove,
+    required this.onTap,
   });
 
   final OrderPhoto photo;
   final bool canWrite;
   final VoidCallback onRemove;
 
+  /// Toque na miniatura abre a thread de comentários da foto.
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            photo.url,
+        GestureDetector(
+          onTap: onTap,
+          child: NeuNetworkImage(
+            url: photo.url,
             width: 96,
             height: 96,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                width: 96,
-                height: 96,
-                color: scheme.surfaceContainerHighest,
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            },
-            errorBuilder: (_, _, _) => Container(
-              width: 96,
-              height: 96,
-              color: scheme.surfaceContainerHighest,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image_outlined,
-                      size: 22, color: scheme.onSurfaceVariant),
-                  const SizedBox(height: 4),
-                  Text(
-                    'indisponível',
-                    style: TextStyle(
-                        fontSize: 10, color: scheme.onSurfaceVariant),
-                  ),
-                ],
+            radius: 12,
+          ),
+        ),
+        // Selo de comentários: abre a thread ao tocar.
+        Positioned(
+          bottom: 2,
+          left: 2,
+          child: Material(
+            color: Colors.black54,
+            shape: const StadiumBorder(),
+            child: InkWell(
+              customBorder: const StadiumBorder(),
+              onTap: onTap,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                child: Icon(Icons.mode_comment_outlined,
+                    size: 13, color: Colors.white),
               ),
             ),
           ),
@@ -2081,6 +2082,233 @@ class _PhotoThumb extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Formata um ISO-8601 para "dd/MM HH:mm" (pt-BR); vazio se não parsear.
+String _fmtCommentDate(String? iso) {
+  if (iso == null) return '';
+  final dt = DateTime.tryParse(iso)?.toLocal();
+  if (dt == null) return '';
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(dt.day)}/${two(dt.month)} ${two(dt.hour)}:${two(dt.minute)}';
+}
+
+/// Painel da thread de comentários de uma foto da OS (lado staff): preview da
+/// foto, lista de comentários (equipe/cliente + data) e campo para adicionar.
+/// Carrega via [OsRepository.listPhotoComments]; adiciona via
+/// [OsRepository.addPhotoComment].
+class _PhotoCommentsPanel extends ConsumerStatefulWidget {
+  const _PhotoCommentsPanel({required this.orderId, required this.photo});
+
+  final String orderId;
+  final OrderPhoto photo;
+
+  @override
+  ConsumerState<_PhotoCommentsPanel> createState() =>
+      _PhotoCommentsPanelState();
+}
+
+class _PhotoCommentsPanelState extends ConsumerState<_PhotoCommentsPanel> {
+  final _input = TextEditingController();
+  late Future<List<PhotoComment>> _future;
+  List<PhotoComment> _comments = const [];
+  bool _loaded = false;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<PhotoComment>> _load() async {
+    final list = await ref
+        .read(osRepositoryProvider)
+        .listPhotoComments(widget.orderId, widget.photo.id);
+    _comments = list;
+    _loaded = true;
+    return list;
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final body = _input.text.trim();
+    if (body.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final created = await ref
+          .read(osRepositoryProvider)
+          .addPhotoComment(widget.orderId, widget.photo.id, body);
+      _input.clear();
+      setState(() => _comments = [..._comments, created]);
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          child: NeuNetworkImage(
+            url: widget.photo.url,
+            width: 220,
+            height: 160,
+            radius: 12,
+          ),
+        ),
+        const SizedBox(height: 18),
+        FutureBuilder<List<PhotoComment>>(
+          future: _future,
+          builder: (context, snap) {
+            if (!_loaded &&
+                snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (!_loaded && snap.hasError) {
+              final e = snap.error;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  e is AppException
+                      ? e.message
+                      : 'Erro ao carregar comentários.',
+                  style: TextStyle(color: neu.inkMuted),
+                ),
+              );
+            }
+            if (_comments.isEmpty) {
+              return _InlineEmpty(
+                icon: Icons.mode_comment_outlined,
+                text: 'Nenhum comentário ainda.',
+                hint: 'Escreva o primeiro comentário sobre esta foto.',
+              );
+            }
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _comments.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => _CommentTile(comment: _comments[i]),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: NeuSurface(
+                elevation: NeuElevation.inset,
+                radius: NeuTokens.rField,
+                child: TextField(
+                  controller: _input,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  style: TextStyle(color: neu.ink, fontSize: 14.5),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Adicionar comentário…',
+                    hintStyle: TextStyle(color: neu.inkFaint),
+                    border: InputBorder.none,
+                    filled: false,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 13,
+                    ),
+                  ),
+                  onSubmitted: (_) => _add(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            NeuIconButton(
+              icon: Icons.send_rounded,
+              tooltip: 'Enviar comentário',
+              color: neu.navy,
+              onPressed: _sending ? null : _add,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Cartão de um comentário: autor (Equipe/cliente) + data + texto.
+class _CommentTile extends StatelessWidget {
+  const _CommentTile({required this.comment});
+  final PhotoComment comment;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final isStaff = comment.authorKind == 'staff';
+    final who = (comment.authorName?.trim().isNotEmpty ?? false)
+        ? comment.authorName!.trim()
+        : (isStaff ? 'Equipe' : 'Cliente');
+    final date = _fmtCommentDate(comment.createdAt);
+    final accent = isStaff ? neu.navy : neu.inkMuted;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isStaff ? Icons.engineering_outlined : Icons.person_outline,
+                size: 15,
+                color: accent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                who,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              if (date.isNotEmpty)
+                Text(
+                  date,
+                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            comment.body,
+            style: TextStyle(color: neu.ink, fontSize: 14, height: 1.35),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1686,7 +1686,8 @@ $PublicCompanyCopyWith<$Res> get company {
 /// @nodoc
 mixin _$PublicMessage {
 
- String get sender; String? get authorName; String get body; String? get createdAt;/// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
+/// Id da mensagem no servidor — usado para responder (citar) via `replyToId`.
+ String? get id; String get sender; String? get authorName; String get body; String? get createdAt;/// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
  String? get readAt;/// Citação (estilo WhatsApp): mensagem respondida + foto da OS citada.
 @JsonKey(name: 'replyTo') PublicQuote? get replyTo;@JsonKey(name: 'photoUrl') String? get photoUrl;
 /// Create a copy of PublicMessage
@@ -1701,16 +1702,16 @@ $PublicMessageCopyWith<PublicMessage> get copyWith => _$PublicMessageCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
+  return 'PublicMessage(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
 }
 
 
@@ -1721,7 +1722,7 @@ abstract mixin class $PublicMessageCopyWith<$Res>  {
   factory $PublicMessageCopyWith(PublicMessage value, $Res Function(PublicMessage) _then) = _$PublicMessageCopyWithImpl;
 @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
+ String? id, String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
 });
 
 
@@ -1738,9 +1739,10 @@ class _$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
   return _then(_self.copyWith(
-sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
@@ -1844,10 +1846,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? id,  String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   return orElse();
 
 }
@@ -1865,10 +1867,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? id,  String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage():
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1885,10 +1887,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? id,  String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   return null;
 
 }
@@ -1900,9 +1902,11 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 @JsonSerializable()
 
 class _PublicMessage implements PublicMessage {
-  const _PublicMessage({this.sender = 'staff', this.authorName, this.body = '', this.createdAt, this.readAt, @JsonKey(name: 'replyTo') this.replyTo, @JsonKey(name: 'photoUrl') this.photoUrl});
+  const _PublicMessage({this.id, this.sender = 'staff', this.authorName, this.body = '', this.createdAt, this.readAt, @JsonKey(name: 'replyTo') this.replyTo, @JsonKey(name: 'photoUrl') this.photoUrl});
   factory _PublicMessage.fromJson(Map<String, dynamic> json) => _$PublicMessageFromJson(json);
 
+/// Id da mensagem no servidor — usado para responder (citar) via `replyToId`.
+@override final  String? id;
 @override@JsonKey() final  String sender;
 @override final  String? authorName;
 @override@JsonKey() final  String body;
@@ -1926,16 +1930,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
+  return 'PublicMessage(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
 }
 
 
@@ -1946,7 +1950,7 @@ abstract mixin class _$PublicMessageCopyWith<$Res> implements $PublicMessageCopy
   factory _$PublicMessageCopyWith(_PublicMessage value, $Res Function(_PublicMessage) _then) = __$PublicMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
+ String? id, String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
 });
 
 
@@ -1963,9 +1967,10 @@ class __$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
   return _then(_PublicMessage(
-sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable

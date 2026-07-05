@@ -54,6 +54,10 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   Timer? _poll;
   final RealtimeChat _rt = RealtimeChat();
 
+  /// Mensagem que o cliente está respondendo (citação estilo WhatsApp).
+  /// `null` = sem citação. Definida por long-press numa bolha.
+  PublicMessage? _replyTarget;
+
   @override
   void initState() {
     super.initState();
@@ -143,17 +147,30 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     }
   }
 
-  Future<void> _send() async {
-    final body = _msgController.text.trim();
+  Future<void> _send({String? photoId}) async {
+    var body = _msgController.text.trim();
+    // Ao citar uma foto sem escrever nada, o backend ainda exige um corpo
+    // (mín. 1 caractere) — usamos um rótulo curto e claro.
+    if (photoId != null && body.isEmpty) body = 'Foto';
     if (body.isEmpty || _sending) return;
+    // Captura a citação antes de limpar (evita corrida com o setState final).
+    final replyToId = _replyTarget?.id;
     setState(() => _sending = true);
     try {
       // Sem nome: o backend credita a mensagem ao nome do cliente da OS.
-      await _repo.sendMessage(widget.token, body);
+      await _repo.sendMessage(
+        widget.token,
+        body,
+        replyToId: replyToId,
+        photoId: photoId,
+      );
       _msgController.clear();
       final fresh = await _repo.messages(widget.token);
       if (!mounted) return;
-      setState(() => _messages = fresh);
+      setState(() {
+        _messages = fresh;
+        _replyTarget = null;
+      });
       _scrollChatToBottom(force: true);
     } on AppException catch (e) {
       if (!mounted) return;
@@ -163,6 +180,79 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Inicia uma citação (responder) a partir de uma bolha (long-press).
+  void _startReply(PublicMessage m) {
+    setState(() => _replyTarget = m);
+  }
+
+  /// Rótulo do autor sob a ótica do cliente: as próprias mensagens são "Você",
+  /// as da oficina são "Oficina" (ou o nome informado pela oficina).
+  String _senderLabel(String sender, String? name) {
+    if (sender == 'customer') {
+      return (name == null || name.isEmpty) ? 'Você' : name;
+    }
+    return (name == null || name.isEmpty) ? 'Oficina' : name;
+  }
+
+  /// Folha (bottom sheet) para o cliente citar uma foto da OS no chat. Só lista
+  /// fotos com `id` (a url é resolvida no servidor pelo id — nunca confiamos na
+  /// url do cliente).
+  void _showPhotoPicker(List<PublicPhoto> photos) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _neu.surface,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(NeuTokens.rPanel)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enviar foto da ordem',
+                style: TextStyle(
+                  color: _neu.ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Toque numa foto para enviá-la na conversa com a oficina.',
+                style: TextStyle(color: _neu.inkMuted, fontSize: 13.5, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final p in photos)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(NeuTokens.rCard),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _send(photoId: p.id);
+                      },
+                      child: NeuNetworkImage(
+                        url: p.url,
+                        width: 96,
+                        height: 96,
+                        radius: NeuTokens.rCard,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Tokens do design system: esta página força tema claro (lavanda/navy) para
@@ -617,39 +707,54 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       icon: Icons.photo_library_outlined,
       color: _neu.glyphs[3],
       title: 'Fotos',
-      child: _gallery(photos),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < photos.length; i++) ...[
+            if (i > 0) ...[
+              const SizedBox(height: 20),
+              Divider(color: _neu.line, height: 1),
+              const SizedBox(height: 20),
+            ],
+            _photoItem(photos, i),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _gallery(List<PublicPhoto> photos) {
-    return SizedBox(
-      height: 124,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: photos.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final p = photos[i];
-          return GestureDetector(
-            onTap: () => _openPhotoViewer(photos, i),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(NeuTokens.rCard),
-              child: Image.network(
-                p.url,
-                width: 162,
-                height: 124,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 162,
-                  height: 124,
-                  color: _neu.base,
-                  child: Icon(Icons.broken_image, color: _neu.inkFaint),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+  Widget _photoItem(List<PublicPhoto> photos, int i) {
+    final p = photos[i];
+    final hasId = p.id != null && p.id!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: () => _openPhotoViewer(photos, i),
+          child: NeuNetworkImage(
+            url: p.url,
+            height: 210,
+            radius: NeuTokens.rCard,
+          ),
+        ),
+        if (p.caption != null && p.caption!.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            p.caption!.trim(),
+            style: TextStyle(color: _neu.inkMuted, fontSize: 13.5, height: 1.4),
+          ),
+        ],
+        if (hasId) ...[
+          const SizedBox(height: 14),
+          _PhotoCommentsSection(
+            repo: _repo,
+            token: widget.token,
+            photoId: p.id!,
+            senderLabel: _senderLabel,
+            relativeTime: _relative,
+          ),
+        ],
+      ],
     );
   }
 
@@ -755,53 +860,192 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   }
 
   Widget _composer() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    // Fotos citáveis: só as que têm id (a url é resolvida no servidor pelo id).
+    final citablePhotos = (_track?.photos ?? const <PublicPhoto>[])
+        .where((p) => p.id != null && p.id!.isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: NeuSurface(
-            elevation: NeuElevation.inset,
-            radius: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _msgController,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(),
-              style: TextStyle(fontSize: 14.5, color: _neu.ink),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                hintText: 'Escreva uma mensagem...',
-                hintStyle: TextStyle(color: _neu.inkFaint, fontSize: 14.5),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        if (_replyTarget != null) ...[
+          _replyPreviewBar(_replyTarget!),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (citablePhotos.isNotEmpty) ...[
+              _roundButton(
+                icon: Icons.add_photo_alternate_outlined,
+                bg: _neu.surfaceHi,
+                fg: _neu.navy,
+                tooltip: 'Enviar foto da ordem',
+                onTap: _sending ? null : () => _showPhotoPicker(citablePhotos),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: NeuSurface(
+                elevation: NeuElevation.inset,
+                radius: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _msgController,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  style: TextStyle(fontSize: 14.5, color: _neu.ink),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    hintText: 'Escreva uma mensagem...',
+                    hintStyle: TextStyle(color: _neu.inkFaint, fontSize: 14.5),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Material(
-          color: _neu.navy,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: _sending ? null : _send,
-            child: Padding(
-              padding: const EdgeInsets.all(13),
-              child: _sending
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: _neu.onNavy),
-                    )
-                  : Icon(Icons.send_rounded, size: 20, color: _neu.onNavy),
+            const SizedBox(width: 10),
+            _roundButton(
+              icon: Icons.send_rounded,
+              bg: _neu.navy,
+              fg: _neu.onNavy,
+              tooltip: 'Enviar',
+              loading: _sending,
+              onTap: _sending ? null : () => _send(),
             ),
-          ),
+          ],
         ),
       ],
+    );
+  }
+
+  /// Botão circular do composer (foto / enviar). Alvo de toque ≥ 46px.
+  Widget _roundButton({
+    required IconData icon,
+    required Color bg,
+    required Color fg,
+    required String tooltip,
+    required VoidCallback? onTap,
+    bool loading = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: bg,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: loading
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+                  )
+                : Icon(icon, size: 20, color: fg),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Barra de citação acima do composer: barra colorida + autor + trecho + X.
+  Widget _replyPreviewBar(PublicMessage m) {
+    final label = _senderLabel(m.sender, m.authorName);
+    final hasBody = m.body.trim().isNotEmpty;
+    final snippet = hasBody
+        ? m.body.trim()
+        : (m.photoUrl != null && m.photoUrl!.isNotEmpty ? 'Foto' : '');
+    return Container(
+      decoration: BoxDecoration(
+        color: _neu.surfaceHi,
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+        border: Border(left: BorderSide(color: _neu.navy, width: 4)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      child: Row(
+        children: [
+          Icon(Icons.reply_rounded, size: 18, color: _neu.navy),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Respondendo a $label',
+                  style: TextStyle(
+                    color: _neu.navy,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (snippet.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    snippet,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _neu.inkMuted, fontSize: 13),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close_rounded, size: 20, color: _neu.inkMuted),
+            tooltip: 'Cancelar resposta',
+            onPressed: () => setState(() => _replyTarget = null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bloco de citação DENTRO da bolha (mostra a mensagem respondida).
+  Widget _quoteBlock(PublicQuote q, {required bool onNavyBg}) {
+    final label = _senderLabel(q.sender, q.authorName);
+    final barColor = onNavyBg ? _neu.onNavy : _neu.navy;
+    final panelBg =
+        onNavyBg ? Colors.white.withValues(alpha: .16) : _neu.base;
+    final titleColor = onNavyBg ? _neu.onNavy : _neu.navy;
+    final bodyColor = onNavyBg ? _neu.onNavyMuted : _neu.inkMuted;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+      decoration: BoxDecoration(
+        color: panelBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: barColor, width: 3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: titleColor,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (q.body.trim().isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              q.body.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: bodyColor, fontSize: 12.5, height: 1.3),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -811,13 +1055,9 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         isCustomer ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final bg = isCustomer ? _neu.navy : _neu.surfaceHi;
     final fg = isCustomer ? _neu.onNavy : _neu.ink;
-    final author = isCustomer
-        ? (m.authorName == null || m.authorName!.isEmpty
-            ? 'Você'
-            : m.authorName!)
-        : (m.authorName == null || m.authorName!.isEmpty
-            ? 'Oficina'
-            : m.authorName!);
+    final author = _senderLabel(m.sender, m.authorName);
+    final hasPhoto = m.photoUrl != null && m.photoUrl!.isNotEmpty;
+    final hasBody = m.body.trim().isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -835,21 +1075,49 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 320),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(14),
-                topRight: const Radius.circular(14),
-                bottomLeft: Radius.circular(isCustomer ? 14 : 4),
-                bottomRight: Radius.circular(isCustomer ? 4 : 14),
+          // Long-press = responder (citar) esta mensagem, estilo WhatsApp.
+          GestureDetector(
+            onLongPress: () => _startReply(m),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(14),
+                  topRight: const Radius.circular(14),
+                  bottomLeft: Radius.circular(isCustomer ? 14 : 4),
+                  bottomRight: Radius.circular(isCustomer ? 4 : 14),
+                ),
               ),
-            ),
-            child: Text(
-              m.body,
-              style: TextStyle(color: fg, fontSize: 14.5, height: 1.35),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (m.replyTo != null)
+                    _quoteBlock(m.replyTo!, onNavyBg: isCustomer),
+                  if (hasPhoto) ...[
+                    GestureDetector(
+                      onTap: () => _openPhotoViewer(
+                        [PublicPhoto(url: m.photoUrl!)],
+                        0,
+                      ),
+                      child: NeuNetworkImage(
+                        url: m.photoUrl,
+                        width: 210,
+                        height: 158,
+                        radius: 10,
+                      ),
+                    ),
+                    if (hasBody) const SizedBox(height: 8),
+                  ],
+                  if (hasBody)
+                    Text(
+                      m.body,
+                      style: TextStyle(color: fg, fontSize: 14.5, height: 1.35),
+                    ),
+                ],
+              ),
             ),
           ),
           if (m.createdAt != null && m.createdAt!.isNotEmpty) ...[
@@ -1159,6 +1427,250 @@ class _TimelineRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Thread de comentários de UMA foto da OS (lado cliente). Carrega os
+/// comentários existentes e permite ao cliente comentar. Fica sob o tema claro
+/// fixo da página pública, então lê os tokens via `context.neu`.
+class _PhotoCommentsSection extends StatefulWidget {
+  const _PhotoCommentsSection({
+    required this.repo,
+    required this.token,
+    required this.photoId,
+    required this.senderLabel,
+    required this.relativeTime,
+  });
+
+  final TrackingRepository repo;
+  final String token;
+  final String photoId;
+
+  /// Reaproveita a lógica de rótulo/tempo da tela para manter consistência.
+  final String Function(String sender, String? name) senderLabel;
+  final String Function(String? iso) relativeTime;
+
+  @override
+  State<_PhotoCommentsSection> createState() => _PhotoCommentsSectionState();
+}
+
+class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
+  late Future<List<PublicPhotoComment>> _future = _fetch();
+  final _controller = TextEditingController();
+  bool _sending = false;
+
+  Future<List<PublicPhotoComment>> _fetch() =>
+      widget.repo.photoComments(widget.token, widget.photoId);
+
+  void _reload() => setState(() => _future = _fetch());
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final body = _controller.text.trim();
+    if (body.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await widget.repo.addPhotoComment(widget.token, widget.photoId, body);
+      _controller.clear();
+      _reload();
+    } on AppException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.mode_comment_outlined, size: 15, color: neu.inkMuted),
+            const SizedBox(width: 6),
+            Text(
+              'Comentários',
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        FutureBuilder<List<PublicPhotoComment>>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: neu.inkFaint,
+                    ),
+                  ),
+                ),
+              );
+            }
+            if (snap.hasError) {
+              return _hint(neu, 'Não foi possível carregar os comentários.');
+            }
+            final comments = snap.data ?? const <PublicPhotoComment>[];
+            if (comments.isEmpty) {
+              return _hint(neu, 'Ainda sem comentários nesta foto.');
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final c in comments) _commentRow(neu, c),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        _commentComposer(neu),
+      ],
+    );
+  }
+
+  Widget _hint(NeuTokens neu, String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Text(
+          text,
+          style: TextStyle(color: neu.inkFaint, fontSize: 13, height: 1.35),
+        ),
+      );
+
+  Widget _commentRow(NeuTokens neu, PublicPhotoComment c) {
+    final isCustomer = c.authorKind == 'customer';
+    final author = widget.senderLabel(
+      isCustomer ? 'customer' : 'staff',
+      c.authorName,
+    );
+    final when = widget.relativeTime(c.createdAt);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: (isCustomer ? neu.navy : neu.accent).withValues(alpha: .16),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isCustomer ? Icons.person_outline : Icons.storefront_outlined,
+              size: 16,
+              color: isCustomer ? neu.navy : neu.accent,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      author,
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (when.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        when,
+                        style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  c.body,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _commentComposer(NeuTokens neu) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: TextField(
+              controller: _controller,
+              minLines: 1,
+              maxLines: 3,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _add(),
+              style: TextStyle(fontSize: 13.5, color: neu.ink),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                hintText: 'Comentar esta foto...',
+                hintStyle: TextStyle(color: neu.inkFaint, fontSize: 13.5),
+                contentPadding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Material(
+          color: neu.navy,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _sending ? null : _add,
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: _sending
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: neu.onNavy,
+                      ),
+                    )
+                  : Icon(Icons.send_rounded, size: 18, color: neu.onNavy),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

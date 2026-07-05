@@ -96,6 +96,8 @@ abstract class PublicTrack with _$PublicTrack {
 @freezed
 abstract class PublicMessage with _$PublicMessage {
   const factory PublicMessage({
+    /// Id da mensagem no servidor — usado para responder (citar) via `replyToId`.
+    String? id,
     @Default('staff') String sender,
     String? authorName,
     @Default('') String body,

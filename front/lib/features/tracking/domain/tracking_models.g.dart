@@ -116,6 +116,7 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
 
 _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>
     _PublicMessage(
+      id: json['id'] as String?,
       sender: json['sender'] as String? ?? 'staff',
       authorName: json['authorName'] as String?,
       body: json['body'] as String? ?? '',
@@ -129,6 +130,7 @@ _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
     <String, dynamic>{
+      'id': instance.id,
       'sender': instance.sender,
       'authorName': instance.authorName,
       'body': instance.body,

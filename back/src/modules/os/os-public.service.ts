@@ -192,6 +192,8 @@ export class OsPublicService {
     // Shape mantido como ARRAY (compat com o app público atual). O cliente
     // infere "há mais antigas" quando a página vem cheia (length == 50).
     return messages.map((m) => ({
+      // id exposto p/ o cliente poder responder (citar) uma mensagem.
+      id: m.id,
       sender: m.sender,
       authorName: m.author_name,
       body: m.body,
@@ -257,6 +259,7 @@ export class OsPublicService {
       { replyToId: dto.replyToId, photoId, photoUrl },
     );
     return {
+      id: message.id,
       sender: message.sender,
       authorName: message.author_name,
       body: message.body,
