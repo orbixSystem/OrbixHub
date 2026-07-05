@@ -486,6 +486,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               Expanded(
                 child: Text(
                   company.name.isEmpty ? 'Oficina' : company.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: (tt.titleLarge ?? const TextStyle()).copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -516,6 +518,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             const SizedBox(height: 6),
             Text(
               t.subjectLabel!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: onNavyMuted, fontSize: 14),
             ),
           ],
@@ -528,6 +532,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                 Flexible(
                   child: Text(
                     'Responsável: ${t.responsibleName!}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: onNavyMuted, fontSize: 13.5),
                   ),
                 ),
@@ -1098,6 +1104,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               children: [
                 Text(
                   'Respondendo a $label',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _neu.navy,
                     fontSize: 12,
@@ -1148,6 +1156,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         children: [
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: titleColor,
               fontSize: 11.5,
@@ -1186,6 +1196,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               author,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: _neu.inkMuted,
                 fontSize: 11.5,
@@ -1718,12 +1730,16 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      author,
-                      style: TextStyle(
-                        color: neu.ink,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
+                    Flexible(
+                      child: Text(
+                        author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: neu.ink,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     if (when.isNotEmpty) ...[

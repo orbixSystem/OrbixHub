@@ -183,6 +183,8 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
         children: [
           Text(
             widget.item.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               color: neu.inkMuted,

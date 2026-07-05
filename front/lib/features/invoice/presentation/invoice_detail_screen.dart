@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
@@ -530,19 +531,26 @@ class _TotalRow extends StatelessWidget {
 
 // ===================== Documentos (PDF/XML) =====================
 
-/// Não há `url_launcher` no projeto: copiamos o link para a área de
-/// transferência com um SnackBar. Se um dia entrar o pacote, trocar por
-/// `launchUrl`.
+/// Abre o PDF/XML da nota no navegador/app externo (url_launcher). Se falhar
+/// (URL inválida/sem app), avisa e copia o link como fallback.
 class _DocumentsSection extends StatelessWidget {
   const _DocumentsSection({required this.invoice});
 
   final Invoice invoice;
 
-  Future<void> _copy(BuildContext context, String url) async {
+  Future<void> _open(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    var ok = false;
+    if (uri != null) {
+      ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    if (ok || !context.mounted) return;
+    // Fallback: copia o link se não deu para abrir.
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Link copiado')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir. Link copiado.')),
+    );
   }
 
   @override
@@ -562,16 +570,16 @@ class _DocumentsSection extends StatelessWidget {
               children: [
                 if ((pdf ?? '').isNotEmpty)
                   NeuButton(
-                    label: 'Baixar PDF',
+                    label: 'Abrir PDF',
                     icon: Icons.picture_as_pdf_outlined,
-                    onPressed: () => _copy(context, pdf!),
+                    onPressed: () => _open(context, pdf!),
                   ),
                 if ((xml ?? '').isNotEmpty)
                   NeuButton(
-                    label: 'Baixar XML',
+                    label: 'Abrir XML',
                     icon: Icons.code_rounded,
                     kind: NeuButtonKind.secondary,
-                    onPressed: () => _copy(context, xml!),
+                    onPressed: () => _open(context, xml!),
                   ),
               ],
             )

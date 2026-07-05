@@ -12,6 +12,7 @@ import '../domain/customers_models.dart';
 import 'brand_logo.dart';
 import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
+import 'os_report_dialog.dart';
 import 'subject_form_dialog.dart';
 
 const _maxContentWidth = 940.0;
@@ -331,17 +332,27 @@ class _InlineFact extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 15)),
-        ],
+      // Limita a largura de cada fato para valores longos (e-mail/endereço)
+      // truncarem com reticências em vez de estourar o Wrap na horizontal.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15)),
+          ],
+        ),
       ),
     );
   }
@@ -1047,6 +1058,82 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Entradas de OS são clicáveis e abrem o relatório detalhado da OS.
+    final isOs = entry.kind == 'os';
+
+    final cardInner = Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (entry.subjectLabel?.isNotEmpty == true)
+                      entry.subjectLabel!,
+                    entry.kind,
+                    entry.occurredAt,
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: scheme.onSurfaceVariant, fontSize: 13),
+                ),
+                if (isOs) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.description_outlined,
+                          size: 15, color: scheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ver detalhes',
+                        style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _Pill(icon: Icons.flag_outlined, text: entry.status),
+          if (isOs) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          ],
+        ],
+      ),
+    );
+
+    final decoration = BoxDecoration(
+      color: scheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: scheme.outlineVariant),
+    );
+
+    final Widget card = isOs
+        ? Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => showOsReportDialog(context, entry.id),
+              child: Ink(decoration: decoration, child: cardInner),
+            ),
+          )
+        : Container(decoration: decoration, child: cardInner);
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1081,39 +1168,7 @@ class _TimelineItem extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.title,
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 2),
-                          Text(
-                            [
-                              if (entry.subjectLabel?.isNotEmpty == true)
-                                entry.subjectLabel!,
-                              entry.kind,
-                              entry.occurredAt,
-                            ].join(' · '),
-                            style: TextStyle(
-                                color: scheme.onSurfaceVariant, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _Pill(icon: Icons.flag_outlined, text: entry.status),
-                  ],
-                ),
-              ),
+              child: card,
             ),
           ),
         ],

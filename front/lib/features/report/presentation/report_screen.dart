@@ -104,16 +104,17 @@ class ReportScreen extends ConsumerWidget {
           );
         }
 
-        // Mobile/estreito: tudo empilhado num scroll só (picker no topo).
+        // Mobile/estreito: navegação COMPACTA (chips roláveis no topo, 1 linha)
+        // + conteúdo. Nada de card-picker gigante ocupando meia tela.
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               header,
-              const SizedBox(height: 20),
-              picker,
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              _ReportChipsBar(reports: reports, selected: spec.kind),
+              const SizedBox(height: 16),
               content,
             ],
           ),
@@ -226,6 +227,78 @@ class _PickerItem extends StatelessWidget {
   }
 }
 
+/// Navegação compacta de relatório no MOBILE: uma linha rolável na horizontal de
+/// "pílulas". O relatório selecionado fica em navy; os demais como superfície
+/// extrudada. Substitui o card-picker grande (que ocupava meia tela no topo).
+class _ReportChipsBar extends ConsumerWidget {
+  const _ReportChipsBar({required this.reports, required this.selected});
+
+  final List<ReportSpec> reports;
+  final ReportKind selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        physics: const BouncingScrollPhysics(),
+        itemCount: reports.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final r = reports[i];
+          return _ReportChip(
+            label: r.label,
+            selected: r.kind == selected,
+            onTap: () =>
+                ref.read(selectedReportProvider.notifier).select(r.kind),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReportChip extends StatelessWidget {
+  const _ReportChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: selected ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: selected ? neu.navy : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: selected ? null : neu.raised(),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: selected ? neu.onNavy : neu.inkMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Corpo do relatório selecionado: filtros + export + tabela/gráfico.
 class _ReportContent extends ConsumerWidget {
   const _ReportContent({required this.me, required this.spec});
@@ -258,6 +331,64 @@ class _FiltersBar extends ConsumerWidget {
     final usesPeriod = kind != ReportKind.inventoryPosition;
     final filters = ref.watch(reportFiltersProvider);
 
+    final member = _MemberFilter(
+      value: filters.assignedTo,
+      onChanged: (v) =>
+          ref.read(reportFiltersProvider.notifier).setAssignedTo(v),
+    );
+    final status = _StatusFilter(
+      value: filters.status,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setStatus(v),
+    );
+    final kindFilter = _KindFilter(
+      value: filters.kind,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setKind(v),
+    );
+    final limitFilter = _LimitFilter(
+      value: filters.limit,
+      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setLimit(v),
+    );
+
+    // Mobile: layout enxuto — presets em chips (PeriodSelector) e os campos
+    // pareados em 2 colunas, sem itens soltos empilhados com muito respiro.
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (usesPeriod) const PeriodSelector(),
+          if (kind == ReportKind.osOperational) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: member),
+                const SizedBox(width: 12),
+                Expanded(child: status),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(child: _OsSearchField()),
+                const SizedBox(width: 12),
+                const _OsSortMenu(),
+              ],
+            ),
+          ],
+          if (kind == ReportKind.topItems) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: kindFilter),
+                const SizedBox(width: 12),
+                Expanded(child: limitFilter),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
     return Wrap(
       spacing: 16,
       runSpacing: 12,
@@ -265,30 +396,14 @@ class _FiltersBar extends ConsumerWidget {
       children: [
         if (usesPeriod) const PeriodSelector(),
         if (kind == ReportKind.osOperational) ...[
-          _MemberFilter(
-            value: filters.assignedTo,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setAssignedTo(v),
-          ),
-          _StatusFilter(
-            value: filters.status,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setStatus(v),
-          ),
+          member,
+          status,
           const _OsSearchField(),
           const _OsSortMenu(),
         ],
         if (kind == ReportKind.topItems) ...[
-          _KindFilter(
-            value: filters.kind,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setKind(v),
-          ),
-          _LimitFilter(
-            value: filters.limit,
-            onChanged: (v) =>
-                ref.read(reportFiltersProvider.notifier).setLimit(v),
-          ),
+          kindFilter,
+          limitFilter,
         ],
       ],
     );
@@ -1277,6 +1392,30 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      final busy = _csvBusy || _pdfBusy;
+      return NeuButton(
+        label: 'Exportar',
+        icon: Icons.file_download_outlined,
+        loading: busy,
+        onPressed: busy
+            ? null
+            : () => _showExportSheet(
+                  context,
+                  options: [
+                    _ExportOption(
+                        label: 'Exportar CSV',
+                        icon: Icons.table_view_outlined,
+                        onTap: _csv),
+                    _ExportOption(
+                        label: 'Exportar PDF',
+                        icon: Icons.picture_as_pdf_outlined,
+                        onTap: _pdf),
+                  ],
+                ),
+      );
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1560,6 +1699,8 @@ class _MobileTableCards extends StatelessWidget {
           children: [
             Text(
               row.isNotEmpty ? row.first : '',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
             ),
             const SizedBox(height: 8),
@@ -1578,10 +1719,15 @@ class _MobileTableCards extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        row[c],
-                        style: TextStyle(
-                            color: neu.ink, fontWeight: FontWeight.w600),
+                      Flexible(
+                        child: Text(
+                          row[c],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                              color: neu.ink, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
@@ -1602,7 +1748,83 @@ class _MobileTableCards extends StatelessWidget {
   }
 }
 
-/// Botões "Exportar CSV" (baixa via browser) e "Exportar PDF" (Printing).
+/// Uma opção do menu de export (bottom sheet do mobile).
+class _ExportOption {
+  const _ExportOption({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+}
+
+/// Bottom sheet padrão do app (mesma "pega" e cantos do menu do shell) com as
+/// opções de export. Usado no mobile para não empilhar 3 botões grandes.
+void _showExportSheet(
+  BuildContext context, {
+  required List<_ExportOption> options,
+}) {
+  final neu = context.neu;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: neu.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: neu.inkFaint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 10),
+              child: Text(
+                'Exportar relatório',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final o in options)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: NeuListTile(
+                  leading: Icon(o.icon, color: neu.inkMuted, size: 22),
+                  title: Text(o.label),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    o.onTap();
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Export do relatório: CSV (browser), Excel e PDF (Printing). No desktop são 3
+/// botões; no mobile viram um único "Exportar" que abre um bottom sheet com as
+/// 3 opções (economiza espaço vertical).
 class _ExportButtons extends StatelessWidget {
   const _ExportButtons({
     required this.table,
@@ -1614,8 +1836,50 @@ class _ExportButtons extends StatelessWidget {
   final ReportCompany? company;
   final String? period;
 
+  void _csv() => downloadText(
+      buildCsv(table), csvFileName(table.title), 'text/csv;charset=utf-8');
+
+  void _excel() => downloadBytes(
+        buildXlsx(table, company: company?.name, period: period),
+        xlsxFileName(table.title),
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+
+  void _pdf() => Printing.layoutPdf(
+        onLayout: (format) => buildReportPdf(
+          table,
+          format,
+          company: company,
+          periodLabel: period,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return NeuButton(
+        label: 'Exportar',
+        icon: Icons.file_download_outlined,
+        onPressed: () => _showExportSheet(
+          context,
+          options: [
+            _ExportOption(
+                label: 'Exportar CSV',
+                icon: Icons.table_view_outlined,
+                onTap: _csv),
+            _ExportOption(
+                label: 'Exportar Excel',
+                icon: Icons.grid_on_outlined,
+                onTap: _excel),
+            _ExportOption(
+                label: 'Exportar PDF',
+                icon: Icons.picture_as_pdf_outlined,
+                onTap: _pdf),
+          ],
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1624,35 +1888,18 @@ class _ExportButtons extends StatelessWidget {
           label: 'Exportar CSV',
           kind: NeuButtonKind.secondary,
           icon: Icons.table_view_outlined,
-          onPressed: () => downloadText(
-              buildCsv(table), csvFileName(table.title),
-              'text/csv;charset=utf-8'),
+          onPressed: _csv,
         ),
         NeuButton(
           label: 'Exportar Excel',
           kind: NeuButtonKind.secondary,
           icon: Icons.grid_on_outlined,
-          onPressed: () => downloadBytes(
-            buildXlsx(
-              table,
-              company: company?.name,
-              period: period,
-            ),
-            xlsxFileName(table.title),
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          ),
+          onPressed: _excel,
         ),
         NeuButton(
           label: 'Exportar PDF',
           icon: Icons.picture_as_pdf_outlined,
-          onPressed: () => Printing.layoutPdf(
-            onLayout: (format) => buildReportPdf(
-              table,
-              format,
-              company: company,
-              periodLabel: period,
-            ),
-          ),
+          onPressed: _pdf,
         ),
       ],
     );
@@ -2110,6 +2357,8 @@ class _OsRowTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: neu.inkMuted, fontSize: 13)),
               ],
             ),

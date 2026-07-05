@@ -465,6 +465,8 @@ class _BubbleState extends State<_Bubble> {
               message.authorName!.trim().isNotEmpty)
             Text(
               message.authorName!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: metaColor,
                 fontSize: 11.5,
@@ -592,6 +594,8 @@ class _QuoteBlock extends StatelessWidget {
                   children: [
                     Text(
                       _quoteAuthor(quote),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: authorColor,
                         fontSize: 11.5,

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
@@ -1598,8 +1599,8 @@ class _TotalRow extends StatelessWidget {
 
 // ===================== Link de acompanhamento =====================
 
-/// Card com o link público de acompanhamento da OS. Copiar funciona; WhatsApp
-/// e e-mail aparecem desabilitados ("Em breve"). A origem do link vem de
+/// Card com o link público de acompanhamento da OS: copiar, compartilhar por
+/// WhatsApp (wa.me) e por e-mail (mailto) via url_launcher. A origem do link vem de
 /// `Uri.base.origin` na WEB; em desktop/mobile `Uri.base` é `file://` (sem
 /// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
 /// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
@@ -1622,6 +1623,33 @@ class _TrackingLinkCard extends StatelessWidget {
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Link copiado')));
   }
+
+  /// Mensagem padrão compartilhada por WhatsApp/e-mail (link de acompanhamento).
+  String get _shareText =>
+      'Acompanhe sua ordem de serviço em tempo real: $_url';
+
+  Future<void> _openExternal(BuildContext context, Uri uri) async {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o aplicativo.')),
+      );
+    }
+  }
+
+  Future<void> _whatsApp(BuildContext context) => _openExternal(
+        context,
+        Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
+      );
+
+  Future<void> _email(BuildContext context) => _openExternal(
+        context,
+        Uri(
+          scheme: 'mailto',
+          query: 'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
+              '&body=${Uri.encodeComponent(_shareText)}',
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1661,13 +1689,13 @@ class _TrackingLinkCard extends StatelessWidget {
                 label: 'WhatsApp',
                 icon: Icons.chat_outlined,
                 kind: NeuButtonKind.secondary,
-                onPressed: null,
+                onPressed: () => _whatsApp(context),
               ),
               NeuButton(
                 label: 'E-mail',
                 icon: Icons.email_outlined,
                 kind: NeuButtonKind.secondary,
-                onPressed: null,
+                onPressed: () => _email(context),
               ),
             ],
           ),
