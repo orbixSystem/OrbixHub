@@ -15,6 +15,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { TenantContext } from '../../common/database/tenant-context';
 import { CustomersService } from '../customers/customers.service';
 import { OsService } from '../os/os.service';
+import { SalesService } from '../sales/sales.service';
 import {
   CancelInvoiceDto,
   IssueInvoiceDto,
@@ -76,6 +77,7 @@ export class InvoiceService {
     private readonly tenant: TenantContext,
     private readonly repo: InvoiceRepository,
     private readonly os: OsService,
+    private readonly sales: SalesService,
     private readonly customers: CustomersService,
     private readonly audit: AuditService,
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
@@ -85,31 +87,15 @@ export class InvoiceService {
   async issue(user: AuthUser, dto: IssueInvoiceDto) {
     const documentType = dto.documentType ?? 'nfse';
 
-    // 1) Lê a OS + itens (service público — não toca a tabela da OS).
-    const { order, items } = await this.os.getOrderWithItems(dto.orderId);
-    if (order.status === 'cancelada') {
-      throw new BadRequestException('Não é possível emitir nota de uma OS cancelada.');
+    // 1) Resolve a ORIGEM: OS ou venda (exatamente uma), via service público
+    //    ("aponta, não invade"). Bloqueia cancelada / sem itens / com nota ativa.
+    if ((dto.orderId == null) === (dto.saleId == null)) {
+      throw new BadRequestException('Informe uma OS ou uma venda (apenas uma).');
     }
-    if (items.length === 0) {
-      throw new BadRequestException('A OS não tem itens para faturar.');
-    }
+    const source = await this.resolveSource(dto);
 
-    // 2) Uma OS não pode ter duas notas ativas (rascunho/processando/autorizada).
-    const active = await this.tenant.withTenantTx(() =>
-      this.repo.countAuthorizedByOrder(dto.orderId),
-    );
-    if (active > 0) {
-      throw new ConflictException('Esta OS já possui uma nota emitida ou em emissão.');
-    }
-
-    // 3) Snapshot das linhas (serviço E produto) + totais por natureza.
-    const lines: InvoiceLineData[] = items.map((it) => ({
-      kind: it.kind === 'product' ? 'product' : 'service',
-      name: it.name,
-      quantity: toNum(it.quantity),
-      unit_price: toNum(it.unit_price),
-      total: toNum(it.total),
-    }));
+    // 2) Snapshot das linhas (serviço E produto) + totais por natureza.
+    const lines: InvoiceLineData[] = source.lines;
     const serviceAmount = round2(
       lines.filter((l) => l.kind === 'service').reduce((s, l) => s + l.total, 0),
     );
@@ -118,13 +104,16 @@ export class InvoiceService {
     );
     const totalAmount = round2(serviceAmount + productAmount);
 
-    // 4) Documento do tomador via service público do customers (pode não existir).
+    // 4) Documento do tomador via service público do customers (pode não existir;
+    //    venda p/ consumidor final não tem customerId).
     let customerDocument: string | null = null;
-    try {
-      const customer = await this.customers.getCustomer(user, order.customer_id);
-      customerDocument = (customer as { document?: string | null }).document ?? null;
-    } catch {
-      customerDocument = null;
+    if (source.customerId) {
+      try {
+        const customer = await this.customers.getCustomer(user, source.customerId);
+        customerDocument = (customer as { document?: string | null }).document ?? null;
+      } catch {
+        customerDocument = null;
+      }
     }
 
     // 5) Cria o rascunho + evento 'created' (transação curta).
@@ -134,10 +123,11 @@ export class InvoiceService {
           tenant_id: user.tenantId,
           document_type: documentType,
           environment: this.env.FISCAL_ENVIRONMENT,
-          order_id: order.id,
-          order_number: order.number,
-          customer_id: order.customer_id,
-          customer_name: order.customer_name,
+          order_id: source.orderId,
+          sale_id: source.saleId,
+          order_number: source.number,
+          customer_id: source.customerId,
+          customer_name: source.customerName,
           customer_document: customerDocument,
           service_amount: serviceAmount,
           product_amount: productAmount,
@@ -148,7 +138,7 @@ export class InvoiceService {
       );
       await this.repo.createEvent(user.tenantId, created.id, {
         kind: 'created',
-        message: 'Nota criada a partir da OS ' + order.number,
+        message: 'Nota criada a partir da ' + source.label,
         statusSnapshot: 'draft',
       });
       return created;
@@ -169,7 +159,7 @@ export class InvoiceService {
         invoiceId: draft.id,
         documentType,
         environment: this.env.FISCAL_ENVIRONMENT,
-        customer: { name: order.customer_name, document: customerDocument },
+        customer: { name: source.customerName, document: customerDocument },
         lines: gatewayLines,
         serviceAmount,
         productAmount,
@@ -215,11 +205,87 @@ export class InvoiceService {
     });
 
     await this.audit.log(user.tenantId, user.userId, 'invoice_issue', draft.id, {
-      orderId: order.id,
+      orderId: source.orderId,
+      saleId: source.saleId,
       documentType,
       status: result.status,
     });
     return invoice;
+  }
+
+  /** Origem normalizada da nota (OS ou venda), com guardrails. Lê via service
+   * público — nunca toca a tabela alheia. */
+  private async resolveSource(dto: IssueInvoiceDto): Promise<{
+    orderId: string | null;
+    saleId: string | null;
+    number: string;
+    customerId: string | null;
+    customerName: string;
+    label: string;
+    lines: InvoiceLineData[];
+  }> {
+    const toLine = (it: {
+      kind: string;
+      name: string;
+      quantity: Prisma.Decimal | number;
+      unit_price: Prisma.Decimal | number;
+      total: Prisma.Decimal | number;
+    }): InvoiceLineData => ({
+      kind: it.kind === 'product' ? 'product' : 'service',
+      name: it.name,
+      quantity: toNum(it.quantity),
+      unit_price: toNum(it.unit_price),
+      total: toNum(it.total),
+    });
+
+    if (dto.orderId) {
+      const { order, items } = await this.os.getOrderWithItems(dto.orderId);
+      if (order.status === 'cancelada') {
+        throw new BadRequestException('Não é possível emitir nota de uma OS cancelada.');
+      }
+      if (items.length === 0) {
+        throw new BadRequestException('A OS não tem itens para faturar.');
+      }
+      const active = await this.tenant.withTenantTx(() =>
+        this.repo.countAuthorizedByOrder(dto.orderId!),
+      );
+      if (active > 0) {
+        throw new ConflictException('Esta OS já possui uma nota emitida ou em emissão.');
+      }
+      return {
+        orderId: order.id,
+        saleId: null,
+        number: order.number,
+        customerId: order.customer_id,
+        customerName: order.customer_name,
+        label: 'OS ' + order.number,
+        lines: items.map(toLine),
+      };
+    }
+
+    // Venda
+    const sale = await this.sales.getOne(dto.saleId!);
+    if (sale.status === 'cancelada') {
+      throw new BadRequestException('Não é possível emitir nota de uma venda cancelada.');
+    }
+    if (sale.items.length === 0) {
+      throw new BadRequestException('A venda não tem itens para faturar.');
+    }
+    const active = await this.tenant.withTenantTx(() =>
+      this.repo.countAuthorizedBySale(dto.saleId!),
+    );
+    if (active > 0) {
+      throw new ConflictException('Esta venda já possui uma nota emitida ou em emissão.');
+    }
+    return {
+      orderId: null,
+      saleId: sale.id,
+      number: sale.number,
+      customerId: sale.customer_id,
+      customerName: sale.customer_name ?? 'Consumidor final',
+      label: 'venda ' + sale.number,
+      lines: sale.items.map(toLine),
+    };
   }
 
   async list(query: ListInvoicesQueryDto) {
@@ -228,6 +294,7 @@ export class InvoiceService {
       this.repo.listInvoices({
         status: query.status,
         orderId: query.orderId,
+        saleId: query.saleId,
         skip: (page - 1) * DEFAULT_PAGE_SIZE,
         take: DEFAULT_PAGE_SIZE,
       }),

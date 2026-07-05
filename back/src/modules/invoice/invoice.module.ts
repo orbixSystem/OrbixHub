@@ -2,6 +2,7 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { OsModule } from '../os/os.module';
+import { SalesModule } from '../sales/sales.module';
 import { SettingsModule } from '../settings/settings.module';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { InvoiceController } from './invoice.controller';
@@ -20,7 +21,7 @@ import { NoopFiscalGateway } from './fiscal/noop-fiscal-gateway';
  * SettingsModule (registra a própria seção de config no host).
  */
 @Module({
-  imports: [BillingModule, OsModule, CustomersModule, SettingsModule],
+  imports: [BillingModule, OsModule, SalesModule, CustomersModule, SettingsModule],
   controllers: [InvoiceController, InvoiceWebhookController],
   providers: [
     InvoiceService,

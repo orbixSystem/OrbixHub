@@ -1,31 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import 'appearance_section.dart';
 import 'company_form.dart';
 import 'dynamic_section.dart';
 
+/// Uma categoria de configuração (item da navegação + conteúdo).
+class _Category {
+  const _Category({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.glyphIndex,
+    required this.builder,
+  });
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final int glyphIndex;
+  final WidgetBuilder builder;
+}
+
 /// Tela de Configurações — corpo apenas (o shell é dono da moldura).
 ///
-/// Visível para QUALQUER membro autenticado:
-/// - [AppearanceSection] (presets de tema + claro/escuro) — sempre exibida.
-/// - [CompanyForm] e seções de módulo — exibidas apenas quando o usuário tem
-///   `settings.manage` (owner / gerente).
-class SettingsScreen extends ConsumerWidget {
+/// Layout adaptativo:
+/// - **Desktop/tablet:** master-detail — nav-rail com ícone + título + subtítulo
+///   à esquerda e o conteúdo da categoria (com cabeçalho de seção) à direita.
+/// - **Mobile:** drill-down estilo Ajustes — lista de categorias em cartões
+///   grandes; tocar abre a seção em tela cheia com botão "voltar".
+///
+/// Aparência é pública; Empresa e módulos exigem `settings.manage`.
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionControllerProvider);
-    final scheme = Theme.of(context).colorScheme;
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
 
-    // Determina se o usuário tem a permissão para editar empresa e módulos.
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  /// Categoria selecionada no desktop (master-detail).
+  int _selected = 0;
+
+  /// Categoria aberta no mobile (drill-down). `null` = mostrando a lista.
+  int? _mobileOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(sessionControllerProvider);
+    final neu = context.neu;
     final canManage = session is SessionAuthenticated &&
         session.me.hasPermission('settings.manage');
 
-    // ---- Settings data --------------------------------------------------
     final settingsAsync = ref.watch(settingsControllerProvider);
 
     return settingsAsync.when(
@@ -36,25 +64,20 @@ class SettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: scheme.error),
+              Icon(Icons.error_outline, size: 48, color: neu.danger),
               const SizedBox(height: 16),
-              Text(
-                'Erro ao carregar configurações',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Erro ao carregar configurações',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text(
-                err.toString(),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
+              Text(err.toString(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: neu.inkMuted)),
               const SizedBox(height: 16),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+              NeuButton(
+                label: 'Tentar novamente',
+                icon: Icons.refresh,
                 onPressed: () =>
                     ref.read(settingsControllerProvider.notifier).load(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tentar novamente'),
               ),
             ],
           ),
@@ -64,131 +87,367 @@ class SettingsScreen extends ConsumerWidget {
         final moduleSections =
             bundle.sections.where((s) => s.moduleKey != null).toList();
 
-        return ListView(
-          padding: const EdgeInsets.all(28),
-          children: [
-            // Page header
-            Text(
-              'Configurações',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              canManage
-                  ? 'Gerencie os dados da empresa, identidade visual e preferências dos módulos.'
-                  : 'Personalize a aparência da sua interface.',
-              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15),
-            ),
-            const SizedBox(height: 24),
+        // Paleta de glyph por categoria (cores do DS, ciclo p/ os módulos).
+        const glyphs = [0, 1, 3, 5, 2, 4];
+        var gi = 0;
+        int nextGlyph() => glyphs[gi++ % glyphs.length];
 
-            // ---- Empresa & Identidade visual (apenas com settings.manage) -
-            if (canManage) ...[
-              _CollapsibleSection(
-                title: 'Empresa & Identidade visual',
-                initiallyExpanded: true,
-                child: CompanyForm(
-                  bundle: bundle,
-                  company: bundle.company,
-                  embedded: true,
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ---- Aparência (sempre visível a qualquer membro) ------------
-            _CollapsibleSection(
-              title: 'Aparência',
-              initiallyExpanded: !canManage, // aberta por padrão para não-owners
-              child: AppearanceSection(
+        final categories = <_Category>[
+          if (canManage)
+            _Category(
+              title: 'Empresa & Identidade visual',
+              subtitle: 'Logo, dados cadastrais, endereço e fiscal',
+              icon: Icons.storefront_outlined,
+              glyphIndex: nextGlyph(),
+              builder: (_) => CompanyForm(
+                bundle: bundle,
                 company: bundle.company,
                 embedded: true,
               ),
             ),
+          _Category(
+            title: 'Aparência',
+            subtitle: 'Tema claro/escuro e preferências visuais',
+            icon: Icons.palette_outlined,
+            glyphIndex: nextGlyph(),
+            builder: (_) =>
+                AppearanceSection(company: bundle.company, embedded: true),
+          ),
+          if (canManage)
+            for (final section in moduleSections)
+              _Category(
+                title: section.title,
+                subtitle: 'Preferências do módulo',
+                icon: Icons.tune_rounded,
+                glyphIndex: nextGlyph(),
+                builder: (_) => DynamicSection(
+                  section: section,
+                  values: section.values,
+                  hideTitle: true,
+                ),
+              ),
+        ];
 
-            // ---- Module sections (apenas com settings.manage) ------------
-            if (canManage && moduleSections.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              Text(
-                'Configurações por módulo',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Gerenciado pelo sistema',
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              for (final section in moduleSections) ...[
-                _CollapsibleSection(
-                  title: section.title,
-                  initiallyExpanded: false,
-                  child: DynamicSection(
-                    section: section,
-                    values: section.values,
-                    hideTitle: true,
+        if (categories.isEmpty) {
+          return const Center(child: SizedBox.shrink());
+        }
+
+        return context.isMobile
+            ? _mobileLayout(categories, canManage)
+            : _desktopLayout(categories, canManage);
+      },
+    );
+  }
+
+  // ===================== Desktop / tablet =====================
+
+  Widget _desktopLayout(List<_Category> categories, bool canManage) {
+    final selected = _selected.clamp(0, categories.length - 1);
+    final cat = categories[selected];
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHeader(canManage: canManage),
+          const SizedBox(height: 22),
+          Expanded(
+            child: Row(
+              // stretch: rail e conteúdo preenchem a altura toda (o rail não
+              // fica "cortado" no meio da tela).
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: _NavRail(
+                    categories: categories,
+                    selected: selected,
+                    onSelect: (i) => setState(() => _selected = i),
                   ),
                 ),
-                if (section != moduleSections.last) const SizedBox(height: 12),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: NeuCard(
+                    padding: const EdgeInsets.all(28),
+                    child: SingleChildScrollView(
+                      key: ValueKey(selected),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 720),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SectionHeader(category: cat),
+                              const SizedBox(height: 22),
+                              cat.builder(context),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
-            ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 32),
-          ],
-        );
-      },
+  // ===================== Mobile (drill-down) =====================
+
+  Widget _mobileLayout(List<_Category> categories, bool canManage) {
+    final open = _mobileOpen;
+    if (open != null && open >= 0 && open < categories.length) {
+      final cat = categories[open];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Cabeçalho da seção com "voltar".
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+            child: Row(
+              children: [
+                NeuIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  tooltip: 'Voltar',
+                  size: 42,
+                  onPressed: () => setState(() => _mobileOpen = null),
+                ),
+                const SizedBox(width: 12),
+                NeuIconChip.glyph(context,
+                    icon: cat.icon, index: cat.glyphIndex, size: 38),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    cat.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: context.neu.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: NeuCard(
+                padding: const EdgeInsets.all(18),
+                child: cat.builder(context),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Lista de categorias (nível raiz).
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        _PageHeader(canManage: canManage),
+        const SizedBox(height: 18),
+        for (var i = 0; i < categories.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _CategoryTile(
+              category: categories[i],
+              selected: false,
+              showChevron: true,
+              onTap: () => setState(() => _mobileOpen = i),
+            ),
+          ),
+      ],
     );
   }
 }
 
-/// Card expansível que envolve uma seção de configurações.
-///
-/// O [title] aparece no cabeçalho do painel; o [child] é exibido quando
-/// expandido. Usa [ExpansionTile] com visual alinhado ao design system do
-/// projeto (borda, cor de fundo via [ColorScheme], sem cores hardcoded).
-class _CollapsibleSection extends StatelessWidget {
-  const _CollapsibleSection({
-    required this.title,
-    required this.child,
-    this.initiallyExpanded = false,
-  });
-
-  final String title;
-  final Widget child;
-  final bool initiallyExpanded;
+/// Título + subtítulo do topo da tela.
+class _PageHeader extends StatelessWidget {
+  const _PageHeader({required this.canManage});
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Configurações',
+          style: TextStyle(
+            color: neu.ink,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          canManage
+              ? 'Dados da empresa, identidade visual e preferências dos módulos.'
+              : 'Personalize a aparência da sua interface.',
+          style: TextStyle(color: neu.inkMuted, fontSize: 14.5, height: 1.35),
+        ),
+      ],
+    );
+  }
+}
 
-    return Card(
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      color: scheme.surfaceContainerLowest,
-      child: ExpansionTile(
-        initiallyExpanded: initiallyExpanded,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-        childrenPadding: EdgeInsets.zero,
-        expansionAnimationStyle: AnimationStyle(
-          curve: Curves.easeInOut,
-          duration: const Duration(milliseconds: 200),
+/// Cabeçalho da seção de conteúdo (glyph + título + subtítulo).
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.category});
+  final _Category category;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Row(
+      children: [
+        NeuIconChip.glyph(context,
+            icon: category.icon, index: category.glyphIndex, size: 46),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                category.title,
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                category.subtitle,
+                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+              ),
+            ],
+          ),
         ),
-        backgroundColor: scheme.surfaceContainerLowest,
-        collapsedBackgroundColor: scheme.surfaceContainerLowest,
-        iconColor: scheme.onSurfaceVariant,
-        collapsedIconColor: scheme.onSurfaceVariant,
-        title: Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+      ],
+    );
+  }
+}
+
+/// Nav-rail do desktop: cartão com as categorias selecionáveis.
+class _NavRail extends StatelessWidget {
+  const _NavRail({
+    required this.categories,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<_Category> categories;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return NeuCard(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Divider(height: 1, color: scheme.outlineVariant),
-          child,
+          for (var i = 0; i < categories.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: _CategoryTile(
+                category: categories[i],
+                selected: i == selected,
+                showChevron: false,
+                onTap: i == selected ? null : () => onSelect(i),
+              ),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// Linha de categoria — usada no nav-rail (desktop) e na lista (mobile).
+/// Ícone colorido + título + subtítulo, com realce quando [selected] e chevron
+/// opcional (mobile). [onTap] nulo = item já ativo (desktop).
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.category,
+    required this.selected,
+    required this.showChevron,
+    required this.onTap,
+  });
+
+  final _Category category;
+  final bool selected;
+  final bool showChevron;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final tile = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: selected ? neu.accentTint : Colors.transparent,
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+      ),
+      child: Row(
+        children: [
+          NeuIconChip.glyph(context,
+              icon: category.icon, index: category.glyphIndex, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  category.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? neu.navy : neu.ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  category.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (showChevron) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: neu.inkFaint, size: 22),
+          ],
+        ],
+      ),
+    );
+
+    // NeuCard (relevo) no mobile p/ os itens da lista "flutuarem"; no desktop o
+    // realce é só o fundo tint dentro do rail.
+    final wrapped = showChevron
+        ? NeuCard(padding: EdgeInsets.zero, child: tile)
+        : tile;
+
+    if (onTap == null) return wrapped;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rCard),
+      child: wrapped,
     );
   }
 }

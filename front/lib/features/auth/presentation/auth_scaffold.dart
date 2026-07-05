@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../core/widgets/brand_panel.dart';
 
 /// Split-panel auth layout: a dark brand hero on the left (wide screens) and a
-/// clean, width-constrained form on the right. Collapses to just the form on
-/// narrow screens.
+/// neumorphic form CARD floating on the lavender canvas on the right.
+/// Collapses to just the card on narrow screens.
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
     super.key,
@@ -31,6 +31,7 @@ class AuthScaffold extends StatelessWidget {
     );
 
     return Scaffold(
+      backgroundColor: context.neu.base,
       body: wide
           ? Row(
               children: [
@@ -58,33 +59,58 @@ class _FormSide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
+    // No mobile o cartão ocupa quase toda a largura; em telas maiores flutua
+    // centralizado sobre o canvas (o relevo neumórfico faz a moldura).
+    final isMobile = context.isMobile;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 32,
+          vertical: isMobile ? 24 : 48,
+        ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: 440),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (showBrand) ...[
                 const Center(child: BrandMark(size: 28)),
-                const SizedBox(height: 40),
+                const SizedBox(height: 28),
               ],
-              Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              if (subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle!,
-                  style: const TextStyle(
-                    color: AppColors.inkMuted,
-                    fontSize: 15,
-                    height: 1.4,
-                  ),
+              NeuSurface(
+                elevation: NeuElevation.raisedHigh,
+                radius: NeuTokens.rPanel,
+                color: neu.surface,
+                padding: EdgeInsets.all(isMobile ? 22 : 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(color: neu.ink),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          color: neu.inkMuted,
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 26),
+                    child,
+                  ],
                 ),
-              ],
-              const SizedBox(height: 30),
-              child,
+              ),
             ],
           ),
         ),
@@ -101,24 +127,24 @@ class AuthErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.dangerTint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+        color: neu.dangerTint,
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        border: Border.all(color: neu.danger.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.danger, size: 20),
+          Icon(Icons.error_outline_rounded, color: neu.danger, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                color: AppColors.danger,
+              style: TextStyle(
+                color: neu.danger,
                 fontWeight: FontWeight.w600,
                 fontSize: 13.5,
               ),

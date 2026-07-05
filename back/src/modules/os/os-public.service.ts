@@ -94,7 +94,12 @@ export class OsPublicService {
           diagnosis: order.diagnosis ?? null,
           subjectLabel: order.subject_label,
           scheduledEnd: order.scheduled_end,
-          photos: photos.map((p) => ({ url: p.url, caption: p.caption })),
+          // id exposto para o cliente citar/comentar a foto (uuid, não sensível).
+          photos: photos.map((p) => ({
+            id: p.id,
+            url: p.url,
+            caption: p.caption,
+          })),
           timeline: events
             .filter((e) => e.visible_public)
             .map((e) => ({
@@ -153,31 +158,66 @@ export class OsPublicService {
     return created.id;
   }
 
-  /** Mensagens do chat (lado cliente), ordem cronológica. */
-  async getPublicMessages(token: string) {
+  /** Página padrão do chat público (rota polled a cada 15s — nunca sem limite). */
+  private static readonly PUBLIC_THREAD_PAGE = 50;
+
+  /**
+   * Mensagens do chat (lado cliente), ordem cronológica — PAGINADA por cursor:
+   * sem `before` = as 50 mais recentes; com `before` (ISO da mais antiga
+   * carregada) = página anterior.
+   */
+  async getPublicMessages(token: string, before?: string) {
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) {
+      throw new BadRequestException('Cursor `before` inválido.');
+    }
+    const take = OsPublicService.PUBLIC_THREAD_PAGE;
     const { tenantId, orderId } = await this.resolveToken(token);
     const conversationId = await this.resolveConversationId(tenantId, orderId);
-    const messages = await this.tenant.runWithTenant(tenantId, () =>
-      this.listMessages(conversationId),
-    );
-    // O cliente está vendo a conversa: marca as respostas do staff como lidas
-    // (recibo de leitura no inbox). Fora da tx acima — abre a sua própria.
-    await this.messages.markStaffMessagesRead(tenantId, conversationId);
+    // Busca a página E anexa o preview da citação dentro do MESMO contexto de
+    // tenant (previewByIds usa getClient — precisa da tx).
+    const messages = await this.tenant.runWithTenant(tenantId, async () => {
+      const page = await this.listMessages(conversationId, {
+        before: cursor,
+        take: take + 1,
+      });
+      const ordered = page.slice(0, take).reverse(); // asc p/ exibição
+      return this.messages.attachReplyPreviews(ordered);
+    });
+    if (!cursor) {
+      // O cliente está vendo a conversa: marca as respostas do staff como
+      // lidas (recibo de leitura no inbox). Fora da tx acima.
+      await this.messages.markStaffMessagesRead(tenantId, conversationId);
+    }
+    // Shape mantido como ARRAY (compat com o app público atual). O cliente
+    // infere "há mais antigas" quando a página vem cheia (length == 50).
     return messages.map((m) => ({
+      // id exposto p/ o cliente poder responder (citar) uma mensagem.
+      id: m.id,
       sender: m.sender,
       authorName: m.author_name,
       body: m.body,
       createdAt: m.created_at,
       // Recibo de leitura: a oficina já leu esta mensagem do cliente?
       readAt: m.read_at,
+      // Citação (estilo WhatsApp): mensagem respondida + foto da OS citada.
+      replyTo: m.replyTo,
+      photoUrl: m.photo_url,
     }));
   }
 
-  private listMessages(conversationId: string) {
+  private listMessages(
+    conversationId: string,
+    opts: { before?: Date; take: number },
+  ) {
     const db = this.tenant.getClient();
     return db.message.findMany({
-      where: { conversation_id: conversationId },
-      orderBy: { created_at: 'asc' },
+      where: {
+        conversation_id: conversationId,
+        ...(opts.before ? { created_at: { lt: opts.before } } : {}),
+      },
+      orderBy: { created_at: 'desc' },
+      take: opts.take,
     });
   }
 
@@ -185,25 +225,106 @@ export class OsPublicService {
    * Mensagem do cliente pelo link público. Resolve OS → conversa e delega ao
    * MessagesService.postCustomerMessage (incrementa staff_unread + cria notificação).
    */
-  async postPublicMessage(token: string, body: string, authorName?: string) {
-    const text = body?.trim();
+  async postPublicMessage(
+    token: string,
+    dto: { body: string; authorName?: string; replyToId?: string; photoId?: string },
+  ) {
+    const text = dto.body?.trim();
     if (!text) throw new BadRequestException('A mensagem não pode ser vazia.');
     if (text.length > 2000) {
       throw new BadRequestException('Mensagem muito longa (máx. 2000).');
     }
     const { tenantId, orderId } = await this.resolveToken(token);
     const conversationId = await this.resolveConversationId(tenantId, orderId);
+
+    // Foto citada: resolve a URL a partir do id, SÓ se a foto for desta OS
+    // (nunca confia em url do cliente — evita injeção de imagem arbitrária).
+    let photoId: string | null = null;
+    let photoUrl: string | null = null;
+    if (dto.photoId) {
+      const photo = await this.tenant.runWithTenant(tenantId, () =>
+        this.repo.findPhotoById(dto.photoId!),
+      );
+      if (photo && photo.order_id === orderId) {
+        photoId = photo.id;
+        photoUrl = photo.url;
+      }
+    }
+
     const message = await this.messages.postCustomerMessage(
       tenantId,
       conversationId,
       text,
-      authorName,
+      dto.authorName,
+      { replyToId: dto.replyToId, photoId, photoUrl },
     );
     return {
+      id: message.id,
       sender: message.sender,
       authorName: message.author_name,
       body: message.body,
       createdAt: message.created_at,
+      photoUrl: message.photo_url,
+    };
+  }
+
+  // ---- Comentários das fotos (cliente, sem auth) ----
+
+  /**
+   * Resolve o token + garante que a foto pertence à OS do link (tenant-scoped).
+   * Foto de outra OS/tenant → 404. Retorna { tenantId, photoId }.
+   */
+  private async resolvePhoto(token: string, photoId: string) {
+    if (!photoId || !/^[0-9a-f-]{36}$/i.test(photoId)) {
+      throw new NotFoundException('Foto não encontrada.');
+    }
+    const { tenantId, orderId } = await this.resolveToken(token);
+    const ok = await this.tenant.runWithTenant(tenantId, async () => {
+      const photo = await this.repo.findPhotoById(photoId);
+      return photo != null && photo.order_id === orderId;
+    });
+    if (!ok) throw new NotFoundException('Foto não encontrada.');
+    return { tenantId, photoId };
+  }
+
+  async getPublicPhotoComments(token: string, photoId: string) {
+    const { tenantId } = await this.resolvePhoto(token, photoId);
+    const comments = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.listPhotoComments(photoId),
+    );
+    return comments.map((c) => ({
+      authorKind: c.author_kind,
+      authorName: c.author_name,
+      body: c.body,
+      createdAt: c.created_at,
+    }));
+  }
+
+  async addPublicPhotoComment(
+    token: string,
+    photoId: string,
+    body: string,
+    authorName?: string,
+  ) {
+    const text = body?.trim();
+    if (!text) throw new BadRequestException('O comentário não pode ser vazio.');
+    if (text.length > 2000) {
+      throw new BadRequestException('Comentário muito longo (máx. 2000).');
+    }
+    const { tenantId } = await this.resolvePhoto(token, photoId);
+    const created = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.addPhotoComment(tenantId, {
+        photoId,
+        authorKind: 'customer',
+        authorName: authorName?.trim() || null,
+        body: text,
+      }),
+    );
+    return {
+      authorKind: created.author_kind,
+      authorName: created.author_name,
+      body: created.body,
+      createdAt: created.created_at,
     };
   }
 }

@@ -16,6 +16,8 @@ const Map<String, (String, IconData)> moduleMeta = {
   'customers': ('Clientes', Icons.people_alt_outlined),
   'inventory': ('Estoque', Icons.inventory_2_outlined),
   'report': ('Relatórios', Icons.bar_chart_outlined),
+  'invoice': ('Notas Fiscais', Icons.receipt_long_outlined),
+  'sales': ('Vendas', Icons.point_of_sale_outlined),
 };
 
 /// Pure gating: the navigation items a user may see, derived ONLY from their
@@ -32,6 +34,12 @@ List<NavItem> gatedNavItems(Me me) {
     if (key == 'report' && !me.hasPermission('report.read')) continue;
     final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
+  }
+  // Agenda — disponível quando o módulo OS está habilitado.
+  if (me.modules.contains('os') && me.hasPermission('os.read')) {
+    items.add(
+      const NavItem('Agenda', Icons.calendar_month_outlined, '/agenda'),
+    );
   }
   // Mensagens é genérico (não é módulo de tenant). v1 reusa as permissões de OS:
   // mostra para quem pode ler OS; owners também têm essa permissão.

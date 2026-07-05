@@ -1,4 +1,5 @@
 import {
+  Query,
   Body,
   Controller,
   Get,
@@ -11,7 +12,10 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../../common/auth/decorators';
 import { PublicThrottlerGuard } from '../../common/throttler/public-throttler.guard';
 import { OsPublicService } from './os-public.service';
-import { PostPublicMessageDto } from './dto/public-message.dto';
+import {
+  PostPublicMessageDto,
+  PostPublicPhotoCommentDto,
+} from './dto/public-message.dto';
 
 /**
  * Acompanhamento público da OS (página de tracking + chat do cliente). Todas as
@@ -38,8 +42,11 @@ export class OsPublicController {
   }
 
   @Get(':token/messages')
-  getMessages(@Param('token') token: string) {
-    return this.osPublic.getPublicMessages(token);
+  getMessages(
+    @Param('token') token: string,
+    @Query('before') before?: string,
+  ) {
+    return this.osPublic.getPublicMessages(token, before);
   }
 
   @Post(':token/messages')
@@ -48,6 +55,31 @@ export class OsPublicController {
     @Param('token') token: string,
     @Body() dto: PostPublicMessageDto,
   ) {
-    return this.osPublic.postPublicMessage(token, dto.body, dto.authorName);
+    return this.osPublic.postPublicMessage(token, dto);
+  }
+
+  // ---- Comentários das fotos (cliente) ----
+
+  @Get(':token/photos/:photoId/comments')
+  getPhotoComments(
+    @Param('token') token: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.osPublic.getPublicPhotoComments(token, photoId);
+  }
+
+  @Post(':token/photos/:photoId/comments')
+  @HttpCode(201)
+  postPhotoComment(
+    @Param('token') token: string,
+    @Param('photoId') photoId: string,
+    @Body() dto: PostPublicPhotoCommentDto,
+  ) {
+    return this.osPublic.addPublicPhotoComment(
+      token,
+      photoId,
+      dto.body,
+      dto.authorName,
+    );
   }
 }

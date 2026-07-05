@@ -11,7 +11,10 @@ import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { MessagesService } from './messages.service';
 import { PostMessageDto } from './dto/post-message.dto';
-import { ListConversationsQueryDto } from './dto/list-conversations.dto';
+import {
+  GetThreadQueryDto,
+  ListConversationsQueryDto,
+} from './dto/list-conversations.dto';
 
 /**
  * Inbox de mensagens (lado staff). Módulo genérico, NÃO contratável — sem
@@ -34,8 +37,12 @@ export class MessagesController {
 
   @Get('conversations/:id')
   @Permissions('os.read') // v1: reusa os.read
-  getThread(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.messages.getThread(user, id);
+  getThread(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Query() query: GetThreadQueryDto,
+  ) {
+    return this.messages.getThread(user, id, query.before);
   }
 
   @Post('conversations/:id/messages')
@@ -45,7 +52,11 @@ export class MessagesController {
     @Param('id') id: string,
     @Body() dto: PostMessageDto,
   ) {
-    return this.messages.postStaffMessage(user, id, dto.body);
+    return this.messages.postStaffMessage(user, id, dto.body, {
+      replyToId: dto.replyToId,
+      photoId: dto.photoId,
+      photoUrl: dto.photoUrl,
+    });
   }
 
   @Post('conversations/:id/read')

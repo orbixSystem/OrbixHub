@@ -8,12 +8,21 @@ abstract interface class MessagesRepository {
   /// Paginada; [q] busca por título/número da OS. Devolve a página corrente.
   Future<ConversationPage> listConversations({String? q, int page});
 
-  /// Thread completo; abrir reseta `staff_unread` no servidor
-  /// (`GET /messages/conversations/:id`).
-  Future<ConversationThread> getThread(String id);
+  /// Página da thread (50 mais recentes); abrir (sem [before]) reseta
+  /// `staff_unread` no servidor. [before] = createdAt ISO da mensagem mais
+  /// antiga carregada → página anterior (`GET /messages/conversations/:id`).
+  Future<ConversationThread> getThread(String id, {String? before});
 
   /// Posta uma resposta do staff (`POST /messages/conversations/:id/messages`).
-  Future<Message> sendMessage(String id, String body);
+  /// Citação estilo WhatsApp: [replyToId] responde a uma mensagem; [photoId] +
+  /// [photoUrl] citam uma foto da OS (o back valida/persiste).
+  Future<Message> sendMessage(
+    String id,
+    String body, {
+    String? replyToId,
+    String? photoId,
+    String? photoUrl,
+  });
 
   /// Marca a conversa como lida (idempotente; o GET do thread já reseta).
   Future<void> markRead(String id);

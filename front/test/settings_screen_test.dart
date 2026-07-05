@@ -62,10 +62,11 @@ void main() {
 
     // Must show the page header.
     expect(find.text('Configurações'), findsWidgets);
-    // Owner com settings.manage vê a seção de empresa.
-    expect(find.text('Empresa & Identidade visual'), findsOneWidget);
+    // Owner com settings.manage vê a seção de empresa (no nav-rail e, quando
+    // selecionada, também no cabeçalho de conteúdo — master-detail).
+    expect(find.text('Empresa & Identidade visual'), findsWidgets);
     // Aparência sempre visível.
-    expect(find.text('Aparência'), findsOneWidget);
+    expect(find.text('Aparência'), findsWidgets);
   });
 
   testWidgets('SettingsScreen sem settings.manage mostra apenas Aparência (sem acesso negado)',
@@ -88,8 +89,8 @@ void main() {
 
     // NÃO mostra mais "Acesso negado" — a seção Aparência é pública.
     expect(find.text('Acesso negado'), findsNothing);
-    // Seção Aparência sempre visível.
-    expect(find.text('Aparência'), findsOneWidget);
+    // Seção Aparência sempre visível (nav-rail + cabeçalho de conteúdo).
+    expect(find.text('Aparência'), findsWidgets);
     // Seção de empresa NÃO deve aparecer para não-owners.
     expect(find.text('Empresa & Identidade visual'), findsNothing);
   });

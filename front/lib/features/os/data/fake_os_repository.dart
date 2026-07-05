@@ -222,6 +222,31 @@ class FakeOsRepository implements OsRepository {
     return next;
   }
 
+  final Map<String, List<PhotoComment>> _photoComments = {};
+
+  @override
+  Future<List<PhotoComment>> listPhotoComments(
+    String orderId,
+    String photoId,
+  ) async =>
+      List.unmodifiable(_photoComments[photoId] ?? const []);
+
+  @override
+  Future<PhotoComment> addPhotoComment(
+    String orderId,
+    String photoId,
+    String body,
+  ) async {
+    final c = PhotoComment(
+      authorKind: 'staff',
+      authorName: 'Equipe',
+      body: body,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    _photoComments[photoId] = [...?_photoComments[photoId], c];
+    return c;
+  }
+
   @override
   Future<List<OsTemplate>> listTemplates() async =>
       _templates.values.toList();

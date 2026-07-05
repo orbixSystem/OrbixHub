@@ -1,40 +1,43 @@
 import 'package:flutter/material.dart';
 
-/// OrbixHub design tokens. Direction: warm-industrial B2B SaaS — a light, warm
-/// canvas with a graphite command sidebar and a signature tangerine accent.
+/// Tokens LEGADOS re-apontados para a paleta neumórfica fixa (lavanda + navy,
+/// spec 2026-07-04). O laranja "Orbix tangerine" foi descontinuado; enquanto a
+/// migração tela-a-tela não termina, as telas antigas que ainda leem AppColors
+/// já rendem em harmonia com a identidade nova. Telas novas usam `context.neu`
+/// (NeuTokens) — NÃO use AppColors em código novo.
 class AppColors {
   const AppColors._();
 
-  // Brand accent — "Orbix tangerine".
-  static const brand = Color(0xFFEC5E12);
-  static const brandBright = Color(0xFFFF8A4C);
-  static const brandDeep = Color(0xFFC2480A);
-  static const brandTint = Color(0xFFFCEDE3); // accent wash on light surfaces
+  // Brand accent — lavanda/violeta (ex-tangerina).
+  static const brand = Color(0xFF767CC0);
+  static const brandBright = Color(0xFF9BA2E8);
+  static const brandDeep = Color(0xFF575DA8);
+  static const brandTint = Color(0xFFDFE1F0); // accent wash on light surfaces
 
-  // Graphite — the dark sidebar / brand panel.
-  static const graphite = Color(0xFF15171C);
-  static const graphiteHi = Color(0xFF1C1F26);
-  static const graphiteLine = Color(0xFF2A2E37);
-  static const onGraphite = Color(0xFFF3F2EF);
-  static const onGraphiteMuted = Color(0xFF9AA0AB);
+  // Painel escuro (ex-graphite) — navy-roxo da sidebar.
+  static const graphite = Color(0xFF2B2F44);
+  static const graphiteHi = Color(0xFF383D5B);
+  static const graphiteLine = Color(0xFF3D4360);
+  static const onGraphite = Color(0xFFF2F3F8);
+  static const onGraphiteMuted = Color(0xFF9EA3BC);
 
-  // Light canvas.
-  static const canvas = Color(0xFFF6F5F2);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceSunken = Color(0xFFF0EEE9);
-  static const line = Color(0xFFE7E4DD);
+  // Canvas claro — lavanda.
+  static const canvas = Color(0xFFE6E7EE);
+  static const surface = Color(0xFFEDEEF5);
+  static const surfaceSunken = Color(0xFFDBDCE8);
+  static const line = Color(0xFFD8DAE5);
 
   // Ink.
-  static const ink = Color(0xFF1B1D22);
-  static const inkMuted = Color(0xFF6B7079);
-  static const inkFaint = Color(0xFFA1A6AF);
+  static const ink = Color(0xFF2B2F44);
+  static const inkMuted = Color(0xFF7B8094);
+  static const inkFaint = Color(0xFFA6AABC);
 
   // Semantic.
   static const success = Color(0xFF0E9F6E);
-  static const successTint = Color(0xFFE3F5EE);
+  static const successTint = Color(0xFFDDF0E8);
   static const danger = Color(0xFFE5484D);
-  static const dangerTint = Color(0xFFFCEAEA);
-  static const warning = Color(0xFFE8A302);
-  static const warningTint = Color(0xFFFBF0D6);
+  static const dangerTint = Color(0xFFF8E2E3);
+  static const warning = Color(0xFFCC8F02);
+  static const warningTint = Color(0xFFF5ECD3);
   static const info = Color(0xFF2E90FA);
 }

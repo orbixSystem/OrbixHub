@@ -55,7 +55,13 @@ class TrackingRepositoryImpl implements TrackingRepository {
       });
 
   @override
-  Future<void> sendMessage(String token, String body, {String? authorName}) =>
+  Future<void> sendMessage(
+    String token,
+    String body, {
+    String? authorName,
+    String? replyToId,
+    String? photoId,
+  }) =>
       _guard(() async {
         await _dio.post<Object?>(
           '/public/track/$token/messages',
@@ -63,7 +69,44 @@ class TrackingRepositoryImpl implements TrackingRepository {
             'body': body,
             if (authorName != null && authorName.isNotEmpty)
               'authorName': authorName,
+            'replyToId': ?replyToId,
+            'photoId': ?photoId,
           },
         );
+      });
+
+  @override
+  Future<List<PublicPhotoComment>> photoComments(
+    String token,
+    String photoId,
+  ) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/public/track/$token/photos/$photoId/comments',
+        );
+        final raw = res.data as List? ?? const [];
+        return raw
+            .cast<Map<String, dynamic>>()
+            .map(PublicPhotoComment.fromJson)
+            .toList();
+      });
+
+  @override
+  Future<PublicPhotoComment> addPhotoComment(
+    String token,
+    String photoId,
+    String body, {
+    String? authorName,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/public/track/$token/photos/$photoId/comments',
+          data: {
+            'body': body,
+            if (authorName != null && authorName.isNotEmpty)
+              'authorName': authorName,
+          },
+        );
+        return PublicPhotoComment.fromJson(_asMap(res.data));
       });
 }

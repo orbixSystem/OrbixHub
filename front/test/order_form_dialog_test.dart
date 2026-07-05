@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/ui/ui.dart';
 import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/domain/os_models.dart';
 import 'package:orbixhub_front/features/os/presentation/order_form_dialog.dart';
@@ -34,6 +35,19 @@ Future<String?> _openDialog(
   return result;
 }
 
+/// Localiza o campo editável cujo rótulo (Text visível) é [label]. Os campos do
+/// design system (NeuTextField / _fieldShell) desenham o rótulo como um Text
+/// irmão do campo, dentro do mesmo Column — subimos do rótulo até esse Column.
+Finder _fieldByLabel(String label) => find
+    .ancestor(of: find.text(label), matching: find.byType(Column))
+    .first;
+
+/// Avança para o próximo passo do wizard.
+Future<void> _next(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(NeuButton, 'Próximo'));
+  await tester.pumpAndSettle();
+}
+
 /// Seleciona o primeiro membro no dropdown "Responsável *" (obrigatório).
 Future<void> _selectResponsavel(WidgetTester tester) async {
   final dd = find.text('— Selecione —');
@@ -46,7 +60,7 @@ Future<void> _selectResponsavel(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('cliente novo: nome habilita "Criar OS" e cria a OS',
+  testWidgets('cliente novo: nome habilita "Próximo" e cria a OS no fim',
       (tester) async {
     final fake = FakeOsRepository();
     await _openDialog(tester, fake);
@@ -54,43 +68,47 @@ void main() {
     // Sem clientes não quebra: o dialog abre normalmente.
     expect(find.text('Nova ordem de serviço'), findsOneWidget);
 
-    // "Criar OS" começa desabilitado (nenhum cliente / nome).
-    final createBtn =
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Criar OS'));
-    expect(createBtn.onPressed, isNull);
+    // "Próximo" começa desabilitado (nenhum cliente / nome).
+    final nextBtn =
+        tester.widget<NeuButton>(find.widgetWithText(NeuButton, 'Próximo'));
+    expect(nextBtn.onPressed, isNull);
 
-    // Troca para "Cliente novo" e preenche o nome.
+    // Passo 1 — Cliente: troca para "Cliente novo" e preenche nome + telefone.
     await tester.tap(find.text('Cliente novo'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'Nome *'), 'Maria Teste');
+    await tester.enterText(_fieldByLabel('Nome *'), 'Maria Teste');
+    await tester.pump();
+    await tester.enterText(_fieldByLabel('Telefone *'), '11999998888');
     await tester.pump();
 
-    // Seção de veículo aparece (usaSubjects=true por default) com os campos
-    // dinâmicos da config — incl. o picker de Marca e os campos Ano e Cor.
-    expect(find.text('Veículo'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Marca'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Ano'), findsOneWidget);
-    expect(find.widgetWithText(TextFormField, 'Cor'), findsOneWidget);
+    // Nome preenchido habilita "Próximo".
+    final enabledNext =
+        tester.widget<NeuButton>(find.widgetWithText(NeuButton, 'Próximo'));
+    expect(enabledNext.onPressed, isNotNull);
+    await _next(tester);
 
-    // Preenche os obrigatórios: telefone, placa, relato e responsável (campos de
-    // texto livre — Cor é opcional).
+    // Passo 2 — Veículo (usaSubjects=true por default): campos dinâmicos da
+    // config, incl. o picker de Marca e os campos Ano e Cor.
+    expect(find.text('Marca'), findsOneWidget);
+    expect(find.text('Ano'), findsOneWidget);
+    expect(find.text('Cor'), findsOneWidget);
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Telefone *'), '11999998888');
+        _fieldByLabel('Placa / Identificação *'), 'ABC1D23');
+    await tester.enterText(_fieldByLabel('Cor'), 'Prata');
+    await tester.pump();
+    await _next(tester);
+
+    // Passo 3 — Detalhes: relato + responsável (obrigatórios).
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Placa / Identificação *'), 'ABC1D23');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Cor'), 'Prata');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'Relato do cliente *'),
-        'Barulho no motor');
+        _fieldByLabel('Relato do cliente *'), 'Barulho no motor');
     await tester.pump();
     await _selectResponsavel(tester);
 
-    final enabled =
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Criar OS'));
-    expect(enabled.onPressed, isNotNull);
+    final createBtn =
+        tester.widget<NeuButton>(find.widgetWithText(NeuButton, 'Criar OS'));
+    expect(createBtn.onPressed, isNotNull);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Criar OS'));
+    await tester.tap(find.widgetWithText(NeuButton, 'Criar OS'));
     await tester.pumpAndSettle();
 
     // OS criada com o nome do cliente novo.
@@ -104,7 +122,7 @@ void main() {
     await _openDialog(tester, fake);
 
     // Modo "existente" com busca vazia: campo presente, sem exceção.
-    expect(find.widgetWithText(TextFormField, 'Cliente *'), findsOneWidget);
+    expect(find.text('Cliente *'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -114,24 +132,27 @@ void main() {
     );
     await _openDialog(tester, fake);
 
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'Cliente *'), 'João');
+    // Passo 1 — Cliente: escolhe um cliente existente.
+    await tester.enterText(_fieldByLabel('Cliente *'), 'João');
     await tester.pumpAndSettle();
     await tester.tap(find.text('João da Silva').last);
     await tester.pumpAndSettle();
 
-    final enabled =
-        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Criar OS'));
-    expect(enabled.onPressed, isNotNull);
+    final enabledNext =
+        tester.widget<NeuButton>(find.widgetWithText(NeuButton, 'Próximo'));
+    expect(enabledNext.onPressed, isNotNull);
+    await _next(tester);
 
-    // Relato e responsável são obrigatórios.
+    // Passo 2 — Veículo: cliente sem veículos cadastrados; segue direto.
+    await _next(tester);
+
+    // Passo 3 — Detalhes: relato e responsável são obrigatórios.
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Relato do cliente *'),
-        'Revisão geral');
+        _fieldByLabel('Relato do cliente *'), 'Revisão geral');
     await tester.pump();
     await _selectResponsavel(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Criar OS'));
+    await tester.tap(find.widgetWithText(NeuButton, 'Criar OS'));
     await tester.pumpAndSettle();
 
     final page = await fake.listOrders();

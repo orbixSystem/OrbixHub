@@ -6,6 +6,7 @@ part 'os_models.g.dart';
 /// Item de uma ordem de serviço. `kind ∈ product|service`. Pode apontar para um
 /// item do estoque (`inventoryItemId`) — guardamos só o id + um *snapshot* do
 /// nome/preço no momento da adição ("aponta, não invade"). Decimais como String.
+/// Campos de agenda: `assignedTo`, `scheduledStart`, `estimatedDuration`, `scheduledEnd`.
 @freezed
 abstract class OrderItem with _$OrderItem {
   const factory OrderItem({
@@ -17,6 +18,11 @@ abstract class OrderItem with _$OrderItem {
     @JsonKey(name: 'unit_price') @Default('0') String unitPrice,
     @Default('0') String discount,
     @Default('0') String total,
+    // Agenda
+    @JsonKey(name: 'assigned_to') String? assignedTo,
+    @JsonKey(name: 'scheduled_start') String? scheduledStart,
+    @JsonKey(name: 'estimated_duration') int? estimatedDuration,
+    @JsonKey(name: 'scheduled_end') String? scheduledEnd,
   }) = _OrderItem;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) =>
@@ -55,6 +61,20 @@ abstract class OrderPhoto with _$OrderPhoto {
 
   factory OrderPhoto.fromJson(Map<String, dynamic> json) =>
       _$OrderPhotoFromJson(json);
+}
+
+/// Comentário numa foto da OS (thread). `authorKind ∈ 'staff'|'customer'`.
+@freezed
+abstract class PhotoComment with _$PhotoComment {
+  const factory PhotoComment({
+    @JsonKey(name: 'author_kind') @Default('staff') String authorKind,
+    @JsonKey(name: 'author_name') String? authorName,
+    @Default('') String body,
+    @JsonKey(name: 'created_at') String? createdAt,
+  }) = _PhotoComment;
+
+  factory PhotoComment.fromJson(Map<String, dynamic> json) =>
+      _$PhotoCommentFromJson(json);
 }
 
 /// Item de um template de OS. Igual ao item de OS, mas sem totais calculados:

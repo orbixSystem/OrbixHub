@@ -96,6 +96,19 @@ export interface UpdateItemData {
   total?: DecimalIn;
 }
 
+export interface UpdateItemScheduleData {
+  assigned_to?: string | null;
+  scheduled_start?: Date | null;
+  estimated_duration?: number | null;
+  scheduled_end?: Date | null;
+}
+
+export interface AgendaFilter {
+  from: Date;
+  to: Date;
+  assignedTo?: string;
+}
+
 export interface CreateTemplateItemData {
   kind: 'product' | 'service';
   inventory_item_id: string | null;
@@ -251,6 +264,72 @@ export class OsRepository {
     });
   }
 
+  updateItemSchedule(itemId: string, data: UpdateItemScheduleData) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.update({ where: { id: itemId }, data });
+  }
+
+  /** Verifica sobreposição de agenda para um técnico (conflito de horário). */
+  async findConflicts(
+    assignedTo: string,
+    start: Date,
+    end: Date,
+    excludeItemId?: string,
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.findMany({
+      where: {
+        assigned_to: assignedTo,
+        id: excludeItemId ? { not: excludeItemId } : undefined,
+        scheduled_start: { not: null, lt: end },
+        scheduled_end: { not: null, gt: start },
+      },
+      select: { id: true, name: true, order_id: true, scheduled_start: true, scheduled_end: true },
+    });
+  }
+
+  /** Itens com agendamento no período (para a tela de agenda). */
+  async getScheduledItems(filter: AgendaFilter) {
+    const db = this.tenant.getClient();
+    return db.service_order_item.findMany({
+      where: {
+        scheduled_start: { gte: filter.from, lt: filter.to },
+        scheduled_end: { not: null },
+        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
+      },
+      include: {
+        order: {
+          select: { id: true, number: true, status: true, customer_name: true, subject_label: true },
+        },
+      },
+      orderBy: [{ scheduled_start: 'asc' }, { assigned_to: 'asc' }],
+    });
+  }
+
+  /** OSes com agendamento (scheduled_start) no período — alimenta a agenda. */
+  async getScheduledOrders(filter: AgendaFilter) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        scheduled_start: { gte: filter.from, lt: filter.to },
+        scheduled_end: { not: null },
+        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        customer_name: true,
+        subject_label: true,
+        assigned_to: true,
+        scheduled_start: true,
+        scheduled_end: true,
+        complaint: true,
+      },
+      orderBy: { scheduled_start: 'asc' },
+    });
+  }
+
   // ---- eventos (timeline) ----
   /** Cria um evento na timeline. Usa o cliente tx-scoped — roda na MESMA tx do chamador. */
   createEvent(tenantId: string, orderId: string, data: CreateEventData) {
@@ -306,6 +385,39 @@ export class OsRepository {
     return db.service_order_photo.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'desc' },
+    });
+  }
+
+  // ---- comentários das fotos (thread staff + cliente) ----
+
+  listPhotoComments(photoId: string) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo_comment.findMany({
+      where: { photo_id: photoId },
+      orderBy: { created_at: 'asc' },
+    });
+  }
+
+  addPhotoComment(
+    tenantId: string,
+    data: {
+      photoId: string;
+      authorKind: 'staff' | 'customer';
+      authorUserId?: string | null;
+      authorName?: string | null;
+      body: string;
+    },
+  ) {
+    const db = this.tenant.getClient();
+    return db.service_order_photo_comment.create({
+      data: {
+        tenant_id: tenantId,
+        photo_id: data.photoId,
+        author_kind: data.authorKind,
+        author_user_id: data.authorUserId ?? null,
+        author_name: data.authorName ?? null,
+        body: data.body,
+      },
     });
   }
 

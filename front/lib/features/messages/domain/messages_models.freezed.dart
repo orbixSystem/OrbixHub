@@ -303,10 +303,281 @@ as bool,
 
 
 /// @nodoc
+mixin _$MessageQuote {
+
+ String get sender;// 'customer' | 'staff'
+@JsonKey(name: 'author_name') String? get authorName; String get body;
+/// Create a copy of MessageQuote
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$MessageQuoteCopyWith<MessageQuote> get copyWith => _$MessageQuoteCopyWithImpl<MessageQuote>(this as MessageQuote, _$identity);
+
+  /// Serializes this MessageQuote to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessageQuote&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,sender,authorName,body);
+
+@override
+String toString() {
+  return 'MessageQuote(sender: $sender, authorName: $authorName, body: $body)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $MessageQuoteCopyWith<$Res>  {
+  factory $MessageQuoteCopyWith(MessageQuote value, $Res Function(MessageQuote) _then) = _$MessageQuoteCopyWithImpl;
+@useResult
+$Res call({
+ String sender,@JsonKey(name: 'author_name') String? authorName, String body
+});
+
+
+
+
+}
+/// @nodoc
+class _$MessageQuoteCopyWithImpl<$Res>
+    implements $MessageQuoteCopyWith<$Res> {
+  _$MessageQuoteCopyWithImpl(this._self, this._then);
+
+  final MessageQuote _self;
+  final $Res Function(MessageQuote) _then;
+
+/// Create a copy of MessageQuote
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,}) {
+  return _then(_self.copyWith(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [MessageQuote].
+extension MessageQuotePatterns on MessageQuote {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _MessageQuote value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _MessageQuote() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _MessageQuote value)  $default,){
+final _that = this;
+switch (_that) {
+case _MessageQuote():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _MessageQuote value)?  $default,){
+final _that = this;
+switch (_that) {
+case _MessageQuote() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _MessageQuote() when $default != null:
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)  $default,) {final _that = this;
+switch (_that) {
+case _MessageQuote():
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)?  $default,) {final _that = this;
+switch (_that) {
+case _MessageQuote() when $default != null:
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _MessageQuote implements MessageQuote {
+  const _MessageQuote({this.sender = 'customer', @JsonKey(name: 'author_name') this.authorName, this.body = ''});
+  factory _MessageQuote.fromJson(Map<String, dynamic> json) => _$MessageQuoteFromJson(json);
+
+@override@JsonKey() final  String sender;
+// 'customer' | 'staff'
+@override@JsonKey(name: 'author_name') final  String? authorName;
+@override@JsonKey() final  String body;
+
+/// Create a copy of MessageQuote
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$MessageQuoteCopyWith<_MessageQuote> get copyWith => __$MessageQuoteCopyWithImpl<_MessageQuote>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$MessageQuoteToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessageQuote&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,sender,authorName,body);
+
+@override
+String toString() {
+  return 'MessageQuote(sender: $sender, authorName: $authorName, body: $body)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$MessageQuoteCopyWith<$Res> implements $MessageQuoteCopyWith<$Res> {
+  factory _$MessageQuoteCopyWith(_MessageQuote value, $Res Function(_MessageQuote) _then) = __$MessageQuoteCopyWithImpl;
+@override @useResult
+$Res call({
+ String sender,@JsonKey(name: 'author_name') String? authorName, String body
+});
+
+
+
+
+}
+/// @nodoc
+class __$MessageQuoteCopyWithImpl<$Res>
+    implements _$MessageQuoteCopyWith<$Res> {
+  __$MessageQuoteCopyWithImpl(this._self, this._then);
+
+  final _MessageQuote _self;
+  final $Res Function(_MessageQuote) _then;
+
+/// Create a copy of MessageQuote
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,}) {
+  return _then(_MessageQuote(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$Message {
 
  String get id; String get sender;// 'customer' | 'staff'
-@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;@JsonKey(name: 'read_at') String? get readAt;
+@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;@JsonKey(name: 'read_at') String? get readAt;@JsonKey(name: 'reply_to_id') String? get replyToId;@JsonKey(name: 'replyTo') MessageQuote? get replyTo;@JsonKey(name: 'photo_id') String? get photoId;@JsonKey(name: 'photo_url') String? get photoUrl;
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -319,16 +590,16 @@ $MessageCopyWith<Message> get copyWith => _$MessageCopyWithImpl<Message>(this as
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoId, photoId) || other.photoId == photoId)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt,replyToId,replyTo,photoId,photoUrl);
 
 @override
 String toString() {
-  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
+  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyToId: $replyToId, replyTo: $replyTo, photoId: $photoId, photoUrl: $photoUrl)';
 }
 
 
@@ -339,11 +610,11 @@ abstract mixin class $MessageCopyWith<$Res>  {
   factory $MessageCopyWith(Message value, $Res Function(Message) _then) = _$MessageCopyWithImpl;
 @useResult
 $Res call({
- String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt
+ String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt,@JsonKey(name: 'reply_to_id') String? replyToId,@JsonKey(name: 'replyTo') MessageQuote? replyTo,@JsonKey(name: 'photo_id') String? photoId,@JsonKey(name: 'photo_url') String? photoUrl
 });
 
 
-
+$MessageQuoteCopyWith<$Res>? get replyTo;
 
 }
 /// @nodoc
@@ -356,7 +627,7 @@ class _$MessageCopyWithImpl<$Res>
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyToId = freezed,Object? replyTo = freezed,Object? photoId = freezed,Object? photoUrl = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
@@ -364,10 +635,26 @@ as String,authorName: freezed == authorName ? _self.authorName : authorName // i
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
+as String?,replyToId: freezed == replyToId ? _self.replyToId : replyToId // ignore: cast_nullable_to_non_nullable
+as String?,replyTo: freezed == replyTo ? _self.replyTo : replyTo // ignore: cast_nullable_to_non_nullable
+as MessageQuote?,photoId: freezed == photoId ? _self.photoId : photoId // ignore: cast_nullable_to_non_nullable
+as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
+/// Create a copy of Message
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$MessageQuoteCopyWith<$Res>? get replyTo {
+    if (_self.replyTo == null) {
+    return null;
+  }
 
+  return $MessageQuoteCopyWith<$Res>(_self.replyTo!, (value) {
+    return _then(_self.copyWith(replyTo: value));
+  });
+}
 }
 
 
@@ -449,10 +736,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt, @JsonKey(name: 'reply_to_id')  String? replyToId, @JsonKey(name: 'replyTo')  MessageQuote? replyTo, @JsonKey(name: 'photo_id')  String? photoId, @JsonKey(name: 'photo_url')  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Message() when $default != null:
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyToId,_that.replyTo,_that.photoId,_that.photoUrl);case _:
   return orElse();
 
 }
@@ -470,10 +757,10 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt, @JsonKey(name: 'reply_to_id')  String? replyToId, @JsonKey(name: 'replyTo')  MessageQuote? replyTo, @JsonKey(name: 'photo_id')  String? photoId, @JsonKey(name: 'photo_url')  String? photoUrl)  $default,) {final _that = this;
 switch (_that) {
 case _Message():
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyToId,_that.replyTo,_that.photoId,_that.photoUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -490,10 +777,10 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String sender, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt, @JsonKey(name: 'read_at')  String? readAt, @JsonKey(name: 'reply_to_id')  String? replyToId, @JsonKey(name: 'replyTo')  MessageQuote? replyTo, @JsonKey(name: 'photo_id')  String? photoId, @JsonKey(name: 'photo_url')  String? photoUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _Message() when $default != null:
-return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyToId,_that.replyTo,_that.photoId,_that.photoUrl);case _:
   return null;
 
 }
@@ -505,7 +792,7 @@ return $default(_that.id,_that.sender,_that.authorName,_that.body,_that.createdA
 @JsonSerializable()
 
 class _Message implements Message {
-  const _Message({required this.id, this.sender = 'customer', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt, @JsonKey(name: 'read_at') this.readAt});
+  const _Message({required this.id, this.sender = 'customer', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt, @JsonKey(name: 'read_at') this.readAt, @JsonKey(name: 'reply_to_id') this.replyToId, @JsonKey(name: 'replyTo') this.replyTo, @JsonKey(name: 'photo_id') this.photoId, @JsonKey(name: 'photo_url') this.photoUrl});
   factory _Message.fromJson(Map<String, dynamic> json) => _$MessageFromJson(json);
 
 @override final  String id;
@@ -515,6 +802,10 @@ class _Message implements Message {
 @override@JsonKey() final  String body;
 @override@JsonKey(name: 'created_at') final  String? createdAt;
 @override@JsonKey(name: 'read_at') final  String? readAt;
+@override@JsonKey(name: 'reply_to_id') final  String? replyToId;
+@override@JsonKey(name: 'replyTo') final  MessageQuote? replyTo;
+@override@JsonKey(name: 'photo_id') final  String? photoId;
+@override@JsonKey(name: 'photo_url') final  String? photoUrl;
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
@@ -529,16 +820,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Message&&(identical(other.id, id) || other.id == id)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoId, photoId) || other.photoId == photoId)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt);
+int get hashCode => Object.hash(runtimeType,id,sender,authorName,body,createdAt,readAt,replyToId,replyTo,photoId,photoUrl);
 
 @override
 String toString() {
-  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
+  return 'Message(id: $id, sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyToId: $replyToId, replyTo: $replyTo, photoId: $photoId, photoUrl: $photoUrl)';
 }
 
 
@@ -549,11 +840,11 @@ abstract mixin class _$MessageCopyWith<$Res> implements $MessageCopyWith<$Res> {
   factory _$MessageCopyWith(_Message value, $Res Function(_Message) _then) = __$MessageCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt
+ String id, String sender,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt,@JsonKey(name: 'read_at') String? readAt,@JsonKey(name: 'reply_to_id') String? replyToId,@JsonKey(name: 'replyTo') MessageQuote? replyTo,@JsonKey(name: 'photo_id') String? photoId,@JsonKey(name: 'photo_url') String? photoUrl
 });
 
 
-
+@override $MessageQuoteCopyWith<$Res>? get replyTo;
 
 }
 /// @nodoc
@@ -566,7 +857,7 @@ class __$MessageCopyWithImpl<$Res>
 
 /// Create a copy of Message
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyToId = freezed,Object? replyTo = freezed,Object? photoId = freezed,Object? photoUrl = freezed,}) {
   return _then(_Message(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
@@ -574,17 +865,33 @@ as String,authorName: freezed == authorName ? _self.authorName : authorName // i
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
+as String?,replyToId: freezed == replyToId ? _self.replyToId : replyToId // ignore: cast_nullable_to_non_nullable
+as String?,replyTo: freezed == replyTo ? _self.replyTo : replyTo // ignore: cast_nullable_to_non_nullable
+as MessageQuote?,photoId: freezed == photoId ? _self.photoId : photoId // ignore: cast_nullable_to_non_nullable
+as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
 
+/// Create a copy of Message
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$MessageQuoteCopyWith<$Res>? get replyTo {
+    if (_self.replyTo == null) {
+    return null;
+  }
 
+  return $MessageQuoteCopyWith<$Res>(_self.replyTo!, (value) {
+    return _then(_self.copyWith(replyTo: value));
+  });
+}
 }
 
 /// @nodoc
 mixin _$ConversationThread {
 
- Conversation get conversation; List<Message> get messages;
+ Conversation get conversation; List<Message> get messages; bool get hasMore;
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -595,16 +902,16 @@ $ConversationThreadCopyWith<ConversationThread> get copyWith => _$ConversationTh
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other.messages, messages));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other.messages, messages)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(messages));
+int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(messages),hasMore);
 
 @override
 String toString() {
-  return 'ConversationThread(conversation: $conversation, messages: $messages)';
+  return 'ConversationThread(conversation: $conversation, messages: $messages, hasMore: $hasMore)';
 }
 
 
@@ -615,7 +922,7 @@ abstract mixin class $ConversationThreadCopyWith<$Res>  {
   factory $ConversationThreadCopyWith(ConversationThread value, $Res Function(ConversationThread) _then) = _$ConversationThreadCopyWithImpl;
 @useResult
 $Res call({
- Conversation conversation, List<Message> messages
+ Conversation conversation, List<Message> messages, bool hasMore
 });
 
 
@@ -632,11 +939,12 @@ class _$ConversationThreadCopyWithImpl<$Res>
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? conversation = null,Object? messages = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? conversation = null,Object? messages = null,Object? hasMore = null,}) {
   return _then(_self.copyWith(
 conversation: null == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
 as Conversation,messages: null == messages ? _self.messages : messages // ignore: cast_nullable_to_non_nullable
-as List<Message>,
+as List<Message>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 /// Create a copy of ConversationThread
@@ -730,10 +1038,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages,  bool hasMore)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConversationThread() when $default != null:
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   return orElse();
 
 }
@@ -751,10 +1059,10 @@ return $default(_that.conversation,_that.messages);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Conversation conversation,  List<Message> messages,  bool hasMore)  $default,) {final _that = this;
 switch (_that) {
 case _ConversationThread():
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -771,10 +1079,10 @@ return $default(_that.conversation,_that.messages);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Conversation conversation,  List<Message> messages)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Conversation conversation,  List<Message> messages,  bool hasMore)?  $default,) {final _that = this;
 switch (_that) {
 case _ConversationThread() when $default != null:
-return $default(_that.conversation,_that.messages);case _:
+return $default(_that.conversation,_that.messages,_that.hasMore);case _:
   return null;
 
 }
@@ -786,7 +1094,7 @@ return $default(_that.conversation,_that.messages);case _:
 
 
 class _ConversationThread implements ConversationThread {
-  const _ConversationThread({required this.conversation, final  List<Message> messages = const <Message>[]}): _messages = messages;
+  const _ConversationThread({required this.conversation, final  List<Message> messages = const <Message>[], this.hasMore = false}): _messages = messages;
   
 
 @override final  Conversation conversation;
@@ -797,6 +1105,7 @@ class _ConversationThread implements ConversationThread {
   return EqualUnmodifiableListView(_messages);
 }
 
+@override@JsonKey() final  bool hasMore;
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
@@ -808,16 +1117,16 @@ _$ConversationThreadCopyWith<_ConversationThread> get copyWith => __$Conversatio
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other._messages, _messages));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConversationThread&&(identical(other.conversation, conversation) || other.conversation == conversation)&&const DeepCollectionEquality().equals(other._messages, _messages)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(_messages));
+int get hashCode => Object.hash(runtimeType,conversation,const DeepCollectionEquality().hash(_messages),hasMore);
 
 @override
 String toString() {
-  return 'ConversationThread(conversation: $conversation, messages: $messages)';
+  return 'ConversationThread(conversation: $conversation, messages: $messages, hasMore: $hasMore)';
 }
 
 
@@ -828,7 +1137,7 @@ abstract mixin class _$ConversationThreadCopyWith<$Res> implements $Conversation
   factory _$ConversationThreadCopyWith(_ConversationThread value, $Res Function(_ConversationThread) _then) = __$ConversationThreadCopyWithImpl;
 @override @useResult
 $Res call({
- Conversation conversation, List<Message> messages
+ Conversation conversation, List<Message> messages, bool hasMore
 });
 
 
@@ -845,11 +1154,12 @@ class __$ConversationThreadCopyWithImpl<$Res>
 
 /// Create a copy of ConversationThread
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? conversation = null,Object? messages = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? conversation = null,Object? messages = null,Object? hasMore = null,}) {
   return _then(_ConversationThread(
 conversation: null == conversation ? _self.conversation : conversation // ignore: cast_nullable_to_non_nullable
 as Conversation,messages: null == messages ? _self._messages : messages // ignore: cast_nullable_to_non_nullable
-as List<Message>,
+as List<Message>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

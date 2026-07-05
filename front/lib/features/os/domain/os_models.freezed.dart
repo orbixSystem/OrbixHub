@@ -16,7 +16,8 @@ T _$identity<T>(T value) => value;
 mixin _$OrderItem {
 
  String get id; String get kind;// 'product' | 'service'
-@JsonKey(name: 'inventory_item_id') String? get inventoryItemId; String get name; String get quantity;@JsonKey(name: 'unit_price') String get unitPrice; String get discount; String get total;
+@JsonKey(name: 'inventory_item_id') String? get inventoryItemId; String get name; String get quantity;@JsonKey(name: 'unit_price') String get unitPrice; String get discount; String get total;// Agenda
+@JsonKey(name: 'assigned_to') String? get assignedTo;@JsonKey(name: 'scheduled_start') String? get scheduledStart;@JsonKey(name: 'estimated_duration') int? get estimatedDuration;@JsonKey(name: 'scheduled_end') String? get scheduledEnd;
 /// Create a copy of OrderItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +30,16 @@ $OrderItemCopyWith<OrderItem> get copyWith => _$OrderItemCopyWithImpl<OrderItem>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OrderItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.inventoryItemId, inventoryItemId) || other.inventoryItemId == inventoryItemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.unitPrice, unitPrice) || other.unitPrice == unitPrice)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OrderItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.inventoryItemId, inventoryItemId) || other.inventoryItemId == inventoryItemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.unitPrice, unitPrice) || other.unitPrice == unitPrice)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.estimatedDuration, estimatedDuration) || other.estimatedDuration == estimatedDuration)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,inventoryItemId,name,quantity,unitPrice,discount,total);
+int get hashCode => Object.hash(runtimeType,id,kind,inventoryItemId,name,quantity,unitPrice,discount,total,assignedTo,scheduledStart,estimatedDuration,scheduledEnd);
 
 @override
 String toString() {
-  return 'OrderItem(id: $id, kind: $kind, inventoryItemId: $inventoryItemId, name: $name, quantity: $quantity, unitPrice: $unitPrice, discount: $discount, total: $total)';
+  return 'OrderItem(id: $id, kind: $kind, inventoryItemId: $inventoryItemId, name: $name, quantity: $quantity, unitPrice: $unitPrice, discount: $discount, total: $total, assignedTo: $assignedTo, scheduledStart: $scheduledStart, estimatedDuration: $estimatedDuration, scheduledEnd: $scheduledEnd)';
 }
 
 
@@ -49,7 +50,7 @@ abstract mixin class $OrderItemCopyWith<$Res>  {
   factory $OrderItemCopyWith(OrderItem value, $Res Function(OrderItem) _then) = _$OrderItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String kind,@JsonKey(name: 'inventory_item_id') String? inventoryItemId, String name, String quantity,@JsonKey(name: 'unit_price') String unitPrice, String discount, String total
+ String id, String kind,@JsonKey(name: 'inventory_item_id') String? inventoryItemId, String name, String quantity,@JsonKey(name: 'unit_price') String unitPrice, String discount, String total,@JsonKey(name: 'assigned_to') String? assignedTo,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'estimated_duration') int? estimatedDuration,@JsonKey(name: 'scheduled_end') String? scheduledEnd
 });
 
 
@@ -66,7 +67,7 @@ class _$OrderItemCopyWithImpl<$Res>
 
 /// Create a copy of OrderItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? inventoryItemId = freezed,Object? name = null,Object? quantity = null,Object? unitPrice = null,Object? discount = null,Object? total = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? kind = null,Object? inventoryItemId = freezed,Object? name = null,Object? quantity = null,Object? unitPrice = null,Object? discount = null,Object? total = null,Object? assignedTo = freezed,Object? scheduledStart = freezed,Object? estimatedDuration = freezed,Object? scheduledEnd = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
@@ -76,7 +77,11 @@ as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast
 as String,unitPrice: null == unitPrice ? _self.unitPrice : unitPrice // ignore: cast_nullable_to_non_nullable
 as String,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
-as String,
+as String,assignedTo: freezed == assignedTo ? _self.assignedTo : assignedTo // ignore: cast_nullable_to_non_nullable
+as String?,scheduledStart: freezed == scheduledStart ? _self.scheduledStart : scheduledStart // ignore: cast_nullable_to_non_nullable
+as String?,estimatedDuration: freezed == estimatedDuration ? _self.estimatedDuration : estimatedDuration // ignore: cast_nullable_to_non_nullable
+as int?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -161,10 +166,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total, @JsonKey(name: 'assigned_to')  String? assignedTo, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'estimated_duration')  int? estimatedDuration, @JsonKey(name: 'scheduled_end')  String? scheduledEnd)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OrderItem() when $default != null:
-return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total);case _:
+return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total,_that.assignedTo,_that.scheduledStart,_that.estimatedDuration,_that.scheduledEnd);case _:
   return orElse();
 
 }
@@ -182,10 +187,10 @@ return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quant
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total, @JsonKey(name: 'assigned_to')  String? assignedTo, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'estimated_duration')  int? estimatedDuration, @JsonKey(name: 'scheduled_end')  String? scheduledEnd)  $default,) {final _that = this;
 switch (_that) {
 case _OrderItem():
-return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total);case _:
+return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total,_that.assignedTo,_that.scheduledStart,_that.estimatedDuration,_that.scheduledEnd);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +207,10 @@ return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quant
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String kind, @JsonKey(name: 'inventory_item_id')  String? inventoryItemId,  String name,  String quantity, @JsonKey(name: 'unit_price')  String unitPrice,  String discount,  String total, @JsonKey(name: 'assigned_to')  String? assignedTo, @JsonKey(name: 'scheduled_start')  String? scheduledStart, @JsonKey(name: 'estimated_duration')  int? estimatedDuration, @JsonKey(name: 'scheduled_end')  String? scheduledEnd)?  $default,) {final _that = this;
 switch (_that) {
 case _OrderItem() when $default != null:
-return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total);case _:
+return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quantity,_that.unitPrice,_that.discount,_that.total,_that.assignedTo,_that.scheduledStart,_that.estimatedDuration,_that.scheduledEnd);case _:
   return null;
 
 }
@@ -217,7 +222,7 @@ return $default(_that.id,_that.kind,_that.inventoryItemId,_that.name,_that.quant
 @JsonSerializable()
 
 class _OrderItem implements OrderItem {
-  const _OrderItem({required this.id, this.kind = 'product', @JsonKey(name: 'inventory_item_id') this.inventoryItemId, required this.name, this.quantity = '1', @JsonKey(name: 'unit_price') this.unitPrice = '0', this.discount = '0', this.total = '0'});
+  const _OrderItem({required this.id, this.kind = 'product', @JsonKey(name: 'inventory_item_id') this.inventoryItemId, required this.name, this.quantity = '1', @JsonKey(name: 'unit_price') this.unitPrice = '0', this.discount = '0', this.total = '0', @JsonKey(name: 'assigned_to') this.assignedTo, @JsonKey(name: 'scheduled_start') this.scheduledStart, @JsonKey(name: 'estimated_duration') this.estimatedDuration, @JsonKey(name: 'scheduled_end') this.scheduledEnd});
   factory _OrderItem.fromJson(Map<String, dynamic> json) => _$OrderItemFromJson(json);
 
 @override final  String id;
@@ -229,6 +234,11 @@ class _OrderItem implements OrderItem {
 @override@JsonKey(name: 'unit_price') final  String unitPrice;
 @override@JsonKey() final  String discount;
 @override@JsonKey() final  String total;
+// Agenda
+@override@JsonKey(name: 'assigned_to') final  String? assignedTo;
+@override@JsonKey(name: 'scheduled_start') final  String? scheduledStart;
+@override@JsonKey(name: 'estimated_duration') final  int? estimatedDuration;
+@override@JsonKey(name: 'scheduled_end') final  String? scheduledEnd;
 
 /// Create a copy of OrderItem
 /// with the given fields replaced by the non-null parameter values.
@@ -243,16 +253,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OrderItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.inventoryItemId, inventoryItemId) || other.inventoryItemId == inventoryItemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.unitPrice, unitPrice) || other.unitPrice == unitPrice)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OrderItem&&(identical(other.id, id) || other.id == id)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.inventoryItemId, inventoryItemId) || other.inventoryItemId == inventoryItemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.quantity, quantity) || other.quantity == quantity)&&(identical(other.unitPrice, unitPrice) || other.unitPrice == unitPrice)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.total, total) || other.total == total)&&(identical(other.assignedTo, assignedTo) || other.assignedTo == assignedTo)&&(identical(other.scheduledStart, scheduledStart) || other.scheduledStart == scheduledStart)&&(identical(other.estimatedDuration, estimatedDuration) || other.estimatedDuration == estimatedDuration)&&(identical(other.scheduledEnd, scheduledEnd) || other.scheduledEnd == scheduledEnd));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,kind,inventoryItemId,name,quantity,unitPrice,discount,total);
+int get hashCode => Object.hash(runtimeType,id,kind,inventoryItemId,name,quantity,unitPrice,discount,total,assignedTo,scheduledStart,estimatedDuration,scheduledEnd);
 
 @override
 String toString() {
-  return 'OrderItem(id: $id, kind: $kind, inventoryItemId: $inventoryItemId, name: $name, quantity: $quantity, unitPrice: $unitPrice, discount: $discount, total: $total)';
+  return 'OrderItem(id: $id, kind: $kind, inventoryItemId: $inventoryItemId, name: $name, quantity: $quantity, unitPrice: $unitPrice, discount: $discount, total: $total, assignedTo: $assignedTo, scheduledStart: $scheduledStart, estimatedDuration: $estimatedDuration, scheduledEnd: $scheduledEnd)';
 }
 
 
@@ -263,7 +273,7 @@ abstract mixin class _$OrderItemCopyWith<$Res> implements $OrderItemCopyWith<$Re
   factory _$OrderItemCopyWith(_OrderItem value, $Res Function(_OrderItem) _then) = __$OrderItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String kind,@JsonKey(name: 'inventory_item_id') String? inventoryItemId, String name, String quantity,@JsonKey(name: 'unit_price') String unitPrice, String discount, String total
+ String id, String kind,@JsonKey(name: 'inventory_item_id') String? inventoryItemId, String name, String quantity,@JsonKey(name: 'unit_price') String unitPrice, String discount, String total,@JsonKey(name: 'assigned_to') String? assignedTo,@JsonKey(name: 'scheduled_start') String? scheduledStart,@JsonKey(name: 'estimated_duration') int? estimatedDuration,@JsonKey(name: 'scheduled_end') String? scheduledEnd
 });
 
 
@@ -280,7 +290,7 @@ class __$OrderItemCopyWithImpl<$Res>
 
 /// Create a copy of OrderItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? inventoryItemId = freezed,Object? name = null,Object? quantity = null,Object? unitPrice = null,Object? discount = null,Object? total = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? kind = null,Object? inventoryItemId = freezed,Object? name = null,Object? quantity = null,Object? unitPrice = null,Object? discount = null,Object? total = null,Object? assignedTo = freezed,Object? scheduledStart = freezed,Object? estimatedDuration = freezed,Object? scheduledEnd = freezed,}) {
   return _then(_OrderItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
@@ -290,7 +300,11 @@ as String,quantity: null == quantity ? _self.quantity : quantity // ignore: cast
 as String,unitPrice: null == unitPrice ? _self.unitPrice : unitPrice // ignore: cast_nullable_to_non_nullable
 as String,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
-as String,
+as String,assignedTo: freezed == assignedTo ? _self.assignedTo : assignedTo // ignore: cast_nullable_to_non_nullable
+as String?,scheduledStart: freezed == scheduledStart ? _self.scheduledStart : scheduledStart // ignore: cast_nullable_to_non_nullable
+as String?,estimatedDuration: freezed == estimatedDuration ? _self.estimatedDuration : estimatedDuration // ignore: cast_nullable_to_non_nullable
+as int?,scheduledEnd: freezed == scheduledEnd ? _self.scheduledEnd : scheduledEnd // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -842,6 +856,278 @@ id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,url: null == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String,caption: freezed == caption ? _self.caption : caption // ignore: cast_nullable_to_non_nullable
 as String?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$PhotoComment {
+
+@JsonKey(name: 'author_kind') String get authorKind;@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PhotoCommentCopyWith<PhotoComment> get copyWith => _$PhotoCommentCopyWithImpl<PhotoComment>(this as PhotoComment, _$identity);
+
+  /// Serializes this PhotoComment to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PhotoCommentCopyWith<$Res>  {
+  factory $PhotoCommentCopyWith(PhotoComment value, $Res Function(PhotoComment) _then) = _$PhotoCommentCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'author_kind') String authorKind,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$PhotoCommentCopyWithImpl<$Res>
+    implements $PhotoCommentCopyWith<$Res> {
+  _$PhotoCommentCopyWithImpl(this._self, this._then);
+
+  final PhotoComment _self;
+  final $Res Function(PhotoComment) _then;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_self.copyWith(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PhotoComment].
+extension PhotoCommentPatterns on PhotoComment {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PhotoComment value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PhotoComment value)  $default,){
+final _that = this;
+switch (_that) {
+case _PhotoComment():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PhotoComment value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+switch (_that) {
+case _PhotoComment():
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PhotoComment implements PhotoComment {
+  const _PhotoComment({@JsonKey(name: 'author_kind') this.authorKind = 'staff', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt});
+  factory _PhotoComment.fromJson(Map<String, dynamic> json) => _$PhotoCommentFromJson(json);
+
+@override@JsonKey(name: 'author_kind') final  String authorKind;
+@override@JsonKey(name: 'author_name') final  String? authorName;
+@override@JsonKey() final  String body;
+@override@JsonKey(name: 'created_at') final  String? createdAt;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PhotoCommentCopyWith<_PhotoComment> get copyWith => __$PhotoCommentCopyWithImpl<_PhotoComment>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PhotoCommentToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PhotoCommentCopyWith<$Res> implements $PhotoCommentCopyWith<$Res> {
+  factory _$PhotoCommentCopyWith(_PhotoComment value, $Res Function(_PhotoComment) _then) = __$PhotoCommentCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'author_kind') String authorKind,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$PhotoCommentCopyWithImpl<$Res>
+    implements _$PhotoCommentCopyWith<$Res> {
+  __$PhotoCommentCopyWithImpl(this._self, this._then);
+
+  final _PhotoComment _self;
+  final $Res Function(_PhotoComment) _then;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_PhotoComment(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
+import 'core/network/refresh_token_store.dart';
 import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
 import 'core/network/token_refresh_service.dart';
@@ -18,6 +19,8 @@ import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
+import 'features/invoice/data/invoice_repository_impl.dart';
+import 'features/invoice/domain/invoice_repository.dart';
 import 'features/dashboard/data/dashboard_repository_impl.dart';
 import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
@@ -28,6 +31,8 @@ import 'features/notifications/data/notifications_repository_impl.dart';
 import 'features/notifications/presentation/notifications_providers.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
+import 'features/sales/data/sale_repository_impl.dart';
+import 'features/sales/domain/sale_repository.dart';
 import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
@@ -36,6 +41,8 @@ import 'features/settings/data/settings_repository_impl.dart';
 import 'features/settings/domain/settings_models.dart';
 import 'features/settings/domain/settings_repository.dart';
 import 'features/settings/presentation/settings_controller.dart';
+import 'features/schedule/data/schedule_repository_impl.dart';
+import 'features/schedule/presentation/schedule_providers.dart';
 import 'features/tracking/data/tracking_repository_impl.dart';
 import 'features/tracking/domain/tracking_repository.dart';
 
@@ -54,6 +61,10 @@ final secureTokenStoreProvider =
 final accessTokenStoreProvider =
     Provider<AccessTokenStore>((ref) => AccessTokenStore());
 
+/// In-memory refresh token for the session (+ the "remember" persistence flag).
+final refreshTokenStoreProvider =
+    Provider<RefreshTokenStore>((ref) => RefreshTokenStore());
+
 /// Bare dio with NO interceptors — used only by the refresh service so the
 /// refresh call can never recurse into the 401 handler.
 final bareDioProvider = Provider<Dio>((ref) => Dio(_baseOptions()));
@@ -62,6 +73,7 @@ final tokenRefreshServiceProvider = Provider<TokenRefreshService>((ref) {
   return TokenRefreshService(
     bareDio: ref.read(bareDioProvider),
     accessStore: ref.read(accessTokenStoreProvider),
+    refreshStore: ref.read(refreshTokenStoreProvider),
     secureStore: ref.read(secureTokenStoreProvider),
   );
 });
@@ -94,6 +106,12 @@ final teamRepositoryProvider = Provider<TeamRepository>(
 final customersRepositoryProvider = Provider<CustomersRepository>(
     (ref) => CustomersRepositoryImpl(ref.read(dioProvider)));
 
+final invoiceRepositoryProvider = Provider<InvoiceRepository>(
+    (ref) => InvoiceRepositoryImpl(ref.read(dioProvider)));
+
+final saleRepositoryProvider = Provider<SaleRepository>(
+    (ref) => SaleRepositoryImpl(ref.read(dioProvider)));
+
 final settingsRepositoryProvider = Provider<SettingsRepository>(
     (ref) => SettingsRepositoryImpl(ref.read(dioProvider)));
 
@@ -122,6 +140,9 @@ final diOverrides = [
   ),
   reportRepositoryProvider.overrideWith(
     (ref) => ReportRepositoryImpl(ref.read(dioProvider)),
+  ),
+  scheduleRepositoryProvider.overrideWith(
+    (ref) => ScheduleRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 

@@ -45,7 +45,9 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Equipe'), findsOneWidget);
     expect(find.text('Convidar'), findsOneWidget);
-    expect(find.text('Funcionários'), findsOneWidget);
-    expect(find.text('Convites pendentes'), findsOneWidget);
+    // Abas do redesign: Funcionários (aba+lista) e Convites (aba; pode ter
+    // contagem no rótulo, ex.: "Convites (2)").
+    expect(find.text('Funcionários'), findsWidgets);
+    expect(find.textContaining('Convites'), findsWidgets);
   });
 }

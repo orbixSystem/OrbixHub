@@ -15,6 +15,10 @@ _OrderItem _$OrderItemFromJson(Map<String, dynamic> json) => _OrderItem(
   unitPrice: json['unit_price'] as String? ?? '0',
   discount: json['discount'] as String? ?? '0',
   total: json['total'] as String? ?? '0',
+  assignedTo: json['assigned_to'] as String?,
+  scheduledStart: json['scheduled_start'] as String?,
+  estimatedDuration: (json['estimated_duration'] as num?)?.toInt(),
+  scheduledEnd: json['scheduled_end'] as String?,
 );
 
 Map<String, dynamic> _$OrderItemToJson(_OrderItem instance) =>
@@ -27,6 +31,10 @@ Map<String, dynamic> _$OrderItemToJson(_OrderItem instance) =>
       'unit_price': instance.unitPrice,
       'discount': instance.discount,
       'total': instance.total,
+      'assigned_to': instance.assignedTo,
+      'scheduled_start': instance.scheduledStart,
+      'estimated_duration': instance.estimatedDuration,
+      'scheduled_end': instance.scheduledEnd,
     };
 
 _OrderEvent _$OrderEventFromJson(Map<String, dynamic> json) => _OrderEvent(
@@ -60,6 +68,22 @@ Map<String, dynamic> _$OrderPhotoToJson(_OrderPhoto instance) =>
       'id': instance.id,
       'url': instance.url,
       'caption': instance.caption,
+      'created_at': instance.createdAt,
+    };
+
+_PhotoComment _$PhotoCommentFromJson(Map<String, dynamic> json) =>
+    _PhotoComment(
+      authorKind: json['author_kind'] as String? ?? 'staff',
+      authorName: json['author_name'] as String?,
+      body: json['body'] as String? ?? '',
+      createdAt: json['created_at'] as String?,
+    );
+
+Map<String, dynamic> _$PhotoCommentToJson(_PhotoComment instance) =>
+    <String, dynamic>{
+      'author_kind': instance.authorKind,
+      'author_name': instance.authorName,
+      'body': instance.body,
       'created_at': instance.createdAt,
     };
 

@@ -13,6 +13,13 @@ export interface CreateConversationInput {
   refLabel?: string;
 }
 
+/** Extras de citação de uma mensagem: resposta (quote) + foto da OS citada. */
+export interface MessageExtras {
+  replyToId?: string | null;
+  photoId?: string | null;
+  photoUrl?: string | null;
+}
+
 /** Nome do evento de domínio emitido a cada nova mensagem (ouvido pelo realtime). */
 export const MESSAGE_CREATED_EVENT = 'message.created';
 
@@ -157,17 +164,41 @@ export class MessagesService {
     );
   }
 
+  /** Página padrão da thread (chat cresce para sempre — nunca sem limite). */
+  static readonly THREAD_PAGE_SIZE = 50;
+
   /**
-   * Thread completa. Ao abrir, o staff "leu": zera staff_unread e marca como lidas
-   * as mensagens pendentes do cliente.
+   * Thread PAGINADA por cursor: sem `before` retorna as 50 mais recentes (e o
+   * staff "leu": zera staff_unread e marca como lidas as pendentes do cliente);
+   * com `before` (ISO da mensagem mais antiga carregada) retorna a página
+   * anterior, sem tocar nos contadores. `hasMore` indica se há mais antigas.
    */
-  async getThread(user: AuthUser, convId: string) {
+  async getThread(user: AuthUser, convId: string, before?: string) {
+    const cursor = before ? new Date(before) : undefined;
+    if (cursor && Number.isNaN(cursor.getTime())) {
+      throw new BadRequestException('Cursor `before` inválido.');
+    }
+    const take = MessagesService.THREAD_PAGE_SIZE;
     return this.tenant.withTenantTx(async () => {
       const conversation = await this.repo.getConversationOrThrow(convId);
-      await this.repo.resetStaffUnread(convId);
-      await this.repo.markMessagesRead(convId);
-      const messages = await this.repo.listMessages(convId);
-      return { conversation: { ...conversation, staff_unread: 0 }, messages };
+      if (!cursor) {
+        await this.repo.resetStaffUnread(convId);
+        await this.repo.markMessagesRead(convId);
+      }
+      // take+1 para saber se existe página anterior sem um COUNT extra.
+      const page = await this.repo.listMessagesPage(convId, {
+        before: cursor,
+        take: take + 1,
+      });
+      const hasMore = page.length > take;
+      const ordered = page.slice(0, take).reverse(); // asc p/ exibição
+      // Anexa o preview da mensagem citada (reply-to) — dentro da mesma tx.
+      const messages = await this.attachReplyPreviews(ordered);
+      return {
+        conversation: { ...conversation, staff_unread: 0 },
+        messages,
+        hasMore,
+      };
     });
   }
 
@@ -175,16 +206,26 @@ export class MessagesService {
    * Mensagem do staff. author_name = 'Equipe' (o AccessToken não carrega o nome do
    * usuário); createdBy = userId. NÃO incrementa staff_unread (o staff está lendo).
    */
-  async postStaffMessage(user: AuthUser, convId: string, body: string) {
+  async postStaffMessage(
+    user: AuthUser,
+    convId: string,
+    body: string,
+    extras?: MessageExtras,
+  ) {
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensagem não pode ser vazia.');
     const message = await this.tenant.withTenantTx(async () => {
       await this.repo.getConversationOrThrow(convId);
+      // Citação: só aceita reply a mensagem DESTA conversa (ignora se não for).
+      const replyToId = await this.validReplyId(convId, extras?.replyToId);
       const created = await this.repo.addMessage(user.tenantId, convId, {
         sender: 'staff',
         authorName: 'Equipe',
         body: text,
         createdBy: user.userId,
+        replyToId,
+        photoId: extras?.photoId ?? null,
+        photoUrl: extras?.photoUrl ?? null,
       });
       await this.repo.touchConversation(convId, { lastMessageAt: new Date() });
       return created;
@@ -216,6 +257,7 @@ export class MessagesService {
     conversationId: string,
     body: string,
     authorName?: string,
+    extras?: MessageExtras,
   ) {
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensagem não pode ser vazia.');
@@ -224,10 +266,15 @@ export class MessagesService {
       // Sem nome digitado: atribui ao cliente da OS (o título da conversa é o
       // nome do cliente). Assim a mensagem é creditada sem o cliente digitar nada.
       const resolvedName = authorName?.trim() || conversation.title || null;
+      // Citação só aceita reply a mensagem DESTA conversa (público não confiável).
+      const replyToId = await this.validReplyId(conversationId, extras?.replyToId);
       const created = await this.repo.addMessage(tenantId, conversationId, {
         sender: 'customer',
         authorName: resolvedName,
         body: text,
+        replyToId,
+        photoId: extras?.photoId ?? null,
+        photoUrl: extras?.photoUrl ?? null,
       });
       await this.repo.touchConversation(conversationId, {
         lastMessageAt: new Date(),
@@ -252,4 +299,54 @@ export class MessagesService {
     this.emitMessageCreated(tenantId, conversationId, message);
     return message;
   }
+
+  /**
+   * Valida um `reply_to_id`: só aceita se a mensagem citada existir E pertencer
+   * à mesma conversa (evita citar mensagem de outra conversa/tenant). Deve rodar
+   * dentro de um contexto de tenant (tx). Inválido → null (a mensagem é enviada
+   * sem citação, sem quebrar o fluxo).
+   */
+  private async validReplyId(
+    conversationId: string,
+    replyToId?: string | null,
+  ): Promise<string | null> {
+    if (!replyToId) return null;
+    const ok = await this.repo.messageBelongsToConversation(
+      replyToId,
+      conversationId,
+    );
+    return ok ? replyToId : null;
+  }
+
+  /**
+   * Anexa o preview da mensagem citada (reply-to) a cada mensagem de uma página.
+   * Um único fetch em lote (repo.previewByIds). Deve rodar dentro do contexto de
+   * tenant. Retorna as mensagens com um campo `replyTo` (ou null).
+   */
+  async attachReplyPreviews<T extends { reply_to_id: string | null }>(
+    messages: T[],
+  ): Promise<Array<T & { replyTo: ReplyPreview | null }>> {
+    const ids = [
+      ...new Set(
+        messages.map((m) => m.reply_to_id).filter((v): v is string => !!v),
+      ),
+    ];
+    const previews = await this.repo.previewByIds(ids);
+    return messages.map((m) => {
+      const p = m.reply_to_id ? previews.get(m.reply_to_id) : undefined;
+      return {
+        ...m,
+        replyTo: p
+          ? { sender: p.sender, authorName: p.author_name, body: p.body }
+          : null,
+      };
+    });
+  }
+}
+
+/** Preview de uma mensagem citada, no formato exposto ao front. */
+export interface ReplyPreview {
+  sender: string;
+  authorName: string | null;
+  body: string;
 }

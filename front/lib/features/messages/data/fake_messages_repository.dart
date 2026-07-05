@@ -73,9 +73,11 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Future<ConversationThread> getThread(String id) async {
-    // Abrir reseta o não-lido (espelha o servidor).
-    _conversations[id] = _conversations[id]!.copyWith(staffUnread: 0);
+  Future<ConversationThread> getThread(String id, {String? before}) async {
+    // Abrir (página inicial) reseta o não-lido (espelha o servidor).
+    if (before == null) {
+      _conversations[id] = _conversations[id]!.copyWith(staffUnread: 0);
+    }
     return ConversationThread(
       conversation: _conversations[id]!,
       messages: _threads[id] ?? const <Message>[],
@@ -83,12 +85,21 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Future<Message> sendMessage(String id, String body) async {
+  Future<Message> sendMessage(
+    String id,
+    String body, {
+    String? replyToId,
+    String? photoId,
+    String? photoUrl,
+  }) async {
     final msg = Message(
       id: 'staff-${_seq++}',
       sender: 'staff',
       authorName: 'Você',
       body: body,
+      replyToId: replyToId,
+      photoId: photoId,
+      photoUrl: photoUrl,
     );
     _threads[id] = [...?_threads[id], msg];
     _conversations[id] = _conversations[id]!.copyWith(

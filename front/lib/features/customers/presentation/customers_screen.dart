@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
 import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
 
-/// Lista de clientes com busca, criar/editar e arquivar. Corpo apenas — a
-/// moldura (sidebar/título) é do shell.
+/// Lista de clientes — adaptativa (spec 2026-07-04): desktop = linhas densas +
+/// paginação numerada; mobile = cards + pull-to-refresh + infinite scroll +
+/// FAB "Novo cliente". Corpo apenas — a moldura é do shell.
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
 
@@ -37,17 +38,16 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     super.dispose();
   }
 
-  /// Dispara o carregamento do próximo lote ao chegar perto do fim do scroll
-  /// (300px antes do fundo) — o notifier ignora chamadas redundantes.
+  /// Infinite scroll (mobile): dispara o próximo lote perto do fim.
   void _onScroll() {
-    if (!_scroll.hasClients) return;
+    if (!_scroll.hasClients || !mounted || !context.isMobile) return;
     final pos = _scroll.position;
     if (pos.pixels >= pos.maxScrollExtent - 300) {
       ref.read(customersListProvider.notifier).loadMore();
     }
   }
 
-  bool _canWrite(WidgetRef ref) {
+  bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
     return s is SessionAuthenticated && s.me.hasPermission('customer.write');
   }
@@ -64,135 +64,325 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final listAsync = ref.watch(customersListProvider);
+    final canWrite = _canWrite();
+    final isMobile = context.isMobile;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: (isMobile && canWrite)
+          ? FloatingActionButton.extended(
+              onPressed: _create,
+              backgroundColor: context.neu.navy,
+              foregroundColor: context.neu.onNavy,
+              icon: const Icon(Icons.add),
+              label: const Text('Novo cliente'),
+            )
+          : null,
+      body: Padding(
+        padding: EdgeInsets.all(isMobile ? 16 : 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Toolbar(
+              search: _search,
+              canWrite: canWrite,
+              onCreate: _create,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _Body(
+                scroll: _scroll,
+                canWrite: canWrite,
+                onCreate: _create,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Toolbar extends ConsumerWidget {
+  const _Toolbar({
+    required this.search,
+    required this.canWrite,
+    required this.onCreate,
+  });
+
+  final TextEditingController search;
+  final bool canWrite;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
     final query = ref.watch(customerListQueryProvider);
     final notifier = ref.read(customerListQueryProvider.notifier);
-    final canWrite = _canWrite(ref);
+    final isMobile = context.isMobile;
 
-    return Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
+    final archivedToggle = InkWell(
+      onTap: () => notifier.setShowArchived(!query.showArchived),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: query.showArchived ? neu.navy : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: query.showArchived ? null : neu.raised(),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              query.showArchived ? Icons.archive : Icons.archive_outlined,
+              size: 16,
+              color: query.showArchived ? neu.onNavy : neu.inkMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Arquivados',
+              style: TextStyle(
+                color: query.showArchived ? neu.onNavy : neu.inkMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final sortMenu = _SortMenu(value: query.sort, onChanged: notifier.setSort);
+
+    if (isMobile) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Barra de ações: filtros à esquerda; novo + busca à direita. Wrap com
-          // spaceBetween reflui em telas estreitas sem Spacer.
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  // Toggle: mostra/oculta os arquivados (off = só ativos).
-                  FilterChip(
-                    label: const Text('Arquivados'),
-                    avatar: Icon(
-                      query.showArchived
-                          ? Icons.archive
-                          : Icons.archive_outlined,
-                      size: 18,
-                    ),
-                    selected: query.showArchived,
-                    onSelected: notifier.setShowArchived,
-                  ),
-                  _SortMenu(
-                    value: query.sort,
-                    onChanged: notifier.setSort,
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (canWrite)
-                    FilledButton.icon(
-                      // Global filled-button theme uses Size.fromHeight(50)
-                      // (width = infinity); pin a finite min width when in a Row.
-                      style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 48)),
-                      onPressed: _create,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Novo cliente'),
-                    ),
-                  // Busca compacta, à direita.
-                  SizedBox(
-                    width: 300,
-                    child: TextField(
-                      controller: _search,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        hintText: 'Buscar cliente',
-                      ),
-                      onChanged: notifier.setQuery,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          NeuSearchBar(
+            hint: 'Buscar cliente',
+            controller: search,
+            onChanged: notifier.setQuery,
           ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: listAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text(
-                  e is AppException ? e.message : 'Erro ao carregar clientes.',
-                ),
-              ),
-              data: (page) {
-                if (page.items.isEmpty) {
-                  return const Center(child: Text('Nenhum cliente encontrado.'));
-                }
-                // +1 slot para o rodapé (loader do próximo lote ou "fim da lista").
-                return ListView.separated(
-                  controller: _scroll,
-                  itemCount: page.items.length + 1,
-                  separatorBuilder: (_, i) => i >= page.items.length - 1
-                      ? const SizedBox.shrink()
-                      : const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    if (i >= page.items.length) {
-                      return _ListFooter(
-                        loadingMore: page.loadingMore,
-                        hasMore: page.hasMore,
-                        total: page.total,
-                      );
-                    }
-                    final c = page.items[i];
-                    return _CustomerTile(
-                      customer: c,
-                      canWrite: canWrite,
-                      onOpen: () => context.go('/m/customers/${c.id}'),
-                      onArchiveToggle: () async {
-                        final repo = ref.read(customersRepositoryProvider);
-                        if (c.status == 'archived') {
-                          await repo.unarchiveCustomer(c.id);
-                        } else {
-                          await repo.archiveCustomer(c.id);
-                        }
-                        ref.invalidate(customersListProvider);
-                      },
-                    );
-                  },
-                );
-              },
+          const SizedBox(height: 10),
+          Row(children: [archivedToggle, const Spacer(), sortMenu]),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: NeuSearchBar(
+              hint: 'Buscar cliente',
+              controller: search,
+              onChanged: notifier.setQuery,
             ),
           ),
+        ),
+        const SizedBox(width: 12),
+        archivedToggle,
+        const SizedBox(width: 12),
+        sortMenu,
+        if (canWrite) ...[
+          const SizedBox(width: 12),
+          NeuButton(
+            label: 'Novo cliente',
+            icon: Icons.add_rounded,
+            onPressed: onCreate,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Body extends ConsumerWidget {
+  const _Body({
+    required this.scroll,
+    required this.canWrite,
+    required this.onCreate,
+  });
+
+  final ScrollController scroll;
+  final bool canWrite;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final listAsync = ref.watch(customersListProvider);
+    final isMobile = context.isMobile;
+
+    return listAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(e is AppException ? e.message : 'Erro ao carregar clientes.'),
+            const SizedBox(height: 12),
+            NeuButton(
+              label: 'Tentar de novo',
+              kind: NeuButtonKind.secondary,
+              icon: Icons.refresh,
+              onPressed: () => ref.invalidate(customersListProvider),
+            ),
+          ],
+        ),
+      ),
+      data: (page) {
+        if (page.items.isEmpty) {
+          return NeuEmptyState(
+            icon: Icons.group_outlined,
+            title: 'Nenhum cliente encontrado',
+            message:
+                'Cadastre seu primeiro cliente para poder abrir ordens de serviço e acompanhar o histórico dele.',
+            actionLabel: canWrite ? 'Cadastrar cliente' : null,
+            onAction: canWrite ? onCreate : null,
+          );
+        }
+
+        final list = ListView.separated(
+          controller: scroll,
+          padding: EdgeInsets.only(bottom: isMobile ? 88 : 8),
+          itemCount: page.items.length + (isMobile ? 1 : 0),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (_, i) {
+            if (isMobile && i >= page.items.length) {
+              return NeuListFooter(
+                loading: page.loadingMore,
+                hasMore: page.hasMore,
+                total: page.total,
+              );
+            }
+            final c = page.items[i];
+            return _CustomerTile(
+              customer: c,
+              canWrite: canWrite,
+              dense: !isMobile,
+              onOpen: () => context.go('/m/customers/${c.id}'),
+              onArchiveToggle: () async {
+                final repo = ref.read(customersRepositoryProvider);
+                if (c.status == 'archived') {
+                  await repo.unarchiveCustomer(c.id);
+                } else {
+                  await repo.archiveCustomer(c.id);
+                }
+                ref.invalidate(customersListProvider);
+              },
+            );
+          },
+        );
+
+        if (isMobile) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(customersListProvider),
+            child: list,
+          );
+        }
+
+        return Column(
+          children: [
+            Expanded(child: list),
+            const SizedBox(height: 12),
+            NeuPageControls(
+              page: page.page,
+              pageSize: page.pageSize,
+              total: page.total,
+              onPage: (p) =>
+                  ref.read(customersListProvider.notifier).goToPage(p),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CustomerTile extends ConsumerWidget {
+  const _CustomerTile({
+    required this.customer,
+    required this.canWrite,
+    required this.dense,
+    required this.onOpen,
+    required this.onArchiveToggle,
+  });
+
+  final Customer customer;
+  final bool canWrite;
+  final bool dense;
+  final VoidCallback onOpen;
+  final Future<void> Function() onArchiveToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final subtitle = [
+      if (customer.document != null) customer.document!,
+      if (customer.phone != null) customer.phone!,
+    ].join(' · ');
+    final archived = customer.status == 'archived';
+    final initial = customer.name.isNotEmpty
+        ? customer.name.characters.first.toUpperCase()
+        : '?';
+    // Cor estável por cliente (primeira letra) — avatares coloridos e
+    // consistentes entre sessões.
+    final color = neu.glyphs[initial.codeUnitAt(0) % neu.glyphs.length];
+
+    return NeuListTile(
+      dense: dense,
+      onTap: onOpen,
+      leading: Container(
+        width: dense ? 40 : 44,
+        height: dense ? 40 : 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .16),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
+        ),
+      ),
+      title: Text(customer.name),
+      subtitle: subtitle.isEmpty ? null : Text(subtitle),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (archived)
+            NeuStatusChip(
+              label: 'Arquivado',
+              color: neu.inkMuted,
+              tint: neu.inkMuted.withValues(alpha: .14),
+            ),
+          if (canWrite) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: archived ? 'Desarquivar' : 'Arquivar',
+              icon: Icon(
+                archived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                size: 20,
+                color: neu.inkMuted,
+              ),
+              onPressed: onArchiveToggle,
+            ),
+          ],
+          Icon(Icons.chevron_right, color: neu.inkFaint, size: 20),
         ],
       ),
     );
   }
 }
 
-/// Menu de ordenação: gatilho estilo botão (ícone + rótulo atual) que abre a
-/// lista de opções. Marca a opção selecionada com um check tangerina.
+/// Menu de ordenação neumórfico.
 class _SortMenu extends StatelessWidget {
   const _SortMenu({required this.value, required this.onChanged});
 
@@ -208,7 +398,7 @@ class _SortMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     return PopupMenuButton<CustomerSort>(
       tooltip: 'Ordenar',
       initialValue: value,
@@ -220,121 +410,36 @@ class _SortMenu extends StatelessWidget {
             value: s,
             child: Row(
               children: [
-                Icon(_iconFor(s), size: 18, color: scheme.onSurfaceVariant),
+                Icon(_iconFor(s), size: 18, color: neu.inkMuted),
                 const SizedBox(width: 12),
                 Expanded(child: Text(s.label)),
                 if (s == value)
-                  const Icon(Icons.check, size: 18, color: AppColors.brand),
+                  Icon(Icons.check, size: 18, color: neu.accent),
               ],
             ),
           ),
       ],
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(12),
-        ),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_vert, size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(value.label,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, color: scheme.onSurfaceVariant),
+            Icon(Icons.swap_vert, size: 18, color: neu.inkMuted),
+            if (!context.isMobile) ...[
+              const SizedBox(width: 8),
+              Text(
+                value.label,
+                style: TextStyle(
+                  color: neu.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            Icon(Icons.arrow_drop_down, color: neu.inkMuted),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Rodapé da lista: spinner enquanto busca o próximo lote; convite a rolar quando
-/// há mais; contagem total quando tudo foi carregado.
-class _ListFooter extends StatelessWidget {
-  const _ListFooter({
-    required this.loadingMore,
-    required this.hasMore,
-    required this.total,
-  });
-
-  final bool loadingMore;
-  final bool hasMore;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = TextStyle(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 13,
-    );
-    final Widget child;
-    if (loadingMore) {
-      child = const SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(strokeWidth: 2.5),
-      );
-    } else if (hasMore) {
-      child = Text('Role para carregar mais', style: style);
-    } else {
-      child = Text(
-        '$total ${total == 1 ? 'cliente' : 'clientes'} no total',
-        style: style,
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Center(child: child),
-    );
-  }
-}
-
-class _CustomerTile extends StatelessWidget {
-  const _CustomerTile({
-    required this.customer,
-    required this.canWrite,
-    required this.onOpen,
-    required this.onArchiveToggle,
-  });
-
-  final Customer customer;
-  final bool canWrite;
-  final VoidCallback onOpen;
-  final Future<void> Function() onArchiveToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = [
-      if (customer.document != null) customer.document!,
-      if (customer.phone != null) customer.phone!,
-    ].join(' · ');
-    final archived = customer.status == 'archived';
-    return ListTile(
-      onTap: onOpen,
-      leading: CircleAvatar(
-        child: Text(customer.name.isNotEmpty
-            ? customer.name.characters.first.toUpperCase()
-            : '?'),
-      ),
-      title: Text(customer.name),
-      subtitle: subtitle.isEmpty ? null : Text(subtitle),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (archived)
-            const Chip(label: Text('Arquivado'), visualDensity: VisualDensity.compact),
-          if (canWrite)
-            IconButton(
-              tooltip: archived ? 'Desarquivar' : 'Arquivar',
-              icon: Icon(archived ? Icons.unarchive_outlined : Icons.archive_outlined),
-              onPressed: onArchiveToggle,
-            ),
-          const Icon(Icons.chevron_right),
-        ],
       ),
     );
   }
