@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/audio/notification_sound.dart';
 import '../../../core/error/app_exception.dart';
@@ -58,11 +59,17 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   /// `null` = sem citação. Definida por long-press numa bolha.
   PublicMessage? _replyTarget;
 
+  /// Nome com que o cliente se identifica no chat/comentários. Salvo no cache
+  /// local (SharedPreferences) do dispositivo de quem abriu o link — editável.
+  String? _customerName;
+  static const _nameKey = 'public_track_customer_name';
+
   @override
   void initState() {
     super.initState();
     if (_validToken) {
       _load();
+      _loadName();
       // Tempo real: a resposta da oficina aparece na hora (push via WebSocket).
       // Toca um aviso sonoro quando a mensagem vem da oficina (não no próprio eco).
       _rt.connectPublic(
@@ -147,20 +154,92 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     }
   }
 
+  /// Carrega o nome salvo no cache local. Na PRIMEIRA visita (sem nome), pede
+  /// o nome logo após o primeiro frame (o cliente se identifica).
+  Future<void> _loadName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_nameKey)?.trim();
+    if (!mounted) return;
+    if (saved != null && saved.isNotEmpty) {
+      setState(() => _customerName = saved);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _promptName(firstTime: true);
+      });
+    }
+  }
+
+  /// Diálogo para informar/editar o nome. Salva no cache local (por dispositivo).
+  Future<void> _promptName({bool firstTime = false}) async {
+    final neu = context.neu;
+    final ctrl = TextEditingController(text: _customerName ?? '');
+    final name = await showNeuDialog<String>(
+      context,
+      dialog: NeuDialog(
+        title: firstTime ? 'Como podemos te chamar?' : 'Seu nome',
+        maxWidth: 420,
+        actions: [
+          NeuButton(
+            label: 'Salvar',
+            icon: Icons.check_rounded,
+            onPressed: () =>
+                Navigator.of(context).pop(ctrl.text.trim()),
+          ),
+        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Seu nome aparece para a oficina nas mensagens e comentários. '
+              'Fica salvo só neste aparelho e você pode trocar quando quiser.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            NeuTextField(
+              controller: ctrl,
+              label: 'Seu nome',
+              hint: 'Ex.: João Silva',
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) =>
+                  Navigator.of(context).pop(ctrl.text.trim()),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameKey, trimmed);
+    if (mounted) setState(() => _customerName = trimmed);
+  }
+
+  /// Garante que há um nome antes de enviar/comentar — pede se faltar. Retorna
+  /// o nome atual (ou null se o cliente não informou).
+  Future<String?> _ensureName() async {
+    if ((_customerName ?? '').isNotEmpty) return _customerName;
+    await _promptName();
+    return (_customerName ?? '').isNotEmpty ? _customerName : null;
+  }
+
   Future<void> _send({String? photoId}) async {
     var body = _msgController.text.trim();
     // Ao citar uma foto sem escrever nada, o backend ainda exige um corpo
     // (mín. 1 caractere) — usamos um rótulo curto e claro.
     if (photoId != null && body.isEmpty) body = 'Foto';
     if (body.isEmpty || _sending) return;
+    // Exige que o cliente tenha se identificado (nome no cache local).
+    final name = await _ensureName();
+    if (name == null) return;
     // Captura a citação antes de limpar (evita corrida com o setState final).
     final replyToId = _replyTarget?.id;
     setState(() => _sending = true);
     try {
-      // Sem nome: o backend credita a mensagem ao nome do cliente da OS.
       await _repo.sendMessage(
         widget.token,
         body,
+        authorName: name,
         replyToId: replyToId,
         photoId: photoId,
       );
@@ -455,7 +534,46 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               ],
             ),
           ],
+          const SizedBox(height: 16),
+          _nameChip(onNavyMuted),
         ],
+      ),
+    );
+  }
+
+  /// Chip com o nome do cliente, editável — mostra como ele se identifica e
+  /// permite trocar o nome (salvo no cache local). Sem nome → convida a informar.
+  Widget _nameChip(Color onNavyMuted) {
+    final hasName = (_customerName ?? '').isNotEmpty;
+    return InkWell(
+      onTap: () => _promptName(),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.badge_outlined, size: 16, color: onNavyMuted),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                hasName ? 'Você: ${_customerName!}' : 'Identifique-se para conversar',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.edit_outlined, size: 15, color: onNavyMuted),
+          ],
+        ),
       ),
     );
   }
@@ -752,6 +870,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             photoId: p.id!,
             senderLabel: _senderLabel,
             relativeTime: _relative,
+            ensureName: _ensureName,
           ),
         ],
       ],
@@ -1441,6 +1560,7 @@ class _PhotoCommentsSection extends StatefulWidget {
     required this.photoId,
     required this.senderLabel,
     required this.relativeTime,
+    required this.ensureName,
   });
 
   final TrackingRepository repo;
@@ -1450,6 +1570,9 @@ class _PhotoCommentsSection extends StatefulWidget {
   /// Reaproveita a lógica de rótulo/tempo da tela para manter consistência.
   final String Function(String sender, String? name) senderLabel;
   final String Function(String? iso) relativeTime;
+
+  /// Garante o nome do cliente (pede se faltar). Retorna null se não informado.
+  final Future<String?> Function() ensureName;
 
   @override
   State<_PhotoCommentsSection> createState() => _PhotoCommentsSectionState();
@@ -1474,9 +1597,13 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
   Future<void> _add() async {
     final body = _controller.text.trim();
     if (body.isEmpty || _sending) return;
+    // Exige que o cliente tenha se identificado antes de comentar.
+    final name = await widget.ensureName();
+    if (name == null) return;
     setState(() => _sending = true);
     try {
-      await widget.repo.addPhotoComment(widget.token, widget.photoId, body);
+      await widget.repo
+          .addPhotoComment(widget.token, widget.photoId, body, authorName: name);
       _controller.clear();
       _reload();
     } on AppException catch (e) {
