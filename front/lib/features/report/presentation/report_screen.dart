@@ -61,34 +61,63 @@ class ReportScreen extends ConsumerWidget {
         final picker = _ReportPicker(reports: reports, selected: spec.kind);
         final content = _ReportContent(me: me, spec: spec);
 
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Relatórios',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(
+              'Lentes detalhadas sobre os dados dos seus módulos.',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        );
+
+        // Desktop: cabeçalho + picker FIXOS; só o conteúdo rola. O picker fica
+        // "grudado" no topo mesmo com o relatório rolando (sidebar fixa).
+        if (wide) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Sidebar fixa (rola internamente só se houver muitos
+                      // relatórios), não acompanha o scroll do conteúdo.
+                      SizedBox(
+                        width: 240,
+                        child: SingleChildScrollView(child: picker),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: SingleChildScrollView(child: content),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Mobile/estreito: tudo empilhado num scroll só (picker no topo).
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Relatórios',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text(
-                'Lentes detalhadas sobre os dados dos seus módulos.',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
+              header,
               const SizedBox(height: 20),
-              if (wide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 240, child: picker),
-                    const SizedBox(width: 24),
-                    Expanded(child: content),
-                  ],
-                )
-              else ...[
-                picker,
-                const SizedBox(height: 20),
-                content,
-              ],
+              picker,
+              const SizedBox(height: 20),
+              content,
             ],
           ),
         );
