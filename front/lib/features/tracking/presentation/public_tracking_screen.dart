@@ -45,6 +45,9 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   PublicTrack? _track;
   List<PublicMessage> _messages = const [];
 
+  /// Aba selecionada na navegação por seções (0 = primeira aba disponível).
+  int _tab = 0;
+
   final _msgController = TextEditingController();
   final _chatScroll = ScrollController();
   bool _sending = false;
@@ -224,6 +227,20 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       );
 
   Widget _content(PublicTrack t) {
+    // Navegação por seções: o cliente não se perde num scroll longo. Header de
+    // marca + status ficam SEMPRE visíveis (o que ele mais quer ver); o resto é
+    // organizado em abas. Abas condicionais (ex.: Fotos) só aparecem se há dado.
+    final tabs = <_TrackTab>[
+      _TrackTab('Serviço', Icons.build_outlined, () => _servicoTab(t)),
+      if (t.photos.isNotEmpty)
+        _TrackTab('Fotos', Icons.photo_library_outlined,
+            () => _photosCard(t.photos)),
+      _TrackTab('Histórico', Icons.timeline_outlined,
+          () => _timelineCard(t.timeline)),
+      _TrackTab('Conversa', Icons.chat_bubble_outline, _chatCard),
+    ];
+    final sel = _tab.clamp(0, tabs.length - 1);
+
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -233,23 +250,40 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           const SizedBox(height: 16),
           _statusSection(t),
           const SizedBox(height: 16),
-          if (t.scheduledEnd != null && t.scheduledEnd!.isNotEmpty) ...[
-            _previsao(t.scheduledEnd!),
-            const SizedBox(height: 16),
-          ],
-          if (t.diagnosis != null && t.diagnosis!.trim().isNotEmpty) ...[
-            _diagnosisCard(t.diagnosis!.trim()),
-            const SizedBox(height: 16),
-          ],
-          if (t.photos.isNotEmpty) ...[
-            _photosCard(t.photos),
-            const SizedBox(height: 16),
-          ],
-          _timelineCard(t.timeline),
+          _SectionNav(
+            tabs: tabs,
+            selected: sel,
+            onSelect: (i) => setState(() => _tab = i),
+          ),
           const SizedBox(height: 16),
-          _chatCard(),
+          KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
         ],
       ),
+    );
+  }
+
+  /// Aba "Serviço": previsão de entrega + diagnóstico. Vazia → aviso amigável.
+  Widget _servicoTab(PublicTrack t) {
+    final hasPrev = t.scheduledEnd != null && t.scheduledEnd!.isNotEmpty;
+    final hasDiag = t.diagnosis != null && t.diagnosis!.trim().isNotEmpty;
+    if (!hasPrev && !hasDiag) {
+      return _sectionCard(
+        icon: Icons.build_outlined,
+        color: _neu.glyphs[0],
+        title: 'Serviço',
+        child: Text(
+          'Assim que a oficina registrar o diagnóstico e a previsão de entrega, '
+          'as informações aparecerão aqui.',
+          style: TextStyle(color: _neu.inkMuted, fontSize: 14, height: 1.4),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        if (hasPrev) _previsao(t.scheduledEnd!),
+        if (hasPrev && hasDiag) const SizedBox(height: 16),
+        if (hasDiag) _diagnosisCard(t.diagnosis!.trim()),
+      ],
     );
   }
 
@@ -1124,6 +1158,77 @@ class _TimelineRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Uma aba da navegação por seções da página pública.
+class _TrackTab {
+  const _TrackTab(this.label, this.icon, this.builder);
+  final String label;
+  final IconData icon;
+  final Widget Function() builder;
+}
+
+/// Navegação por seções (abas em pílula, roláveis na horizontal) da página
+/// pública — organiza o conteúdo para o cliente não se perder num scroll longo.
+class _SectionNav extends StatelessWidget {
+  const _SectionNav({
+    required this.tabs,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<_TrackTab> tabs;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: tabs.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final active = i == selected;
+          return InkWell(
+            onTap: active ? null : () => onSelect(i),
+            borderRadius: BorderRadius.circular(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active ? neu.navy : neu.surface,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: active ? null : neu.raised(),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    tabs[i].icon,
+                    size: 17,
+                    color: active ? neu.onNavy : neu.inkMuted,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    tabs[i].label,
+                    style: TextStyle(
+                      color: active ? neu.onNavy : neu.inkMuted,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
