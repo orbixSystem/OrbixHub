@@ -35,11 +35,17 @@ class NeuSurface extends StatelessWidget {
     this.radius = NeuTokens.rCard,
     this.padding,
     this.border,
+    this.glow = true,
     this.duration = const Duration(milliseconds: 120),
   });
 
   final Widget child;
   final NeuElevation elevation;
+
+  /// Quando `false`, `raised`/`raisedHigh` usam só uma sombra suave escura (sem
+  /// o realce claro). Útil em modais sobre o scrim escuro, onde a sombra clara
+  /// vira um "brilho"/halo que atrapalha.
+  final bool glow;
 
   /// Cor da superfície; default = `surface` (raised) ou `base` (inset).
   final Color? color;
@@ -55,13 +61,27 @@ class NeuSurface extends StatelessWidget {
     final neu = context.neu;
     final r = BorderRadius.circular(radius);
 
+    // Sombra sem realce claro (só um drop shadow escuro suave) — usada quando
+    // `glow` é false (modais sobre scrim escuro).
+    List<BoxShadow> softDrop(bool high) => [
+          BoxShadow(
+            color: neu.shadowDark,
+            blurRadius: high ? 28 : 14,
+            offset: Offset(0, high ? 12 : 6),
+          ),
+        ];
+
     final (Color bg, List<BoxShadow> shadows, Gradient? overlay) =
         switch (elevation) {
       NeuElevation.flat => (color ?? neu.base, const <BoxShadow>[], null),
-      NeuElevation.raised => (color ?? neu.surface, neu.raised(), null),
+      NeuElevation.raised => (
+          color ?? neu.surface,
+          glow ? neu.raised() : softDrop(false),
+          null
+        ),
       NeuElevation.raisedHigh => (
           color ?? neu.surface,
-          neu.raised(high: true),
+          glow ? neu.raised(high: true) : softDrop(true),
           null
         ),
       NeuElevation.pressed => (

@@ -315,6 +315,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
           elevation: NeuElevation.raisedHigh,
           radius: NeuTokens.rPanel,
           color: neu.surface,
+          glow: false,
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
