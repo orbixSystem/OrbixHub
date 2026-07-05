@@ -45,6 +45,17 @@ abstract interface class OsRepository {
   /// Remove (soft no backend) uma foto da OS. Retorna a OS atualizada.
   Future<ServiceOrder> deletePhoto(String orderId, String photoId);
 
+  /// Comentários de uma foto da OS, em ordem cronológica
+  /// (`GET /os/orders/:orderId/photos/:photoId/comments`).
+  Future<List<PhotoComment>> listPhotoComments(String orderId, String photoId);
+
+  /// Adiciona um comentário do staff a uma foto da OS.
+  Future<PhotoComment> addPhotoComment(
+    String orderId,
+    String photoId,
+    String body,
+  );
+
   // ---- templates ----
   /// Templates de OS disponíveis (`GET /os/templates`).
   Future<List<OsTemplate>> listTemplates();

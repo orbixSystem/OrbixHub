@@ -139,26 +139,44 @@ class _ContentHeader extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.only(
                     left: showMenu ? 8 : 28, right: 20, bottom: 16),
-                child: Row(
-                  children: [
-                    if (showMenu)
-                      Builder(
-                        builder: (context) => IconButton(
-                          icon: Icon(Icons.menu_rounded, color: neu.ink),
-                          tooltip: 'Menu',
-                          onPressed: () => Scaffold.of(context).openDrawer(),
-                        ),
-                      ),
-                    Text(
-                      title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(color: neu.ink),
-                    ),
-                    const Spacer(),
-                    // Sino + toggle de tema vivem no overlay global (GlobalControls).
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    // O berço do FAB é centralizado; o título nunca pode alcançá-lo.
+                    // No mobile o espaço à esquerda é pequeno demais e o bottom nav
+                    // já indica a seção — então o título fica só em tablet/desktop,
+                    // limitado (ellipsis) para parar antes do berço.
+                    final showTitle = !context.isMobile;
+                    final titleMax =
+                        (c.maxWidth / 2 - _headerNotchR - 28).clamp(0.0, 520.0);
+                    return Row(
+                      children: [
+                        if (showMenu)
+                          Builder(
+                            builder: (context) => IconButton(
+                              icon: Icon(Icons.menu_rounded, color: neu.ink),
+                              tooltip: 'Menu',
+                              onPressed: () =>
+                                  Scaffold.of(context).openDrawer(),
+                            ),
+                          ),
+                        if (showTitle)
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: titleMax),
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(color: neu.ink),
+                            ),
+                          ),
+                        const Spacer(),
+                        // Sino + toggle de tema vivem no overlay global (GlobalControls).
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

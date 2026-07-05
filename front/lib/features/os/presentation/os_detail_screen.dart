@@ -166,6 +166,29 @@ class OsDetailScreen extends ConsumerWidget {
     ServiceOrder order,
     String target,
   ) async {
+    // Ações que travam/encerram a OS pedem confirmação (sem volta fácil).
+    if (target == 'cancelada') {
+      final ok = await showNeuConfirm(
+        context,
+        title: 'Cancelar OS?',
+        message:
+            'A OS ${order.number} será cancelada e a edição bloqueada. '
+            'Você poderá reabri-la depois, mas os dados param aqui.',
+        confirmLabel: 'Cancelar OS',
+      );
+      if (!ok || !context.mounted) return;
+    } else if (target == 'entregue') {
+      final ok = await showNeuConfirm(
+        context,
+        title: 'Confirmar entrega?',
+        message:
+            'A OS será marcada como entregue e ficará somente leitura.',
+        confirmLabel: 'Confirmar entrega',
+        danger: false,
+        icon: Icons.local_shipping_outlined,
+      );
+      if (!ok || !context.mounted) return;
+    }
     try {
       await ref.read(osRepositoryProvider).changeStatus(order.id, target);
       ref.invalidate(orderProvider(orderId));
@@ -1093,6 +1116,13 @@ class _ItemsSection extends ConsumerWidget {
     WidgetRef ref,
     OrderItem item,
   ) async {
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Remover item?',
+      message: 'Remover "${item.name}" desta OS? O total será recalculado.',
+      confirmLabel: 'Remover',
+    );
+    if (!ok || !context.mounted) return;
     try {
       await ref.read(osRepositoryProvider).deleteItem(order.id, item.id);
       ref.invalidate(orderProvider(order.id));
@@ -1920,25 +1950,13 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
   }
 
   Future<void> _remove(OrderPhoto photo) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remover foto'),
-        content: const Text('Remover esta foto da OS?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Remover foto?',
+      message: 'Esta foto será removida da OS. Não é possível desfazer.',
+      confirmLabel: 'Remover',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
     try {
       await ref.read(osRepositoryProvider).deletePhoto(order.id, photo.id);
       ref.invalidate(orderProvider(order.id));

@@ -865,6 +865,278 @@ as String?,
 
 
 /// @nodoc
+mixin _$PhotoComment {
+
+@JsonKey(name: 'author_kind') String get authorKind;@JsonKey(name: 'author_name') String? get authorName; String get body;@JsonKey(name: 'created_at') String? get createdAt;
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PhotoCommentCopyWith<PhotoComment> get copyWith => _$PhotoCommentCopyWithImpl<PhotoComment>(this as PhotoComment, _$identity);
+
+  /// Serializes this PhotoComment to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PhotoCommentCopyWith<$Res>  {
+  factory $PhotoCommentCopyWith(PhotoComment value, $Res Function(PhotoComment) _then) = _$PhotoCommentCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'author_kind') String authorKind,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$PhotoCommentCopyWithImpl<$Res>
+    implements $PhotoCommentCopyWith<$Res> {
+  _$PhotoCommentCopyWithImpl(this._self, this._then);
+
+  final PhotoComment _self;
+  final $Res Function(PhotoComment) _then;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_self.copyWith(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PhotoComment].
+extension PhotoCommentPatterns on PhotoComment {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PhotoComment value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PhotoComment value)  $default,){
+final _that = this;
+switch (_that) {
+case _PhotoComment():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PhotoComment value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+switch (_that) {
+case _PhotoComment():
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'author_kind')  String authorKind, @JsonKey(name: 'author_name')  String? authorName,  String body, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+switch (_that) {
+case _PhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PhotoComment implements PhotoComment {
+  const _PhotoComment({@JsonKey(name: 'author_kind') this.authorKind = 'staff', @JsonKey(name: 'author_name') this.authorName, this.body = '', @JsonKey(name: 'created_at') this.createdAt});
+  factory _PhotoComment.fromJson(Map<String, dynamic> json) => _$PhotoCommentFromJson(json);
+
+@override@JsonKey(name: 'author_kind') final  String authorKind;
+@override@JsonKey(name: 'author_name') final  String? authorName;
+@override@JsonKey() final  String body;
+@override@JsonKey(name: 'created_at') final  String? createdAt;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PhotoCommentCopyWith<_PhotoComment> get copyWith => __$PhotoCommentCopyWithImpl<_PhotoComment>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PhotoCommentToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PhotoCommentCopyWith<$Res> implements $PhotoCommentCopyWith<$Res> {
+  factory _$PhotoCommentCopyWith(_PhotoComment value, $Res Function(_PhotoComment) _then) = __$PhotoCommentCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'author_kind') String authorKind,@JsonKey(name: 'author_name') String? authorName, String body,@JsonKey(name: 'created_at') String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$PhotoCommentCopyWithImpl<$Res>
+    implements _$PhotoCommentCopyWith<$Res> {
+  __$PhotoCommentCopyWithImpl(this._self, this._then);
+
+  final _PhotoComment _self;
+  final $Res Function(_PhotoComment) _then;
+
+/// Create a copy of PhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_PhotoComment(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$OsTemplateItem {
 
  String? get id; String get kind;// 'product' | 'service'

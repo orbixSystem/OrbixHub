@@ -14,7 +14,15 @@ abstract interface class MessagesRepository {
   Future<ConversationThread> getThread(String id, {String? before});
 
   /// Posta uma resposta do staff (`POST /messages/conversations/:id/messages`).
-  Future<Message> sendMessage(String id, String body);
+  /// Citação estilo WhatsApp: [replyToId] responde a uma mensagem; [photoId] +
+  /// [photoUrl] citam uma foto da OS (o back valida/persiste).
+  Future<Message> sendMessage(
+    String id,
+    String body, {
+    String? replyToId,
+    String? photoId,
+    String? photoUrl,
+  });
 
   /// Marca a conversa como lida (idempotente; o GET do thread já reseta).
   Future<void> markRead(String id);

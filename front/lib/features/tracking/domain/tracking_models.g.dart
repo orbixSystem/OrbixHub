@@ -21,12 +21,46 @@ Map<String, dynamic> _$PublicCompanyToJson(_PublicCompany instance) =>
     };
 
 _PublicPhoto _$PublicPhotoFromJson(Map<String, dynamic> json) => _PublicPhoto(
+  id: json['id'] as String?,
   url: json['url'] as String,
   caption: json['caption'] as String?,
 );
 
 Map<String, dynamic> _$PublicPhotoToJson(_PublicPhoto instance) =>
-    <String, dynamic>{'url': instance.url, 'caption': instance.caption};
+    <String, dynamic>{
+      'id': instance.id,
+      'url': instance.url,
+      'caption': instance.caption,
+    };
+
+_PublicQuote _$PublicQuoteFromJson(Map<String, dynamic> json) => _PublicQuote(
+  sender: json['sender'] as String? ?? 'staff',
+  authorName: json['author_name'] as String?,
+  body: json['body'] as String? ?? '',
+);
+
+Map<String, dynamic> _$PublicQuoteToJson(_PublicQuote instance) =>
+    <String, dynamic>{
+      'sender': instance.sender,
+      'author_name': instance.authorName,
+      'body': instance.body,
+    };
+
+_PublicPhotoComment _$PublicPhotoCommentFromJson(Map<String, dynamic> json) =>
+    _PublicPhotoComment(
+      authorKind: json['authorKind'] as String? ?? 'staff',
+      authorName: json['authorName'] as String?,
+      body: json['body'] as String? ?? '',
+      createdAt: json['createdAt'] as String?,
+    );
+
+Map<String, dynamic> _$PublicPhotoCommentToJson(_PublicPhotoComment instance) =>
+    <String, dynamic>{
+      'authorKind': instance.authorKind,
+      'authorName': instance.authorName,
+      'body': instance.body,
+      'createdAt': instance.createdAt,
+    };
 
 _PublicEvent _$PublicEventFromJson(Map<String, dynamic> json) => _PublicEvent(
   kind: json['kind'] as String? ?? 'note',
@@ -87,6 +121,10 @@ _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>
       body: json['body'] as String? ?? '',
       createdAt: json['createdAt'] as String?,
       readAt: json['readAt'] as String?,
+      replyTo: json['replyTo'] == null
+          ? null
+          : PublicQuote.fromJson(json['replyTo'] as Map<String, dynamic>),
+      photoUrl: json['photoUrl'] as String?,
     );
 
 Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
@@ -96,4 +134,6 @@ Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
       'body': instance.body,
       'createdAt': instance.createdAt,
       'readAt': instance.readAt,
+      'replyTo': instance.replyTo,
+      'photoUrl': instance.photoUrl,
     };

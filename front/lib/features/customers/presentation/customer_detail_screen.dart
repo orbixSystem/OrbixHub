@@ -180,30 +180,15 @@ class CustomerDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     Customer customer,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Excluir cliente'),
-        content: Text(
-          'Excluir "${customer.name}"? Ele sai das listagens. '
-          'O registro é preservado (exclusão reversível pelo suporte).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Excluir cliente?',
+      message:
+          'Excluir "${customer.name}"? Ele sai das listagens. O registro é '
+          'preservado (exclusão reversível pelo suporte).',
+      confirmLabel: 'Excluir',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !context.mounted) return;
     await ref.read(customersRepositoryProvider).deleteCustomer(customer.id);
     ref.invalidate(customersListProvider);
     if (context.mounted) context.go('/m/customers');

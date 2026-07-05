@@ -71,6 +71,22 @@ Map<String, dynamic> _$OrderPhotoToJson(_OrderPhoto instance) =>
       'created_at': instance.createdAt,
     };
 
+_PhotoComment _$PhotoCommentFromJson(Map<String, dynamic> json) =>
+    _PhotoComment(
+      authorKind: json['author_kind'] as String? ?? 'staff',
+      authorName: json['author_name'] as String?,
+      body: json['body'] as String? ?? '',
+      createdAt: json['created_at'] as String?,
+    );
+
+Map<String, dynamic> _$PhotoCommentToJson(_PhotoComment instance) =>
+    <String, dynamic>{
+      'author_kind': instance.authorKind,
+      'author_name': instance.authorName,
+      'body': instance.body,
+      'created_at': instance.createdAt,
+    };
+
 _OsTemplateItem _$OsTemplateItemFromJson(Map<String, dynamic> json) =>
     _OsTemplateItem(
       id: json['id'] as String?,

@@ -63,6 +63,20 @@ abstract class OrderPhoto with _$OrderPhoto {
       _$OrderPhotoFromJson(json);
 }
 
+/// Comentário numa foto da OS (thread). `authorKind ∈ 'staff'|'customer'`.
+@freezed
+abstract class PhotoComment with _$PhotoComment {
+  const factory PhotoComment({
+    @JsonKey(name: 'author_kind') @Default('staff') String authorKind,
+    @JsonKey(name: 'author_name') String? authorName,
+    @Default('') String body,
+    @JsonKey(name: 'created_at') String? createdAt,
+  }) = _PhotoComment;
+
+  factory PhotoComment.fromJson(Map<String, dynamic> json) =>
+      _$PhotoCommentFromJson(json);
+}
+
 /// Item de um template de OS. Igual ao item de OS, mas sem totais calculados:
 /// `kind ∈ product|service`, aponta para o estoque (`inventoryItemId`) OU é
 /// avulso (`name`). Decimais como String.

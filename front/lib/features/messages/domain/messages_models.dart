@@ -25,7 +25,21 @@ abstract class Conversation with _$Conversation {
       _$ConversationFromJson(json);
 }
 
+/// Preview de uma mensagem citada (reply-to, estilo WhatsApp).
+@freezed
+abstract class MessageQuote with _$MessageQuote {
+  const factory MessageQuote({
+    @Default('customer') String sender, // 'customer' | 'staff'
+    @JsonKey(name: 'author_name') String? authorName,
+    @Default('') String body,
+  }) = _MessageQuote;
+
+  factory MessageQuote.fromJson(Map<String, dynamic> json) =>
+      _$MessageQuoteFromJson(json);
+}
+
 /// Uma mensagem dentro de um thread. `sender ∈ 'customer'|'staff'`.
+/// Pode citar outra mensagem (`replyTo`) e/ou uma foto da OS (`photoUrl`).
 @freezed
 abstract class Message with _$Message {
   const factory Message({
@@ -35,6 +49,10 @@ abstract class Message with _$Message {
     @Default('') String body,
     @JsonKey(name: 'created_at') String? createdAt,
     @JsonKey(name: 'read_at') String? readAt,
+    @JsonKey(name: 'reply_to_id') String? replyToId,
+    @JsonKey(name: 'replyTo') MessageQuote? replyTo,
+    @JsonKey(name: 'photo_id') String? photoId,
+    @JsonKey(name: 'photo_url') String? photoUrl,
   }) = _Message;
 
   factory Message.fromJson(Map<String, dynamic> json) =>

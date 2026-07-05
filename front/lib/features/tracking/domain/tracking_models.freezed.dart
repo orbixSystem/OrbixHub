@@ -284,7 +284,7 @@ as String?,
 /// @nodoc
 mixin _$PublicPhoto {
 
- String get url; String? get caption;
+ String? get id; String get url; String? get caption;
 /// Create a copy of PublicPhoto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -297,16 +297,16 @@ $PublicPhotoCopyWith<PublicPhoto> get copyWith => _$PublicPhotoCopyWithImpl<Publ
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicPhoto&&(identical(other.url, url) || other.url == url)&&(identical(other.caption, caption) || other.caption == caption));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicPhoto&&(identical(other.id, id) || other.id == id)&&(identical(other.url, url) || other.url == url)&&(identical(other.caption, caption) || other.caption == caption));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,url,caption);
+int get hashCode => Object.hash(runtimeType,id,url,caption);
 
 @override
 String toString() {
-  return 'PublicPhoto(url: $url, caption: $caption)';
+  return 'PublicPhoto(id: $id, url: $url, caption: $caption)';
 }
 
 
@@ -317,7 +317,7 @@ abstract mixin class $PublicPhotoCopyWith<$Res>  {
   factory $PublicPhotoCopyWith(PublicPhoto value, $Res Function(PublicPhoto) _then) = _$PublicPhotoCopyWithImpl;
 @useResult
 $Res call({
- String url, String? caption
+ String? id, String url, String? caption
 });
 
 
@@ -334,9 +334,10 @@ class _$PublicPhotoCopyWithImpl<$Res>
 
 /// Create a copy of PublicPhoto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? url = null,Object? caption = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? url = null,Object? caption = freezed,}) {
   return _then(_self.copyWith(
-url: null == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,url: null == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String,caption: freezed == caption ? _self.caption : caption // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -423,10 +424,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String url,  String? caption)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? id,  String url,  String? caption)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicPhoto() when $default != null:
-return $default(_that.url,_that.caption);case _:
+return $default(_that.id,_that.url,_that.caption);case _:
   return orElse();
 
 }
@@ -444,10 +445,10 @@ return $default(_that.url,_that.caption);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String url,  String? caption)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? id,  String url,  String? caption)  $default,) {final _that = this;
 switch (_that) {
 case _PublicPhoto():
-return $default(_that.url,_that.caption);case _:
+return $default(_that.id,_that.url,_that.caption);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -464,10 +465,10 @@ return $default(_that.url,_that.caption);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String url,  String? caption)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? id,  String url,  String? caption)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicPhoto() when $default != null:
-return $default(_that.url,_that.caption);case _:
+return $default(_that.id,_that.url,_that.caption);case _:
   return null;
 
 }
@@ -479,9 +480,10 @@ return $default(_that.url,_that.caption);case _:
 @JsonSerializable()
 
 class _PublicPhoto implements PublicPhoto {
-  const _PublicPhoto({required this.url, this.caption});
+  const _PublicPhoto({this.id, required this.url, this.caption});
   factory _PublicPhoto.fromJson(Map<String, dynamic> json) => _$PublicPhotoFromJson(json);
 
+@override final  String? id;
 @override final  String url;
 @override final  String? caption;
 
@@ -498,16 +500,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicPhoto&&(identical(other.url, url) || other.url == url)&&(identical(other.caption, caption) || other.caption == caption));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicPhoto&&(identical(other.id, id) || other.id == id)&&(identical(other.url, url) || other.url == url)&&(identical(other.caption, caption) || other.caption == caption));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,url,caption);
+int get hashCode => Object.hash(runtimeType,id,url,caption);
 
 @override
 String toString() {
-  return 'PublicPhoto(url: $url, caption: $caption)';
+  return 'PublicPhoto(id: $id, url: $url, caption: $caption)';
 }
 
 
@@ -518,7 +520,7 @@ abstract mixin class _$PublicPhotoCopyWith<$Res> implements $PublicPhotoCopyWith
   factory _$PublicPhotoCopyWith(_PublicPhoto value, $Res Function(_PublicPhoto) _then) = __$PublicPhotoCopyWithImpl;
 @override @useResult
 $Res call({
- String url, String? caption
+ String? id, String url, String? caption
 });
 
 
@@ -535,10 +537,552 @@ class __$PublicPhotoCopyWithImpl<$Res>
 
 /// Create a copy of PublicPhoto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? url = null,Object? caption = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? url = null,Object? caption = freezed,}) {
   return _then(_PublicPhoto(
-url: null == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,url: null == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String,caption: freezed == caption ? _self.caption : caption // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$PublicQuote {
+
+ String get sender;@JsonKey(name: 'author_name') String? get authorName; String get body;
+/// Create a copy of PublicQuote
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PublicQuoteCopyWith<PublicQuote> get copyWith => _$PublicQuoteCopyWithImpl<PublicQuote>(this as PublicQuote, _$identity);
+
+  /// Serializes this PublicQuote to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicQuote&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,sender,authorName,body);
+
+@override
+String toString() {
+  return 'PublicQuote(sender: $sender, authorName: $authorName, body: $body)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PublicQuoteCopyWith<$Res>  {
+  factory $PublicQuoteCopyWith(PublicQuote value, $Res Function(PublicQuote) _then) = _$PublicQuoteCopyWithImpl;
+@useResult
+$Res call({
+ String sender,@JsonKey(name: 'author_name') String? authorName, String body
+});
+
+
+
+
+}
+/// @nodoc
+class _$PublicQuoteCopyWithImpl<$Res>
+    implements $PublicQuoteCopyWith<$Res> {
+  _$PublicQuoteCopyWithImpl(this._self, this._then);
+
+  final PublicQuote _self;
+  final $Res Function(PublicQuote) _then;
+
+/// Create a copy of PublicQuote
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,}) {
+  return _then(_self.copyWith(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PublicQuote].
+extension PublicQuotePatterns on PublicQuote {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PublicQuote value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PublicQuote() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PublicQuote value)  $default,){
+final _that = this;
+switch (_that) {
+case _PublicQuote():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PublicQuote value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PublicQuote() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PublicQuote() when $default != null:
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)  $default,) {final _that = this;
+switch (_that) {
+case _PublicQuote():
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender, @JsonKey(name: 'author_name')  String? authorName,  String body)?  $default,) {final _that = this;
+switch (_that) {
+case _PublicQuote() when $default != null:
+return $default(_that.sender,_that.authorName,_that.body);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PublicQuote implements PublicQuote {
+  const _PublicQuote({this.sender = 'staff', @JsonKey(name: 'author_name') this.authorName, this.body = ''});
+  factory _PublicQuote.fromJson(Map<String, dynamic> json) => _$PublicQuoteFromJson(json);
+
+@override@JsonKey() final  String sender;
+@override@JsonKey(name: 'author_name') final  String? authorName;
+@override@JsonKey() final  String body;
+
+/// Create a copy of PublicQuote
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PublicQuoteCopyWith<_PublicQuote> get copyWith => __$PublicQuoteCopyWithImpl<_PublicQuote>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PublicQuoteToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicQuote&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,sender,authorName,body);
+
+@override
+String toString() {
+  return 'PublicQuote(sender: $sender, authorName: $authorName, body: $body)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PublicQuoteCopyWith<$Res> implements $PublicQuoteCopyWith<$Res> {
+  factory _$PublicQuoteCopyWith(_PublicQuote value, $Res Function(_PublicQuote) _then) = __$PublicQuoteCopyWithImpl;
+@override @useResult
+$Res call({
+ String sender,@JsonKey(name: 'author_name') String? authorName, String body
+});
+
+
+
+
+}
+/// @nodoc
+class __$PublicQuoteCopyWithImpl<$Res>
+    implements _$PublicQuoteCopyWith<$Res> {
+  __$PublicQuoteCopyWithImpl(this._self, this._then);
+
+  final _PublicQuote _self;
+  final $Res Function(_PublicQuote) _then;
+
+/// Create a copy of PublicQuote
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,}) {
+  return _then(_PublicQuote(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$PublicPhotoComment {
+
+@JsonKey(name: 'authorKind') String get authorKind;@JsonKey(name: 'authorName') String? get authorName; String get body; String? get createdAt;
+/// Create a copy of PublicPhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PublicPhotoCommentCopyWith<PublicPhotoComment> get copyWith => _$PublicPhotoCommentCopyWithImpl<PublicPhotoComment>(this as PublicPhotoComment, _$identity);
+
+  /// Serializes this PublicPhotoComment to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicPhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PublicPhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PublicPhotoCommentCopyWith<$Res>  {
+  factory $PublicPhotoCommentCopyWith(PublicPhotoComment value, $Res Function(PublicPhotoComment) _then) = _$PublicPhotoCommentCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'authorKind') String authorKind,@JsonKey(name: 'authorName') String? authorName, String body, String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$PublicPhotoCommentCopyWithImpl<$Res>
+    implements $PublicPhotoCommentCopyWith<$Res> {
+  _$PublicPhotoCommentCopyWithImpl(this._self, this._then);
+
+  final PublicPhotoComment _self;
+  final $Res Function(PublicPhotoComment) _then;
+
+/// Create a copy of PublicPhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_self.copyWith(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PublicPhotoComment].
+extension PublicPhotoCommentPatterns on PublicPhotoComment {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PublicPhotoComment value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PublicPhotoComment() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PublicPhotoComment value)  $default,){
+final _that = this;
+switch (_that) {
+case _PublicPhotoComment():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PublicPhotoComment value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PublicPhotoComment() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'authorKind')  String authorKind, @JsonKey(name: 'authorName')  String? authorName,  String body,  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PublicPhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'authorKind')  String authorKind, @JsonKey(name: 'authorName')  String? authorName,  String body,  String? createdAt)  $default,) {final _that = this;
+switch (_that) {
+case _PublicPhotoComment():
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'authorKind')  String authorKind, @JsonKey(name: 'authorName')  String? authorName,  String body,  String? createdAt)?  $default,) {final _that = this;
+switch (_that) {
+case _PublicPhotoComment() when $default != null:
+return $default(_that.authorKind,_that.authorName,_that.body,_that.createdAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PublicPhotoComment implements PublicPhotoComment {
+  const _PublicPhotoComment({@JsonKey(name: 'authorKind') this.authorKind = 'staff', @JsonKey(name: 'authorName') this.authorName, this.body = '', this.createdAt});
+  factory _PublicPhotoComment.fromJson(Map<String, dynamic> json) => _$PublicPhotoCommentFromJson(json);
+
+@override@JsonKey(name: 'authorKind') final  String authorKind;
+@override@JsonKey(name: 'authorName') final  String? authorName;
+@override@JsonKey() final  String body;
+@override final  String? createdAt;
+
+/// Create a copy of PublicPhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PublicPhotoCommentCopyWith<_PublicPhotoComment> get copyWith => __$PublicPhotoCommentCopyWithImpl<_PublicPhotoComment>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PublicPhotoCommentToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicPhotoComment&&(identical(other.authorKind, authorKind) || other.authorKind == authorKind)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,authorKind,authorName,body,createdAt);
+
+@override
+String toString() {
+  return 'PublicPhotoComment(authorKind: $authorKind, authorName: $authorName, body: $body, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PublicPhotoCommentCopyWith<$Res> implements $PublicPhotoCommentCopyWith<$Res> {
+  factory _$PublicPhotoCommentCopyWith(_PublicPhotoComment value, $Res Function(_PublicPhotoComment) _then) = __$PublicPhotoCommentCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'authorKind') String authorKind,@JsonKey(name: 'authorName') String? authorName, String body, String? createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$PublicPhotoCommentCopyWithImpl<$Res>
+    implements _$PublicPhotoCommentCopyWith<$Res> {
+  __$PublicPhotoCommentCopyWithImpl(this._self, this._then);
+
+  final _PublicPhotoComment _self;
+  final $Res Function(_PublicPhotoComment) _then;
+
+/// Create a copy of PublicPhotoComment
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? authorKind = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,}) {
+  return _then(_PublicPhotoComment(
+authorKind: null == authorKind ? _self.authorKind : authorKind // ignore: cast_nullable_to_non_nullable
+as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
+as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
+as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -1143,7 +1687,8 @@ $PublicCompanyCopyWith<$Res> get company {
 mixin _$PublicMessage {
 
  String get sender; String? get authorName; String get body; String? get createdAt;/// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
- String? get readAt;
+ String? get readAt;/// Citação (estilo WhatsApp): mensagem respondida + foto da OS citada.
+@JsonKey(name: 'replyTo') PublicQuote? get replyTo;@JsonKey(name: 'photoUrl') String? get photoUrl;
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1156,16 +1701,16 @@ $PublicMessageCopyWith<PublicMessage> get copyWith => _$PublicMessageCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt);
+int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
+  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
 }
 
 
@@ -1176,11 +1721,11 @@ abstract mixin class $PublicMessageCopyWith<$Res>  {
   factory $PublicMessageCopyWith(PublicMessage value, $Res Function(PublicMessage) _then) = _$PublicMessageCopyWithImpl;
 @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt, String? readAt
+ String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
 });
 
 
-
+$PublicQuoteCopyWith<$Res>? get replyTo;
 
 }
 /// @nodoc
@@ -1193,17 +1738,31 @@ class _$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
   return _then(_self.copyWith(
 sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
+as String?,replyTo: freezed == replyTo ? _self.replyTo : replyTo // ignore: cast_nullable_to_non_nullable
+as PublicQuote?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
+/// Create a copy of PublicMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PublicQuoteCopyWith<$Res>? get replyTo {
+    if (_self.replyTo == null) {
+    return null;
+  }
 
+  return $PublicQuoteCopyWith<$Res>(_self.replyTo!, (value) {
+    return _then(_self.copyWith(replyTo: value));
+  });
+}
 }
 
 
@@ -1285,10 +1844,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   return orElse();
 
 }
@@ -1306,10 +1865,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage():
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1326,10 +1885,10 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sender,  String? authorName,  String body,  String? createdAt,  String? readAt, @JsonKey(name: 'replyTo')  PublicQuote? replyTo, @JsonKey(name: 'photoUrl')  String? photoUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicMessage() when $default != null:
-return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt);case _:
+return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.readAt,_that.replyTo,_that.photoUrl);case _:
   return null;
 
 }
@@ -1341,7 +1900,7 @@ return $default(_that.sender,_that.authorName,_that.body,_that.createdAt,_that.r
 @JsonSerializable()
 
 class _PublicMessage implements PublicMessage {
-  const _PublicMessage({this.sender = 'staff', this.authorName, this.body = '', this.createdAt, this.readAt});
+  const _PublicMessage({this.sender = 'staff', this.authorName, this.body = '', this.createdAt, this.readAt, @JsonKey(name: 'replyTo') this.replyTo, @JsonKey(name: 'photoUrl') this.photoUrl});
   factory _PublicMessage.fromJson(Map<String, dynamic> json) => _$PublicMessageFromJson(json);
 
 @override@JsonKey() final  String sender;
@@ -1350,6 +1909,9 @@ class _PublicMessage implements PublicMessage {
 @override final  String? createdAt;
 /// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
 @override final  String? readAt;
+/// Citação (estilo WhatsApp): mensagem respondida + foto da OS citada.
+@override@JsonKey(name: 'replyTo') final  PublicQuote? replyTo;
+@override@JsonKey(name: 'photoUrl') final  String? photoUrl;
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
@@ -1364,16 +1926,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.authorName, authorName) || other.authorName == authorName)&&(identical(other.body, body) || other.body == body)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.readAt, readAt) || other.readAt == readAt)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt);
+int get hashCode => Object.hash(runtimeType,sender,authorName,body,createdAt,readAt,replyTo,photoUrl);
 
 @override
 String toString() {
-  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt)';
+  return 'PublicMessage(sender: $sender, authorName: $authorName, body: $body, createdAt: $createdAt, readAt: $readAt, replyTo: $replyTo, photoUrl: $photoUrl)';
 }
 
 
@@ -1384,11 +1946,11 @@ abstract mixin class _$PublicMessageCopyWith<$Res> implements $PublicMessageCopy
   factory _$PublicMessageCopyWith(_PublicMessage value, $Res Function(_PublicMessage) _then) = __$PublicMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String sender, String? authorName, String body, String? createdAt, String? readAt
+ String sender, String? authorName, String body, String? createdAt, String? readAt,@JsonKey(name: 'replyTo') PublicQuote? replyTo,@JsonKey(name: 'photoUrl') String? photoUrl
 });
 
 
-
+@override $PublicQuoteCopyWith<$Res>? get replyTo;
 
 }
 /// @nodoc
@@ -1401,18 +1963,32 @@ class __$PublicMessageCopyWithImpl<$Res>
 
 /// Create a copy of PublicMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? authorName = freezed,Object? body = null,Object? createdAt = freezed,Object? readAt = freezed,Object? replyTo = freezed,Object? photoUrl = freezed,}) {
   return _then(_PublicMessage(
 sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
 as String,authorName: freezed == authorName ? _self.authorName : authorName // ignore: cast_nullable_to_non_nullable
 as String?,body: null == body ? _self.body : body // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,readAt: freezed == readAt ? _self.readAt : readAt // ignore: cast_nullable_to_non_nullable
+as String?,replyTo: freezed == replyTo ? _self.replyTo : replyTo // ignore: cast_nullable_to_non_nullable
+as PublicQuote?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
 
+/// Create a copy of PublicMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PublicQuoteCopyWith<$Res>? get replyTo {
+    if (_self.replyTo == null) {
+    return null;
+  }
 
+  return $PublicQuoteCopyWith<$Res>(_self.replyTo!, (value) {
+    return _then(_self.copyWith(replyTo: value));
+  });
+}
 }
 
 // dart format on

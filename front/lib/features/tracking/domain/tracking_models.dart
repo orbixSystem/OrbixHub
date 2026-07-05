@@ -16,16 +16,45 @@ abstract class PublicCompany with _$PublicCompany {
       _$PublicCompanyFromJson(json);
 }
 
-/// Foto pública da OS — `url` já utilizável em `Image.network`.
+/// Foto pública da OS — `url` já utilizável em `Image.network`. `id` permite ao
+/// cliente citar a foto no chat e comentar nela.
 @freezed
 abstract class PublicPhoto with _$PublicPhoto {
   const factory PublicPhoto({
+    String? id,
     required String url,
     String? caption,
   }) = _PublicPhoto;
 
   factory PublicPhoto.fromJson(Map<String, dynamic> json) =>
       _$PublicPhotoFromJson(json);
+}
+
+/// Preview de uma mensagem citada (reply-to) no chat público.
+@freezed
+abstract class PublicQuote with _$PublicQuote {
+  const factory PublicQuote({
+    @Default('staff') String sender,
+    @JsonKey(name: 'author_name') String? authorName,
+    @Default('') String body,
+  }) = _PublicQuote;
+
+  factory PublicQuote.fromJson(Map<String, dynamic> json) =>
+      _$PublicQuoteFromJson(json);
+}
+
+/// Comentário numa foto (thread pública). `authorKind` ∈ staff|customer.
+@freezed
+abstract class PublicPhotoComment with _$PublicPhotoComment {
+  const factory PublicPhotoComment({
+    @JsonKey(name: 'authorKind') @Default('staff') String authorKind,
+    @JsonKey(name: 'authorName') String? authorName,
+    @Default('') String body,
+    String? createdAt,
+  }) = _PublicPhotoComment;
+
+  factory PublicPhotoComment.fromJson(Map<String, dynamic> json) =>
+      _$PublicPhotoCommentFromJson(json);
 }
 
 /// Evento da linha do tempo pública. `kind` ∈ created|status_change|note|photo.
@@ -73,6 +102,9 @@ abstract class PublicMessage with _$PublicMessage {
     String? createdAt,
     /// Quando a oficina (staff) leu esta mensagem do cliente (recibo de leitura).
     String? readAt,
+    /// Citação (estilo WhatsApp): mensagem respondida + foto da OS citada.
+    @JsonKey(name: 'replyTo') PublicQuote? replyTo,
+    @JsonKey(name: 'photoUrl') String? photoUrl,
   }) = _PublicMessage;
 
   factory PublicMessage.fromJson(Map<String, dynamic> json) =>

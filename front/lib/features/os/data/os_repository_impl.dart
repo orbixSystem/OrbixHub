@@ -137,6 +137,36 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<List<PhotoComment>> listPhotoComments(
+    String orderId,
+    String photoId,
+  ) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/os/orders/$orderId/photos/$photoId/comments',
+        );
+        final raw = res.data as List? ?? const [];
+        return raw
+            .cast<Map<String, dynamic>>()
+            .map(PhotoComment.fromJson)
+            .toList();
+      });
+
+  @override
+  Future<PhotoComment> addPhotoComment(
+    String orderId,
+    String photoId,
+    String body,
+  ) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/os/orders/$orderId/photos/$photoId/comments',
+          data: {'body': body},
+        );
+        return PhotoComment.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<List<OsTemplate>> listTemplates() => _guard(() async {
         final res = await _dio.get<Object?>('/os/templates');
         final data = res.data;

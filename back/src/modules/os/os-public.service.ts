@@ -94,7 +94,12 @@ export class OsPublicService {
           diagnosis: order.diagnosis ?? null,
           subjectLabel: order.subject_label,
           scheduledEnd: order.scheduled_end,
-          photos: photos.map((p) => ({ url: p.url, caption: p.caption })),
+          // id exposto para o cliente citar/comentar a foto (uuid, não sensível).
+          photos: photos.map((p) => ({
+            id: p.id,
+            url: p.url,
+            caption: p.caption,
+          })),
           timeline: events
             .filter((e) => e.visible_public)
             .map((e) => ({
