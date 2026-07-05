@@ -12,7 +12,7 @@ void main() {
     expect(seedForPreset('inexistente').toARGB32(),
         NeuTokens.lavanderSeed.toARGB32());
   });
-  test('inclui 8 presets com chaves esperadas', () {
+  test('inclui 10 presets com chaves esperadas', () {
     expect(
         kThemePresets.map((p) => p.key),
         containsAll([
@@ -23,9 +23,21 @@ void main() {
           'tangerina',
           'rosa',
           'vermelho',
+          'amarelo',
           'ardosia',
+          'mono',
         ]));
-    expect(kThemePresets.length, 8);
+    expect(kThemePresets.length, 10);
+  });
+  test('mono (Preto & Branco) é monocromático: ação preta no claro, branca no escuro', () {
+    final seed = seedForPreset('mono');
+    final light = NeuTokens.forSeed(seed, Brightness.light);
+    final dark = NeuTokens.forSeed(seed, Brightness.dark);
+    // Ação escura no claro, clara no escuro (contraste invertido).
+    expect(light.navy.computeLuminance(), lessThan(0.15));
+    expect(dark.navy.computeLuminance(), greaterThan(0.8));
+    // Canvas neutro (sem matiz perceptível).
+    expect(HSLColor.fromColor(light.base).saturation, lessThan(0.1));
   });
   test('presetForSeed faz o caminho inverso', () {
     expect(presetForSeed(seedForPreset('azul')), 'azul');

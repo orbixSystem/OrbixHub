@@ -14,7 +14,9 @@ export const PRESETS = [
   'tangerina',
   'rosa',
   'vermelho',
+  'amarelo',
   'ardosia',
+  'mono',
   'ambar', // mantido por compatibilidade
 ];
 

@@ -22,7 +22,9 @@ const kThemePresets = <ThemePreset>[
   ThemePreset('tangerina', 'Tangerina', Color(0xFFE8631A)),
   ThemePreset('rosa', 'Rosa', Color(0xFFDB4B8A)),
   ThemePreset('vermelho', 'Vermelho', Color(0xFFDE3B4B)),
+  ThemePreset('amarelo', 'Amarelo', Color(0xFFEFB100)),
   ThemePreset('ardosia', 'Ardósia', Color(0xFF5C6B87)),
+  ThemePreset('mono', 'Preto & Branco', Color(0xFF1C1C1E)),
 ];
 
 /// Seed do preset (por chave). Desconhecido/nulo → Lavanda (padrão).

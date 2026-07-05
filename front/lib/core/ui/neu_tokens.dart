@@ -196,8 +196,69 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
     if (seed.toARGB32() == lavanderSeed.toARGB32()) {
       return dark ? NeuTokens.dark() : NeuTokens.light();
     }
+    // Seed acromático (cinza/preto) → tema monocromático "Preto & Branco":
+    // ação preta no claro, branca no escuro. Sem matiz para tingir.
+    if (HSLColor.fromColor(seed).saturation < 0.08) {
+      return dark ? _monoDark() : _monoLight();
+    }
     return dark ? _deriveDark(seed) : _deriveLight(seed);
   }
+
+  /// Tema monocromático claro: neumorphism em cinzas neutros + ação preta.
+  static NeuTokens _monoLight() => const NeuTokens(
+        base: Color(0xFFE7E7E8),
+        surface: Color(0xFFEEEEEF),
+        surfaceHi: Color(0xFFF6F6F7),
+        shadowLight: Color(0xFFFFFFFF),
+        shadowDark: Color(0x66AEAEB2),
+        ink: Color(0xFF1E1E20),
+        inkMuted: Color(0xFF6C6C71),
+        inkFaint: Color(0xFF9B9B9F),
+        line: Color(0xFFD6D6D8),
+        navy: Color(0xFF242426),
+        navyHover: Color(0xFF3A3A3D),
+        onNavy: Color(0xFFFFFFFF),
+        onNavyMuted: Color(0xFFC9C9CB),
+        accent: Color(0xFF3A3A3D),
+        accentTint: Color(0xFFDCDCDE),
+        success: Color(0xFF0E9F6E),
+        successTint: Color(0xFFDDF0E8),
+        danger: Color(0xFFE5484D),
+        dangerTint: Color(0xFFF8E2E3),
+        warning: Color(0xFFCC8F02),
+        warningTint: Color(0xFFF5ECD3),
+        info: Color(0xFF2E90FA),
+        infoTint: Color(0xFFDFECFD),
+        glyphs: _glyphsLight,
+      );
+
+  /// Tema monocromático escuro: canvas quase preto + ação branca.
+  static NeuTokens _monoDark() => const NeuTokens(
+        base: Color(0xFF19191B),
+        surface: Color(0xFF232325),
+        surfaceHi: Color(0xFF2C2C2F),
+        shadowLight: Color(0x403A3A3D),
+        shadowDark: Color(0x8C09090A),
+        ink: Color(0xFFF3F3F4),
+        inkMuted: Color(0xFFA9A9AD),
+        inkFaint: Color(0xFF6E6E73),
+        line: Color(0xFF343437),
+        navy: Color(0xFFF0F0F1),
+        navyHover: Color(0xFFFFFFFF),
+        onNavy: Color(0xFF19191B),
+        onNavyMuted: Color(0xFF4A4A4D),
+        accent: Color(0xFFE6E6E8),
+        accentTint: Color(0xFF303033),
+        success: Color(0xFF3ECFA0),
+        successTint: Color(0xFF243B34),
+        danger: Color(0xFFF0787C),
+        dangerTint: Color(0xFF3F282D),
+        warning: Color(0xFFE8BC52),
+        warningTint: Color(0xFF3B3526),
+        info: Color(0xFF6FB1FF),
+        infoTint: Color(0xFF283452),
+        glyphs: _glyphsDark,
+      );
 
   static Color _hsl(double h, double s, double l, [double a = 1]) =>
       HSLColor.fromAHSL(a, h % 360, s.clamp(0.0, 1.0), l.clamp(0.0, 1.0))

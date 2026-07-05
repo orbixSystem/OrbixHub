@@ -59,7 +59,9 @@ export const THEME_PRESETS: SettingsFieldOption[] = [
   { value: 'tangerina', label: 'Tangerina' },
   { value: 'rosa', label: 'Rosa' },
   { value: 'vermelho', label: 'Vermelho' },
+  { value: 'amarelo', label: 'Amarelo' },
   { value: 'ardosia', label: 'Ardósia' },
+  { value: 'mono', label: 'Preto & Branco' },
 ];
 
 export const COMPANY_SECTION: SettingsSection = {
