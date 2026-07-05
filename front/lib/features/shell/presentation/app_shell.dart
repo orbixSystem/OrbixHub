@@ -4,7 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
+import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../customers/presentation/customer_form_dialog.dart';
+import '../../customers/presentation/customers_providers.dart';
+import '../../inventory/presentation/inventory_providers.dart';
+import '../../inventory/presentation/item_form_dialog.dart';
+import '../../os/presentation/order_form_dialog.dart';
 import 'nav_items.dart';
 import 'sidebar.dart';
 
@@ -73,16 +79,28 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           if (isDesktop) sidebar,
           Expanded(
-            child: Column(
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                _ContentHeader(
-                  title: items[selected].label,
-                  showMenu: !isDesktop && !isMobile,
+                Column(
+                  children: [
+                    _ContentHeader(
+                      title: items[selected].label,
+                      showMenu: !isDesktop && !isMobile,
+                    ),
+                    // A transição entre telas é feita pelo Navigator do ShellRoute
+                    // (pageBuilder + neuPage), não aqui — envolver o child num
+                    // AnimatedSwitcher duplicava a GlobalKey da página do go_router.
+                    Expanded(child: widget.child),
+                  ],
                 ),
-                // A transição entre telas é feita pelo Navigator do ShellRoute
-                // (pageBuilder + neuPage), não aqui — envolver o child num
-                // AnimatedSwitcher duplicava a GlobalKey da página do go_router.
-                Expanded(child: widget.child),
+                // FAB de criação rápida aninhado no berço do header (centro).
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 68 - 27,
+                  left: 0,
+                  right: 0,
+                  child: const Center(child: _QuickCreateFab()),
+                ),
               ],
             ),
           ),
@@ -154,16 +172,16 @@ class _HeaderWaveClipper extends CustomClipper<Path> {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    const r = 44.0; // meia-largura do entalhe (~88px de largura)
-    const depth = 26.0; // profundidade do recorte
+    const r = 60.0; // meia-largura do entalhe (~120px, cabe o FAB)
+    const depth = 34.0; // profundidade do recorte
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo(0, h)
-      ..lineTo(cx - r - 10, h)
+      ..lineTo(cx - r - 14, h)
       // Entra no entalhe (sobe até o centro)...
-      ..cubicTo(cx - r + 6, h, cx - r + 12, h - depth, cx, h - depth)
+      ..cubicTo(cx - r + 8, h, cx - r + 16, h - depth, cx, h - depth)
       // ...e sai, espelhado.
-      ..cubicTo(cx + r - 12, h - depth, cx + r - 6, h, cx + r + 10, h)
+      ..cubicTo(cx + r - 16, h - depth, cx + r - 8, h, cx + r + 14, h)
       ..lineTo(w, h)
       ..lineTo(w, 0)
       ..close();
@@ -331,4 +349,147 @@ class _BottomItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Atalho de criação rápida aninhado no berço do header. Abre um menu com as
+/// ações de criação que o usuário PODE fazer (gated por módulo + permissão).
+/// Some quando não há nenhuma.
+class _QuickCreateFab extends ConsumerWidget {
+  const _QuickCreateFab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionControllerProvider);
+    if (session is! SessionAuthenticated) return const SizedBox.shrink();
+    final actions = _quickActions(session.me);
+    if (actions.isEmpty) return const SizedBox.shrink();
+    final neu = context.neu;
+    return Tooltip(
+      message: 'Criar',
+      child: GestureDetector(
+        onTap: () => _openMenu(context, ref, actions),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            width: 54,
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: neu.navy,
+              boxShadow: [
+                BoxShadow(
+                  color: neu.navy.withValues(alpha: 0.42),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(Icons.add_rounded, color: neu.onNavy, size: 28),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openMenu(
+    BuildContext context,
+    WidgetRef ref,
+    List<_QuickAction> actions,
+  ) {
+    final neu = context.neu;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: neu.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: neu.inkFaint,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8, left: 4),
+                child: Text(
+                  'Criar',
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              for (final a in actions)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: NeuListTile(
+                    leading: NeuIconChip.glyph(context,
+                        icon: a.icon, index: a.glyph, size: 40),
+                    title: Text(a.label),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _run(context, ref, a.key);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _run(BuildContext context, WidgetRef ref, String key) async {
+    switch (key) {
+      case 'os':
+        final id = await OrderFormDialog.show(context);
+        if (id != null && context.mounted) context.go('/m/os/$id');
+      case 'customer':
+        final cfg = ref.read(customersConfigProvider).value;
+        final ok = await CustomerFormDialog.show(
+          context,
+          documentRequired: cfg?.documentRequired ?? false,
+        );
+        if (ok == true) ref.invalidate(customersListProvider);
+      case 'product':
+        final ok = await ItemFormDialog.show(context);
+        if (ok == true) ref.invalidate(itemListProvider);
+    }
+  }
+
+  List<_QuickAction> _quickActions(Me me) {
+    return [
+      if (me.hasModule('os') && me.hasPermission('os.write'))
+        const _QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
+      if (me.hasModule('customers') && me.hasPermission('customer.write'))
+        const _QuickAction(
+            'customer', Icons.person_add_alt_1_rounded, 3, 'Novo cliente'),
+      if (me.hasModule('inventory') && me.hasPermission('inventory.write'))
+        const _QuickAction('product', Icons.inventory_2_rounded, 5,
+            'Novo produto ou serviço'),
+    ];
+  }
+}
+
+/// Especificação de uma ação de criação rápida do [_QuickCreateFab].
+class _QuickAction {
+  const _QuickAction(this.key, this.icon, this.glyph, this.label);
+  final String key;
+  final IconData icon;
+  final int glyph;
+  final String label;
 }
