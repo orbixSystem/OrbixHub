@@ -30,7 +30,7 @@ class AppearanceSection extends ConsumerWidget {
     // Determina o preset selecionado: 3-tier resolution.
     // 1. themePreset não-vazio → usa diretamente.
     // 2. primaryColor válido (#RRGGBB) → converte para Color e busca preset.
-    // 3. fallback → 'lavanda' (padrão).
+    // 3. fallback → 'roxo' (padrão — o roxo anterior).
     final String selectedKey = () {
       final preset = company['themePreset'];
       if (preset is String && preset.isNotEmpty) return preset;
@@ -44,7 +44,7 @@ class AppearanceSection extends ConsumerWidget {
         }
       }
 
-      return 'lavanda';
+      return 'roxo';
     }();
 
     final content = Column(

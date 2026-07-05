@@ -15,7 +15,7 @@ class ThemePreset {
 /// Cores pré-definidas oferecidas na tela de Aparência. Lavanda é o padrão
 /// (reproduz o hand-tuned canônico); as demais são derivadas do seed.
 const kThemePresets = <ThemePreset>[
-  ThemePreset('lavanda', 'Lavanda', NeuTokens.lavanderSeed), // padrão
+  ThemePreset('roxo', 'Roxo', NeuTokens.lavanderSeed), // padrão (roxo anterior)
   ThemePreset('azul', 'Azul', Color(0xFF3F6FE5)),
   ThemePreset('petroleo', 'Petróleo', Color(0xFF0E8C8C)),
   ThemePreset('verde', 'Verde', Color(0xFF1E9E63)),

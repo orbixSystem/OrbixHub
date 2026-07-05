@@ -26,12 +26,12 @@ describe('COMPANY_SECTION', () => {
     expect(uf.options).toHaveLength(27);
   });
 
-  it('themePreset é select e inclui lavanda (default) + variações', () => {
+  it('themePreset é select e inclui roxo (default) + variações', () => {
     const t = COMPANY_SECTION.fields.find((f) => f.key === 'themePreset')!;
     expect(t.type).toBe('select');
-    expect(t.options?.[0]?.value).toBe('lavanda');
+    expect(t.options?.[0]?.value).toBe('roxo');
     expect(t.options?.map((o) => o.value)).toEqual(
-      expect.arrayContaining(['lavanda', 'azul', 'petroleo', 'verde', 'tangerina', 'rosa', 'vermelho', 'ardosia']),
+      expect.arrayContaining(['roxo', 'azul', 'petroleo', 'verde', 'tangerina', 'rosa', 'vermelho', 'ardosia']),
     );
   });
 });

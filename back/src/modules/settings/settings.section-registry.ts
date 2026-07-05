@@ -52,7 +52,7 @@ const REGIMES: SettingsFieldOption[] = [
 
 // Presets de tema (a UI mapeia value->cor-semente; o back só guarda a escolha).
 export const THEME_PRESETS: SettingsFieldOption[] = [
-  { value: 'lavanda', label: 'Lavanda (padrão)' },
+  { value: 'roxo', label: 'Roxo (padrão)' },
   { value: 'azul', label: 'Azul' },
   { value: 'petroleo', label: 'Petróleo' },
   { value: 'verde', label: 'Verde' },

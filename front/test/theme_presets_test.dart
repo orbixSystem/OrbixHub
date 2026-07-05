@@ -4,9 +4,9 @@ import 'package:orbixhub_front/core/theme/theme_presets.dart';
 import 'package:orbixhub_front/core/ui/neu_tokens.dart';
 
 void main() {
-  test('lavanda é o default e mapeia para o seed canônico', () {
-    expect(seedForPreset('lavanda').toARGB32(),
-        NeuTokens.lavanderSeed.toARGB32());
+  test('roxo é o default (roxo anterior) e mapeia para o seed canônico', () {
+    expect(kThemePresets.first.key, 'roxo');
+    expect(seedForPreset('roxo').toARGB32(), NeuTokens.lavanderSeed.toARGB32());
     expect(seedForPreset(null).toARGB32(),
         NeuTokens.lavanderSeed.toARGB32()); // fallback
     expect(seedForPreset('inexistente').toARGB32(),
@@ -16,7 +16,7 @@ void main() {
     expect(
         kThemePresets.map((p) => p.key),
         containsAll([
-          'lavanda',
+          'roxo',
           'azul',
           'petroleo',
           'verde',

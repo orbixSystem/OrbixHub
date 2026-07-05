@@ -7,7 +7,7 @@ const REGIMES = ['simples', 'mei', 'presumido', 'real'];
 // kThemePresets no front (lib/core/theme/theme_presets.dart). `roxo`/`ambar`
 // são mantidos por compatibilidade com tenants que já os salvaram.
 export const PRESETS = [
-  'lavanda',
+  'roxo',
   'azul',
   'petroleo',
   'verde',
@@ -15,8 +15,7 @@ export const PRESETS = [
   'rosa',
   'vermelho',
   'ardosia',
-  'roxo',
-  'ambar',
+  'ambar', // mantido por compatibilidade
 ];
 
 /**
