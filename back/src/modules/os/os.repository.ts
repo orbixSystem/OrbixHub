@@ -96,6 +96,19 @@ export interface UpdateItemData {
   total?: DecimalIn;
 }
 
+export interface UpdateItemScheduleData {
+  assigned_to?: string | null;
+  scheduled_start?: Date | null;
+  estimated_duration?: number | null;
+  scheduled_end?: Date | null;
+}
+
+export interface AgendaFilter {
+  from: Date;
+  to: Date;
+  assignedTo?: string;
+}
+
 export interface CreateTemplateItemData {
   kind: 'product' | 'service';
   inventory_item_id: string | null;
@@ -250,7 +263,6 @@ export class OsRepository {
       orderBy: { created_at: 'asc' },
     });
   }
-
 
   updateItemSchedule(itemId: string, data: UpdateItemScheduleData) {
     const db = this.tenant.getClient();

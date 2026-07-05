@@ -23,6 +23,7 @@ class NeuTextField extends StatelessWidget {
     this.suffix,
     this.enabled = true,
     this.maxLines = 1,
+    this.minLines,
     this.textInputAction,
   });
 
@@ -41,6 +42,7 @@ class NeuTextField extends StatelessWidget {
   final Widget? suffix;
   final bool enabled;
   final int maxLines;
+  final int? minLines;
   final TextInputAction? textInputAction;
 
   @override
@@ -73,6 +75,7 @@ class NeuTextField extends StatelessWidget {
             onChanged: onChanged,
             enabled: enabled,
             maxLines: maxLines,
+            minLines: minLines,
             textInputAction: textInputAction,
             style: TextStyle(color: neu.ink, fontSize: 15),
             decoration: InputDecoration(

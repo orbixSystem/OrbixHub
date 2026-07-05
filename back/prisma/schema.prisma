@@ -155,21 +155,27 @@ model service_order {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model service_order_item {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id         String        @db.Uuid
-  order_id          String        @db.Uuid
-  kind              String
-  inventory_item_id String?       @db.Uuid
-  name              String
-  quantity          Decimal       @default(1) @db.Decimal(14, 3)
-  unit_price        Decimal       @default(0) @db.Decimal(14, 2)
-  discount          Decimal       @default(0) @db.Decimal(14, 2)
-  total             Decimal       @default(0) @db.Decimal(14, 2)
-  created_at        DateTime      @default(now()) @db.Timestamptz(6)
-  order             service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenant            tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String        @db.Uuid
+  order_id             String        @db.Uuid
+  kind                 String
+  inventory_item_id    String?       @db.Uuid
+  name                 String
+  quantity             Decimal       @default(1) @db.Decimal(14, 3)
+  unit_price           Decimal       @default(0) @db.Decimal(14, 2)
+  discount             Decimal       @default(0) @db.Decimal(14, 2)
+  total                Decimal       @default(0) @db.Decimal(14, 2)
+  assigned_to          String?       @db.Uuid
+  scheduled_start      DateTime?     @db.Timestamptz(6)
+  estimated_duration   Int?          // minutos, múltiplos de 30
+  scheduled_end        DateTime?     @db.Timestamptz(6)
+  created_at           DateTime      @default(now()) @db.Timestamptz(6)
+  order                service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant               tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assigned_user        users?        @relation("item_assigned_user", fields: [assigned_to], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id, order_id], map: "idx_service_order_item_tenant_order")
+  @@index([tenant_id, assigned_to, scheduled_start, scheduled_end], map: "idx_soi_assigned_schedule")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -482,6 +488,7 @@ model tenant {
   subscription       subscription?
   tenant_module      tenant_module[]
   users              users[]
+  business_hours     business_hours[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -496,6 +503,22 @@ model tenant_module {
   tenant      tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([tenant_id, module_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model business_hours {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  day_of_week  Int      @db.SmallInt // 0=Dom, 1=Seg … 6=Sáb
+  is_open      Boolean  @default(true)
+  open_time    String   // "HH:MM"
+  close_time   String   // "HH:MM"
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  tenant       tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, day_of_week])
+  @@index([tenant_id], map: "idx_business_hours_tenant")
 }
 
 model billing_webhook_event {
@@ -594,11 +617,12 @@ model users {
   mfa_enabled        Boolean          @default(false)
   created_at         DateTime         @default(now()) @db.Timestamptz(6)
   updated_at         DateTime         @default(now()) @db.Timestamptz(6)
-  audit_log          audit_log[]
-  invite             invite[]
-  login_attempt      login_attempt[]
-  membership         membership[]
-  one_time_token     one_time_token[]
-  refresh_token      refresh_token[]
-  tenant             tenant?          @relation(fields: [last_tenant_id], references: [id], onUpdate: NoAction)
+  audit_log               audit_log[]
+  invite                  invite[]
+  login_attempt           login_attempt[]
+  membership              membership[]
+  one_time_token          one_time_token[]
+  refresh_token           refresh_token[]
+  tenant                  tenant?              @relation(fields: [last_tenant_id], references: [id], onUpdate: NoAction)
+  assigned_items          service_order_item[] @relation("item_assigned_user")
 }

@@ -61,10 +61,20 @@ class _SideColors {
         BoxShadow(color: Color(0x22515A8C), blurRadius: 10, offset: Offset(-3, -3)),
       ];
 
-  /// Sombra da borda direita, separando a sidebar do canvas.
-  List<BoxShadow> get edge => const [
-        BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(3, 0)),
+  /// Sombra da borda direita — mesma sombra do arco/header (neu.shadowDark),
+  /// para padronizar a separação da moldura.
+  List<BoxShadow> get edge => [
+        BoxShadow(color: _neu.shadowDark, blurRadius: 16, offset: const Offset(2, 0)),
       ];
+
+  /// Contorno da sidebar (direita + base). Como o painel é escuro nos dois
+  /// temas, uma linha escura (como a do arco) sumiria; então usamos um RIM CLARO
+  /// (highlight) que, junto da sombra [edge], dá o mesmo contorno "esculpido" do
+  /// arco — visível no claro e no escuro.
+  Border get edgeBorder {
+    final rim = BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.5);
+    return Border(right: rim, bottom: rim);
+  }
 }
 
 /// The navy navigation sidebar content, shared by the persistent desktop
@@ -103,7 +113,8 @@ class SidebarContent extends ConsumerWidget {
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeInOutCubic,
       width: collapsed ? 76 : 272,
-      decoration: BoxDecoration(color: c.bg, boxShadow: c.edge),
+      decoration:
+          BoxDecoration(color: c.bg, boxShadow: c.edge, border: c.edgeBorder),
       child: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),

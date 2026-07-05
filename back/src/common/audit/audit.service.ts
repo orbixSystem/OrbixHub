@@ -33,7 +33,10 @@ export type AuditAction =
   | 'invoice_authorized'
   | 'invoice_rejected'
   | 'invoice_cancel'
-  | 'invoice_webhook';
+  | 'invoice_webhook'
+  | 'schedule_hours_update'
+  | 'schedule_item_assign'
+  | 'schedule_item_unassign';
 
 @Injectable()
 export class AuditService {

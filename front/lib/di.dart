@@ -37,6 +37,8 @@ import 'features/settings/data/settings_repository_impl.dart';
 import 'features/settings/domain/settings_models.dart';
 import 'features/settings/domain/settings_repository.dart';
 import 'features/settings/presentation/settings_controller.dart';
+import 'features/schedule/data/schedule_repository_impl.dart';
+import 'features/schedule/presentation/schedule_providers.dart';
 import 'features/tracking/data/tracking_repository_impl.dart';
 import 'features/tracking/domain/tracking_repository.dart';
 
@@ -128,6 +130,9 @@ final diOverrides = [
   ),
   reportRepositoryProvider.overrideWith(
     (ref) => ReportRepositoryImpl(ref.read(dioProvider)),
+  ),
+  scheduleRepositoryProvider.overrideWith(
+    (ref) => ScheduleRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 

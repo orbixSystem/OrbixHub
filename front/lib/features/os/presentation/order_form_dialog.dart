@@ -361,34 +361,30 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                       (v == null) ? 'Selecione um responsável' : null,
                 ),
                 const SizedBox(height: 12),
-                // ---- Datas de previsão (obrigatórias) ----
+                // ---- Datas de previsão (OPCIONAIS — cadastro-relâmpago da OS;
+                // a agenda usa quando preenchidas). Se preenchidas, término > início.
                 Row(
                   children: [
                     Expanded(
                       child: _DateTimeField(
-                        label: 'Início previsto *',
+                        label: 'Início previsto',
                         value: _scheduledStart,
                         fmt: _dtFmt,
                         enabled: !_saving,
                         onTap: () => _pickDateTime(isStart: true),
-                        validator: (_) => _scheduledStart == null
-                            ? 'Informe a data/hora de início'
-                            : null,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: _DateTimeField(
-                        label: 'Término previsto *',
+                        label: 'Término previsto',
                         value: _scheduledEnd,
                         fmt: _dtFmt,
                         enabled: !_saving,
                         onTap: () => _pickDateTime(isStart: false),
                         validator: (_) {
-                          if (_scheduledEnd == null) {
-                            return 'Informe a data/hora de término';
-                          }
-                          if (_scheduledStart != null &&
+                          if (_scheduledEnd != null &&
+                              _scheduledStart != null &&
                               !_scheduledEnd!.isAfter(_scheduledStart!)) {
                             return 'Deve ser após o início';
                           }
