@@ -393,39 +393,32 @@ class _ThreadBody extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: _chatMaxWidth),
           child: messages.isEmpty
               ? const Center(child: Text('Nenhuma mensagem ainda.'))
-              // Ancora as mensagens EMBAIXO (padrão de chat): com poucas
-              // mensagens elas ficam junto do campo de resposta, não grudadas no
-              // topo com um vazio enorme. Rola quando passam da altura da tela.
-              : LayoutBuilder(
-                  builder: (context, c) => SingleChildScrollView(
-                    controller: controller,
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: c.maxHeight - 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (hasMore)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Center(
-                                child: NeuButton(
-                                  label: 'Carregar mensagens anteriores',
-                                  kind: NeuButtonKind.secondary,
-                                  icon: Icons.history_rounded,
-                                  loading: loadingOlder,
-                                  onPressed: onLoadOlder,
-                                ),
-                              ),
-                            ),
-                          for (final m in messages)
-                            _Bubble(message: m, onReply: onReply),
-                        ],
+              : ListView.builder(
+                  controller: controller,
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                  itemCount: messages.length + (hasMore ? 1 : 0),
+              itemBuilder: (context, i) {
+                if (hasMore && i == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Center(
+                      child: NeuButton(
+                        label: 'Carregar mensagens anteriores',
+                        kind: NeuButtonKind.secondary,
+                        icon: Icons.history_rounded,
+                        loading: loadingOlder,
+                        onPressed: onLoadOlder,
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }
+                final index = hasMore ? i - 1 : i;
+                return _Bubble(
+                  message: messages[index],
+                  onReply: onReply,
+                );
+              },
+            ),
         ),
       ),
     );
@@ -532,8 +525,8 @@ class _BubbleState extends State<_Bubble> {
 
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 460),
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.only(
@@ -583,12 +576,11 @@ class _BubbleState extends State<_Bubble> {
             ),
           ],
           if (message.body.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(message.body,
-                style: TextStyle(color: fg, fontSize: 14.5, height: 1.35)),
+            const SizedBox(height: 4),
+            Text(message.body, style: TextStyle(color: fg, fontSize: 14.5)),
           ],
           if (time.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
