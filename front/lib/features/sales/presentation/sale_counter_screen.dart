@@ -292,9 +292,14 @@ class _ProductSearchState extends ConsumerState<_ProductSearch> {
     }
     setState(() => _loading = true);
     try {
-      final page = await ref
-          .read(inventoryRepositoryProvider)
-          .listItems(q: q, active: 'true', sort: 'name_asc', page: 1);
+      // Só PRODUTOS no balcão — serviço é o fluxo da Ordem de Serviço.
+      final page = await ref.read(inventoryRepositoryProvider).listItems(
+            q: q,
+            active: 'true',
+            kind: 'product',
+            sort: 'name_asc',
+            page: 1,
+          );
       if (!mounted || _query != q) return;
       setState(() {
         _results = page.items;
@@ -1011,7 +1016,7 @@ class _LooseItemDialog extends StatefulWidget {
 class _LooseItemDialogState extends State<_LooseItemDialog> {
   final _name = TextEditingController();
   final _price = TextEditingController();
-  String _kind = 'product';
+  static const _kind = 'product';
   String? _error;
 
   @override
@@ -1047,33 +1052,11 @@ class _LooseItemDialogState extends State<_LooseItemDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Produto / Serviço
-        Row(
-          children: [
-            Expanded(
-              child: _KindChip(
-                label: 'Produto',
-                icon: Icons.inventory_2_outlined,
-                selected: _kind == 'product',
-                onTap: () => setState(() => _kind = 'product'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _KindChip(
-                label: 'Serviço',
-                icon: Icons.design_services_outlined,
-                selected: _kind == 'service',
-                onTap: () => setState(() => _kind = 'service'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+        // Balcão vende PRODUTO — serviço é o fluxo da Ordem de Serviço.
         NeuTextField(
           controller: _name,
-          label: 'Descrição',
-          hint: 'Ex.: troca de lâmpada',
+          label: 'Descrição do produto',
+          hint: 'Ex.: par de palhetas',
           prefixIcon: Icons.label_outline,
           onChanged: (_) {
             if (_error != null) setState(() => _error = null);
@@ -1116,51 +1099,6 @@ class _LooseItemDialogState extends State<_LooseItemDialog> {
   }
 }
 
-class _KindChip extends StatelessWidget {
-  const _KindChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(NeuTokens.rField),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? neu.navy : neu.surface,
-          borderRadius: BorderRadius.circular(NeuTokens.rField),
-          boxShadow: selected ? null : neu.raised(),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: selected ? neu.onNavy : neu.inkMuted),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? neu.onNavy : neu.ink,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ===================== Dialog: escolher cliente =====================
 

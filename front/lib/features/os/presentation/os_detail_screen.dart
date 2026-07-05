@@ -13,6 +13,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../invoice/presentation/invoice_providers.dart';
+import '../../invoice/presentation/invoice_status.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
@@ -539,6 +541,8 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
       final invoice = await ref
           .read(invoiceRepositoryProvider)
           .issue(orderId: widget.orderId);
+      // Reflete na OS que agora há uma nota (ao voltar, mostra "ver nota").
+      ref.invalidate(orderInvoicesProvider(widget.orderId));
       if (mounted) context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (mounted) {
@@ -569,6 +573,24 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
             ),
           ),
         ),
+      );
+    }
+    // Já existe nota ATIVA (rascunho/processando/autorizada) para esta OS?
+    // Se sim, o botão vira "ver nota" (integração natural: a OS reflete o
+    // estado fiscal em vez de só oferecer emitir e bater no 409).
+    final page = ref.watch(orderInvoicesProvider(widget.orderId)).asData?.value;
+    final active = (page?.items ?? const []).where((i) =>
+        i.status == 'draft' ||
+        i.status == 'processing' ||
+        i.status == 'authorized');
+    if (active.isNotEmpty) {
+      final inv = active.first;
+      return NeuIconButton(
+        tooltip: 'Nota fiscal: ${invoiceStatusLabel(inv.status)} — toque para ver',
+        icon: Icons.receipt_long,
+        size: 42,
+        color: invoiceStatusColor(context, inv.status),
+        onPressed: () => context.go('/m/invoice/${inv.id}'),
       );
     }
     return NeuIconButton(

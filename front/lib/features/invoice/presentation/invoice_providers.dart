@@ -144,3 +144,10 @@ final invoiceProvider =
     FutureProvider.autoDispose.family<Invoice, String>((ref, id) {
   return ref.read(invoiceRepositoryProvider).getOne(id);
 });
+
+/// Notas de uma OS (para a integração natural na tela da OS: mostrar se já há
+/// nota emitida e linkar, em vez de só um botão "Emitir").
+final orderInvoicesProvider =
+    FutureProvider.autoDispose.family<InvoicePage, String>((ref, orderId) {
+  return ref.read(invoiceRepositoryProvider).list(orderId: orderId);
+});
