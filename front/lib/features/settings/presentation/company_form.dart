@@ -383,6 +383,13 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   }
 
   Future<void> _removeLogo() async {
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Remover logo?',
+      message: 'A logo da empresa será removida das telas e do link público.',
+      confirmLabel: 'Remover',
+    );
+    if (!ok || !mounted) return;
     setState(() => _saving = true);
     try {
       await ref.read(settingsControllerProvider.notifier).removeLogo();

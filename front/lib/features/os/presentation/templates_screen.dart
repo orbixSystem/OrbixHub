@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
@@ -173,25 +174,13 @@ class TemplatesScreen extends ConsumerWidget {
     WidgetRef ref,
     OsTemplate template,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Excluir template'),
-        content: Text('Excluir "${template.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Excluir template?',
+      message: 'Excluir "${template.name}"? Não é possível desfazer.',
+      confirmLabel: 'Excluir',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !context.mounted) return;
     try {
       await ref.read(osRepositoryProvider).deleteTemplate(template.id);
       ref.invalidate(templateListProvider);
