@@ -95,8 +95,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ],
                 ),
                 // FAB de criação rápida aninhado no berço do header (centro).
+                // Sobe para dentro do entalhe fundo → protrai só ~8px na tela.
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 68 - 27,
+                  top: MediaQuery.of(context).padding.top + 68 - 46,
                   left: 0,
                   right: 0,
                   child: const Center(child: _QuickCreateFab()),
@@ -177,8 +178,8 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-const double _headerNotchR = 60.0; // meia-largura do entalhe (~120px, cabe o FAB)
-const double _headerNotchDepth = 34.0; // profundidade do recorte
+const double _headerNotchR = 64.0; // meia-largura do entalhe (~128px, cabe o FAB)
+const double _headerNotchDepth = 48.0; // profundidade do recorte (berço fundo)
 
 /// Traça a borda INFERIOR do header (reta com o entalhe circular no centro),
 /// assumindo que o ponto atual já está em `(0, h)`. Compartilhada pelo clipper
