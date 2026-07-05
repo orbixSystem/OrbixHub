@@ -93,3 +93,195 @@ BarTouchData neuBarTouch(
     ),
   );
 }
+
+/// Tooltip de toque para gráficos de linha (superfície navy, texto claro).
+LineTouchData neuLineTouch(
+  BuildContext context, {
+  required String Function(int index, double value) label,
+}) {
+  final neu = context.neu;
+  return LineTouchData(
+    touchTooltipData: LineTouchTooltipData(
+      getTooltipColor: (_) => neu.navy,
+      tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      getTooltipItems: (spots) => [
+        for (final s in spots)
+          LineTooltipItem(
+            label(s.x.round(), s.y),
+            TextStyle(
+              color: neu.onNavy,
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Formatação curta para rótulos de eixo (mantém o eixo enxuto).
+// ---------------------------------------------------------------------------
+
+String _neuShort(double x) {
+  final r = x.abs() < 10 ? (x * 10).roundToDouble() / 10 : x.roundToDouble();
+  final s = r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
+  return s.replaceAll('.', ',');
+}
+
+/// Moeda curta para eixos: "R\$ 850", "R\$ 1,2k", "R\$ 3,4M".
+String neuShortMoney(num value) {
+  final a = value.abs();
+  if (a >= 1000000) return 'R\$ ${_neuShort(value / 1000000)}M';
+  if (a >= 1000) return 'R\$ ${_neuShort(value / 1000)}k';
+  return 'R\$ ${value.toStringAsFixed(0)}';
+}
+
+/// Contagem curta para eixos: "12", "1,2k".
+String neuShortCount(num value) {
+  final a = value.abs();
+  if (a >= 1000) return '${_neuShort(value / 1000)}k';
+  return value.toStringAsFixed(0);
+}
+
+// ---------------------------------------------------------------------------
+// Eixos e grid recessivos (padrão do design system para BarChart/LineChart).
+// ---------------------------------------------------------------------------
+
+/// Eixos sem título — para os lados não usados (topo/direita).
+const AxisTitles neuNoAxis =
+    AxisTitles(sideTitles: SideTitles(showTitles: false));
+
+/// Grid horizontal recessivo (linhas sutis em `neu.line`; sem verticais).
+FlGridData neuGrid(BuildContext context, {required double interval}) {
+  final neu = context.neu;
+  return FlGridData(
+    show: true,
+    drawVerticalLine: false,
+    horizontalInterval: interval <= 0 ? 1 : interval,
+    getDrawingHorizontalLine: (_) => FlLine(color: neu.line, strokeWidth: 1),
+  );
+}
+
+/// Eixo Y à esquerda com valores formatados (recessivo). Esconde o rótulo do
+/// topo (colado no título) para não poluir.
+AxisTitles neuLeftTitles(
+  BuildContext context, {
+  required String Function(double) format,
+  double reservedSize = 48,
+  double? interval,
+}) {
+  final neu = context.neu;
+  return AxisTitles(
+    sideTitles: SideTitles(
+      showTitles: true,
+      reservedSize: reservedSize,
+      interval: interval,
+      getTitlesWidget: (value, meta) {
+        // O topo (maxY, acima do dado) fica sem rótulo para não colar no título.
+        if (value >= meta.max) return const SizedBox.shrink();
+        return SideTitleWidget(
+          meta: meta,
+          space: 6,
+          child: Text(
+            format(value),
+            style: TextStyle(fontSize: 10, color: neu.inkFaint),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Eixo X inferior por índice→rótulo. Enxuga rótulos quando há muitos pontos
+/// (mostra ~[maxLabels] no máximo) e permite rotacionar textos longos.
+AxisTitles neuBottomTitles(
+  BuildContext context, {
+  required int count,
+  required String Function(int) label,
+  double reservedSize = 34,
+  int maxLabels = 8,
+  double angle = 0,
+}) {
+  final neu = context.neu;
+  final step = count <= maxLabels ? 1 : (count / maxLabels).ceil();
+  return AxisTitles(
+    sideTitles: SideTitles(
+      showTitles: true,
+      reservedSize: reservedSize,
+      interval: 1,
+      getTitlesWidget: (value, meta) {
+        final i = value.round();
+        if (i < 0 || i >= count) return const SizedBox.shrink();
+        // Mostra 1 a cada [step] (e sempre o último) para não sobrepor.
+        if (i % step != 0 && i != count - 1) return const SizedBox.shrink();
+        return SideTitleWidget(
+          meta: meta,
+          space: 6,
+          angle: angle,
+          child: Text(
+            label(i),
+            style: TextStyle(fontSize: 10, color: neu.inkMuted),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Item da legenda categórica: cor da série + rótulo (+ valor opcional).
+class NeuLegendItem {
+  const NeuLegendItem({required this.color, required this.label, this.value});
+  final Color color;
+  final String label;
+  final String? value;
+}
+
+/// Legenda categórica horizontal (quebra em várias linhas). Texto sempre em
+/// ink/inkMuted; só o marcador usa a cor da série. Use para ≥2 séries.
+class NeuChartLegend extends StatelessWidget {
+  const NeuChartLegend({super.key, required this.items});
+
+  final List<NeuLegendItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: [
+        for (final it in items)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: it.color,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                it.label,
+                style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+              ),
+              if (it.value != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  it.value!,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+      ],
+    );
+  }
+}
