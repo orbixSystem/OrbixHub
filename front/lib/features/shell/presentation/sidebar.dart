@@ -67,11 +67,14 @@ class _SideColors {
         BoxShadow(color: _neu.shadowDark, blurRadius: 16, offset: const Offset(2, 0)),
       ];
 
-  /// Hairline na borda direita — mesma linha do arco (ink com alpha), contrasta
-  /// nos dois temas para a sidebar não se fundir com o conteúdo.
-  Border get edgeBorder => Border(
-        right: BorderSide(color: _neu.ink.withValues(alpha: 0.14), width: 1.5),
-      );
+  /// Contorno da sidebar (direita + base). Como o painel é escuro nos dois
+  /// temas, uma linha escura (como a do arco) sumiria; então usamos um RIM CLARO
+  /// (highlight) que, junto da sombra [edge], dá o mesmo contorno "esculpido" do
+  /// arco — visível no claro e no escuro.
+  Border get edgeBorder {
+    final rim = BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.5);
+    return Border(right: rim, bottom: rim);
+  }
 }
 
 /// The navy navigation sidebar content, shared by the persistent desktop

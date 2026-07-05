@@ -179,7 +179,7 @@ class _ContentHeader extends StatelessWidget {
 }
 
 const double _headerNotchR = 64.0; // meia-largura do entalhe (~128px, cabe o FAB)
-const double _headerNotchDepth = 48.0; // profundidade do recorte (berço fundo)
+const double _headerNotchDepth = 56.0; // profundidade do recorte (folga acima do FAB)
 
 /// Traça a borda INFERIOR do header (reta com o entalhe circular no centro),
 /// assumindo que o ponto atual já está em `(0, h)`. Compartilhada pelo clipper
