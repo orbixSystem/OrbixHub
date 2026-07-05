@@ -14,6 +14,9 @@ import '../../features/os/presentation/os_list_screen.dart';
 import '../../features/os/presentation/os_detail_screen.dart';
 import '../../features/os/presentation/templates_screen.dart';
 import '../../features/report/presentation/report_screen.dart';
+import '../../features/sales/presentation/sales_history_screen.dart';
+import '../../features/sales/presentation/sale_counter_screen.dart';
+import '../../features/sales/presentation/sale_detail_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -243,6 +246,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, s) => neuPage(
               s,
               InvoiceDetailScreen(invoiceId: s.pathParameters['id'] ?? ''),
+            ),
+          ),
+          // Vendas/Caixa — literais antes do placeholder genérico; gated sob
+          // /m/sales (módulo `sales`). /nova (balcão) antes de /:id.
+          GoRoute(
+            path: '/m/sales',
+            pageBuilder: (_, s) => neuPage(s, const SalesHistoryScreen()),
+          ),
+          GoRoute(
+            path: '/m/sales/nova',
+            pageBuilder: (_, s) => neuPage(s, const SaleCounterScreen()),
+          ),
+          GoRoute(
+            path: '/m/sales/:id',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              SaleDetailScreen(saleId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
