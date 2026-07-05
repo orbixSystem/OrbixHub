@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../di.dart';
 import '../../features/auth/presentation/session_state.dart';
-import 'app_colors.dart';
+import '../ui/neu_tokens.dart';
 import 'theme_presets.dart';
 
-/// Resolves the seed color for the app's [ColorScheme] from the workshop's
+/// Resolves the seed color for the neumorphic palette from the workshop's
 /// configured `company.themePreset` (preferred) or `company.primaryColor`.
-/// Falls back to [AppColors.brand] when unauthenticated, on any error, or
-/// when the color is missing/invalid.
+/// Falls back to the default Lavanda seed when unauthenticated, on any error,
+/// or when the color is missing/invalid.
 final brandingSeedProvider = FutureProvider<Color>((ref) async {
   final session = ref.watch(sessionControllerProvider);
-  if (session is! SessionAuthenticated) return AppColors.brand;
+  if (session is! SessionAuthenticated) return NeuTokens.lavanderSeed;
   try {
     final res = await ref.read(dioProvider).get<Object?>('/settings');
     final data = (res.data as Map)['company'];
@@ -25,5 +25,5 @@ final brandingSeedProvider = FutureProvider<Color>((ref) async {
   } catch (_) {
     /* fall through */
   }
-  return AppColors.brand;
+  return NeuTokens.lavanderSeed;
 });

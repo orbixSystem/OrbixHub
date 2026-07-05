@@ -6,9 +6,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/devtools/dev_inbox_overlay.dart';
 import 'core/router/app_router.dart';
 import 'core/router/navigator_key.dart';
-import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/branding.dart';
+import 'core/ui/neu_tokens.dart';
 import 'di.dart';
 
 Future<void> main() async {
@@ -60,7 +60,7 @@ class _OrbixAppState extends ConsumerState<OrbixApp> {
     final router = ref.watch(routerProvider);
     final seed = ref
         .watch(brandingSeedProvider)
-        .maybeWhen(data: (c) => c, orElse: () => AppColors.brand);
+        .maybeWhen(data: (c) => c, orElse: () => NeuTokens.lavanderSeed);
     final mode = ref.watch(themeControllerProvider);
     return MaterialApp.router(
       title: 'OrbixHub',
