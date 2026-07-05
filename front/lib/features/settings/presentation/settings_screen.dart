@@ -153,7 +153,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 22),
           Expanded(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              // stretch: rail e conteúdo preenchem a altura toda (o rail não
+              // fica "cortado" no meio da tela).
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
                   width: 300,
