@@ -175,7 +175,7 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
                     color: AppColors.inkMuted)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String?>(
-              value: _assignedTo,
+              initialValue: _assignedTo,
               decoration: const InputDecoration(isDense: true),
               hint: const Text('Sem atribuição'),
               items: [
@@ -241,7 +241,7 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
                     color: AppColors.inkMuted)),
             const SizedBox(height: 4),
             DropdownButtonFormField<int?>(
-              value: _duration,
+              initialValue: _duration,
               decoration: const InputDecoration(isDense: true),
               hint: const Text('Não definida'),
               items: [

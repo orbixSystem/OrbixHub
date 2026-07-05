@@ -50,7 +50,7 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
           queryParameters: {
             'from': from.toUtc().toIso8601String(),
             'to': to.toUtc().toIso8601String(),
-            if (assignedTo != null) 'assignedTo': assignedTo,
+            'assignedTo': ?assignedTo,
           },
         );
         return AgendaResult.fromJson(_asMap(res.data));

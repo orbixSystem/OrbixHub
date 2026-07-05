@@ -93,7 +93,7 @@ class _HoursListState extends ConsumerState<_HoursList> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _hours.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) => _DayCard(
         hours: _hours[i],
         saving: _saving,
@@ -205,7 +205,7 @@ class _DayCardState extends State<_DayCard> {
           Switch(
             value: _isOpen,
             onChanged: widget.saving ? null : _toggleOpen,
-            activeColor: AppColors.brand,
+            activeThumbColor: AppColors.brand,
           ),
           const SizedBox(width: 8),
           if (_isOpen) ...[
