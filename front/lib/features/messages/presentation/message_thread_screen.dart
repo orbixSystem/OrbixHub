@@ -525,8 +525,8 @@ class _BubbleState extends State<_Bubble> {
 
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 460),
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.only(
@@ -576,11 +576,12 @@ class _BubbleState extends State<_Bubble> {
             ),
           ],
           if (message.body.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(message.body, style: TextStyle(color: fg, fontSize: 14.5)),
+            const SizedBox(height: 6),
+            Text(message.body,
+                style: TextStyle(color: fg, fontSize: 14.5, height: 1.35)),
           ],
           if (time.isNotEmpty) ...[
-            const SizedBox(height: 3),
+            const SizedBox(height: 6),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
