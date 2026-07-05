@@ -419,28 +419,15 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
   }
 
   Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Excluir item'),
-        content: Text(
-          'Excluir "${_item.name}"? O item sai da lista '
-          '(fica preservado no sistema).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          NeuButton(
-            label: 'Excluir',
-            kind: NeuButtonKind.danger,
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Excluir item?',
+      message:
+          'Excluir "${_item.name}"? Ele sai da lista (fica preservado no '
+          'sistema para histórico).',
+      confirmLabel: 'Excluir',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
     try {
       await ref.read(inventoryRepositoryProvider).deleteItem(_item.id);
       ref.invalidate(itemListProvider);

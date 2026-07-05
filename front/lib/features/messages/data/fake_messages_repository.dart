@@ -85,12 +85,21 @@ class FakeMessagesRepository implements MessagesRepository {
   }
 
   @override
-  Future<Message> sendMessage(String id, String body) async {
+  Future<Message> sendMessage(
+    String id,
+    String body, {
+    String? replyToId,
+    String? photoId,
+    String? photoUrl,
+  }) async {
     final msg = Message(
       id: 'staff-${_seq++}',
       sender: 'staff',
       authorName: 'Você',
       body: body,
+      replyToId: replyToId,
+      photoId: photoId,
+      photoUrl: photoUrl,
     );
     _threads[id] = [...?_threads[id], msg];
     _conversations[id] = _conversations[id]!.copyWith(

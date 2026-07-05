@@ -30,6 +30,7 @@ import {
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
+import { PostPhotoCommentDto } from './dto/photo-comment.dto';
 import { CreateTemplateDto, UpdateTemplateDto } from './dto/template.dto';
 
 @Controller('os')
@@ -226,5 +227,28 @@ export class OsController {
     @Param('photoId') photoId: string,
   ) {
     return this.os.deletePhoto(user, id, photoId);
+  }
+
+  // --- comentários das fotos (thread) ---
+  @Get('orders/:id/photos/:photoId/comments')
+  @Permissions('os.read')
+  listPhotoComments(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.os.listPhotoComments(user, id, photoId);
+  }
+
+  @Post('orders/:id/photos/:photoId/comments')
+  @Permissions('os.write')
+  @HttpCode(201)
+  addPhotoComment(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('photoId') photoId: string,
+    @Body() dto: PostPhotoCommentDto,
+  ) {
+    return this.os.addPhotoComment(user, id, photoId, dto.body);
   }
 }

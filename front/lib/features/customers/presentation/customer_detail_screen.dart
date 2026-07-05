@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
@@ -180,30 +181,15 @@ class CustomerDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     Customer customer,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Excluir cliente'),
-        content: Text(
-          'Excluir "${customer.name}"? Ele sai das listagens. '
-          'O registro é preservado (exclusão reversível pelo suporte).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Excluir cliente?',
+      message:
+          'Excluir "${customer.name}"? Ele sai das listagens. O registro é '
+          'preservado (exclusão reversível pelo suporte).',
+      confirmLabel: 'Excluir',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !context.mounted) return;
     await ref.read(customersRepositoryProvider).deleteCustomer(customer.id);
     ref.invalidate(customersListProvider);
     if (context.mounted) context.go('/m/customers');
@@ -461,27 +447,13 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
 
   Future<void> _delete() async {
     final singular = widget.config.subjectLabel.singular;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Excluir $singular'),
-        content: Text('Excluir "$_title"? O registro é preservado.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
+    final confirmed = await showNeuConfirm(
+      context,
+      title: 'Excluir $singular?',
+      message: 'Excluir "$_title"? O registro é preservado no sistema.',
+      confirmLabel: 'Excluir',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !context.mounted) return;
     await ref.read(customersRepositoryProvider).deleteSubject(_s.id);
     _invalidate();
   }

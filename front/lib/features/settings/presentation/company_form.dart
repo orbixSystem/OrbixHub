@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../domain/settings_models.dart';
 import '../../auth/presentation/session_state.dart';
@@ -373,16 +374,22 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
   void _showCepSnack(String msg) {
     if (!mounted) return;
-    final scheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: scheme.errorContainer,
+        backgroundColor: context.neu.danger,
       ),
     );
   }
 
   Future<void> _removeLogo() async {
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Remover logo?',
+      message: 'A logo da empresa será removida das telas e do link público.',
+      confirmLabel: 'Remover',
+    );
+    if (!ok || !mounted) return;
     setState(() => _saving = true);
     try {
       await ref.read(settingsControllerProvider.notifier).removeLogo();
@@ -409,7 +416,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final neu = context.neu;
     final section = _companySection;
 
     // Group fields by field.group (null → 'Geral').
@@ -426,165 +433,215 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         groups.putIfAbsent(g, () => []).add(f);
       }
     }
+    final groupList = groups.entries.toList();
 
     final logoUrl = widget.company['logoUrl'] as String?;
 
-    final content = Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!widget.embedded) ...[
-            Text(
-              'Empresa & Identidade visual',
-              style: Theme.of(context).textTheme.titleMedium,
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!widget.embedded) ...[
+          Text(
+            'Empresa & Identidade visual',
+            style: TextStyle(
+              color: neu.ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 20),
-          ],
-
-          // ---- Logo ---------------------------------------------------
-          _LogoSection(
-            logoUrl: logoUrl,
-            saving: _saving,
-            onUpload: _uploadLogo,
-            onRemove: _removeLogo,
-            scheme: scheme,
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Dados cadastrais e visuais da sua empresa.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+        ],
 
-          if (section != null && section.fields.isNotEmpty) ...[
-            const SizedBox(height: 24),
+        // ---- Logo ---------------------------------------------------
+        _LogoSection(
+          logoUrl: logoUrl,
+          saving: _saving,
+          onUpload: _uploadLogo,
+          onRemove: _removeLogo,
+        ),
 
-            // ---- Field groups ------------------------------------------
-            for (final entry in groups.entries) ...[
-              _GroupHeader(label: entry.key, scheme: scheme),
-              const SizedBox(height: 12),
-              for (final field in entry.value) ...[
-                _buildFieldWidget(field, scheme),
-                const SizedBox(height: 14),
-              ],
+        if (section != null && section.fields.isNotEmpty) ...[
+          const SizedBox(height: 24),
+
+          // ---- Field groups ------------------------------------------
+          for (var gi = 0; gi < groupList.length; gi++) ...[
+            if (gi > 0) const SizedBox(height: 24),
+            _GroupHeader(
+              label: groupList[gi].key,
+              icon: _groupIcon(groupList[gi].key),
+              index: gi,
+            ),
+            const SizedBox(height: 16),
+            for (var fi = 0; fi < groupList[gi].value.length; fi++) ...[
+              if (fi > 0) const SizedBox(height: 16),
+              _buildFieldWidget(groupList[gi].value[fi]),
             ],
           ],
+        ],
 
-          const SizedBox(height: 8),
+        const SizedBox(height: 28),
 
-          // ---- Save button -------------------------------------------
+        // ---- Save button -------------------------------------------
+        if (context.isMobile)
+          NeuButton(
+            label: 'Salvar',
+            icon: Icons.check_rounded,
+            onPressed: _save,
+            loading: _saving,
+            expanded: true,
+          )
+        else
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : FilledButton(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 48),
-                      ),
-                      onPressed: _save,
-                      child: const Text('Salvar'),
-                    ),
+              NeuButton(
+                label: 'Salvar',
+                icon: Icons.check_rounded,
+                onPressed: _save,
+                loading: _saving,
+              ),
             ],
           ),
-        ],
-      ),
+      ],
     );
 
-    if (widget.embedded) return content;
+    final padded = Padding(
+      padding: EdgeInsets.all(context.isMobile ? 20 : 28),
+      child: content,
+    );
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      color: scheme.surfaceContainerLowest,
+    if (widget.embedded) return padded;
+
+    return NeuCard(
+      padding: EdgeInsets.all(context.isMobile ? 20 : 28),
       child: content,
     );
   }
 
-  Widget _buildFieldWidget(SettingsField field, ColorScheme scheme) {
+  /// Ícone representativo de cada grupo de campos (cabeçalho de bloco).
+  IconData _groupIcon(String group) {
+    final k = group.toLowerCase();
+    if (k.contains('endereç') || k.contains('endereco')) {
+      return Icons.location_on_outlined;
+    }
+    if (k.contains('fiscal') || k.contains('tribut')) {
+      return Icons.receipt_long_outlined;
+    }
+    if (k.contains('contato')) return Icons.alternate_email_rounded;
+    if (k.contains('identidade')) return Icons.badge_outlined;
+    return Icons.tune_rounded;
+  }
+
+  Widget _buildFieldWidget(SettingsField field) {
+    final neu = context.neu;
+
     // Campos somente-leitura: exibe desabilitado com ícone de cadeado.
     if (_readOnlyFields.contains(field.key)) {
-      return TextFormField(
+      return NeuTextField(
+        label: field.label,
         controller: _textCtrl[field.key],
-        readOnly: true,
+        hint: 'não editável',
         enabled: false,
-        decoration: InputDecoration(
-          labelText: field.label,
-          hintText: 'não editável',
-          suffixIcon: Icon(Icons.lock_outline, size: 16, color: scheme.onSurfaceVariant),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          isDense: true,
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: scheme.outlineVariant),
-          ),
-        ),
-        style: TextStyle(color: scheme.onSurfaceVariant),
+        suffix: Icon(Icons.lock_outline, size: 18, color: neu.inkFaint),
       );
     }
 
     // ---- Campo CNAE (buscável via API IBGE) --------------------------------
     if (field.key == 'cnae') {
-      return _buildCnaeField(field, scheme);
+      return _buildCnaeField(field);
     }
 
     if (_isTextField(field.type)) {
       // Campo CEP: busca endereço via ViaCEP ao confirmar digitação.
       if (field.key == 'cep') {
-        return TextFormField(
+        return NeuTextField(
+          label: field.label,
           controller: _textCtrl[field.key],
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: field.label,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            isDense: true,
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.search, size: 18),
+          onFieldSubmitted: _buscarCep,
+          suffix: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: NeuIconButton(
+              icon: Icons.search_rounded,
               tooltip: 'Buscar endereço',
+              size: 38,
               onPressed: () {
                 final v = _textCtrl['cep']?.text ?? '';
                 _buscarCep(v);
               },
             ),
           ),
-          onFieldSubmitted: _buscarCep,
-          onEditingComplete: () {
-            final v = _textCtrl['cep']?.text ?? '';
-            _buscarCep(v);
-            FocusScope.of(context).nextFocus();
-          },
         );
       }
 
-      return TextFormField(
+      return NeuTextField(
+        label: field.label,
         controller: _textCtrl[field.key],
         keyboardType: _keyboardType(field.type),
-        decoration: InputDecoration(
-          labelText: field.label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          isDense: true,
-        ),
       );
     }
 
     // ---- Campos select (regime tributário, UF, …) -------------------------
     if (field.type == 'select' && field.options.isNotEmpty) {
-      return _buildSelectDropdown(field, scheme);
+      return _buildSelectDropdown(field);
     }
 
     // Unsupported field types: show read-only hint.
-    return Row(
-      children: [
-        Text(
-          '${field.label}: ',
-          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-        ),
-        Text(
+    return _labeledInset(
+      label: field.label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
           widget.company[field.key]?.toString() ?? '—',
-          style: TextStyle(color: scheme.onSurface, fontSize: 13),
+          style: TextStyle(color: neu.ink, fontSize: 15),
         ),
+      ),
+    );
+  }
+
+  /// Envolve um [child] arbitrário no visual de campo do design system:
+  /// rótulo em cima (sempre visível) + cavidade (inset) com raio de campo.
+  /// Usado por selects e pela caixa de busca do CNAE, que precisam de um
+  /// controle Material próprio dentro da cavidade.
+  Widget _labeledInset({
+    required String label,
+    required Widget child,
+    String? helper,
+  }) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: child,
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              helper,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            ),
+          ),
       ],
     );
   }
@@ -593,27 +650,40 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   // Select ancorado (DropdownMenu — abre ABAIXO do campo)
   // -------------------------------------------------------------------------
 
-  /// Constrói um [DropdownMenu] Material 3 ancorado abaixo do campo, substituindo
-  /// o antigo [DropdownButtonFormField] que abria fora de posição no web.
-  Widget _buildSelectDropdown(SettingsField field, ColorScheme scheme) {
-    return DropdownMenu<String>(
-      expandedInsets: EdgeInsets.zero,
-      initialSelection: _selectValues[field.key],
-      label: Text(field.label),
-      menuHeight: 320,
-      menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(
-          scheme.surfaceContainerHigh,
+  /// Constrói um select na cavidade (inset) do design system: rótulo acima e um
+  /// [DropdownButton] sem borda própria dentro do campo.
+  Widget _buildSelectDropdown(SettingsField field) {
+    final neu = context.neu;
+    return _labeledInset(
+      label: field.label,
+      child: SizedBox(
+        height: 48,
+        child: DropdownButton<String>(
+          value: _selectValues[field.key],
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          borderRadius: BorderRadius.circular(NeuTokens.rField),
+          dropdownColor: neu.surface,
+          menuMaxHeight: 320,
+          icon: Icon(Icons.expand_more_rounded, color: neu.inkMuted),
+          hint: Text(
+            'Selecione',
+            style: TextStyle(color: neu.inkFaint, fontSize: 15),
+          ),
+          style: TextStyle(color: neu.ink, fontSize: 15),
+          items: field.options
+              .map((o) => DropdownMenuItem<String>(
+                    value: o.value,
+                    child: Text(
+                      o.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: neu.ink, fontSize: 15),
+                    ),
+                  ))
+              .toList(),
+          onChanged: (v) => setState(() => _selectValues[field.key] = v),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        isDense: true,
-      ),
-      dropdownMenuEntries: field.options
-          .map((o) => DropdownMenuEntry<String>(value: o.value, label: o.label))
-          .toList(),
-      onSelected: (v) => setState(() => _selectValues[field.key] = v),
     );
   }
 
@@ -628,26 +698,22 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   /// - Ainda carregando: TextFormField desabilitado com hint de loading.
   /// - Falha (_cnaes == []): fallback para campo texto livre.
   /// - Sucesso: Autocomplete que nunca materializa mais de 40 opções por query.
-  Widget _buildCnaeField(SettingsField field, ColorScheme scheme) {
+  Widget _buildCnaeField(SettingsField field) {
+    final neu = context.neu;
     final currentCode = widget.company[field.key]?.toString() ?? '';
 
     // Ainda carregando.
     if (_cnaes == null) {
-      return TextFormField(
-        initialValue: currentCode,
+      return NeuTextField(
+        label: field.label,
         enabled: false,
-        decoration: InputDecoration(
-          labelText: field.label,
-          hintText: 'Carregando lista CNAE…',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          isDense: true,
-          suffixIcon: const SizedBox(
-            width: 16,
-            height: 16,
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+        hint: 'Carregando lista CNAE…',
+        suffix: const Padding(
+          padding: EdgeInsets.all(14),
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
       );
@@ -655,20 +721,17 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
     // Falha ao carregar: fallback para campo texto livre.
     if (_cnaes!.isEmpty) {
-      return TextFormField(
+      return NeuTextField(
+        label: field.label,
         controller: _textCtrl.putIfAbsent(
           field.key,
           () => TextEditingController(text: currentCode),
         ),
         keyboardType: TextInputType.text,
-        decoration: InputDecoration(
-          labelText: field.label,
-          hintText: 'Digite o código CNAE',
-          helperText: 'Lista CNAE indisponível — insira o código manualmente.',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          isDense: true,
-        ),
-        onChanged: (v) => setState(() => _selectValues[field.key] = v.isEmpty ? null : v),
+        hint: 'Digite o código CNAE',
+        helper: 'Lista CNAE indisponível — insira o código manualmente.',
+        onChanged: (v) =>
+            setState(() => _selectValues[field.key] = v.isEmpty ? null : v),
       );
     }
 
@@ -707,41 +770,51 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         setState(() => _selectValues[field.key] = code.isEmpty ? null : code);
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return TextFormField(
-          controller: controller,
-          focusNode: focusNode,
-          onFieldSubmitted: (_) => onFieldSubmitted(),
-          decoration: InputDecoration(
-            labelText: field.label,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            isDense: true,
+        return _labeledInset(
+          label: field.label,
+          child: TextFormField(
+            controller: controller,
+            focusNode: focusNode,
+            onFieldSubmitted: (_) => onFieldSubmitted(),
+            style: TextStyle(color: neu.ink, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: 'Busque por código ou descrição',
+              hintStyle: TextStyle(color: neu.inkFaint),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
           ),
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
         return Align(
           alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 4,
-            color: scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
-              child: ListView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options.elementAt(index);
-                  return InkWell(
-                    onTap: () => onSelected(option),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      child: Text(option,
-                          style: TextStyle(fontSize: 13, color: scheme.onSurface)),
-                    ),
-                  );
-                },
+          child: NeuSurface(
+            elevation: NeuElevation.raisedHigh,
+            radius: NeuTokens.rField,
+            color: neu.surface,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(NeuTokens.rField),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final option = options.elementAt(index);
+                    return InkWell(
+                      onTap: () => onSelected(option),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Text(option,
+                            style: TextStyle(fontSize: 14, color: neu.ink)),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -752,24 +825,32 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 }
 
 class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({required this.label, required this.scheme});
+  const _GroupHeader({
+    required this.label,
+    required this.icon,
+    required this.index,
+  });
   final String label;
-  final ColorScheme scheme;
+  final IconData icon;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return Row(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: scheme.primary,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
+        NeuIconChip.glyph(context, icon: icon, index: index, size: 36),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(child: Divider(color: scheme.outlineVariant)),
       ],
     );
   }
@@ -781,80 +862,82 @@ class _LogoSection extends StatelessWidget {
     required this.saving,
     required this.onUpload,
     required this.onRemove,
-    required this.scheme,
   });
 
   final String? logoUrl;
   final bool saving;
   final VoidCallback onUpload;
   final VoidCallback onRemove;
-  final ColorScheme scheme;
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
+    final hasLogo = logoUrl != null && logoUrl!.isNotEmpty;
+
+    Widget preview() {
+      if (hasLogo) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(NeuTokens.rChip),
+          child: Image.network(
+            logoUrl!,
+            height: 72,
+            width: 72,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => Icon(
+              Icons.broken_image_outlined,
+              color: neu.inkMuted,
+            ),
+          ),
+        );
+      }
+      return Icon(Icons.business_outlined, color: neu.inkMuted, size: 32);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Logo da empresa',
           style: TextStyle(
-            color: scheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+            color: neu.inkMuted,
+            fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
         ),
-        const SizedBox(height: 10),
-        if (logoUrl != null && logoUrl!.isNotEmpty) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              logoUrl!,
-              height: 72,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Container(
-                height: 72,
-                width: 72,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child:
-                    Icon(Icons.broken_image_outlined, color: scheme.onSurfaceVariant),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ] else ...[
-          Container(
-            height: 72,
-            width: 72,
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: scheme.outlineVariant),
-            ),
-            child: Icon(Icons.business_outlined, color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 10),
-        ],
+        const SizedBox(height: 12),
         Row(
           children: [
-            FilledButton.icon(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-              onPressed: saving ? null : onUpload,
-              icon: const Icon(Icons.upload_outlined, size: 16),
-              label: Text(logoUrl != null ? 'Trocar logo' : 'Enviar logo'),
-            ),
-            if (logoUrl != null) ...[
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: saving ? null : onRemove,
-                icon: const Icon(Icons.delete_outline, size: 16),
-                label: const Text('Remover logo'),
+            NeuSurface(
+              elevation: NeuElevation.inset,
+              radius: NeuTokens.rField,
+              child: SizedBox(
+                height: 88,
+                width: 88,
+                child: Center(child: preview()),
               ),
-            ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  NeuButton(
+                    label: hasLogo ? 'Trocar logo' : 'Enviar logo',
+                    icon: Icons.upload_outlined,
+                    kind: NeuButtonKind.secondary,
+                    onPressed: saving ? null : onUpload,
+                  ),
+                  if (hasLogo)
+                    NeuButton(
+                      label: 'Remover logo',
+                      icon: Icons.delete_outline,
+                      kind: NeuButtonKind.danger,
+                      onPressed: saving ? null : onRemove,
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ],

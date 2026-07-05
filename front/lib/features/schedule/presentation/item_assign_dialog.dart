@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ui/ui.dart';
 import '../../os/domain/os_models.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
@@ -125,6 +126,15 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
   }
 
   Future<void> _unschedule() async {
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Remover agendamento?',
+      message:
+          'O técnico e o horário deste item serão removidos. Você pode '
+          'agendar novamente depois.',
+      confirmLabel: 'Remover',
+    );
+    if (!ok || !mounted) return;
     setState(() {
       _saving = true;
       _error = null;

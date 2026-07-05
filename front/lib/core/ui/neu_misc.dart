@@ -236,3 +236,84 @@ Future<T?> showNeuDialog<T>(BuildContext context, {required NeuDialog dialog}) {
     },
   );
 }
+
+/// Diálogo de CONFIRMAÇÃO padrão (design system) para ações irreversíveis —
+/// deletar, cancelar OS, remover membro, etc. Ícone tint + mensagem clara +
+/// botões "cancelar" (secundário) e a ação de confirmação (danger por padrão).
+/// Retorna `true` só se o usuário confirmar. Usar SEMPRE antes de operações
+/// sem volta:
+///
+/// ```dart
+/// if (await showNeuConfirm(context,
+///     title: 'Cancelar OS?',
+///     message: 'A OS será cancelada e a edição bloqueada.',
+///     confirmLabel: 'Cancelar OS')) {
+///   // ...executa
+/// }
+/// ```
+Future<bool> showNeuConfirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Confirmar',
+  String cancelLabel = 'Voltar',
+  bool danger = true,
+  IconData icon = Icons.warning_amber_rounded,
+}) async {
+  final result = await showNeuDialog<bool>(
+    context,
+    dialog: NeuDialog(
+      title: title,
+      maxWidth: 420,
+      actions: [
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: cancelLabel,
+            kind: NeuButtonKind.secondary,
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+        ),
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: confirmLabel,
+            kind: danger ? NeuButtonKind.danger : NeuButtonKind.primary,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ],
+      child: Builder(
+        builder: (ctx) {
+          final neu = ctx.neu;
+          final accent = danger ? neu.danger : neu.navy;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 14.5,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+  return result ?? false;
+}

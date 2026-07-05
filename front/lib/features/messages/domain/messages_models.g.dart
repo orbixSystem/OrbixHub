@@ -34,6 +34,20 @@ Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
       'last_message_read': instance.lastMessageRead,
     };
 
+_MessageQuote _$MessageQuoteFromJson(Map<String, dynamic> json) =>
+    _MessageQuote(
+      sender: json['sender'] as String? ?? 'customer',
+      authorName: json['author_name'] as String?,
+      body: json['body'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$MessageQuoteToJson(_MessageQuote instance) =>
+    <String, dynamic>{
+      'sender': instance.sender,
+      'author_name': instance.authorName,
+      'body': instance.body,
+    };
+
 _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
   id: json['id'] as String,
   sender: json['sender'] as String? ?? 'customer',
@@ -41,6 +55,12 @@ _Message _$MessageFromJson(Map<String, dynamic> json) => _Message(
   body: json['body'] as String? ?? '',
   createdAt: json['created_at'] as String?,
   readAt: json['read_at'] as String?,
+  replyToId: json['reply_to_id'] as String?,
+  replyTo: json['replyTo'] == null
+      ? null
+      : MessageQuote.fromJson(json['replyTo'] as Map<String, dynamic>),
+  photoId: json['photo_id'] as String?,
+  photoUrl: json['photo_url'] as String?,
 );
 
 Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
@@ -50,6 +70,10 @@ Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
   'body': instance.body,
   'created_at': instance.createdAt,
   'read_at': instance.readAt,
+  'reply_to_id': instance.replyToId,
+  'replyTo': instance.replyTo,
+  'photo_id': instance.photoId,
+  'photo_url': instance.photoUrl,
 };
 
 _ConversationPage _$ConversationPageFromJson(Map<String, dynamic> json) =>
