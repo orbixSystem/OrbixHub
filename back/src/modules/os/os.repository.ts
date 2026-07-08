@@ -590,6 +590,15 @@ export class OsRepository {
     });
   }
 
+  /** Itens de VÁRIOS templates em 1 query (sync pull — evita N+1 por página). */
+  listTemplateItemsByTemplateIds(templateIds: string[]) {
+    const db = this.tenant.getClient();
+    return db.service_order_template_item.findMany({
+      where: { template_id: { in: templateIds } },
+      orderBy: { created_at: 'asc' },
+    });
+  }
+
   // ---- histórico (SubjectHistoryProvider) ----
   /** OS de um subject (veículo), exclui deletadas. Mais recente no topo. */
   listOrdersBySubject(subjectId: string) {

@@ -1255,7 +1255,8 @@ export class OsService {
    * público). Mesma shape JSON dos endpoints de leitura: fotos ganham
    * `comment_count` (como `listPhotos`); templates ganham `items` aninhados
    * (como `findTemplateById`) — `service_order_template_item` não tem
-   * `updated_at` próprio, então seus itens viajam dentro da linha do template.
+   * `updated_at` próprio, então seus itens viajam dentro da linha do template;
+   * OS ganham `payment_status` derivado do caixa em batch (como `listOrders`).
    */
   async listChangedSince(
     entity: string,
@@ -1267,7 +1268,8 @@ export class OsService {
     }
     const table = entity as OsSyncEntity;
     const clamped = clampChangedSinceLimit(limit);
-    return this.tenant.withTenantTx(async () => {
+    const tenantId = this.tenant.getTenantId();
+    const page = await this.tenant.withTenantTx(async () => {
       const page = await this.repo.listChangedSince(table, cursor, clamped);
       if (table === 'service_order_photo' && page.rows.length) {
         const ids = page.rows.map((r) => (r as { id: string }).id);
@@ -1281,17 +1283,50 @@ export class OsService {
         };
       }
       if (table === 'service_order_template' && page.rows.length) {
-        const rows = await Promise.all(
-          page.rows.map(async (r) => {
+        // Batch (1 query pra página toda) — nunca 1 query por template (N+1).
+        const ids = page.rows.map((r) => (r as { id: string }).id);
+        const allItems = await this.repo.listTemplateItemsByTemplateIds(ids);
+        const byTemplate = new Map<string, typeof allItems>();
+        for (const item of allItems) {
+          const bucket = byTemplate.get(item.template_id) ?? [];
+          bucket.push(item);
+          byTemplate.set(item.template_id, bucket);
+        }
+        return {
+          ...page,
+          rows: page.rows.map((r) => {
             const row = r as { id: string };
-            const items = await this.repo.listTemplateItems(row.id);
-            return { ...row, items };
+            return { ...row, items: byTemplate.get(row.id) ?? [] };
           }),
-        );
-        return { ...page, rows };
+        };
       }
       return page;
     });
+    // Tag de pagamento nas OS: DERIVADA do caixa, como em `listOrders` — mesma
+    // shape que o front já parseia (`payment_status`; ausente ⇒ 'a_receber').
+    // FORA do withTenantTx: o caixa abre a própria via (runWithTenant) e
+    // aninhar transações esgota o pool.
+    if (table === 'service_order' && page.rows.length && tenantId) {
+      const summaries = await this.cashier.getPaymentSummaryBatch(
+        tenantId,
+        page.rows.map((r) => {
+          const row = r as { id: string; total: Prisma.Decimal | number | null };
+          return { id: row.id, total: toNum(row.total) };
+        }),
+      );
+      return {
+        ...page,
+        rows: page.rows.map((r) => {
+          const row = r as { id: string };
+          return {
+            ...row,
+            payment_status: (summaries.get(row.id)?.status ??
+              'a_receber') as string,
+          };
+        }),
+      };
+    }
+    return page;
   }
 
   // ===================== Internos =====================
