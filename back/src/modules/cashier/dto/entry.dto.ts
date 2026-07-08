@@ -28,6 +28,8 @@ export class CreateEntryDto {
   @IsOptional() @IsIn(['os', 'sale']) saleKind?: 'os' | 'sale';
   @IsOptional() @IsUUID() saleId?: string;
   @IsOptional() @IsString() @MaxLength(500) description?: string;
+  /** Ponto de caixa (dispositivo/terminal); ausente = ponto legado (NULL). */
+  @IsOptional() @IsUUID() deviceId?: string;
 }
 
 /** Estorno lógico de uma entry (auditado). Motivo é obrigatório. */

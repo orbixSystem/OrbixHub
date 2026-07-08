@@ -47,7 +47,12 @@ export class CashierRepository {
   // ===================== Sessões =====================
   createSession(
     tenantId: string,
-    data: { opened_by: string; opening_amount: DecimalIn; notes: string | null },
+    data: {
+      opened_by: string;
+      opening_amount: DecimalIn;
+      notes: string | null;
+      device_id?: string | null;
+    },
   ) {
     const db = this.tenant.getClient();
     return db.cash_session.create({
@@ -55,9 +60,18 @@ export class CashierRepository {
     });
   }
 
-  findOpenSession() {
+  /**
+   * Sessão aberta do PONTO de caixa `deviceId` (dispositivo/terminal). `deviceId`
+   * ausente/`null` é o ponto legado (NULL). O filtro Prisma `device_id: null | uuid`
+   * já compila para `device_id IS NULL` / `device_id = $1` — equivalente a
+   * `IS NOT DISTINCT FROM` para este caso (comparação contra valor fixo, nunca
+   * NULL-vs-NULL ambíguo), casando com o índice parcial `uq_cash_session_open_device`.
+   */
+  findOpenSession(deviceId?: string | null) {
     const db = this.tenant.getClient();
-    return db.cash_session.findFirst({ where: { status: 'open' } });
+    return db.cash_session.findFirst({
+      where: { status: 'open', device_id: deviceId ?? null },
+    });
   }
 
   findSessionById(id: string) {

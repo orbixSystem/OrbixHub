@@ -137,12 +137,16 @@ export class CashierServiceImpl extends CashierService {
   async openSession(user: AuthUser, dto: OpenSessionDto) {
     try {
       const session = await this.tenant.withTenantTx(async () => {
-        const open = await this.repo.findOpenSession();
-        if (open) throw new ConflictException('Já existe um caixa aberto.');
+        const open = await this.repo.findOpenSession(dto.deviceId);
+        if (open)
+          throw new ConflictException(
+            'Já existe um caixa aberto neste ponto de caixa.',
+          );
         return this.repo.createSession(user.tenantId, {
           opened_by: user.userId,
           opening_amount: dto.openingAmount ?? 0,
           notes: dto.notes?.trim() || null,
+          device_id: dto.deviceId ?? null,
         });
       });
       await this.audit.log(
@@ -153,9 +157,11 @@ export class CashierServiceImpl extends CashierService {
       );
       return session;
     } catch (e) {
-      // Índice parcial único protege contra corrida (2 aberturas simultâneas).
+      // Índice parcial único protege contra corrida (2 aberturas simultâneas no mesmo ponto).
       if (isUniqueViolation(e))
-        throw new ConflictException('Já existe um caixa aberto.');
+        throw new ConflictException(
+          'Já existe um caixa aberto neste ponto de caixa.',
+        );
       throw e;
     }
   }
@@ -164,8 +170,11 @@ export class CashierServiceImpl extends CashierService {
     const config = await this.getConfig(user.tenantId);
     const { session, expected, difference, byMethod } =
       await this.tenant.withTenantTx(async () => {
-        const open = await this.repo.findOpenSession();
-        if (!open) throw new BadRequestException('Não há caixa aberto.');
+        const open = await this.repo.findOpenSession(dto.deviceId);
+        if (!open)
+          throw new BadRequestException(
+            'Não há caixa aberto neste ponto de caixa.',
+          );
         const rows = await this.repo.sessionTotalsByMethod(open.id);
         const byMethod = shapeMethodTotals(rows);
         const cash = pickCash(byMethod);
@@ -201,9 +210,9 @@ export class CashierServiceImpl extends CashierService {
   }
 
   /** Sessão aberta atual + totais correntes (para a tela do caixa do dia). */
-  async getCurrentSession(user: AuthUser) {
+  async getCurrentSession(user: AuthUser, deviceId?: string) {
     return this.tenant.withTenantTx(async () => {
-      const open = await this.repo.findOpenSession();
+      const open = await this.repo.findOpenSession(deviceId);
       if (!open) return null;
       const rows = await this.repo.sessionTotalsByMethod(open.id);
       const byMethod = shapeMethodTotals(rows);
@@ -263,17 +272,18 @@ export class CashierServiceImpl extends CashierService {
     const config = await this.getConfig(user.tenantId);
 
     const entry = await this.tenant.withTenantTx(async () => {
-      let open = await this.repo.findOpenSession();
+      let open = await this.repo.findOpenSession(dto.deviceId);
       if (!open) {
         if (config.requireOpenSession)
           throw new BadRequestException(
-            'Abra o caixa antes de lançar movimentos.',
+            'Não há caixa aberto neste ponto de caixa.',
           );
-        // requireOpenSession=false ⇒ abre uma sessão implícita (valor inicial 0).
+        // requireOpenSession=false ⇒ abre uma sessão implícita (valor inicial 0) no mesmo ponto.
         open = await this.repo.createSession(user.tenantId, {
           opened_by: user.userId,
           opening_amount: 0,
           notes: null,
+          device_id: dto.deviceId ?? null,
         });
       }
       return this.repo.createEntry(user.tenantId, {

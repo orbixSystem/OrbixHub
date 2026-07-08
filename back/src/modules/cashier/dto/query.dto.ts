@@ -36,6 +36,11 @@ export class SessionQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }
 
+/** Sessão atual de um ponto de caixa específico; ausente = ponto legado (NULL). */
+export class CurrentSessionQueryDto {
+  @IsOptional() @IsUUID() deviceId?: string;
+}
+
 /**
  * Resumo de pagamento de uma venda. `total` é OPCIONAL e informado pelo dono da
  * venda (a OS sabe seu próprio total) — o caixa não toca a tabela da venda. Sem

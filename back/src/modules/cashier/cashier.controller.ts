@@ -17,6 +17,7 @@ import { CashierServiceImpl } from './cashier.service.impl';
 import { OpenSessionDto, CloseSessionDto } from './dto/session.dto';
 import { CreateEntryDto, ReverseEntryDto } from './dto/entry.dto';
 import {
+  CurrentSessionQueryDto,
   EntryQueryDto,
   PaymentSummaryQueryDto,
   SessionQueryDto,
@@ -65,8 +66,11 @@ export class CashierController {
 
   @Get('sessions/current')
   @Permissions('cashier.read')
-  currentSession(@CurrentUser() user: AuthUser) {
-    return this.cashier.getCurrentSession(user);
+  currentSession(
+    @CurrentUser() user: AuthUser,
+    @Query() query: CurrentSessionQueryDto,
+  ) {
+    return this.cashier.getCurrentSession(user, query.deviceId);
   }
 
   @Get('sessions')

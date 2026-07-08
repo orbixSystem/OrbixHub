@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -110,8 +111,10 @@ describe('Cashier — Caixa (e2e)', () => {
     request(srv()).post('/api/cashier/sessions/open').set(auth(access)).send(body);
   const closeSession = (access: string, body: Record<string, unknown>) =>
     request(srv()).post('/api/cashier/sessions/close').set(auth(access)).send(body);
-  const currentSession = (access: string) =>
-    request(srv()).get('/api/cashier/sessions/current').set(auth(access));
+  const currentSession = (access: string, deviceId?: string) =>
+    request(srv())
+      .get(`/api/cashier/sessions/current${deviceId ? `?deviceId=${deviceId}` : ''}`)
+      .set(auth(access));
   const createEntry = (access: string, body: Record<string, unknown>) =>
     request(srv()).post('/api/cashier/entries').set(auth(access)).send(body);
   const reverseEntry = (access: string, id: string, body: Record<string, unknown>) =>
@@ -327,6 +330,60 @@ describe('Cashier — Caixa (e2e)', () => {
       expect((await listEntries(b.access)).body.total).toBe(0);
       // B pode abrir o próprio (não colide com a sessão de A)
       expect((await openSession(b.access, {})).status).toBe(201);
+    });
+  });
+
+  // ====================================================================
+  // 5b. Caixa por dispositivo (ponto de caixa) — A2
+  // ====================================================================
+  describe('caixa por dispositivo (ponto de caixa)', () => {
+    it('dois devices abrem sessões independentes; mesmo device reabrir é 409; current/entry isolam por device', async () => {
+      const o = await registerOwner();
+      const deviceA = randomUUID();
+      const deviceB = randomUUID();
+
+      const openA = await openSession(o.access, { openingAmount: 100, deviceId: deviceA });
+      expect(openA.status).toBe(201);
+      const openB = await openSession(o.access, { openingAmount: 50, deviceId: deviceB });
+      expect(openB.status).toBe(201);
+      expect(openB.body.id).not.toBe(openA.body.id);
+
+      // reabrir no mesmo device A é conflito (mesma regra de "um caixa aberto por ponto")
+      const reopenA = await openSession(o.access, { deviceId: deviceA });
+      expect(reopenA.status).toBe(409);
+
+      // current isolado por deviceId
+      const curA = await currentSession(o.access, deviceA);
+      expect(curA.body.id).toBe(openA.body.id);
+      const curB = await currentSession(o.access, deviceB);
+      expect(curB.body.id).toBe(openB.body.id);
+
+      // entry com deviceId cai na sessão daquele device
+      const entry = await createEntry(o.access, {
+        amount: 10,
+        method: 'dinheiro',
+        category: 'suprimento',
+        deviceId: deviceA,
+      });
+      expect(entry.status).toBe(201);
+      expect(entry.body.cash_session_id).toBe(openA.body.id);
+    });
+
+    it('sem deviceId continua funcionando como ponto legado (NULL); um por tenant', async () => {
+      const o = await registerOwner();
+      const legacy = await openSession(o.access, { openingAmount: 10 });
+      expect(legacy.status).toBe(201);
+
+      const second = await openSession(o.access, {});
+      expect(second.status).toBe(409);
+
+      // não colide com um device explícito
+      const deviceA = randomUUID();
+      const openA = await openSession(o.access, { deviceId: deviceA });
+      expect(openA.status).toBe(201);
+
+      const cur = await currentSession(o.access);
+      expect(cur.body.id).toBe(legacy.body.id);
     });
   });
 
