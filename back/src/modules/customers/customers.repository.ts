@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
+
+/** Entidades do módulo customers expostas ao pull de sync offline. */
+export type CustomersSyncEntity = 'customer' | 'subject';
 
 /** Ordenação da lista de clientes; desempate estável por `id`. */
 const CUSTOMER_ORDER_BY: Record<
@@ -284,5 +292,19 @@ export class CustomersRepository {
       GROUP BY 1, 2
       ORDER BY 1, 2
     `);
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de `customer`/`subject` desde o cursor (ambas com
+   * `updated_at`). Sync pull — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: CustomersSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, 'updated_at', cursor, limit);
   }
 }

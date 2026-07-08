@@ -15,7 +15,8 @@ import {
   StorageProvider,
 } from '../../common/storage/storage.provider';
 import { BillingService } from '../billing/billing.service';
-import { CustomersRepository } from './customers.repository';
+import { CustomersRepository, CustomersSyncEntity } from './customers.repository';
+import { clampChangedSinceLimit } from '../../common/database/changed-since';
 import { SubjectHistoryProvider } from './subject-history.provider';
 import type { SubjectHistoryEntry } from './subject-history.provider';
 import {
@@ -457,5 +458,34 @@ export class CustomersService {
     return subjectId
       ? this.history.listBySubject(subjectId)
       : this.history.listByCustomer(customerId);
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<CustomersSyncEntity>([
+    'customer',
+    'subject',
+  ]);
+
+  /**
+   * Página de mudanças de `customer`/`subject` para o pull de sync offline
+   * (`GET /sync/changes`, módulo `sync` — "aponta, não invade": ele nunca lê
+   * estas tabelas direto, só chama este service público). Mesma shape JSON dos
+   * endpoints de leitura (linhas cruas do Prisma).
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+    if (!CustomersService.SYNC_ENTITIES.has(entity as CustomersSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo customers: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as CustomersSyncEntity, cursor, clamped),
+    );
   }
 }
