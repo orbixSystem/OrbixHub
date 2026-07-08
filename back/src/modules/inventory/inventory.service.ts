@@ -15,7 +15,8 @@ import { BillingService } from '../billing/billing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { crossedIntoLowStock } from './low-stock';
 import { computeReconcile } from './stock-reconcile';
-import { InventoryRepository } from './inventory.repository';
+import { InventoryRepository, InventorySyncEntity } from './inventory.repository';
+import { clampChangedSinceLimit } from '../../common/database/changed-since';
 import {
   INVENTORY_CONFIG_KEY,
   INVENTORY_MODULE_KEY,
@@ -454,6 +455,34 @@ export class InventoryService {
         result.min,
       );
     }
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<InventorySyncEntity>([
+    'inventory_item',
+    'stock_movement',
+  ]);
+
+  /**
+   * Página de mudanças de `inventory_item`/`stock_movement` para o pull de
+   * sync offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público). `stock_movement` não tem mapper próprio — linha crua da tabela.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+    if (!InventoryService.SYNC_ENTITIES.has(entity as InventorySyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo inventory: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as InventorySyncEntity, cursor, clamped),
+    );
   }
 
   /**

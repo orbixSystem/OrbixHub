@@ -1,6 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
+
+/** Entidades do módulo inventory expostas ao pull de sync offline. */
+export type InventorySyncEntity = 'inventory_item' | 'stock_movement';
+
+/** `stock_movement` é append-only → cursor por `created_at`; o resto por `updated_at`. */
+const SYNC_ENTITY_COLUMN: Record<InventorySyncEntity, 'updated_at' | 'created_at'> = {
+  inventory_item: 'updated_at',
+  stock_movement: 'created_at',
+};
 
 /** Chaves de ordenação aceitas pela lista de itens. */
 export type ItemSort =
@@ -339,5 +353,19 @@ export class InventoryRepository {
       db.inventory_item.count({ where }),
     ]);
     return { items, total };
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de `inventory_item`/`stock_movement` desde o cursor.
+   * Sync pull — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: InventorySyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }
