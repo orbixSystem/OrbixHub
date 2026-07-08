@@ -200,13 +200,55 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
-  Future<CustomersReport> customers({required ReportRange range}) =>
+  Future<CustomersReport> customers({
+    required ReportRange range,
+    int page = 1,
+    int pageSize = 50,
+  }) =>
       _guard(() async {
         final res = await _dio.get<Object?>(
           '/report/customers',
-          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            'page': page,
+            'pageSize': pageSize,
+          },
         );
         return CustomersReport.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Uint8List> customersCsv({required ReportRange range}) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/customers.csv',
+          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<Uint8List> customersPdf({
+    required ReportRange range,
+    ReportExportCompany? company,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/customers.pdf',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (company != null) 'companyName': company.name,
+            if (company?.legalName != null && company!.legalName!.isNotEmpty)
+              'companyLegalName': company.legalName,
+            if (company?.cnpj != null && company!.cnpj!.isNotEmpty)
+              'companyCnpj': company.cnpj,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
       });
 
   @override

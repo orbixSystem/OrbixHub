@@ -273,22 +273,49 @@ Map<String, dynamic> _$CustomerReportRowToJson(_CustomerReportRow instance) =>
       'created_at': instance.createdAt,
     };
 
-_CustomersReport _$CustomersReportFromJson(Map<String, dynamic> json) =>
-    _CustomersReport(
-      rows:
-          (json['rows'] as List<dynamic>?)
-              ?.map(
-                (e) => CustomerReportRow.fromJson(e as Map<String, dynamic>),
-              )
-              .toList() ??
-          const <CustomerReportRow>[],
-      active: (json['active'] as num?)?.toInt() ?? 0,
-      newInRange: (json['newInRange'] as num?)?.toInt() ?? 0,
-    );
+_CustomersSeriesPoint _$CustomersSeriesPointFromJson(
+  Map<String, dynamic> json,
+) => _CustomersSeriesPoint(
+  day: json['day'] as String? ?? '',
+  type: json['type'] as String? ?? '',
+  count: (json['count'] as num?)?.toInt() ?? 0,
+);
+
+Map<String, dynamic> _$CustomersSeriesPointToJson(
+  _CustomersSeriesPoint instance,
+) => <String, dynamic>{
+  'day': instance.day,
+  'type': instance.type,
+  'count': instance.count,
+};
+
+_CustomersReport _$CustomersReportFromJson(
+  Map<String, dynamic> json,
+) => _CustomersReport(
+  rows:
+      (json['rows'] as List<dynamic>?)
+          ?.map((e) => CustomerReportRow.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <CustomerReportRow>[],
+  active: (json['active'] as num?)?.toInt() ?? 0,
+  newInRange: (json['newInRange'] as num?)?.toInt() ?? 0,
+  total: (json['total'] as num?)?.toInt() ?? 0,
+  page: (json['page'] as num?)?.toInt() ?? 1,
+  pageSize: (json['pageSize'] as num?)?.toInt() ?? 50,
+  series:
+      (json['series'] as List<dynamic>?)
+          ?.map((e) => CustomersSeriesPoint.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <CustomersSeriesPoint>[],
+);
 
 Map<String, dynamic> _$CustomersReportToJson(_CustomersReport instance) =>
     <String, dynamic>{
       'rows': instance.rows,
       'active': instance.active,
       'newInRange': instance.newInRange,
+      'total': instance.total,
+      'page': instance.page,
+      'pageSize': instance.pageSize,
+      'series': instance.series,
     };

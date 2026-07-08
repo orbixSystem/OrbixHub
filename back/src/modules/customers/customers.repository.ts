@@ -229,7 +229,7 @@ export class CustomersRepository {
     });
   }
 
-  /** Linhas de novos clientes no range (relatório — Fase 2). */
+  /** Linhas de novos clientes no range (export COMPLETO do relatório). */
   listNewInRange(from: Date, to: Date) {
     const db = this.tenant.getClient();
     return db.customer.findMany({
@@ -237,5 +237,47 @@ export class CustomersRepository {
       orderBy: { created_at: 'desc' },
       select: { id: true, name: true, type: true, created_at: true },
     });
+  }
+
+  /**
+   * Linhas de novos clientes no range PAGINADAS (tela — scroll infinito) + total
+   * no mesmo where. Espelha o padrão de `listCustomers`/`listForReportPage` da OS.
+   */
+  async listNewInRangePage(from: Date, to: Date, skip: number, take: number) {
+    const db = this.tenant.getClient();
+    const where: Prisma.customerWhereInput = {
+      created_at: { gte: from, lte: to },
+    };
+    const [rows, total] = await Promise.all([
+      db.customer.findMany({
+        where,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        select: { id: true, name: true, type: true, created_at: true },
+      }),
+      db.customer.count({ where }),
+    ]);
+    return { rows, total };
+  }
+
+  /**
+   * Série do gráfico: novos clientes agrupados por dia-calendário (servidor) e
+   * por tipo, no range. Tenant-scoped por RLS (sem WHERE tenant manual) —
+   * parametrizado via Prisma.sql, como os agregados de `os.repository`.
+   */
+  newInRangeSeries(from: Date, to: Date) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<
+      Array<{ day: string; type: string; count: number }>
+    >(Prisma.sql`
+      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+             type,
+             COUNT(*)::int AS count
+      FROM customer
+      WHERE created_at >= ${from} AND created_at <= ${to}
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `);
   }
 }

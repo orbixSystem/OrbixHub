@@ -13,6 +13,8 @@ import { RequiresModule } from '../billing/requires-module.decorator';
 import { resolveRange } from '../../common/metrics/range';
 import { ReportService } from './report.service';
 import {
+  ReportCustomersExportQueryDto,
+  ReportCustomersQueryDto,
   ReportInventoryExportQueryDto,
   ReportInventoryQueryDto,
   ReportOsExportQueryDto,
@@ -195,13 +197,55 @@ export class ReportController {
     return new StreamableFile(buf);
   }
 
-  /** Clientes: novos no range + total ativo. */
+  /**
+   * Clientes: novos no range PAGINADOS (scroll infinito) + total ativo + série
+   * por dia/tipo para o gráfico (independente da página).
+   */
   @Get('customers')
   customers(
     @CurrentUser() user: AuthUser,
-    @Query() query: ReportRangeQueryDto,
+    @Query() query: ReportCustomersQueryDto,
   ) {
     const { from, to } = resolveRange(query.from, query.to);
-    return this.report.customersReport(user.tenantId, { from, to });
+    return this.report.customersReport(user.tenantId, {
+      from,
+      to,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 50,
+    });
+  }
+
+  /** Clientes — export CSV (relatório completo do período). */
+  @Get('customers.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="clientes.csv"')
+  async customersCsv(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportCustomersExportQueryDto,
+  ): Promise<StreamableFile> {
+    const { from, to } = resolveRange(query.from, query.to);
+    const buf = await this.report.customersCsv(user.tenantId, { from, to });
+    return new StreamableFile(buf);
+  }
+
+  /** Clientes — export PDF (relatório completo do período). */
+  @Get('customers.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header('Content-Disposition', 'attachment; filename="clientes.pdf"')
+  async customersPdf(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportCustomersExportQueryDto,
+  ): Promise<StreamableFile> {
+    const { from, to } = resolveRange(query.from, query.to);
+    const buf = await this.report.customersPdf(
+      user.tenantId,
+      { from, to },
+      {
+        name: query.companyName,
+        legalName: query.companyLegalName,
+        cnpj: query.companyCnpj,
+      },
+    );
+    return new StreamableFile(buf);
   }
 }

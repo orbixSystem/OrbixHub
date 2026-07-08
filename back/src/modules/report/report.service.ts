@@ -21,9 +21,14 @@ import {
   type ExportCompany,
 } from './export/inventory-export';
 import { buildOsCsv, buildOsPdf } from './export/os-export';
+import {
+  buildCustomersCsv,
+  buildCustomersPdf,
+} from './export/customers-export';
 import type {
   CustomersMetricsParams,
-  CustomersMetricsReport,
+  CustomersMetricsReportPage,
+  CustomersReportPageParams,
 } from '../customers/dto/metrics.dto';
 
 interface Range {
@@ -336,11 +341,39 @@ export class ReportService {
     return buildInventoryPdf(report, company);
   }
 
+  /**
+   * Clientes PAGINADO (scroll infinito na tela): linhas da página + total +
+   * total ativo + série por dia/tipo (gráfico independe da paginação).
+   */
   async customersReport(
     tenantId: string,
-    p: CustomersMetricsParams,
-  ): Promise<CustomersMetricsReport> {
+    p: CustomersReportPageParams,
+  ): Promise<CustomersMetricsReportPage> {
     await this.assertModuleEnabled(tenantId, 'customers');
-    return this.customers.metricsReport(p);
+    return this.customers.metricsReportPage(p);
+  }
+
+  /** CSV do relatório COMPLETO de clientes (novos no período). Buffer pronto. */
+  async customersCsv(
+    tenantId: string,
+    p: CustomersMetricsParams,
+  ): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'customers');
+    const report = await this.customers.metricsReport(p);
+    return buildCustomersCsv(report);
+  }
+
+  /** PDF do relatório COMPLETO de clientes (novos no período). Buffer pronto. */
+  async customersPdf(
+    tenantId: string,
+    p: CustomersMetricsParams,
+    company?: ExportCompany,
+  ): Promise<Buffer> {
+    await this.assertModuleEnabled(tenantId, 'customers');
+    const report = await this.customers.metricsReport(p);
+    return buildCustomersPdf(report, {
+      company,
+      periodLabel: this.periodLabel(p.from, p.to),
+    });
   }
 }

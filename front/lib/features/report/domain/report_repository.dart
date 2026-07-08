@@ -71,8 +71,24 @@ abstract class ReportRepository {
   /// servidor). `company` vai no cabeçalho. Retorna os bytes.
   Future<Uint8List> inventoryPdf({ReportExportCompany? company, String? q});
 
-  /// `GET /report/customers` — novos no range + total ativo.
-  Future<CustomersReport> customers({required ReportRange range});
+  /// `GET /report/customers` — novos no range PAGINADOS (scroll infinito):
+  /// linhas da página + total + total ativo + série por dia/tipo (gráfico).
+  Future<CustomersReport> customers({
+    required ReportRange range,
+    int page,
+    int pageSize,
+  });
+
+  /// `GET /report/customers.csv` — CSV do relatório COMPLETO de clientes do
+  /// período (gerado no servidor). Retorna os bytes prontos para download.
+  Future<Uint8List> customersCsv({required ReportRange range});
+
+  /// `GET /report/customers.pdf` — PDF do relatório COMPLETO de clientes do
+  /// período (gerado no servidor). `company` vai no cabeçalho.
+  Future<Uint8List> customersPdf({
+    required ReportRange range,
+    ReportExportCompany? company,
+  });
 
   /// `GET /report/sales` — lente "Vendas": histórico unificado OS (serviço) +
   /// venda avulsa (produto). Filtros: período, tipo, status de pagamento.

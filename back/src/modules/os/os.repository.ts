@@ -401,12 +401,25 @@ export class OsRepository {
     return db.service_order_photo.delete({ where: { id } });
   }
 
-  listPhotos(orderId: string) {
+  /** Fotos da OS + nº de comentários por foto (badge nas miniaturas do front). */
+  async listPhotos(orderId: string) {
     const db = this.tenant.getClient();
-    return db.service_order_photo.findMany({
+    const photos = await db.service_order_photo.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'desc' },
     });
+    if (photos.length === 0) return [];
+    // Sem relação no schema (FK vive no banco) — agrega em 1 query por lote.
+    const counts = await db.service_order_photo_comment.groupBy({
+      by: ['photo_id'],
+      where: { photo_id: { in: photos.map((p) => p.id) } },
+      _count: { _all: true },
+    });
+    const byPhoto = new Map(counts.map((c) => [c.photo_id, c._count._all]));
+    return photos.map((p) => ({
+      ...p,
+      comment_count: byPhoto.get(p.id) ?? 0,
+    }));
   }
 
   // ---- comentários das fotos (thread staff + cliente) ----

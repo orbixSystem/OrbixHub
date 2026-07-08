@@ -624,19 +624,11 @@ class _ReportBody extends ConsumerWidget {
       case ReportKind.cashFlow:
         return _CashFlowReport(company: _company(), period: _periodLabel(ref));
       case ReportKind.customers:
-        return _AsyncReport(
-          async: ref.watch(customersReportProvider),
-          retry: () => ref.invalidate(customersReportProvider),
-          tableOf: customersTable,
-          isEmpty: (r) => r.rows.isEmpty,
-          chartOf: (r) => _CustomersChart(report: r),
-          summaryOf: (r) => [
-            ('Clientes ativos', '${r.active}'),
-            ('Novos no período', '${r.newInRange}'),
-          ],
-          company: _company(),
-          period: _periodLabel(ref),
-        );
+        // Clientes pode ter milhares de linhas no período → lista PAGINADA
+        // (scroll infinito, render leve), como a OS operacional. O gráfico usa a
+        // série agregada no servidor (independe da página); export (CSV/PDF do
+        // relatório COMPLETO) é gerado no servidor.
+        return _CustomersReport(company: _company());
     }
   }
 }
@@ -2270,22 +2262,25 @@ class _TopItemsChart extends StatelessWidget {
 /// Composição dos clientes novos no período por tipo (rosca PF × PJ) — aba
 /// "Clientes". Parte-do-todo com legenda; cor por tipo (glyphs fixos).
 class _CustomersChart extends StatelessWidget {
-  const _CustomersChart({required this.report});
-  final CustomersReport report;
+  const _CustomersChart({required this.series});
+
+  /// Série agregada no servidor (novos por dia/tipo) — cobre o período INTEIRO,
+  /// independente das linhas paginadas na tela.
+  final List<CustomersSeriesPoint> series;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    // Conta por tipo entre os clientes novos do período.
+    // Conta por tipo entre os clientes novos do período (soma a série).
     var pf = 0, pj = 0, other = 0;
-    for (final c in report.rows) {
-      switch (c.type) {
+    for (final p in series) {
+      switch (p.type) {
         case 'pf':
-          pf++;
+          pf += p.count;
         case 'pj':
-          pj++;
+          pj += p.count;
         default:
-          other++;
+          other += p.count;
       }
     }
     final slices = <(String, int, Color)>[
@@ -2542,6 +2537,273 @@ class _OsRowTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Relatório de clientes: resumo (ativos/novos) + gráfico (série do servidor) +
+/// lista PAGINADA com scroll infinito (render leve, um lote por vez) dentro de
+/// um card de altura limitada — não monta milhares de linhas de uma vez.
+/// Export (CSV/PDF do relatório COMPLETO) é gerado no servidor.
+class _CustomersReport extends ConsumerStatefulWidget {
+  const _CustomersReport({required this.company});
+
+  final ReportCompany? company;
+
+  @override
+  ConsumerState<_CustomersReport> createState() => _CustomersReportState();
+}
+
+class _CustomersReportState extends ConsumerState<_CustomersReport> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      ref.read(customersReportListProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(customersReportListProvider);
+    return async.when(
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) =>
+          _ErrorBox(onRetry: () => ref.invalidate(customersReportListProvider)),
+      data: (state) {
+        final empty = state.rows.isEmpty;
+        final listHeight =
+            (MediaQuery.of(context).size.height * 0.6).clamp(360.0, 820.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 12,
+              spacing: 16,
+              children: [
+                Text('Clientes',
+                    style: Theme.of(context).textTheme.titleLarge),
+                _CustomersExportButtons(company: widget.company),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _SummaryStat(label: 'Clientes ativos', value: '${state.active}'),
+                _SummaryStat(
+                    label: 'Novos no período', value: '${state.newInRange}'),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (!empty) ...[
+              _CustomersChart(series: state.series),
+              const SizedBox(height: 18),
+            ],
+            if (empty)
+              const _Empty(message: 'Sem clientes novos no período.')
+            else
+              SizedBox(
+                height: listHeight.toDouble(),
+                child: NeuCard(
+                  padding: EdgeInsets.zero,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(NeuTokens.rCard),
+                    child: ListView.separated(
+                      controller: _scroll,
+                      itemCount: state.rows.length + 1,
+                      separatorBuilder: (_, i) => i >= state.rows.length - 1
+                          ? const SizedBox.shrink()
+                          : Divider(height: 1, color: context.neu.line),
+                      itemBuilder: (_, i) {
+                        if (i < state.rows.length) {
+                          return _CustomerRowTile(row: state.rows[i]);
+                        }
+                        return _ListFooter(
+                          loadingMore: state.loadingMore,
+                          hasMore: state.hasMore,
+                          total: state.total,
+                          noun: 'cliente(s)',
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Linha (tile) de um cliente no relatório: nome à esquerda; tipo + data de
+/// cadastro à direita. Render leve (sem DataTable).
+class _CustomerRowTile extends StatelessWidget {
+  const _CustomerRowTile({required this.row});
+
+  final CustomerReportRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.name,
+                  style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  customerTypeLabel(row.type),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            fmtDate(row.createdAt),
+            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Export do relatório de clientes gerado no SERVIDOR (CSV/PDF do relatório
+/// COMPLETO do período), não só as linhas já roladas na tela. Espelha os botões
+/// do relatório de OS. Spinner enquanto gera + SnackBar em erro.
+class _CustomersExportButtons extends ConsumerStatefulWidget {
+  const _CustomersExportButtons({required this.company});
+
+  final ReportCompany? company;
+
+  @override
+  ConsumerState<_CustomersExportButtons> createState() =>
+      _CustomersExportButtonsState();
+}
+
+class _CustomersExportButtonsState
+    extends ConsumerState<_CustomersExportButtons> {
+  bool _csvBusy = false;
+  bool _pdfBusy = false;
+
+  ReportExportCompany? _exportCompany() {
+    final c = widget.company;
+    if (c == null) return null;
+    return ReportExportCompany(
+      name: c.name,
+      legalName: c.legalName,
+      cnpj: c.cnpj,
+    );
+  }
+
+  Future<void> _run({
+    required bool isPdf,
+    required Future<void> Function() task,
+  }) async {
+    setState(() => isPdf ? _pdfBusy = true : _csvBusy = true);
+    try {
+      await task();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Não foi possível gerar o arquivo. Tente novamente.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isPdf ? _pdfBusy = false : _csvBusy = false);
+      }
+    }
+  }
+
+  Future<void> _csv() => _run(
+        isPdf: false,
+        task: () async {
+          final bytes = await ref
+              .read(reportRepositoryProvider)
+              .customersCsv(range: ref.read(reportRangeProvider));
+          downloadBytes(bytes, 'clientes.csv', 'text/csv;charset=utf-8');
+        },
+      );
+
+  Future<void> _pdf() => _run(
+        isPdf: true,
+        task: () async {
+          final bytes = await ref.read(reportRepositoryProvider).customersPdf(
+                range: ref.read(reportRangeProvider),
+                company: _exportCompany(),
+              );
+          downloadBytes(bytes, 'clientes.pdf', 'application/pdf');
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    const compact = Size(0, 40);
+    const pad = EdgeInsets.symmetric(horizontal: 16);
+    Widget spinner() => const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2));
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _csvBusy ? null : _csv,
+          style: OutlinedButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _csvBusy
+              ? spinner()
+              : const Icon(Icons.table_view_outlined, size: 18),
+          label: const Text('Exportar CSV'),
+        ),
+        FilledButton.icon(
+          onPressed: _pdfBusy ? null : _pdf,
+          style: FilledButton.styleFrom(minimumSize: compact, padding: pad),
+          icon: _pdfBusy
+              ? spinner()
+              : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+          label: const Text('Exportar PDF'),
+        ),
+      ],
     );
   }
 }

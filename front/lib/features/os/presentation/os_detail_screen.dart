@@ -480,13 +480,26 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              if (canEdit)
+              // Atalho direto para a conversa desta OS (inbox de mensagens) —
+              // a conversa é criada pelo backend junto com a OS.
+              if (order.conversationId != null &&
+                  order.conversationId!.isNotEmpty)
+                NeuIconButton(
+                  tooltip: 'Mensagens da OS',
+                  icon: Icons.forum_outlined,
+                  size: 42,
+                  onPressed: () =>
+                      context.go('/mensagens/${order.conversationId}'),
+                ),
+              if (canEdit) ...[
+                const SizedBox(width: 8),
                 NeuIconButton(
                   tooltip: 'Aplicar template',
                   icon: Icons.dashboard_customize_outlined,
                   size: 42,
                   onPressed: onApplyTemplate,
                 ),
+              ],
               if (canRead) ...[
                 const SizedBox(width: 8),
                 NeuIconButton(
@@ -2129,8 +2142,8 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
   }
 
   /// Abre a thread de comentários da foto (staff lê e adiciona).
-  void _openComments(OrderPhoto photo) {
-    showNeuDialog<void>(
+  Future<void> _openComments(OrderPhoto photo) async {
+    await showNeuDialog<void>(
       context,
       dialog: NeuDialog(
         title: 'Comentários da foto',
@@ -2138,6 +2151,9 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
         child: _PhotoCommentsPanel(orderId: order.id, photo: photo),
       ),
     );
+    // Recarrega o detalhe ao fechar: o badge de comentários da miniatura
+    // reflete o que a thread mostrou (inclui comentários novos do cliente).
+    if (mounted) ref.invalidate(orderProvider(order.id));
   }
 
   @override
@@ -2206,24 +2222,41 @@ class _PhotoThumb extends StatelessWidget {
             radius: 12,
           ),
         ),
-        // Selo de comentários: abre a thread ao tocar.
-        Positioned(
-          bottom: 2,
-          left: 2,
-          child: Material(
-            color: Colors.black54,
-            shape: const StadiumBorder(),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: onTap,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                child: Icon(Icons.mode_comment_outlined,
-                    size: 13, color: Colors.white),
+        // Selo de comentários: só aparece quando a foto TEM comentários, com a
+        // contagem — assim a equipe sabe sem precisar abrir a foto.
+        if (photo.commentCount > 0)
+          Positioned(
+            bottom: 2,
+            left: 2,
+            child: Material(
+              color: Colors.black54,
+              shape: const StadiumBorder(),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: onTap,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mode_comment_outlined,
+                          size: 13, color: Colors.white),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${photo.commentCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
         if (canWrite)
           Positioned(
             top: 2,

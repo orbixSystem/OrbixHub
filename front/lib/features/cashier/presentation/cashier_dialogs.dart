@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../os/domain/os_models.dart';
@@ -19,44 +19,111 @@ double? _parseAmount(String raw) {
 }
 
 void _snack(BuildContext context, String msg, {bool error = false}) {
+  final neu = context.neu;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(msg),
-      backgroundColor: error ? AppColors.danger : AppColors.success,
+      backgroundColor: error ? neu.danger : neu.success,
     ),
   );
+}
+
+/// Rótulo em cima + cavidade (inset) do design system — casca padrão para
+/// campos que não são [NeuTextField] (dropdowns, valores fixos, autocomplete).
+/// Mesmo desenho do `_fieldShell` do order_form_dialog.
+class _FieldShell extends StatelessWidget {
+  const _FieldShell({
+    required this.label,
+    required this.child,
+    this.padding,
+    this.helper,
+  });
+
+  final String label;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final String? helper;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: padding,
+          child: child,
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              helper!,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// Abrir o caixa (valor inicial em gaveta).
 Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
   final amountCtrl = TextEditingController(text: '0');
   final notesCtrl = TextEditingController();
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Abrir caixa'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: amountCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Valor inicial (gaveta)',
-              prefixText: 'R\$ ',
-            ),
+  final ok = await showNeuDialog<bool>(
+    context,
+    dialog: NeuDialog(
+      title: 'Abrir caixa',
+      maxWidth: 420,
+      actions: [
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: 'Cancelar',
+            kind: NeuButtonKind.secondary,
+            onPressed: () => Navigator.of(ctx).pop(false),
           ),
-          const SizedBox(height: 12),
-          TextField(
+        ),
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: 'Abrir',
+            icon: Icons.lock_open_outlined,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          NeuTextField(
+            label: 'Valor inicial (gaveta)',
+            controller: amountCtrl,
+            hint: '0,00',
+            prefixIcon: Icons.attach_money_rounded,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 14),
+          NeuTextField(
+            label: 'Observação (opcional)',
             controller: notesCtrl,
-            decoration: const InputDecoration(labelText: 'Observação (opcional)'),
           ),
         ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Abrir')),
-      ],
     ),
   );
   if (ok != true || !context.mounted) return;
@@ -76,41 +143,58 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
 Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
   final countedCtrl = TextEditingController();
   final notesCtrl = TextEditingController();
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Fechar caixa'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Conte o dinheiro em gaveta e informe o valor. '
-            'Calculamos o esperado e a diferença.',
-            style: TextStyle(
-                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: countedCtrl,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Valor contado',
-              prefixText: 'R\$ ',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: notesCtrl,
-            decoration: const InputDecoration(labelText: 'Observação (opcional)'),
-          ),
-        ],
-      ),
+  final ok = await showNeuDialog<bool>(
+    context,
+    dialog: NeuDialog(
+      title: 'Fechar caixa',
+      maxWidth: 420,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Fechar caixa')),
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: 'Cancelar',
+            kind: NeuButtonKind.secondary,
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+        ),
+        Builder(
+          builder: (ctx) => NeuButton(
+            label: 'Fechar caixa',
+            icon: Icons.lock_outline,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
       ],
+      child: Builder(
+        builder: (ctx) {
+          final neu = ctx.neu;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Conte o dinheiro em gaveta e informe o valor. '
+                'Calculamos o esperado e a diferença.',
+                style: TextStyle(
+                    color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              NeuTextField(
+                label: 'Valor contado',
+                controller: countedCtrl,
+                hint: '0,00',
+                prefixIcon: Icons.attach_money_rounded,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 14),
+              NeuTextField(
+                label: 'Observação (opcional)',
+                controller: notesCtrl,
+              ),
+            ],
+          );
+        },
+      ),
     ),
   );
   if (ok != true || !context.mounted) return;
@@ -269,117 +353,141 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
     }
   }
 
+  /// Dropdown padrão do design system: cavidade + DropdownButtonFormField sem
+  /// borda (mesmo padrão do order_form_dialog).
+  Widget _dropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required String Function(String) optionLabel,
+    required ValueChanged<String?>? onChanged,
+  }) {
+    final neu = context.neu;
+    return _FieldShell(
+      label: label,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+        dropdownColor: neu.surface,
+        icon: Icon(Icons.expand_more_rounded, color: neu.inkMuted),
+        style: TextStyle(color: neu.ink, fontSize: 15),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          filled: false,
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(vertical: 12),
+        ),
+        items: [
+          for (final o in options)
+            DropdownMenuItem(value: o, child: Text(optionLabel(o))),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     final isOsPayment = _category == 'os_payment';
-    return AlertDialog(
-      title: const Text('Novo lançamento'),
-      content: SizedBox(
-        // Responsivo: cabe em celular (largura da tela − margens) e limita em 360 no desktop.
-        width: MediaQuery.sizeOf(context).width < 420
-            ? MediaQuery.sizeOf(context).width - 80
-            : 360,
-        child: SingleChildScrollView(
-          child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 1) Tipo
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Tipo'),
-              items: [
-                for (final c in _categories)
-                  DropdownMenuItem(value: c, child: Text(categoryLabel(c))),
-              ],
-              onChanged: _saving
-                  ? null
-                  : (v) => setState(() {
-                        _category = v ?? _category;
-                        // Ao virar suprimento/sangria, trava a forma em dinheiro.
-                        if (_cashOnly) _method = 'dinheiro';
-                      }),
-            ),
-            // 2) OS (logo após o Tipo, quando for recebimento de OS)
-            if (isOsPayment) ...[
-              const SizedBox(height: 12),
-              _OsPicker(selected: _selectedOs, onChanged: _onOsSelected),
-              if (_loadingBalance)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: LinearProgressIndicator(minHeight: 2),
-                )
-              else if (_osPayment != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: _OsBalanceLine(payment: _osPayment!),
-                ),
-            ],
-            const SizedBox(height: 12),
-            // 3) Valor (pré-preenchido com o saldo da OS; editável → permite parcial)
-            TextField(
-              controller: _amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Valor',
-                prefixText: 'R\$ ',
-                helperText: isOsPayment && _osPayment != null
-                    ? 'Pode receber parcial — edite o valor à vontade.'
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 4) Forma — suprimento/sangria é sempre dinheiro (gaveta); demais, escolhe.
-            if (_cashOnly)
-              InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Forma',
-                  helperText: 'Suprimento/sangria é sempre em dinheiro (gaveta).',
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.payments_outlined,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    const Text('Dinheiro'),
-                  ],
-                ),
-              )
-            else
-              DropdownButtonFormField<String>(
-                initialValue: _method,
-                decoration: const InputDecoration(labelText: 'Forma'),
-                items: [
-                  for (final m in widget.config.paymentMethods)
-                    DropdownMenuItem(value: m, child: Text(methodLabel(m))),
-                ],
-                onChanged: _saving
-                    ? null
-                    : (v) => setState(() => _method = v ?? _method),
-              ),
-            const SizedBox(height: 12),
-            // 5) Descrição
-            TextField(
-              controller: _descCtrl,
-              decoration: const InputDecoration(labelText: 'Descrição (opcional)'),
-            ),
-          ],
-          ),
-        ),
-      ),
+    return NeuDialog(
+      title: 'Novo lançamento',
+      maxWidth: 420,
       actions: [
-        TextButton(
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
           onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Cancelar'),
         ),
-        FilledButton(
+        NeuButton(
+          label: 'Registrar',
+          loading: _saving,
           onPressed: _saving ? null : _submit,
-          child: _saving
-              ? const SizedBox(
-                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Registrar'),
         ),
       ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1) Tipo
+          _dropdown(
+            label: 'Tipo',
+            value: _category,
+            options: _categories,
+            optionLabel: categoryLabel,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() {
+                      _category = v ?? _category;
+                      // Ao virar suprimento/sangria, trava a forma em dinheiro.
+                      if (_cashOnly) _method = 'dinheiro';
+                    }),
+          ),
+          // 2) OS (logo após o Tipo, quando for recebimento de OS)
+          if (isOsPayment) ...[
+            const SizedBox(height: 14),
+            _OsPicker(selected: _selectedOs, onChanged: _onOsSelected),
+            if (_loadingBalance)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (_osPayment != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _OsBalanceLine(payment: _osPayment!),
+              ),
+          ],
+          const SizedBox(height: 14),
+          // 3) Valor (pré-preenchido com o saldo da OS; editável → permite parcial)
+          NeuTextField(
+            label: 'Valor',
+            controller: _amountCtrl,
+            hint: '0,00',
+            prefixIcon: Icons.attach_money_rounded,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            helper: isOsPayment && _osPayment != null
+                ? 'Pode receber parcial — edite o valor à vontade.'
+                : null,
+          ),
+          const SizedBox(height: 14),
+          // 4) Forma — suprimento/sangria é sempre dinheiro (gaveta); demais, escolhe.
+          if (_cashOnly)
+            _FieldShell(
+              label: 'Forma',
+              helper: 'Suprimento/sangria é sempre em dinheiro (gaveta).',
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.payments_outlined,
+                      size: 18, color: neu.inkMuted),
+                  const SizedBox(width: 8),
+                  Text('Dinheiro',
+                      style: TextStyle(color: neu.ink, fontSize: 15)),
+                ],
+              ),
+            )
+          else
+            _dropdown(
+              label: 'Forma',
+              value: _method,
+              options: widget.config.paymentMethods,
+              optionLabel: methodLabel,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _method = v ?? _method),
+            ),
+          const SizedBox(height: 14),
+          // 5) Descrição
+          NeuTextField(
+            label: 'Descrição (opcional)',
+            controller: _descCtrl,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -409,32 +517,31 @@ class _OsBalanceLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Widget chip(String label, num value, Color color) => Expanded(
+    final neu = context.neu;
+    Widget stat(String label, num value, Color color) => Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: TextStyle(
-                      color: scheme.onSurfaceVariant, fontSize: 10.5)),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 11)),
+              const SizedBox(height: 2),
               Text(formatMoney(value),
                   style: TextStyle(
-                      color: color, fontWeight: FontWeight.w700, fontSize: 13)),
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5)),
             ],
           ),
         );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rChip,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
-          chip('Total', payment.total, scheme.onSurface),
-          chip('Pago', payment.paid, AppColors.success),
-          chip('A receber', payment.balance, scheme.primary),
+          stat('Total', payment.total, neu.ink),
+          stat('Pago', payment.paid, neu.success),
+          stat('A receber', payment.balance, neu.navy),
         ],
       ),
     );
@@ -535,62 +642,85 @@ class _OsPickerState extends ConsumerState<_OsPicker> {
           _watchedNode = focusNode;
           focusNode.addListener(_onFocusMaybeOpen);
         }
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          decoration: InputDecoration(
-            labelText: 'OS — busque por nº, cliente ou responsável',
-            helperText: 'Recebimento aponta para a OS',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: widget.selected != null
-                ? IconButton(
-                    tooltip: 'Trocar OS',
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      controller.clear();
-                      widget.onChanged(null);
-                    },
-                  )
-                : null,
+        final neu = context.neu;
+        return _FieldShell(
+          label: 'OS — busque por nº, cliente ou responsável',
+          helper: 'Recebimento aponta para a OS',
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            style: TextStyle(color: neu.ink, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: 'Digite para buscar',
+              hintStyle: TextStyle(color: neu.inkFaint),
+              border: InputBorder.none,
+              filled: false,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              prefixIcon:
+                  Icon(Icons.search_rounded, size: 20, color: neu.inkMuted),
+              suffixIcon: widget.selected != null
+                  ? IconButton(
+                      tooltip: 'Trocar OS',
+                      icon: Icon(Icons.close_rounded,
+                          size: 18, color: neu.inkMuted),
+                      onPressed: () {
+                        controller.clear();
+                        widget.onChanged(null);
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (v) {
+              // Digitar de novo invalida a seleção anterior até escolher outra.
+              if (widget.selected != null && v != _label(widget.selected!)) {
+                widget.onChanged(null);
+              }
+            },
           ),
-          onChanged: (v) {
-            // Digitar de novo invalida a seleção anterior até escolher outra.
-            if (widget.selected != null && v != _label(widget.selected!)) {
-              widget.onChanged(null);
-            }
-          },
         );
       },
-      optionsViewBuilder: (context, onSelected, options) => Align(
-        alignment: Alignment.topLeft,
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(10),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300, maxWidth: 360),
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              itemCount: options.length,
-              separatorBuilder: (_, _) => Divider(
-                  height: 1, color: Theme.of(context).colorScheme.outlineVariant),
-              itemBuilder: (_, i) {
-                final o = options.elementAt(i);
-                return ListTile(
-                  dense: true,
-                  title: Text(_label(o)),
-                  subtitle: Text(
-                    '${o.customerName ?? '—'} · ${formatMoney(o.total)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: PaymentTag(status: o.paymentStatus, dense: true),
-                  onTap: () => onSelected(o),
-                );
-              },
+      optionsViewBuilder: (context, onSelected, options) {
+        final neu = context.neu;
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: neu.surface,
+            elevation: 6,
+            shadowColor: neu.shadowDark,
+            borderRadius: BorderRadius.circular(NeuTokens.rField),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300, maxWidth: 360),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: neu.line),
+                itemBuilder: (_, i) {
+                  final o = options.elementAt(i);
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      _label(o),
+                      style: TextStyle(
+                          color: neu.ink, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      '${o.customerName ?? '—'} · ${formatMoney(o.total)}',
+                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    ),
+                    trailing: PaymentTag(status: o.paymentStatus, dense: true),
+                    onTap: () => onSelected(o),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -200,26 +200,58 @@ class FakeReportRepository implements ReportRepository {
   }) async =>
       Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
 
+  static const _customerRows = <CustomerReportRow>[
+    CustomerReportRow(
+      id: 'c1',
+      name: 'Maria Silva',
+      type: 'pf',
+      createdAt: '2026-06-03T12:00:00.000Z',
+    ),
+    CustomerReportRow(
+      id: 'c2',
+      name: 'Auto Center LTDA',
+      type: 'pj',
+      createdAt: '2026-06-10T08:00:00.000Z',
+    ),
+  ];
+
   @override
-  Future<CustomersReport> customers({required ReportRange range}) async =>
-      const CustomersReport(
-        active: 42,
-        newInRange: 3,
-        rows: [
-          CustomerReportRow(
-            id: 'c1',
-            name: 'Maria Silva',
-            type: 'pf',
-            createdAt: '2026-06-03T12:00:00.000Z',
-          ),
-          CustomerReportRow(
-            id: 'c2',
-            name: 'Auto Center LTDA',
-            type: 'pj',
-            createdAt: '2026-06-10T08:00:00.000Z',
-          ),
-        ],
-      );
+  Future<CustomersReport> customers({
+    required ReportRange range,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final start = (page - 1) * pageSize;
+    final slice = start >= _customerRows.length
+        ? const <CustomerReportRow>[]
+        : _customerRows.sublist(
+            start,
+            (start + pageSize).clamp(0, _customerRows.length),
+          );
+    return CustomersReport(
+      active: 42,
+      newInRange: _customerRows.length,
+      rows: slice,
+      total: _customerRows.length,
+      page: page,
+      pageSize: pageSize,
+      series: const [
+        CustomersSeriesPoint(day: '2026-06-03', type: 'pf', count: 1),
+        CustomersSeriesPoint(day: '2026-06-10', type: 'pj', count: 1),
+      ],
+    );
+  }
+
+  @override
+  Future<Uint8List> customersCsv({required ReportRange range}) async =>
+      Uint8List.fromList(utf8.encode('Nome;Tipo\r\nMaria Silva;pf\r\n'));
+
+  @override
+  Future<Uint8List> customersPdf({
+    required ReportRange range,
+    ReportExportCompany? company,
+  }) async =>
+      Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
 
   @override
   Future<SalesLedger> salesLedger({

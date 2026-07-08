@@ -103,6 +103,35 @@ export class ReportInventoryExportQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
 }
 
+/**
+ * Query do relatório de clientes (tela): range + paginação (scroll infinito —
+ * evita carregar todos os clientes do período de uma vez).
+ */
+export class ReportCustomersQueryDto extends ReportRangeQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  pageSize?: number;
+}
+
+/**
+ * Query do export de clientes (CSV/PDF do relatório COMPLETO do período):
+ * range + empresa (cabeçalho do PDF). Sem paginação — o servidor gera tudo.
+ */
+export class ReportCustomersExportQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsString() @MaxLength(160) companyName?: string;
+  @IsOptional() @IsString() @MaxLength(200) companyLegalName?: string;
+  @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
+}
+
 /** Query do top de itens: range + kind (produto/serviço) + limit. */
 export class ReportTopItemsQueryDto extends ReportRangeQueryDto {
   @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';

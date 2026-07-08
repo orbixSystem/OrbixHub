@@ -231,11 +231,6 @@ ReportTable cashFlowTable(CashSummary s) => ReportTable(
       ],
     );
 
-ReportTable customersTable(CustomersReport r) => ReportTable(
-      title: 'Clientes',
-      headers: const ['Nome', 'Tipo', 'Cadastro'],
-      rows: [
-        for (final c in r.rows)
-          [c.name, customerTypeLabel(c.type), fmtDate(c.createdAt)],
-      ],
-    );
+// (O relatório de Clientes não usa mais builder de tabela: a tela é uma lista
+// paginada com scroll infinito e o export CSV/PDF é gerado no servidor —
+// `GET /report/customers.csv|.pdf` — como o de OS/estoque.)

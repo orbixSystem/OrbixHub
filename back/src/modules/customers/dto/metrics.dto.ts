@@ -34,3 +34,33 @@ export interface CustomerReportRow {
 export interface CustomersMetricsReport extends CustomersMetricsSummary {
   rows: CustomerReportRow[];
 }
+
+/** Parâmetros da página do relatório de clientes (scroll infinito): range + paginação. */
+export interface CustomersReportPageParams extends CustomersMetricsParams {
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Ponto da série do gráfico: novos clientes por dia (YYYY-MM-DD, calendário do
+ * servidor) e por tipo (pf/pj/...). Agregada no banco — o gráfico da tela não
+ * depende mais das linhas (que agora vêm paginadas).
+ */
+export interface CustomersSeriesPoint {
+  day: string; // 'YYYY-MM-DD'
+  type: string;
+  count: number;
+}
+
+/**
+ * Página do relatório de clientes (scroll infinito na tela): linhas da página +
+ * `total`/`page`/`pageSize` + série agregada por dia/tipo (gráfico). Aqui
+ * `newInRange` é o TOTAL de novos no período (== `total`), não o tamanho da página.
+ */
+export interface CustomersMetricsReportPage extends CustomersMetricsSummary {
+  rows: CustomerReportRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  series: CustomersSeriesPoint[];
+}

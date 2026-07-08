@@ -268,6 +268,25 @@ export class OsService {
       id,
       toNum(result.order.total),
     );
+    // Conversa da OS via service público do `messages` ("aponta, não invade") —
+    // find-or-create idempotente, mesmo padrão do fluxo público (os-public).
+    // best-effort: falha de mensageria nunca quebra o detalhe da OS.
+    let conversationId: string | null = null;
+    try {
+      const conv =
+        (await this.messages.findByRef(tid, 'os', id)) ??
+        (await this.messages.createConversation(tid, {
+          refType: 'os',
+          refId: id,
+          title: result.order.customer_name,
+          refLabel: result.order.number,
+        }));
+      conversationId = conv.id;
+    } catch (e) {
+      this.logger.warn(
+        `Falha ao resolver conversa da OS ${id}: ${(e as Error).message}`,
+      );
+    }
     return {
       ...result.order,
       events: result.events,
@@ -276,6 +295,8 @@ export class OsService {
       // Campo flat espelhando `payment.status` — uniformiza com a listagem
       // (a tag de pagamento no front lê sempre `payment_status`).
       payment_status: payment.status,
+      // Atalho staff → thread do chat desta OS (front: botão "Mensagens").
+      conversation_id: conversationId,
     };
   }
 
