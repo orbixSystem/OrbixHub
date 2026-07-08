@@ -38,11 +38,12 @@ import {
   UpdateTemplateDto,
 } from './dto/template.dto';
 import type { CreateTemplateItemData } from './os.repository';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-const isUniqueViolation = (e: unknown): boolean =>
-  (e as { code?: string })?.code === 'P2002';
 
 /** Subset do arquivo multer (memory storage) usado no upload de fotos. */
 export interface UploadedImage {
@@ -208,8 +209,20 @@ export class OsService {
           return created;
         });
       } catch (e) {
+        // PK duplicada (replay offline com id) ≠ nº da OS duplicado (corrida do
+        // uq_service_order_tenant_number). Sob RLS o meta.target vem null —
+        // quando o detalhe não aponta a PK, confirmamos com uma leitura por id
+        // em nova tx (id existe no tenant ⇒ conflito de id). Colisão de número
+        // segue o fluxo normal do erro (comportamento pré-existente).
         if (dto.id && isUniqueViolation(e)) {
-          throw new ConflictException('Registro já existe (id duplicado).');
+          const idTaken =
+            isIdUniqueViolation(e) ||
+            (await this.tenant.withTenantTx(() =>
+              this.repo.findOrderById(dto.id as string),
+            )) != null;
+          if (idTaken) {
+            throw new ConflictException('Registro já existe (id duplicado).');
+          }
         }
         throw e;
       }
@@ -741,6 +754,8 @@ export class OsService {
             total,
           });
         } catch (e) {
+          // `service_order_item` não tem unique além da PK: P2002 com id do
+          // cliente presente SÓ pode ser o id duplicado (replay repetido).
           if (dto.id && isUniqueViolation(e)) {
             throw new ConflictException('Registro já existe (id duplicado).');
           }

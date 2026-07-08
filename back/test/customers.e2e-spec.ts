@@ -317,6 +317,28 @@ describe('Customers & Subjects (e2e)', () => {
         id: fixedId,
       });
       expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('Registro já existe (id duplicado).');
+    });
+
+    it('id NOVO + documento duplicado → mensagem de documento (não "id duplicado")', async () => {
+      const o = await registerOwner();
+      const first = await createCustomer(o.access, {
+        name: 'Titular do doc',
+        document: 'DOC-MIX-1',
+      });
+      expect(first.status).toBe(201);
+
+      // id inédito, mas colide na natural key (tenant_id, document): a mensagem
+      // de negócio pré-existente deve vencer — nunca "id duplicado".
+      const mixed = await createCustomer(o.access, {
+        name: 'Outro titular',
+        document: 'DOC-MIX-1',
+        id: randomUUID(),
+      });
+      expect(mixed.status).toBe(409);
+      expect(mixed.body.message).toBe(
+        'Já existe um cliente com este documento.',
+      );
     });
   });
 

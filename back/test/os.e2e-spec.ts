@@ -322,6 +322,7 @@ describe('OS — Ordens de Serviço (e2e)', () => {
         id: fixedOrderId,
       });
       expect(dupOrder.status).toBe(409);
+      expect(dupOrder.body.message).toBe('Registro já existe (id duplicado).');
 
       const fixedItemId = randomUUID();
       const item = await addItem(o.access, fixedOrderId, {
@@ -340,6 +341,7 @@ describe('OS — Ordens de Serviço (e2e)', () => {
         id: fixedItemId,
       });
       expect(dupItem.status).toBe(409);
+      expect(dupItem.body.message).toBe('Registro já existe (id duplicado).');
     });
   });
 

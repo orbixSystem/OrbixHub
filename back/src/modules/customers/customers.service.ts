@@ -35,12 +35,12 @@ import {
   UpdateSubjectDto,
 } from './dto/subject.dto';
 import { UpdateCustomersConfigDto } from './dto/config.dto';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-function isUniqueViolation(e: unknown): boolean {
-  return (e as { code?: string })?.code === 'P2002';
-}
 
 @Injectable()
 export class CustomersService {
@@ -116,13 +116,22 @@ export class CustomersService {
         }),
       );
     } catch (e) {
-      if (isUniqueViolation(e)) {
-        if (dto.id) {
+      if (!isUniqueViolation(e)) throw e;
+      // PK duplicada (replay offline com id) ≠ documento duplicado. Sob RLS o
+      // Postgres suprime o meta.target (vem null) — quando o detalhe não diz
+      // que foi a PK, confirmamos com uma LEITURA por id em nova tx: se o
+      // registro com aquele id existe no tenant, o conflito é de id.
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findCustomerById(dto.id as string),
+          )) != null;
+        if (idTaken) {
           throw new ConflictException('Registro já existe (id duplicado).');
         }
-        throw new ConflictException('Já existe um cliente com este documento.');
       }
-      throw e;
+      throw new ConflictException('Já existe um cliente com este documento.');
     }
   }
 
@@ -253,6 +262,8 @@ export class CustomersService {
         });
       });
     } catch (e) {
+      // `subject` não tem unique além da PK: P2002 com id do cliente presente
+      // SÓ pode ser o id duplicado (replay offline repetido).
       if (dto.id && isUniqueViolation(e)) {
         throw new ConflictException('Registro já existe (id duplicado).');
       }

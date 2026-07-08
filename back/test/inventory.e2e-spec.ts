@@ -245,6 +245,23 @@ describe('Inventory — Produtos (e2e)', () => {
         id: fixedId,
       });
       expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('Registro já existe (id duplicado).');
+    });
+
+    it('id NOVO + SKU duplicado → mensagem de código (não "id duplicado")', async () => {
+      const o = await registerOwner();
+      const sku = 'SKU-MIX-1';
+      expect((await createItem(o.access, { name: 'Dono do SKU', sku })).status).toBe(201);
+
+      // id inédito, mas colide na natural key (tenant_id, sku): a mensagem de
+      // negócio pré-existente deve vencer — nunca "id duplicado".
+      const mixed = await createItem(o.access, {
+        name: 'Outro item',
+        sku,
+        id: randomUUID(),
+      });
+      expect(mixed.status).toBe(409);
+      expect(mixed.body.message).toBe('Já existe um item com este código.');
     });
   });
 

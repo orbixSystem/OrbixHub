@@ -33,14 +33,15 @@ import { CreateEntryDto, ReverseEntryDto } from './dto/entry.dto';
 import { CloseSessionDto, OpenSessionDto } from './dto/session.dto';
 import { EntryQueryDto, SummaryQueryDto } from './dto/query.dto';
 import { UpdateCashierConfigDto } from './dto/config.dto';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
-
-const isUniqueViolation = (e: unknown): boolean =>
-  (e as { code?: string })?.code === 'P2002';
 
 const parseDate = (v: string | undefined): Date | undefined =>
   v ? new Date(v) : undefined;
@@ -158,16 +159,25 @@ export class CashierServiceImpl extends CashierService {
       );
       return session;
     } catch (e) {
-      // Índice parcial único protege contra corrida (2 aberturas simultâneas no mesmo ponto).
-      if (isUniqueViolation(e)) {
-        if (dto.id) {
+      if (!isUniqueViolation(e)) throw e;
+      // PK duplicada (replay offline com id) ≠ "caixa já aberto" (corrida do
+      // índice parcial uq_cash_session_open_device). Sob RLS o meta.target vem
+      // null — quando o detalhe não aponta a PK, confirmamos com uma leitura
+      // por id em nova tx (id existe no tenant ⇒ conflito de id).
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findSessionById(dto.id as string),
+          )) != null;
+        if (idTaken) {
           throw new ConflictException('Registro já existe (id duplicado).');
         }
-        throw new ConflictException(
-          'Já existe um caixa aberto neste ponto de caixa.',
-        );
       }
-      throw e;
+      // Índice parcial único protege contra corrida (2 aberturas simultâneas no mesmo ponto).
+      throw new ConflictException(
+        'Já existe um caixa aberto neste ponto de caixa.',
+      );
     }
   }
 
@@ -305,6 +315,8 @@ export class CashierServiceImpl extends CashierService {
           created_by: user.userId,
         });
       } catch (e) {
+        // `cash_entry` não tem unique além da PK: P2002 com id do cliente
+        // presente SÓ pode ser o id duplicado (replay repetido).
         if (dto.id && isUniqueViolation(e)) {
           throw new ConflictException('Registro já existe (id duplicado).');
         }

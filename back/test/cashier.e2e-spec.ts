@@ -216,6 +216,7 @@ describe('Cashier — Caixa (e2e)', () => {
         id: fixedSessionId,
       });
       expect(dupSession.status).toBe(409);
+      expect(dupSession.body.message).toBe('Registro já existe (id duplicado).');
 
       const fixedEntryId = randomUUID();
       const entry = await createEntry(o.access, {
@@ -236,6 +237,27 @@ describe('Cashier — Caixa (e2e)', () => {
         id: fixedEntryId,
       });
       expect(dupEntry.status).toBe(409);
+      expect(dupEntry.body.message).toBe('Registro já existe (id duplicado).');
+    });
+
+    it('id NOVO + caixa já aberto no mesmo ponto → mensagem de caixa aberto (não "id duplicado")', async () => {
+      const o = await registerOwner();
+      const deviceId = randomUUID();
+      expect(
+        (await openSession(o.access, { openingAmount: 10, deviceId })).status,
+      ).toBe(201);
+
+      // id inédito, mas o PONTO já tem sessão aberta: a mensagem de negócio
+      // pré-existente deve vencer — nunca "id duplicado".
+      const mixed = await openSession(o.access, {
+        openingAmount: 20,
+        deviceId,
+        id: randomUUID(),
+      });
+      expect(mixed.status).toBe(409);
+      expect(mixed.body.message).toBe(
+        'Já existe um caixa aberto neste ponto de caixa.',
+      );
     });
   });
 

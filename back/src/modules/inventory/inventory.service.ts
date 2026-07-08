@@ -37,11 +37,12 @@ import {
 } from './catalog/catalog.provider';
 import { CatalogProductStore } from './catalog/catalog-product.store';
 import { isValidGtin } from './catalog/gtin';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-const isUniqueViolation = (e: unknown): boolean =>
-  (e as { code?: string })?.code === 'P2002';
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -145,13 +146,21 @@ export class InventoryService {
       );
       return item;
     } catch (e) {
-      if (isUniqueViolation(e)) {
-        if (dto.id) {
+      if (!isUniqueViolation(e)) throw e;
+      // PK duplicada (replay offline com id) ≠ SKU/barcode duplicado. Sob RLS o
+      // meta.target vem null — quando o detalhe não aponta a PK, confirmamos
+      // com uma leitura por id em nova tx (id existe no tenant ⇒ conflito de id).
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findItemById(dto.id as string),
+          )) != null;
+        if (idTaken) {
           throw new ConflictException('Registro já existe (id duplicado).');
         }
-        throw new ConflictException('Já existe um item com este código.');
       }
-      throw e;
+      throw new ConflictException('Já existe um item com este código.');
     }
   }
 
