@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -299,6 +300,46 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       const got = await getOrder(o.access, created.body.id);
       expect(got.status).toBe(200);
       expect(got.body.items).toEqual([]);
+    });
+  });
+
+  // ---- create-with-id (replay offline preserva uuid) --------------------
+  describe('create com id fixo (replay offline)', () => {
+    it('order e item aceitam id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      const fixedOrderId = randomUUID();
+      const created = await createOrder(o.access, {
+        customerId,
+        id: fixedOrderId,
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(fixedOrderId);
+
+      const dupOrder = await createOrder(o.access, {
+        customerId,
+        id: fixedOrderId,
+      });
+      expect(dupOrder.status).toBe(409);
+
+      const fixedItemId = randomUUID();
+      const item = await addItem(o.access, fixedOrderId, {
+        kind: 'service',
+        name: 'Mão de obra',
+        unitPrice: 10,
+        id: fixedItemId,
+      });
+      expect(item.status).toBe(201);
+      expect(item.body.id).toBe(fixedItemId);
+
+      const dupItem = await addItem(o.access, fixedOrderId, {
+        kind: 'service',
+        name: 'Mão de obra 2',
+        unitPrice: 5,
+        id: fixedItemId,
+      });
+      expect(dupItem.status).toBe(409);
     });
   });
 

@@ -47,6 +47,8 @@ const ITEM_ORDER_BY: Record<
 type DecimalIn = Prisma.Decimal | number;
 
 export interface ItemData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   name?: string;
   kind?: 'product' | 'service';
   duration_minutes?: number | null;

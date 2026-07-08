@@ -14,6 +14,8 @@ import {
  * fica no service.
  */
 export class CreateItemDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsIn(['product', 'service']) kind!: 'product' | 'service';
   @IsOptional() @IsUUID() inventoryItemId?: string;
   /** Obrigatório quando não há inventoryItemId (avulso). */

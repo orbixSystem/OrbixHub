@@ -1,5 +1,5 @@
 import {
-  IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString,
+  IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUUID,
   Max, MaxLength, Min, MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -10,6 +10,8 @@ import type { ItemSort } from '../inventory.repository';
  * duration. `attributes` é validado dinamicamente no service contra `itemFields`.
  */
 export class CreateInventoryItemDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
   @IsOptional() @IsInt() @Min(0) durationMinutes?: number;

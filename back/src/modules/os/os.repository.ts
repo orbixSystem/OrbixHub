@@ -52,6 +52,8 @@ export interface TemplateListFilter {
 }
 
 export interface CreateOrderData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   number: string;
   customer_id: string;
   customer_name: string;
@@ -90,6 +92,8 @@ export interface StatusFields {
 }
 
 export interface CreateItemData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   order_id: string;
   kind: 'product' | 'service';
   inventory_item_id: string | null;

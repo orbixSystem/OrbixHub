@@ -115,6 +115,7 @@ export class InventoryService {
 
     const isService = dto.kind === 'service';
     const data = {
+      id: dto.id,
       name: dto.name.trim(),
       kind: dto.kind ?? 'product',
       // Serviço não controla estoque: sem barcode/código do fabricante/estoque.
@@ -144,8 +145,12 @@ export class InventoryService {
       );
       return item;
     } catch (e) {
-      if (isUniqueViolation(e))
+      if (isUniqueViolation(e)) {
+        if (dto.id) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
         throw new ConflictException('Já existe um item com este código.');
+      }
       throw e;
     }
   }

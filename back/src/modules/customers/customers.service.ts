@@ -105,6 +105,7 @@ export class CustomersService {
     try {
       return await this.tenant.withTenantTx(() =>
         this.repo.createCustomer(user.tenantId, {
+          id: dto.id,
           name: dto.name.trim(),
           type: dto.type ?? 'PF',
           document: dto.document?.trim() || null,
@@ -116,6 +117,9 @@ export class CustomersService {
       );
     } catch (e) {
       if (isUniqueViolation(e)) {
+        if (dto.id) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
         throw new ConflictException('Já existe um cliente com este documento.');
       }
       throw e;
@@ -237,15 +241,23 @@ export class CustomersService {
     const config = await this.assertSubjectsEnabled(user.tenantId);
     const identifier = dto.identifier?.trim() || null;
     this.assertRequiredSubjectFields(config, identifier, dto.attributes);
-    return this.tenant.withTenantTx(async () => {
-      const customer = await this.repo.findCustomerById(customerId);
-      if (!customer) throw new BadRequestException('Cliente inválido.');
-      return this.repo.createSubject(user.tenantId, customerId, {
-        label: dto.label?.trim() || null,
-        identifier,
-        attributes: dto.attributes,
+    try {
+      return await this.tenant.withTenantTx(async () => {
+        const customer = await this.repo.findCustomerById(customerId);
+        if (!customer) throw new BadRequestException('Cliente inválido.');
+        return this.repo.createSubject(user.tenantId, customerId, {
+          id: dto.id,
+          label: dto.label?.trim() || null,
+          identifier,
+          attributes: dto.attributes,
+        });
       });
-    });
+    } catch (e) {
+      if (dto.id && isUniqueViolation(e)) {
+        throw new ConflictException('Registro já existe (id duplicado).');
+      }
+      throw e;
+    }
   }
 
   async listSubjects(user: AuthUser, query: ListSubjectsQueryDto) {

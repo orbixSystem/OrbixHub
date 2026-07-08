@@ -48,6 +48,8 @@ export type OsSort = (typeof OS_SORTS)[number];
  * (+ opcional telefone/veículo); o service cria cliente (e subject) via CustomersService.
  */
 export class CreateOrderDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsUUID() subjectId?: string;
   /** Cliente novo na hora: nome (obrigatório quando não há customerId). */

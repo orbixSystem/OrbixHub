@@ -22,6 +22,8 @@ import {
  * múltiplas formas: cada chamada cria uma entry.
  */
 export class CreateEntryDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsNumber() @Min(0.01) amount!: number;
   @IsIn(PAYMENT_METHODS as unknown as string[]) method!: PaymentMethod;
   @IsIn(ENTRY_CATEGORIES as unknown as string[]) category!: EntryCategory;

@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -219,6 +220,31 @@ describe('Inventory — Produtos (e2e)', () => {
       // direct fetch is invisible under B's RLS -> 404
       const bGet = await getItem(b.access, id);
       expect(bGet.status).toBe(404);
+    });
+  });
+
+  // ---- create-with-id (replay offline preserva uuid) --------------------
+  describe('create com id fixo (replay offline)', () => {
+    it('aceita id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const fixedId = randomUUID();
+
+      const created = await createItem(o.access, {
+        name: 'Item replay offline',
+        id: fixedId,
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(fixedId);
+
+      const fetched = await getItem(o.access, fixedId);
+      expect(fetched.status).toBe(200);
+      expect(fetched.body.id).toBe(fixedId);
+
+      const dup = await createItem(o.access, {
+        name: 'Item replay offline 2',
+        id: fixedId,
+      });
+      expect(dup.status).toBe(409);
     });
   });
 

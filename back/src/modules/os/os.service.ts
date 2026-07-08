@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -39,6 +40,9 @@ import {
 import type { CreateTemplateItemData } from './os.repository';
 
 const DEFAULT_PAGE_SIZE = 20;
+
+const isUniqueViolation = (e: unknown): boolean =>
+  (e as { code?: string })?.code === 'P2002';
 
 /** Subset do arquivo multer (memory storage) usado no upload de fotos. */
 export interface UploadedImage {
@@ -173,33 +177,43 @@ export class OsService {
       );
     }
 
-    const order = await this.tenant.withTenantTx(async () => {
-      const n = (await this.repo.maxOrderNumber()) + 1;
-      const number = `OS-${String(n).padStart(4, '0')}`;
-      const created = await this.repo.createOrder(user.tenantId, {
-        number,
-        customer_id: customer.id,
-        customer_name: customer.name,
-        subject_id: subjectId,
-        subject_label: subjectLabel,
-        status: 'aberta',
-        opened_by: user.userId,
-        assigned_to: dto.assignedTo ?? null,
-        complaint: dto.complaint?.trim() || null,
-        diagnosis: dto.diagnosis?.trim() || null,
-        scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
-        scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
-      });
-      // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
-      await this.repo.createEvent(user.tenantId, created.id, {
-        kind: 'created',
-        message: 'OS aberta',
-        statusSnapshot: 'aberta',
-        visiblePublic: true,
-        createdBy: user.userId,
-      });
-      return created;
-    });
+    const order = await (async () => {
+      try {
+        return await this.tenant.withTenantTx(async () => {
+          const n = (await this.repo.maxOrderNumber()) + 1;
+          const number = `OS-${String(n).padStart(4, '0')}`;
+          const created = await this.repo.createOrder(user.tenantId, {
+            id: dto.id,
+            number,
+            customer_id: customer.id,
+            customer_name: customer.name,
+            subject_id: subjectId,
+            subject_label: subjectLabel,
+            status: 'aberta',
+            opened_by: user.userId,
+            assigned_to: dto.assignedTo ?? null,
+            complaint: dto.complaint?.trim() || null,
+            diagnosis: dto.diagnosis?.trim() || null,
+            scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
+            scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
+          });
+          // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
+          await this.repo.createEvent(user.tenantId, created.id, {
+            kind: 'created',
+            message: 'OS aberta',
+            statusSnapshot: 'aberta',
+            visiblePublic: true,
+            createdBy: user.userId,
+          });
+          return created;
+        });
+      } catch (e) {
+        if (dto.id && isUniqueViolation(e)) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+        throw e;
+      }
+    })();
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
 
@@ -713,16 +727,26 @@ export class OsService {
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
       this.assertEditable(order);
-      const item = await this.repo.addItem(user.tenantId, {
-        order_id: orderId,
-        kind,
-        inventory_item_id: inventoryItemId,
-        name,
-        quantity,
-        unit_price: unitPrice,
-        discount,
-        total,
-      });
+      const item = await (async () => {
+        try {
+          return await this.repo.addItem(user.tenantId, {
+            id: dto.id,
+            order_id: orderId,
+            kind,
+            inventory_item_id: inventoryItemId,
+            name,
+            quantity,
+            unit_price: unitPrice,
+            discount,
+            total,
+          });
+        } catch (e) {
+          if (dto.id && isUniqueViolation(e)) {
+            throw new ConflictException('Registro já existe (id duplicado).');
+          }
+          throw e;
+        }
+      })();
       await this.recomputeTotal(orderId);
       return item;
     });

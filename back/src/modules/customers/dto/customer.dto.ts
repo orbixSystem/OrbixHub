@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -12,6 +13,8 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateCustomerDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsOptional() @IsIn(['PF', 'PJ']) type?: 'PF' | 'PJ';
   @IsOptional() @IsString() @MaxLength(60) document?: string;

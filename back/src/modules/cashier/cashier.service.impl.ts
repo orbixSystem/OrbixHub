@@ -143,6 +143,7 @@ export class CashierServiceImpl extends CashierService {
             'Já existe um caixa aberto neste ponto de caixa.',
           );
         return this.repo.createSession(user.tenantId, {
+          id: dto.id,
           opened_by: user.userId,
           opening_amount: dto.openingAmount ?? 0,
           notes: dto.notes?.trim() || null,
@@ -158,10 +159,14 @@ export class CashierServiceImpl extends CashierService {
       return session;
     } catch (e) {
       // Índice parcial único protege contra corrida (2 aberturas simultâneas no mesmo ponto).
-      if (isUniqueViolation(e))
+      if (isUniqueViolation(e)) {
+        if (dto.id) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
         throw new ConflictException(
           'Já existe um caixa aberto neste ponto de caixa.',
         );
+      }
       throw e;
     }
   }
@@ -286,17 +291,25 @@ export class CashierServiceImpl extends CashierService {
           device_id: dto.deviceId ?? null,
         });
       }
-      return this.repo.createEntry(user.tenantId, {
-        cash_session_id: open.id,
-        direction,
-        amount: round2(dto.amount),
-        method: dto.method as PaymentMethod,
-        category,
-        sale_kind: saleKind,
-        sale_id: saleId,
-        description: dto.description?.trim() || null,
-        created_by: user.userId,
-      });
+      try {
+        return await this.repo.createEntry(user.tenantId, {
+          id: dto.id,
+          cash_session_id: open.id,
+          direction,
+          amount: round2(dto.amount),
+          method: dto.method as PaymentMethod,
+          category,
+          sale_kind: saleKind,
+          sale_id: saleId,
+          description: dto.description?.trim() || null,
+          created_by: user.userId,
+        });
+      } catch (e) {
+        if (dto.id && isUniqueViolation(e)) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+        throw e;
+      }
     });
     await this.audit.log(
       user.tenantId,

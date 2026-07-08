@@ -11,6 +11,8 @@ import type {
 type DecimalIn = Prisma.Decimal | number;
 
 export interface NewEntryData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   cash_session_id: string;
   direction: EntryDirection;
   amount: DecimalIn;
@@ -48,6 +50,8 @@ export class CashierRepository {
   createSession(
     tenantId: string,
     data: {
+      /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+      id?: string;
       opened_by: string;
       opening_amount: DecimalIn;
       notes: string | null;

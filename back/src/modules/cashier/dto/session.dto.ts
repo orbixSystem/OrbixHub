@@ -13,6 +13,8 @@ import {
  * no máximo uma sessão aberta por tenant.
  */
 export class OpenSessionDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsNumber() @Min(0) openingAmount?: number;
   @IsOptional() @IsString() @MaxLength(500) notes?: string;
   @IsOptional() @IsUUID() deviceId?: string;

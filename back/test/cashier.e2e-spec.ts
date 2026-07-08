@@ -194,6 +194,52 @@ describe('Cashier — Caixa (e2e)', () => {
   });
 
   // ====================================================================
+  // create-with-id (replay offline preserva uuid)
+  // ====================================================================
+  describe('create com id fixo (replay offline)', () => {
+    it('sessão e lançamento aceitam id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const deviceId = randomUUID();
+      const fixedSessionId = randomUUID();
+
+      const opened = await openSession(o.access, {
+        openingAmount: 50,
+        deviceId,
+        id: fixedSessionId,
+      });
+      expect(opened.status).toBe(201);
+      expect(opened.body.id).toBe(fixedSessionId);
+
+      const dupSession = await openSession(o.access, {
+        openingAmount: 10,
+        deviceId: randomUUID(),
+        id: fixedSessionId,
+      });
+      expect(dupSession.status).toBe(409);
+
+      const fixedEntryId = randomUUID();
+      const entry = await createEntry(o.access, {
+        amount: 10,
+        method: 'dinheiro',
+        category: 'suprimento',
+        deviceId,
+        id: fixedEntryId,
+      });
+      expect(entry.status).toBe(201);
+      expect(entry.body.id).toBe(fixedEntryId);
+
+      const dupEntry = await createEntry(o.access, {
+        amount: 20,
+        method: 'dinheiro',
+        category: 'suprimento',
+        deviceId,
+        id: fixedEntryId,
+      });
+      expect(dupEntry.status).toBe(409);
+    });
+  });
+
+  // ====================================================================
   // 2. Recebimento de OS — parcial + múltiplas formas; getPaymentSummary
   // ====================================================================
   describe('recebimento de OS', () => {

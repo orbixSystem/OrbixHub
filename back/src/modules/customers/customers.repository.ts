@@ -48,6 +48,8 @@ export class CustomersRepository {
   createCustomer(
     tenantId: string,
     data: {
+      /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+      id?: string;
       name: string;
       type: string;
       document: string | null;
@@ -125,6 +127,8 @@ export class CustomersRepository {
     tenantId: string,
     customerId: string,
     data: {
+      /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+      id?: string;
       label: string | null;
       identifier: string | null;
       attributes: Record<string, unknown> | undefined;
@@ -133,6 +137,7 @@ export class CustomersRepository {
     const db = this.tenant.getClient();
     return db.subject.create({
       data: {
+        id: data.id,
         tenant_id: tenantId,
         customer_id: customerId,
         label: data.label,
