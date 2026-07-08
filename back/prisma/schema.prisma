@@ -127,6 +127,7 @@ model cash_session {
   closing_amount_expected Decimal?     @db.Decimal(14, 2)
   difference              Decimal?     @db.Decimal(14, 2)
   status                  String       @default("open")
+  device_id               String?      @db.Uuid
   notes                   String?
   created_at              DateTime     @default(now()) @db.Timestamptz(6)
   updated_at              DateTime     @default(now()) @db.Timestamptz(6)
@@ -153,6 +154,7 @@ model cash_entry {
   reversal_reason String?
   created_by      String       @db.Uuid
   created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime     @default(now()) @db.Timestamptz(6)
   cash_session    cash_session @relation(fields: [cash_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tenant          tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -206,6 +208,26 @@ model sale_item {
   tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, sale_id], map: "idx_sale_item_tenant_sale")
+}
+
+/// Idempotência do push de sincronização offline: cada mutação do cliente
+/// (client_mutation_id) só é aplicada uma vez por (tenant, autor).
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sync_mutation {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  author_user_id      String   @db.Uuid
+  client_mutation_id  String   @db.Uuid
+  entity              String
+  op                  String
+  result              String
+  error_message       String?
+  entity_id           String?  @db.Uuid
+  applied_at          DateTime @default(now()) @db.Timestamptz(6)
+  tenant              tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, author_user_id, client_mutation_id], map: "uq_sync_mutation")
+  @@index([tenant_id], map: "idx_sync_mutation_tenant")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -269,6 +291,7 @@ model service_order_item {
   estimated_duration   Int?          // minutos, múltiplos de 30
   scheduled_end        DateTime?     @db.Timestamptz(6)
   created_at           DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime      @default(now()) @db.Timestamptz(6)
   order                service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tenant               tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   assigned_user        users?        @relation("item_assigned_user", fields: [assigned_to], references: [id], onUpdate: NoAction)
@@ -608,6 +631,7 @@ model tenant {
   stock_movement     stock_movement[]
   subject            subject[]
   subscription       subscription?
+  sync_mutation      sync_mutation[]
   tenant_module      tenant_module[]
   users              users[]
   business_hours     business_hours[]
