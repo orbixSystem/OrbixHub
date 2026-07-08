@@ -37,11 +37,12 @@ import {
   TemplateItemDto,
   UpdateTemplateDto,
 } from './dto/template.dto';
-import type { CreateTemplateItemData } from './os.repository';
+import type { CreateTemplateItemData, OsSyncEntity } from './os.repository';
 import {
   isIdUniqueViolation,
   isUniqueViolation,
 } from '../../common/database/prisma-errors';
+import { clampChangedSinceLimit } from '../../common/database/changed-since';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -1235,6 +1236,61 @@ export class OsService {
         estimated_duration: null,
         scheduled_end: null,
       });
+    });
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<OsSyncEntity>([
+    'service_order',
+    'service_order_item',
+    'service_order_event',
+    'service_order_photo',
+    'service_order_template',
+  ]);
+
+  /**
+   * Página de mudanças de uma entidade do módulo os para o pull de sync
+   * offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público). Mesma shape JSON dos endpoints de leitura: fotos ganham
+   * `comment_count` (como `listPhotos`); templates ganham `items` aninhados
+   * (como `findTemplateById`) — `service_order_template_item` não tem
+   * `updated_at` próprio, então seus itens viajam dentro da linha do template.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+    if (!OsService.SYNC_ENTITIES.has(entity as OsSyncEntity)) {
+      throw new BadRequestException(`Entidade não pertence ao módulo os: ${entity}`);
+    }
+    const table = entity as OsSyncEntity;
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(async () => {
+      const page = await this.repo.listChangedSince(table, cursor, clamped);
+      if (table === 'service_order_photo' && page.rows.length) {
+        const ids = page.rows.map((r) => (r as { id: string }).id);
+        const counts = await this.repo.commentCountsByIds(ids);
+        return {
+          ...page,
+          rows: page.rows.map((r) => {
+            const row = r as { id: string };
+            return { ...row, comment_count: counts.get(row.id) ?? 0 };
+          }),
+        };
+      }
+      if (table === 'service_order_template' && page.rows.length) {
+        const rows = await Promise.all(
+          page.rows.map(async (r) => {
+            const row = r as { id: string };
+            const items = await this.repo.listTemplateItems(row.id);
+            return { ...row, items };
+          }),
+        );
+        return { ...page, rows };
+      }
+      return page;
     });
   }
 

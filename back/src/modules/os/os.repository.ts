@@ -1,8 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
 
 type DecimalIn = Prisma.Decimal | number;
+
+/** Entidades do módulo os expostas ao pull de sync offline. */
+export type OsSyncEntity =
+  | 'service_order'
+  | 'service_order_item'
+  | 'service_order_event'
+  | 'service_order_photo'
+  | 'service_order_template';
+
+/**
+ * `service_order_event`/`service_order_photo` são append-only → cursor por
+ * `created_at`; o resto (tem trigger de `updated_at` — migration 0031) usa
+ * `updated_at`.
+ */
+const SYNC_ENTITY_COLUMN: Record<OsSyncEntity, 'updated_at' | 'created_at'> = {
+  service_order: 'updated_at',
+  service_order_item: 'updated_at',
+  service_order_event: 'created_at',
+  service_order_photo: 'created_at',
+  service_order_template: 'updated_at',
+};
 
 /**
  * Ordenação da lista de OS (`created_at`). Cada chave tem um desempate estável
@@ -413,17 +439,23 @@ export class OsRepository {
       orderBy: { created_at: 'desc' },
     });
     if (photos.length === 0) return [];
-    // Sem relação no schema (FK vive no banco) — agrega em 1 query por lote.
-    const counts = await db.service_order_photo_comment.groupBy({
-      by: ['photo_id'],
-      where: { photo_id: { in: photos.map((p) => p.id) } },
-      _count: { _all: true },
-    });
-    const byPhoto = new Map(counts.map((c) => [c.photo_id, c._count._all]));
+    const byPhoto = await this.commentCountsByIds(photos.map((p) => p.id));
     return photos.map((p) => ({
       ...p,
       comment_count: byPhoto.get(p.id) ?? 0,
     }));
+  }
+
+  /** Nº de comentários por foto, em lote (sem relação no schema — FK vive no banco). */
+  async commentCountsByIds(photoIds: string[]): Promise<Map<string, number>> {
+    if (photoIds.length === 0) return new Map();
+    const db = this.tenant.getClient();
+    const counts = await db.service_order_photo_comment.groupBy({
+      by: ['photo_id'],
+      where: { photo_id: { in: photoIds } },
+      _count: { _all: true },
+    });
+    return new Map(counts.map((c) => [c.photo_id, c._count._all]));
   }
 
   // ---- comentários das fotos (thread staff + cliente) ----
@@ -887,6 +919,20 @@ export class OsRepository {
         finished_at: true,
       },
     });
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de uma entidade do módulo os desde o cursor. Sync pull
+   * — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: OsSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }
 

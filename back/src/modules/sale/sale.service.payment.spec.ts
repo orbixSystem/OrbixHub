@@ -18,6 +18,9 @@ class FakeCashierService extends CashierService {
     for (const v of vendas) m.set(v.id, buildPaymentSummary(v.total, 0));
     return Promise.resolve(m);
   }
+  listChangedSince() {
+    return Promise.resolve({ rows: [], nextCursor: null });
+  }
 }
 
 const user: AuthUser = {
