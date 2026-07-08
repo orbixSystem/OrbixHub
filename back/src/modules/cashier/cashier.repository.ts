@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
 import type {
   EntryCategory,
   EntryDirection,
@@ -9,6 +14,9 @@ import type {
 } from './cashier.config';
 
 type DecimalIn = Prisma.Decimal | number;
+
+/** Entidades do módulo cashier expostas ao pull de sync offline. */
+export type CashierSyncEntity = 'cash_session' | 'cash_entry';
 
 export interface NewEntryData {
   /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
@@ -290,6 +298,21 @@ export class CashierRepository {
       where: this.periodWhere(p),
       _sum: { amount: true },
     });
+  }
+
+  // ===================== Sync pull (offline) =====================
+  /**
+   * Página de mudanças de `cash_session`/`cash_entry` desde o cursor (ambas
+   * com `updated_at` — migration 0031). Sync pull — ver
+   * `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: CashierSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, 'updated_at', cursor, limit);
   }
 }
 

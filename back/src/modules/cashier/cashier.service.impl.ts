@@ -10,7 +10,8 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingService } from '../billing/billing.service';
-import { CashierRepository } from './cashier.repository';
+import { CashierRepository, CashierSyncEntity } from './cashier.repository';
+import { clampChangedSinceLimit } from '../../common/database/changed-since';
 import {
   buildPaymentSummary,
   CashierService,
@@ -96,6 +97,34 @@ export class CashierServiceImpl extends CashierService {
       map.set(v.id, buildPaymentSummary(v.total, paidById.get(v.id) ?? 0));
     }
     return map;
+  }
+
+  private static readonly SYNC_ENTITIES = new Set<CashierSyncEntity>([
+    'cash_session',
+    'cash_entry',
+  ]);
+
+  /**
+   * Página de mudanças de `cash_session`/`cash_entry` para o pull de sync
+   * offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público via o token `CashierService`). Mesma shape JSON dos endpoints de
+   * leitura (linhas cruas do Prisma — `listSessions`/`listEntries` também
+   * devolvem a linha crua).
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+    if (!CashierServiceImpl.SYNC_ENTITIES.has(entity as CashierSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo cashier: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as CashierSyncEntity, cursor, clamped),
+    );
   }
 
   // ===================== Config =====================

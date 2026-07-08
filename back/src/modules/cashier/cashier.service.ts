@@ -65,4 +65,16 @@ export abstract class CashierService {
     tenantId: string,
     vendas: Array<{ id: string; total: number }>,
   ): Promise<Map<string, PaymentSummary>>;
+
+  /**
+   * Página de mudanças de `cash_session`/`cash_entry` para o pull de sync
+   * offline. Adicionado ao contrato (sem alterar os métodos existentes) para
+   * o módulo `sync` — que só enxerga este token, nunca `CashierServiceImpl`
+   * ("aponta, não invade") — conseguir chamá-lo.
+   */
+  abstract listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }>;
 }
