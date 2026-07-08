@@ -3,22 +3,21 @@ import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { CashierModule } from '../cashier/cashier.module';
-import { InvoiceModule } from '../invoice/invoice.module';
 import { SaleController } from './sale.controller';
 import { SaleService } from './sale.service';
 import { SaleRepository } from './sale.repository';
 
 /**
  * Módulo Venda de balcão (`sale`) — entidade própria (NÃO é OS), plugada no
- * caixa/estoque/fiscal já prontos via services públicos ("aponta, não invade"):
+ * caixa/estoque já prontos via services públicos ("aponta, não invade"):
  * Inventory (baixa/estorno de estoque), Cashier (status de pagamento derivado),
- * Invoice (emissão de nota; Fiscal é dono do status), Customers (snapshot do
- * cliente — opcional). Contratável (gated por @RequiresModule('sale')).
+ * Customers (snapshot do cliente — opcional). Contratável (@RequiresModule('sale')).
  *
- * NÃO há referência mútua sale↔caixa: o caixa recebe o total do dono da venda
- * (caller-passes-total), nunca chama de volta a `sale` — por isso sem forwardRef.
- * `SaleService` é exportado para o relatório (módulo `report`) compor a receita
- * (receita = OS + sale) via `getSaleValue`/`revenueSummary`.
+ * NÃO há referência mútua sale↔caixa nem sale↔invoice: o caixa recebe o total do
+ * dono da venda (caller-passes-total); a NOTA é emitida pelo módulo `invoice`
+ * (POST /invoices { saleId }), que lê a venda via `getSaleWithItems` e espelha o
+ * snapshot via `setFiscalSnapshot` — dependência one-way invoice→sale, sem
+ * forwardRef. `SaleService` é exportado para `report` e `invoice`.
  */
 @Module({
   imports: [
@@ -26,7 +25,6 @@ import { SaleRepository } from './sale.repository';
     CustomersModule,
     InventoryModule,
     CashierModule,
-    InvoiceModule,
   ],
   controllers: [SaleController],
   providers: [SaleService, SaleRepository],

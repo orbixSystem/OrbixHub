@@ -257,6 +257,14 @@ class FakeOsRepository implements OsRepository {
   }
 
   @override
+  Future<List<OsTemplate>> listTemplates() async =>
+      _templates.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+  @override
+  Future<List<OsTemplate>> listTemplatesFull() => listTemplates();
+
+  @override
   Future<OsTemplatePage> listTemplatesPage({
     String? query,
     int page = 1,

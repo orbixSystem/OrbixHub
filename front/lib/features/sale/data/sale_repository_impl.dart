@@ -54,7 +54,21 @@ class SaleRepositoryImpl implements SaleRepository {
 
   @override
   Future<SaleFiscalResult> emitInvoice(String id) => _guard(() async {
-        final res = await _dio.post<Object?>('/sales/$id/invoice', data: {});
-        return SaleFiscalResult.fromJson(_asMap(res.data));
+        // A nota é do módulo `invoice` (POST /invoices { saleId }); o backend
+        // espelha o snapshot em `sale.fiscal_status`. Aqui só traduzimos o
+        // status da nota para o vocabulário do snapshot.
+        final res =
+            await _dio.post<Object?>('/invoices', data: {'saleId': id});
+        final map = _asMap(res.data);
+        final status = map['status'] as String? ?? 'processing';
+        return SaleFiscalResult(
+          status: switch (status) {
+            'authorized' => 'emitida',
+            'rejected' || 'error' => 'rejeitada',
+            _ => 'processando',
+          },
+          externalId: map['external_id'] as String?,
+          message: map['rejection_reason'] as String?,
+        );
       });
 }

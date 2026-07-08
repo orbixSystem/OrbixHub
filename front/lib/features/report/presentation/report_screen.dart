@@ -621,6 +621,8 @@ class _ReportBody extends ConsumerWidget {
         // do relatório COMPLETO) é gerado no servidor. Caso dedicado (não o
         // genérico, que monta tudo em memória).
         return _InventoryReport(company: _company());
+      case ReportKind.cashFlow:
+        return _CashFlowReport(company: _company(), period: _periodLabel(ref));
       case ReportKind.customers:
         return _AsyncReport(
           async: ref.watch(customersReportProvider),
@@ -1546,6 +1548,66 @@ class _OsExportButtonsState extends ConsumerState<_OsExportButtons> {
           label: const Text('Exportar PDF'),
         ),
       ],
+    );
+  }
+}
+
+class _CashFlowReport extends ConsumerWidget {
+  const _CashFlowReport({required this.company, required this.period});
+  final ReportCompany? company;
+  final String? period;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(cashierRecebidoReportProvider);
+    return async.when(
+      loading: () => const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      ),
+      error: (e, _) => _ErrorBox(
+          onRetry: () => ref.invalidate(cashierRecebidoReportProvider)),
+      data: (s) {
+        final table = cashFlowTable(s);
+        final empty = s.byMethod.isEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 12,
+              spacing: 16,
+              children: [
+                Text('Caixa — recebido por forma',
+                    style: Theme.of(context).textTheme.titleLarge),
+                _ExportButtons(table: table, company: company, period: period),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'O que passou pelo caixa no período (recebido — não é faturamento).',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                _SummaryStat(label: 'Recebido', value: formatMoney(s.totalIn)),
+                _SummaryStat(label: 'Saídas', value: formatMoney(s.totalOut)),
+                _SummaryStat(label: 'Saldo', value: formatMoney(s.net)),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (empty)
+              const _Empty(message: 'Sem movimento no período.')
+            else
+              _DataTableCard(table: table),
+          ],
+        );
+      },
     );
   }
 }

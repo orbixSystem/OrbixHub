@@ -56,12 +56,6 @@ export class SaleController {
     return this.sales.cancelSale(user, id, dto);
   }
 
-  // A venda dispara a emissão via o módulo Fiscal (service público). O caixa não
-  // participa. Quando o Fiscal não está habilitado, o service propaga 503 (Noop).
-  @Post(':id/invoice')
-  @Permissions('invoice.issue')
-  @HttpCode(200)
-  emitInvoice(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.sales.emitInvoice(user, id);
-  }
+  // A NOTA da venda é emitida pelo módulo `invoice` (POST /invoices { saleId })
+  // — dependência one-way invoice→sale; a venda só guarda o snapshot fiscal.
 }

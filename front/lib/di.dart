@@ -33,8 +33,6 @@ import 'features/notifications/data/notifications_repository_impl.dart';
 import 'features/notifications/presentation/notifications_providers.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
-import 'features/sales/data/sale_repository_impl.dart';
-import 'features/sales/domain/sale_repository.dart';
 import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
 import 'features/sale/data/sale_repository_impl.dart';
@@ -114,9 +112,6 @@ final customersRepositoryProvider = Provider<CustomersRepository>(
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(
     (ref) => InvoiceRepositoryImpl(ref.read(dioProvider)));
-
-final saleRepositoryProvider = Provider<SaleRepository>(
-    (ref) => SaleRepositoryImpl(ref.read(dioProvider)));
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
     (ref) => SettingsRepositoryImpl(ref.read(dioProvider)));

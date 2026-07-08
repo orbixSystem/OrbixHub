@@ -1,11 +1,8 @@
-import { ServiceUnavailableException } from '@nestjs/common';
 import { SaleService } from './sale.service';
-import { NoopInvoiceService } from '../invoice/noop-invoice.service';
 import {
   buildPaymentSummary,
   CashierService,
 } from '../cashier/cashier.service';
-import type { FiscalResult, InvoiceService } from '../invoice/invoice.service';
 import type { AuthUser } from '../../common/auth/auth.types';
 
 /** Fake do contrato do Caixa: "nada recebido ⇒ a_receber" (caller-passes-total). */
@@ -62,7 +59,6 @@ function makeService(over: {
   repo?: Partial<Record<string, jest.Mock>>;
   audit?: { log: jest.Mock };
   cashier?: CashierService;
-  invoice?: InvoiceService;
   inventory?: Partial<Record<string, jest.Mock>>;
 }) {
   const repo = {
@@ -84,7 +80,6 @@ function makeService(over: {
     {} as never, // customers
     inventory as never,
     over.cashier ?? new FakeCashierService(),
-    over.invoice ?? new NoopInvoiceService(),
   );
   return { svc, repo, audit, inventory };
 }
@@ -158,56 +153,5 @@ describe('SaleService — cancelamento estorna estoque', () => {
       's1',
       expect.any(Object),
     );
-  });
-});
-
-describe('SaleService — emitir nota fiscal', () => {
-  it('chama o Fiscal (não o caixa), faz snapshot e audita', async () => {
-    const fiscal: FiscalResult = {
-      status: 'emitida',
-      externalId: 'NFe-9',
-      message: null,
-    };
-    const invoice = {
-      isAvailable: () => true,
-      emit: jest.fn().mockResolvedValue(fiscal),
-    } as unknown as InvoiceService;
-    const cashier = {
-      getPaymentSummary: jest.fn(),
-      getPaymentSummaryBatch: jest.fn(),
-    } as unknown as CashierService;
-
-    const { svc, repo, audit } = makeService({ invoice, cashier });
-    const res = await svc.emitInvoice(user, 's1');
-
-    expect(res).toEqual(fiscal);
-    expect((invoice.emit as jest.Mock)).toHaveBeenCalledWith(
-      't1',
-      's1',
-      expect.objectContaining({ vendaId: 's1', number: 'VND-0001', total: 80 }),
-    );
-    expect((cashier.getPaymentSummary as jest.Mock)).not.toHaveBeenCalled();
-    expect(repo.setFiscalSnapshot).toHaveBeenCalledWith(
-      's1',
-      expect.objectContaining({
-        fiscal_status: 'emitida',
-        fiscal_external_id: 'NFe-9',
-      }),
-    );
-    expect(audit.log).toHaveBeenCalledWith(
-      't1',
-      'u1',
-      'sale_emit_invoice',
-      's1',
-      expect.objectContaining({ fiscalStatus: 'emitida' }),
-    );
-  });
-
-  it('propaga 503 quando o Fiscal está indisponível (Noop) e não faz snapshot', async () => {
-    const { svc, repo } = makeService({});
-    await expect(svc.emitInvoice(user, 's1')).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
-    expect(repo.setFiscalSnapshot).not.toHaveBeenCalled();
   });
 });

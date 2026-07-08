@@ -11,6 +11,7 @@ import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
+import '../../sale/presentation/sale_create_dialog.dart';
 import 'nav_items.dart';
 import 'sidebar.dart';
 
@@ -549,8 +550,8 @@ class _QuickCreateFab extends ConsumerWidget {
         final ok = await ItemFormDialog.show(context);
         if (ok == true) ref.invalidate(itemListProvider);
       case 'sale':
-        // Venda avulsa = tela de balcão (rota própria), não um dialog.
-        context.go('/m/sales/nova');
+        // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).
+        await showSaleCreateDialog(context);
     }
   }
 
@@ -558,7 +559,7 @@ class _QuickCreateFab extends ConsumerWidget {
     return [
       if (me.hasModule('os') && me.hasPermission('os.write'))
         const _QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
-      if (me.hasModule('sales') && me.hasPermission('cashier.write'))
+      if (me.hasModule('sale') && me.hasPermission('sale.write'))
         const _QuickAction(
             'sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
       if (me.hasModule('customers') && me.hasPermission('customer.write'))

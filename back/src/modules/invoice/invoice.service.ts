@@ -15,7 +15,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { TenantContext } from '../../common/database/tenant-context';
 import { CustomersService } from '../customers/customers.service';
 import { OsService } from '../os/os.service';
-import { SalesService } from '../sales/sales.service';
+import { SaleService } from '../sale/sale.service';
 import {
   CancelInvoiceDto,
   IssueInvoiceDto,
@@ -61,6 +61,14 @@ const WEBHOOK_STATUS: Record<string, 'authorized' | 'rejected' | 'canceled'> = {
   'invoice.canceled': 'canceled',
 };
 
+/** Status da nota → snapshot fiscal exibido na venda (`sale.fiscal_status`). */
+function saleFiscalStatus(status: string): string {
+  if (status === 'authorized') return 'emitida';
+  if (status === 'rejected' || status === 'error') return 'rejeitada';
+  if (status === 'canceled') return 'nao_emitida';
+  return 'processando';
+}
+
 /**
  * Emissão de Nota Fiscal a partir da OS (ONLINE-ONLY). "Aponta, não invade": a OS e
  * o cliente são lidos via services públicos (`OsService`/`CustomersService`) e a
@@ -77,7 +85,7 @@ export class InvoiceService {
     private readonly tenant: TenantContext,
     private readonly repo: InvoiceRepository,
     private readonly os: OsService,
-    private readonly sales: SalesService,
+    private readonly sales: SaleService,
     private readonly customers: CustomersService,
     private readonly audit: AuditService,
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
@@ -204,6 +212,16 @@ export class InvoiceService {
       return this.repo.findByIdWithLines(draft.id);
     });
 
+    // Snapshot do status fiscal na venda (só p/ exibir — a nota é a autoridade).
+    // "Aponta, não invade": escrito via service público do módulo `sale`.
+    if (source.saleId) {
+      await this.sales.setFiscalSnapshot(user.tenantId, source.saleId, {
+        fiscal_status: saleFiscalStatus(result.status),
+        fiscal_external_id: result.externalId ?? null,
+        fiscal_emitted_at: result.status === 'authorized' ? new Date() : null,
+      });
+    }
+
     await this.audit.log(user.tenantId, user.userId, 'invoice_issue', draft.id, {
       orderId: source.orderId,
       saleId: source.saleId,
@@ -263,9 +281,9 @@ export class InvoiceService {
       };
     }
 
-    // Venda
-    const sale = await this.sales.getOne(dto.saleId!);
-    if (sale.status === 'cancelada') {
+    // Venda (módulo `sale` — service público; itens usam `subtotal` como total da linha)
+    const sale = await this.sales.getSaleWithItems(dto.saleId!);
+    if (sale.status === 'canceled') {
       throw new BadRequestException('Não é possível emitir nota de uma venda cancelada.');
     }
     if (sale.items.length === 0) {
@@ -284,7 +302,15 @@ export class InvoiceService {
       customerId: sale.customer_id,
       customerName: sale.customer_name ?? 'Consumidor final',
       label: 'venda ' + sale.number,
-      lines: sale.items.map(toLine),
+      lines: sale.items.map((it) =>
+        toLine({
+          kind: it.kind,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          total: it.subtotal,
+        }),
+      ),
     };
   }
 
@@ -394,24 +420,37 @@ export class InvoiceService {
     if (status && externalId) {
       const resolved = await this.repo.resolveByExternalId(externalId);
       if (resolved) {
-        await this.tenant.runWithTenant(resolved.tenantId, async () => {
-          await this.repo.updateInvoice(resolved.invoiceId, {
-            status,
-            number: payload.data?.number ?? undefined,
-            series: payload.data?.series ?? undefined,
-            access_key: payload.data?.accessKey ?? undefined,
-            pdf_url: payload.data?.pdfUrl ?? undefined,
-            xml_url: payload.data?.xmlUrl ?? undefined,
-            rejection_reason: payload.data?.rejectionReason ?? null,
-            authorized_at: status === 'authorized' ? new Date() : undefined,
-            canceled_at: status === 'canceled' ? new Date() : undefined,
+        const saleId = await this.tenant.runWithTenant(
+          resolved.tenantId,
+          async () => {
+            await this.repo.updateInvoice(resolved.invoiceId, {
+              status,
+              number: payload.data?.number ?? undefined,
+              series: payload.data?.series ?? undefined,
+              access_key: payload.data?.accessKey ?? undefined,
+              pdf_url: payload.data?.pdfUrl ?? undefined,
+              xml_url: payload.data?.xmlUrl ?? undefined,
+              rejection_reason: payload.data?.rejectionReason ?? null,
+              authorized_at: status === 'authorized' ? new Date() : undefined,
+              canceled_at: status === 'canceled' ? new Date() : undefined,
+            });
+            await this.repo.createEvent(resolved.tenantId, resolved.invoiceId, {
+              kind: status,
+              message: `Atualização do provedor fiscal: ${payload.type}`,
+              statusSnapshot: status,
+            });
+            const inv = await this.repo.findByIdWithLines(resolved.invoiceId);
+            return inv?.sale_id ?? null;
+          },
+        );
+        // Espelha na venda (snapshot só p/ exibir — a nota é a autoridade).
+        if (saleId) {
+          await this.sales.setFiscalSnapshot(resolved.tenantId, saleId, {
+            fiscal_status: saleFiscalStatus(status),
+            fiscal_external_id: externalId,
+            fiscal_emitted_at: status === 'authorized' ? new Date() : null,
           });
-          await this.repo.createEvent(resolved.tenantId, resolved.invoiceId, {
-            kind: status,
-            message: `Atualização do provedor fiscal: ${payload.type}`,
-            statusSnapshot: status,
-          });
-        });
+        }
         await this.audit.log(resolved.tenantId, null, 'invoice_webhook', resolved.invoiceId, {
           type: payload.type,
           externalId,

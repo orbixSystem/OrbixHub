@@ -12,12 +12,8 @@ import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CashierService } from '../cashier/cashier.service';
-import {
-  FiscalResult,
-  InvoiceEmitPayload,
-  InvoiceService,
-} from '../invoice/invoice.service';
 import { SaleRepository } from './sale.repository';
+import type { FiscalSnapshotFields } from './sale.repository';
 import {
   computeSaleTotal,
   computeSubtotal,
@@ -61,7 +57,6 @@ export class SaleService {
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
     private readonly cashier: CashierService,
-    private readonly invoice: InvoiceService,
   ) {}
 
   // ===================== Criação =====================
@@ -205,55 +200,35 @@ export class SaleService {
   }
 
   // ===================== Nota fiscal =====================
+  // A emissão da nota da venda é do módulo `invoice` (POST /invoices { saleId })
+  // — o Fiscal lê a venda pelo service público abaixo e espelha o snapshot via
+  // `setFiscalSnapshot`. Dependência ONE-WAY invoice→sale (sem forwardRef).
+
   /**
-   * Dispara a emissão da nota da venda via o módulo Fiscal (service público). O
-   * Caixa não participa. Emitir nota NÃO altera o pagamento. Guarda um snapshot
-   * do status fiscal (o Fiscal é dono). Indisponível (Noop) ⇒ propaga 503.
+   * Venda + itens para consumo por OUTRO módulo (ex.: `invoice`) via service
+   * público — "aponta, não invade": o chamador guarda só o id e busca aqui,
+   * sem tocar as tabelas da venda.
    */
-  async emitInvoice(user: AuthUser, id: string): Promise<FiscalResult> {
-    const sale = await this.tenant.withTenantTx(async () => {
-      const found = await this.repo.findSaleById(id);
-      if (!found) throw new NotFoundException('Venda não encontrada.');
-      if (found.status === 'canceled')
-        throw new BadRequestException('Venda cancelada não emite nota.');
-      return found;
+  async getSaleWithItems(id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const sale = await this.repo.findSaleById(id);
+      if (!sale) throw new NotFoundException('Venda não encontrada.');
+      return sale;
     });
+  }
 
-    const payload: InvoiceEmitPayload = {
-      vendaId: sale.id,
-      number: sale.number,
-      customer: {
-        id: sale.customer_id ?? '',
-        name: sale.customer_name ?? 'Consumidor',
-      },
-      total: toNum(sale.total),
-      items: sale.items.map((i) => ({
-        name: i.name,
-        kind: i.kind,
-        quantity: toNum(i.quantity),
-        unitPrice: toNum(i.unit_price),
-        total: toNum(i.subtotal),
-        inventoryItemId: i.inventory_item_id ?? null,
-      })),
-    };
-
-    // Chamada externa ao Fiscal FORA de qualquer tx de banco (regra de ouro).
-    const result = await this.invoice.emit(user.tenantId, id, payload);
-
-    await this.tenant.withTenantTx(() =>
-      this.repo.setFiscalSnapshot(id, {
-        fiscal_status: result.status,
-        fiscal_external_id: result.externalId ?? null,
-        fiscal_emitted_at: result.status === 'emitida' ? new Date() : null,
-      }),
+  /**
+   * Snapshot do status fiscal na venda (escrito pelo módulo Fiscal, dono do
+   * dado — aqui é só espelho para exibição).
+   */
+  setFiscalSnapshot(
+    tenantId: string,
+    id: string,
+    fields: FiscalSnapshotFields,
+  ) {
+    return this.tenant.runWithTenant(tenantId, () =>
+      this.repo.setFiscalSnapshot(id, fields),
     );
-
-    await this.audit.log(user.tenantId, user.userId, 'sale_emit_invoice', id, {
-      fiscalStatus: result.status,
-      externalId: result.externalId ?? null,
-    });
-
-    return result;
   }
 
   // ===================== Seam público (consumido por report/caixa) =====================

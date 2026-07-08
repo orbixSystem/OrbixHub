@@ -49,7 +49,7 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
       (bundle) => bundle.copyWith(company: updatedCompany),
     );
     if (patch.containsKey('themePreset') || patch.containsKey('primaryColor')) {
-      ref.invalidate(brandingPresetProvider);
+      ref.invalidate(brandingSeedProvider);
     }
   }
 
@@ -63,7 +63,7 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
       (bundle) => bundle.copyWith(company: updatedCompany),
     );
     if (patch.containsKey('themePreset') || patch.containsKey('primaryColor')) {
-      ref.invalidate(brandingPresetProvider);
+      ref.invalidate(brandingSeedProvider);
     }
   }
 
