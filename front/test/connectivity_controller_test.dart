@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
@@ -31,11 +32,10 @@ void main() {
   late StreamController<List<ConnectivityResult>> connectivity;
   late _FakePing ping;
 
-  ProviderContainer makeContainer({Duration? pingInterval}) {
+  ProviderContainer makeContainer() {
     final c = ProviderContainer(overrides: [
       connectivityStreamProvider.overrideWithValue(connectivity.stream),
       healthPingProvider.overrideWithValue(ping.call),
-      if (pingInterval != null) pingIntervalProvider.overrideWithValue(pingInterval),
     ]);
     addTearDown(c.dispose);
     // Notifiers are lazy: force `build()` (and therefore the stream
@@ -106,20 +106,23 @@ void main() {
         ConnStatus.offline);
   });
 
-  test('pings again periodically while the network stays up', () async {
-    final container = makeContainer(pingInterval: const Duration(milliseconds: 20));
-    ping.result = true;
-    connectivity.add([ConnectivityResult.wifi]);
-    await pumpEventQueue();
-    final afterFirst = ping.callCount;
-    expect(afterFirst, greaterThanOrEqualTo(1));
+  test('pings again periodically while the network stays up', () {
+    // fakeAsync: the 30s periodic timer is driven by a fake clock —
+    // deterministic, no wall-clock sleeps (anti-flake).
+    fakeAsync((fake) {
+      final container = makeContainer();
+      ping.result = true;
+      connectivity.add([ConnectivityResult.wifi]);
+      fake.flushMicrotasks();
+      expect(ping.callCount, 1, reason: 'immediate ping on network up');
 
-    await Future<void>.delayed(const Duration(milliseconds: 90));
+      fake.elapse(const Duration(seconds: 95)); // 3 periodic ticks of 30s
 
-    expect(container.read(connectivityControllerProvider).status,
-        ConnStatus.online);
-    expect(ping.callCount, greaterThan(afterFirst),
-        reason: 'the 30s-equivalent periodic ping must keep firing');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.online);
+      expect(ping.callCount, 4,
+          reason: 'the 30s periodic ping must keep firing (1 imediato + 3 ticks)');
+    });
   });
 
   group('SyncEngine setters', () {
@@ -193,21 +196,22 @@ void main() {
   });
 
   test('online → API stops responding → next periodic ping demotes to offline',
-      () async {
-    final container =
-        makeContainer(pingInterval: const Duration(milliseconds: 20));
-    ping.result = true;
-    connectivity.add([ConnectivityResult.wifi]);
-    await pumpEventQueue();
-    expect(container.read(connectivityControllerProvider).status,
-        ConnStatus.online);
+      () {
+    fakeAsync((fake) {
+      final container = makeContainer();
+      ping.result = true;
+      connectivity.add([ConnectivityResult.wifi]);
+      fake.flushMicrotasks();
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.online);
 
-    ping.result = false; // backend caiu; o SO ainda reporta rede
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+      ping.result = false; // backend caiu; o SO ainda reporta rede
+      fake.elapse(const Duration(seconds: 30)); // próximo tick periódico
 
-    expect(container.read(connectivityControllerProvider).status,
-        ConnStatus.offline,
-        reason: 'rede sem API alcançável = offline, mesmo depois de online');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline,
+          reason: 'rede sem API alcançável = offline, mesmo depois de online');
+    });
   });
 
   group('stale-ping race (generation guard)', () {
@@ -255,22 +259,24 @@ void main() {
 
     test(
         'a FRESH failed ping (fired after sync started) DOES demote '
-        'syncing → offline', () async {
-      final container =
-          makeContainer(pingInterval: const Duration(milliseconds: 20));
-      ping.result = true;
-      connectivity.add([ConnectivityResult.wifi]);
-      await pumpEventQueue();
-      final notifier = container.read(connectivityControllerProvider.notifier);
-      notifier.markSyncing();
+        'syncing → offline', () {
+      fakeAsync((fake) {
+        final container = makeContainer();
+        ping.result = true;
+        connectivity.add([ConnectivityResult.wifi]);
+        fake.flushMicrotasks();
+        final notifier =
+            container.read(connectivityControllerProvider.notifier);
+        notifier.markSyncing();
 
-      ping.result = false; // connectivity genuinely lost mid-sync
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+        ping.result = false; // connectivity genuinely lost mid-sync
+        fake.elapse(const Duration(seconds: 30)); // fresh periodic tick
 
-      expect(container.read(connectivityControllerProvider).status,
-          ConnStatus.offline,
-          reason: 'a fresh failed ping means the API became unreachable '
-              'DURING the sync round — same semantics as losing the network');
+        expect(container.read(connectivityControllerProvider).status,
+            ConnStatus.offline,
+            reason: 'a fresh failed ping means the API became unreachable '
+                'DURING the sync round — same semantics as losing the network');
+      });
     });
   });
 
@@ -290,21 +296,25 @@ void main() {
   });
 
   test('disposing the container cancels the timer (no pending-timer leak)',
-      () async {
-    // Built by hand (not makeContainer) so we control the single dispose().
-    final container = ProviderContainer(overrides: [
-      connectivityStreamProvider.overrideWithValue(connectivity.stream),
-      healthPingProvider.overrideWithValue(ping.call),
-      pingIntervalProvider.overrideWithValue(const Duration(milliseconds: 10)),
-    ]);
-    container.read(connectivityControllerProvider); // build() ⇒ subscribes
-    ping.result = true;
-    connectivity.add([ConnectivityResult.wifi]);
-    await pumpEventQueue();
+      () {
+    fakeAsync((fake) {
+      // Built by hand (not makeContainer) so we control the single dispose().
+      final container = ProviderContainer(overrides: [
+        connectivityStreamProvider.overrideWithValue(connectivity.stream),
+        healthPingProvider.overrideWithValue(ping.call),
+      ]);
+      container.read(connectivityControllerProvider); // build() ⇒ subscribes
+      ping.result = true;
+      connectivity.add([ConnectivityResult.wifi]);
+      fake.flushMicrotasks();
+      final before = ping.callCount;
+      expect(before, 1);
 
-    container.dispose();
-    // If the periodic timer weren't cancelled, this delay would let it fire
-    // again after disposal and `flutter test` would report a pending timer.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+      container.dispose();
+      fake.elapse(const Duration(minutes: 5)); // 10 ticks, se o timer vazasse
+
+      expect(ping.callCount, before,
+          reason: 'dispose cancela o Timer.periodic — nenhum ping depois');
+    });
   });
 }
