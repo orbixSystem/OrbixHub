@@ -57,6 +57,15 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.3.2
 
+  # Offline-first: DB local, conectividade e cripto (só usados em !kIsWeb)
+  drift: ^2.28.0
+  sqlcipher_flutter_libs: ^0.6.5
+  connectivity_plus: ^7.0.0
+  sodium_libs: ^3.4.6+4
+  uuid: ^4.5.1
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -71,6 +80,7 @@ dev_dependencies:
   freezed: ^3.2.5
   json_serializable: ^6.14.0
   mocktail: ^1.0.5
+  drift_dev: ^2.28.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
