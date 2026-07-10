@@ -188,8 +188,13 @@ class _ContentHeader extends StatelessWidget {
                           ),
                         // Mobile não tem sidebar visível (bottom nav) — o status de
                         // conexão (persistente, mesmo indicador da sidebar) entra
-                        // compacto aqui em vez de sumir de vista.
-                        if (context.isMobile) const ConnectionChip(dense: true),
+                        // compacto aqui em vez de sumir de vista. Flexible é
+                        // obrigatório: como filho direto do Row o chip receberia
+                        // largura ILIMITADA e o Flexible interno dele nunca
+                        // ativaria — rótulo longo (muitas pendências) estouraria
+                        // o header num telefone estreito.
+                        if (context.isMobile)
+                          const Flexible(child: ConnectionChip(dense: true)),
                         const Spacer(),
                         // Sino + toggle de tema vivem no overlay global (GlobalControls).
                       ],
