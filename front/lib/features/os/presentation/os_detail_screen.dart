@@ -17,6 +17,7 @@ import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../invoice/presentation/invoice_providers.dart';
 import '../../invoice/presentation/invoice_status.dart';
+import '../../messages/domain/messages_models.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
@@ -97,6 +98,10 @@ class OsDetailScreen extends ConsumerWidget {
           _TimelineSection(order: order, canWrite: canEdit),
         ];
         final asideSections = <Widget>[
+          // Caixinha com as mensagens DESTA OS (prévia + atalho pra thread).
+          if (order.conversationId != null &&
+              order.conversationId!.isNotEmpty)
+            _MessagesSection(conversationId: order.conversationId!),
           if (hasTracking) _TrackingLinkCard(token: order.publicToken!),
           _PhotosSection(order: order, canWrite: canEdit),
         ];
@@ -1666,6 +1671,184 @@ class _TotalRow extends StatelessWidget {
 /// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
 /// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
 /// pública não casa e o cliente cai no login).
+// ===================== Mensagens da OS (prévia) =====================
+
+/// Caixinha compacta com as últimas mensagens DESTA OS (cliente ↔ equipe).
+/// Prévia somente-leitura: usa `before` no futuro para NÃO zerar o contador de
+/// não-lidas do inbox; a conversa completa abre em /mensagens/:id.
+class _MessagesSection extends ConsumerWidget {
+  const _MessagesSection({required this.conversationId});
+
+  final String conversationId;
+
+  void _open(BuildContext context) => context.go('/mensagens/$conversationId');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final async = ref.watch(osConversationPreviewProvider(conversationId));
+    return _SectionCard(
+      icon: Icons.forum_rounded,
+      title: 'Mensagens',
+      glyphIndex: 1,
+      action: _HeaderAction(
+        icon: Icons.open_in_new_rounded,
+        label: 'Abrir',
+        onTap: () => _open(context),
+      ),
+      child: async.when(
+        skipLoadingOnReload: true,
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+          ),
+        ),
+        error: (e, _) => Text(
+          e is AppException ? e.message : 'Erro ao carregar as mensagens.',
+          style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+        ),
+        data: (thread) {
+          final unread = thread.conversation.staffUnread;
+          final messages = thread.messages;
+          if (messages.isEmpty) {
+            return Text(
+              'Nenhuma mensagem ainda. O cliente pode escrever pelo link de '
+              'acompanhamento — a conversa aparece aqui.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+            );
+          }
+          // As 3 mais recentes (a página vem em ordem cronológica).
+          final recent = messages.length > 3
+              ? messages.sublist(messages.length - 3)
+              : messages;
+          final older =
+              thread.hasMore ? '${messages.length}+' : '${messages.length}';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (unread > 0) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: NeuStatusChip(
+                    label: unread == 1
+                        ? '1 mensagem não lida'
+                        : '$unread mensagens não lidas',
+                    color: neu.accent,
+                    tint: neu.accentTint,
+                    icon: Icons.mark_chat_unread_outlined,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              for (var i = 0; i < recent.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _MessagePreviewTile(
+                  message: recent[i],
+                  onTap: () => _open(context),
+                ),
+              ],
+              if (messages.length > recent.length || thread.hasMore) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Mostrando as ${recent.length} mais recentes de $older — '
+                  'toque em "Abrir" para ver tudo.',
+                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Uma mensagem na prévia: remetente + hora numa linha, corpo em até 2 linhas.
+class _MessagePreviewTile extends StatelessWidget {
+  const _MessagePreviewTile({required this.message, required this.onTap});
+
+  final Message message;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final fromCustomer = message.sender == 'customer';
+    final who = (message.authorName?.trim().isNotEmpty ?? false)
+        ? message.authorName!.trim()
+        : (fromCustomer ? 'Cliente' : 'Equipe');
+    final hasPhoto =
+        message.photoUrl != null && message.photoUrl!.isNotEmpty;
+    final body = message.body.trim();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  fromCustomer
+                      ? Icons.person_rounded
+                      : Icons.support_agent_rounded,
+                  size: 14,
+                  color: fromCustomer ? neu.accent : neu.inkFaint,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    who,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fromCustomer ? neu.accent : neu.inkMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  _fmtCommentDate(message.createdAt),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasPhoto) ...[
+                  Icon(Icons.photo_outlined, size: 14, color: neu.inkFaint),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    body.isNotEmpty ? body : (hasPhoto ? 'Foto' : ''),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: neu.ink, fontSize: 13, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TrackingLinkCard extends StatelessWidget {
   const _TrackingLinkCard({required this.token});
 

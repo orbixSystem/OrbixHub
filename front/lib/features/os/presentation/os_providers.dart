@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../messages/domain/messages_models.dart';
+import '../../messages/presentation/messages_providers.dart';
 import '../domain/os_models.dart';
 import '../domain/os_repository.dart';
 
@@ -65,6 +67,21 @@ class OrderListQueryNotifier extends Notifier<OrderListQuery> {
 final orderListQueryProvider =
     NotifierProvider<OrderListQueryNotifier, OrderListQuery>(
         OrderListQueryNotifier.new);
+
+/// Prévia da conversa da OS (card "Mensagens" do detalhe), via repository
+/// público do módulo messages — "aponta, não invade". Passa `before` no futuro
+/// próximo: o backend só zera o não-lido do inbox quando `before` está AUSENTE,
+/// então a caixinha lê as mais recentes sem marcar nada como lido.
+final osConversationPreviewProvider = FutureProvider.autoDispose
+    .family<ConversationThread, String>((ref, conversationId) {
+  final before = DateTime.now()
+      .toUtc()
+      .add(const Duration(minutes: 1))
+      .toIso8601String();
+  return ref
+      .read(messagesRepositoryProvider)
+      .getThread(conversationId, before: before);
+});
 
 /// Estado da lista paginada. Serve os DOIS modos do spec: mobile acumula
 /// lotes (infinite scroll via [OrderListNotifier.loadMore]); desktop navega
