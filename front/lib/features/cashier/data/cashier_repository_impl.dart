@@ -6,9 +6,16 @@ import '../domain/cashier_repository.dart';
 
 /// [CashierRepository] real, sobre dio.
 class CashierRepositoryImpl implements CashierRepository {
-  CashierRepositoryImpl(this._dio);
+  CashierRepositoryImpl(this._dio, this._deviceId);
 
   final Dio _dio;
+
+  /// Id estável do device (uuid v4, `DeviceIdentity`/B2) que identifica o
+  /// PONTO de caixa (dispositivo/terminal) nas rotas de sessão/lançamento —
+  /// injetado como função (não valor) para não travar a construção do repo
+  /// enquanto o SharedPreferences resolve; cada chamada aguarda e envia o id
+  /// atual. Cada navegador/instalação tem o seu (inclusive na web).
+  final Future<String> Function() _deviceId;
 
   Future<T> _guard<T>(Future<T> Function() run) async {
     try {
@@ -44,7 +51,11 @@ class CashierRepositoryImpl implements CashierRepository {
 
   @override
   Future<CashSession?> currentSession() => _guard(() async {
-        final res = await _dio.get<Object?>('/cashier/sessions/current');
+        final deviceId = await _deviceId();
+        final res = await _dio.get<Object?>(
+          '/cashier/sessions/current',
+          queryParameters: {'deviceId': deviceId},
+        );
         final data = res.data;
         if (data == null || (data is Map && data.isEmpty)) return null;
         return CashSession.fromJson(_asMap(data));
@@ -53,9 +64,11 @@ class CashierRepositoryImpl implements CashierRepository {
   @override
   Future<CashSession> openSession({double? openingAmount, String? notes}) =>
       _guard(() async {
+        final deviceId = await _deviceId();
         final res = await _dio.post<Object?>('/cashier/sessions/open', data: {
           'openingAmount': ?openingAmount,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
+          'deviceId': deviceId,
         });
         return CashSession.fromJson(_asMap(res.data));
       });
@@ -66,9 +79,11 @@ class CashierRepositoryImpl implements CashierRepository {
     String? notes,
   }) =>
       _guard(() async {
+        final deviceId = await _deviceId();
         final res = await _dio.post<Object?>('/cashier/sessions/close', data: {
           'countedAmount': countedAmount,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
+          'deviceId': deviceId,
         });
         return CashSession.fromJson(_asMap(res.data));
       });
@@ -84,8 +99,11 @@ class CashierRepositoryImpl implements CashierRepository {
 
   @override
   Future<CashEntry> createEntry(EntryDraft draft) => _guard(() async {
-        final res =
-            await _dio.post<Object?>('/cashier/entries', data: draft.toJson());
+        final deviceId = await _deviceId();
+        final res = await _dio.post<Object?>('/cashier/entries', data: {
+          ...draft.toJson(),
+          'deviceId': deviceId,
+        });
         return CashEntry.fromJson(_asMap(res.data));
       });
 

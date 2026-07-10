@@ -136,7 +136,10 @@ final diOverrides = [
     (ref) => InventoryRepositoryImpl(ref.read(dioProvider)),
   ),
   cashierRepositoryProvider.overrideWith(
-    (ref) => CashierRepositoryImpl(ref.read(dioProvider)),
+    (ref) => CashierRepositoryImpl(
+      ref.read(dioProvider),
+      () => ref.read(deviceIdProvider.future),
+    ),
   ),
   osRepositoryProvider.overrideWith(
     (ref) => OsRepositoryImpl(ref.read(dioProvider)),

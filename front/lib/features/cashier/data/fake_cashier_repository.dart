@@ -4,7 +4,10 @@ import '../domain/cashier_repository.dart';
 
 /// Fake in-memory do Caixa — para dev/teste (não é persistência offline).
 /// Reproduz as regras essenciais: 1 sessão aberta, direção derivada da categoria,
-/// estorno lógico fora dos somatórios, esperado só-dinheiro.
+/// estorno lógico fora dos somatórios, esperado só-dinheiro. Não modela o
+/// `deviceId` por ponto de caixa (esse detalhe é do transporte dio, ver
+/// [CashierRepositoryImpl]) — a interface não expõe deviceId por chamada, então
+/// o fake se comporta como um único ponto de caixa, o que é suficiente p/ dev/teste.
 class FakeCashierRepository implements CashierRepository {
   CashierConfig _config = const CashierConfig();
   CashSession? _open;
