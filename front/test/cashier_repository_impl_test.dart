@@ -120,4 +120,64 @@ void main() {
       expect((adapter.lastRequest!.data as Map)['deviceId'], 'device-2');
     });
   });
+
+  group('degrade gracioso quando a fonte do deviceId falha', () {
+    // O backend trata deviceId como opcional (ausente = ponto legado/NULL):
+    // se a leitura do id falhar (ex.: SharedPreferences indisponível na
+    // primeira leitura), a chamada segue SEM o campo em vez de estourar uma
+    // exceção crua por fora do contrato AppException.
+    CashierRepositoryImpl repoFalho(Dio dio) => CashierRepositoryImpl(
+          dio,
+          () async => throw StateError('prefs indisponível'),
+        );
+
+    test('openSession segue sem deviceId e a chamada tem sucesso', () async {
+      adapter.nextResponseData = {'id': 'sess-1', 'status': 'open'};
+      final session = await repoFalho(dio).openSession(openingAmount: 10);
+
+      expect(session.id, 'sess-1');
+      final body = adapter.lastRequest!.data as Map;
+      expect(body.containsKey('deviceId'), isFalse);
+      expect(body['openingAmount'], 10);
+    });
+
+    test('closeSession segue sem deviceId', () async {
+      adapter.nextResponseData = {'id': 'sess-1', 'status': 'closed'};
+      await repoFalho(dio).closeSession(countedAmount: 50);
+
+      final body = adapter.lastRequest!.data as Map;
+      expect(body.containsKey('deviceId'), isFalse);
+      expect(body['countedAmount'], 50);
+    });
+
+    test('currentSession segue sem o query param deviceId', () async {
+      adapter.nextResponseData = {'id': 'sess-1', 'status': 'open'};
+      final session = await repoFalho(dio).currentSession();
+
+      expect(session, isNotNull);
+      expect(
+        adapter.lastRequest!.queryParameters.containsKey('deviceId'),
+        isFalse,
+      );
+    });
+
+    test('createEntry segue sem deviceId', () async {
+      adapter.nextResponseData = {
+        'id': 'entry-1',
+        'direction': 'in',
+        'method': 'dinheiro',
+        'category': 'suprimento',
+      };
+      final entry = await repoFalho(dio).createEntry(const EntryDraft(
+        amount: 30,
+        method: 'dinheiro',
+        category: 'suprimento',
+      ));
+
+      expect(entry.id, 'entry-1');
+      final body = adapter.lastRequest!.data as Map;
+      expect(body.containsKey('deviceId'), isFalse);
+      expect(body['amount'], 30);
+    });
+  });
 }

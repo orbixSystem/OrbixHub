@@ -25,6 +25,19 @@ class CashierRepositoryImpl implements CashierRepository {
     }
   }
 
+  /// Resolve o deviceId degradando graciosamente: se a leitura falhar (ex.:
+  /// falha de plataforma do SharedPreferences na primeira leitura), retorna
+  /// null e a chamada segue SEM o campo — o backend trata `deviceId` como
+  /// opcional (ausente = ponto legado/NULL). Assim uma exceção crua da fonte
+  /// do id nunca vaza por fora do contrato [AppException] nem derruba o caixa.
+  Future<String?> _deviceIdOrNull() async {
+    try {
+      return await _deviceId();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Map<String, dynamic> _asMap(Object? data) =>
       (data as Map).cast<String, dynamic>();
 
@@ -51,10 +64,10 @@ class CashierRepositoryImpl implements CashierRepository {
 
   @override
   Future<CashSession?> currentSession() => _guard(() async {
-        final deviceId = await _deviceId();
+        final deviceId = await _deviceIdOrNull();
         final res = await _dio.get<Object?>(
           '/cashier/sessions/current',
-          queryParameters: {'deviceId': deviceId},
+          queryParameters: {'deviceId': ?deviceId},
         );
         final data = res.data;
         if (data == null || (data is Map && data.isEmpty)) return null;
@@ -64,11 +77,11 @@ class CashierRepositoryImpl implements CashierRepository {
   @override
   Future<CashSession> openSession({double? openingAmount, String? notes}) =>
       _guard(() async {
-        final deviceId = await _deviceId();
+        final deviceId = await _deviceIdOrNull();
         final res = await _dio.post<Object?>('/cashier/sessions/open', data: {
           'openingAmount': ?openingAmount,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
-          'deviceId': deviceId,
+          'deviceId': ?deviceId,
         });
         return CashSession.fromJson(_asMap(res.data));
       });
@@ -79,11 +92,11 @@ class CashierRepositoryImpl implements CashierRepository {
     String? notes,
   }) =>
       _guard(() async {
-        final deviceId = await _deviceId();
+        final deviceId = await _deviceIdOrNull();
         final res = await _dio.post<Object?>('/cashier/sessions/close', data: {
           'countedAmount': countedAmount,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
-          'deviceId': deviceId,
+          'deviceId': ?deviceId,
         });
         return CashSession.fromJson(_asMap(res.data));
       });
@@ -99,10 +112,10 @@ class CashierRepositoryImpl implements CashierRepository {
 
   @override
   Future<CashEntry> createEntry(EntryDraft draft) => _guard(() async {
-        final deviceId = await _deviceId();
+        final deviceId = await _deviceIdOrNull();
         final res = await _dio.post<Object?>('/cashier/entries', data: {
           ...draft.toJson(),
-          'deviceId': deviceId,
+          'deviceId': ?deviceId,
         });
         return CashEntry.fromJson(_asMap(res.data));
       });
