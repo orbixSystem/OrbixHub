@@ -1,12 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
 import 'core/network/refresh_token_store.dart';
 import 'core/offline/connectivity_controller.dart';
+import 'core/offline/db/local_db.dart';
 import 'core/offline/device_identity.dart';
 import 'core/offline/trusted_clock.dart';
 import 'core/platform/app_reloader.dart';
@@ -198,3 +200,19 @@ final connectivityControllerProvider =
     NotifierProvider<ConnectivityController, ConnState>(
   ConnectivityController.new,
 );
+
+/// Offline (B5): `LocalDb` do tenant ATIVO — arquivo cifrado por tenant, aberto
+/// e cacheado sob demanda. `null` na web (online-only) ou quando não há sessão
+/// autenticada. Observa o tenant ativo em `/me`: ao trocar de oficina, o
+/// provider reabre o banco do novo tenant. Os repositórios LocalFirst (B8) leem
+/// o `LocalDb` daqui — nunca abrem banco por conta própria.
+final localDbProvider = Provider<LocalDb?>((ref) {
+  if (kIsWeb) return null;
+  final tenantId = ref.watch(
+    sessionControllerProvider.select(
+      (s) => s is SessionAuthenticated ? s.me.activeTenant?.id : null,
+    ),
+  );
+  if (tenantId == null) return null;
+  return LocalDb.forTenant(tenantId);
+});
