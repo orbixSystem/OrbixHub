@@ -373,6 +373,26 @@ describe('Sync — pull + push offline (e2e)', () => {
   });
 
   // ====================================================================
+  // Pull — gate de leitura por entidade (espelha os GETs do módulo dono)
+  // ====================================================================
+  it('pull exige a permissão de leitura da entidade: mechanic sem cashier.read → 403; com os.read → 200', async () => {
+    const o = await registerOwner();
+    const mech = await inviteAccept(o, 'mechanic');
+
+    // mechanic NÃO tem cashier.read (seed): o extrato do caixa é negado online
+    // e no pull — sem o gate, o sync vazaria valores/sangrias ao cargo.
+    const cash = await pull(mech.access, '?entity=cash_entry&limit=10');
+    expect(cash.status).toBe(403);
+    const sessions = await pull(mech.access, '?entity=cash_session&limit=10');
+    expect(sessions.status).toBe(403);
+
+    // mechanic TEM os.read → pull de OS funciona normalmente.
+    const orders = await pull(mech.access, '?entity=service_order&limit=10');
+    expect(orders.status).toBe(200);
+    expect(orders.body.serverTime).toBeTruthy();
+  });
+
+  // ====================================================================
   // Isolamento de tenant — pull e push
   // ====================================================================
   it('isolamento: B não vê linhas de A no pull; push de B na linha de A nunca aplica', async () => {

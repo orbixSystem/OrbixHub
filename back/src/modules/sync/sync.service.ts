@@ -63,10 +63,19 @@ export class SyncService {
   }
 
   // ===================== Pull (GET /sync/changes) =====================
-  async getChanges(_user: AuthUser, query: PullChangesQueryDto) {
-    const routeKey = PULL_ROUTES[query.entity];
-    if (!routeKey) {
+  async getChanges(user: AuthUser, query: PullChangesQueryDto) {
+    const route = PULL_ROUTES[query.entity];
+    if (!route) {
       throw new BadRequestException(`Entidade desconhecida: ${query.entity}`);
+    }
+    // Permissão de LEITURA espelhando os GETs do módulo dono (mesma resolução
+    // do push): sem ela, o pull vazaria ao cargo dados que o online lhe nega
+    // (ex.: mechanic sem cashier.read puxando o extrato do caixa).
+    const granted = await this.permissionsOf(user.role);
+    if (!granted.has(route.permission)) {
+      throw new ForbiddenException(
+        'Sem permissão para sincronizar esta entidade.',
+      );
     }
     const cursor =
       query.sinceTs && query.sinceId
@@ -74,11 +83,9 @@ export class SyncService {
         : null;
     // A4 já clampa internamente; reforçamos aqui (S10).
     const limit = clampChangedSinceLimit(query.limit ?? 500);
-    const { rows, nextCursor } = await this.services[routeKey].listChangedSince(
-      query.entity,
-      cursor,
-      limit,
-    );
+    const { rows, nextCursor } = await this.services[
+      route.service
+    ].listChangedSince(query.entity, cursor, limit);
     return { rows, nextCursor, serverTime: new Date().toISOString() };
   }
 
@@ -103,8 +110,14 @@ export class SyncService {
       }
 
       const outcome = await this.applyMutation(user, m, granted);
-      await this.repo.recordMutation(user, m, outcome);
-      results.push({ clientMutationId: m.clientMutationId, ...outcome });
+      // Corrida de lotes idênticos: se outro push gravou primeiro (unique
+      // S8), devolvemos o desfecho do vencedor — nunca 500 no lote inteiro.
+      const winner = await this.repo.recordMutation(user, m, outcome);
+      results.push(
+        winner
+          ? this.toResult(winner)
+          : { clientMutationId: m.clientMutationId, ...outcome },
+      );
     }
     return { results, serverTime: new Date().toISOString() };
   }
@@ -146,11 +159,21 @@ export class SyncService {
       return { status: 'discarded' }; // servidor mais novo vence
     }
 
+    let entityId: string | undefined;
     try {
       const r = await def.apply(this.services, user, value);
-      const entityId = r?.id;
-      // S2 forense: só registra overwrite quando LWW tinha um alvo pré-existente.
-      if (current) {
+      entityId = r?.id;
+    } catch (e) {
+      // Qualquer exceção do apply() (inclui id duplicado — S9) vira item `error`.
+      return { status: 'error', message: this.messageOf(e) };
+    }
+
+    // S2 forense: overwrite auditado quando o LWW tinha um alvo pré-existente.
+    // FORA do try do apply e best-effort: a mutação JÁ foi aplicada — uma falha
+    // de auditoria não pode rebaixar um `applied` para `error` (registraria o
+    // desfecho permanentemente errado no ledger de idempotência).
+    if (current) {
+      try {
         await this.audit.log(
           user.tenantId,
           user.userId,
@@ -161,12 +184,11 @@ export class SyncService {
             effectiveTs: new Date(effectiveTsMs(clientMs, nowMs)).toISOString(),
           },
         );
+      } catch {
+        // best-effort — nunca rebaixa o resultado aplicado
       }
-      return { status: 'applied', entityId };
-    } catch (e) {
-      // Qualquer exceção do apply() (inclui id duplicado — S9) vira item `error`.
-      return { status: 'error', message: this.messageOf(e) };
     }
+    return { status: 'applied', entityId };
   }
 
   /**

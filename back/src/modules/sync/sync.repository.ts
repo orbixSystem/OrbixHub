@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TenantContext } from '../../common/database/tenant-context';
 import type { AuthUser } from '../../common/auth/auth.types';
+import { isUniqueViolation } from '../../common/database/prisma-errors';
 
 /** Status possível de uma mutação de replay (persistido em `sync_mutation.result`). */
 export type SyncStatus = 'applied' | 'discarded' | 'error';
@@ -51,26 +52,38 @@ export class SyncRepository {
     });
   }
 
-  /** Registra o desfecho de uma mutação (applied/discarded/error). */
+  /**
+   * Registra o desfecho de uma mutação (applied/discarded/error). Corrida de
+   * lotes idênticos (dois pushes simultâneos do mesmo outbox): o unique
+   * `(tenant, autor, clientMutationId)` derruba o perdedor com P2002 — em vez
+   * de estourar o push inteiro (500), devolvemos o desfecho que o VENCEDOR
+   * gravou. Retorna `null` quando este registro venceu (usa-se o outcome local).
+   */
   async recordMutation(
     user: AuthUser,
     m: { clientMutationId: string; entity: string; op: string },
     outcome: SyncMutationOutcome,
-  ): Promise<void> {
-    await this.tenant.withTenantTx(async () => {
-      const db = this.tenant.getClient();
-      await db.sync_mutation.create({
-        data: {
-          tenant_id: user.tenantId,
-          author_user_id: user.userId,
-          client_mutation_id: m.clientMutationId,
-          entity: m.entity,
-          op: m.op,
-          result: outcome.status,
-          error_message: outcome.message ?? null,
-          entity_id: outcome.entityId ?? null,
-        },
+  ): Promise<SyncMutationRow | null> {
+    try {
+      await this.tenant.withTenantTx(async () => {
+        const db = this.tenant.getClient();
+        await db.sync_mutation.create({
+          data: {
+            tenant_id: user.tenantId,
+            author_user_id: user.userId,
+            client_mutation_id: m.clientMutationId,
+            entity: m.entity,
+            op: m.op,
+            result: outcome.status,
+            error_message: outcome.message ?? null,
+            entity_id: outcome.entityId ?? null,
+          },
+        });
       });
-    });
+      return null;
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      return this.findMutation(user, m.clientMutationId);
+    }
   }
 }

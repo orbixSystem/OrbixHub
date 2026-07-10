@@ -99,22 +99,33 @@ const str = (v: unknown): string => v as string;
  */
 const asDto = <T>(p: SyncPayload): T => p as unknown as T;
 
+/** Rota de pull: módulo dono + permissão de LEITURA exigida. */
+export interface PullRouteDef {
+  service: keyof SyncServices;
+  /** Espelha o `@Permissions(...)` dos GETs do módulo dono. */
+  permission: string;
+}
+
 /**
  * Roteamento entity → módulo dono para o pull incremental (`GET /sync/changes`).
- * Cada service valida a entity e clampa o limite internamente (A4).
+ * Cada service valida a entity e clampa o limite internamente (A4). A permissão
+ * de leitura é checada em `SyncService.getChanges` (mesma resolução do push) —
+ * o pull nunca é mais permissivo que o online: sem ela, um cargo sem
+ * `cashier.read` (ex.: mechanic) puxaria o extrato do caixa offline, dado que
+ * as rotas GET do caixa lhe negam.
  */
-export const PULL_ROUTES: Record<string, keyof SyncServices> = {
-  customer: 'customers',
-  subject: 'customers',
-  inventory_item: 'inventory',
-  stock_movement: 'inventory',
-  service_order: 'os',
-  service_order_item: 'os',
-  service_order_event: 'os',
-  service_order_photo: 'os',
-  service_order_template: 'os',
-  cash_session: 'cashier',
-  cash_entry: 'cashier',
+export const PULL_ROUTES: Record<string, PullRouteDef> = {
+  customer: { service: 'customers', permission: 'customer.read' },
+  subject: { service: 'customers', permission: 'subject.read' },
+  inventory_item: { service: 'inventory', permission: 'inventory.read' },
+  stock_movement: { service: 'inventory', permission: 'inventory.read' },
+  service_order: { service: 'os', permission: 'os.read' },
+  service_order_item: { service: 'os', permission: 'os.read' },
+  service_order_event: { service: 'os', permission: 'os.read' },
+  service_order_photo: { service: 'os', permission: 'os.read' },
+  service_order_template: { service: 'os', permission: 'os.read' },
+  cash_session: { service: 'cashier', permission: 'cashier.read' },
+  cash_entry: { service: 'cashier', permission: 'cashier.read' },
 };
 
 /**

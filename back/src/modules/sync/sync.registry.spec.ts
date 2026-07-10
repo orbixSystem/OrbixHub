@@ -87,20 +87,34 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(SYNC_OPS['subject.create'].structuralKeys).toEqual(['customerId']);
   });
 
-  it('PULL_ROUTES cobre as 11 entidades dos 4 módulos donos', () => {
-    const expected: Record<string, keyof SyncServices> = {
-      customer: 'customers',
-      subject: 'customers',
-      inventory_item: 'inventory',
-      stock_movement: 'inventory',
-      service_order: 'os',
-      service_order_item: 'os',
-      service_order_event: 'os',
-      service_order_photo: 'os',
-      service_order_template: 'os',
-      cash_session: 'cashier',
-      cash_entry: 'cashier',
+  it('PULL_ROUTES cobre as 11 entidades dos 4 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
+    // Permissões dos GETs reais: customers → customer.read; subjects →
+    // subject.read; inventory → inventory.read; os → os.read; cashier →
+    // cashier.read. O pull nunca pode ser mais permissivo que o online
+    // (ex.: mechanic sem cashier.read não pode puxar o extrato do caixa).
+    const expected: Record<
+      string,
+      { service: keyof SyncServices; permission: string }
+    > = {
+      customer: { service: 'customers', permission: 'customer.read' },
+      subject: { service: 'customers', permission: 'subject.read' },
+      inventory_item: { service: 'inventory', permission: 'inventory.read' },
+      stock_movement: { service: 'inventory', permission: 'inventory.read' },
+      service_order: { service: 'os', permission: 'os.read' },
+      service_order_item: { service: 'os', permission: 'os.read' },
+      service_order_event: { service: 'os', permission: 'os.read' },
+      service_order_photo: { service: 'os', permission: 'os.read' },
+      service_order_template: { service: 'os', permission: 'os.read' },
+      cash_session: { service: 'cashier', permission: 'cashier.read' },
+      cash_entry: { service: 'cashier', permission: 'cashier.read' },
     };
     expect(PULL_ROUTES).toEqual(expected);
+  });
+
+  it('toda rota de pull exige uma permissão *.read (nunca vazia)', () => {
+    for (const route of Object.values(PULL_ROUTES)) {
+      expect(route.permission).toMatch(/\.read$/);
+      expect(route.service).toBeTruthy();
+    }
   });
 });
