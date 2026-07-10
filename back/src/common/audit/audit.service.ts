@@ -44,7 +44,8 @@ export type AuditAction =
   | 'cashier_session_close'
   | 'cashier_entry_create'
   | 'cashier_entry_reverse'
-  | 'sale_emit_invoice';
+  | 'sale_emit_invoice'
+  | 'sync_overwrite';
 
 @Injectable()
 export class AuditService {

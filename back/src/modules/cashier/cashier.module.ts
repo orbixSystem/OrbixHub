@@ -26,7 +26,12 @@ import { CASHIER_CONFIG_KEY } from './cashier.config';
     CashierServiceImpl,
     { provide: CashierService, useExisting: CashierServiceImpl },
   ],
-  exports: [CashierService],
+  // CashierService (contrato/leitura) é consumido pela OS ("aponta, não invade").
+  // CashierServiceImpl é exportado a MAIS para o módulo `sync`: o replay offline
+  // precisa das ESCRITAS (open/close/entry/reverse), que vivem só no impl — o
+  // contrato abstrato expõe apenas leitura. Sync compõe o service público; nunca
+  // toca as tabelas do caixa.
+  exports: [CashierService, CashierServiceImpl],
 })
 export class CashierModule implements OnModuleInit {
   constructor(private readonly registry: SettingsSectionRegistry) {}
