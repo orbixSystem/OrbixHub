@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
 import 'core/network/refresh_token_store.dart';
+import 'core/offline/connectivity_controller.dart';
+import 'core/offline/device_identity.dart';
+import 'core/offline/trusted_clock.dart';
 import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
 import 'core/network/token_refresh_service.dart';
@@ -170,4 +173,21 @@ final themeControllerProvider =
 final settingsControllerProvider =
     AsyncNotifierProvider<SettingsController, SettingsBundle>(
   SettingsController.new,
+);
+
+/// Offline-first (S1-S10): id estável do device (uuid v4 persistido), o
+/// relógio confiável (S3, anti clock-rollback) e o indicador global de
+/// conectividade/sync — usados pelo futuro outbox/SyncEngine (B3+).
+final deviceIdProvider =
+    FutureProvider<String>((ref) => const DeviceIdentity().getOrCreate());
+
+final trustedClockProvider = Provider<TrustedClock>((ref) {
+  final clock = TrustedClock();
+  clock.load();
+  return clock;
+});
+
+final connectivityControllerProvider =
+    NotifierProvider<ConnectivityController, ConnState>(
+  ConnectivityController.new,
 );
