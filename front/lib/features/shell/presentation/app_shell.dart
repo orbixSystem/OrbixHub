@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/offline/widgets/connection_banner.dart';
+import '../../../core/offline/widgets/connection_chip.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
@@ -80,28 +82,39 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           if (isDesktop) sidebar,
           Expanded(
-            child: Stack(
-              clipBehavior: Clip.none,
+            child: Column(
               children: [
-                Column(
-                  children: [
-                    _ContentHeader(
-                      title: items[selected].label,
-                      showMenu: !isDesktop && !isMobile,
-                    ),
-                    // A transição entre telas é feita pelo Navigator do ShellRoute
-                    // (pageBuilder + neuPage), não aqui — envolver o child num
-                    // AnimatedSwitcher duplicava a GlobalKey da página do go_router.
-                    Expanded(child: widget.child),
-                  ],
-                ),
-                // FAB de criação rápida aninhado no berço do header (centro).
-                // Sobe para dentro do entalhe fundo → protrai só ~8px na tela.
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 68 - 46,
-                  left: 0,
-                  right: 0,
-                  child: const Center(child: _QuickCreateFab()),
+                // Banner de transição de conectividade (offline/syncing/flash de
+                // reconexão) — fora do Stack do header para não bagunçar a
+                // matemática do notch/FAB, que é relativa ao topo do Stack.
+                const ConnectionBanner(),
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Column(
+                        children: [
+                          _ContentHeader(
+                            title: items[selected].label,
+                            showMenu: !isDesktop && !isMobile,
+                          ),
+                          // A transição entre telas é feita pelo Navigator do
+                          // ShellRoute (pageBuilder + neuPage), não aqui — envolver
+                          // o child num AnimatedSwitcher duplicava a GlobalKey da
+                          // página do go_router.
+                          Expanded(child: widget.child),
+                        ],
+                      ),
+                      // FAB de criação rápida aninhado no berço do header (centro).
+                      // Sobe para dentro do entalhe fundo → protrai só ~8px na tela.
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top + 68 - 46,
+                        left: 0,
+                        right: 0,
+                        child: const Center(child: _QuickCreateFab()),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -173,6 +186,10 @@ class _ContentHeader extends StatelessWidget {
                                   ?.copyWith(color: neu.ink),
                             ),
                           ),
+                        // Mobile não tem sidebar visível (bottom nav) — o status de
+                        // conexão (persistente, mesmo indicador da sidebar) entra
+                        // compacto aqui em vez de sumir de vista.
+                        if (context.isMobile) const ConnectionChip(dense: true),
                         const Spacer(),
                         // Sino + toggle de tema vivem no overlay global (GlobalControls).
                       ],
