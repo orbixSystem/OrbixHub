@@ -181,9 +181,13 @@ final settingsControllerProvider =
 final deviceIdProvider =
     FutureProvider<String>((ref) => const DeviceIdentity().getOrCreate());
 
+/// Relógio confiável (S3). O carregamento do `max_seen_ts` persistido começa
+/// aqui, mas é assíncrono: consumidores de segurança (B6, login offline)
+/// DEVEM `await ref.read(trustedClockProvider).ready` antes de confiar em
+/// `clockRolledBack` — antes disso um rollback real pode passar despercebido.
 final trustedClockProvider = Provider<TrustedClock>((ref) {
   final clock = TrustedClock();
-  clock.load();
+  clock.load(); // fire-and-forget: `ready` expõe este mesmo Future memoizado
   return clock;
 });
 

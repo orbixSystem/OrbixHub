@@ -8,12 +8,21 @@ import 'package:orbixhub_front/di.dart';
 
 /// Controllable stand-in for `connectivity_plus`'s stream + a fake `/health`
 /// ping — no platform channel and no real HTTP call in these tests.
+///
+/// [gate], when set, holds the NEXT ping in flight until the test completes
+/// it (one-shot) — used to simulate a slow ping racing newer events.
 class _FakePing {
   bool result = true;
   int callCount = 0;
+  Completer<bool>? gate;
 
   Future<bool> call() async {
     callCount++;
+    final g = gate;
+    if (g != null) {
+      gate = null;
+      return g.future;
+    }
     return result;
   }
 }
@@ -181,6 +190,103 @@ void main() {
       expect(state.pendingOtherAuthors, 7);
       expect(state.status, ConnStatus.offline);
     });
+  });
+
+  test('online → API stops responding → next periodic ping demotes to offline',
+      () async {
+    final container =
+        makeContainer(pingInterval: const Duration(milliseconds: 20));
+    ping.result = true;
+    connectivity.add([ConnectivityResult.wifi]);
+    await pumpEventQueue();
+    expect(container.read(connectivityControllerProvider).status,
+        ConnStatus.online);
+
+    ping.result = false; // backend caiu; o SO ainda reporta rede
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+
+    expect(container.read(connectivityControllerProvider).status,
+        ConnStatus.offline,
+        reason: 'rede sem API alcançável = offline, mesmo depois de online');
+  });
+
+  group('stale-ping race (generation guard)', () {
+    test(
+        'flap regression: a stale OK ping resolving after network loss '
+        'cannot flip the state back to online', () async {
+      final container = makeContainer();
+      final gate = Completer<bool>();
+      ping.gate = gate;
+
+      connectivity.add([ConnectivityResult.wifi]); // fires ping, held in flight
+      await pumpEventQueue();
+      connectivity.add([ConnectivityResult.none]); // offline immediately
+      await pumpEventQueue();
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+
+      gate.complete(true); // the stale pre-flap ping finally resolves OK
+      await pumpEventQueue();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline,
+          reason: 'a stale ping from before the flap must be dropped — '
+              'claiming online with no network is fail-unsafe');
+    });
+
+    test('a stale FAILED ping (fired before markSyncing) never demotes syncing',
+        () async {
+      final container = makeContainer();
+      final gate = Completer<bool>();
+      ping.gate = gate;
+
+      connectivity.add([ConnectivityResult.wifi]); // fires ping, held in flight
+      await pumpEventQueue();
+      container.read(connectivityControllerProvider.notifier).markSyncing();
+
+      gate.complete(false); // pre-sync ping resolves (failed) after markSyncing
+      await pumpEventQueue();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.syncing,
+          reason: 'a ping fired before the sync round is stale — only fresh '
+              'signals may demote syncing');
+    });
+
+    test(
+        'a FRESH failed ping (fired after sync started) DOES demote '
+        'syncing → offline', () async {
+      final container =
+          makeContainer(pingInterval: const Duration(milliseconds: 20));
+      ping.result = true;
+      connectivity.add([ConnectivityResult.wifi]);
+      await pumpEventQueue();
+      final notifier = container.read(connectivityControllerProvider.notifier);
+      notifier.markSyncing();
+
+      ping.result = false; // connectivity genuinely lost mid-sync
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline,
+          reason: 'a fresh failed ping means the API became unreachable '
+              'DURING the sync round — same semantics as losing the network');
+    });
+  });
+
+  test('an error on the connectivity stream is treated as offline', () async {
+    final container = makeContainer();
+    ping.result = true;
+    connectivity.add([ConnectivityResult.wifi]);
+    await pumpEventQueue();
+    expect(container.read(connectivityControllerProvider).status,
+        ConnStatus.online);
+
+    connectivity.addError(Exception('platform channel died'));
+    await pumpEventQueue();
+
+    expect(container.read(connectivityControllerProvider).status,
+        ConnStatus.offline);
   });
 
   test('disposing the container cancels the timer (no pending-timer leak)',

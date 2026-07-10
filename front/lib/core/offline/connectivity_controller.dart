@@ -100,18 +100,38 @@ final healthPingProvider = Provider<Future<bool> Function()>((ref) {
 ///   rede" não significa "API alcançável".
 ///
 /// Também expõe os setters que o (futuro) SyncEngine chama diretamente:
-/// [markSyncing], [markSynced], [markOffline], [setPending]. Um ping
-/// bem-sucedido NUNCA derruba um `syncing` em andamento — só perder
-/// conectividade (sem rede, ou o próprio ping falhando) o faz; a saída normal
-/// de `syncing` é responsabilidade do SyncEngine.
+/// [markSyncing], [markSynced], [markOffline], [setPending].
+///
+/// Semântica de `syncing`:
+/// - um ping OK **fresco** nunca derruba `syncing` (a saída normal é do
+///   SyncEngine, via [markSynced]/[markOffline]);
+/// - um ping FALHO **fresco** (disparado depois do sync começar) demove
+///   `syncing` → `offline` — mesma semântica de perder a rede no meio;
+/// - pings **stale** (disparados antes da última mudança de conectividade ou
+///   do último mark*) são descartados por um contador de geração: cada
+///   mudança de conectividade e cada mark* incrementa a geração; o ping
+///   captura a geração ao disparar e o resultado só é aplicado se ela não
+///   avançou enquanto ele estava em voo. Sem isso, um ping OK lento podia
+///   reverter um flap online→offline para `online` sem rede (fail-unsafe),
+///   ou um ping pré-sync podia demover `syncing`.
 class ConnectivityController extends Notifier<ConnState> {
   StreamSubscription<List<ConnectivityResult>>? _sub;
   Timer? _timer;
 
+  /// Geração monotônica: invalida pings em voo quando o mundo muda embaixo
+  /// deles (mudança de conectividade ou mark* do SyncEngine).
+  int _generation = 0;
+
   @override
   ConnState build() {
     ref.onDispose(_disposeInternal);
-    _sub = ref.read(connectivityStreamProvider).listen(_onConnectivityChanged);
+    _sub = ref.read(connectivityStreamProvider).listen(
+          _onConnectivityChanged,
+          // Erro no stream da plataforma: sem sinal confiável ⇒ trate como
+          // "sem rede" (fail-safe) em vez de deixar o erro estourar.
+          onError: (Object _, StackTrace _) =>
+              _onConnectivityChanged(const [ConnectivityResult.none]),
+        );
     return const ConnState();
   }
 
@@ -123,6 +143,7 @@ class ConnectivityController extends Notifier<ConnState> {
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
+    _generation++; // invalida qualquer ping em voo da situação anterior
     final hasNetwork = results.any((r) => r != ConnectivityResult.none);
     _timer?.cancel();
     _timer = null;
@@ -137,8 +158,12 @@ class ConnectivityController extends Notifier<ConnState> {
   }
 
   Future<void> _pingHealth() async {
+    final generation = _generation;
     final ping = ref.read(healthPingProvider);
     final reachable = await ping();
+    if (generation != _generation) {
+      return; // stale: o estado mudou enquanto o ping estava em voo.
+    }
     _applyPingResult(reachable: reachable);
   }
 
@@ -152,14 +177,24 @@ class ConnectivityController extends Notifier<ConnState> {
     }
   }
 
-  /// O SyncEngine iniciou uma rodada de sincronização.
-  void markSyncing() => state = state.copyWith(status: ConnStatus.syncing);
+  /// O SyncEngine iniciou uma rodada de sincronização. Pings em voo
+  /// disparados ANTES desta chamada ficam stale (não demovem o syncing).
+  void markSyncing() {
+    _generation++;
+    state = state.copyWith(status: ConnStatus.syncing);
+  }
 
   /// O SyncEngine terminou uma rodada de sincronização com sucesso.
-  void markSynced() => state = state.copyWith(status: ConnStatus.online);
+  void markSynced() {
+    _generation++;
+    state = state.copyWith(status: ConnStatus.online);
+  }
 
   /// O SyncEngine encontrou uma falha de conectividade em andamento.
-  void markOffline() => state = state.copyWith(status: ConnStatus.offline);
+  void markOffline() {
+    _generation++;
+    state = state.copyWith(status: ConnStatus.offline);
+  }
 
   /// Atualiza os contadores exibidos pelo indicador: [mine] é o tamanho do
   /// outbox deste device; [others] é o total de mutações de outros autores

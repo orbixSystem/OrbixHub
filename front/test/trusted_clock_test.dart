@@ -98,5 +98,38 @@ void main() {
       final clock = TrustedClock(clock: () => fixedNow);
       expect(clock.now, fixedNow);
     });
+
+    test(
+        'ready: after awaiting it on cold start, a persisted rollback is '
+        'visible (no false negative before prefs load)', () async {
+      // Persisted max is way ahead of the (rolled-back) device clock.
+      SharedPreferences.setMockInitialValues({
+        'orbix_trusted_clock_max_seen_ts':
+            DateTime.utc(2026, 6, 1).toIso8601String(),
+      });
+      final clock = TrustedClock(clock: () => DateTime.utc(2026, 1, 1));
+
+      await clock.ready;
+
+      expect(clock.clockRolledBack, isTrue,
+          reason: 'B6 awaits `ready` before trusting clockRolledBack — after '
+              'that, a persisted rollback must never be missed');
+      expect(clock.maxSeenTs, DateTime.utc(2026, 6, 1));
+    });
+
+    test('ready is the same memoized load (safe to await multiple times)',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'orbix_trusted_clock_max_seen_ts':
+            DateTime.utc(2026, 3, 1).toIso8601String(),
+      });
+      final clock = TrustedClock();
+
+      await clock.ready;
+      await clock.ready;
+      await clock.load();
+
+      expect(clock.maxSeenTs, DateTime.utc(2026, 3, 1));
+    });
   });
 }
