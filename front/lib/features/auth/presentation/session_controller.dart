@@ -400,6 +400,10 @@ class SessionController extends Notifier<SessionState> {
   /// Switches active workshop and reloads `/me` (new role/modules). Preserva a
   /// preferência de "manter conectado" da sessão atual.
   Future<void> switchTenant(String tenantId) async {
+    // B7 — fecha o banco local do tenant anterior antes de abrir o do novo:
+    // `LocalDb.forTenant` memoiza por tenant, e sem isso cada troca deixaria
+    // uma conexão cifrada (e seu isolate) aberta para sempre.
+    await _closeLocalDbs();
     final tokens = await _auth.switchTenant(tenantId);
     await _applyTokens(tokens.accessToken, tokens.refreshToken);
     await _loadMe();
@@ -464,5 +468,18 @@ class SessionController extends Notifier<SessionState> {
     _access.clear();
     _refresh.clear();
     await _secure.clear();
+    // B7 — logout/expire: fecha as réplicas locais abertas (os arquivos ficam,
+    // a sessão offline do B6 depende deles; só as conexões são liberadas).
+    await _closeLocalDbs();
+  }
+
+  /// Fecha as instâncias de [LocalDb] cacheadas por tenant. No-op na web.
+  Future<void> _closeLocalDbs() async {
+    if (kIsWeb) return;
+    try {
+      await LocalDb.closeAll();
+    } catch (_) {
+      // Fechar o banco nunca pode impedir o logout/troca de oficina.
+    }
   }
 }

@@ -13,6 +13,8 @@ import 'core/offline/db/local_db.dart';
 import 'core/offline/device_identity.dart';
 import 'core/offline/offline_credentials.dart';
 import 'core/offline/password_hasher.dart';
+import 'core/offline/sync_api.dart';
+import 'core/offline/sync_engine.dart';
 import 'core/offline/trusted_clock.dart';
 import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
@@ -247,4 +249,58 @@ final localDbProvider = Provider<LocalDb?>((ref) {
   );
   if (tenantId == null) return null;
   return LocalDb.forTenant(tenantId);
+});
+
+/// B7 — motor de sincronização (push → fotos → pull) do tenant/usuário ativos.
+/// `null` na web (online-only) ou sem sessão. Segue o ciclo de vida da sessão:
+/// o provider é reconstruído quando o tenant ativo muda (via [localDbProvider])
+/// e o engine anterior é parado no `onDispose`. Os repositórios LocalFirst (B8)
+/// chamam `nudge()` depois de cada escrita local.
+///
+/// Precisa de alguém que o OBSERVE para existir — `OrbixApp` faz o `watch` na
+/// raiz, de modo que o engine vive enquanto o app estiver de pé.
+final syncEngineProvider = Provider<SyncEngine?>((ref) {
+  if (kIsWeb) return null;
+  final db = ref.watch(localDbProvider);
+  if (db == null) return null;
+
+  final engine = SyncEngine(
+    api: DioSyncApi(ref.read(dioProvider)),
+    db: db,
+    conn: ref.read(connectivityControllerProvider.notifier),
+    clock: ref.read(trustedClockProvider),
+    uploadPhoto: ({
+      required String orderId,
+      required List<int> bytes,
+      required String filename,
+      required String contentType,
+      String? caption,
+    }) async {
+      await ref.read(osRepositoryProvider).addPhoto(
+            orderId,
+            bytes: bytes,
+            filename: filename,
+            contentType: contentType,
+            caption: caption,
+          );
+    },
+    currentUserId: () =>
+        ref.read(sessionControllerProvider).meOrNull?.user.id,
+  );
+
+  // Voltou a ficar online (ou terminou um sync) → tenta esvaziar a fila.
+  ref.listen<ConnStatus>(
+    connectivityControllerProvider.select((s) => s.status),
+    (prev, next) {
+      // SÓ na transição offline → online. `syncing → online` é o próprio engine
+      // terminando uma rodada (markSynced) — realimentar aqui seria loop infinito.
+      if (next == ConnStatus.online && prev == ConnStatus.offline) {
+        engine.nudge();
+      }
+    },
+  );
+
+  ref.onDispose(engine.stop);
+  engine.start();
+  return engine;
 });

@@ -62,6 +62,9 @@ class _OrbixAppState extends ConsumerState<OrbixApp> {
 
   @override
   Widget build(BuildContext context) {
+    // B7 — mantém o SyncEngine vivo enquanto o app estiver de pé (o provider
+    // nasce/morre com a sessão e o tenant ativo). No-op na web.
+    ref.watch(syncEngineProvider);
     final router = ref.watch(routerProvider);
     final seed = ref
         .watch(brandingSeedProvider)
