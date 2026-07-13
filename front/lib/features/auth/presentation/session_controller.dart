@@ -47,8 +47,13 @@ class SessionController extends Notifier<SessionState> {
   /// Janela de validade da credencial offline desde o último login online.
   static const offlineWindow = Duration(days: 7);
 
-  /// Erros consecutivos antes do primeiro bloqueio.
+  /// Erros consecutivos antes do primeiro bloqueio (backoff exponencial).
   static const maxOfflineAttempts = 5;
+
+  /// Teto ABSOLUTO de erros offline — não depende do relógio do device (que o
+  /// atacante pode adiantar para vencer o backoff). Atingido, o login offline é
+  /// negado até um login ONLINE bem-sucedido zerar o contador.
+  static const maxOfflineAttemptsAbsolute = 20;
 
   static const _expiredMessage =
       'Sua sessão offline expirou. É necessário conectar-se para entrar.';
@@ -176,12 +181,12 @@ class SessionController extends Notifier<SessionState> {
     required String password,
     bool remember = false,
   }) async {
+    final LoginResult res;
     try {
-      final res = await _auth.login(email: email, password: password);
-      await _applyTokens(res.accessToken, res.refreshToken, remember: remember);
-      await _loadMe();
-      ref.read(offlineNoticeProvider.notifier).clear();
-      await _rememberForOffline(email: email, password: password);
+      // SÓ a autenticação em si pode cair no fallback offline. Depois que o
+      // servidor emitiu tokens, uma falha de rede posterior (ex.: no `/me`) NÃO
+      // pode rebaixar a sessão para um snapshot velho — ela propaga como erro.
+      res = await _auth.login(email: email, password: password);
     } on AppException catch (e) {
       // Só falha de REDE cai no offline. 401/403 (senha errada, sem acesso)
       // continua sendo erro online — o modo offline não é um bypass.
@@ -191,6 +196,10 @@ class SessionController extends Notifier<SessionState> {
       }
       rethrow;
     }
+    await _applyTokens(res.accessToken, res.refreshToken, remember: remember);
+    await _loadMe();
+    ref.read(offlineNoticeProvider.notifier).clear();
+    await _rememberForOffline(email: email, password: password);
   }
 
   /// Grava/atualiza a credencial offline após um login ONLINE bem-sucedido:
@@ -205,18 +214,23 @@ class SessionController extends Notifier<SessionState> {
     final me = _realMe;
     if (store == null || me == null) return;
 
+    // Sem tenant ativo não há réplica local nem alvo para o wipe do S5 — gravar
+    // a credencial com `tenantId` vazio criaria um registro que a revogação
+    // nunca alcança. Ela é gravada no próximo `/me` COM tenant (switch-tenant).
+    final tenantId = me.activeTenant?.id;
+    if (tenantId == null || tenantId.isEmpty) return;
+
     await _offlineSafe(() async {
       // Hora do servidor; sem nenhuma resposta observada (fake/edge), cai no
       // relógio do device — que o TrustedClock (S3) ainda vigia.
       final serverNow = _serverTime.lastServerTime ?? _clock.now;
       await _clock.observe(serverNow);
 
-      final existing = await store.find(email);
       await store.save(
         OfflineCredential(
           email: email,
           userId: me.user.id,
-          tenantId: me.activeTenant?.id ?? existing?.tenantId ?? '',
+          tenantId: tenantId,
           passwordHash: _hasher.hash(password),
           meSnapshot: jsonEncode(me.toJson()),
           lastOnlineLoginAt: serverNow,
@@ -263,6 +277,19 @@ class SessionController extends Notifier<SessionState> {
         statusCode: null,
         error: 'OfflineExpired',
         message: _expiredMessage,
+      );
+    }
+
+    // Cap ABSOLUTO (independente de relógio): o lock exponencial usa `now` do
+    // device, que pode ser adiantado à vontade para "vencer" cada bloqueio e
+    // seguir com o brute-force (o TrustedClock/S3 só pega relógio ATRASADO).
+    // Estourado o teto de tentativas, só um login ONLINE bem-sucedido (que
+    // regrava a credencial com o contador zerado) reabre o modo offline.
+    if (cred.failedAttempts >= maxOfflineAttemptsAbsolute) {
+      throw const AppException(
+        statusCode: null,
+        error: 'OfflineLockedOut',
+        message: 'Muitas tentativas. Conecte-se à internet para entrar.',
       );
     }
 
@@ -467,6 +494,10 @@ class SessionController extends Notifier<SessionState> {
   Future<void> _clear() async {
     _access.clear();
     _refresh.clear();
+    // B6 — o aviso âmbar vale para UMA tentativa/sessão: sem limpar aqui, a tela
+    // de login seguiria exibindo "Sem conexão — entrando no modo offline" depois
+    // do logout/expire, mesmo com a rede de volta.
+    ref.read(offlineNoticeProvider.notifier).clear();
     await _secure.clear();
     // B7 — logout/expire: fecha as réplicas locais abertas (os arquivos ficam,
     // a sessão offline do B6 depende deles; só as conexões são liberadas).

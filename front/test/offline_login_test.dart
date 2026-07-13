@@ -275,6 +275,66 @@ void main() {
     expect((await store.find(email))!.failedAttempts, 0);
   });
 
+  test(
+      'cap absoluto: adiantar o relógio NÃO vence o bloqueio depois de 20 erros',
+      () async {
+    await onlineLogin();
+
+    auth.networkDown = true;
+    final c2 = makeContainer();
+    final controller = c2.read(sessionControllerProvider.notifier);
+    await pumpEventQueue();
+
+    // O atacante com o device na mão: a cada bloqueio, adianta o relógio para
+    // "vencer" o backoff (o TrustedClock/S3 só denuncia relógio ATRASADO) e
+    // continua o brute-force. Depois de 20 erros o cap absoluto fecha a porta.
+    for (var i = 0; i < 20; i++) {
+      await expectLater(
+        controller.login(email: email, password: 'errada$i'),
+        throwsA(isA<AppException>()),
+      );
+      final lock = (await store.find(email))!.lockedUntil;
+      if (lock != null) deviceNow = lock.add(const Duration(seconds: 1));
+    }
+    expect((await store.find(email))!.failedAttempts, 20);
+
+    // Mesmo com o relógio adiantado (nenhum lock vigente) e a senha CERTA:
+    // negado até um login ONLINE.
+    deviceNow = deviceNow.add(const Duration(hours: 5));
+    await expectLater(
+      controller.login(email: email, password: password),
+      throwsA(isA<AppException>().having(
+        (e) => e.message,
+        'msg',
+        contains('Conecte-se à internet para entrar.'),
+      )),
+    );
+    expect(c2.read(sessionControllerProvider), isNot(isA<SessionOffline>()));
+
+    // Um login ONLINE bem-sucedido regrava a credencial e zera o contador.
+    auth.networkDown = false;
+    deviceNow = loginAt;
+    await controller.login(email: email, password: password);
+    expect((await store.find(email))!.failedAttempts, 0);
+  });
+
+  test('aviso offline é limpo no logout (não sobra na tela de login)', () async {
+    await onlineLogin();
+
+    auth.networkDown = true;
+    final c2 = makeContainer();
+    final controller = c2.read(sessionControllerProvider.notifier);
+    await pumpEventQueue();
+    await controller.login(email: email, password: password);
+    expect(c2.read(sessionControllerProvider), isA<SessionOffline>());
+    expect(c2.read(offlineNoticeProvider), isNotNull);
+
+    await controller.logout();
+
+    expect(c2.read(offlineNoticeProvider), isNull,
+        reason: 'o banner âmbar não pode persistir depois do logout');
+  });
+
   test('credencial com mais de 7 dias → expirada (precisa conectar)', () async {
     await onlineLogin();
 
