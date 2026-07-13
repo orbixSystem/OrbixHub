@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../error/app_exception.dart';
 import 'connectivity_controller.dart';
 import 'db/local_db.dart';
 import 'sync_api.dart';
@@ -85,6 +86,7 @@ class SyncEngine {
   Timer? _timer;
   Future<void>? _running;
   bool _dirty = false;
+  bool _closed = false;
 
   /// Liga o motor: dispara uma rodada agora e depois a cada [interval]. Idempotente.
   void start() {
@@ -93,11 +95,15 @@ class SyncEngine {
     unawaited(nudge());
   }
 
-  /// Desliga o motor (logout / troca de tenant / dispose do provider). Não
-  /// cancela a rodada em voo — ela termina sozinha sem efeitos destrutivos.
-  void stop() {
+  /// Desliga o motor (logout / troca de tenant / dispose do provider): cancela o
+  /// timer, impede novas rodadas e **aguarda a rodada em voo terminar**. Quem for
+  /// fechar o `LocalDb` (logout/troca de tenant) DEVE aguardar este Future —
+  /// fechar o banco no meio de uma rodada seria use-after-close.
+  Future<void> stop() async {
+    _closed = true;
     _timer?.cancel();
     _timer = null;
+    await _running;
   }
 
   /// Pede uma sincronização. Chamado pelos repositórios LocalFirst (B8) depois
@@ -106,6 +112,7 @@ class SyncEngine {
   /// Single-flight: se já há uma rodada em voo, devolve o Future DELA (marcando
   /// "sujo" para uma reexecução do outbox ao final) — nunca inicia uma segunda.
   Future<void> nudge() {
+    if (_closed) return Future.value();
     final inFlight = _running;
     if (inFlight != null) {
       _dirty = true;
@@ -120,14 +127,22 @@ class SyncEngine {
     try {
       await _runOnce();
       // Reexecuta só se algo entrou na fila durante a rodada (o pull já rodou).
-      while (_dirty) {
+      while (_dirty && !_closed) {
         _dirty = false;
-        if (!await _hasOutboxWork()) break;
+        final hasWork = await _hasOutboxWork();
+        // Um nudge que chegou DURANTE a consulta acima não pode ser perdido:
+        // a resposta é stale. Volta a marcar sujo e reavalia no próximo giro.
+        if (!hasWork) {
+          if (_dirty) continue;
+          break;
+        }
         await _runOnce();
       }
     } finally {
       _running = null;
-      _dirty = false;
+      // NÃO zera `_dirty` aqui: um nudge que chegou depois da última avaliação
+      // (mas antes de soltarmos o single-flight) seria perdido — a escrita local
+      // esperaria até 60s pelo timer.
     }
   }
 
@@ -142,7 +157,7 @@ class SyncEngine {
   /// UMA rodada completa. Falha de rede em qualquer ponto: para, deixa a fila
   /// intacta e volta o indicador para `offline`.
   Future<void> _runOnce() async {
-    if (kIsWeb) return;
+    if (kIsWeb || _closed) return;
     final userId = currentUserId();
     if (userId == null) return; // sem sessão: nada a sincronizar.
 
@@ -161,8 +176,14 @@ class SyncEngine {
   }
 
   Future<void> _publishPendingCounts(String userId) async {
-    final counts = await db.pendingCounts(userId);
-    conn.setPending(counts.mine, counts.others);
+    // Best-effort: se o banco foi fechado por baixo (logout/troca de tenant no
+    // meio da rodada), publicar contadores não pode virar erro não tratado.
+    try {
+      final counts = await db.pendingCounts(userId);
+      conn.setPending(counts.mine, counts.others);
+    } catch (_) {
+      // ignora — o indicador é atualizado na próxima rodada.
+    }
   }
 
   // ----------------------------- push ----------------------------------
@@ -174,21 +195,52 @@ class SyncEngine {
         i,
         math.min(i + SyncApiLimits.pushBatchSize, pending.length),
       );
-      final res = await api.push(
-        authorUserId: userId,
-        mutations: [for (final row in batch) _toMutation(row)],
-      );
+      final SyncPushResult res;
+      try {
+        res = await api.push(
+          authorUserId: userId,
+          mutations: [for (final row in batch) _toMutation(row)],
+        );
+      } catch (e) {
+        final http = _httpFailure(e);
+        if (http == null) rethrow; // rede fora: aborta a rodada, fila intacta.
+        // Erro HTTP do LOTE INTEIRO (400 de uma mutação malformada, 403 de
+        // autoria): retentar produziria o MESMO erro para sempre e travaria o
+        // pull. Marca o lote como `failed` (com a mensagem do servidor) e segue
+        // — a reconciliação correta vem do pull, que é a fonte de verdade.
+        for (final row in batch) {
+          await db.markOutbox(row.clientMutationId, 'failed', http);
+        }
+        continue;
+      }
       await _observe(res.serverTime);
       for (final r in res.results) {
+        final status = r.status.outboxStatus;
+        // Status desconhecido (servidor novo/resposta truncada) fica `pending`:
+        // nunca transforme "não sei" num estado terminal.
+        if (status == null) continue;
         // `error` → `failed` (com a mensagem PT-BR) e NUNCA volta a `pending`:
         // a linha correta chega pelo pull; retentar cegamente repetiria a falha.
-        await db.markOutbox(
-          r.clientMutationId,
-          r.status.outboxStatus,
-          r.message,
-        );
+        await db.markOutbox(r.clientMutationId, status, r.message);
       }
     }
+  }
+
+  /// Mensagem do erro se ele for uma FALHA HTTP (o servidor respondeu); `null`
+  /// se for falha de rede (ou qualquer outra coisa) — que aborta a rodada.
+  ///
+  /// Cobre os dois formatos que chegam aqui: `DioException` cru (do [SyncApi],
+  /// deliberadamente fino) e `AppException` (os repositórios de feature — como o
+  /// `OsRepositoryImpl` do upload de fotos — mapeiam todo erro dio para ela).
+  String? _httpFailure(Object e) {
+    if (e is AppException) {
+      return e.isNetwork ? null : e.message;
+    }
+    if (e is DioException) {
+      if (e.response == null) return null;
+      return AppException.fromDio(e).message;
+    }
+    return null;
   }
 
   SyncPushMutation _toMutation(OutboxData row) => SyncPushMutation(
@@ -207,9 +259,18 @@ class SyncEngine {
   Future<void> _uploadPendingPhotos() async {
     final uploads = await db.listPendingUploads();
     if (uploads.isEmpty) return;
-    final unsynced = await _unsyncedOrderIds();
+    final unsynced = await _orderIdsByCreateStatus(pendingOnly: true);
+
+    final doomed = await _orderIdsByCreateStatus(pendingOnly: false);
 
     for (final up in uploads) {
+      // OS cujo create MORREU no servidor (failed/discarded): a OS nunca vai
+      // existir — o blob ficaria preso na fila para sempre. Descarta.
+      if (doomed.contains(up.orderId)) {
+        await db.deletePendingUpload(up.id);
+        continue;
+      }
+      // OS ainda não empurrada: a foto espera a próxima rodada.
       if (unsynced.contains(up.orderId)) continue;
       try {
         await uploadPhoto(
@@ -220,24 +281,31 @@ class SyncEngine {
           caption: up.caption,
         );
         await db.deletePendingUpload(up.id);
-      } on DioException catch (e) {
-        if (e.response == null) rethrow; // rede fora: aborta a rodada.
-        // Erro HTTP (ex.: OS apagada no servidor): descarta o blob — insistir
-        // manteria o BLOB preso na fila para sempre.
+      } catch (e) {
+        // O uploader é o `OsRepository.addPhoto` REAL, que mapeia todo erro dio
+        // para `AppException` — por isso a checagem é por `_httpFailure`, não
+        // por `DioException`.
+        if (_httpFailure(e) == null) rethrow; // rede fora: aborta a rodada.
+        // Erro HTTP terminal (404 OS apagada, 413 grande demais, 415 formato):
+        // descarta o blob — insistir prenderia a fila (e o pull) para sempre.
         await db.deletePendingUpload(up.id);
       }
     }
   }
 
-  /// Ids de OS cujo `create` local ainda NÃO foi aplicado pelo servidor
-  /// (`pending`/`discarded`/`failed`) — não podem receber foto ainda.
-  Future<Set<String>> _unsyncedOrderIds() async {
+  /// Ids de OS cujo `create` local ainda NÃO foi aplicado pelo servidor —
+  /// [pendingOnly] `true`: só as que ainda estão na fila (`pending`, podem
+  /// chegar lá); `false`: as terminais (`failed`/`discarded`, nunca chegarão).
+  Future<Set<String>> _orderIdsByCreateStatus({required bool pendingOnly}) async {
     final rows = await (db.select(db.outbox)
-          ..where((t) =>
-              t.entity.equals('service_order') &
-              t.op.equals('create') &
-              t.status.equals('applied').not())
-          ..orderBy([(t) => OrderingTerm.asc(t.seq)]))
+          ..where((t) {
+            final create =
+                t.entity.equals('service_order') & t.op.equals('create');
+            return pendingOnly
+                ? create & t.status.equals('pending')
+                : create &
+                    (t.status.equals('failed') | t.status.equals('discarded'));
+          }))
         .get();
     final ids = <String>{};
     for (final r in rows) {
@@ -267,8 +335,8 @@ class SyncEngine {
       final SyncChangesPage res;
       try {
         res = await api.changes(entity: entity, cursor: cursor);
-      } on DioException catch (e) {
-        if (e.response == null) rethrow; // rede fora: aborta a rodada.
+      } catch (e) {
+        if (_httpFailure(e) == null) rethrow; // rede fora: aborta a rodada.
         // 403 (cargo sem permissão de leitura desta entidade) / 400: essa
         // entidade simplesmente não é replicada para este usuário.
         return;

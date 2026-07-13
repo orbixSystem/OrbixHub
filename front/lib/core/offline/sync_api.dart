@@ -72,23 +72,30 @@ class SyncPushMutation {
 /// Desfecho de UMA mutação no servidor.
 /// - `applied`: aplicada;
 /// - `discarded`: perdeu o last-write-wins (a linha do servidor era mais nova);
-/// - `error`: validação/permissão/conflito — mensagem em PT-BR, NÃO se retenta.
+/// - `error`: validação/permissão/conflito — mensagem em PT-BR, NÃO se retenta;
+/// - `unknown`: status que este cliente não conhece (servidor mais novo,
+///   resposta truncada). NUNCA vira estado terminal — a mutação fica `pending`
+///   (marcar `failed` poderia exibir como falha algo que o servidor aplicou).
 enum SyncPushStatus {
   applied,
   discarded,
-  error;
+  error,
+  unknown;
 
   static SyncPushStatus fromWire(String? s) => switch (s) {
         'applied' => SyncPushStatus.applied,
         'discarded' => SyncPushStatus.discarded,
-        _ => SyncPushStatus.error,
+        'error' => SyncPushStatus.error,
+        _ => SyncPushStatus.unknown,
       };
 
-  /// Status correspondente na coluna `status` do outbox local.
-  String get outboxStatus => switch (this) {
+  /// Status correspondente na coluna `status` do outbox local — `null` quando
+  /// não há transição a fazer (`unknown`: continua `pending`).
+  String? get outboxStatus => switch (this) {
         SyncPushStatus.applied => 'applied',
         SyncPushStatus.discarded => 'discarded',
         SyncPushStatus.error => 'failed',
+        SyncPushStatus.unknown => null,
       };
 }
 

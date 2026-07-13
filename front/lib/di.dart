@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -300,7 +302,7 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
     },
   );
 
-  ref.onDispose(engine.stop);
+  ref.onDispose(() => unawaited(engine.stop()));
   engine.start();
   return engine;
 });

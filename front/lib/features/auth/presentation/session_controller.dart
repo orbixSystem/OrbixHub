@@ -504,10 +504,18 @@ class SessionController extends Notifier<SessionState> {
     await _closeLocalDbs();
   }
 
-  /// Fecha as instâncias de [LocalDb] cacheadas por tenant. No-op na web.
+  /// Para o SyncEngine (aguardando a rodada em voo) e fecha as instâncias de
+  /// [LocalDb] cacheadas por tenant. No-op na web.
+  ///
+  /// A ordem importa: fechar o banco com uma rodada de sync em voo seria
+  /// use-after-close (erro não tratado). `ref.exists` evita CRIAR o engine só
+  /// para pará-lo (o que dispararia um sync durante o logout).
   Future<void> _closeLocalDbs() async {
     if (kIsWeb) return;
     try {
+      if (ref.exists(syncEngineProvider)) {
+        await ref.read(syncEngineProvider)?.stop();
+      }
       await LocalDb.closeAll();
     } catch (_) {
       // Fechar o banco nunca pode impedir o logout/troca de oficina.

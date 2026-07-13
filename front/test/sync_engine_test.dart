@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/error/app_exception.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/core/offline/db/local_db.dart';
 import 'package:orbixhub_front/core/offline/sync_api.dart';
@@ -42,8 +43,12 @@ class _FakeSyncApi implements SyncApi {
   /// Resposta do push (por chamada). Se vazio, todas as mutações voltam `applied`.
   List<SyncPushOutcome> Function(_PushCall call)? pushResponder;
 
-  /// Se != null, o push da N-ésima chamada (0-based) lança este erro.
+  /// Se != null, o push da N-ésima chamada (0-based) lança erro de REDE.
   int? failPushAtCall;
+
+  /// Se != null, o push da N-ésima chamada (0-based) lança um erro HTTP do LOTE
+  /// (ex.: 400 de uma mutação malformada, 403 de autoria).
+  int? httpErrorPushAtCall;
 
   DateTime serverTime = DateTime.utc(2026, 7, 10, 12);
 
@@ -59,6 +64,19 @@ class _FakeSyncApi implements SyncApi {
       throw DioException(
         requestOptions: RequestOptions(path: '/sync/push'),
         type: DioExceptionType.connectionError,
+      );
+    }
+    if (httpErrorPushAtCall == pushes.length) {
+      pushes.add(call);
+      callOrder.add('push');
+      throw DioException(
+        requestOptions: RequestOptions(path: '/sync/push'),
+        type: DioExceptionType.badResponse,
+        response: Response<dynamic>(
+          requestOptions: RequestOptions(path: '/sync/push'),
+          statusCode: 400,
+          data: {'statusCode': 400, 'error': 'Bad Request', 'message': 'Payload inválido.'},
+        ),
       );
     }
     pushes.add(call);
@@ -92,10 +110,13 @@ class _FakeSyncApi implements SyncApi {
   }
 }
 
-/// Uploads de foto pedidos ao engine (substitui `OsRepository.addPhoto`).
+/// Uploads de foto pedidos ao engine (substitui `OsRepository.addPhoto`, que na
+/// vida real lança **`AppException`** — nunca `DioException`).
 class _PhotoSpy {
   final List<String> uploadedOrderIds = [];
-  bool fail = false;
+
+  /// Erro lançado no upload (como o `OsRepositoryImpl` faz: `AppException`).
+  Object? error;
 
   Future<void> call({
     required String orderId,
@@ -104,8 +125,9 @@ class _PhotoSpy {
     required String contentType,
     String? caption,
   }) async {
-    if (fail) throw Exception('upload falhou');
     uploadedOrderIds.add(orderId);
+    final e = error;
+    if (e != null) throw e;
   }
 }
 
@@ -333,6 +355,50 @@ void main() {
     expect(api.changesCalls, isEmpty, reason: 'pull não roda após falha');
   });
 
+  group('erro HTTP do lote no push (não é falha de rede)', () {
+    test('400 do lote: mutações viram failed e o PULL continua rodando',
+        () async {
+      await db.enqueue(_mut('m1'));
+      await db.enqueue(_mut('m2'));
+      api.httpErrorPushAtCall = 0;
+
+      await engine().nudge();
+
+      final m1 = await _outboxRow(db, 'm1');
+      expect(m1.status, 'failed');
+      expect(m1.message, 'Payload inválido.');
+      expect((await _outboxRow(db, 'm2')).status, 'failed');
+      expect(api.changesCalls, hasLength(SyncEngine.entities.length),
+          reason: 'o pull (recuperação) roda mesmo com o lote rejeitado');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.online);
+    });
+
+    test('o lote rejeitado não é reenviado na rodada seguinte', () async {
+      await db.enqueue(_mut('m1'));
+      api.httpErrorPushAtCall = 0;
+
+      final e = engine();
+      await e.nudge();
+      await e.nudge();
+
+      expect(api.pushes, hasLength(1));
+    });
+  });
+
+  test('status desconhecido do servidor mantém a mutação pending', () async {
+    await db.enqueue(_mut('m1'));
+    api.pushResponder = (call) => [
+          const SyncPushOutcome(
+              clientMutationId: 'm1', status: SyncPushStatus.unknown),
+        ];
+
+    await engine().nudge();
+
+    expect((await _outboxRow(db, 'm1')).status, 'pending',
+        reason: 'nunca transformar "não sei" num estado terminal');
+  });
+
   group('fotos pendentes', () {
     Future<void> queuePhoto(String orderId) => db.addPendingUpload(
           id: 'up-$orderId',
@@ -343,15 +409,11 @@ void main() {
         );
 
     test('só sobe depois que o create da OS foi aplicado', () async {
-      await db.enqueue(_mut('mo', entity: 'service_order', payload: {'id': 'o1'}));
+      // Create da OS ainda `pending` (é de outro autor — S1 não o empurra nesta
+      // sessão): o servidor não conhece a OS, então a foto espera.
+      await db.enqueue(_mut('mo',
+          author: 'u2', entity: 'service_order', payload: {'id': 'o1'}));
       await queuePhoto('o1');
-      api.pushResponder = (call) => [
-            const SyncPushOutcome(
-              clientMutationId: 'mo',
-              status: SyncPushStatus.error,
-              message: 'Falhou',
-            ),
-          ];
 
       await engine().nudge();
 
@@ -369,5 +431,67 @@ void main() {
       expect(photos.uploadedOrderIds, ['o1']);
       expect(await db.listPendingUploads(), isEmpty);
     });
+
+    test(
+        'erro HTTP no upload (AppException 404): descarta o blob e o pull CONTINUA',
+        () async {
+      await queuePhoto('o1'); // OS já existente no servidor (sem outbox)
+      photos.error = const AppException(
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'OS não encontrada.',
+      );
+
+      await engine().nudge();
+
+      expect(await db.listPendingUploads(), isEmpty,
+          reason: 'blob terminal descartado — não pode travar a fila');
+      expect(api.changesCalls, hasLength(SyncEngine.entities.length),
+          reason: 'o pull roda; o device não fica preso na mesma foto');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.online);
+    });
+
+    test('falha de REDE no upload (AppException sem status): fila intacta, offline',
+        () async {
+      await queuePhoto('o1');
+      photos.error = const AppException(
+        statusCode: null,
+        error: 'Network',
+        message: 'Sem conexão com o servidor.',
+      );
+
+      await engine().nudge();
+
+      expect(await db.listPendingUploads(), hasLength(1));
+      expect(api.changesCalls, isEmpty, reason: 'rodada abortada');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+    });
+
+    test('blob de OS cujo create falhou de vez é descartado', () async {
+      await db.enqueue(_mut('mo', entity: 'service_order', payload: {'id': 'o1'}));
+      await db.markOutbox('mo', 'failed', 'Documento inválido.');
+      await queuePhoto('o1');
+
+      await engine().nudge();
+
+      expect(photos.uploadedOrderIds, isEmpty);
+      expect(await db.listPendingUploads(), isEmpty,
+          reason: 'a OS nunca existirá no servidor — o blob não fica preso');
+    });
+  });
+
+  test('stop() aguarda a rodada em voo (sem use-after-close do LocalDb)',
+      () async {
+    await db.enqueue(_mut('m1'));
+    final e = engine();
+
+    final run = e.nudge();
+    await e.stop(); // aguarda a rodada em voo terminar
+    await run;
+    await e.nudge(); // engine fechado: não inicia nada
+
+    expect(api.pushes, hasLength(1));
   });
 }
