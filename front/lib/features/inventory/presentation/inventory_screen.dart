@@ -66,7 +66,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('inventory.write');
+    return s.meOrNull?.hasPermission('inventory.write') ?? false;
   }
 
   Future<void> _create() async {

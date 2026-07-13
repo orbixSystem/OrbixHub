@@ -36,10 +36,10 @@ class ReportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Center(child: MetricLoading());
     }
-    final me = session.me;
     final reports = availableReports(me);
 
     if (reports.isEmpty) {

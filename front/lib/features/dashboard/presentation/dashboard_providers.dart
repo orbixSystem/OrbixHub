@@ -18,7 +18,7 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 /// autenticado.
 final _currentUserIdProvider = Provider<String?>((ref) {
   final session = ref.watch(sessionControllerProvider);
-  return session is SessionAuthenticated ? session.me.user.id : null;
+  return session.meOrNull?.user.id;
 });
 
 /// OS — visão gerencial (todas as OS). Reage ao período. autoDispose: re-busca

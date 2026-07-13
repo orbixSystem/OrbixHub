@@ -51,7 +51,7 @@ class _OsListScreenState extends ConsumerState<OsListScreen> {
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('os.write');
+    return s.meOrNull?.hasPermission('os.write') ?? false;
   }
 
   Future<void> _create() async {

@@ -7,9 +7,12 @@ import 'package:flutter/material.dart';
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
 import 'core/network/refresh_token_store.dart';
+import 'core/network/server_time.dart';
 import 'core/offline/connectivity_controller.dart';
 import 'core/offline/db/local_db.dart';
 import 'core/offline/device_identity.dart';
+import 'core/offline/offline_credentials.dart';
+import 'core/offline/password_hasher.dart';
 import 'core/offline/trusted_clock.dart';
 import 'core/platform/app_reloader.dart';
 import 'core/network/auth_interceptor.dart';
@@ -87,9 +90,16 @@ final tokenRefreshServiceProvider = Provider<TokenRefreshService>((ref) {
   );
 });
 
+/// Hora do SERVIDOR (header `Date` das respostas) — base de `lastOnlineLoginAt`
+/// no login offline (B6). O relógio do device não é confiável para isso.
+final serverTimeStoreProvider = Provider<ServerTimeStore>(
+  (ref) => ServerTimeStore(),
+);
+
 /// The app dio: attaches the bearer and does single-flight refresh-and-retry.
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(_baseOptions());
+  dio.interceptors.add(ServerTimeInterceptor(ref.read(serverTimeStoreProvider)));
   dio.interceptors.add(
     AuthInterceptor(
       dio: dio,
@@ -172,6 +182,26 @@ final appReloaderProvider = Provider<AppReloader>((ref) => AppReloader());
 final sessionControllerProvider =
     NotifierProvider<SessionController, SessionState>(SessionController.new);
 
+/// Aviso offline mostrado na tela de login (B6) — ex.: cold-start sem rede com
+/// credencial offline disponível. `null` = sem aviso.
+final offlineNoticeProvider =
+    NotifierProvider<OfflineNotice, String?>(OfflineNotice.new);
+
+/// S4 — hasher argon2id (64 MB / 3 iterações) do login offline.
+final passwordHasherProvider =
+    Provider<PasswordHasher>((ref) => const PasswordHasher());
+
+/// B6 — credenciais offline DO DISPOSITIVO (`orbix_device.db`, cifrado): todos
+/// os usuários que já logaram online aqui. `null` na web (online-only) — o que
+/// desliga por completo o caminho de login offline.
+final offlineCredentialsStoreProvider =
+    Provider<OfflineCredentialsStore?>((ref) {
+  if (kIsWeb) return null;
+  final store = DriftOfflineCredentialsStore(DeviceDb.open());
+  ref.onDispose(store.close);
+  return store;
+});
+
 final themeControllerProvider =
     NotifierProvider<ThemeController, ThemeMode>(ThemeController.new);
 
@@ -192,7 +222,10 @@ final deviceIdProvider =
 /// `clockRolledBack` — antes disso um rollback real pode passar despercebido.
 final trustedClockProvider = Provider<TrustedClock>((ref) {
   final clock = TrustedClock();
-  clock.load(); // fire-and-forget: `ready` expõe este mesmo Future memoizado
+  // fire-and-forget: `ready` expõe este mesmo Future memoizado. O `catchError`
+  // evita que uma falha de storage vire erro assíncrono não tratado — quem
+  // depende do valor (`await ready` no login offline) trata a falha lá.
+  clock.load().catchError((Object _) {});
   return clock;
 });
 
@@ -202,16 +235,15 @@ final connectivityControllerProvider =
 );
 
 /// Offline (B5): `LocalDb` do tenant ATIVO — arquivo cifrado por tenant, aberto
-/// e cacheado sob demanda. `null` na web (online-only) ou quando não há sessão
-/// autenticada. Observa o tenant ativo em `/me`: ao trocar de oficina, o
-/// provider reabre o banco do novo tenant. Os repositórios LocalFirst (B8) leem
-/// o `LocalDb` daqui — nunca abrem banco por conta própria.
+/// e cacheado sob demanda. `null` na web (online-only) ou quando não há sessão.
+/// Vale para sessão ONLINE e OFFLINE (B6) — offline é justamente quando mais se
+/// lê daqui. Observa o tenant ativo em `/me`: ao trocar de oficina, o provider
+/// reabre o banco do novo tenant. Os repositórios LocalFirst (B8) leem o
+/// `LocalDb` daqui — nunca abrem banco por conta própria.
 final localDbProvider = Provider<LocalDb?>((ref) {
   if (kIsWeb) return null;
   final tenantId = ref.watch(
-    sessionControllerProvider.select(
-      (s) => s is SessionAuthenticated ? s.me.activeTenant?.id : null,
-    ),
+    sessionControllerProvider.select((s) => s.meOrNull?.activeTenant?.id),
   );
   if (tenantId == null) return null;
   return LocalDb.forTenant(tenantId);

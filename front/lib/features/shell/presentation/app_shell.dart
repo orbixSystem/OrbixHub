@@ -36,10 +36,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final me = session.me;
     final items = gatedNavItems(me);
     final location = GoRouterState.of(context).matchedLocation;
     final selected = selectedNavIndex(items, location);
@@ -463,8 +463,9 @@ class _QuickCreateFab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) return const SizedBox.shrink();
-    final actions = _quickActions(session.me);
+    final me = session.meOrNull;
+    if (me == null) return const SizedBox.shrink();
+    final actions = _quickActions(me);
     if (actions.isEmpty) return const SizedBox.shrink();
     final neu = context.neu;
     return Tooltip(

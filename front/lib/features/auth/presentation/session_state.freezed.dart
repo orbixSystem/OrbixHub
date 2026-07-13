@@ -55,12 +55,13 @@ extension SessionStatePatterns on SessionState {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( SessionLoading value)?  loading,TResult Function( SessionAuthenticated value)?  authenticated,TResult Function( SessionUnauthenticated value)?  unauthenticated,TResult Function( SessionError value)?  error,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( SessionLoading value)?  loading,TResult Function( SessionAuthenticated value)?  authenticated,TResult Function( SessionOffline value)?  offline,TResult Function( SessionUnauthenticated value)?  unauthenticated,TResult Function( SessionError value)?  error,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading(_that);case SessionAuthenticated() when authenticated != null:
-return authenticated(_that);case SessionUnauthenticated() when unauthenticated != null:
+return authenticated(_that);case SessionOffline() when offline != null:
+return offline(_that);case SessionUnauthenticated() when unauthenticated != null:
 return unauthenticated(_that);case SessionError() when error != null:
 return error(_that);case _:
   return orElse();
@@ -80,12 +81,13 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( SessionLoading value)  loading,required TResult Function( SessionAuthenticated value)  authenticated,required TResult Function( SessionUnauthenticated value)  unauthenticated,required TResult Function( SessionError value)  error,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( SessionLoading value)  loading,required TResult Function( SessionAuthenticated value)  authenticated,required TResult Function( SessionOffline value)  offline,required TResult Function( SessionUnauthenticated value)  unauthenticated,required TResult Function( SessionError value)  error,}){
 final _that = this;
 switch (_that) {
 case SessionLoading():
 return loading(_that);case SessionAuthenticated():
-return authenticated(_that);case SessionUnauthenticated():
+return authenticated(_that);case SessionOffline():
+return offline(_that);case SessionUnauthenticated():
 return unauthenticated(_that);case SessionError():
 return error(_that);}
 }
@@ -101,12 +103,13 @@ return error(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( SessionLoading value)?  loading,TResult? Function( SessionAuthenticated value)?  authenticated,TResult? Function( SessionUnauthenticated value)?  unauthenticated,TResult? Function( SessionError value)?  error,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( SessionLoading value)?  loading,TResult? Function( SessionAuthenticated value)?  authenticated,TResult? Function( SessionOffline value)?  offline,TResult? Function( SessionUnauthenticated value)?  unauthenticated,TResult? Function( SessionError value)?  error,}){
 final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading(_that);case SessionAuthenticated() when authenticated != null:
-return authenticated(_that);case SessionUnauthenticated() when unauthenticated != null:
+return authenticated(_that);case SessionOffline() when offline != null:
+return offline(_that);case SessionUnauthenticated() when unauthenticated != null:
 return unauthenticated(_that);case SessionError() when error != null:
 return error(_that);case _:
   return null;
@@ -125,11 +128,12 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loading,TResult Function( Me me)?  authenticated,TResult Function()?  unauthenticated,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loading,TResult Function( Me me)?  authenticated,TResult Function( Me me)?  offline,TResult Function()?  unauthenticated,TResult Function( String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading();case SessionAuthenticated() when authenticated != null:
-return authenticated(_that.me);case SessionUnauthenticated() when unauthenticated != null:
+return authenticated(_that.me);case SessionOffline() when offline != null:
+return offline(_that.me);case SessionUnauthenticated() when unauthenticated != null:
 return unauthenticated();case SessionError() when error != null:
 return error(_that.message);case _:
   return orElse();
@@ -149,11 +153,12 @@ return error(_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loading,required TResult Function( Me me)  authenticated,required TResult Function()  unauthenticated,required TResult Function( String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loading,required TResult Function( Me me)  authenticated,required TResult Function( Me me)  offline,required TResult Function()  unauthenticated,required TResult Function( String message)  error,}) {final _that = this;
 switch (_that) {
 case SessionLoading():
 return loading();case SessionAuthenticated():
-return authenticated(_that.me);case SessionUnauthenticated():
+return authenticated(_that.me);case SessionOffline():
+return offline(_that.me);case SessionUnauthenticated():
 return unauthenticated();case SessionError():
 return error(_that.message);}
 }
@@ -169,11 +174,12 @@ return error(_that.message);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loading,TResult? Function( Me me)?  authenticated,TResult? Function()?  unauthenticated,TResult? Function( String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loading,TResult? Function( Me me)?  authenticated,TResult? Function( Me me)?  offline,TResult? Function()?  unauthenticated,TResult? Function( String message)?  error,}) {final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading();case SessionAuthenticated() when authenticated != null:
-return authenticated(_that.me);case SessionUnauthenticated() when unauthenticated != null:
+return authenticated(_that.me);case SessionOffline() when offline != null:
+return offline(_that.me);case SessionUnauthenticated() when unauthenticated != null:
 return unauthenticated();case SessionError() when error != null:
 return error(_that.message);case _:
   return null;
@@ -273,6 +279,81 @@ class _$SessionAuthenticatedCopyWithImpl<$Res>
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') $Res call({Object? me = null,}) {
   return _then(SessionAuthenticated(
+null == me ? _self.me : me // ignore: cast_nullable_to_non_nullable
+as Me,
+  ));
+}
+
+/// Create a copy of SessionState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$MeCopyWith<$Res> get me {
+  
+  return $MeCopyWith<$Res>(_self.me, (value) {
+    return _then(_self.copyWith(me: value));
+  });
+}
+}
+
+/// @nodoc
+
+
+class SessionOffline implements SessionState {
+  const SessionOffline(this.me);
+  
+
+ final  Me me;
+
+/// Create a copy of SessionState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$SessionOfflineCopyWith<SessionOffline> get copyWith => _$SessionOfflineCopyWithImpl<SessionOffline>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionOffline&&(identical(other.me, me) || other.me == me));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,me);
+
+@override
+String toString() {
+  return 'SessionState.offline(me: $me)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $SessionOfflineCopyWith<$Res> implements $SessionStateCopyWith<$Res> {
+  factory $SessionOfflineCopyWith(SessionOffline value, $Res Function(SessionOffline) _then) = _$SessionOfflineCopyWithImpl;
+@useResult
+$Res call({
+ Me me
+});
+
+
+$MeCopyWith<$Res> get me;
+
+}
+/// @nodoc
+class _$SessionOfflineCopyWithImpl<$Res>
+    implements $SessionOfflineCopyWith<$Res> {
+  _$SessionOfflineCopyWithImpl(this._self, this._then);
+
+  final SessionOffline _self;
+  final $Res Function(SessionOffline) _then;
+
+/// Create a copy of SessionState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? me = null,}) {
+  return _then(SessionOffline(
 null == me ? _self.me : me // ignore: cast_nullable_to_non_nullable
 as Me,
   ));

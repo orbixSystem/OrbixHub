@@ -66,10 +66,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final ref = this.ref;
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final me = session.me;
     final firstName = me.user.fullName.split(' ').first;
     final subAsync = ref.watch(subscriptionProvider);
     final sub = subAsync.asData?.value;

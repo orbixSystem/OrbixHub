@@ -51,8 +51,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     final neu = context.neu;
-    final canManage = session is SessionAuthenticated &&
-        session.me.hasPermission('settings.manage');
+    final canManage =
+        session.meOrNull?.hasPermission('settings.manage') ?? false;
 
     final settingsAsync = ref.watch(settingsControllerProvider);
 

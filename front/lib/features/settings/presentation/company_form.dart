@@ -97,8 +97,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // de email da empresa estiver vazio.
     String ownerEmail() {
       final session = ref.read(sessionControllerProvider);
-      if (session is SessionAuthenticated) return session.me.user.email;
-      return '';
+      return session.meOrNull?.user.email ?? '';
     }
 
     for (final field in section.fields) {

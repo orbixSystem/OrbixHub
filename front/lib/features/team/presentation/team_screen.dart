@@ -59,10 +59,10 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final me = session.me;
     final neu = context.neu;
     final isMobile = context.isMobile;
     final employeesAsync = ref.watch(teamEmployeesProvider);

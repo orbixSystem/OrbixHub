@@ -270,7 +270,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
   /// (cashier.write) só registra recebimento de OS.
   bool get _canManage {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('cashier.manage');
+    return s.meOrNull?.hasPermission('cashier.manage') ?? false;
   }
 
   // Venda avulsa NÃO entra aqui (é o fluxo próprio do botão "Venda avulsa", que

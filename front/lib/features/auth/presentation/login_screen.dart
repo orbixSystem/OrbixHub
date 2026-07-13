@@ -7,6 +7,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
+import 'session_state.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -44,6 +45,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         remember: _remember,
       );
       if (!mounted) return;
+      // B6 — sem rede, a senha foi validada contra o hash local: entra no modo
+      // offline (sem picker de oficina; a oficina é a do último login online).
+      if (ref.read(sessionControllerProvider).isOffline) {
+        context.go('/');
+        return;
+      }
       // >1 workshop → show the picker first; otherwise straight to the app.
       final me = controller.currentMe;
       context.go(me != null && me.hasMultipleTenants ? '/picker' : '/');
@@ -63,6 +70,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // B6 — aviso offline (âmbar): o cold-start não alcançou a API mas há
+    // credencial offline neste dispositivo. Entrar valida a senha localmente.
+    final offlineNotice = ref.watch(offlineNoticeProvider);
     return AuthScaffold(
       title: 'Bem-vindo de volta',
       subtitle: 'Acesse o painel da sua oficina.',
@@ -71,6 +81,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (offlineNotice != null) _OfflineNoticeBanner(message: offlineNotice),
             if (_error != null) AuthErrorBanner(message: _error!),
             NeuTextField(
               label: 'E-mail',
@@ -119,6 +130,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             if (kDevTools) _DevQuickLogin(onPick: _fillSeed),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Aviso âmbar do modo offline (B6) — informativo, não é erro.
+class _OfflineNoticeBanner extends StatelessWidget {
+  const _OfflineNoticeBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    const amber = Color(0xFFB45309); // âmbar escuro (contraste em fundo claro)
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        border: Border.all(color: const Color(0xFFF5C77E)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 18, color: amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: amber,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

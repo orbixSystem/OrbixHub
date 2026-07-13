@@ -26,21 +26,20 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('cashier.write');
+    return s.meOrNull?.hasPermission('cashier.write') ?? false;
   }
 
   /// Gestão do caixa (abrir/fechar, despesa/sangria/suprimento, estorno, histórico).
   /// Dono/gerente; o atendente (caixa) NÃO tem.
   bool _canManage() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('cashier.manage');
+    return s.meOrNull?.hasPermission('cashier.manage') ?? false;
   }
 
   bool _canSale() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated &&
-        s.me.hasModule('sale') &&
-        s.me.hasPermission('sale.write');
+    final me = s.meOrNull;
+    return me != null && me.hasModule('sale') && me.hasPermission('sale.write');
   }
 
   @override

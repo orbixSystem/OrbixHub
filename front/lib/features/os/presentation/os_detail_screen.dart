@@ -39,19 +39,18 @@ class OsDetailScreen extends ConsumerWidget {
 
   bool _has(WidgetRef ref, String perm) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission(perm);
+    return s.meOrNull?.hasPermission(perm) ?? false;
   }
 
   bool _hasModule(WidgetRef ref, String key) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasModule(key);
+    return s.meOrNull?.hasModule(key) ?? false;
   }
 
   /// Identificação da empresa (tenant ativo) p/ exibir e imprimir na OS.
   OsCompany? _company(WidgetRef ref) {
     final s = ref.read(sessionControllerProvider);
-    if (s is! SessionAuthenticated) return null;
-    final t = s.me.activeTenant;
+    final t = s.meOrNull?.activeTenant;
     if (t == null) return null;
     return OsCompany(
       name: t.name,

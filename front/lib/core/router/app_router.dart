@@ -69,7 +69,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return location == '/splash' ? null : '/splash';
       }
 
-      final authed = session is SessionAuthenticated;
+      // B6 — a sessão OFFLINE conta como autenticada para o roteamento (os
+      // módulos offline continuam navegáveis); as telas online-only tratam o
+      // modo offline por conta própria.
+      final me = session.meOrNull;
+      final authed = me != null;
 
       // Public routes are always reachable (deep-link tracking, auth forms).
       if (_isPublic(location)) {
@@ -89,7 +93,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (location.startsWith('/m/')) {
         final segments = location.split('/');
         final moduleKey = segments.length > 2 ? segments[2] : null;
-        final me = session.me;
         if (moduleKey != null &&
             moduleKey.isNotEmpty &&
             !me.hasModule(moduleKey)) {

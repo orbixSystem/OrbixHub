@@ -26,7 +26,7 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
     // manteria em cache os dados da empresa anterior ao trocar de conta.
     final session = ref.watch(sessionControllerProvider);
     final tenantId =
-        session is SessionAuthenticated ? session.me.activeTenant?.id : null;
+        session.meOrNull?.activeTenant?.id;
     if (tenantId == null) {
       throw StateError('Nenhum tenant ativo na sessão.');
     }

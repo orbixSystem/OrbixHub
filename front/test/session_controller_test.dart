@@ -40,6 +40,9 @@ void main() {
       secureTokenStoreProvider.overrideWithValue(secure),
       authRepositoryProvider.overrideWithValue(auth),
       appReloaderProvider.overrideWithValue(reloader),
+      // Caminho ONLINE puro: sem banco de credenciais offline (B6 é coberto em
+      // offline_login_test.dart) — não toca no `orbix_device.db` nem em plugins.
+      offlineCredentialsStoreProvider.overrideWithValue(null),
     ]);
     addTearDown(c.dispose);
     return c;

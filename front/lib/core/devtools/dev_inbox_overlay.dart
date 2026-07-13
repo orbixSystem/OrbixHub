@@ -51,7 +51,7 @@ class GlobalControls extends ConsumerWidget {
     // Topo-direita: sino de notificações (só quando logado) + toggle de tema,
     // LADO A LADO num Row — antes o toggle (overlay) cobria o sino (header).
     // O "besouro" (dev inbox) fica no canto inferior-direito ([DevBeetleControl]).
-    final authed = ref.watch(sessionControllerProvider) is SessionAuthenticated;
+    final authed = ref.watch(sessionControllerProvider).isSignedIn;
     return Positioned(
       top: 0,
       right: 0,
