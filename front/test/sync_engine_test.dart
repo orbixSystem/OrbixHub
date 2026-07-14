@@ -47,8 +47,9 @@ class _FakeSyncApi implements SyncApi {
   int? failPushAtCall;
 
   /// Se != null, o push da N-ésima chamada (0-based) lança um erro HTTP do LOTE
-  /// (ex.: 400 de uma mutação malformada, 403 de autoria).
+  /// com este status (400 = rejeição determinística; 503 = transitório).
   int? httpErrorPushAtCall;
+  int httpErrorPushStatus = 400;
 
   DateTime serverTime = DateTime.utc(2026, 7, 10, 12);
 
@@ -74,8 +75,14 @@ class _FakeSyncApi implements SyncApi {
         type: DioExceptionType.badResponse,
         response: Response<dynamic>(
           requestOptions: RequestOptions(path: '/sync/push'),
-          statusCode: 400,
-          data: {'statusCode': 400, 'error': 'Bad Request', 'message': 'Payload inválido.'},
+          statusCode: httpErrorPushStatus,
+          data: {
+            'statusCode': httpErrorPushStatus,
+            'error': 'Error',
+            'message': httpErrorPushStatus == 400
+                ? 'Payload inválido.'
+                : 'Serviço indisponível.',
+          },
         ),
       );
     }
@@ -374,6 +381,29 @@ void main() {
           ConnStatus.online);
     });
 
+    test('503 (transitório): mutações continuam pending e são reenviadas',
+        () async {
+      await db.enqueue(_mut('m1'));
+      await db.enqueue(_mut('m2'));
+      api.httpErrorPushAtCall = 0;
+      api.httpErrorPushStatus = 503; // deploy/proxy — NUNCA é terminal
+
+      final e = engine();
+      await e.nudge();
+
+      expect((await _outboxRow(db, 'm1')).status, 'pending');
+      expect((await _outboxRow(db, 'm2')).status, 'pending');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+      expect(api.changesCalls, isEmpty, reason: 'rodada abortada, fila intacta');
+
+      // Próxima rodada (servidor de volta): reenvia tudo.
+      api.httpErrorPushAtCall = null;
+      await e.nudge();
+      expect(api.pushes, hasLength(2));
+      expect((await _outboxRow(db, 'm1')).status, 'applied');
+    });
+
     test('o lote rejeitado não é reenviado na rodada seguinte', () async {
       await db.enqueue(_mut('m1'));
       api.httpErrorPushAtCall = 0;
@@ -467,6 +497,33 @@ void main() {
       expect(api.changesCalls, isEmpty, reason: 'rodada abortada');
       expect(container.read(connectivityControllerProvider).status,
           ConnStatus.offline);
+    });
+
+    test('500 no upload (transitório): o BLOB é MANTIDO', () async {
+      await queuePhoto('o1');
+      photos.error = const AppException(
+        statusCode: 500,
+        error: 'Internal',
+        message: 'Erro interno.',
+      );
+
+      await engine().nudge();
+
+      expect(await db.listPendingUploads(), hasLength(1),
+          reason: 'um 5xx de rotina não pode apagar a foto');
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+    });
+
+    test('create `discarded` (servidor já tem a OS): a foto SOBE', () async {
+      await db.enqueue(_mut('mo', entity: 'service_order', payload: {'id': 'o1'}));
+      await db.markOutbox('mo', 'discarded');
+      await queuePhoto('o1');
+
+      await engine().nudge();
+
+      expect(photos.uploadedOrderIds, ['o1']);
+      expect(await db.listPendingUploads(), isEmpty);
     });
 
     test('blob de OS cujo create falhou de vez é descartado', () async {

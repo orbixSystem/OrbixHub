@@ -202,14 +202,16 @@ class SyncEngine {
           mutations: [for (final row in batch) _toMutation(row)],
         );
       } catch (e) {
-        final http = _httpFailure(e);
-        if (http == null) rethrow; // rede fora: aborta a rodada, fila intacta.
-        // Erro HTTP do LOTE INTEIRO (400 de uma mutação malformada, 403 de
-        // autoria): retentar produziria o MESMO erro para sempre e travaria o
-        // pull. Marca o lote como `failed` (com a mensagem do servidor) e segue
-        // — a reconciliação correta vem do pull, que é a fonte de verdade.
+        final terminal = _terminalMessage(e);
+        // Transitório (rede, 5xx, 429, 401): aborta a rodada com a fila INTACTA
+        // — as mutações continuam `pending` e são reenviadas na próxima rodada.
+        if (terminal == null) rethrow;
+        // Rejeição determinística do LOTE INTEIRO (400 de uma mutação malformada,
+        // 403 de autoria): reenviar daria o MESMO erro para sempre e travaria o
+        // pull. Marca o lote como `failed` (com a mensagem do servidor) e segue —
+        // a reconciliação correta vem do pull, que é a fonte de verdade.
         for (final row in batch) {
-          await db.markOutbox(row.clientMutationId, 'failed', http);
+          await db.markOutbox(row.clientMutationId, 'failed', terminal);
         }
         continue;
       }
@@ -226,20 +228,33 @@ class SyncEngine {
     }
   }
 
-  /// Mensagem do erro se ele for uma FALHA HTTP (o servidor respondeu); `null`
-  /// se for falha de rede (ou qualquer outra coisa) — que aborta a rodada.
+  /// Códigos que significam **rejeição determinística do cliente**: reenviar
+  /// produziria exatamente o mesmo resultado. SÓ estes podem virar estado
+  /// terminal (`failed` no outbox / descarte de BLOB).
   ///
-  /// Cobre os dois formatos que chegam aqui: `DioException` cru (do [SyncApi],
-  /// deliberadamente fino) e `AppException` (os repositórios de feature — como o
+  /// Todo o resto — 401, 408, 429, **qualquer 5xx** e falha de rede — é
+  /// TRANSITÓRIO (deploy do backend, proxy, rate-limit, refresh que falhou):
+  /// a fila é preservada e a rodada é abortada. Um 503 de rotina JAMAIS pode
+  /// aniquilar o outbox ou apagar uma foto.
+  static const _terminalStatuses = {400, 403, 404, 409, 413, 415, 422};
+
+  /// Status HTTP do erro (`null` = falha de rede / erro não-HTTP). Cobre os dois
+  /// formatos que chegam aqui: `DioException` cru (do [SyncApi], deliberadamente
+  /// fino) e `AppException` (os repositórios de feature — como o
   /// `OsRepositoryImpl` do upload de fotos — mapeiam todo erro dio para ela).
-  String? _httpFailure(Object e) {
-    if (e is AppException) {
-      return e.isNetwork ? null : e.message;
-    }
-    if (e is DioException) {
-      if (e.response == null) return null;
-      return AppException.fromDio(e).message;
-    }
+  int? _statusOf(Object e) {
+    if (e is AppException) return e.statusCode;
+    if (e is DioException) return e.response?.statusCode;
+    return null;
+  }
+
+  /// Mensagem do erro SE ele for uma rejeição determinística ([_terminalStatuses]);
+  /// `null` quando é transitório/rede — e aí o chamador deve `rethrow` (fila intacta).
+  String? _terminalMessage(Object e) {
+    final status = _statusOf(e);
+    if (status == null || !_terminalStatuses.contains(status)) return null;
+    if (e is AppException) return e.message;
+    if (e is DioException) return AppException.fromDio(e).message;
     return null;
   }
 
@@ -259,13 +274,14 @@ class SyncEngine {
   Future<void> _uploadPendingPhotos() async {
     final uploads = await db.listPendingUploads();
     if (uploads.isEmpty) return;
-    final unsynced = await _orderIdsByCreateStatus(pendingOnly: true);
-
-    final doomed = await _orderIdsByCreateStatus(pendingOnly: false);
+    final unsynced = await _orderIdsWithCreateStatus('pending');
+    // `discarded` NÃO entra aqui: significa que o servidor JÁ TEM a linha (o LWW
+    // descartou a nossa versão) — a OS existe e a foto pode subir normalmente.
+    final doomed = await _orderIdsWithCreateStatus('failed');
 
     for (final up in uploads) {
-      // OS cujo create MORREU no servidor (failed/discarded): a OS nunca vai
-      // existir — o blob ficaria preso na fila para sempre. Descarta.
+      // OS cujo create MORREU no servidor (`failed`): ela nunca vai existir — o
+      // blob ficaria preso na fila para sempre. Descarta.
       if (doomed.contains(up.orderId)) {
         await db.deletePendingUpload(up.id);
         continue;
@@ -283,29 +299,25 @@ class SyncEngine {
         await db.deletePendingUpload(up.id);
       } catch (e) {
         // O uploader é o `OsRepository.addPhoto` REAL, que mapeia todo erro dio
-        // para `AppException` — por isso a checagem é por `_httpFailure`, não
-        // por `DioException`.
-        if (_httpFailure(e) == null) rethrow; // rede fora: aborta a rodada.
-        // Erro HTTP terminal (404 OS apagada, 413 grande demais, 415 formato):
-        // descarta o blob — insistir prenderia a fila (e o pull) para sempre.
+        // para `AppException` — por isso a checagem é por status, não por tipo.
+        // Rede/5xx/429/401: aborta a rodada e MANTÉM o BLOB (um 503 de deploy
+        // não pode apagar a foto do mecânico).
+        if (_terminalMessage(e) == null) rethrow;
+        // Rejeição determinística (404 OS apagada, 413 grande demais, 415
+        // formato): descarta o blob — insistir prenderia a fila (e o pull).
         await db.deletePendingUpload(up.id);
       }
     }
   }
 
-  /// Ids de OS cujo `create` local ainda NÃO foi aplicado pelo servidor —
-  /// [pendingOnly] `true`: só as que ainda estão na fila (`pending`, podem
-  /// chegar lá); `false`: as terminais (`failed`/`discarded`, nunca chegarão).
-  Future<Set<String>> _orderIdsByCreateStatus({required bool pendingOnly}) async {
+  /// Ids das OS cujo `create` local está no [status] pedido (`pending` = ainda
+  /// não chegou ao servidor; `failed` = rejeitado de vez, nunca chegará).
+  Future<Set<String>> _orderIdsWithCreateStatus(String status) async {
     final rows = await (db.select(db.outbox)
-          ..where((t) {
-            final create =
-                t.entity.equals('service_order') & t.op.equals('create');
-            return pendingOnly
-                ? create & t.status.equals('pending')
-                : create &
-                    (t.status.equals('failed') | t.status.equals('discarded'));
-          }))
+          ..where((t) =>
+              t.entity.equals('service_order') &
+              t.op.equals('create') &
+              t.status.equals(status)))
         .get();
     final ids = <String>{};
     for (final r in rows) {
@@ -336,9 +348,10 @@ class SyncEngine {
       try {
         res = await api.changes(entity: entity, cursor: cursor);
       } catch (e) {
-        if (_httpFailure(e) == null) rethrow; // rede fora: aborta a rodada.
-        // 403 (cargo sem permissão de leitura desta entidade) / 400: essa
-        // entidade simplesmente não é replicada para este usuário.
+        if (_statusOf(e) == null) rethrow; // rede fora: aborta a rodada.
+        // O servidor respondeu com erro (403 de cargo sem permissão de leitura,
+        // 400, 5xx transitório): pular esta entidade por UMA rodada não perde
+        // dado nenhum — o pull é idempotente e recomeça do cursor salvo.
         return;
       }
       await _persist(entity, res.rows);
