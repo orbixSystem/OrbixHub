@@ -40,8 +40,10 @@ const kRequiresConnectionTooltip = 'Requer conexão';
 ///
 /// Reavalia quando o contador de pendências muda (o SyncEngine o atualiza a
 /// cada enfileiramento/replay).
-final pendingIdsProvider =
-    FutureProvider.family<Set<String>, String>((ref, entity) async {
+final pendingIdsProvider = FutureProvider.family<Set<String>, String>((
+  ref,
+  entity,
+) async {
   ref.watch(connectivityControllerProvider.select((s) => s.pendingCount));
   final db = ref.watch(localDbProvider);
   if (db == null) return const <String>{};
@@ -154,11 +156,7 @@ class OfflineScreenNotice extends ConsumerWidget {
 /// offline vira inerte (sem toque), esmaecida e com tooltip "Requer conexão".
 /// Não altera a árvore quando online (zero custo visual).
 class RequiresConnection extends ConsumerWidget {
-  const RequiresConnection({
-    super.key,
-    required this.child,
-    this.reason,
-  });
+  const RequiresConnection({super.key, required this.child, this.reason});
 
   final Widget child;
 
@@ -173,9 +171,17 @@ class RequiresConnection extends ConsumerWidget {
         : '$kRequiresConnectionTooltip — $reason';
     return Tooltip(
       message: message,
-      child: Opacity(
-        opacity: 0.55,
-        child: IgnorePointer(child: child),
+      // No mobile o tooltip só aparece no toque LONGO: sem isto o usuário toca
+      // o botão esmaecido e "não acontece nada". O GestureDetector (fora do
+      // IgnorePointer) captura o toque e explica com um snackbar.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          ScaffoldMessenger.maybeOf(
+            context,
+          )?.showSnackBar(SnackBar(content: Text(message)));
+        },
+        child: Opacity(opacity: 0.55, child: IgnorePointer(child: child)),
       ),
     );
   }
@@ -245,8 +251,11 @@ class PendingSyncBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.schedule_send_outlined,
-              size: dense ? 12 : 14, color: neu.warning),
+          Icon(
+            Icons.schedule_send_outlined,
+            size: dense ? 12 : 14,
+            color: neu.warning,
+          ),
           const SizedBox(width: 5),
           Text(
             'Pendente de envio',

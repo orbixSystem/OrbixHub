@@ -751,6 +751,13 @@ class _CodeFirstCard extends StatelessWidget {
   /// externo) não responde — o usuário preenche à mão.
   final bool offline;
 
+  /// Só embrulha em [Tooltip] quando HÁ mensagem — um Tooltip de mensagem vazia
+  /// mostra um balão em branco no hover/toque longo.
+  Widget _maybeTooltip(Widget child) {
+    if (!offline) return child;
+    return Tooltip(message: kRequiresConnectionTooltip, child: child);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -800,9 +807,8 @@ class _CodeFirstCard extends StatelessWidget {
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
-            child: Tooltip(
-              message: offline ? kRequiresConnectionTooltip : '',
-              child: FilledButton.icon(
+            child: _maybeTooltip(
+              FilledButton.icon(
                 onPressed: onSubmit,
                 icon: loading
                     ? const SizedBox(

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/online_conn.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
@@ -10,6 +8,8 @@ import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/settings/data/fake_settings_repository.dart';
 import 'package:orbixhub_front/features/settings/domain/settings_repository.dart';
 import 'package:orbixhub_front/features/settings/presentation/settings_screen.dart';
+
+import 'support/online_conn.dart';
 
 /// Session controller fixo com permissão settings.manage, sem tocar plataforma.
 class _FakeSession extends SessionController {

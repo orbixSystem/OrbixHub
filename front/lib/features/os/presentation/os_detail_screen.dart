@@ -2407,7 +2407,7 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (_, i) => _PhotoThumb(
                   photo: photos[i],
-                  canWrite: widget.canWrite && !offline,
+                  canWrite: widget.canWrite,
                   offline: offline,
                   onRemove: () => _remove(photos[i]),
                   onTap: () => _openComments(photos[i]),
@@ -2490,19 +2490,25 @@ class _PhotoThumb extends StatelessWidget {
               ),
             ),
           ),
+        // Remover foto exige a foto NO SERVIDOR (não há op de sync p/ remoção):
+        // offline o botão continua VISÍVEL, mas inerte e explicado — some ≠
+        // explicar.
         if (canWrite)
           Positioned(
             top: 2,
             right: 2,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onRemove,
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close, size: 14, color: Colors.white),
+            child: RequiresConnection(
+              reason: 'remover foto',
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onRemove,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 14, color: Colors.white),
+                  ),
                 ),
               ),
             ),

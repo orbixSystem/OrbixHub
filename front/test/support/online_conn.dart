@@ -13,5 +13,6 @@ class OnlineConnectivityController extends ConnectivityController {
 }
 
 /// Override pronto: adicione às `overrides` do `ProviderScope` do teste.
-final onlineConnOverride = connectivityControllerProvider
-    .overrideWith(OnlineConnectivityController.new);
+final onlineConnOverride = connectivityControllerProvider.overrideWith(
+  OnlineConnectivityController.new,
+);

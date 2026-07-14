@@ -23,9 +23,11 @@ import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/domain/os_models.dart';
 import 'package:orbixhub_front/features/os/domain/os_repository.dart';
 import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
+import 'package:orbixhub_front/features/os/presentation/order_edit_dialog.dart';
 import 'package:orbixhub_front/features/os/presentation/os_detail_screen.dart';
 import 'package:orbixhub_front/features/os/presentation/os_list_screen.dart';
 import 'package:orbixhub_front/features/settings/data/fake_settings_repository.dart';
+import 'package:orbixhub_front/features/settings/presentation/settings_screen.dart';
 import 'package:orbixhub_front/features/team/presentation/team_screen.dart';
 
 /// Fake do controller de conectividade (B3): nunca assina o platform channel
@@ -41,31 +43,27 @@ class _FakeConn extends ConnectivityController {
 class _FakeSession extends SessionController {
   @override
   SessionState build() => const SessionState.authenticated(
-        Me(
-          user: User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
-          role: 'owner',
-          permissions: [
-            'os.write',
-            'os.approve',
-            'os.read',
-            'invoice.issue',
-            'inventory.write',
-            'customers.write',
-            'cashier.write',
-            'cashier.manage',
-          ],
-          modules: ['os', 'invoice', 'inventory', 'customers', 'cashier'],
-        ),
-      );
+    Me(
+      user: User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
+      role: 'owner',
+      permissions: [
+        'os.write',
+        'os.approve',
+        'os.read',
+        'invoice.issue',
+        'inventory.write',
+        'customers.write',
+        'cashier.write',
+        'cashier.manage',
+      ],
+      modules: ['os', 'invoice', 'inventory', 'customers', 'cashier'],
+    ),
+  );
 }
 
 /// Monta a tela com a sessão fixa e a conectividade forçada. Os repositórios
 /// são sempre fakes (nenhum toca a rede).
-Widget _wrap(
-  Widget child, {
-  required ConnStatus status,
-  OsRepository? os,
-}) {
+Widget _wrap(Widget child, {required ConnStatus status, OsRepository? os}) {
   return ProviderScope(
     overrides: [
       connectivityControllerProvider.overrideWith(() => _FakeConn(status)),
@@ -127,11 +125,13 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_wrap(
-        const OsDetailScreen(orderId: 'os-1'),
-        status: ConnStatus.offline,
-        os: _osRepo(),
-      ));
+      await tester.pumpWidget(
+        _wrap(
+          const OsDetailScreen(orderId: 'os-1'),
+          status: ConnStatus.offline,
+          os: _osRepo(),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Um aviso vermelho por seção: diagnóstico, linha do tempo e fotos.
@@ -140,20 +140,21 @@ void main() {
         find.textContaining('Será enviado ao sistema quando a conexão voltar'),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('Notas criadas agora'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Notas criadas agora'), findsOneWidget);
       expect(find.textContaining('As fotos adicionadas agora'), findsOneWidget);
 
-      // Ações que exigem servidor: link de acompanhamento + emitir NF.
+      // Ações que exigem o registro NO SERVIDOR: link de acompanhamento,
+      // emitir NF e remover foto (não há op de sync para a remoção — o botão
+      // fica visível e explicado, em vez de sumir).
       final blocked = tester
-          .widgetList<IgnorePointer>(find.descendant(
-            of: find.byType(RequiresConnection),
-            matching: find.byType(IgnorePointer),
-          ))
+          .widgetList<IgnorePointer>(
+            find.descendant(
+              of: find.byType(RequiresConnection),
+              matching: find.byType(IgnorePointer),
+            ),
+          )
           .toList();
-      expect(blocked, hasLength(2));
+      expect(blocked, hasLength(3));
       expect(blocked.every((w) => w.ignoring), isTrue);
       expect(
         find.byTooltip(
@@ -167,19 +168,23 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.byTooltip('Requer conexão — remover foto'), findsOneWidget);
     });
 
-    testWidgets('online: nenhum aviso vermelho e ações liberadas',
-        (tester) async {
+    testWidgets('online: nenhum aviso vermelho e ações liberadas', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1600, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_wrap(
-        const OsDetailScreen(orderId: 'os-1'),
-        status: ConnStatus.online,
-        os: _osRepo(),
-      ));
+      await tester.pumpWidget(
+        _wrap(
+          const OsDetailScreen(orderId: 'os-1'),
+          status: ConnStatus.online,
+          os: _osRepo(),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(OfflinePendingNoticeBody), findsNothing);
@@ -197,9 +202,77 @@ void main() {
     });
   });
 
+  group('OrderEditDialog', () {
+    testWidgets(
+      'offline: aviso vermelho no responsável e nas datas de serviço',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const OrderEditDialog(order: _order),
+            status: ConnStatus.offline,
+            os: _osRepo(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining(
+            'A troca de responsável só será enviada ao sistema '
+            'quando a conexão voltar',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            'As datas de serviço só serão enviadas ao sistema '
+            'quando a conexão voltar',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(OfflinePendingNoticeBody), findsNWidgets(2));
+      },
+    );
+
+    testWidgets('online: nenhum aviso no dialog', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const OrderEditDialog(order: _order),
+          status: ConnStatus.online,
+          os: _osRepo(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OfflinePendingNoticeBody), findsNothing);
+    });
+  });
+
+  group('configurações', () {
+    testWidgets('offline: Aparência (tema local) continua utilizável; o resto '
+        'pede conexão', (tester) async {
+      // Viewport alta: a tela é uma ListView (aparência em cima, "requer
+      // conexão" embaixo) — no viewport padrão o segundo bloco não é montado.
+      tester.view.physicalSize = const Size(1600, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _wrap(const SettingsScreen(), status: ConnStatus.offline),
+      );
+      await tester.pumpAndSettle();
+
+      // A seção local de aparência está lá (modo claro/escuro/sistema).
+      expect(find.text('Aparência'), findsOneWidget);
+      expect(find.text('Modo'), findsOneWidget);
+      // E o restante (empresa/módulos, do servidor) é explicado.
+      expect(find.byType(RequiresConnectionView), findsOneWidget);
+    });
+  });
+
   group('lista de OS', () {
-    testWidgets('número provisório OS-P… ganha o selo "pendente de envio"',
-        (tester) async {
+    testWidgets('número provisório OS-P… ganha o selo "pendente de envio"', (
+      tester,
+    ) async {
       final repo = FakeOsRepository(
         orders: const [
           ServiceOrder(
@@ -216,11 +289,9 @@ void main() {
           ),
         ],
       );
-      await tester.pumpWidget(_wrap(
-        const OsListScreen(),
-        status: ConnStatus.offline,
-        os: repo,
-      ));
+      await tester.pumpWidget(
+        _wrap(const OsListScreen(), status: ConnStatus.offline, os: repo),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('OS-P1'), findsOneWidget);
@@ -232,35 +303,36 @@ void main() {
   });
 
   group('estoque — formulário de item', () {
-    testWidgets('offline: lookup por código de barras desabilitado + mensagem',
-        (tester) async {
-      await tester.pumpWidget(_wrap(
-        const ItemFormDialog(),
-        status: ConnStatus.offline,
-      ));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'offline: lookup por código de barras desabilitado + mensagem',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(const ItemFormDialog(), status: ConnStatus.offline),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining(
-          'a consulta automática por código de barras não está disponível',
-        ),
-        findsOneWidget,
-      );
-      final button = tester.widget<FilledButton>(
-        find.ancestor(
-          of: find.text('Buscar e preencher'),
-          matching: find.byType(FilledButton),
-        ),
-      );
-      expect(button.onPressed, isNull); // desabilitado
-    });
+        expect(
+          find.textContaining(
+            'a consulta automática por código de barras não está disponível',
+          ),
+          findsOneWidget,
+        );
+        final button = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('Buscar e preencher'),
+            matching: find.byType(FilledButton),
+          ),
+        );
+        expect(button.onPressed, isNull); // desabilitado
+      },
+    );
 
-    testWidgets('online: lookup habilitado, sem mensagem offline',
-        (tester) async {
-      await tester.pumpWidget(_wrap(
-        const ItemFormDialog(),
-        status: ConnStatus.online,
-      ));
+    testWidgets('online: lookup habilitado, sem mensagem offline', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const ItemFormDialog(), status: ConnStatus.online),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -278,12 +350,15 @@ void main() {
   });
 
   group('clientes — formulário de veículo', () {
-    testWidgets('offline: cascata FIPE vira texto livre com dica',
-        (tester) async {
-      await tester.pumpWidget(_wrap(
-        const SubjectFormDialog(customerId: 'c1', config: _config),
-        status: ConnStatus.offline,
-      ));
+    testWidgets('offline: cascata FIPE vira texto livre com dica', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SubjectFormDialog(customerId: 'c1', config: _config),
+          status: ConnStatus.offline,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Sem Autocomplete (a cascata sumiu) e com a dica em cada campo de fonte.
@@ -293,12 +368,15 @@ void main() {
       expect(find.byKey(const Key('subjectField-modelo')), findsOneWidget);
     });
 
-    testWidgets('online: a cascata FIPE (Autocomplete) continua',
-        (tester) async {
-      await tester.pumpWidget(_wrap(
-        const SubjectFormDialog(customerId: 'c1', config: _config),
-        status: ConnStatus.online,
-      ));
+    testWidgets('online: a cascata FIPE (Autocomplete) continua', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SubjectFormDialog(customerId: 'c1', config: _config),
+          status: ConnStatus.online,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(Autocomplete<LookupOption>), findsNWidgets(2));
@@ -309,10 +387,9 @@ void main() {
   group('caixa', () {
     testWidgets('offline: aviso permanente de que os lançamentos só sobem '
         'quando a conexão voltar', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const CashierScreen(),
-        status: ConnStatus.offline,
-      ));
+      await tester.pumpWidget(
+        _wrap(const CashierScreen(), status: ConnStatus.offline),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(OfflineScreenNotice), findsOneWidget);
@@ -325,10 +402,9 @@ void main() {
     });
 
     testWidgets('online: sem aviso', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const CashierScreen(),
-        status: ConnStatus.online,
-      ));
+      await tester.pumpWidget(
+        _wrap(const CashierScreen(), status: ConnStatus.online),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -340,10 +416,9 @@ void main() {
 
   group('telas online-only', () {
     testWidgets('equipe offline → RequiresConnectionView', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const TeamScreen(),
-        status: ConnStatus.offline,
-      ));
+      await tester.pumpWidget(
+        _wrap(const TeamScreen(), status: ConnStatus.offline),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(RequiresConnectionView), findsOneWidget);

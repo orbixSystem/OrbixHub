@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/online_conn.dart';
 import 'package:orbixhub_front/core/widgets/read_ticks.dart';
 import 'package:orbixhub_front/features/messages/data/fake_messages_repository.dart';
 import 'package:orbixhub_front/features/messages/domain/messages_models.dart';
 import 'package:orbixhub_front/features/messages/presentation/messages_inbox_screen.dart';
 import 'package:orbixhub_front/features/messages/presentation/messages_providers.dart';
+
+import 'support/online_conn.dart';
 
 void main() {
   testWidgets('inbox lista conversas e mostra bolha de não-lidos',
@@ -79,7 +79,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          onlineConnOverride,messagesRepositoryProvider.overrideWithValue(fake)],
+          onlineConnOverride,
+          messagesRepositoryProvider.overrideWithValue(fake),
+        ],
         child: const MaterialApp(home: Scaffold(body: MessagesInboxScreen())),
       ),
     );

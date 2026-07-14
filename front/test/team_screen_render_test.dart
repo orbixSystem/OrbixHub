@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'support/online_conn.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
@@ -10,6 +8,8 @@ import 'package:orbixhub_front/features/auth/presentation/session_controller.dar
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/team/data/fake_team_repository.dart';
 import 'package:orbixhub_front/features/team/presentation/team_screen.dart';
+
+import 'support/online_conn.dart';
 
 const _me = Me(
   user: User(id: 'u1', email: 'dono@teste.com', fullName: 'Dono Teste'),
