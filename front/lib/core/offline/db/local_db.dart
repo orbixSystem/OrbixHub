@@ -120,6 +120,14 @@ class LocalDb extends _$LocalDb {
     await platform.deleteTenantFiles(tenantId);
   }
 
+  /// Fecha (e descacheia) APENAS o banco de um tenant. Usado na troca de oficina
+  /// bem-sucedida: fechar tudo (`closeAll`) fecharia também o banco do tenant
+  /// NOVO, que o `localDbProvider` acabou de abrir.
+  static Future<void> closeForTenant(String tenantId) async {
+    final cached = _instances.remove(tenantId);
+    await cached?.close();
+  }
+
   /// Fecha todas as instâncias abertas (logout/testes) e limpa o cache.
   static Future<void> closeAll() async {
     final dbs = _instances.values.toList(growable: false);
@@ -195,11 +203,21 @@ class LocalDb extends _$LocalDb {
   /// edição que ele ainda não viu. Os repositórios LocalFirst (B8) usam isto para
   /// escolher o caminho LOCAL mesmo com rede — ir ao servidor daria 404 (ou
   /// mostraria um estado velho por cima da edição local).
-  Future<Set<String>> unsyncedIds(String entity) async {
+  Future<Set<String>> unsyncedIds(String entity) =>
+      _idsWithStatus(entity, const ['pending', 'failed']);
+
+  /// Ids de [entity] cuja mutação local **falhou** no servidor (`failed`). A UI
+  /// os marca em VERMELHO ("falhou ao enviar") — visualmente distintos dos
+  /// `pending`, que ainda vão subir sozinhos.
+  Future<Set<String>> failedIds(String entity) =>
+      _idsWithStatus(entity, const ['failed']);
+
+  Future<Set<String>> _idsWithStatus(
+    String entity,
+    List<String> statuses,
+  ) async {
     final rows = await (select(outbox)
-          ..where((t) =>
-              t.entity.equals(entity) &
-              (t.status.equals('pending') | t.status.equals('failed'))))
+          ..where((t) => t.entity.equals(entity) & t.status.isIn(statuses)))
         .get();
     return {
       for (final r in rows)
@@ -236,18 +254,89 @@ class LocalDb extends _$LocalDb {
     return row != null;
   }
 
-  /// Contadores de pendentes p/ o indicador (B2): `mine` = deste autor,
-  /// `others` = de outros autores (device compartilhado).
-  Future<({int mine, int others})> pendingCounts(String authorUserId) async {
-    final mineExp = countAll(filter: outbox.authorUserId.equals(authorUserId));
-    final othersExp =
-        countAll(filter: outbox.authorUserId.equals(authorUserId).not());
+  /// Contadores p/ o indicador (B2): `mine` = pendentes deste autor,
+  /// `others` = pendentes de outros autores (device compartilhado), `failed` =
+  /// mutações DESTE autor recusadas pelo servidor (exigem ação do usuário —
+  /// retentar ou descartar).
+  Future<({int mine, int others, int failed})> pendingCounts(
+    String authorUserId,
+  ) async {
+    final mineExp = countAll(
+      filter: outbox.authorUserId.equals(authorUserId) &
+          outbox.status.equals('pending'),
+    );
+    final othersExp = countAll(
+      filter: outbox.authorUserId.equals(authorUserId).not() &
+          outbox.status.equals('pending'),
+    );
+    final failedExp = countAll(
+      filter: outbox.authorUserId.equals(authorUserId) &
+          outbox.status.equals('failed'),
+    );
     final q = selectOnly(outbox)
-      ..where(outbox.status.equals('pending'))
-      ..addColumns([mineExp, othersExp]);
+      ..where(outbox.status.isIn(const ['pending', 'failed']))
+      ..addColumns([mineExp, othersExp, failedExp]);
     final row = await q.getSingle();
-    return (mine: row.read(mineExp) ?? 0, others: row.read(othersExp) ?? 0);
+    return (
+      mine: row.read(mineExp) ?? 0,
+      others: row.read(othersExp) ?? 0,
+      failed: row.read(failedExp) ?? 0,
+    );
   }
+
+  /// Mutações deste autor que ainda "existem" para o usuário: `pending` (vão
+  /// subir) e `failed` (recusadas — precisam de retry/descarte). Ordenadas pela
+  /// ordem de aplicação. É a fonte do painel "alterações pendentes / falhas".
+  Future<List<OutboxData>> outboxFor(String authorUserId) => (select(outbox)
+        ..where((t) =>
+            t.authorUserId.equals(authorUserId) &
+            t.status.isIn(const ['pending', 'failed']))
+        ..orderBy([(t) => OrderingTerm.asc(t.seq)]))
+      .get();
+
+  /// **Retry** de uma mutação `failed`: volta a `pending` (e limpa a mensagem) —
+  /// o SyncEngine a reenvia na próxima rodada. Só re-arma o que falhou (uma
+  /// `applied` nunca volta à fila).
+  Future<void> retryOutbox(String clientMutationId) async {
+    await (update(outbox)
+          ..where((t) =>
+              t.clientMutationId.equals(clientMutationId) &
+              t.status.equals('failed')))
+        .write(const OutboxCompanion(
+      status: Value('pending'),
+      message: Value(null),
+    ));
+  }
+
+  /// **Descarte** de uma mutação `failed`: a mutação some da fila. Se era um
+  /// `create`/`open`, a linha local que ela originou também é apagada — senão o
+  /// registro fantasma (que o servidor NUNCA vai conhecer) ficaria na tela para
+  /// sempre.
+  Future<void> discardOutbox(String clientMutationId) async {
+    final row = await (select(outbox)
+          ..where((t) => t.clientMutationId.equals(clientMutationId)))
+        .getSingleOrNull();
+    if (row == null) return;
+    await transaction(() async {
+      await (delete(outbox)
+            ..where((t) => t.clientMutationId.equals(clientMutationId)))
+          .go();
+      final isCreate = row.op == 'create' || row.op == 'open';
+      final id = rowIdOfPayload(row.payload);
+      if (isCreate && id != null) {
+        await (delete(entityRows)
+              ..where((t) => t.entity.equals(row.entity) & t.id.equals(id)))
+            .go();
+      }
+    });
+  }
+
+  /// Poda as mutações já resolvidas (`applied`/`discarded` pelo servidor) — elas
+  /// não são mais visíveis nem retentáveis; sem isto o outbox cresceria para
+  /// sempre. Chamado pelo SyncEngine ao fim de uma rodada bem-sucedida.
+  Future<int> pruneOutbox() => (delete(outbox)
+        ..where((t) => t.status.isIn(const ['applied', 'discarded'])))
+      .go();
 
   // --- Cursores ---------------------------------------------------------
 

@@ -11,7 +11,10 @@ import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { CashierRepository, CashierSyncEntity } from './cashier.repository';
-import { clampChangedSinceLimit } from '../../common/database/changed-since';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import {
   buildPaymentSummary,
   CashierService,
@@ -115,7 +118,7 @@ export class CashierServiceImpl extends CashierService {
     entity: string,
     cursor: { ts: string; id: string } | null,
     limit: number,
-  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+  ): Promise<ChangedSincePage> {
     if (!CashierServiceImpl.SYNC_ENTITIES.has(entity as CashierSyncEntity)) {
       throw new BadRequestException(
         `Entidade não pertence ao módulo cashier: ${entity}`,

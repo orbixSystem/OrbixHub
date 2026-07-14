@@ -16,7 +16,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { crossedIntoLowStock } from './low-stock';
 import { computeReconcile } from './stock-reconcile';
 import { InventoryRepository, InventorySyncEntity } from './inventory.repository';
-import { clampChangedSinceLimit } from '../../common/database/changed-since';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import {
   INVENTORY_CONFIG_KEY,
   INVENTORY_MODULE_KEY,
@@ -473,7 +476,7 @@ export class InventoryService {
     entity: string,
     cursor: { ts: string; id: string } | null,
     limit: number,
-  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+  ): Promise<ChangedSincePage> {
     if (!InventoryService.SYNC_ENTITIES.has(entity as InventorySyncEntity)) {
       throw new BadRequestException(
         `Entidade não pertence ao módulo inventory: ${entity}`,

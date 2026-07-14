@@ -19,7 +19,7 @@ class FakeCashierService extends CashierService {
     return Promise.resolve(m);
   }
   listChangedSince() {
-    return Promise.resolve({ rows: [], nextCursor: null });
+    return Promise.resolve({ rows: [], nextCursor: null, hasMore: false });
   }
 }
 

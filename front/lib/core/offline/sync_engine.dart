@@ -163,6 +163,11 @@ class SyncEngine {
 
     conn.markSyncing();
     try {
+      // Housekeeping: as mutações já resolvidas pelo servidor nas rodadas
+      // anteriores (`applied`/`discarded`) não são mais visíveis nem
+      // retentáveis — o outbox não pode crescer para sempre. As `failed` FICAM
+      // (só somem por retry/descarte do usuário) e as `pending` também.
+      await db.pruneOutbox();
       await _push(userId);
       await _uploadPendingPhotos();
       await _pull();
@@ -180,7 +185,7 @@ class SyncEngine {
     // meio da rodada), publicar contadores não pode virar erro não tratado.
     try {
       final counts = await db.pendingCounts(userId);
-      conn.setPending(counts.mine, counts.others);
+      conn.setPending(counts.mine, counts.others, counts.failed);
     } catch (_) {
       // ignora — o indicador é atualizado na próxima rodada.
     }
@@ -357,12 +362,17 @@ class SyncEngine {
       await _persist(entity, res.rows);
       await _observe(res.serverTime);
       final next = res.nextCursor;
-      if (next == null) return; // fim das mudanças desta entidade.
-      // O cursor só avança com `nextCursor` do servidor (texto com precisão de
-      // microssegundo). A última página parcial é re-lida na próxima rodada —
-      // o upsert é idempotente, e isso evita perder linhas do mesmo instante.
-      await db.saveCursor(entity, ts: next.ts, id: next.id);
-      cursor = next;
+      // O cursor avança com o `nextCursor` do servidor (texto com precisão de
+      // microssegundo) em TODA página não vazia — inclusive na última, parcial.
+      // Antes só salvávamos quando o servidor sinalizava "tem mais", e como uma
+      // página parcial é o caso NORMAL (poucas linhas mudam), o cursor nunca era
+      // salvo: cada rodada rebaixava as 500 linhas × 11 entidades do zero.
+      if (next != null) {
+        await db.saveCursor(entity, ts: next.ts, id: next.id);
+        cursor = next;
+      }
+      // Fim das mudanças desta entidade (página vazia ou parcial).
+      if (!res.hasMore || res.rows.isEmpty) return;
     }
   }
 

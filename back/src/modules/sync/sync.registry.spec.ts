@@ -109,21 +109,35 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     // (ex.: mechanic sem cashier.read não pode puxar o extrato do caixa).
     const expected: Record<
       string,
-      { service: keyof SyncServices; permission: string }
+      { service: keyof SyncServices; module: string; permission: string }
     > = {
-      customer: { service: 'customers', permission: 'customer.read' },
-      subject: { service: 'customers', permission: 'subject.read' },
-      inventory_item: { service: 'inventory', permission: 'inventory.read' },
-      stock_movement: { service: 'inventory', permission: 'inventory.read' },
-      service_order: { service: 'os', permission: 'os.read' },
-      service_order_item: { service: 'os', permission: 'os.read' },
-      service_order_event: { service: 'os', permission: 'os.read' },
-      service_order_photo: { service: 'os', permission: 'os.read' },
-      service_order_template: { service: 'os', permission: 'os.read' },
-      cash_session: { service: 'cashier', permission: 'cashier.read' },
-      cash_entry: { service: 'cashier', permission: 'cashier.read' },
+      customer: { service: 'customers', module: 'customers', permission: 'customer.read' },
+      subject: { service: 'customers', module: 'customers', permission: 'subject.read' },
+      inventory_item: { service: 'inventory', module: 'inventory', permission: 'inventory.read' },
+      stock_movement: { service: 'inventory', module: 'inventory', permission: 'inventory.read' },
+      service_order: { service: 'os', module: 'os', permission: 'os.read' },
+      service_order_item: { service: 'os', module: 'os', permission: 'os.read' },
+      service_order_event: { service: 'os', module: 'os', permission: 'os.read' },
+      service_order_photo: { service: 'os', module: 'os', permission: 'os.read' },
+      service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
+      cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+      cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
     };
     expect(PULL_ROUTES).toEqual(expected);
+  });
+
+  it('toda op declara o módulo comercial dono (gating de plano/assinatura no /sync)', () => {
+    const moduleOf: Record<string, string> = {
+      customer: 'customers',
+      subject: 'customers',
+      inventory_item: 'inventory',
+      service_order: 'os',
+      cash_session: 'cashier',
+      cash_entry: 'cashier',
+    };
+    for (const [key, def] of Object.entries(SYNC_OPS)) {
+      expect(def.module).toBe(moduleOf[key.split('.')[0]]);
+    }
   });
 
   it('toda rota de pull exige uma permissão *.read (nunca vazia)', () => {

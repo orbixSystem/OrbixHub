@@ -10,7 +10,16 @@ export interface ChangeCursor {
 
 export interface ChangedSincePage {
   rows: Record<string, unknown>[];
+  /**
+   * Cursor da ÚLTIMA linha da página — devolvido em TODA página não vazia
+   * (mesmo quando ela é a última). O cliente precisa persistir isto sempre:
+   * antes, uma página parcial (o caso normal: < limit linhas mudaram) devolvia
+   * `null` e o cursor nunca era salvo — cada rodada de sync rebaixava a tabela
+   * inteira de novo. "Tem mais?" é sinalizado à parte, em [hasMore].
+   */
   nextCursor: ChangeCursor | null;
+  /** `true` quando a página encheu o limite — pode haver mais mudanças. */
+  hasMore: boolean;
 }
 
 /**
@@ -62,7 +71,9 @@ export async function queryChangedSince(
           LIMIT ${limit}
         `,
   );
-  if (rawRows.length === 0) return { rows: rawRows, nextCursor: null };
+  if (rawRows.length === 0) {
+    return { rows: rawRows, nextCursor: null, hasMore: false };
+  }
 
   const last = rawRows[rawRows.length - 1];
   const lastTs = String(last[CURSOR_TS_ALIAS]);
@@ -73,7 +84,9 @@ export async function queryChangedSince(
   });
   return {
     rows,
-    nextCursor: rawRows.length < limit ? null : { ts: lastTs, id: lastId },
+    // SEMPRE o cursor da última linha: a página parcial também avança o cursor.
+    nextCursor: { ts: lastTs, id: lastId },
+    hasMore: rawRows.length >= limit,
   };
 }
 

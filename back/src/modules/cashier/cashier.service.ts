@@ -8,6 +8,8 @@
  * O status de pagamento de uma venda é DERIVADO do caixa — a venda não guarda
  * valor pago próprio, ela pergunta aqui.
  */
+import type { ChangedSincePage } from '../../common/database/changed-since';
+
 export type PaymentStatus = 'a_receber' | 'parcial' | 'pago';
 
 export interface PaymentSummary {
@@ -76,5 +78,5 @@ export abstract class CashierService {
     entity: string,
     cursor: { ts: string; id: string } | null,
     limit: number,
-  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }>;
+  ): Promise<ChangedSincePage>;
 }

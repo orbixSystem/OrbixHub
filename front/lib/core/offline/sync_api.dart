@@ -30,18 +30,27 @@ class SyncCursor {
   String toString() => 'SyncCursor($ts, $id)';
 }
 
-/// Uma página de `GET /sync/changes`. [nextCursor] `null` = fim das mudanças.
+/// Uma página de `GET /sync/changes`.
+///
+/// [nextCursor] vem em TODA página não vazia (inclusive a última, parcial) — o
+/// cliente SEMPRE o persiste, senão a rodada seguinte rebaixaria a tabela
+/// inteira de novo. Quem diz "ainda há mais" é [hasMore] (a página encheu o
+/// limite), não o cursor.
 class SyncChangesPage {
   const SyncChangesPage({
     required this.rows,
     required this.nextCursor,
     required this.serverTime,
+    this.hasMore = false,
   });
 
   /// Linhas cruas da API (mesmo shape dos endpoints de leitura do módulo dono).
   final List<Map<String, dynamic>> rows;
   final SyncCursor? nextCursor;
   final DateTime? serverTime;
+
+  /// A página encheu o limite: pode haver mais mudanças depois do cursor.
+  final bool hasMore;
 }
 
 /// Uma mutação do outbox pronta para o `POST /sync/push`.
@@ -178,6 +187,7 @@ class DioSyncApi implements SyncApi {
           ? null
           : SyncCursor(ts: next['ts'] as String, id: next['id'] as String),
       serverTime: DateTime.tryParse(data['serverTime'] as String? ?? ''),
+      hasMore: data['hasMore'] == true,
     );
   }
 

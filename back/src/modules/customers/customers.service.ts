@@ -16,7 +16,10 @@ import {
 } from '../../common/storage/storage.provider';
 import { BillingService } from '../billing/billing.service';
 import { CustomersRepository, CustomersSyncEntity } from './customers.repository';
-import { clampChangedSinceLimit } from '../../common/database/changed-since';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { SubjectHistoryProvider } from './subject-history.provider';
 import type { SubjectHistoryEntry } from './subject-history.provider';
 import {
@@ -477,7 +480,7 @@ export class CustomersService {
     entity: string,
     cursor: { ts: string; id: string } | null,
     limit: number,
-  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+  ): Promise<ChangedSincePage> {
     if (!CustomersService.SYNC_ENTITIES.has(entity as CustomersSyncEntity)) {
       throw new BadRequestException(
         `Entidade não pertence ao módulo customers: ${entity}`,

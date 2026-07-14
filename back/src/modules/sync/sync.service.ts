@@ -13,6 +13,7 @@ import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OsService } from '../os/os.service';
 import { CashierServiceImpl } from '../cashier/cashier.service.impl';
+import { BillingService } from '../billing/billing.service';
 import {
   PULL_ROUTES,
   SYNC_OPS,
@@ -54,6 +55,7 @@ export class SyncService {
     private readonly tenant: TenantContext,
     private readonly audit: AuditService,
     private readonly repo: SyncRepository,
+    private readonly billing: BillingService,
     customers: CustomersService,
     inventory: InventoryService,
     os: OsService,
@@ -77,16 +79,23 @@ export class SyncService {
         'Sem permissão para sincronizar esta entidade.',
       );
     }
+    // Gating comercial (I2): o `/sync` não tem `@RequiresModule` (uma rota, N
+    // entidades), então aplicamos AQUI a mesma régua do `ModuleAccessGuard`, por
+    // entidade. `past_due` libera LEITURA (o pull) e barra escrita (o push).
+    const denied = await this.moduleDenial(user, route.module, false);
+    if (denied) throw new ForbiddenException(denied);
     const cursor =
       query.sinceTs && query.sinceId
         ? { ts: query.sinceTs, id: query.sinceId }
         : null;
     // A4 já clampa internamente; reforçamos aqui (S10).
     const limit = clampChangedSinceLimit(query.limit ?? 500);
-    const { rows, nextCursor } = await this.services[
+    const { rows, nextCursor, hasMore } = await this.services[
       route.service
     ].listChangedSince(query.entity, cursor, limit);
-    return { rows, nextCursor, serverTime: new Date().toISOString() };
+    // `nextCursor` volta em TODA página não vazia (o cliente sempre persiste o
+    // cursor); `hasMore` diz se vale pedir a próxima página (I3).
+    return { rows, nextCursor, hasMore, serverTime: new Date().toISOString() };
   }
 
   // ===================== Push (POST /sync/push) =====================
@@ -99,6 +108,8 @@ export class SyncService {
     }
     // Permissões efetivas do cargo, resolvidas UMA vez (mesma query do PermissionsGuard).
     const granted = await this.permissionsOf(user.role);
+    // Acesso ao módulo resolvido 1× por módulo no lote (não 1× por mutação).
+    const accessCache = new Map<string, string | null>();
 
     const results: PushResultItem[] = [];
     for (const m of dto.mutations) {
@@ -109,7 +120,7 @@ export class SyncService {
         continue;
       }
 
-      const outcome = await this.applyMutation(user, m, granted);
+      const outcome = await this.applyMutation(user, m, granted, accessCache);
       // Corrida de lotes idênticos: se outro push gravou primeiro (unique
       // S8), devolvemos o desfecho do vencedor — nunca 500 no lote inteiro.
       const winner = await this.repo.recordMutation(user, m, outcome);
@@ -130,12 +141,18 @@ export class SyncService {
     user: AuthUser,
     m: SyncMutationDto,
     granted: Set<string>,
+    accessCache: Map<string, string | null>,
   ): Promise<{ status: SyncStatus; entityId?: string; message?: string }> {
     const def: SyncOpDef | undefined = SYNC_OPS[`${m.entity}.${m.op}`];
     if (!def) return { status: 'error', message: 'Operação desconhecida.' }; // S7
     if (!granted.has(def.permission)) {
       return { status: 'error', message: 'Sem permissão para esta operação.' };
     }
+    // Gating comercial (I2) — POR MUTAÇÃO: um módulo fora do plano (ou uma
+    // assinatura vencida) vira item `error`, nunca um 403 que aniquila o lote
+    // inteiro (as mutações dos outros módulos continuam sendo aplicadas).
+    const denied = await this.moduleDenial(user, def.module, true, accessCache);
+    if (denied) return { status: 'error', message: denied };
 
     // S7 — whitelist: valida o payload contra o DTO do módulo dono.
     const validated = await this.validatePayload(def, m.payload);
@@ -235,6 +252,40 @@ export class SyncService {
       ok: true,
       value: { ...(instance as SyncPayload), ...structural },
     };
+  }
+
+  /**
+   * Régua de acesso ao módulo dono da entidade — a MESMA do `ModuleAccessGuard`:
+   * módulo não habilitado (e não `is_core`) → barrado; assinatura `canceled` (ou
+   * qualquer status fora de trialing/active/past_due) → barrado; `past_due` →
+   * leitura (pull) liberada, escrita (push) barrada. Devolve a MENSAGEM PT-BR da
+   * recusa, ou `null` quando liberado.
+   */
+  private async moduleDenial(
+    user: AuthUser,
+    moduleKey: string,
+    isWrite: boolean,
+    cache?: Map<string, string | null>,
+  ): Promise<string | null> {
+    const cacheKey = `${moduleKey}:${isWrite ? 'w' : 'r'}`;
+    if (cache?.has(cacheKey)) return cache.get(cacheKey) ?? null;
+    const denial = await this.resolveModuleDenial(user, moduleKey, isWrite);
+    cache?.set(cacheKey, denial);
+    return denial;
+  }
+
+  private async resolveModuleDenial(
+    user: AuthUser,
+    moduleKey: string,
+    isWrite: boolean,
+  ): Promise<string | null> {
+    const access = await this.billing.getModuleAccess(user.tenantId, moduleKey);
+    if (!access.isCore && !access.enabled) {
+      return `Módulo "${moduleKey}" não está habilitado no seu plano.`;
+    }
+    if (access.status === 'trialing' || access.status === 'active') return null;
+    if (access.status === 'past_due' && !isWrite) return null;
+    return `Assinatura com status "${access.status}" não permite esta operação.`;
   }
 
   /**

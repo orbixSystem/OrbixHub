@@ -54,6 +54,12 @@ export type SyncPayload = Record<string, unknown>;
 export interface SyncOpDef {
   /** DTO do módulo dono, usado na 2ª passada de validação (whitelist). */
   dto: ClassConstructor<object>;
+  /**
+   * Chave do MÓDULO comercial dono (`module.key`) — o `/sync/*` não tem
+   * `@RequiresModule` (uma rota, N entidades), então o gating de plano/assinatura
+   * é feito POR ENTIDADE no service, com a MESMA régua do `ModuleAccessGuard`.
+   */
+  module: string;
   /** Permissão exigida — espelha o `@Permissions(...)` da rota HTTP equivalente. */
   permission: string;
   /**
@@ -102,6 +108,8 @@ const asDto = <T>(p: SyncPayload): T => p as unknown as T;
 /** Rota de pull: módulo dono + permissão de LEITURA exigida. */
 export interface PullRouteDef {
   service: keyof SyncServices;
+  /** Chave do módulo comercial dono (gating de plano/assinatura — ver [SyncOpDef.module]). */
+  module: string;
   /** Espelha o `@Permissions(...)` dos GETs do módulo dono. */
   permission: string;
 }
@@ -115,17 +123,17 @@ export interface PullRouteDef {
  * as rotas GET do caixa lhe negam.
  */
 export const PULL_ROUTES: Record<string, PullRouteDef> = {
-  customer: { service: 'customers', permission: 'customer.read' },
-  subject: { service: 'customers', permission: 'subject.read' },
-  inventory_item: { service: 'inventory', permission: 'inventory.read' },
-  stock_movement: { service: 'inventory', permission: 'inventory.read' },
-  service_order: { service: 'os', permission: 'os.read' },
-  service_order_item: { service: 'os', permission: 'os.read' },
-  service_order_event: { service: 'os', permission: 'os.read' },
-  service_order_photo: { service: 'os', permission: 'os.read' },
-  service_order_template: { service: 'os', permission: 'os.read' },
-  cash_session: { service: 'cashier', permission: 'cashier.read' },
-  cash_entry: { service: 'cashier', permission: 'cashier.read' },
+  customer: { service: 'customers', module: 'customers', permission: 'customer.read' },
+  subject: { service: 'customers', module: 'customers', permission: 'subject.read' },
+  inventory_item: { service: 'inventory', module: 'inventory', permission: 'inventory.read' },
+  stock_movement: { service: 'inventory', module: 'inventory', permission: 'inventory.read' },
+  service_order: { service: 'os', module: 'os', permission: 'os.read' },
+  service_order_item: { service: 'os', module: 'os', permission: 'os.read' },
+  service_order_event: { service: 'os', module: 'os', permission: 'os.read' },
+  service_order_photo: { service: 'os', module: 'os', permission: 'os.read' },
+  service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
+  cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+  cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
 };
 
 /**
@@ -139,12 +147,14 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   // ---------------- customer ----------------
   'customer.create': {
     dto: CreateCustomerDto,
+    module: 'customers',
     permission: 'customer.write',
     create: true,
     apply: (s, u, p) => s.customers.createCustomer(u, asDto(p)),
   },
   'customer.update': {
     dto: UpdateCustomerDto,
+    module: 'customers',
     permission: 'customer.write',
     structuralKeys: ['id'],
     lww: {
@@ -156,18 +166,21 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'customer.archive': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'customer.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.archiveCustomer(u, str(p.id)),
   },
   'customer.unarchive': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'customer.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.unarchiveCustomer(u, str(p.id)),
   },
   'customer.delete': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'customer.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.deleteCustomer(u, str(p.id)),
@@ -176,6 +189,7 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   // ---------------- subject ----------------
   'subject.create': {
     dto: CreateSubjectDto,
+    module: 'customers',
     permission: 'subject.write',
     create: true,
     structuralKeys: ['customerId'],
@@ -184,6 +198,7 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'subject.update': {
     dto: UpdateSubjectDto,
+    module: 'customers',
     permission: 'subject.write',
     structuralKeys: ['id'],
     lww: {
@@ -195,18 +210,21 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'subject.archive': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'subject.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.archiveSubject(u, str(p.id)),
   },
   'subject.unarchive': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'subject.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.unarchiveSubject(u, str(p.id)),
   },
   'subject.delete': {
     dto: EmptyPayloadDto,
+    module: 'customers',
     permission: 'subject.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.customers.deleteSubject(u, str(p.id)),
@@ -215,12 +233,14 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   // ---------------- inventory_item ----------------
   'inventory_item.create': {
     dto: CreateInventoryItemDto,
+    module: 'inventory',
     permission: 'inventory.write',
     create: true,
     apply: (s, u, p) => s.inventory.createItem(u, asDto(p)),
   },
   'inventory_item.update': {
     dto: UpdateInventoryItemDto,
+    module: 'inventory',
     permission: 'inventory.write',
     structuralKeys: ['id'],
     lww: {
@@ -232,18 +252,21 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'inventory_item.archive': {
     dto: EmptyPayloadDto,
+    module: 'inventory',
     permission: 'inventory.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.inventory.archiveItem(u, str(p.id)),
   },
   'inventory_item.unarchive': {
     dto: EmptyPayloadDto,
+    module: 'inventory',
     permission: 'inventory.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.inventory.unarchiveItem(u, str(p.id)),
   },
   'inventory_item.delete': {
     dto: EmptyPayloadDto,
+    module: 'inventory',
     permission: 'inventory.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.inventory.deleteItem(u, str(p.id)),
@@ -252,12 +275,14 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   // ---------------- service_order ----------------
   'service_order.create': {
     dto: CreateOrderDto,
+    module: 'os',
     permission: 'os.write',
     create: true,
     apply: (s, u, p) => s.os.createOrder(u, asDto(p)),
   },
   'service_order.update': {
     dto: UpdateOrderDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id'],
     lww: {
@@ -268,6 +293,7 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'service_order.changeStatus': {
     dto: ChangeStatusDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.os.changeStatus(u, str(p.id), asDto(p)),
@@ -276,17 +302,19 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     // A OS-pai é endereçada por `orderId` — NUNCA por `id`: `CreateItemDto`
     // DECLARA um campo `id` (uuid opcional do item), e uma chave estrutural
     // homônima colidiria com ele (o `id` da OS seria sobrescrito por `undefined`
-    // na 2ª validação e o item se perderia). `structuralCollisions` abaixo impede
-    // que essa classe de bug volte.
+    // na 2ª validação e o item se perderia). `assertNoStructuralCollisions`
+    // abaixo impede que essa classe de bug volte.
     // O uuid offline do item NÃO é preservado (o service gera o id do item e ele
     // volta no `entityId` da resposta para o cliente reconciliar).
     dto: CreateItemDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['orderId'],
     apply: (s, u, p) => s.os.addItem(u, str(p.orderId), asDto(p)),
   },
   'service_order.updateItem': {
     dto: UpdateItemDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id', 'itemId'],
     apply: (s, u, p) =>
@@ -294,18 +322,21 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   },
   'service_order.deleteItem': {
     dto: EmptyPayloadDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id', 'itemId'],
     apply: (s, u, p) => s.os.deleteItem(u, str(p.id), str(p.itemId)),
   },
   'service_order.createNote': {
     dto: CreateNoteDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.os.createNote(u, str(p.id), asDto(p)),
   },
   'service_order.applyTemplate': {
     dto: EmptyPayloadDto,
+    module: 'os',
     permission: 'os.write',
     structuralKeys: ['id', 'templateId'],
     apply: (s, u, p) => s.os.applyTemplate(u, str(p.id), str(p.templateId)),
@@ -314,23 +345,27 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
   // ---------------- cash_session / cash_entry ----------------
   'cash_session.open': {
     dto: OpenSessionDto,
+    module: 'cashier',
     permission: 'cashier.manage',
     create: true,
     apply: (s, u, p) => s.cashier.openSession(u, asDto(p)),
   },
   'cash_session.close': {
     dto: CloseSessionDto,
+    module: 'cashier',
     permission: 'cashier.manage',
     apply: (s, u, p) => s.cashier.closeSession(u, asDto(p)),
   },
   'cash_entry.create': {
     dto: CreateEntryDto,
+    module: 'cashier',
     permission: 'cashier.write',
     create: true,
     apply: (s, u, p) => s.cashier.createEntry(u, asDto(p)),
   },
   'cash_entry.reverse': {
     dto: ReverseEntryDto,
+    module: 'cashier',
     permission: 'cashier.manage',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.cashier.reverseEntry(u, str(p.id), asDto(p)),

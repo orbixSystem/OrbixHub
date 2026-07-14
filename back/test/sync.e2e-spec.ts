@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
+import { TenantContext } from '../src/common/database/tenant-context';
 import { randomCnpj } from './helpers/cnpj';
 import {
   MailerService,
@@ -131,6 +132,45 @@ describe('Sync — pull + push offline (e2e)', () => {
     return { access, userId: await myUserId(access) };
   }
 
+  /** Liga/desliga um módulo do tenant (simula um plano sem o módulo). */
+  async function setModuleEnabled(
+    tenantId: string,
+    moduleKey: string,
+    enabled: boolean,
+  ): Promise<void> {
+    const tenant = app.get(TenantContext);
+    await tenant.runWithTenant(tenantId, async () => {
+      const db = tenant.getClient();
+      const tm = await db.tenant_module.findFirst({
+        where: { module: { key: moduleKey } },
+      });
+      if (!tm) throw new Error(`tenant_module ausente: ${moduleKey}`);
+      await db.tenant_module.update({
+        where: {
+          tenant_id_module_id: {
+            tenant_id: tm.tenant_id,
+            module_id: tm.module_id,
+          },
+        },
+        data: { enabled },
+      });
+    });
+  }
+
+  /** Força o status da assinatura do tenant (past_due/canceled). */
+  async function setSubscriptionStatus(
+    tenantId: string,
+    status: string,
+  ): Promise<void> {
+    const tenant = app.get(TenantContext);
+    await tenant.runWithTenant(tenantId, async () => {
+      const db = tenant.getClient();
+      const sub = await db.subscription.findFirst();
+      if (!sub) throw new Error('assinatura ausente');
+      await db.subscription.update({ where: { id: sub.id }, data: { status } });
+    });
+  }
+
   const createCustomer = (access: string, body: Record<string, unknown>) =>
     request(srv()).post('/api/customers').set(auth(access)).send(body);
   const patchCustomer = (
@@ -191,7 +231,11 @@ describe('Sync — pull + push offline (e2e)', () => {
     );
     expect(p2.status).toBe(200);
     expect(p2.body.rows).toHaveLength(1);
-    expect(p2.body.nextCursor).toBeNull();
+    // I3 - a pagina PARCIAL tambem devolve cursor (o cliente sempre o persiste);
+    // "acabou" e dito por `hasMore: false`, nao por `nextCursor: null`.
+    expect(p2.body.nextCursor).toBeTruthy();
+    expect(p2.body.hasMore).toBe(false);
+    expect(p1.body.hasMore).toBe(true);
 
     // união das duas páginas = os 3 ids, sem duplicatas
     const seen = [
@@ -418,7 +462,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((await getCustomer(a.access, aCustomer)).body.name).toBe('Cliente de A');
   });
   // ====================================================================
-  // C1 — replay dos sub-itens da OS (a OS-pai é endereçada por `orderId`)
+  // C1 — replay dos sub-itens da OS (o payload endereça a OS-pai por `orderId`)
   // ====================================================================
   it('replay de service_order.addItem/updateItem/deleteItem chega ao servidor (item e total corretos)', async () => {
     const o = await registerOwner();
@@ -430,6 +474,8 @@ describe('Sync — pull + push offline (e2e)', () => {
       .send({ id: orderId, newCustomerName: 'Cliente da OS' });
     expect(created.status).toBe(201);
 
+    // addItem: a OS-pai vai em `orderId` (chave estrutural). Antes, com `id`, o
+    // campo homônimo do CreateItemDto apagava o roteamento e o item se perdia.
     const add = await push(o.access, uid, [
       mut('service_order', 'addItem', {
         orderId,
@@ -460,6 +506,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect(order.body.items[0].name).toBe('Troca de óleo');
     expect(Number(order.body.total)).toBe(100);
 
+    // updateItem
     const upd = await push(o.access, uid, [
       mut('service_order', 'updateItem', { id: orderId, itemId, quantity: 3 }),
     ]);
@@ -469,6 +516,7 @@ describe('Sync — pull + push offline (e2e)', () => {
       .set(auth(o.access));
     expect(Number(order.body.total)).toBe(150);
 
+    // deleteItem
     const del = await push(o.access, uid, [
       mut('service_order', 'deleteItem', { id: orderId, itemId }),
     ]);
@@ -496,9 +544,91 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect(r.status).toBe('applied');
     expect((await getCustomer(o.access, cId)).body.status).toBe('archived');
 
+    // whitelist S7 continua valendo mesmo sem campos declarados no DTO
     const bad = await push(o.access, uid, [
       mut('customer', 'archive', { id: cId, hack: 1 }),
     ]);
     expect((bad.body.results as Array<{ status: string }>)[0].status).toBe('error');
+  });
+
+  // ====================================================================
+  // I2 — gating comercial (plano/assinatura) POR ENTIDADE no /sync
+  // ====================================================================
+  it('módulo fora do plano: pull da entidade → 403 e push da entidade → error (outros módulos seguem)', async () => {
+    const o = await registerOwner();
+    const uid = await myUserId(o.access);
+    await setModuleEnabled(o.tenantId, 'inventory', false);
+
+    const p = await pull(o.access, '?entity=inventory_item&limit=10');
+    expect(p.status).toBe(403);
+
+    const cId = randomUUID();
+    const res = await push(o.access, uid, [
+      mut('inventory_item', 'create', { id: randomUUID(), name: 'Filtro' }),
+      mut('customer', 'create', { id: cId, name: 'Cliente OK' }),
+    ]);
+    expect(res.status).toBe(201);
+    const results = res.body.results as Array<{ status: string; message?: string }>;
+    expect(results[0].status).toBe('error');
+    expect(results[0].message).toContain('inventory');
+    // O item de OUTRO módulo (habilitado) continua sendo aplicado — nada de 403
+    // aniquilando o lote inteiro.
+    expect(results[1].status).toBe('applied');
+    expect((await getCustomer(o.access, cId)).status).toBe(200);
+    expect((await pull(o.access, '?entity=customer&limit=10')).status).toBe(200);
+  });
+
+  it('assinatura past_due: pull continua liberado, push vira item error', async () => {
+    const o = await registerOwner();
+    const uid = await myUserId(o.access);
+    await setSubscriptionStatus(o.tenantId, 'past_due');
+
+    expect((await pull(o.access, '?entity=customer&limit=10')).status).toBe(200);
+
+    const res = await push(o.access, uid, [
+      mut('customer', 'create', { id: randomUUID(), name: 'Não deve entrar' }),
+    ]);
+    const results = res.body.results as Array<{ status: string; message?: string }>;
+    expect(results[0].status).toBe('error');
+    expect(results[0].message).toContain('past_due');
+  });
+
+  it('assinatura canceled: pull → 403', async () => {
+    const o = await registerOwner();
+    await setSubscriptionStatus(o.tenantId, 'canceled');
+    const p = await pull(o.access, '?entity=customer&limit=10');
+    expect(p.status).toBe(403);
+  });
+
+  // ====================================================================
+  // I3 — pull incremental de verdade: o cursor da página parcial é utilizável
+  // ====================================================================
+  it('pull incremental: com o cursor salvo nada é re-baixado; só a linha nova volta', async () => {
+    const o = await registerOwner();
+    const first = randomUUID();
+    expect((await createCustomer(o.access, { id: first, name: 'Primeiro' })).status).toBe(201);
+
+    const p1 = await pull(o.access, '?entity=customer&limit=500');
+    expect(p1.body.rows).toHaveLength(1);
+    expect(p1.body.hasMore).toBe(false);
+    const c = p1.body.nextCursor as { ts: string; id: string };
+    expect(c).toBeTruthy();
+
+    const q = (cur: { ts: string; id: string }) =>
+      `?entity=customer&limit=500&sinceTs=${encodeURIComponent(cur.ts)}&sinceId=${cur.id}`;
+
+    // 2ª rodada com o cursor salvo: NADA volta (antes, como o cursor nunca era
+    // salvo, a tabela inteira era rebaixada a cada rodada).
+    const p2 = await pull(o.access, q(c));
+    expect(p2.body.rows).toHaveLength(0);
+    expect(p2.body.nextCursor).toBeNull();
+    expect(p2.body.hasMore).toBe(false);
+
+    // só a linha NOVA volta na rodada seguinte
+    const second = randomUUID();
+    expect((await createCustomer(o.access, { id: second, name: 'Segundo' })).status).toBe(201);
+    const p3 = await pull(o.access, q(c));
+    expect((p3.body.rows as Array<{ id: string }>).map((r) => r.id)).toEqual([second]);
+    expect(p3.body.nextCursor).toBeTruthy();
   });
 });

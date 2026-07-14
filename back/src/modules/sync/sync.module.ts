@@ -3,6 +3,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { OsModule } from '../os/os.module';
 import { CashierModule } from '../cashier/cashier.module';
+import { BillingModule } from '../billing/billing.module';
 import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
 import { SyncRepository } from './sync.repository';
@@ -14,7 +15,15 @@ import { SyncRepository } from './sync.repository';
  * e `TenantContext` vêm dos módulos globais (Audit/Database).
  */
 @Module({
-  imports: [CustomersModule, InventoryModule, OsModule, CashierModule],
+  imports: [
+    CustomersModule,
+    InventoryModule,
+    OsModule,
+    CashierModule,
+    // Gating comercial por entidade (o /sync não usa @RequiresModule) — via o
+    // service público do billing, nunca lendo `tenant_module` aqui.
+    BillingModule,
+  ],
   controllers: [SyncController],
   providers: [SyncService, SyncRepository],
 })

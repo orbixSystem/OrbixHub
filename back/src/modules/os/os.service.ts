@@ -42,7 +42,10 @@ import {
   isIdUniqueViolation,
   isUniqueViolation,
 } from '../../common/database/prisma-errors';
-import { clampChangedSinceLimit } from '../../common/database/changed-since';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -1262,7 +1265,7 @@ export class OsService {
     entity: string,
     cursor: { ts: string; id: string } | null,
     limit: number,
-  ): Promise<{ rows: unknown[]; nextCursor: { ts: string; id: string } | null }> {
+  ): Promise<ChangedSincePage> {
     if (!OsService.SYNC_ENTITIES.has(entity as OsSyncEntity)) {
       throw new BadRequestException(`Entidade não pertence ao módulo os: ${entity}`);
     }

@@ -471,7 +471,7 @@ class _EntryTile extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(subtitleParts.join(' · ')),
-                const PendingSyncBadge(dense: true),
+                SyncRowBadge(entity: 'cash_entry', id: entry.id, dense: true),
               ],
             )
           : Text(subtitleParts.join(' · ')),

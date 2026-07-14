@@ -50,6 +50,20 @@ final pendingIdsProvider = FutureProvider.family<Set<String>, String>((
   return db.unsyncedIds(entity);
 });
 
+/// Ids de uma entidade cuja mutação local FALHOU no servidor (outbox `failed` —
+/// ver `LocalDb.failedIds`). Vazio na web/sem sessão. A UI os marca em vermelho
+/// ("falhou ao enviar") e oferece retry/descarte no painel do indicador.
+final failedIdsProvider = FutureProvider.family<Set<String>, String>((
+  ref,
+  entity,
+) async {
+  ref.watch(connectivityControllerProvider.select((s) => s.pendingCount));
+  ref.watch(connectivityControllerProvider.select((s) => s.failedCount));
+  final db = ref.watch(localDbProvider);
+  if (db == null) return const <String>{};
+  return db.failedIds(entity);
+});
+
 /// Aviso VERMELHO inline: o que está sendo escrito fica no aparelho e só chega
 /// ao sistema quando a conexão voltar. Some quando online.
 ///
@@ -275,6 +289,79 @@ class PendingSyncBadge extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Registro cuja mutação FALHOU no servidor: selo VERMELHO "falhou ao enviar".
+/// Diferente do [PendingSyncBadge] (âmbar, "vai subir sozinho"): este NÃO sobe
+/// mais sem ação do usuário — retry/descarte ficam no painel do indicador de
+/// conexão (toque no chip).
+class FailedSyncBadge extends StatelessWidget {
+  const FailedSyncBadge({super.key, this.dense = false});
+
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Tooltip(
+      message: 'Toque no indicador de conexão para retentar ou descartar',
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: dense ? 7 : 9,
+          vertical: dense ? 3 : 5,
+        ),
+        decoration: BoxDecoration(
+          color: neu.dangerTint,
+          borderRadius: BorderRadius.circular(NeuTokens.rChip),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: dense ? 12 : 14,
+              color: neu.danger,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              'Falhou ao enviar',
+              style: TextStyle(
+                color: neu.danger,
+                fontSize: dense ? 10.5 : 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Selo de sincronização de UMA linha: vermelho ([FailedSyncBadge]) quando a
+/// mutação dela foi recusada pelo servidor; âmbar ([PendingSyncBadge]) enquanto
+/// ela só está na fila. O chamador decide QUANDO mostrar (linha suja); este
+/// widget decide QUAL selo.
+class SyncRowBadge extends ConsumerWidget {
+  const SyncRowBadge({
+    super.key,
+    required this.entity,
+    required this.id,
+    this.dense = false,
+  });
+
+  final String entity;
+  final String id;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final failed =
+        ref.watch(failedIdsProvider(entity)).value ?? const <String>{};
+    return failed.contains(id)
+        ? FailedSyncBadge(dense: dense)
+        : PendingSyncBadge(dense: dense);
   }
 }
 

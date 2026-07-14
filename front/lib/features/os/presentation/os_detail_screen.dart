@@ -495,7 +495,7 @@ class _Header extends StatelessWidget {
                       children: [
                         OsStatusChip(status: order.status),
                         if (isPendingOsNumber(order.number))
-                          const PendingSyncBadge(),
+                          SyncRowBadge(entity: 'service_order', id: order.id),
                       ],
                     ),
                   ],

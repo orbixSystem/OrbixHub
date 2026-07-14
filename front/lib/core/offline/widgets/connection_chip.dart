@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../di.dart';
 import '../../ui/neu_tokens.dart';
 import '../connectivity_controller.dart';
+import 'pending_changes_panel.dart';
 
 /// Indicador PERSISTENTE de conectividade/sync (contraste com
 /// [ConnectionBanner], que só aparece nas TRANSIÇÕES). Vive no rodapé da
@@ -40,15 +43,26 @@ class ConnectionChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectivityControllerProvider);
     final display = connectionDisplayFor(state, context.neu, onDark: onDark);
+    // Há fila (pendentes ou falhas)? Então o chip vira BOTÃO: abre o painel
+    // "alterações pendentes / falhas" — a casa do retry/descarte (I4).
+    final hasQueue = state.pendingCount > 0 || state.failedCount > 0;
+    void open() => unawaited(showPendingChangesPanel(context));
 
     if (collapsed) {
+      final dot = Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: display.color, shape: BoxShape.circle),
+      );
       return Tooltip(
         message: _collapsedTooltip(display),
-        child: Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: display.color, shape: BoxShape.circle),
-        ),
+        child: hasQueue
+            ? InkWell(
+                onTap: open,
+                customBorder: const CircleBorder(),
+                child: Padding(padding: const EdgeInsets.all(4), child: dot),
+              )
+            : dot,
       );
     }
 
@@ -101,8 +115,15 @@ class ConnectionChip extends ConsumerWidget {
       ),
     );
 
-    if (display.tooltip == null) return chip;
-    return Tooltip(message: display.tooltip!, child: chip);
+    final Widget tappable = hasQueue
+        ? InkWell(
+            onTap: open,
+            borderRadius: BorderRadius.circular(NeuTokens.rChip),
+            child: chip,
+          )
+        : chip;
+    if (display.tooltip == null) return tappable;
+    return Tooltip(message: display.tooltip!, child: tappable);
   }
 
   String _collapsedTooltip(ConnectionDisplay display) {
@@ -137,6 +158,9 @@ class ConnectionDisplay {
 
 String pendingLabel(int n) => n == 1 ? '1 pendente' : '$n pendentes';
 
+/// Rótulo das mutações RECUSADAS pelo servidor (exigem retry/descarte).
+String failedLabel(int n) => n == 1 ? '1 falha' : '$n falhas';
+
 /// Paleta semântica do tema ESCURO — usada quando o indicador vive sobre um
 /// painel escuro (sidebar) independentemente do tema do canvas. Os tons claros
 /// (verde/âmbar/vermelho do tema claro) somem ou vibram sobre o navy.
@@ -158,6 +182,23 @@ ConnectionDisplay connectionDisplayFor(
   final palette = onDark ? _dark : neu;
   Color tint(Color fallback) =>
       onDark ? Colors.white.withValues(alpha: 0.08) : fallback;
+
+  // Falhas mandam no indicador, em QUALQUER status: uma mutação recusada não
+  // sobe sozinha nunca mais — o usuário precisa ver e agir (retry/descarte).
+  if (state.failedCount > 0) {
+    final pending = state.pendingCount;
+    return ConnectionDisplay(
+      label: pending > 0
+          ? '${failedLabel(state.failedCount)} • ${pendingLabel(pending)}'
+          : failedLabel(state.failedCount),
+      color: palette.danger,
+      tint: tint(neu.dangerTint),
+      tooltip: [
+        'Toque para retentar ou descartar',
+        ?othersTooltip,
+      ].join('\n'),
+    );
+  }
 
   switch (state.status) {
     case ConnStatus.online:

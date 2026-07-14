@@ -301,6 +301,7 @@ class _Body extends ConsumerWidget {
             }
             final o = page.items[i];
             return _OrderTile(
+              id: o.id,
               number: o.number,
               customerName: o.customerName,
               subjectLabel: o.subjectLabel,
@@ -341,6 +342,7 @@ class _Body extends ConsumerWidget {
 
 class _OrderTile extends StatelessWidget {
   const _OrderTile({
+    required this.id,
     required this.number,
     required this.customerName,
     required this.subjectLabel,
@@ -351,6 +353,7 @@ class _OrderTile extends StatelessWidget {
     required this.onTap,
   });
 
+  final String id;
   final String number;
   final String? customerName;
   final String? subjectLabel;
@@ -385,7 +388,7 @@ class _OrderTile extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(number),
-                const PendingSyncBadge(dense: true),
+                SyncRowBadge(entity: 'service_order', id: id, dense: true),
               ],
             )
           : Text(number),

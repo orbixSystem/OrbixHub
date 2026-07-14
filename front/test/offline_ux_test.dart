@@ -1,9 +1,13 @@
+import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
+import 'package:orbixhub_front/core/offline/db/local_db.dart';
 import 'package:orbixhub_front/core/offline/widgets/offline_notices.dart';
+import 'package:orbixhub_front/core/offline/widgets/pending_changes_panel.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
@@ -63,7 +67,12 @@ class _FakeSession extends SessionController {
 
 /// Monta a tela com a sessão fixa e a conectividade forçada. Os repositórios
 /// são sempre fakes (nenhum toca a rede).
-Widget _wrap(Widget child, {required ConnStatus status, OsRepository? os}) {
+Widget _wrap(
+  Widget child, {
+  required ConnStatus status,
+  OsRepository? os,
+  List<Override> extra = const [],
+}) {
   return ProviderScope(
     overrides: [
       connectivityControllerProvider.overrideWith(() => _FakeConn(status)),
@@ -74,6 +83,7 @@ Widget _wrap(Widget child, {required ConnStatus status, OsRepository? os}) {
       inventoryRepositoryProvider.overrideWithValue(FakeInventoryRepository()),
       customersRepositoryProvider.overrideWithValue(FakeCustomersRepository()),
       cashierRepositoryProvider.overrideWithValue(FakeCashierRepository()),
+      ...extra,
     ],
     child: MaterialApp(
       theme: AppTheme.light(),
@@ -300,6 +310,91 @@ void main() {
       expect(find.byType(PendingSyncBadge), findsOneWidget);
       expect(find.text('Pendente de envio'), findsOneWidget);
     });
+  });
+
+  group('falhas de sync (I4)', () {
+    testWidgets(
+      'linha cuja mutação FALHOU ganha o selo VERMELHO (não o neutro de pendente)',
+      (tester) async {
+        final repo = FakeOsRepository(
+          orders: const [
+            ServiceOrder(
+              id: 'os-p',
+              number: 'OS-P1',
+              customerId: 'c1',
+              customerName: 'Maria',
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          _wrap(
+            const OsListScreen(),
+            status: ConnStatus.online,
+            os: repo,
+            extra: [
+              failedIdsProvider(
+                'service_order',
+              ).overrideWith((ref) async => {'os-p'}),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FailedSyncBadge), findsOneWidget);
+        expect(find.text('Falhou ao enviar'), findsOneWidget);
+        expect(find.byType(PendingSyncBadge), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'painel do indicador mostra a mensagem do servidor e o retry re-arma a mutação',
+      (tester) async {
+        final db = LocalDb(NativeDatabase.memory());
+        addTearDown(db.close);
+        await db.enqueue(
+          LocalMutation(
+            clientMutationId: 'm1',
+            authorUserId: 'u1',
+            entity: 'customer',
+            op: 'create',
+            payload: '{"id":"c1"}',
+            clientUpdatedAt: DateTime.utc(2026, 7, 1),
+          ),
+        );
+        await db.markOutbox('m1', 'failed', 'Documento já cadastrado.');
+
+        await tester.pumpWidget(
+          _wrap(
+            Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showPendingChangesPanel(context),
+                child: const Text('abrir'),
+              ),
+            ),
+            status: ConnStatus.online,
+            extra: [
+              localDbProvider.overrideWithValue(db),
+              syncEngineProvider.overrideWithValue(null),
+            ],
+          ),
+        );
+        await tester.tap(find.text('abrir'));
+        await tester.pumpAndSettle();
+
+        // A falha é nomeada em PT-BR, com o motivo VINDO DO SERVIDOR.
+        expect(find.text('Alterações pendentes'), findsOneWidget);
+        expect(find.text('Cliente — criação'), findsOneWidget);
+        expect(find.text('Documento já cadastrado.'), findsOneWidget);
+        expect(find.text('Falhou ao enviar'), findsOneWidget);
+
+        await tester.tap(find.text('Tentar de novo'));
+        await tester.pumpAndSettle();
+
+        // Re-armada: volta para a fila (pending) e o SyncEngine a reenvia.
+        expect(await db.failedIds('customer'), isEmpty);
+        expect(await db.pendingFor('u1'), hasLength(1));
+      },
+    );
   });
 
   group('estoque — formulário de item', () {

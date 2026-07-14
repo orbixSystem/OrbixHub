@@ -23,21 +23,28 @@ class ConnState {
     this.status = ConnStatus.offline,
     this.pendingCount = 0,
     this.pendingOtherAuthors = 0,
+    this.failedCount = 0,
   });
 
   final ConnStatus status;
   final int pendingCount;
   final int pendingOtherAuthors;
 
+  /// Mutações DESTE usuário recusadas pelo servidor (outbox `failed`). Exigem
+  /// ação humana (retentar ou descartar) — nunca somem sozinhas.
+  final int failedCount;
+
   ConnState copyWith({
     ConnStatus? status,
     int? pendingCount,
     int? pendingOtherAuthors,
+    int? failedCount,
   }) {
     return ConnState(
       status: status ?? this.status,
       pendingCount: pendingCount ?? this.pendingCount,
       pendingOtherAuthors: pendingOtherAuthors ?? this.pendingOtherAuthors,
+      failedCount: failedCount ?? this.failedCount,
     );
   }
 
@@ -48,14 +55,16 @@ class ConnState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           pendingCount == other.pendingCount &&
-          pendingOtherAuthors == other.pendingOtherAuthors;
+          pendingOtherAuthors == other.pendingOtherAuthors &&
+          failedCount == other.failedCount;
 
   @override
-  int get hashCode => Object.hash(status, pendingCount, pendingOtherAuthors);
+  int get hashCode =>
+      Object.hash(status, pendingCount, pendingOtherAuthors, failedCount);
 
   @override
   String toString() => 'ConnState(status: $status, pendingCount: $pendingCount, '
-      'pendingOtherAuthors: $pendingOtherAuthors)';
+      'pendingOtherAuthors: $pendingOtherAuthors, failedCount: $failedCount)';
 }
 
 /// Stream bruto do `connectivity_plus` — sobrescrito nos testes por um stream
@@ -239,8 +248,13 @@ class ConnectivityController extends Notifier<ConnState> {
 
   /// Atualiza os contadores exibidos pelo indicador: [mine] é o tamanho do
   /// outbox deste device; [others] é o total de mutações de outros autores
-  /// ainda não puxadas.
-  void setPending(int mine, int others) {
-    state = state.copyWith(pendingCount: mine, pendingOtherAuthors: others);
+  /// ainda não puxadas; [failed] são as mutações deste usuário recusadas pelo
+  /// servidor (aparecem em vermelho e pedem retry/descarte).
+  void setPending(int mine, int others, [int failed = 0]) {
+    state = state.copyWith(
+      pendingCount: mine,
+      pendingOtherAuthors: others,
+      failedCount: failed,
+    );
   }
 }

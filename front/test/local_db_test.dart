@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -181,6 +182,120 @@ void main() {
       final counts = await db.pendingCounts('u1');
       expect(counts.mine, 1);
       expect(counts.others, 1);
+    });
+  });
+
+  group('Outbox failed: badge, retry, descarte e poda (I4)', () {
+    Future<OutboxData> rowOf(LocalDb db, String cmid) =>
+        (db.select(db.outbox)..where((t) => t.clientMutationId.equals(cmid)))
+            .getSingle();
+
+    LocalMutation mut(
+      String cmid, {
+      String entity = 'customer',
+      String op = 'create',
+      Map<String, dynamic>? payload,
+    }) =>
+        LocalMutation(
+          clientMutationId: cmid,
+          authorUserId: 'u1',
+          entity: entity,
+          op: op,
+          payload: jsonEncode(payload ?? {'id': cmid}),
+          clientUpdatedAt: _ts(1),
+        );
+
+    test('failedIds separa as falhas das pendentes (unsyncedIds junta as duas)',
+        () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.enqueue(mut('m1'));
+      await db.enqueue(mut('m2'));
+      await db.markOutbox('m2', 'failed', 'Sem permissão.');
+
+      expect(await db.failedIds('customer'), {'m2'});
+      expect(await db.unsyncedIds('customer'), {'m1', 'm2'});
+
+      final counts = await db.pendingCounts('u1');
+      expect(counts.mine, 1);
+      expect(counts.failed, 1);
+    });
+
+    test('unsyncedIds enxerga a OS-pai de um item enfileirado (`orderId`)',
+        () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.enqueue(mut(
+        'm1',
+        entity: 'service_order',
+        op: 'addItem',
+        payload: {'orderId': 'os-1', 'kind': 'service'},
+      ));
+
+      expect(await db.unsyncedIds('service_order'), {'os-1'});
+    });
+
+    test('retryOutbox re-arma a mutação falha (volta a pending, sem mensagem)',
+        () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.enqueue(mut('m1'));
+      await db.markOutbox('m1', 'failed', 'Erro do servidor.');
+
+      await db.retryOutbox('m1');
+
+      final row = await rowOf(db, 'm1');
+      expect(row.status, 'pending');
+      expect(row.message, isNull);
+      expect(await db.pendingFor('u1'), hasLength(1));
+    });
+
+    test('discardOutbox some com a mutação E com a linha fantasma do create',
+        () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.upsertRows('customer', [
+        (id: 'm1', payload: '{"id":"m1"}', updatedAt: _ts(1)),
+      ]);
+      await db.enqueue(mut('m1'));
+      await db.markOutbox('m1', 'failed', 'Documento já cadastrado.');
+
+      await db.discardOutbox('m1');
+
+      expect(await db.failedIds('customer'), isEmpty);
+      expect(await db.rowsOf('customer'), isEmpty);
+    });
+
+    test('discardOutbox de um update NÃO apaga a linha local', () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.upsertRows('customer', [
+        (id: 'c1', payload: '{"id":"c1"}', updatedAt: _ts(1)),
+      ]);
+      await db.enqueue(mut('m1', op: 'update', payload: {'id': 'c1'}));
+      await db.markOutbox('m1', 'failed', 'Erro.');
+
+      await db.discardOutbox('m1');
+
+      expect(await db.rowsOf('customer'), hasLength(1));
+    });
+
+    test('pruneOutbox remove applied/discarded e preserva pending/failed',
+        () async {
+      final db = _memDb();
+      addTearDown(db.close);
+      await db.enqueue(mut('m1'));
+      await db.enqueue(mut('m2'));
+      await db.enqueue(mut('m3'));
+      await db.enqueue(mut('m4'));
+      await db.markOutbox('m1', 'applied');
+      await db.markOutbox('m2', 'discarded');
+      await db.markOutbox('m3', 'failed', 'Erro.');
+
+      expect(await db.pruneOutbox(), 2);
+
+      final left = await db.outboxFor('u1');
+      expect(left.map((r) => r.clientMutationId).toSet(), {'m3', 'm4'});
     });
   });
 
