@@ -67,8 +67,15 @@ class LocalFirstInventoryRepository extends LocalFirstBase
         sort: sort,
         page: page,
       );
-      await putRows(_entity, [for (final i in res.items) i.toJson()]);
-      return res;
+      await mirrorRows(_entity, [for (final i in res.items) i.toJson()]);
+      // Itens criados/editados offline (ainda na fila) continuam visíveis — a
+      // versão local vence a do servidor enquanto a mutação não for confirmada.
+      final merged =
+          await mergePending(_entity, [for (final i in res.items) i.toJson()]);
+      return res.copyWith(
+        items: [for (final row in merged) InventoryItem.fromJson(row)],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
 
     final filtered = (await rows(_entity)).where((row) {
@@ -139,7 +146,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
 
   @override
   Future<InventoryItem> getItem(String id) async {
-    if (isOnline()) {
+    if (!await useLocal(_entity, id)) {
       final item = await inner.getItem(id);
       await putRow(_entity, item.toJson());
       return item;
@@ -153,7 +160,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
   Future<List<InventoryItem>> lowStock() async {
     if (isOnline()) {
       final items = await inner.lowStock();
-      await putRows(_entity, [for (final i in items) i.toJson()]);
+      await mirrorRows(_entity, [for (final i in items) i.toJson()]);
       return items;
     }
     final low = (await rows(_entity))
@@ -181,7 +188,8 @@ class LocalFirstInventoryRepository extends LocalFirstBase
 
   @override
   Future<InventoryItem> updateItem(String id, ItemDraft draft) async {
-    if (isOnline()) {
+    // Item criado offline e ainda na fila: editar no servidor daria 404.
+    if (!await useLocal(_entity, id)) {
       final item = await inner.updateItem(id, draft);
       await putRow(_entity, item.toJson());
       return item;
@@ -239,23 +247,23 @@ class LocalFirstInventoryRepository extends LocalFirstBase
     bool isActive,
     Future<InventoryItem> Function(String id) online,
   ) async {
-    if (isOnline()) {
+    if (!await useLocal(_entity, id)) {
       final item = await online(id);
       await putRow(_entity, item.toJson());
       return item;
     }
     final row = await rowById(_entity, id);
     if (row == null) notFoundLocally('Produto');
+    await enqueue(_entity, op, {'id': id});
     final merged = {...row, 'is_active': isActive, 'updated_at': nowIso()};
     await putRow(_entity, merged);
-    await enqueue(_entity, op, {'id': id});
     return InventoryItem.fromJson(merged);
   }
 
   /// Soft delete no backend (some das listas) — localmente a linha sai do espelho.
   @override
   Future<void> deleteItem(String id) async {
-    if (isOnline()) {
+    if (!await useLocal(_entity, id)) {
       await inner.deleteItem(id);
       await removeRow(_entity, id);
       return;

@@ -46,8 +46,10 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   // ======================= espelho / montagem ===========================
 
   /// Espelha uma OS completa: o cabeçalho + itens/eventos/fotos (que no row-store
-  /// vivem em entidades próprias, como no pull).
+  /// vivem em entidades próprias, como no pull). Uma OS SUJA (mutação local ainda
+  /// na fila) não é espelhada: a cópia do servidor é mais VELHA que a local.
   Future<void> _mirrorOrder(ServiceOrder order) async {
+    if (await isDirty(_orders, order.id)) return;
     final header = {...order.toJson()}
       ..remove('items')
       ..remove('events')
@@ -62,11 +64,39 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     await putRows(_photos, [
       for (final p in order.photos) {...p.toJson(), 'order_id': order.id},
     ]);
+    await _pruneReplayedChildren(order.id);
   }
 
-  /// Monta a OS a partir do row-store (cabeçalho + filhos por `order_id`).
+  /// **Poda dos filhos fantasma.** Itens/eventos/fotos criados offline recebem um
+  /// uuid LOCAL que o servidor NÃO preserva no replay (`service_order.addItem`
+  /// gera o id lá) — e o pull é um upsert que nunca remove nada. Sem esta poda, a
+  /// linha local e a cópia do servidor conviveriam para sempre: item duplicado e
+  /// total dobrado.
+  ///
+  /// Assim que a OS deixa de estar suja (nenhuma mutação dela pendente/falha ⇒ o
+  /// servidor já aplicou tudo e o pull traz as cópias boas), apagamos as linhas
+  /// marcadas com [LocalFirstBase.localOnlyKey]. Fotos ainda na fila de upload
+  /// (S6) são preservadas — elas ainda não existem no servidor.
+  Future<void> _pruneReplayedChildren(String orderId) async {
+    if (await isDirty(_orders, orderId)) return;
+    final pendingPhotoIds = {
+      for (final up in await db.listPendingUploads()) up.id,
+    };
+    for (final entity in const [_items, _events, _photos]) {
+      for (final row in await rows(entity)) {
+        if (row['order_id'] != orderId || !isLocalOnly(row)) continue;
+        final id = row['id'] as String;
+        if (entity == _photos && pendingPhotoIds.contains(id)) continue;
+        await removeRow(entity, id);
+      }
+    }
+  }
+
+  /// Monta a OS a partir do row-store (cabeçalho + filhos por `order_id`), depois
+  /// de podar os filhos locais já reaplicados pelo servidor.
   Future<ServiceOrder> _assemble(Map<String, dynamic> header) async {
     final id = header['id'] as String;
+    await _pruneReplayedChildren(id);
     final items = (await rows(_items)).where((r) => r['order_id'] == id).toList()
       ..sort((a, b) => _createdOf(a).compareTo(_createdOf(b)));
     final events = (await rows(_events)).where((r) => r['order_id'] == id).toList()
@@ -125,9 +155,16 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
         page: page,
       );
       for (final o in res.items) {
-        await _mirrorOrder(o);
+        await _mirrorOrder(o); // pula as sujas (a local é mais nova)
       }
-      return res;
+      // OS criada offline (create ainda na fila) continua aparecendo na lista —
+      // senão a `OS-P1` sumiria da tela assim que a rede voltasse.
+      final merged =
+          await mergePending(_orders, [for (final o in res.items) o.toJson()]);
+      return res.copyWith(
+        items: [for (final row in merged) ServiceOrder.fromJson(row)],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
 
     final filtered = (await rows(_orders)).where((row) {
@@ -178,7 +215,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
 
   @override
   Future<ServiceOrder> getOrder(String id) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.getOrder(id);
       await _mirrorOrder(order);
       return order;
@@ -311,6 +348,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       putRow(_events, {
         'id': id ?? newId(),
         'order_id': orderId,
+        LocalFirstBase.localOnlyKey: true, // podado quando o servidor replicar
         'kind': kind,
         'message': message,
         'status_snapshot': statusSnapshot,
@@ -320,7 +358,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
 
   @override
   Future<ServiceOrder> updateOrder(String id, OrderPatch patch) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.updateOrder(id, patch);
       await _mirrorOrder(order);
       return order;
@@ -345,13 +383,14 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   @override
   Future<void> deleteOrder(String id) async {
     if (!isOnline()) requiresConnection('excluir a OS');
+    if (await isDirty(_orders, id)) pendingSync('Esta OS');
     await inner.deleteOrder(id);
     await removeRow(_orders, id);
   }
 
   @override
   Future<ServiceOrder> changeStatus(String id, String status) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.changeStatus(id, status);
       await _mirrorOrder(order);
       return order;
@@ -368,6 +407,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   @override
   Future<ServiceOrder> emitInvoice(String id) async {
     if (!isOnline()) requiresConnection('emitir a nota fiscal');
+    if (await isDirty(_orders, id)) pendingSync('Esta OS');
     final order = await inner.emitInvoice(id);
     await _mirrorOrder(order);
     return order;
@@ -379,7 +419,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     required String message,
     required bool visiblePublic,
   }) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.createNote(
         id,
         message: message,
@@ -416,7 +456,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     required String contentType,
     String? caption,
   }) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, orderId)) {
       final order = await inner.addPhoto(
         orderId,
         bytes: bytes,
@@ -440,6 +480,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     await putRow(_photos, {
       'id': photoId,
       'order_id': orderId,
+      LocalFirstBase.localOnlyKey: true,
       'url': '', // sem url até o upload; a UI (B9) trata como pendente
       'caption': caption,
       'comment_count': 0,
@@ -454,6 +495,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   @override
   Future<ServiceOrder> deletePhoto(String orderId, String photoId) async {
     if (!isOnline()) requiresConnection('remover a foto');
+    if (await isDirty(_orders, orderId)) pendingSync('Esta OS');
     final order = await inner.deletePhoto(orderId, photoId);
     await _mirrorOrder(order);
     return order;
@@ -465,6 +507,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     String photoId,
   ) async {
     if (!isOnline()) requiresConnection('ver os comentários da foto');
+    if (await isDirty(_orders, orderId)) pendingSync('Esta OS');
     return inner.listPhotoComments(orderId, photoId);
   }
 
@@ -475,6 +518,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     String body,
   ) async {
     if (!isOnline()) requiresConnection('comentar na foto');
+    if (await isDirty(_orders, orderId)) pendingSync('Esta OS');
     return inner.addPhotoComment(orderId, photoId, body);
   }
 
@@ -563,7 +607,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   /// `service_order.applyTemplate` — o servidor refaz a mesma expansão no replay.
   @override
   Future<ServiceOrder> applyTemplate(String orderId, String templateId) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, orderId)) {
       final order = await inner.applyTemplate(orderId, templateId);
       await _mirrorOrder(order);
       return order;
@@ -618,6 +662,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     await putRow(_items, {
       'id': newId(),
       'order_id': orderId,
+      LocalFirstBase.localOnlyKey: true, // o servidor gera OUTRO id no replay
       'kind': kind,
       'inventory_item_id': inventoryItemId,
       'name': name,
@@ -631,7 +676,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
 
   @override
   Future<ServiceOrder> addItem(String id, OrderItemDraft draft) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.addItem(id, draft);
       await _mirrorOrder(order);
       return order;
@@ -668,7 +713,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     String itemId,
     OrderItemPatch patch,
   ) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.updateItem(id, itemId, patch);
       await _mirrorOrder(order);
       return order;
@@ -697,7 +742,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
 
   @override
   Future<ServiceOrder> deleteItem(String id, String itemId) async {
-    if (isOnline()) {
+    if (!await useLocal(_orders, id)) {
       final order = await inner.deleteItem(id, itemId);
       await _mirrorOrder(order);
       return order;

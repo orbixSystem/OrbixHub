@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 // Abertura por plataforma: nativo (dart:io + SQLCipher) ou stub web (lança).
@@ -186,6 +188,30 @@ class LocalDb extends _$LocalDb {
           ..where((t) => t.clientMutationId.equals(clientMutationId)))
         .write(OutboxCompanion(status: Value(status), message: Value(message)));
   }
+
+  /// Ids de linhas de [entity] com mutação local **ainda não confirmada** pelo
+  /// servidor (`pending` — na fila — ou `failed` — recusada). São as linhas
+  /// "sujas": elas podem não existir no servidor (create offline) ou ter uma
+  /// edição que ele ainda não viu. Os repositórios LocalFirst (B8) usam isto para
+  /// escolher o caminho LOCAL mesmo com rede — ir ao servidor daria 404 (ou
+  /// mostraria um estado velho por cima da edição local).
+  Future<Set<String>> unsyncedIds(String entity) async {
+    final rows = await (select(outbox)
+          ..where((t) =>
+              t.entity.equals(entity) &
+              (t.status.equals('pending') | t.status.equals('failed'))))
+        .get();
+    final ids = <String>{};
+    for (final r in rows) {
+      final id = (jsonDecode(r.payload) as Map<String, dynamic>)['id'];
+      if (id is String) ids.add(id);
+    }
+    return ids;
+  }
+
+  /// `true` se [id] de [entity] tem mutação local não confirmada (ver [unsyncedIds]).
+  Future<bool> hasPendingFor(String entity, String id) async =>
+      (await unsyncedIds(entity)).contains(id);
 
   /// Contadores de pendentes p/ o indicador (B2): `mine` = deste autor,
   /// `others` = de outros autores (device compartilhado).

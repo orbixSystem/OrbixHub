@@ -107,8 +107,36 @@ class LocalFirstCashierRepository extends LocalFirstBase
         .toList();
   }
 
-  /// Monta a [CashSession] local com os totais correntes (mesma conta do backend:
-  /// esperado = abertura + entradas − saídas).
+  /// `countCashOnly` da config espelhada (default do backend: `true`) — a
+  /// conferência de fechamento considera só dinheiro.
+  Future<bool> _countCashOnly() async {
+    final cached = await rowById(
+      LocalConfigEntities.cashier,
+      LocalConfigEntities.rowId,
+    );
+    if (cached == null) return const CashierConfig().countCashOnly;
+    return CashierConfig.fromJson(cached).countCashOnly;
+  }
+
+  /// Valor ESPERADO em caixa (mesma conta do backend): abertura + entradas −
+  /// saídas, considerando só `dinheiro` quando `countCashOnly` (pix/cartão são
+  /// informativos).
+  Future<double> _expectedOf(
+    Map<String, dynamic> session,
+    List<Map<String, dynamic>> live,
+  ) async {
+    final considered = await _countCashOnly()
+        ? live.where((e) => e['method'] == 'dinheiro').toList()
+        : live;
+    final totals = _totalsOf(considered);
+    return round2(
+      toNum(session['opening_amount']).toDouble() +
+          totals.inTotal -
+          totals.outTotal,
+    );
+  }
+
+  /// Monta a [CashSession] local com os totais correntes.
   Future<CashSession> _sessionWithTotals(Map<String, dynamic> row) async {
     final live = await _liveEntriesOf(row['id'] as String);
     final totals = _totalsOf(live);
@@ -116,11 +144,9 @@ class LocalFirstCashierRepository extends LocalFirstBase
       ...row,
       'byMethod': [for (final m in _byMethod(live)) m.toJson()],
       'totals': SessionTotals(
-        inTotal: totals.inTotal,
-        outTotal: totals.outTotal,
-        expected: toNum(row['opening_amount']).toDouble() +
-            totals.inTotal -
-            totals.outTotal,
+        inTotal: round2(totals.inTotal),
+        outTotal: round2(totals.outTotal),
+        expected: await _expectedOf(row, live),
       ).toJson(),
     });
   }
@@ -220,10 +246,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
       'deviceId': ?device,
     });
     final live = await _liveEntriesOf(row['id'] as String);
-    final totals = _totalsOf(live);
-    final expected = toNum(row['opening_amount']).toDouble() +
-        totals.inTotal -
-        totals.outTotal;
+    final expected = await _expectedOf(row, live);
     final closed = {
       ...row,
       'status': 'closed',
@@ -245,7 +268,12 @@ class LocalFirstCashierRepository extends LocalFirstBase
       await putRows(_sessions, [for (final s in res.items) s.toJson()]);
       return res;
     }
+    // Histórico deste PONTO de caixa (coerente com `currentSession`, que também
+    // filtra pelo device — B4).
+    final device = await deviceId();
     final all = (await rows(_sessions))
+        .where((r) => r['device_id'] == device)
+        .toList()
       ..sort((a, b) => _openedAt(b).compareTo(_openedAt(a)));
     return SessionPage(
       items: [
@@ -302,7 +330,8 @@ class LocalFirstCashierRepository extends LocalFirstBase
 
   @override
   Future<CashEntry> reverseEntry(String id, String reason) async {
-    if (isOnline()) {
+    // Lançamento criado offline e ainda na fila: estornar no servidor daria 404.
+    if (!await useLocal(_entries, id)) {
       final entry = await inner.reverseEntry(id, reason);
       await putRow(_entries, entry.toJson());
       return entry;
@@ -367,11 +396,30 @@ class LocalFirstCashierRepository extends LocalFirstBase
   String _createdAt(Map<String, dynamic> row) =>
       (row['created_at'] ?? '') as String;
 
+  /// Compara INSTANTES (não strings): `from`/`to` podem vir como data pura
+  /// ('2026-07-13'), e um `to` desses, comparado como texto contra um
+  /// `created_at` ISO completo, descartaria TODOS os lançamentos do último dia.
+  /// Data pura em `to` = fim do dia (mesma semântica do `parseDate` do backend).
   bool _inPeriod(Map<String, dynamic> row, String? from, String? to) {
-    final created = _createdAt(row);
-    if (from != null && created.compareTo(from) < 0) return false;
-    if (to != null && created.compareTo(to) > 0) return false;
+    final created = DateTime.tryParse(_createdAt(row))?.toUtc();
+    if (created == null) return true;
+    final start = _bound(from, endOfDay: false);
+    final end = _bound(to, endOfDay: true);
+    if (start != null && created.isBefore(start)) return false;
+    if (end != null && created.isAfter(end)) return false;
     return true;
+  }
+
+  DateTime? _bound(String? value, {required bool endOfDay}) {
+    if (value == null || value.isEmpty) return null;
+    final dateOnly = value.length <= 10; // 'YYYY-MM-DD'
+    // Data pura é interpretada em UTC (o `DateTime.parse` a leria como hora
+    // LOCAL, deslocando a fronteira pelo fuso).
+    final parsed = DateTime.tryParse(dateOnly ? '${value}T00:00:00Z' : value)
+        ?.toUtc();
+    if (parsed == null) return null;
+    if (!dateOnly || !endOfDay) return parsed;
+    return parsed.add(const Duration(days: 1) - const Duration(microseconds: 1));
   }
 
   // ============================ resumos =================================
@@ -389,17 +437,22 @@ class LocalFirstCashierRepository extends LocalFirstBase
     return CashSummary(
       byMethod: _byMethod(live),
       byCategory: _keyed(live, 'category'),
-      byOrigin: _keyed(live, 'sale_kind'),
+      // `sale_kind` nulo vira 'nenhum' — mesma chave do backend (shapeKeyedTotals).
+      byOrigin: _keyed(live, 'sale_kind', fallback: 'nenhum'),
       totalIn: totals.inTotal,
       totalOut: totals.outTotal,
       net: totals.inTotal - totals.outTotal,
     );
   }
 
-  List<KeyedTotal> _keyed(List<Map<String, dynamic>> entries, String field) {
+  List<KeyedTotal> _keyed(
+    List<Map<String, dynamic>> entries,
+    String field, {
+    String fallback = 'outro',
+  }) {
     final map = <String, KeyedTotal>{};
     for (final e in entries) {
-      final key = (e[field] ?? 'outro').toString();
+      final key = (e[field] ?? fallback).toString();
       final amount = moneyToDouble((e['amount'] ?? '0').toString());
       final cur = map[key] ?? KeyedTotal(key: key);
       map[key] = e['direction'] == 'out'

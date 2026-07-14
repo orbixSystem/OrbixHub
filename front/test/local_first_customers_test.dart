@@ -139,6 +139,25 @@ void main() {
     expect(offlinePage.items.single.name, 'Do servidor');
   });
 
+  test('linha suja: rede de volta com o create na fila — lista mostra e editar não vai ao servidor',
+      () async {
+    final r = repo();
+    final created = await r.createCustomer(const CustomerDraft(name: 'Maria'));
+
+    online = true; // rede voltou, mas a mutação segue `pending`
+
+    final page = await r.listCustomers();
+    expect(page.items.map((c) => c.id), contains(created.id));
+
+    final updated = await r.updateCustomer(
+      created.id,
+      const CustomerDraft(name: 'Maria Silva'),
+    );
+    expect(updated.name, 'Maria Silva'); // caminho local, sem 404 no servidor
+    expect((await db.pendingFor('user-1')).last.op, 'update');
+    expect((await r.getCustomer(created.id)).name, 'Maria Silva');
+  });
+
   test('offline: lookup (FIPE) lança AppException "Requer conexão"', () async {
     await expectLater(
       repo().lookup('fipe.marcas'),

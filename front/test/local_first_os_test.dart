@@ -165,6 +165,84 @@ void main() {
     expect((await r.listOrders()).total, 1);
   });
 
+  test('replay + pull: o item local é podado — 1 item só e o total do servidor',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+    await r.addItem(
+      order.id,
+      const OrderItemDraft(kind: 'service', name: 'Troca de óleo',
+          quantity: 1, unitPrice: 100),
+    );
+    expect((await r.getOrder(order.id)).items, hasLength(1));
+
+    // Simula o SyncEngine: push aplicado (outbox sai de `pending`) + pull do
+    // servidor (upsert do cabeçalho e do item COM O ID DO SERVIDOR).
+    for (final m in await db.pendingFor('user-1')) {
+      await db.markOutbox(m.clientMutationId, 'applied');
+    }
+    await db.upsertRows('service_order', [
+      (
+        id: order.id,
+        payload: jsonEncode({
+          ...jsonDecode(
+            (await db.rowsOf('service_order')).single.payload,
+          ) as Map<String, dynamic>,
+          'number': 'OS-0007',
+          'total': '100.00',
+        }),
+        updatedAt: DateTime.utc(2026, 7, 13, 1),
+      ),
+    ]);
+    await db.upsertRows('service_order_item', [
+      (
+        id: 'srv-item-1',
+        payload: jsonEncode({
+          'id': 'srv-item-1',
+          'order_id': order.id,
+          'kind': 'service',
+          'name': 'Troca de óleo',
+          'quantity': '1',
+          'unit_price': '100.00',
+          'discount': '0.00',
+          'total': '100.00',
+          'created_at': '2026-07-13T01:00:00.000Z',
+        }),
+        updatedAt: DateTime.utc(2026, 7, 13, 1),
+      ),
+    ]);
+
+    final reconciled = await r.getOrder(order.id);
+    expect(reconciled.items, hasLength(1)); // sem fantasma
+    expect(reconciled.items.single.id, 'srv-item-1');
+    expect(reconciled.total, '100.00'); // total não dobrou
+    expect(reconciled.number, 'OS-0007');
+  });
+
+  test('linha suja: com a rede de volta e o create AINDA na fila, a OS não vai ao servidor',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    // Rede voltou, mas a mutação segue `pending`: a OS só existe localmente.
+    online = true;
+
+    final fetched = await r.getOrder(order.id); // não pode 404 no servidor
+    expect(fetched.number, 'OS-P1');
+
+    final page = await r.listOrders(); // o servidor não conhece a OS-P1
+    expect(page.items.map((o) => o.number), contains('OS-P1'));
+
+    final edited = await r.addItem(
+      order.id,
+      const OrderItemDraft(name: 'Peça', quantity: 1, unitPrice: 10),
+    );
+    expect(edited.items.single.name, 'Peça');
+    expect(edited.total, '10.00');
+    // A edição foi para o outbox (caminho local), não para o servidor.
+    expect((await db.pendingFor('user-1')).last.op, 'addItem');
+  });
+
   test('offline: emitInvoice / deleteOrder / listMembers lançam "Requer conexão"',
       () async {
     final r = repo();

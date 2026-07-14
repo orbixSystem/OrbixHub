@@ -176,6 +176,24 @@ void main() {
     expect(session.status, 'open');
   });
 
+  test('offline: filtro por data com `to` só-data inclui o último dia', () async {
+    final r = repo();
+    await r.openSession(openingAmount: 0);
+    await r.createEntry(
+      const EntryDraft(amount: 40, method: 'dinheiro', category: 'os_payment'),
+    );
+
+    // O lançamento é de 2026-07-13; um `to` data-pura desse mesmo dia deve
+    // incluí-lo (fim do dia), não descartá-lo.
+    final page = await r.listEntries(from: '2026-07-01', to: '2026-07-13');
+    expect(page.total, 1);
+    final resumo = await r.summary(from: '2026-07-01', to: '2026-07-13');
+    expect(resumo.totalIn, 40);
+
+    // E um período que termina antes não traz nada.
+    expect((await r.listEntries(to: '2026-07-12')).total, 0);
+  });
+
   test('offline: updateConfig lança AppException "Requer conexão"', () async {
     await expectLater(
       repo().updateConfig(countCashOnly: false),

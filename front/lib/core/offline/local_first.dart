@@ -52,6 +52,17 @@ abstract class LocalFirstBase {
 
   static const _uuid = Uuid();
 
+  /// Marca (no payload da linha) que aquela linha nasceu LOCALMENTE e o servidor
+  /// vai recriá-la com OUTRO id no replay (itens/eventos/fotos de OS — ver
+  /// `service_order.addItem` no `sync.registry.ts`). Ela é podada assim que a
+  /// mutação que a originou deixa de estar pendente: senão a cópia do servidor
+  /// (que chega pelo pull, um upsert que nunca remove nada) conviveria com a
+  /// local para sempre — item duplicado e total dobrado. Chave ignorada pelo
+  /// `fromJson` dos modelos.
+  static const localOnlyKey = '_local';
+
+  bool isLocalOnly(Map<String, dynamic> row) => row[localOnlyKey] == true;
+
   /// Uuid v4 gerado no cliente. Os creates o mandam no payload (`id`) — é assim
   /// que uma linha criada offline mantém a identidade depois do replay.
   String newId() => _uuid.v4();
@@ -65,6 +76,15 @@ abstract class LocalFirstBase {
         statusCode: null,
         error: 'Offline',
         message: 'Requer conexão com a internet para $acao.',
+      );
+
+  /// Erro para uma ação que exige que a linha JÁ exista no servidor (emitir NF,
+  /// excluir, comentar) mas cuja criação/edição local ainda está na fila.
+  Never pendingSync(String oQue) => throw AppException(
+        statusCode: 409,
+        error: 'PendingSync',
+        message: '$oQue ainda não foi sincronizado(a) com o servidor. '
+            'Tente novamente depois da sincronização.',
       );
 
   /// Erro de "não achei localmente" (equivalente offline de um 404).
@@ -125,6 +145,63 @@ abstract class LocalFirstBase {
     return clock.now.toUtc();
   }
 
+  // ------------------------ linhas "sujas" (S1/B8) ----------------------
+
+  /// Ids de [entity] com mutação local ainda não confirmada (pending/failed).
+  Future<Set<String>> dirtyIds(String entity) => db.unsyncedIds(entity);
+
+  /// A linha está suja? (criada/editada offline e ainda não confirmada).
+  Future<bool> isDirty(String entity, String id) => db.hasPendingFor(entity, id);
+
+  /// **A regra de roteamento**: usa-se o caminho LOCAL quando estamos offline
+  /// **ou** quando a linha está suja. Ir ao servidor com uma linha que só existe
+  /// localmente (create ainda na fila — ou `failed`, que nunca é retentado) daria
+  /// 404 e quebraria a tela; e uma leitura online sobrescreveria a edição local.
+  Future<bool> useLocal(String entity, String id) async =>
+      !isOnline() || await isDirty(entity, id);
+
+  /// Espelha linhas vindas do SERVIDOR sem pisar nas linhas sujas (a versão local
+  /// pendente é mais nova que a do servidor).
+  Future<void> mirrorRows(
+    String entity,
+    List<Map<String, dynamic>> serverRows,
+  ) async {
+    final dirty = await dirtyIds(entity);
+    await putRows(entity, [
+      for (final row in serverRows)
+        if (!dirty.contains(row['id'])) row,
+    ]);
+  }
+
+  /// Funde o resultado ONLINE com as linhas locais ainda não sincronizadas: a
+  /// versão local vence nas linhas sujas e as criadas offline (que o servidor
+  /// ainda não conhece) entram na lista — senão sumiriam da tela assim que a rede
+  /// voltasse.
+  Future<List<Map<String, dynamic>>> mergePending(
+    String entity,
+    List<Map<String, dynamic>> serverRows,
+  ) async {
+    final dirty = await dirtyIds(entity);
+    if (dirty.isEmpty) return serverRows;
+    final locals = {
+      for (final row in await rows(entity))
+        if (dirty.contains(row['id'])) row['id'] as String: row,
+    };
+    final seen = <String>{};
+    final merged = <Map<String, dynamic>>[];
+    for (final row in serverRows) {
+      final id = row['id'] as String?;
+      seen.add(id ?? '');
+      merged.add(locals[id] ?? row);
+    }
+    // Locais que o servidor ainda não devolveu (create na fila) vão na frente.
+    final extras = [
+      for (final entry in locals.entries)
+        if (!seen.contains(entry.key)) entry.value,
+    ];
+    return [...extras, ...merged];
+  }
+
   // ------------------------------ outbox --------------------------------
 
   /// Enfileira uma mutação local (S1: autoria = usuário da sessão) e cutuca o
@@ -161,7 +238,11 @@ abstract class LocalFirstBase {
   String nowIso() => clock.now.toUtc().toIso8601String();
 
   /// Decimais viajam como String nos modelos (espelho do `numeric` do Postgres).
-  String? dec(num? v) => v?.toStringAsFixed(2);
+  String? dec(num? v) => v == null ? null : round2(v).toStringAsFixed(2);
+
+  /// Arredonda a centavos como o backend (`round2` do módulo Caixa) — sem isso a
+  /// aritmética em double acumula deriva de centavo entre cliente e servidor.
+  double round2(num v) => (v * 100).roundToDouble() / 100;
 
   /// Paginação em memória (mesma régua do backend: página 1-based).
   List<T> pageOf<T>(List<T> items, int page, int pageSize) {

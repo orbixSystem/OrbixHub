@@ -63,8 +63,15 @@ class LocalFirstCustomersRepository extends LocalFirstBase
         sort: sort,
         page: page,
       );
-      await putRows('customer', [for (final c in res.items) c.toJson()]);
-      return res;
+      await mirrorRows('customer', [for (final c in res.items) c.toJson()]);
+      // Clientes criados/editados offline e ainda na fila continuam na lista (a
+      // versão local vence) — senão sumiriam da tela assim que a rede voltasse.
+      final merged =
+          await mergePending('customer', [for (final c in res.items) c.toJson()]);
+      return res.copyWith(
+        items: [for (final row in merged) Customer.fromJson(row)],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
 
     final all = await rows('customer');
@@ -111,7 +118,7 @@ class LocalFirstCustomersRepository extends LocalFirstBase
 
   @override
   Future<Customer> getCustomer(String id) async {
-    if (isOnline()) {
+    if (!await useLocal('customer', id)) {
       final customer = await inner.getCustomer(id);
       await putRow('customer', customer.toJson());
       return customer;
@@ -129,7 +136,9 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       return customer;
     }
     final id = newId();
-    final payload = {'id': id, ...draft.toJson()};
+    // Enfileira ANTES de gravar a linha otimista: se o enqueue falhar (sessão
+    // expirada — S1 exige autor), não fica uma linha local órfã que nunca sobe.
+    await enqueue('customer', 'create', {'id': id, ...draft.toJson()});
     final row = <String, dynamic>{
       'id': id,
       'name': draft.name ?? '',
@@ -144,23 +153,23 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       'updated_at': nowIso(),
     };
     await putRow('customer', row);
-    await enqueue('customer', 'create', payload);
     return Customer.fromJson(row);
   }
 
   @override
   Future<Customer> updateCustomer(String id, CustomerDraft draft) async {
-    if (isOnline()) {
+    // Linha suja (criada offline e ainda na fila): editar no servidor daria 404.
+    if (!await useLocal('customer', id)) {
       final customer = await inner.updateCustomer(id, draft);
       await putRow('customer', customer.toJson());
       return customer;
     }
     final row = await rowById('customer', id);
     if (row == null) notFoundLocally('Cliente');
+    await enqueue('customer', 'update', {'id': id, ...draft.toJson()});
     // As chaves do draft coincidem com as colunas (name/type/document/...).
     final merged = {...row, ...draft.toJson(), 'updated_at': nowIso()};
     await putRow('customer', merged);
-    await enqueue('customer', 'update', {'id': id, ...draft.toJson()});
     return Customer.fromJson(merged);
   }
 
@@ -182,16 +191,16 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     String status,
     Future<Customer> Function(String id) online,
   ) async {
-    if (isOnline()) {
+    if (!await useLocal('customer', id)) {
       final customer = await online(id);
       await putRow('customer', customer.toJson());
       return customer;
     }
     final row = await rowById('customer', id);
     if (row == null) notFoundLocally('Cliente');
+    await enqueue('customer', op, {'id': id});
     final merged = {...row, 'status': status, 'updated_at': nowIso()};
     await putRow('customer', merged);
-    await enqueue('customer', op, {'id': id});
     return Customer.fromJson(merged);
   }
 
@@ -209,8 +218,17 @@ class LocalFirstCustomersRepository extends LocalFirstBase
         customerId: customerId,
         status: status,
       );
-      await putRows('subject', [for (final s in res.items) s.toJson()]);
-      return res;
+      await mirrorRows('subject', [for (final s in res.items) s.toJson()]);
+      final merged =
+          await mergePending('subject', [for (final s in res.items) s.toJson()]);
+      return res.copyWith(
+        items: [
+          for (final row in merged)
+            if (customerId == null || row['customer_id'] == customerId)
+              Subject.fromJson(row),
+        ],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
     final all = await rows('subject');
     final filtered = all.where((row) {
@@ -227,7 +245,9 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       items: [for (final row in filtered) Subject.fromJson(row)],
       total: filtered.length,
       page: 1,
-      pageSize: filtered.length,
+      // Página fixa (a interface não pagina subjects). NUNCA `filtered.length`:
+      // com lista vazia daria pageSize 0 e um consumidor dividiria por zero.
+      pageSize: _pageSize,
     );
   }
 
@@ -261,16 +281,16 @@ class LocalFirstCustomersRepository extends LocalFirstBase
 
   @override
   Future<Subject> updateSubject(String id, SubjectDraft draft) async {
-    if (isOnline()) {
+    if (!await useLocal('subject', id)) {
       final subject = await inner.updateSubject(id, draft);
       await putRow('subject', subject.toJson());
       return subject;
     }
     final row = await rowById('subject', id);
     if (row == null) notFoundLocally('Veículo');
+    await enqueue('subject', 'update', {'id': id, ...draft.toJson()});
     final merged = {...row, ...draft.toJson(), 'updated_at': nowIso()};
     await putRow('subject', merged);
-    await enqueue('subject', 'update', {'id': id, ...draft.toJson()});
     return Subject.fromJson(merged);
   }
 
@@ -292,16 +312,16 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     String status,
     Future<Subject> Function(String id) online,
   ) async {
-    if (isOnline()) {
+    if (!await useLocal('subject', id)) {
       final subject = await online(id);
       await putRow('subject', subject.toJson());
       return subject;
     }
     final row = await rowById('subject', id);
     if (row == null) notFoundLocally('Veículo');
+    await enqueue('subject', op, {'id': id});
     final merged = {...row, 'status': status, 'updated_at': nowIso()};
     await putRow('subject', merged);
-    await enqueue('subject', op, {'id': id});
     return Subject.fromJson(merged);
   }
 
@@ -314,6 +334,7 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     required String contentType,
   }) async {
     if (!isOnline()) requiresConnection('enviar a foto do veículo');
+    if (await isDirty('subject', id)) pendingSync('Este veículo');
     final subject = await inner.setSubjectPhoto(
       id,
       bytes: bytes,
