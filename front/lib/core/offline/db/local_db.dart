@@ -201,12 +201,21 @@ class LocalDb extends _$LocalDb {
               t.entity.equals(entity) &
               (t.status.equals('pending') | t.status.equals('failed'))))
         .get();
-    final ids = <String>{};
-    for (final r in rows) {
-      final id = (jsonDecode(r.payload) as Map<String, dynamic>)['id'];
-      if (id is String) ids.add(id);
-    }
-    return ids;
+    return {
+      for (final r in rows)
+        if (rowIdOfPayload(r.payload) case final String id) id,
+    };
+  }
+
+  /// Id da LINHA endereçada por um payload de outbox: `id` (creates/updates) ou,
+  /// nas ops de sub-item da OS, `orderId` — a chave de roteamento da OS-pai
+  /// (`service_order.addItem` NÃO pode usar `id`: colidiria com o campo `id` do
+  /// DTO do item no servidor). Sem isto, uma OS com item adicionado offline não
+  /// seria considerada "suja" e a tela leria o servidor (sem o item).
+  static String? rowIdOfPayload(String payload) {
+    final map = jsonDecode(payload) as Map<String, dynamic>;
+    final id = map['id'] ?? map['orderId'];
+    return id is String ? id : null;
   }
 
   /// `true` se [id] de [entity] tem mutação local não confirmada (ver [unsyncedIds]).

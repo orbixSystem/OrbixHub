@@ -707,7 +707,11 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       return order;
     }
     final header = await _orderRow(id);
-    await enqueue(_orders, 'addItem', {'id': id, ...draft.toJson()});
+    // A OS-pai vai em `orderId` (NUNCA `id`): no servidor, `CreateItemDto`
+    // declara um campo `id` (uuid opcional do item) e a chave estrutural
+    // homônima era apagada na validação — o item nunca chegava ao servidor
+    // (`error` → outbox `failed`, sem retry). Ver `sync.registry.ts`.
+    await enqueue(_orders, 'addItem', {'orderId': id, ...draft.toJson()});
 
     var name = draft.name ?? '';
     var unitPrice = draft.unitPrice ?? 0;

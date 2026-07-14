@@ -214,13 +214,26 @@ export class SyncService {
     const errors = await validate(instance as object, {
       whitelist: true,
       forbidNonWhitelisted: true,
+      // `forbidUnknownValues` (default `true`) rejeita QUALQUER classe sem
+      // metadado de validação — o que reprovava, sempre, todas as ops de
+      // `EmptyPayloadDto` (archive/unarchive/delete, deleteItem, applyTemplate):
+      // elas voltavam `error` → outbox `failed` → mutação PERDIDA. Desligar é
+      // seguro: `whitelist` + `forbidNonWhitelisted` continuam recusando
+      // qualquer campo não declarado (num DTO sem campos, TODO campo é extra).
+      forbidUnknownValues: false,
     });
     if (errors.length) {
       return { ok: false, message: firstConstraint(errors) };
     }
+    // As chaves ESTRUTURAIS vêm por ÚLTIMO: o roteamento sempre vence. O
+    // `plainToInstance` materializa TODO campo declarado do DTO como propriedade
+    // própria (`undefined` quando ausente) — espalhar a instância depois apagaria
+    // uma chave estrutural homônima (ex.: `CreateItemDto.id` apagando o id da
+    // OS-pai em `service_order.addItem` — todo item adicionado offline se perdia).
+    // O registry também PROÍBE essa colisão (`structuralCollisions`).
     return {
       ok: true,
-      value: { ...structural, ...(instance as SyncPayload) },
+      value: { ...(instance as SyncPayload), ...structural },
     };
   }
 

@@ -111,10 +111,15 @@ void main() {
 
     final outbox = await db.pendingFor('user-1');
     expect(outbox.last.op, 'addItem');
-    expect(
-      (jsonDecode(outbox.last.payload) as Map<String, dynamic>)['id'],
-      order.id,
-    );
+    // C1 — a OS-pai vai em `orderId` (NUNCA `id`: no servidor o `CreateItemDto`
+    // declara um campo `id` e a chave estrutural homônima era apagada na
+    // validação; o item nunca chegava e a mutação virava `failed` para sempre).
+    final payload =
+        jsonDecode(outbox.last.payload) as Map<String, dynamic>;
+    expect(payload['orderId'], order.id);
+    expect(payload.containsKey('id'), isFalse);
+    // ...e a OS continua "suja" (o item pendente ainda não existe no servidor).
+    expect(await db.unsyncedIds('service_order'), contains(order.id));
   });
 
   test('offline changeStatus: status local + evento + outbox', () async {

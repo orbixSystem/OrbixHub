@@ -1,4 +1,4 @@
-import type { ClassConstructor } from 'class-transformer';
+import { plainToInstance, type ClassConstructor } from 'class-transformer';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -273,13 +273,17 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     apply: (s, u, p) => s.os.changeStatus(u, str(p.id), asDto(p)),
   },
   'service_order.addItem': {
-    // O uuid offline do item NÃO é preservado (o `id` do payload é o da OS-pai);
-    // o service gera o id do item e ele volta no `entityId` da resposta para o
-    // cliente reconciliar. updateItem/deleteItem endereçam por `itemId`.
+    // A OS-pai é endereçada por `orderId` — NUNCA por `id`: `CreateItemDto`
+    // DECLARA um campo `id` (uuid opcional do item), e uma chave estrutural
+    // homônima colidiria com ele (o `id` da OS seria sobrescrito por `undefined`
+    // na 2ª validação e o item se perderia). `structuralCollisions` abaixo impede
+    // que essa classe de bug volte.
+    // O uuid offline do item NÃO é preservado (o service gera o id do item e ele
+    // volta no `entityId` da resposta para o cliente reconciliar).
     dto: CreateItemDto,
     permission: 'os.write',
-    structuralKeys: ['id'],
-    apply: (s, u, p) => s.os.addItem(u, str(p.id), asDto(p)),
+    structuralKeys: ['orderId'],
+    apply: (s, u, p) => s.os.addItem(u, str(p.orderId), asDto(p)),
   },
   'service_order.updateItem': {
     dto: UpdateItemDto,
@@ -332,3 +336,36 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     apply: (s, u, p) => s.cashier.reverseEntry(u, str(p.id), asDto(p)),
   },
 };
+
+/**
+ * Invariante do registry: NENHUMA chave estrutural pode ter o mesmo nome de um
+ * campo DECLARADO no DTO daquela op.
+ *
+ * Por quê: `plainToInstance(dto, rest)` materializa TODOS os campos declarados
+ * do DTO como propriedades próprias (`undefined` quando ausentes). Se uma chave
+ * estrutural colidir com uma delas, o valor de roteamento (o id da OS-pai, por
+ * exemplo) é apagado — foi exatamente assim que `service_order.addItem`
+ * (estrutural `id` × `CreateItemDto.id`) perdia TODO item adicionado offline.
+ * O `validatePayload` hoje aplica as estruturais POR ÚLTIMO (roteamento sempre
+ * vence), e esta asserção — executada no load do módulo — impede que a colisão
+ * seja reintroduzida.
+ */
+export function structuralCollisions(): string[] {
+  const found: string[] = [];
+  for (const [key, def] of Object.entries(SYNC_OPS)) {
+    if (!def.structuralKeys?.length) continue;
+    // Campos declarados do DTO = as chaves que o plainToInstance materializa.
+    const declared = new Set(Object.keys(plainToInstance(def.dto, {})));
+    for (const sk of def.structuralKeys) {
+      if (declared.has(sk)) found.push(`${key}.${sk}`);
+    }
+  }
+  return found;
+}
+
+const collisions = structuralCollisions();
+if (collisions.length) {
+  throw new Error(
+    `sync.registry: chave estrutural colide com campo do DTO: ${collisions.join(', ')}`,
+  );
+}

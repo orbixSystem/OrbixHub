@@ -417,4 +417,88 @@ describe('Sync — pull + push offline (e2e)', () => {
     // a linha de A continua intacta
     expect((await getCustomer(a.access, aCustomer)).body.name).toBe('Cliente de A');
   });
+  // ====================================================================
+  // C1 — replay dos sub-itens da OS (a OS-pai é endereçada por `orderId`)
+  // ====================================================================
+  it('replay de service_order.addItem/updateItem/deleteItem chega ao servidor (item e total corretos)', async () => {
+    const o = await registerOwner();
+    const uid = await myUserId(o.access);
+    const orderId = randomUUID();
+    const created = await request(srv())
+      .post('/api/os/orders')
+      .set(auth(o.access))
+      .send({ id: orderId, newCustomerName: 'Cliente da OS' });
+    expect(created.status).toBe(201);
+
+    const add = await push(o.access, uid, [
+      mut('service_order', 'addItem', {
+        orderId,
+        kind: 'service',
+        name: 'Troca de óleo',
+        quantity: 2,
+        unitPrice: 50,
+      }),
+    ]);
+    expect(add.status).toBe(201);
+    const addResult = (
+      add.body.results as Array<{
+        status: string;
+        entityId?: string;
+        message?: string;
+      }>
+    )[0];
+    expect(addResult.message).toBeUndefined();
+    expect(addResult.status).toBe('applied');
+    const itemId = addResult.entityId as string;
+    expect(itemId).toBeTruthy();
+
+    let order = await request(srv())
+      .get(`/api/os/orders/${orderId}`)
+      .set(auth(o.access));
+    expect(order.status).toBe(200);
+    expect(order.body.items).toHaveLength(1);
+    expect(order.body.items[0].name).toBe('Troca de óleo');
+    expect(Number(order.body.total)).toBe(100);
+
+    const upd = await push(o.access, uid, [
+      mut('service_order', 'updateItem', { id: orderId, itemId, quantity: 3 }),
+    ]);
+    expect((upd.body.results as Array<{ status: string }>)[0].status).toBe('applied');
+    order = await request(srv())
+      .get(`/api/os/orders/${orderId}`)
+      .set(auth(o.access));
+    expect(Number(order.body.total)).toBe(150);
+
+    const del = await push(o.access, uid, [
+      mut('service_order', 'deleteItem', { id: orderId, itemId }),
+    ]);
+    const delResult = (del.body.results as Array<{ status: string; message?: string }>)[0];
+    expect(delResult.message).toBeUndefined();
+    expect(delResult.status).toBe('applied');
+    order = await request(srv())
+      .get(`/api/os/orders/${orderId}`)
+      .set(auth(o.access));
+    expect(order.body.items).toHaveLength(0);
+    expect(Number(order.body.total)).toBe(0);
+  });
+
+  it('replay de op sem corpo (EmptyPayloadDto): customer.archive aplica; campo extra ainda é recusado', async () => {
+    const o = await registerOwner();
+    const uid = await myUserId(o.access);
+    const cId = randomUUID();
+    expect((await createCustomer(o.access, { id: cId, name: 'Arquivar' })).status).toBe(201);
+
+    const res = await push(o.access, uid, [
+      mut('customer', 'archive', { id: cId }),
+    ]);
+    const r = (res.body.results as Array<{ status: string; message?: string }>)[0];
+    expect(r.message).toBeUndefined();
+    expect(r.status).toBe('applied');
+    expect((await getCustomer(o.access, cId)).body.status).toBe('archived');
+
+    const bad = await push(o.access, uid, [
+      mut('customer', 'archive', { id: cId, hack: 1 }),
+    ]);
+    expect((bad.body.results as Array<{ status: string }>)[0].status).toBe('error');
+  });
 });

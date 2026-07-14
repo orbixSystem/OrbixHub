@@ -1,5 +1,10 @@
 import 'reflect-metadata';
-import { PULL_ROUTES, SYNC_OPS, SyncServices } from './sync.registry';
+import {
+  PULL_ROUTES,
+  SYNC_OPS,
+  structuralCollisions,
+  SyncServices,
+} from './sync.registry';
 
 describe('sync registry — whitelist S7 + roteamento do pull', () => {
   // Mapa esperado entity.op → permissão (espelha o @Permissions da rota HTTP).
@@ -78,6 +83,16 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       'service_order.create',
       'subject.create',
     ]);
+  });
+
+  it('addItem endereça a OS-pai por `orderId` (NUNCA `id`: CreateItemDto declara `id`)', () => {
+    expect(SYNC_OPS['service_order.addItem'].structuralKeys).toEqual(['orderId']);
+  });
+
+  it('nenhuma chave estrutural colide com um campo declarado do DTO da op', () => {
+    // Uma colisão apaga a chave de roteamento na 2ª validação (o campo do DTO
+    // vem `undefined` e sobrescreve o id) — foi o bug de perda de item da OS.
+    expect(structuralCollisions()).toEqual([]);
   });
 
   it('sub-itens da OS extraem as chaves estruturais corretas do payload', () => {
