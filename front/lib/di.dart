@@ -32,6 +32,7 @@ import 'features/billing/domain/billing_repository.dart';
 import 'features/cashier/data/cashier_repository_impl.dart';
 import 'features/cashier/presentation/cashier_providers.dart';
 import 'features/customers/data/customers_repository_impl.dart';
+import 'features/customers/data/local_first_customers_repository.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/invoice/data/invoice_repository_impl.dart';
 import 'features/invoice/domain/invoice_repository.dart';
@@ -126,8 +127,44 @@ final billingRepositoryProvider = Provider<BillingRepository>(
 final teamRepositoryProvider = Provider<TeamRepository>(
     (ref) => TeamRepositoryImpl(ref.read(dioProvider)));
 
-final customersRepositoryProvider = Provider<CustomersRepository>(
-    (ref) => CustomersRepositoryImpl(ref.read(dioProvider)));
+/// B8 — dependências comuns dos repositórios LocalFirst (decorators sobre a impl
+/// dio). `null` na web ou sem sessão/tenant: os repos ficam online-only (a impl
+/// dio pura), exatamente como antes do offline.
+({
+  LocalDb db,
+  TrustedClock clock,
+  bool Function() isOnline,
+  String? Function() currentUserId,
+  void Function() onWrite,
+})? _localFirstDeps(Ref ref) {
+  if (kIsWeb) return null;
+  final db = ref.watch(localDbProvider);
+  if (db == null) return null;
+  return (
+    db: db,
+    clock: ref.read(trustedClockProvider),
+    // `syncing` é uma rodada em andamento — a rede está lá; só `offline` desvia
+    // para o caminho local.
+    isOnline: () =>
+        ref.read(connectivityControllerProvider).status != ConnStatus.offline,
+    currentUserId: () => ref.read(sessionControllerProvider).meOrNull?.user.id,
+    onWrite: () => ref.read(syncEngineProvider)?.nudge(),
+  );
+}
+
+final customersRepositoryProvider = Provider<CustomersRepository>((ref) {
+  final inner = CustomersRepositoryImpl(ref.read(dioProvider));
+  final deps = _localFirstDeps(ref);
+  if (deps == null) return inner;
+  return LocalFirstCustomersRepository(
+    inner: inner,
+    db: deps.db,
+    clock: deps.clock,
+    isOnline: deps.isOnline,
+    currentUserId: deps.currentUserId,
+    onWrite: deps.onWrite,
+  );
+});
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(
     (ref) => InvoiceRepositoryImpl(ref.read(dioProvider)));
