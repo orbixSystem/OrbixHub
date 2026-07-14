@@ -95,8 +95,10 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
           message: widget.isWeb
               ? 'Você está offline — o Orbix precisa de conexão no navegador'
               : 'Você está offline — alterações serão enviadas ao reconectar',
-          color: neu.inkMuted,
-          tint: neu.surfaceHi,
+          // Vermelho suave (era cinza, quase invisível): mesmo idioma dos
+          // avisos vermelhos das telas, sem virar um alerta cheio.
+          color: neu.danger,
+          tint: neu.dangerTint,
           icon: Icons.cloud_off_rounded,
         );
       case ConnStatus.syncing:
@@ -135,20 +137,31 @@ class _BannerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // O sino + o toggle de tema vivem num overlay fixo no canto superior
+    // direito (GlobalControls) e passam POR CIMA desta faixa — sem reservar a
+    // largura deles o texto corria por baixo dos botões no telefone.
+    const controlsGutter = 104.0;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 9, 16 + controlsGutter, 9),
       color: spec.tint,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(spec.icon, size: 16, color: spec.color),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(spec.icon, size: 16, color: spec.color),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               spec.message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: spec.color,
                 fontSize: 12.5,
+                height: 1.25,
                 fontWeight: FontWeight.w700,
               ),
             ),

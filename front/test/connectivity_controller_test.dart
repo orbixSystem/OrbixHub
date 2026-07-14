@@ -32,10 +32,16 @@ void main() {
   late StreamController<List<ConnectivityResult>> connectivity;
   late _FakePing ping;
 
+  /// Resposta do `checkConnectivity()` do bootstrap. Por padrão NUNCA
+  /// completa: os testes de stream abaixo exercitam só o caminho dos eventos,
+  /// como antes. Os testes de bootstrap completam este future.
+  late Completer<List<ConnectivityResult>> initialCheck;
+
   ProviderContainer makeContainer() {
     final c = ProviderContainer(overrides: [
       connectivityStreamProvider.overrideWithValue(connectivity.stream),
       healthPingProvider.overrideWithValue(ping.call),
+      connectivityCheckProvider.overrideWithValue(() => initialCheck.future),
     ]);
     addTearDown(c.dispose);
     // Notifiers are lazy: force `build()` (and therefore the stream
@@ -50,12 +56,51 @@ void main() {
     connectivity = StreamController<List<ConnectivityResult>>.broadcast();
     addTearDown(connectivity.close);
     ping = _FakePing();
+    initialCheck = Completer<List<ConnectivityResult>>();
   });
 
   test('starts offline before any connectivity signal arrives', () {
     final container = makeContainer();
     expect(container.read(connectivityControllerProvider).status,
         ConnStatus.offline);
+  });
+
+  group('bootstrap (checkConnectivity inicial)', () {
+    // O stream do connectivity_plus só emite MUDANÇAS: sem esta checagem
+    // inicial o app nascia offline e ficava assim (na web, a sessão inteira).
+    test('rede disponível no boot + ping ok ⇒ online, sem nenhum evento de '
+        'stream', () async {
+      final container = makeContainer();
+      initialCheck.complete([ConnectivityResult.wifi]);
+      await pumpEventQueue();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.online);
+      expect(ping.callCount, greaterThanOrEqualTo(1));
+    });
+
+    test('sem rede no boot ⇒ offline (e nem pinga)', () async {
+      final container = makeContainer();
+      initialCheck.complete([ConnectivityResult.none]);
+      await pumpEventQueue();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+      expect(ping.callCount, 0);
+    });
+
+    test('um evento REAL do stream durante o boot vence a checagem inicial '
+        '(resultado stale é descartado)', () async {
+      final container = makeContainer();
+      connectivity.add([ConnectivityResult.none]); // queda real, antes do check
+      await pumpEventQueue();
+      initialCheck.complete([ConnectivityResult.wifi]); // stale
+      await pumpEventQueue();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+      expect(ping.callCount, 0);
+    });
   });
 
   test('no network reported ⇒ offline immediately, without pinging', () async {
@@ -302,6 +347,8 @@ void main() {
       final container = ProviderContainer(overrides: [
         connectivityStreamProvider.overrideWithValue(connectivity.stream),
         healthPingProvider.overrideWithValue(ping.call),
+        // Bootstrap neutro: este teste só olha o timer do caminho do stream.
+        connectivityCheckProvider.overrideWithValue(() => initialCheck.future),
       ]);
       container.read(connectivityControllerProvider); // build() ⇒ subscribes
       ping.result = true;

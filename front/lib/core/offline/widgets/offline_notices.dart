@@ -131,8 +131,15 @@ class OfflineScreenNotice extends ConsumerWidget {
         color: error.withValues(alpha: 0.12),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
+          // Em telas estreitas a mensagem quebra em 2–3 linhas: o ícone fica
+          // ancorado na PRIMEIRA linha (centralizado ele flutuava no meio do
+          // parágrafo).
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.cloud_off_rounded, size: 18, color: error),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(Icons.cloud_off_rounded, size: 18, color: error),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

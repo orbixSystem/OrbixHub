@@ -65,6 +65,24 @@ final connectivityStreamProvider =
   return Connectivity().onConnectivityChanged;
 });
 
+/// Leitura ÚNICA do estado atual de conectividade, usada no bootstrap.
+/// `onConnectivityChanged` só emite MUDANÇAS — sem esta checagem inicial o app
+/// nascia `offline` e ficava assim até a rede mudar (na web, provavelmente
+/// nunca: o usuário online via o aviso de offline a sessão inteira).
+///
+/// Se a plataforma não responder (canal ausente em teste, por exemplo),
+/// assumimos "tem rede" e deixamos o ping em `/health` dar a palavra final.
+final connectivityCheckProvider =
+    Provider<Future<List<ConnectivityResult>> Function()>((ref) {
+  return () async {
+    try {
+      return await Connectivity().checkConnectivity();
+    } catch (_) {
+      return const [ConnectivityResult.wifi];
+    }
+  };
+});
+
 /// Intervalo de re-checagem da API enquanto o SO reporta rede disponível.
 /// Sobrescrito nos testes para não esperar 30s de verdade.
 final pingIntervalProvider =
@@ -122,6 +140,11 @@ class ConnectivityController extends Notifier<ConnState> {
   /// deles (mudança de conectividade ou mark* do SyncEngine).
   int _generation = 0;
 
+  /// O provider já foi descartado (container/teste encerrado): nenhuma
+  /// callback assíncrona em voo pode mais tocar o `ref` (isso explodia como
+  /// "used after dispose" nos testes que criam e derrubam containers).
+  bool _disposed = false;
+
   @override
   ConnState build() {
     ref.onDispose(_disposeInternal);
@@ -132,10 +155,25 @@ class ConnectivityController extends Notifier<ConnState> {
           onError: (Object _, StackTrace _) =>
               _onConnectivityChanged(const [ConnectivityResult.none]),
         );
+    unawaited(_bootstrap());
     return const ConnState();
   }
 
+  /// Estado inicial: o stream só traz MUDANÇAS, então perguntamos uma vez à
+  /// plataforma como está a rede agora e seguimos o fluxo normal (ping em
+  /// `/health`). Se uma mudança real chegar antes da resposta, ela vence — o
+  /// contador de geração descarta este resultado stale.
+  Future<void> _bootstrap() async {
+    if (_disposed) return;
+    final check = ref.read(connectivityCheckProvider);
+    final results = await check();
+    if (_disposed) return;
+    if (_generation != 0) return; // já houve sinal de verdade: não sobrescreve.
+    _onConnectivityChanged(results);
+  }
+
   void _disposeInternal() {
+    _disposed = true;
     _sub?.cancel();
     _sub = null;
     _timer?.cancel();
@@ -143,6 +181,7 @@ class ConnectivityController extends Notifier<ConnState> {
   }
 
   void _onConnectivityChanged(List<ConnectivityResult> results) {
+    if (_disposed) return;
     _generation++; // invalida qualquer ping em voo da situação anterior
     final hasNetwork = results.any((r) => r != ConnectivityResult.none);
     _timer?.cancel();
@@ -158,9 +197,11 @@ class ConnectivityController extends Notifier<ConnState> {
   }
 
   Future<void> _pingHealth() async {
+    if (_disposed) return;
     final generation = _generation;
     final ping = ref.read(healthPingProvider);
     final reachable = await ping();
+    if (_disposed) return;
     if (generation != _generation) {
       return; // stale: o estado mudou enquanto o ping estava em voo.
     }

@@ -85,6 +85,17 @@ void main() {
       expect(find.text('Offline • 3 pendentes'), findsOneWidget);
     });
 
+    testWidgets('sem pendências o rótulo é só "Offline" (nada de "0 pendentes")',
+        (tester) async {
+      final controller = _FakeConnectivityController(
+        const ConnState(status: ConnStatus.offline),
+      );
+      await tester.pumpWidget(_wrap(const ConnectionChip(), controller));
+
+      expect(find.text('Offline'), findsOneWidget);
+      expect(find.textContaining('pendente'), findsNothing);
+    });
+
     testWidgets('singularizes "1 pendente"', (tester) async {
       final controller = _FakeConnectivityController(
         const ConnState(status: ConnStatus.offline, pendingCount: 1),

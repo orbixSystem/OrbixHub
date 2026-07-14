@@ -235,10 +235,11 @@ class SidebarContent extends ConsumerWidget {
                 vertical: 8,
               ),
               child: collapsed
-                  ? const Center(child: ConnectionChip(collapsed: true))
+                  ? const Center(
+                      child: ConnectionChip(collapsed: true, onDark: true))
                   : const Align(
                       alignment: Alignment.centerLeft,
-                      child: ConnectionChip(),
+                      child: ConnectionChip(onDark: true),
                     ),
             ),
             _UserFooter(me: me, collapsed: collapsed),

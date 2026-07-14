@@ -18,7 +18,12 @@ import '../connectivity_controller.dart';
 /// [collapsed] (sidebar desktop encolhida) degrada para um dot colorido com
 /// [Tooltip] — sem rótulo, cabe nos 76px do modo compacto.
 class ConnectionChip extends ConsumerWidget {
-  const ConnectionChip({super.key, this.collapsed = false, this.dense = false});
+  const ConnectionChip({
+    super.key,
+    this.collapsed = false,
+    this.dense = false,
+    this.onDark = false,
+  });
 
   /// Modo colapsado (sidebar desktop encolhida): só um dot + Tooltip.
   final bool collapsed;
@@ -26,10 +31,15 @@ class ConnectionChip extends ConsumerWidget {
   /// Modo compacto (header mobile): pill menor.
   final bool dense;
 
+  /// O chip está sobre um painel ESCURO (a sidebar é grafite/navy nos dois
+  /// temas). Sem isto ele usaria os tints do canvas claro — um pill quase
+  /// branco gritando no rodapé da sidebar.
+  final bool onDark;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(connectivityControllerProvider);
-    final display = connectionDisplayFor(state, context.neu);
+    final display = connectionDisplayFor(state, context.neu, onDark: onDark);
 
     if (collapsed) {
       return Tooltip(
@@ -127,34 +137,55 @@ class ConnectionDisplay {
 
 String pendingLabel(int n) => n == 1 ? '1 pendente' : '$n pendentes';
 
+/// Paleta semântica do tema ESCURO — usada quando o indicador vive sobre um
+/// painel escuro (sidebar) independentemente do tema do canvas. Os tons claros
+/// (verde/âmbar/vermelho do tema claro) somem ou vibram sobre o navy.
+final _dark = NeuTokens.dark();
+
 /// Resolve o [ConnectionDisplay] de um [ConnState] contra os tokens do tema
 /// atual — pura, sem BuildContext, para poder ser testada diretamente.
-ConnectionDisplay connectionDisplayFor(ConnState state, NeuTokens neu) {
+///
+/// [onDark]: o chip está sobre a sidebar escura — cores da paleta escura e
+/// tint translúcido (mesmo idioma do resto do chrome da sidebar).
+ConnectionDisplay connectionDisplayFor(
+  ConnState state,
+  NeuTokens neu, {
+  bool onDark = false,
+}) {
   final others = state.pendingOtherAuthors;
   final othersTooltip =
       others > 0 ? '$others aguardando login de outro usuário' : null;
+  final palette = onDark ? _dark : neu;
+  Color tint(Color fallback) =>
+      onDark ? Colors.white.withValues(alpha: 0.08) : fallback;
 
   switch (state.status) {
     case ConnStatus.online:
       return ConnectionDisplay(
         label: 'Online',
-        color: neu.success,
-        tint: neu.successTint,
+        color: palette.success,
+        tint: tint(neu.successTint),
         tooltip: othersTooltip,
       );
     case ConnStatus.syncing:
       return ConnectionDisplay(
         label: 'Sincronizando…',
-        color: neu.warning,
-        tint: neu.warningTint,
+        color: palette.warning,
+        tint: tint(neu.warningTint),
         tooltip: othersTooltip,
         spinner: true,
       );
     case ConnStatus.offline:
+      // Sem pendências o "• 0 pendentes" era só ruído (é o caso da web, que
+      // nem tem outbox): o rótulo só ganha a contagem quando há o que enviar.
+      final pending = state.pendingCount;
       return ConnectionDisplay(
-        label: 'Offline • ${pendingLabel(state.pendingCount)}',
-        color: neu.inkMuted,
-        tint: neu.surfaceHi,
+        label:
+            pending > 0 ? 'Offline • ${pendingLabel(pending)}' : 'Offline',
+        // Vermelho suave (não cinza): o offline é o mesmo idioma dos avisos
+        // vermelhos das telas — inconfundível, sem ser um alerta cheio.
+        color: palette.danger,
+        tint: tint(neu.dangerTint),
         tooltip: othersTooltip,
       );
   }
