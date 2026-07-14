@@ -177,10 +177,15 @@ abstract class LocalFirstBase {
   /// versão local vence nas linhas sujas e as criadas offline (que o servidor
   /// ainda não conhece) entram na lista — senão sumiriam da tela assim que a rede
   /// voltasse.
+  /// As linhas criadas offline ([includeExtras]) só entram na PRIMEIRA página e
+  /// só se passarem pelo filtro ativo da tela ([keepExtra]) — senão a `OS-P1`
+  /// apareceria em toda página e até dentro de um filtro que a exclui.
   Future<List<Map<String, dynamic>>> mergePending(
     String entity,
-    List<Map<String, dynamic>> serverRows,
-  ) async {
+    List<Map<String, dynamic>> serverRows, {
+    bool includeExtras = true,
+    bool Function(Map<String, dynamic> row)? keepExtra,
+  }) async {
     final dirty = await dirtyIds(entity);
     if (dirty.isEmpty) return serverRows;
     final locals = {
@@ -194,10 +199,12 @@ abstract class LocalFirstBase {
       seen.add(id ?? '');
       merged.add(locals[id] ?? row);
     }
+    if (!includeExtras) return merged;
     // Locais que o servidor ainda não devolveu (create na fila) vão na frente.
     final extras = [
       for (final entry in locals.entries)
-        if (!seen.contains(entry.key)) entry.value,
+        if (!seen.contains(entry.key) && (keepExtra?.call(entry.value) ?? true))
+          entry.value,
     ];
     return [...extras, ...merged];
   }

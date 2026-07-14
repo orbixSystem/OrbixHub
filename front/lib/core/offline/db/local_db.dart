@@ -213,6 +213,20 @@ class LocalDb extends _$LocalDb {
   Future<bool> hasPendingFor(String entity, String id) async =>
       (await unsyncedIds(entity)).contains(id);
 
+  /// `true` se existe mutação local não confirmada de `entity.op`. Necessário
+  /// para as ops cujo payload NÃO carrega `id` (ex.: `cash_session.close`, que o
+  /// backend endereça pelo device) — nelas [unsyncedIds] não enxerga nada.
+  Future<bool> hasPendingOp(String entity, String op) async {
+    final row = await (select(outbox)
+          ..where((t) =>
+              t.entity.equals(entity) &
+              t.op.equals(op) &
+              (t.status.equals('pending') | t.status.equals('failed')))
+          ..limit(1))
+        .getSingleOrNull();
+    return row != null;
+  }
+
   /// Contadores de pendentes p/ o indicador (B2): `mine` = deste autor,
   /// `others` = de outros autores (device compartilhado).
   Future<({int mine, int others})> pendingCounts(String authorUserId) async {

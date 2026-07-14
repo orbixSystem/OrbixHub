@@ -66,8 +66,12 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       await mirrorRows('customer', [for (final c in res.items) c.toJson()]);
       // Clientes criados/editados offline e ainda na fila continuam na lista (a
       // versão local vence) — senão sumiriam da tela assim que a rede voltasse.
-      final merged =
-          await mergePending('customer', [for (final c in res.items) c.toJson()]);
+      final merged = await mergePending(
+        'customer',
+        [for (final c in res.items) c.toJson()],
+        includeExtras: page == 1, // só na 1ª página
+        keepExtra: (row) => _matchesCustomerFilter(row, q: q, status: status),
+      );
       return res.copyWith(
         items: [for (final row in merged) Customer.fromJson(row)],
         total: res.total + (merged.length - res.items.length),
@@ -75,15 +79,9 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     }
 
     final all = await rows('customer');
-    final filtered = all.where((row) {
-      final rowStatus = (row['status'] ?? 'active') as String;
-      if (rowStatus == 'deleted') return false; // soft delete some das listas
-      if (status != 'all' && rowStatus != status) return false;
-      if (q == null || q.isEmpty) return true;
-      return matches(row['name'] as String?, q) ||
-          matches(row['document'] as String?, q) ||
-          matches(row['phone'] as String?, q);
-    }).toList();
+    final filtered = all
+        .where((row) => _matchesCustomerFilter(row, q: q, status: status))
+        .toList();
 
     filtered.sort((a, b) {
       switch (sort) {
@@ -108,6 +106,22 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       page: page,
       pageSize: _pageSize,
     );
+  }
+
+  /// Filtro da lista de clientes — usado tanto no caminho offline quanto para
+  /// decidir se um cliente criado offline entra no resultado online.
+  bool _matchesCustomerFilter(
+    Map<String, dynamic> row, {
+    String? q,
+    required String status,
+  }) {
+    final rowStatus = (row['status'] ?? 'active') as String;
+    if (rowStatus == 'deleted') return false; // soft delete some das listas
+    if (status != 'all' && rowStatus != status) return false;
+    if (q == null || q.isEmpty) return true;
+    return matches(row['name'] as String?, q) ||
+        matches(row['document'] as String?, q) ||
+        matches(row['phone'] as String?, q);
   }
 
   String _name(Map<String, dynamic> row) =>
@@ -219,27 +233,26 @@ class LocalFirstCustomersRepository extends LocalFirstBase
         status: status,
       );
       await mirrorRows('subject', [for (final s in res.items) s.toJson()]);
-      final merged =
-          await mergePending('subject', [for (final s in res.items) s.toJson()]);
+      final merged = await mergePending(
+        'subject',
+        [for (final s in res.items) s.toJson()],
+        keepExtra: (row) =>
+            _matchesSubjectFilter(row, q: q, customerId: customerId, status: status),
+      );
       return res.copyWith(
-        items: [
-          for (final row in merged)
-            if (customerId == null || row['customer_id'] == customerId)
-              Subject.fromJson(row),
-        ],
+        items: [for (final row in merged) Subject.fromJson(row)],
         total: res.total + (merged.length - res.items.length),
       );
     }
     final all = await rows('subject');
-    final filtered = all.where((row) {
-      final rowStatus = (row['status'] ?? 'active') as String;
-      if (rowStatus == 'deleted') return false;
-      if (status != 'all' && rowStatus != status) return false;
-      if (customerId != null && row['customer_id'] != customerId) return false;
-      if (q == null || q.isEmpty) return true;
-      return matches(row['identifier'] as String?, q) ||
-          matches(row['label'] as String?, q);
-    }).toList();
+    final filtered = all
+        .where((row) => _matchesSubjectFilter(
+              row,
+              q: q,
+              customerId: customerId,
+              status: status,
+            ))
+        .toList();
 
     return SubjectPage(
       items: [for (final row in filtered) Subject.fromJson(row)],
@@ -249,6 +262,21 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       // com lista vazia daria pageSize 0 e um consumidor dividiria por zero.
       pageSize: _pageSize,
     );
+  }
+
+  bool _matchesSubjectFilter(
+    Map<String, dynamic> row, {
+    String? q,
+    String? customerId,
+    required String status,
+  }) {
+    final rowStatus = (row['status'] ?? 'active') as String;
+    if (rowStatus == 'deleted') return false;
+    if (status != 'all' && rowStatus != status) return false;
+    if (customerId != null && row['customer_id'] != customerId) return false;
+    if (q == null || q.isEmpty) return true;
+    return matches(row['identifier'] as String?, q) ||
+        matches(row['label'] as String?, q);
   }
 
   @override
@@ -348,6 +376,7 @@ class LocalFirstCustomersRepository extends LocalFirstBase
   @override
   Future<Subject> removeSubjectPhoto(String id) async {
     if (!isOnline()) requiresConnection('remover a foto do veículo');
+    if (await isDirty('subject', id)) pendingSync('Este veículo');
     final subject = await inner.removeSubjectPhoto(id);
     await putRow('subject', subject.toJson());
     return subject;

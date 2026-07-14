@@ -70,33 +70,35 @@ class LocalFirstInventoryRepository extends LocalFirstBase
       await mirrorRows(_entity, [for (final i in res.items) i.toJson()]);
       // Itens criados/editados offline (ainda na fila) continuam visíveis — a
       // versão local vence a do servidor enquanto a mutação não for confirmada.
-      final merged =
-          await mergePending(_entity, [for (final i in res.items) i.toJson()]);
+      final merged = await mergePending(
+        _entity,
+        [for (final i in res.items) i.toJson()],
+        includeExtras: page == 1, // extras só na 1ª página
+        keepExtra: (row) => _matchesItemFilter(
+          row,
+          q: q,
+          category: category,
+          kind: kind,
+          active: active,
+          lowStock: lowStock,
+        ),
+      );
       return res.copyWith(
         items: [for (final row in merged) InventoryItem.fromJson(row)],
         total: res.total + (merged.length - res.items.length),
       );
     }
 
-    final filtered = (await rows(_entity)).where((row) {
-      if (active != 'all') {
-        final isActive = row['is_active'] as bool? ?? true;
-        if (isActive != (active == 'true')) return false;
-      }
-      if (category != null && category.isNotEmpty && row['category'] != category) {
-        return false;
-      }
-      if (kind != null && kind.isNotEmpty && (row['kind'] ?? 'product') != kind) {
-        return false;
-      }
-      if (lowStock && !_isLowStock(row)) return false;
-      if (q == null || q.isEmpty) return true;
-      return matches(row['name'] as String?, q) ||
-          matches(row['sku'] as String?, q) ||
-          matches(row['barcode'] as String?, q) ||
-          matches(row['manufacturer_code'] as String?, q) ||
-          matches(row['brand'] as String?, q);
-    }).toList();
+    final filtered = (await rows(_entity))
+        .where((row) => _matchesItemFilter(
+              row,
+              q: q,
+              category: category,
+              kind: kind,
+              active: active,
+              lowStock: lowStock,
+            ))
+        .toList();
 
     _sortItems(filtered, sort);
 
@@ -109,6 +111,35 @@ class LocalFirstInventoryRepository extends LocalFirstBase
       page: page,
       pageSize: _pageSize,
     );
+  }
+
+  /// Filtro da lista — usado offline e para decidir se um item criado offline
+  /// entra no resultado online.
+  bool _matchesItemFilter(
+    Map<String, dynamic> row, {
+    String? q,
+    String? category,
+    String? kind,
+    required String active,
+    required bool lowStock,
+  }) {
+    if (active != 'all') {
+      final isActive = row['is_active'] as bool? ?? true;
+      if (isActive != (active == 'true')) return false;
+    }
+    if (category != null && category.isNotEmpty && row['category'] != category) {
+      return false;
+    }
+    if (kind != null && kind.isNotEmpty && (row['kind'] ?? 'product') != kind) {
+      return false;
+    }
+    if (lowStock && !_isLowStock(row)) return false;
+    if (q == null || q.isEmpty) return true;
+    return matches(row['name'] as String?, q) ||
+        matches(row['sku'] as String?, q) ||
+        matches(row['barcode'] as String?, q) ||
+        matches(row['manufacturer_code'] as String?, q) ||
+        matches(row['brand'] as String?, q);
   }
 
   bool _isLowStock(Map<String, dynamic> row) {

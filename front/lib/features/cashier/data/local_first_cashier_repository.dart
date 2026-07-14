@@ -180,11 +180,27 @@ class LocalFirstCashierRepository extends LocalFirstBase
     return map.values.toList(growable: false);
   }
 
+  /// **Sessao suja**: existe mutacao de sessao deste device ainda nao confirmada
+  /// (`open` na fila => o servidor nao conhece a sessao; `close` na fila => o
+  /// servidor ainda a ve ABERTA). Enquanto isso, o caixa e servido LOCALMENTE
+  /// mesmo com rede: perguntar ao servidor devolveria `null` (caixa "fechado") ou
+  /// reabriria um caixa ja fechado offline.
+  ///
+  /// O `close` NAO carrega `id` no payload (o backend endereca pelo device), por
+  /// isso `unsyncedIds` nao o enxerga — dai o [LocalDb.hasPendingOp].
+  Future<bool> _sessionsDirty() async {
+    if ((await dirtyIds(_sessions)).isNotEmpty) return true;
+    return db.hasPendingOp(_sessions, 'close');
+  }
+
+  /// Caminho local do caixa: offline OU sessao suja.
+  Future<bool> _useLocalSession() async => !isOnline() || await _sessionsDirty();
+
   @override
   Future<CashSession?> currentSession() async {
-    if (isOnline()) {
+    if (!await _useLocalSession()) {
       final session = await inner.currentSession();
-      if (session != null) await putRow(_sessions, session.toJson());
+      if (session != null) await mirrorRows(_sessions, [session.toJson()]);
       return session;
     }
     final row = await _openSessionRow();
@@ -194,7 +210,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
 
   @override
   Future<CashSession> openSession({double? openingAmount, String? notes}) async {
-    if (isOnline()) {
+    if (!await _useLocalSession()) {
       final session = await inner.openSession(
         openingAmount: openingAmount,
         notes: notes,
@@ -229,7 +245,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
     required double countedAmount,
     String? notes,
   }) async {
-    if (isOnline()) {
+    if (!await _useLocalSession()) {
       final session = await inner.closeSession(
         countedAmount: countedAmount,
         notes: notes,
@@ -265,8 +281,20 @@ class LocalFirstCashierRepository extends LocalFirstBase
   Future<SessionPage> listSessions({int page = 1}) async {
     if (isOnline()) {
       final res = await inner.listSessions(page: page);
-      await putRows(_sessions, [for (final s in res.items) s.toJson()]);
-      return res;
+      await mirrorRows(_sessions, [for (final s in res.items) s.toJson()]);
+      // Sessao aberta/fechada offline e ainda na fila: o servidor nao a conhece
+      // (ou ainda a ve aberta) — a versao local vence e entra no topo da 1a pagina.
+      final device = await deviceId();
+      final merged = await mergePending(
+        _sessions,
+        [for (final s in res.items) s.toJson()],
+        includeExtras: page == 1,
+        keepExtra: (row) => row['device_id'] == device,
+      );
+      return res.copyWith(
+        items: [for (final row in merged) CashSession.fromJson(row)],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
     // Histórico deste PONTO de caixa (coerente com `currentSession`, que também
     // filtra pelo device — B4).
@@ -289,7 +317,10 @@ class LocalFirstCashierRepository extends LocalFirstBase
 
   @override
   Future<CashEntry> createEntry(EntryDraft draft) async {
-    if (isOnline()) {
+    // Caixa aberto OFFLINE e ainda na fila: o servidor nao conhece a sessao —
+    // lancar la devolveria 400 "abra o caixa". O lancamento vai para o outbox,
+    // atras do `cash_session.open` (a ordem por `seq` garante o replay correto).
+    if (!await _useLocalSession()) {
       final entry = await inner.createEntry(draft);
       await putRow(_entries, entry.toJson());
       return entry;
@@ -368,18 +399,42 @@ class LocalFirstCashierRepository extends LocalFirstBase
         to: to,
         page: page,
       );
-      await putRows(_entries, [for (final e in res.items) e.toJson()]);
-      return res;
+      await mirrorRows(_entries, [for (final e in res.items) e.toJson()]);
+      // Lancamentos ainda na fila continuam no extrato (a versao local vence).
+      final merged = await mergePending(
+        _entries,
+        [for (final e in res.items) e.toJson()],
+        includeExtras: page == 1,
+        keepExtra: (row) => _matchesEntryFilter(
+          row,
+          sessionId: sessionId,
+          direction: direction,
+          method: method,
+          category: category,
+          saleKind: saleKind,
+          saleId: saleId,
+          from: from,
+          to: to,
+        ),
+      );
+      return res.copyWith(
+        items: [for (final row in merged) CashEntry.fromJson(row)],
+        total: res.total + (merged.length - res.items.length),
+      );
     }
-    final filtered = (await rows(_entries)).where((row) {
-      if (sessionId != null && row['cash_session_id'] != sessionId) return false;
-      if (direction != null && row['direction'] != direction) return false;
-      if (method != null && row['method'] != method) return false;
-      if (category != null && row['category'] != category) return false;
-      if (saleKind != null && row['sale_kind'] != saleKind) return false;
-      if (saleId != null && row['sale_id'] != saleId) return false;
-      return _inPeriod(row, from, to);
-    }).toList()
+    final filtered = (await rows(_entries))
+        .where((row) => _matchesEntryFilter(
+              row,
+              sessionId: sessionId,
+              direction: direction,
+              method: method,
+              category: category,
+              saleKind: saleKind,
+              saleId: saleId,
+              from: from,
+              to: to,
+            ))
+        .toList()
       ..sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
 
     return EntryPage(
@@ -391,6 +446,28 @@ class LocalFirstCashierRepository extends LocalFirstBase
       page: page,
       pageSize: _pageSize,
     );
+  }
+
+  /// Filtro do extrato — usado offline e para decidir se um lancamento ainda na
+  /// fila entra no resultado online.
+  bool _matchesEntryFilter(
+    Map<String, dynamic> row, {
+    String? sessionId,
+    String? direction,
+    String? method,
+    String? category,
+    String? saleKind,
+    String? saleId,
+    String? from,
+    String? to,
+  }) {
+    if (sessionId != null && row['cash_session_id'] != sessionId) return false;
+    if (direction != null && row['direction'] != direction) return false;
+    if (method != null && row['method'] != method) return false;
+    if (category != null && row['category'] != category) return false;
+    if (saleKind != null && row['sale_kind'] != saleKind) return false;
+    if (saleId != null && row['sale_id'] != saleId) return false;
+    return _inPeriod(row, from, to);
   }
 
   String _createdAt(Map<String, dynamic> row) =>

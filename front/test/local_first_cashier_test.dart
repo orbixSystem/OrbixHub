@@ -194,6 +194,47 @@ void main() {
     expect((await r.listEntries(to: '2026-07-12')).total, 0);
   });
 
+  test('sessão suja: caixa aberto offline continua aberto quando a rede volta',
+      () async {
+    final r = repo();
+    final session = await r.openSession(openingAmount: 100);
+
+    // Rede voltou, mas o `cash_session.open` segue na fila: o servidor não
+    // conhece a sessão (o fake responde "caixa fechado").
+    online = true;
+    expect(await fake.currentSession(), isNull);
+
+    final current = await r.currentSession();
+    expect(current, isNotNull);
+    expect(current!.id, session.id); // caixa NÃO aparece fechado
+
+    // E lançar não vai ao servidor (que responderia 400 "abra o caixa").
+    final entry = await r.createEntry(
+      const EntryDraft(amount: 25, method: 'dinheiro', category: 'os_payment'),
+    );
+    expect((await db.pendingFor('user-1')).last.op, 'create');
+    expect((await db.pendingFor('user-1')).last.entity, 'cash_entry');
+
+    // O extrato online ainda mostra o lançamento enfileirado.
+    final page = await r.listEntries();
+    expect(page.items.map((e) => e.id), contains(entry.id));
+  });
+
+  test('sessão suja: caixa fechado offline NÃO volta a abrir quando a rede volta',
+      () async {
+    final r = repo();
+    await r.openSession(openingAmount: 100);
+    // Simula o open já sincronizado; só o close fica na fila (payload sem id).
+    for (final m in await db.pendingFor('user-1')) {
+      await db.markOutbox(m.clientMutationId, 'applied');
+    }
+    await r.closeSession(countedAmount: 100);
+
+    online = true;
+    // O servidor (fake) ainda não sabe do fechamento — mas o caixa segue fechado.
+    expect(await r.currentSession(), isNull);
+  });
+
   test('offline: updateConfig lança AppException "Requer conexão"', () async {
     await expectLater(
       repo().updateConfig(countCashOnly: false),

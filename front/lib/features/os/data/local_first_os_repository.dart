@@ -159,28 +159,31 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       }
       // OS criada offline (create ainda na fila) continua aparecendo na lista —
       // senão a `OS-P1` sumiria da tela assim que a rede voltasse.
-      final merged =
-          await mergePending(_orders, [for (final o in res.items) o.toJson()]);
+      final merged = await mergePending(
+        _orders,
+        [for (final o in res.items) o.toJson()],
+        includeExtras: page == 1, // extras só na 1ª página
+        keepExtra: (row) => _matchesOrderFilter(
+          row,
+          q: q,
+          status: status,
+          customerId: customerId,
+        ),
+      );
       return res.copyWith(
         items: [for (final row in merged) ServiceOrder.fromJson(row)],
         total: res.total + (merged.length - res.items.length),
       );
     }
 
-    final filtered = (await rows(_orders)).where((row) {
-      if (status != null && status.isNotEmpty && row['status'] != status) {
-        return false;
-      }
-      if (customerId != null &&
-          customerId.isNotEmpty &&
-          row['customer_id'] != customerId) {
-        return false;
-      }
-      if (q == null || q.isEmpty) return true;
-      return matches(row['number'] as String?, q) ||
-          matches(row['customer_name'] as String?, q) ||
-          matches(row['subject_label'] as String?, q);
-    }).toList();
+    final filtered = (await rows(_orders))
+        .where((row) => _matchesOrderFilter(
+              row,
+              q: q,
+              status: status,
+              customerId: customerId,
+            ))
+        .toList();
 
     filtered.sort((a, b) {
       switch (sort) {
@@ -211,6 +214,28 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       page: page,
       pageSize: _pageSize,
     );
+  }
+
+  /// Filtro da lista de OS — usado offline e para decidir se uma OS criada
+  /// offline entra no resultado online.
+  bool _matchesOrderFilter(
+    Map<String, dynamic> row, {
+    String? q,
+    String? status,
+    String? customerId,
+  }) {
+    if (status != null && status.isNotEmpty && row['status'] != status) {
+      return false;
+    }
+    if (customerId != null &&
+        customerId.isNotEmpty &&
+        row['customer_id'] != customerId) {
+      return false;
+    }
+    if (q == null || q.isEmpty) return true;
+    return matches(row['number'] as String?, q) ||
+        matches(row['customer_name'] as String?, q) ||
+        matches(row['subject_label'] as String?, q);
   }
 
   @override
