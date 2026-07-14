@@ -30,6 +30,7 @@ import 'features/auth/presentation/session_state.dart';
 import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
 import 'features/cashier/data/cashier_repository_impl.dart';
+import 'features/cashier/data/local_first_cashier_repository.dart';
 import 'features/cashier/presentation/cashier_providers.dart';
 import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/data/local_first_customers_repository.dart';
@@ -45,6 +46,7 @@ import 'features/messages/data/messages_repository_impl.dart';
 import 'features/messages/presentation/messages_providers.dart';
 import 'features/notifications/data/notifications_repository_impl.dart';
 import 'features/notifications/presentation/notifications_providers.dart';
+import 'features/os/data/local_first_os_repository.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/report/data/report_repository_impl.dart';
@@ -199,15 +201,44 @@ final diOverrides = [
       onWrite: deps.onWrite,
     );
   }),
-  cashierRepositoryProvider.overrideWith(
-    (ref) => CashierRepositoryImpl(
+  cashierRepositoryProvider.overrideWith((ref) {
+    final inner = CashierRepositoryImpl(
       ref.read(dioProvider),
       () => ref.read(deviceIdProvider.future),
-    ),
-  ),
-  osRepositoryProvider.overrideWith(
-    (ref) => OsRepositoryImpl(ref.read(dioProvider)),
-  ),
+    );
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstCashierRepository(
+      inner: inner,
+      // Mesma fonte de id de ponto de caixa da impl real (B4); degrada p/ ponto
+      // legado (null) se a leitura falhar.
+      deviceId: () async {
+        try {
+          return await ref.read(deviceIdProvider.future);
+        } catch (_) {
+          return null;
+        }
+      },
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+      onWrite: deps.onWrite,
+    );
+  }),
+  osRepositoryProvider.overrideWith((ref) {
+    final inner = OsRepositoryImpl(ref.read(dioProvider));
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstOsRepository(
+      inner: inner,
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+      onWrite: deps.onWrite,
+    );
+  }),
   messagesRepositoryProvider.overrideWith(
     (ref) => MessagesRepositoryImpl(ref.read(dioProvider)),
   ),
@@ -314,6 +345,10 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
   final db = ref.watch(localDbProvider);
   if (db == null) return null;
 
+  // Upload das fotos pendentes SEMPRE pela impl de rede (nunca pelo decorator
+  // LocalFirst — este último re-enfileiraria o blob em vez de subi-lo).
+  final osOverTheWire = OsRepositoryImpl(ref.read(dioProvider));
+
   final engine = SyncEngine(
     api: DioSyncApi(ref.read(dioProvider)),
     db: db,
@@ -326,13 +361,13 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
       required String contentType,
       String? caption,
     }) async {
-      await ref.read(osRepositoryProvider).addPhoto(
-            orderId,
-            bytes: bytes,
-            filename: filename,
-            contentType: contentType,
-            caption: caption,
-          );
+      await osOverTheWire.addPhoto(
+        orderId,
+        bytes: bytes,
+        filename: filename,
+        contentType: contentType,
+        caption: caption,
+      );
     },
     currentUserId: () =>
         ref.read(sessionControllerProvider).meOrNull?.user.id,
