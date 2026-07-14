@@ -39,6 +39,7 @@ import 'features/invoice/domain/invoice_repository.dart';
 import 'features/dashboard/data/dashboard_repository_impl.dart';
 import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
+import 'features/inventory/data/local_first_inventory_repository.dart';
 import 'features/inventory/presentation/inventory_providers.dart';
 import 'features/messages/data/messages_repository_impl.dart';
 import 'features/messages/presentation/messages_providers.dart';
@@ -185,9 +186,19 @@ final trackingRepositoryProvider =
 /// O `inventoryRepositoryProvider` é declarado em `inventory_providers.dart`
 /// (lança por padrão) e ganha a impl real (dio) aqui, espelhando os demais repos.
 final diOverrides = [
-  inventoryRepositoryProvider.overrideWith(
-    (ref) => InventoryRepositoryImpl(ref.read(dioProvider)),
-  ),
+  inventoryRepositoryProvider.overrideWith((ref) {
+    final inner = InventoryRepositoryImpl(ref.read(dioProvider));
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstInventoryRepository(
+      inner: inner,
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+      onWrite: deps.onWrite,
+    );
+  }),
   cashierRepositoryProvider.overrideWith(
     (ref) => CashierRepositoryImpl(
       ref.read(dioProvider),
