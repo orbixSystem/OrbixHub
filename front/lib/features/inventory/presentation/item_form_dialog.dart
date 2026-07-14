@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../domain/inventory_models.dart';
 import 'inventory_providers.dart';
@@ -361,7 +362,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                 if (isService)
                   ..._serviceForm(fields, editing)
                 else
-                  ..._productForm(fields, editing),
+                  ..._productForm(fields, editing,
+                      offline: ref.watch(isOfflineProvider)),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -393,14 +395,20 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     );
   }
 
-  List<Widget> _productForm(List<ItemFieldConfig> fields, bool editing) {
+  List<Widget> _productForm(
+    List<ItemFieldConfig> fields,
+    bool editing, {
+    bool offline = false,
+  }) {
     return [
-      // Código-first é um helper de criação — escondido na edição.
+      // Código-first é um helper de criação — escondido na edição. Offline, a
+      // consulta ao catálogo externo (EAN) não existe: botão desabilitado.
       if (!editing) ...[
         _CodeFirstCard(
           controller: _lookupCode,
           loading: _lookingUp,
-          onSubmit: _lookingUp ? null : _lookup,
+          offline: offline,
+          onSubmit: (_lookingUp || offline) ? null : _lookup,
         ),
         const SizedBox(height: 16),
       ],
@@ -732,11 +740,16 @@ class _CodeFirstCard extends StatelessWidget {
     required this.controller,
     required this.loading,
     required this.onSubmit,
+    this.offline = false,
   });
 
   final TextEditingController controller;
   final bool loading;
   final VoidCallback? onSubmit;
+
+  /// Sem internet: a consulta automática por código de barras (catálogo
+  /// externo) não responde — o usuário preenche à mão.
+  final bool offline;
 
   @override
   Widget build(BuildContext context) {
@@ -767,6 +780,7 @@ class _CodeFirstCard extends StatelessWidget {
           const SizedBox(height: 10),
           TextField(
             controller: controller,
+            enabled: !offline,
             decoration: const InputDecoration(
               isDense: true,
               labelText: 'Código de barras ou do fabricante',
@@ -774,19 +788,31 @@ class _CodeFirstCard extends StatelessWidget {
             ),
             onSubmitted: (_) => onSubmit?.call(),
           ),
+          if (offline) ...[
+            const SizedBox(height: 8),
+            const OfflinePendingNoticeBody(
+              dense: true,
+              message: 'Você está offline — a consulta automática por código '
+                  'de barras não está disponível. Preencha os dados '
+                  'manualmente.',
+            ),
+          ],
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              onPressed: onSubmit,
-              icon: loading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.search, size: 18),
-              label: const Text('Buscar e preencher'),
+            child: Tooltip(
+              message: offline ? kRequiresConnectionTooltip : '',
+              child: FilledButton.icon(
+                onPressed: onSubmit,
+                icon: loading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search, size: 18),
+                label: const Text('Buscar e preencher'),
+              ),
             ),
           ),
         ],

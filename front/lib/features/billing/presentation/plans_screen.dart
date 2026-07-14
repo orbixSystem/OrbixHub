@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../di.dart';
@@ -52,6 +53,13 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Planos/assinatura vivem no servidor de billing.
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'Os planos e a assinatura são consultados no servidor. '
+            'Conecte-se à internet para vê-los ou trocar de plano.',
+      );
+    }
     final plansAsync = ref.watch(plansProvider);
     final current = ref.watch(subscriptionProvider).asData?.value;
 

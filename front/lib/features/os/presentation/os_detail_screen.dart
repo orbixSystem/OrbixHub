@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
@@ -149,8 +150,13 @@ class OsDetailScreen extends ConsumerWidget {
                 onEdit: () => _edit(context, ref, order),
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
                 onPrint: () => _printOrder(context, order, company),
+                // Emitir/ver NF fala com o servidor fiscal — offline a ação
+                // fica inerte com tooltip "Requer conexão".
                 invoiceAction: canIssueInvoice
-                    ? _IssueInvoiceButton(orderId: order.id)
+                    ? RequiresConnection(
+                        reason: 'a nota é emitida pelo servidor fiscal',
+                        child: _IssueInvoiceButton(orderId: order.id),
+                      )
                     : null,
               ),
               const SizedBox(height: 20),
@@ -480,7 +486,18 @@ class _Header extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    OsStatusChip(status: order.status),
+                    // OS criada offline (número provisório OS-P…): o registro
+                    // ainda não existe no servidor.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OsStatusChip(status: order.status),
+                        if (isPendingOsNumber(order.number))
+                          const PendingSyncBadge(),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -657,6 +674,7 @@ class _SectionCard extends StatelessWidget {
     required this.child,
     this.glyphIndex = 5,
     this.action,
+    this.notice,
   });
 
   final IconData icon;
@@ -664,6 +682,9 @@ class _SectionCard extends StatelessWidget {
   final Widget child;
   final int glyphIndex;
   final Widget? action;
+
+  /// Aviso no rodapé da seção (ex.: [OfflinePendingNotice] — some quando online).
+  final Widget? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -693,6 +714,7 @@ class _SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           child,
+          ?notice,
         ],
       ),
     );
@@ -1148,6 +1170,8 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
               onTap: () => setState(() => _editing = true),
             )
           : null,
+      // Offline o diagnóstico é salvo no aparelho e sobe no replay do outbox.
+      notice: const OfflinePendingNotice(),
       child: _editing
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1919,28 +1943,33 @@ class _TrackingLinkCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              NeuButton(
-                label: 'Copiar link',
-                icon: Icons.copy_rounded,
-                onPressed: () => _copy(context),
-              ),
-              NeuButton(
-                label: 'WhatsApp',
-                icon: Icons.chat_outlined,
-                kind: NeuButtonKind.secondary,
-                onPressed: () => _whatsApp(context),
-              ),
-              NeuButton(
-                label: 'E-mail',
-                icon: Icons.email_outlined,
-                kind: NeuButtonKind.secondary,
-                onPressed: () => _email(context),
-              ),
-            ],
+          // Enviar o link ao cliente é a ÚNICA coisa da OS que não funciona
+          // offline (o cliente precisa alcançar o servidor pelo link).
+          RequiresConnection(
+            reason: 'o envio do link ao cliente exige internet',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                NeuButton(
+                  label: 'Copiar link',
+                  icon: Icons.copy_rounded,
+                  onPressed: () => _copy(context),
+                ),
+                NeuButton(
+                  label: 'WhatsApp',
+                  icon: Icons.chat_outlined,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: () => _whatsApp(context),
+                ),
+                NeuButton(
+                  label: 'E-mail',
+                  icon: Icons.email_outlined,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: () => _email(context),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1981,6 +2010,11 @@ class _TimelineSection extends ConsumerWidget {
       icon: Icons.timeline_rounded,
       title: 'Linha do tempo',
       glyphIndex: 4,
+      // Notas criadas offline ficam no aparelho até a conexão voltar.
+      notice: const OfflinePendingNotice(
+        message: 'Notas criadas agora só serão enviadas ao sistema quando a '
+            'conexão voltar',
+      ),
       action: canWrite
           ? _HeaderAction(
               icon: Icons.add_comment_outlined,
@@ -2341,10 +2375,17 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
   @override
   Widget build(BuildContext context) {
     final photos = order.photos;
+    // Offline: a foto fica guardada no aparelho (blob) e sobe no replay; abrir
+    // comentários e remover foto exigem a foto existir no servidor.
+    final offline = ref.watch(isOfflineProvider);
     return _SectionCard(
       icon: Icons.photo_library_rounded,
       title: 'Fotos',
       glyphIndex: 5,
+      notice: const OfflinePendingNotice(
+        message: 'As fotos adicionadas agora só serão enviadas ao sistema '
+            'quando a conexão voltar',
+      ),
       action: widget.canWrite
           ? _HeaderAction(
               icon: _busy ? Icons.hourglass_top_rounded : Icons.add_a_photo_outlined,
@@ -2366,7 +2407,8 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (_, i) => _PhotoThumb(
                   photo: photos[i],
-                  canWrite: widget.canWrite,
+                  canWrite: widget.canWrite && !offline,
+                  offline: offline,
                   onRemove: () => _remove(photos[i]),
                   onTap: () => _openComments(photos[i]),
                 ),
@@ -2382,10 +2424,15 @@ class _PhotoThumb extends StatelessWidget {
     required this.canWrite,
     required this.onRemove,
     required this.onTap,
+    this.offline = false,
   });
 
   final OrderPhoto photo;
   final bool canWrite;
+
+  /// Offline: comentários e remoção da foto exigem servidor (B8) — o toque é
+  /// bloqueado e a miniatura ganha tooltip "Requer conexão".
+  final bool offline;
   final VoidCallback onRemove;
 
   /// Toque na miniatura abre a thread de comentários da foto.
@@ -2393,17 +2440,21 @@ class _PhotoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget image = NeuNetworkImage(
+      url: photo.url,
+      width: 96,
+      height: 96,
+      radius: 12,
+    );
     return Stack(
       children: [
-        GestureDetector(
-          onTap: onTap,
-          child: NeuNetworkImage(
-            url: photo.url,
-            width: 96,
-            height: 96,
-            radius: 12,
-          ),
-        ),
+        if (offline)
+          Tooltip(
+            message: '$kRequiresConnectionTooltip — comentários da foto',
+            child: Opacity(opacity: 0.75, child: image),
+          )
+        else
+          GestureDetector(onTap: onTap, child: image),
         // Selo de comentários: só aparece quando a foto TEM comentários, com a
         // contagem — assim a equipe sabe sem precisar abrir a foto.
         if (photo.commentCount > 0)
@@ -2415,7 +2466,7 @@ class _PhotoThumb extends StatelessWidget {
               shape: const StadiumBorder(),
               child: InkWell(
                 customBorder: const StadiumBorder(),
-                onTap: onTap,
+                onTap: offline ? null : onTap,
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 3),

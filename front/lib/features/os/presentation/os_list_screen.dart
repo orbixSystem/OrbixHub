@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
@@ -375,7 +376,19 @@ class _OrderTile extends StatelessWidget {
         index: 1,
         size: dense ? 40 : 44,
       ),
-      title: Text(number),
+      // OS criada offline (número provisório OS-P…) ganha o selo "pendente de
+      // envio" — Wrap para não estourar o tile no mobile.
+      title: isPendingOsNumber(number)
+          ? Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(number),
+                const PendingSyncBadge(dense: true),
+              ],
+            )
+          : Text(number),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

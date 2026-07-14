@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/online_conn.dart';
 import 'package:orbixhub_front/core/widgets/read_ticks.dart';
 import 'package:orbixhub_front/features/messages/data/fake_messages_repository.dart';
 import 'package:orbixhub_front/features/messages/domain/messages_models.dart';
@@ -26,6 +28,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           messagesRepositoryProvider.overrideWithValue(fake),
         ],
         child: const MaterialApp(home: Scaffold(body: MessagesInboxScreen())),
@@ -75,7 +78,8 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [messagesRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,messagesRepositoryProvider.overrideWithValue(fake)],
         child: const MaterialApp(home: Scaffold(body: MessagesInboxScreen())),
       ),
     );

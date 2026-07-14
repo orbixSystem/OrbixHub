@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
@@ -39,6 +40,14 @@ class ReportScreen extends ConsumerWidget {
     final me = session.meOrNull;
     if (me == null) {
       return const Center(child: MetricLoading());
+    }
+    // Relatórios são agregações calculadas no servidor — sem conexão não há
+    // como gerá-los (nem exportar).
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'Os relatórios são calculados no servidor. Conecte-se à '
+            'internet para gerá-los e exportá-los.',
+      );
     }
     final reports = availableReports(me);
 

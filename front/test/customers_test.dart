@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/online_conn.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
@@ -132,6 +134,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           sessionControllerProvider.overrideWith(_AuthedSession.new),
           customersRepositoryProvider.overrideWithValue(repo),
         ],
@@ -164,6 +167,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           sessionControllerProvider.overrideWith(_AuthedSession.new),
           customersRepositoryProvider.overrideWithValue(repo),
         ],
@@ -207,6 +211,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           customersRepositoryProvider.overrideWithValue(fake),
         ],
         child: const MaterialApp(
@@ -254,7 +259,8 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,customersRepositoryProvider.overrideWithValue(fake)],
         child: const MaterialApp(
           home: Scaffold(
             body: SubjectFormDialog(customerId: 'cus-1', config: config),
@@ -293,7 +299,8 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,customersRepositoryProvider.overrideWithValue(fake)],
         child: const MaterialApp(
           home: Scaffold(
             body: SubjectFormDialog(customerId: 'cus-1', config: config),

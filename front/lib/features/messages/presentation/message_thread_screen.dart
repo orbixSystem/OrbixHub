@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/widgets/read_ticks.dart';
@@ -234,6 +235,12 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'A conversa com o cliente acontece em tempo real pelo '
+            'servidor. Conecte-se à internet para ler e responder.',
+      );
+    }
     final async = ref.watch(threadProvider(widget.conversationId));
     return Column(
       children: [

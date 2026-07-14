@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
@@ -62,6 +63,13 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     final me = session.meOrNull;
     if (me == null) {
       return const Center(child: CircularProgressIndicator());
+    }
+    // Equipe (membros/convites/papéis) é gestão de acesso: só no servidor.
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'A gestão da equipe (membros, convites e papéis) acontece no '
+            'servidor. Conecte-se à internet para ver e alterar o acesso.',
+      );
     }
     final neu = context.neu;
     final isMobile = context.isMobile;

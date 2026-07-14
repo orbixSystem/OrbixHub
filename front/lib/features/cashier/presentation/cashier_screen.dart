@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
@@ -54,6 +55,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Aviso PERMANENTE offline: o caixa opera no aparelho, mas nada é
+            // efetivado no sistema até a conexão voltar.
+            const OfflineScreenNotice(
+              message: 'Você está offline. Os lançamentos são guardados neste '
+                  'aparelho e só serão efetivados no sistema quando a conexão '
+                  'voltar.',
+            ),
             // A aba "Histórico" (relatório do caixa) é só para gestão (dono/gerente).
             if (canManage) ...[
               NeuSegmented<int>(
@@ -186,11 +194,15 @@ class _ClosedBody extends ConsumerWidget {
               ),
             if (canSale) ...[
               const SizedBox(height: 12),
-              NeuButton(
-                label: 'Venda avulsa',
-                kind: NeuButtonKind.secondary,
-                icon: Icons.shopping_cart_checkout_outlined,
-                onPressed: () => _startSale(context, ref),
+              // Venda avulsa (módulo `sale`) não tem camada offline.
+              RequiresConnection(
+                reason: 'a venda avulsa é registrada no servidor',
+                child: NeuButton(
+                  label: 'Venda avulsa',
+                  kind: NeuButtonKind.secondary,
+                  icon: Icons.shopping_cart_checkout_outlined,
+                  onPressed: () => _startSale(context, ref),
+                ),
               ),
             ],
           ],
@@ -263,10 +275,13 @@ class _OpenBody extends ConsumerWidget {
             runSpacing: 10,
             children: [
               if (canSale)
-                NeuButton(
-                  label: 'Venda avulsa',
-                  icon: Icons.shopping_cart_checkout_outlined,
-                  onPressed: () => _startSale(context, ref),
+                RequiresConnection(
+                  reason: 'a venda avulsa é registrada no servidor',
+                  child: NeuButton(
+                    label: 'Venda avulsa',
+                    icon: Icons.shopping_cart_checkout_outlined,
+                    onPressed: () => _startSale(context, ref),
+                  ),
                 ),
               // Receber OS = operação do atendente (cashier.write).
               if (canWrite)
@@ -426,6 +441,10 @@ class _EntryTile extends ConsumerWidget {
     // vazia (entries antigas), cai no rótulo genérico da origem.
     final hasDesc = entry.description != null && entry.description!.isNotEmpty;
     final hora = _fmtHora(entry.createdAt);
+    // Lançamento criado offline (ainda no outbox): selo "pendente de envio".
+    final pending = (ref.watch(pendingIdsProvider('cash_entry')).value ??
+            const <String>{})
+        .contains(entry.id);
     final subtitleParts = <String>[
       if (hora.isNotEmpty) hora,
       methodLabel(entry.method),
@@ -445,7 +464,17 @@ class _EntryTile extends ConsumerWidget {
           color: reversed ? neu.inkMuted : neu.ink,
         ),
       ),
-      subtitle: Text(subtitleParts.join(' · ')),
+      subtitle: pending
+          ? Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(subtitleParts.join(' · ')),
+                const PendingSyncBadge(dense: true),
+              ],
+            )
+          : Text(subtitleParts.join(' · ')),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

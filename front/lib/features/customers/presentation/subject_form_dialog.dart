@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
@@ -277,14 +278,22 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     final label = widget.config.subjectLabel.singular;
     final twoCol = !context.isMobile;
 
-    final photo = _VehiclePhotoPicker(
-      localBytes: _localBytes,
-      photoUrl: _photoUrl,
-      busy: _photoBusy,
-      onPick: _pickPhoto,
-      onRemove: _removePhoto,
+    // Foto do veículo sobe direto para o servidor (não tem outbox) — offline a
+    // ação fica inerte com tooltip "Requer conexão".
+    final photo = RequiresConnection(
+      reason: 'a foto é enviada ao servidor',
+      child: _VehiclePhotoPicker(
+        localBytes: _localBytes,
+        photoUrl: _photoUrl,
+        busy: _photoBusy,
+        onPick: _pickPhoto,
+        onRemove: _removePhoto,
+      ),
     );
-    final fields = _fieldsColumn(neu);
+    // Offline a cascata (FIPE) não responde: os campos de fonte externa viram
+    // texto livre com dica. O resto do formulário funciona normalmente.
+    final offline = ref.watch(isOfflineProvider);
+    final fields = _fieldsColumn(neu, offline: offline);
 
     final Widget content = twoCol
         ? Row(
@@ -407,7 +416,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     );
   }
 
-  Widget _fieldsColumn(NeuTokens neu) {
+  Widget _fieldsColumn(NeuTokens neu, {bool offline = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -419,7 +428,21 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         ),
         for (final f in widget.config.subjectFields) ...[
           const SizedBox(height: 14),
-          if (f.fonte != null)
+          if (f.fonte != null && offline)
+            // Sem conexão: campo de sugestão (marca/modelo/ano) vira texto livre.
+            NeuTextField(
+              key: Key('subjectField-${f.chave}'),
+              controller: _fields[f.chave],
+              label: '${f.rotulo}${f.obrigatorio ? ' *' : ''}',
+              helper: 'Sem conexão — digite manualmente',
+              validator: (v) {
+                if (f.obrigatorio && (v == null || v.trim().isEmpty)) {
+                  return '${f.rotulo} é obrigatório';
+                }
+                return null;
+              },
+            )
+          else if (f.fonte != null)
             _LookupField(
               // A key inclui os códigos dos ancestrais: ao trocar marca
               // (ou modelo), os campos dependentes rebuildam já limpos.

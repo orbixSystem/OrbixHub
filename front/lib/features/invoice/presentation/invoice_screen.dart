@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../os/presentation/os_status.dart' show money;
 import '../domain/invoice_models.dart';
@@ -46,6 +47,13 @@ class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
+    // Fiscal é online-only (emissão/consulta acontecem no servidor fiscal).
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'As notas fiscais são emitidas e consultadas no servidor '
+            'fiscal. Conecte-se à internet para acessá-las.',
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(

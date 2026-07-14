@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
@@ -53,6 +54,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final neu = context.neu;
     final canManage =
         session.meOrNull?.hasPermission('settings.manage') ?? false;
+
+    // Configurações do tenant são gravadas no servidor (sem outbox) — offline
+    // a tela explica em vez de mostrar formulários que não salvam.
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'As configurações da empresa são salvas no servidor. '
+            'Conecte-se à internet para vê-las e alterá-las.',
+      );
+    }
 
     final settingsAsync = ref.watch(settingsControllerProvider);
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
@@ -13,6 +14,15 @@ class BusinessHoursScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
+    if (ref.watch(isOfflineProvider)) {
+      return Scaffold(
+        backgroundColor: neu.base,
+        body: const RequiresConnectionView(
+          message: 'Os horários de funcionamento são salvos no servidor. '
+              'Conecte-se à internet para vê-los e alterá-los.',
+        ),
+      );
+    }
     final hoursAsync = ref.watch(businessHoursProvider);
     return Scaffold(
       backgroundColor: neu.base,

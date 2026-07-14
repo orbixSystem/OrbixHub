@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
@@ -53,6 +54,12 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'A nota fiscal é consultada no servidor fiscal. Conecte-se à '
+            'internet para ver os detalhes, baixar o PDF/XML ou cancelá-la.',
+      );
+    }
     final invoiceAsync = ref.watch(invoiceProvider(invoiceId));
     final canIssue = _has(ref, 'invoice.issue');
     final isDesktop = context.isDesktop;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/online_conn.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
@@ -43,6 +45,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository() as SettingsRepository,
           ),
@@ -74,6 +77,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository() as SettingsRepository,
           ),

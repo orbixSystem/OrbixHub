@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 
@@ -193,6 +194,15 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 onChanged:
                     _saving ? null : (id) => setState(() => _assignedTo = id),
               ),
+              // Troca de responsável offline: fica no aparelho até sincronizar.
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: OfflinePendingNotice(
+                  dense: true,
+                  message: 'A troca de responsável só será enviada ao sistema '
+                      'quando a conexão voltar',
+                ),
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -226,6 +236,15 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                     ),
                   ),
                 ],
+              ),
+              // Datas de serviço offline: idem — só chegam ao sistema com rede.
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: OfflinePendingNotice(
+                  dense: true,
+                  message: 'As datas de serviço só serão enviadas ao sistema '
+                      'quando a conexão voltar',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
