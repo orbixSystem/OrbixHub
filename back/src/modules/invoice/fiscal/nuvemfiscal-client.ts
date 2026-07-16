@@ -26,11 +26,17 @@ export class NuvemFiscalClient {
       client_secret: this.env.NUVEMFISCAL_CLIENT_SECRET,
       scope: 'empresa nfse nfce nfe',
     });
-    const res = await fetch(this.env.NUVEMFISCAL_AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.env.NUVEMFISCAL_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+    } catch (err) {
+      this.logger.error(`Falha de rede ao autenticar no provedor fiscal: ${String(err)}`);
+      throw new ServiceUnavailableException('Erro na comunicação com o provedor fiscal');
+    }
     if (!res.ok) {
       this.logger.error(`OAuth2 falhou: ${res.status}`);
       throw new ServiceUnavailableException('Falha ao autenticar no provedor fiscal');
@@ -49,15 +55,21 @@ export class NuvemFiscalClient {
     opts?: { body?: unknown; allow404?: boolean },
   ): Promise<T | null> {
     const token = await this.token();
-    const res = await fetch(`${this.env.NUVEMFISCAL_BASE_URL}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.env.NUVEMFISCAL_BASE_URL}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      });
+    } catch (err) {
+      this.logger.error(`Falha de rede em ${method} ${path}: ${String(err)}`);
+      throw new ServiceUnavailableException('Erro na comunicação com o provedor fiscal');
+    }
     if (opts?.allow404 && res.status === 404) return null;
     if (!res.ok) {
       const text = await res.text().catch(() => '');
