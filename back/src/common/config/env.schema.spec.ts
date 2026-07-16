@@ -52,3 +52,13 @@ describe('envSchema', () => {
     expect(() => envSchema.parse(rest)).toThrow();
   });
 });
+
+describe('envSchema — Nuvem Fiscal', () => {
+  it('aceita nuvemfiscal como FISCAL_PROVIDER e aplica defaults de URL', () => {
+    const env = envSchema.parse({ ...base, FISCAL_PROVIDER: 'nuvemfiscal' });
+    expect(env.FISCAL_PROVIDER).toBe('nuvemfiscal');
+    expect(env.NUVEMFISCAL_BASE_URL).toBe('https://api.nuvemfiscal.com.br');
+    expect(env.NUVEMFISCAL_AUTH_URL).toBe('https://auth.nuvemfiscal.com.br/oauth/token');
+    expect(env.NUVEMFISCAL_CLIENT_ID).toBe('');
+  });
+});
