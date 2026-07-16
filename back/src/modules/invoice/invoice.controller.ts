@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -19,6 +20,7 @@ import {
   IssueInvoiceDto,
   ListInvoicesQueryDto,
 } from './dto/invoice.dto';
+import { UpdateInvoiceConfigDto } from './dto/invoice-config.dto';
 
 /**
  * Emissão/consulta de Nota Fiscal. Contratável (gated por @RequiresModule('invoice')).
@@ -29,6 +31,19 @@ import {
 @RequiresModule('invoice')
 export class InvoiceController {
   constructor(private readonly invoice: InvoiceService) {}
+
+  @Get('config')
+  @Permissions('invoice.config')
+  getConfig(@CurrentUser() user: AuthUser) {
+    return this.invoice.getConfig(user.tenantId);
+  }
+
+  @Patch('config')
+  @Permissions('invoice.config')
+  @HttpCode(200)
+  updateConfig(@CurrentUser() user: AuthUser, @Body() dto: UpdateInvoiceConfigDto) {
+    return this.invoice.updateConfig(user, dto);
+  }
 
   @Get()
   @Permissions('invoice.read')

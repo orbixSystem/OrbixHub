@@ -13,6 +13,7 @@ import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenantContext } from '../../common/database/tenant-context';
+import { BillingService } from '../billing/billing.service';
 import { CustomersService } from '../customers/customers.service';
 import { OsService } from '../os/os.service';
 import { SalesService } from '../sales/sales.service';
@@ -21,6 +22,12 @@ import {
   IssueInvoiceDto,
   ListInvoicesQueryDto,
 } from './dto/invoice.dto';
+import { UpdateInvoiceConfigDto } from './dto/invoice-config.dto';
+import {
+  INVOICE_CONFIG_KEY,
+  InvoiceConfig,
+  mergeInvoiceConfig,
+} from './invoice.config';
 import {
   FISCAL_GATEWAY,
   FiscalGateway,
@@ -80,9 +87,35 @@ export class InvoiceService {
     private readonly sales: SalesService,
     private readonly customers: CustomersService,
     private readonly audit: AuditService,
+    private readonly billing: BillingService,
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
     @Inject(ENV) private readonly env: Env,
   ) {}
+
+  /** Config fiscal não-sensível do tenant (defaults se ainda não configurado). */
+  async getConfig(tenantId: string): Promise<InvoiceConfig> {
+    const settings = await this.billing.getModuleSettings(tenantId, INVOICE_CONFIG_KEY);
+    return mergeInvoiceConfig(settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined);
+  }
+
+  /** Atualiza (merge) a config fiscal do tenant; owner-only, auditado. */
+  async updateConfig(user: AuthUser, dto: UpdateInvoiceConfigDto): Promise<InvoiceConfig> {
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, dto as Partial<InvoiceConfig>);
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_config_update', undefined, {
+        ambiente: merged.ambiente,
+      });
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
 
   async issue(user: AuthUser, dto: IssueInvoiceDto) {
     const documentType = dto.documentType ?? 'nfse';
