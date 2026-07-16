@@ -21,6 +21,10 @@ import 'features/customers/data/customers_repository_impl.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/invoice/data/invoice_repository_impl.dart';
 import 'features/invoice/domain/invoice_repository.dart';
+import 'features/invoice/data/invoice_config_repository_impl.dart';
+import 'features/invoice/domain/invoice_config_models.dart';
+import 'features/invoice/domain/invoice_config_repository.dart';
+import 'features/invoice/presentation/invoice_config_controller.dart';
 import 'features/dashboard/data/dashboard_repository_impl.dart';
 import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
@@ -109,6 +113,10 @@ final customersRepositoryProvider = Provider<CustomersRepository>(
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(
     (ref) => InvoiceRepositoryImpl(ref.read(dioProvider)));
 
+/// Configuração fiscal do tenant (`/invoices/config`) — permissão `invoice.config`.
+final invoiceConfigRepositoryProvider = Provider<InvoiceConfigRepository>(
+    (ref) => InvoiceConfigRepositoryImpl(ref.read(dioProvider)));
+
 final saleRepositoryProvider = Provider<SaleRepository>(
     (ref) => SaleRepositoryImpl(ref.read(dioProvider)));
 
@@ -158,4 +166,9 @@ final themeControllerProvider =
 final settingsControllerProvider =
     AsyncNotifierProvider<SettingsController, SettingsBundle>(
   SettingsController.new,
+);
+
+final invoiceConfigControllerProvider =
+    AsyncNotifierProvider<InvoiceConfigController, InvoiceFiscalConfig>(
+  InvoiceConfigController.new,
 );
