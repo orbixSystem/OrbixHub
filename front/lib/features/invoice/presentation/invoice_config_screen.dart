@@ -88,14 +88,21 @@ class _InvoiceConfigBodyState extends ConsumerState<_InvoiceConfigBody> {
   @override
   void didUpdateWidget(covariant _InvoiceConfigBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reseed apenas quando o conteúdo mudou de fato (novo fetch/tenant) — não
-    // a cada rebuild, para não sobrescrever o que o usuário está digitando.
-    if (oldWidget.config != widget.config) {
-      _serieNfse.text = widget.config.serieNfse;
-      _serieNfce.text = widget.config.serieNfce;
-      _serieNfe.text = widget.config.serieNfe;
-      _idCsc.text = widget.config.idCsc;
-      setState(() => _ambiente = widget.config.ambiente);
+    // Reseed por campo — só quando o valor daquele campo especificamente mudou
+    // no servidor (novo fetch/tenant/save). Ações como "Cadastrar empresa" ou
+    // "Enviar certificado" trazem um novo AsyncData que muda
+    // empresaRegistrada/certificado mas NÃO as séries/CSC; reseedar tudo
+    // incondicionalmente sobrescreveria edição de série/CSC que o usuário
+    // ainda não salvou. Comparar por campo preserva o texto em digitação.
+    final old = oldWidget.config;
+    final next = widget.config;
+    if (old == next) return;
+    if (old.serieNfse != next.serieNfse) _serieNfse.text = next.serieNfse;
+    if (old.serieNfce != next.serieNfce) _serieNfce.text = next.serieNfce;
+    if (old.serieNfe != next.serieNfe) _serieNfe.text = next.serieNfe;
+    if (old.idCsc != next.idCsc) _idCsc.text = next.idCsc;
+    if (old.ambiente != next.ambiente) {
+      setState(() => _ambiente = next.ambiente);
     }
   }
 
