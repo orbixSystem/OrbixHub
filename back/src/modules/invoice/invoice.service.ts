@@ -34,6 +34,7 @@ import {
   FiscalGateway,
   FiscalIssueLine,
 } from './fiscal/fiscal-gateway';
+import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
 import {
   InvoiceLineData,
   InvoiceRepository,
@@ -113,6 +114,7 @@ export class InvoiceService {
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
     @Inject(ENV) private readonly env: Env,
     private readonly tenancy: TenancyService,
+    private readonly nuvem: NuvemFiscalClient,
   ) {}
 
   /**
@@ -161,6 +163,66 @@ export class InvoiceService {
     try {
       await this.audit.log(user.tenantId, user.userId, 'invoice_config_update', undefined, {
         ambiente: merged.ambiente,
+      });
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
+
+  /**
+   * Cadastra (ou atualiza) a empresa no provedor fiscal, a partir da identidade
+   * fiscal do núcleo ("aponta, não invade"). A chamada HTTP roda FORA de
+   * transação de banco; depois só um merge/gravação da config do módulo.
+   */
+  async registerEmpresa(user: AuthUser): Promise<InvoiceConfig> {
+    const identity = await this.getFiscalIdentity(user.tenantId);
+    await this.nuvem.upsertEmpresa(identity); // fora de tx (HTTP)
+
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, { empresaRegistrada: true });
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_empresa_register', identity.cnpj ?? undefined);
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
+
+  /**
+   * Envia o certificado A1 (.pfx) para o provedor — passthrough puro: o arquivo
+   * NUNCA é persistido no nosso banco, só o metadado de validade retornado.
+   */
+  async uploadCertificate(
+    user: AuthUser,
+    file: { buffer: Buffer; originalname: string } | undefined,
+    password: string,
+  ): Promise<InvoiceConfig> {
+    if (!file?.buffer?.length) throw new BadRequestException('Envie o arquivo do certificado (.pfx)');
+    if (!/\.(pfx|p12)$/i.test(file.originalname)) throw new BadRequestException('Certificado deve ser .pfx/.p12');
+    if (!password) throw new BadRequestException('Informe a senha do certificado');
+
+    const identity = await this.getFiscalIdentity(user.tenantId);
+    if (!identity.cnpj) throw new BadRequestException('Configure o CNPJ da empresa antes do certificado');
+
+    const base64 = file.buffer.toString('base64'); // .pfx NUNCA persistido — vai p/ o provedor
+    const r = await this.nuvem.uploadCertificate(identity.cnpj, base64, password); // fora de tx
+
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, { certificado: { validoAte: r.notValidAfter } });
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_cert_upload', identity.cnpj, {
+        validoAte: r.notValidAfter,
       });
     } catch {
       /* auditoria best-effort */

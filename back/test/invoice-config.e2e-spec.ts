@@ -6,10 +6,18 @@ import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
 import { randomCnpj } from './helpers/cnpj';
+import { NuvemFiscalClient } from '../src/modules/invoice/fiscal/nuvemfiscal-client';
 import {
   MailerService,
   VerificationEmail,
 } from '../src/common/mailer/mailer.service';
+
+/** Fake do cliente Nuvem Fiscal — passthrough sem rede real (mesmo padrão de
+ * override de provider dos demais e2e, ex.: inventory/customers). */
+const fakeNuvemFiscalClient = {
+  upsertEmpresa: async () => undefined,
+  uploadCertificate: async () => ({ notValidAfter: '2027-01-01T00:00:00Z' }),
+};
 
 // e2e é determinístico: catálogo externo desligado (mesmo padrão do inventory e2e).
 process.env.CATALOG_ENABLED = 'false';
@@ -49,6 +57,8 @@ describe('Invoice — Config fiscal (e2e)', () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(MailerService)
       .useValue(mailer)
+      .overrideProvider(NuvemFiscalClient)
+      .useValue(fakeNuvemFiscalClient)
       .compile();
     app = mod.createNestApplication();
     app.setGlobalPrefix('api');
@@ -175,6 +185,69 @@ describe('Invoice — Config fiscal (e2e)', () => {
       const getB = await getConfig(b.access);
       expect(getB.status).toBe(200);
       expect(getB.body.serieNfse).toBe('1');
+    });
+  });
+
+  // ---- 4. cadastro de empresa (passthrough Nuvem Fiscal) --------------------
+  describe('POST /invoices/config/register-empresa', () => {
+    it('cadastra a empresa no provedor (mockado) e marca empresaRegistrada=true', async () => {
+      const o = await registerOwner();
+
+      const before = await getConfig(o.access);
+      expect(before.status).toBe(200);
+      expect(before.body.empresaRegistrada).toBe(false);
+
+      const register = await request(app.getHttpServer())
+        .post('/api/invoices/config/register-empresa')
+        .set(auth(o.access))
+        .send({});
+      expect(register.status).toBe(200);
+      expect(register.body.empresaRegistrada).toBe(true);
+
+      const after = await getConfig(o.access);
+      expect(after.status).toBe(200);
+      expect(after.body.empresaRegistrada).toBe(true);
+    });
+
+    it('mechanic não pode cadastrar a empresa (403)', async () => {
+      const o = await registerOwner();
+      const mech = await inviteAccept(o, 'mechanic');
+
+      const register = await request(app.getHttpServer())
+        .post('/api/invoices/config/register-empresa')
+        .set(auth(mech.access))
+        .send({});
+      expect(register.status).toBe(403);
+    });
+  });
+
+  // ---- 5. upload de certificado (passthrough Nuvem Fiscal) ------------------
+  describe('POST /invoices/config/certificate', () => {
+    it('faz upload do .pfx e grava certificado.validoAte (metadado, sem persistir o arquivo)', async () => {
+      const o = await registerOwner();
+
+      const upload = await request(app.getHttpServer())
+        .post('/api/invoices/config/certificate')
+        .set(auth(o.access))
+        .field('password', 'senha-do-certificado')
+        .attach('file', Buffer.from('conteudo-fake-do-pfx'), 'certificado.pfx');
+      expect(upload.status).toBe(200);
+      expect(upload.body.certificado.validoAte).toBe('2027-01-01T00:00:00Z');
+
+      const after = await getConfig(o.access);
+      expect(after.status).toBe(200);
+      expect(after.body.certificado.validoAte).toBe('2027-01-01T00:00:00Z');
+    });
+
+    it('rejeita arquivo com extensão inválida (400)', async () => {
+      const o = await registerOwner();
+
+      const upload = await request(app.getHttpServer())
+        .post('/api/invoices/config/certificate')
+        .set(auth(o.access))
+        .field('password', 'senha-do-certificado')
+        .attach('file', Buffer.from('nao-e-um-certificado'), 'certificado.txt');
+      expect(upload.status).toBe(400);
     });
   });
 });

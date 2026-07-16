@@ -9,6 +9,7 @@ import type { BillingService } from '../billing/billing.service';
 import type { FiscalGateway } from './fiscal/fiscal-gateway';
 import type { Env } from '../../common/config/env.schema';
 import type { TenancyService } from '../tenancy/tenancy.service';
+import type { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
 
 describe('InvoiceService.getFiscalIdentity', () => {
   const buildService = (tenancy: { getCompanyView: jest.Mock }) => {
@@ -21,6 +22,7 @@ describe('InvoiceService.getFiscalIdentity', () => {
     const billing = {} as BillingService;
     const gateway = {} as FiscalGateway;
     const env = {} as Env;
+    const nuvem = {} as NuvemFiscalClient;
 
     return new InvoiceService(
       tenant,
@@ -33,6 +35,7 @@ describe('InvoiceService.getFiscalIdentity', () => {
       gateway,
       env,
       tenancy as unknown as TenancyService,
+      nuvem,
     );
   };
 

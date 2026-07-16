@@ -13,6 +13,7 @@ import { InvoiceRepository } from './invoice.repository';
 import { INVOICE_CONFIG_KEY } from './invoice.config';
 import { FISCAL_GATEWAY } from './fiscal/fiscal-gateway';
 import { NoopFiscalGateway } from './fiscal/noop-fiscal-gateway';
+import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
 
 /**
  * Módulo Nota Fiscal — emissão a partir da OS (ONLINE-ONLY) via gateway fiscal
@@ -29,6 +30,7 @@ import { NoopFiscalGateway } from './fiscal/noop-fiscal-gateway';
   providers: [
     InvoiceService,
     InvoiceRepository,
+    NuvemFiscalClient,
     { provide: FISCAL_GATEWAY, useClass: NoopFiscalGateway },
   ],
   exports: [InvoiceService],

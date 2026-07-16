@@ -87,3 +87,97 @@ describe('NuvemFiscalClient.request', () => {
     );
   });
 });
+
+describe('NuvemFiscalClient.upsertEmpresa', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const identity = {
+    cnpj: '12345678000199',
+    razaoSocial: 'Oficina Teste LTDA',
+    inscricaoEstadual: null,
+    inscricaoMunicipal: null,
+    regimeTributario: null,
+    cnae: null,
+    email: 'oficina@teste.com',
+    endereco: {
+      cep: '01000-000',
+      logradouro: 'Rua Teste',
+      numero: '100',
+      complemento: null,
+      bairro: 'Centro',
+      municipio: 'São Paulo',
+      uf: 'SP',
+    },
+  };
+
+  it('sem CNPJ lança ServiceUnavailableException sem chamar o provedor', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const c = new NuvemFiscalClient(env);
+    await expect(c.upsertEmpresa({ ...identity, cnpj: null })).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('empresa inexistente (GET 404): faz POST de criação', async () => {
+    const tokenResponse = new Response(
+      JSON.stringify({ access_token: 'abc', expires_in: 3600 }),
+      { status: 200 },
+    );
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockImplementationOnce(() => Promise.resolve(tokenResponse)) // token
+      .mockImplementationOnce(() => Promise.resolve(new Response(null, { status: 404 }))) // GET
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }))); // POST
+
+    const c = new NuvemFiscalClient(env);
+    await c.upsertEmpresa(identity);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.test/empresas/12345678000199');
+    expect(fetchMock.mock.calls[1][1]?.method).toBe('GET');
+    expect(fetchMock.mock.calls[2][0]).toBe('https://api.test/empresas');
+    expect(fetchMock.mock.calls[2][1]?.method).toBe('POST');
+  });
+
+  it('empresa existente (GET 200): faz PUT de atualização', async () => {
+    const tokenResponse = new Response(
+      JSON.stringify({ access_token: 'abc', expires_in: 3600 }),
+      { status: 200 },
+    );
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockImplementationOnce(() => Promise.resolve(tokenResponse)) // token
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }))) // GET
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }))); // PUT
+
+    const c = new NuvemFiscalClient(env);
+    await c.upsertEmpresa(identity);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe('https://api.test/empresas/12345678000199');
+    expect(fetchMock.mock.calls[2][1]?.method).toBe('PUT');
+  });
+});
+
+describe('NuvemFiscalClient.uploadCertificate', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('uploadCertificate faz PUT no endpoint do certificado e devolve validade', async () => {
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'abc', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ not_valid_after: '2027-01-01T00:00:00Z' }), { status: 200 }));
+    const c = new NuvemFiscalClient(env);
+    const r = await c.uploadCertificate('12345678000199', 'BASE64', 'senha');
+    expect(r.notValidAfter).toBe('2027-01-01T00:00:00Z');
+  });
+
+  it('sem not_valid_after na resposta devolve notValidAfter null', async () => {
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'abc', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
+    const c = new NuvemFiscalClient(env);
+    const r = await c.uploadCertificate('12345678000199', 'BASE64', 'senha');
+    expect(r.notValidAfter).toBeNull();
+  });
+});

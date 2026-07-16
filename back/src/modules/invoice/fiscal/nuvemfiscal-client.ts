@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ENV } from '../../../common/config/config.module';
 import type { Env } from '../../../common/config/env.schema';
+import type { FiscalIdentity } from '../invoice.service';
 
 /**
  * Cliente HTTP genérico para a API da Nuvem Fiscal (BaaS fiscal). Cuida da
@@ -78,5 +79,47 @@ export class NuvemFiscalClient {
     }
     if (res.status === 204) return null;
     return (await res.json()) as T;
+  }
+
+  /**
+   * Cadastra/atualiza a empresa (idempotente) no provedor a partir da identidade
+   * fiscal do núcleo. Sem CNPJ não há como cadastrar — falha cedo, sem chamar HTTP.
+   */
+  async upsertEmpresa(id: FiscalIdentity): Promise<void> {
+    if (!id.cnpj) throw new ServiceUnavailableException('Tenant sem CNPJ em Configurações da empresa');
+    const payload = {
+      cpf_cnpj: id.cnpj,
+      nome_razao_social: id.razaoSocial ?? '',
+      nome_fantasia: id.razaoSocial ?? '',
+      email: id.email ?? '',
+      inscricao_estadual: id.inscricaoEstadual ?? undefined,
+      inscricao_municipal: id.inscricaoMunicipal ?? undefined,
+      endereco: {
+        logradouro: id.endereco.logradouro ?? '',
+        numero: id.endereco.numero ?? '',
+        bairro: id.endereco.bairro ?? '',
+        cidade: id.endereco.municipio ?? '',
+        uf: id.endereco.uf ?? '',
+        cep: id.endereco.cep ?? '',
+      },
+    };
+    // idempotente: cria; se já existe, atualiza via PUT
+    const exists = await this.request('GET', `/empresas/${id.cnpj}`, { allow404: true });
+    if (exists) await this.request('PUT', `/empresas/${id.cnpj}`, { body: payload });
+    else await this.request('POST', `/empresas`, { body: payload });
+  }
+
+  /** Envia o certificado A1 (.pfx, base64) — passthrough puro: NUNCA persistido aqui. */
+  async uploadCertificate(
+    cnpj: string,
+    pfxBase64: string,
+    password: string,
+  ): Promise<{ notValidAfter: string | null }> {
+    const r = await this.request<{ not_valid_after?: string }>(
+      'PUT',
+      `/empresas/${cnpj}/certificado`,
+      { body: { certificado: pfxBase64, password } },
+    );
+    return { notValidAfter: r?.not_valid_after ?? null };
   }
 }
