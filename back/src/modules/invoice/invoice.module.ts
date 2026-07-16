@@ -5,6 +5,7 @@ import { OsModule } from '../os/os.module';
 import { SalesModule } from '../sales/sales.module';
 import { SettingsModule } from '../settings/settings.module';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
+import { TenancyModule } from '../tenancy/tenancy.module';
 import { InvoiceController } from './invoice.controller';
 import { InvoiceWebhookController } from './invoice-webhook.controller';
 import { InvoiceService } from './invoice.service';
@@ -18,10 +19,12 @@ import { NoopFiscalGateway } from './fiscal/noop-fiscal-gateway';
  * abstrato (Noop em dev; GovBrNfseGateway real futuro). Contratável
  * (@RequiresModule('invoice')). Importa BillingModule (ModuleAccessGuard),
  * OsModule e CustomersModule (services públicos — "aponta, não invade") e
- * SettingsModule (registra a própria seção de config no host).
+ * SettingsModule (registra a própria seção de config no host). TenancyModule
+ * dá acesso à identidade fiscal do núcleo (CNPJ, endereço, ...) via
+ * TenancyService.getCompanyView — sem tocar a tabela `tenant` diretamente.
  */
 @Module({
-  imports: [BillingModule, OsModule, SalesModule, CustomersModule, SettingsModule],
+  imports: [BillingModule, OsModule, SalesModule, CustomersModule, SettingsModule, TenancyModule],
   controllers: [InvoiceController, InvoiceWebhookController],
   providers: [
     InvoiceService,

@@ -17,6 +17,7 @@ import { BillingService } from '../billing/billing.service';
 import { CustomersService } from '../customers/customers.service';
 import { OsService } from '../os/os.service';
 import { SalesService } from '../sales/sales.service';
+import { TenancyService } from '../tenancy/tenancy.service';
 import {
   CancelInvoiceDto,
   IssueInvoiceDto,
@@ -46,6 +47,27 @@ const toNum = (d: Prisma.Decimal | number | null | undefined): number => {
 };
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Identidade fiscal do tenant, normalizada a partir da company view do núcleo
+ * (TenancyService.getCompanyView) — consumida pelo gateway fiscal (ex.: NuvemFiscalClient). */
+export interface FiscalIdentity {
+  cnpj: string | null;
+  razaoSocial: string | null;
+  inscricaoEstadual: string | null;
+  inscricaoMunicipal: string | null;
+  regimeTributario: string | null;
+  cnae: string | null;
+  email: string | null;
+  endereco: {
+    cep: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    municipio: string | null;
+    uf: string | null;
+  };
+}
 
 /** Deriva o `kind` do evento de timeline a partir do status da emissão. */
 function issueEventKind(status: 'processing' | 'authorized' | 'rejected'): string {
@@ -90,7 +112,36 @@ export class InvoiceService {
     private readonly billing: BillingService,
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
     @Inject(ENV) private readonly env: Env,
+    private readonly tenancy: TenancyService,
   ) {}
+
+  /**
+   * Identidade fiscal do tenant (CNPJ, razão social, IE/IM, regime, CNAE,
+   * endereço), lida do NÚCLEO via TenancyService.getCompanyView — "aponta,
+   * não invade": nunca toca a tabela `tenant` diretamente.
+   */
+  async getFiscalIdentity(tenantId: string): Promise<FiscalIdentity> {
+    const c = await this.tenancy.getCompanyView(tenantId);
+    const s = (k: string) => (typeof c[k] === 'string' ? (c[k] as string) : null);
+    return {
+      cnpj: s('taxId'),
+      razaoSocial: s('legalName') ?? s('companyName'),
+      inscricaoEstadual: s('inscricaoEstadual'),
+      inscricaoMunicipal: s('inscricaoMunicipal'),
+      regimeTributario: s('regimeTributario'),
+      cnae: s('cnae'),
+      email: s('email'),
+      endereco: {
+        cep: s('cep'),
+        logradouro: s('logradouro'),
+        numero: s('numero'),
+        complemento: s('complemento'),
+        bairro: s('bairro'),
+        municipio: s('municipio'),
+        uf: s('uf'),
+      },
+    };
+  }
 
   /** Config fiscal não-sensível do tenant (defaults se ainda não configurado). */
   async getConfig(tenantId: string): Promise<InvoiceConfig> {
