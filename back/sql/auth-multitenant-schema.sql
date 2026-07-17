@@ -1210,6 +1210,8 @@ ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS cfop           text;
 ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS unidade        text;
 ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS gtin           text;
 ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_kind_chk') THEN

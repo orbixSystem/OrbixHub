@@ -15,6 +15,8 @@ export interface InvoiceLineData {
   unidade?: string | null;
   gtin?: string | null;
   codigo_servico?: string | null;
+  origem?: string | null;
+  aliquota_iss?: number | null;
 }
 
 export interface CreateInvoiceData {
@@ -70,6 +72,8 @@ export class InvoiceRepository {
             unidade: l.unidade ?? null,
             gtin: l.gtin ?? null,
             codigo_servico: l.codigo_servico ?? null,
+            origem: l.origem ?? null,
+            aliquota_iss: l.aliquota_iss ?? null,
           })),
         },
       },

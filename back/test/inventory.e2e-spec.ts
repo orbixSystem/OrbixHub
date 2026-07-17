@@ -493,6 +493,43 @@ describe('Inventory — Produtos (e2e)', () => {
       const res = await createItem(o.access, { name: 'x', foo_fiscal: '1' });
       expect(res.status).toBe(400);
     });
+
+    it('PATCH em produto atualiza ncm e ignora codigoServico', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Óleo 5W30',
+        kind: 'product',
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        ncm: '27101259',
+        codigoServico: '14.01', // stray: deve ser ignorado p/ produto
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.ncm).toBe('27101259');
+      expect(patched.body.codigo_servico).toBeNull();
+    });
+
+    it('PATCH em serviço atualiza codigoServico e ignora ncm', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Troca de óleo',
+        kind: 'service',
+        durationMinutes: 30,
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        codigoServico: '14.01',
+        ncm: '27101259', // stray: deve ser ignorado p/ serviço
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.codigo_servico).toBe('14.01');
+      expect(patched.body.ncm).toBeNull();
+    });
   });
 
   // ---- 8. authorization by role ----------------------------------------
