@@ -77,6 +77,12 @@ export interface ItemData {
   margin_pct?: DecimalIn | null;
   current_stock?: DecimalIn;
   min_stock?: DecimalIn | null;
+  ncm?: string | null;
+  cfop?: string | null;
+  origem?: string | null;
+  gtin?: string | null;
+  codigo_servico?: string | null;
+  aliquota_iss?: DecimalIn | null;
   attributes?: Prisma.InputJsonValue;
 }
 

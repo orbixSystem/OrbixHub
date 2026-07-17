@@ -608,6 +608,14 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Classificação fiscal (produto: ncm/cfop/origem/gtin; serviço: codigo_servico/aliquota_iss)
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
+
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_barcode
   ON inventory_item(tenant_id, barcode);
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_mfrcode
@@ -1198,6 +1206,14 @@ CREATE TABLE IF NOT EXISTS invoice_line (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS unidade        text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
+
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_kind_chk') THEN
     ALTER TABLE invoice_line ADD CONSTRAINT invoice_line_kind_chk
@@ -1265,6 +1281,16 @@ ON CONFLICT (key) DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.read'
 WHERE r.key IN ('owner','gerente','caixa','mechanic')
+ON CONFLICT DO NOTHING;
+
+-- invoice.config — configuração fiscal sensível (owner-only)
+INSERT INTO permission (key, name) VALUES
+  ('invoice.config','Configurar nota fiscal')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.config'
+WHERE r.key IN ('owner')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permission (role_id, permission_id)

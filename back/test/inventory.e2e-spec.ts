@@ -496,6 +496,85 @@ describe('Inventory — Produtos (e2e)', () => {
     });
   });
 
+  // ---- 7c. classificação fiscal (gated por kind) ------------------------
+  describe('classificação fiscal (gated por kind)', () => {
+    it('persiste classificação fiscal de produto e ignora campos de serviço', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, {
+        name: 'Óleo 5W30', kind: 'product',
+        ncm: '27101259', cfop: '5102', origem: '0', gtin: '7891234567895',
+        codigoServico: '14.01', aliquotaIss: 5, // devem ser ignorados p/ produto
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.ncm).toBe('27101259');
+      expect(res.body.cfop).toBe('5102');
+      expect(res.body.origem).toBe('0');
+      expect(res.body.gtin).toBe('7891234567895');
+      expect(res.body.codigo_servico).toBeNull();
+      expect(res.body.aliquota_iss).toBeNull();
+    });
+
+    it('persiste classificação fiscal de serviço e ignora campos de produto', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, {
+        name: 'Troca de óleo', kind: 'service', durationMinutes: 30,
+        codigoServico: '14.01', aliquotaIss: 5,
+        ncm: '27101259', cfop: '5102', // devem ser ignorados p/ serviço
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.codigo_servico).toBe('14.01');
+      // Decimal(7,2): Prisma's Decimal.toString() normaliza zeros à direita
+      // (mesma convenção usada para sale_price/margin_pct neste arquivo) — comparar
+      // numericamente em vez de string exata.
+      expect(Number(res.body.aliquota_iss)).toBe(5);
+      expect(res.body.ncm).toBeNull();
+      expect(res.body.cfop).toBeNull();
+    });
+
+    it('rejeita campo fiscal fora do whitelist do DTO', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, { name: 'x', foo_fiscal: '1' });
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH em produto atualiza ncm e ignora codigoServico', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Óleo 5W30',
+        kind: 'product',
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        ncm: '27101259',
+        codigoServico: '14.01', // stray: deve ser ignorado p/ produto
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.ncm).toBe('27101259');
+      expect(patched.body.codigo_servico).toBeNull();
+    });
+
+    it('PATCH em serviço atualiza codigoServico e ignora ncm', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Troca de óleo',
+        kind: 'service',
+        durationMinutes: 30,
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        codigoServico: '14.01',
+        ncm: '27101259', // stray: deve ser ignorado p/ serviço
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.codigo_servico).toBe('14.01');
+      expect(patched.body.ncm).toBeNull();
+    });
+  });
+
   // ---- 8. authorization by role ----------------------------------------
   describe('authorization', () => {
     it('mechanic reads items (200) but cannot create (403) nor patch config (403)', async () => {

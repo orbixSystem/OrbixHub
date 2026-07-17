@@ -136,6 +136,12 @@ export class InventoryService {
       current_stock: isService ? 0 : (dto.currentStock ?? 0),
       min_stock: isService ? null : (dto.minStock ?? null),
       duration_minutes: isService ? (dto.durationMinutes ?? null) : null,
+      ncm: isService ? null : trimOrNull(dto.ncm),
+      cfop: isService ? null : trimOrNull(dto.cfop),
+      origem: isService ? null : trimOrNull(dto.origem),
+      gtin: isService ? null : trimOrNull(dto.gtin),
+      codigo_servico: isService ? trimOrNull(dto.codigoServico) : null,
+      aliquota_iss: isService ? (dto.aliquotaIss ?? null) : null,
       attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue,
     };
     try {
@@ -242,6 +248,17 @@ export class InventoryService {
         if (!isService && dto.minStock !== undefined) data.min_stock = dto.minStock;
         if (dto.durationMinutes !== undefined)
           data.duration_minutes = dto.durationMinutes;
+        if (!isService) {
+          if (dto.ncm !== undefined) data.ncm = trimOrNull(dto.ncm);
+          if (dto.cfop !== undefined) data.cfop = trimOrNull(dto.cfop);
+          if (dto.origem !== undefined) data.origem = trimOrNull(dto.origem);
+          if (dto.gtin !== undefined) data.gtin = trimOrNull(dto.gtin);
+        } else {
+          if (dto.codigoServico !== undefined)
+            data.codigo_servico = trimOrNull(dto.codigoServico);
+          if (dto.aliquotaIss !== undefined)
+            data.aliquota_iss = dto.aliquotaIss ?? null;
+        }
         if (dto.attributes !== undefined)
           data.attributes = dto.attributes as Prisma.InputJsonValue;
         try {

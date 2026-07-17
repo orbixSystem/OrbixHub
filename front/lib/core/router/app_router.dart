@@ -9,6 +9,7 @@ import '../../features/cashier/presentation/cashier_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/invoice/presentation/invoice_screen.dart';
 import '../../features/invoice/presentation/invoice_detail_screen.dart';
+import '../../features/invoice/presentation/invoice_config_screen.dart';
 import '../../features/messages/presentation/messages_inbox_screen.dart';
 import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
@@ -244,6 +245,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/invoice',
             pageBuilder: (_, s) => neuPage(s, const InvoiceScreen()),
+          ),
+          // Configuração fiscal — literal antes de /m/invoice/:id (senão
+          // "config" seria capturado como id).
+          GoRoute(
+            path: '/m/invoice/config',
+            pageBuilder: (_, s) => neuPage(s, const InvoiceConfigScreen()),
           ),
           GoRoute(
             path: '/m/invoice/:id',

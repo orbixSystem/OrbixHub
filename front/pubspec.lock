@@ -229,10 +229,10 @@ packages:
     dependency: transitive
     description:
       name: code_assets
-      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      sha256: bf394f466ba9205f1812a0433b392d6af280f155f56651eda7c18cc32ed493b8
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "1.2.1"
   collection:
     dependency: transitive
     description:
@@ -245,10 +245,10 @@ packages:
     dependency: "direct main"
     description:
       name: connectivity_plus
-      sha256: cad0e811a289ea2a941119dc483c204ec1684cbb9a8fc7351fe4a230b8313160
+      sha256: "25cebb79dfe304022550e0c3c893ae051ded07183d2607f7b88473cb3ade33cb"
       url: "https://pub.dev"
     source: hosted
-    version: "7.2.0"
+    version: "7.3.0"
   connectivity_plus_platform_interface:
     dependency: transitive
     description:
@@ -357,10 +357,10 @@ packages:
     dependency: "direct main"
     description:
       name: drift
-      sha256: c21b9af62e78f86837638dda6c33506bd9444ca8a32cad2b99c07369cf9e2462
+      sha256: "84688491040b0ceb26575709a84d701c84ad4df4d8aff020adf6d85f155fb0dd"
       url: "https://pub.dev"
     source: hosted
-    version: "2.34.1"
+    version: "2.34.2"
   drift_dev:
     dependency: "direct dev"
     description:
@@ -585,10 +585,10 @@ packages:
     dependency: transitive
     description:
       name: hooks
-      sha256: "025f060e86d2d4c3c47b56e33caf7f93bf9283340f26d23424ebcfccf34f621e"
+      sha256: "9a62a50b50b769a737bc0a8ff381f333529df3ab746b2f6b02e83760231455ba"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.3"
+    version: "2.0.2"
   html:
     dependency: transitive
     description:
@@ -761,10 +761,10 @@ packages:
     dependency: transitive
     description:
       name: native_toolchain_c
-      sha256: "6ba77bb18063eebe9de401f5e6437e95e1438af0a87a3a39084fbd37c90df572"
+      sha256: f9c168717100ae6d9fee9ffb0be379bf1f8b26b0f6bcbd4fdddcd931993a6a72
       url: "https://pub.dev"
     source: hosted
-    version: "0.17.6"
+    version: "0.19.2"
   nm:
     dependency: transitive
     description:
@@ -785,10 +785,10 @@ packages:
     dependency: transitive
     description:
       name: objective_c
-      sha256: "100a1c87616ab6ed41ec263b083c0ef3261ee6cd1dc3b0f35f8ddfa4f996fe52"
+      sha256: "6cb691c686fa2838c6deb34980d426145c2a5d537491cb83d463c33cdbc726ed"
       url: "https://pub.dev"
     source: hosted
-    version: "9.3.0"
+    version: "9.4.1"
   package_config:
     dependency: transitive
     description:
@@ -1150,10 +1150,10 @@ packages:
     dependency: transitive
     description:
       name: sqlite3
-      sha256: "752d9d746052359a2022f588bb979f2e7c4e0f9e4b6a1c3121f7626a1574974b"
+      sha256: "61c7930bebf32c552ac5808c91bf33802e66711c9216090d3b5579c9f862e80c"
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.4"
+    version: "3.4.0"
   sqlparser:
     dependency: transitive
     description:

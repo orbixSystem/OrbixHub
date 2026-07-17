@@ -5,10 +5,15 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
@@ -19,6 +24,7 @@ import {
   IssueInvoiceDto,
   ListInvoicesQueryDto,
 } from './dto/invoice.dto';
+import { RegisterEmpresaDto, UpdateInvoiceConfigDto } from './dto/invoice-config.dto';
 
 /**
  * Emissão/consulta de Nota Fiscal. Contratável (gated por @RequiresModule('invoice')).
@@ -29,6 +35,38 @@ import {
 @RequiresModule('invoice')
 export class InvoiceController {
   constructor(private readonly invoice: InvoiceService) {}
+
+  @Get('config')
+  @Permissions('invoice.config')
+  getConfig(@CurrentUser() user: AuthUser) {
+    return this.invoice.getConfig(user.tenantId);
+  }
+
+  @Patch('config')
+  @Permissions('invoice.config')
+  @HttpCode(200)
+  updateConfig(@CurrentUser() user: AuthUser, @Body() dto: UpdateInvoiceConfigDto) {
+    return this.invoice.updateConfig(user, dto);
+  }
+
+  @Post('config/register-empresa')
+  @Permissions('invoice.config')
+  @HttpCode(200)
+  registerEmpresa(@CurrentUser() user: AuthUser, @Body() _dto: RegisterEmpresaDto) {
+    return this.invoice.registerEmpresa(user);
+  }
+
+  @Post('config/certificate')
+  @Permissions('invoice.config')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } }))
+  uploadCertificate(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
+    @Body('password') password: string,
+  ) {
+    return this.invoice.uploadCertificate(user, file, password);
+  }
 
   @Get()
   @Permissions('invoice.read')

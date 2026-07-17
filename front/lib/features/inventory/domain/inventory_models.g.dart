@@ -27,6 +27,12 @@ _InventoryItem _$InventoryItemFromJson(Map<String, dynamic> json) =>
           json['attributes'] as Map<String, dynamic>? ??
           const <String, dynamic>{},
       isActive: json['is_active'] as bool? ?? true,
+      ncm: json['ncm'] as String?,
+      cfop: json['cfop'] as String?,
+      origem: json['origem'] as String?,
+      gtin: json['gtin'] as String?,
+      codigoServico: json['codigo_servico'] as String?,
+      aliquotaIss: json['aliquota_iss'] as String?,
     );
 
 Map<String, dynamic> _$InventoryItemToJson(_InventoryItem instance) =>
@@ -48,6 +54,12 @@ Map<String, dynamic> _$InventoryItemToJson(_InventoryItem instance) =>
       'min_stock': instance.minStock,
       'attributes': instance.attributes,
       'is_active': instance.isActive,
+      'ncm': instance.ncm,
+      'cfop': instance.cfop,
+      'origem': instance.origem,
+      'gtin': instance.gtin,
+      'codigo_servico': instance.codigoServico,
+      'aliquota_iss': instance.aliquotaIss,
     };
 
 _ItemPage _$ItemPageFromJson(Map<String, dynamic> json) => _ItemPage(

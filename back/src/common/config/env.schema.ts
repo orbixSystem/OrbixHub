@@ -31,11 +31,18 @@ export const envSchema = z.object({
   // --- Nota Fiscal (módulo invoice) ---
   // Gateway fiscal. 'noop' = autoriza sintético em dev (sem chamada externa);
   // 'govbr' = API NFS-e Nacional (gov.br), gratuita — impl real.
-  FISCAL_PROVIDER: z.enum(['noop', 'govbr']).default('noop'),
+  FISCAL_PROVIDER: z.enum(['noop', 'govbr', 'nuvemfiscal']).default('noop'),
   // Ambiente fiscal default de novas notas.
   FISCAL_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
   // HMAC do webhook fiscal (assinatura sobre o corpo cru). Secret — nunca no front.
   INVOICE_WEBHOOK_SECRET: z.string().min(16).default('dev_invoice_webhook_secret_change_me'),
+  // --- Nuvem Fiscal (provedor BaaS fiscal; credenciais globais da plataforma) ---
+  NUVEMFISCAL_CLIENT_ID: z.string().default(''),
+  NUVEMFISCAL_CLIENT_SECRET: z.string().default(''),
+  NUVEMFISCAL_BASE_URL: z.string().default('https://api.nuvemfiscal.com.br'),
+  NUVEMFISCAL_AUTH_URL: z
+    .string()
+    .default('https://auth.nuvemfiscal.com.br/oauth/token'),
   // --- Inventory catalog lookup (código-first) ---
   // External GTIN/EAN catalog provider. 'noop' = always empty (validation phase).
   CATALOG_PROVIDER: z.enum(['noop', 'cosmos', 'openfoodfacts']).default('noop'),
