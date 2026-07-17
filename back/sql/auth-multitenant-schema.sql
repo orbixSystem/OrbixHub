@@ -607,6 +607,14 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Classificação fiscal (produto: ncm/cfop/origem/gtin; serviço: codigo_servico/aliquota_iss)
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
+
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_barcode
   ON inventory_item(tenant_id, barcode);
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_mfrcode
