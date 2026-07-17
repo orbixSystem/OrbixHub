@@ -10,6 +10,11 @@ export interface InvoiceLineData {
   quantity: number;
   unit_price: number;
   total: number;
+  ncm?: string | null;
+  cfop?: string | null;
+  unidade?: string | null;
+  gtin?: string | null;
+  codigo_servico?: string | null;
 }
 
 export interface CreateInvoiceData {
@@ -60,6 +65,11 @@ export class InvoiceRepository {
             quantity: l.quantity,
             unit_price: l.unit_price,
             total: l.total,
+            ncm: l.ncm ?? null,
+            cfop: l.cfop ?? null,
+            unidade: l.unidade ?? null,
+            gtin: l.gtin ?? null,
+            codigo_servico: l.codigo_servico ?? null,
           })),
         },
       },

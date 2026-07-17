@@ -1205,6 +1205,12 @@ CREATE TABLE IF NOT EXISTS invoice_line (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS unidade        text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS codigo_servico text;
+
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_kind_chk') THEN
     ALTER TABLE invoice_line ADD CONSTRAINT invoice_line_kind_chk
