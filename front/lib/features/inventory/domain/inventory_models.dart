@@ -26,6 +26,12 @@ abstract class InventoryItem with _$InventoryItem {
     @JsonKey(name: 'min_stock') String? minStock,
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
     @JsonKey(name: 'is_active') @Default(true) bool isActive,
+    String? ncm,
+    String? cfop,
+    String? origem,
+    String? gtin,
+    @JsonKey(name: 'codigo_servico') String? codigoServico,
+    @JsonKey(name: 'aliquota_iss') String? aliquotaIss,
   }) = _InventoryItem;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) =>
@@ -122,6 +128,12 @@ class ItemDraft {
     this.currentStock,
     this.minStock,
     this.attributes,
+    this.ncm,
+    this.cfop,
+    this.origem,
+    this.gtin,
+    this.codigoServico,
+    this.aliquotaIss,
   });
 
   final String name;
@@ -139,6 +151,12 @@ class ItemDraft {
   final double? currentStock;
   final double? minStock;
   final Map<String, dynamic>? attributes;
+  final String? ncm;
+  final String? cfop;
+  final String? origem;
+  final String? gtin;
+  final String? codigoServico;
+  final double? aliquotaIss;
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -156,5 +174,11 @@ class ItemDraft {
         if (currentStock != null) 'currentStock': currentStock,
         if (minStock != null) 'minStock': minStock,
         if (attributes != null) 'attributes': attributes,
+        if (ncm != null) 'ncm': ncm,
+        if (cfop != null) 'cfop': cfop,
+        if (origem != null) 'origem': origem,
+        if (gtin != null) 'gtin': gtin,
+        if (codigoServico != null) 'codigoServico': codigoServico,
+        if (aliquotaIss != null) 'aliquotaIss': aliquotaIss,
       };
 }

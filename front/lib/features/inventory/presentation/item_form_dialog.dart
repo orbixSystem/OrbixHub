@@ -59,6 +59,16 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   late final TextEditingController _currentStock;
   late final TextEditingController _durationMinutes;
 
+  /// Fiscal — produto (NCM/CFOP/origem/GTIN).
+  late final TextEditingController _ncm;
+  late final TextEditingController _cfop;
+  late final TextEditingController _origem;
+  late final TextEditingController _gtin;
+
+  /// Fiscal — serviço (código LC116/alíquota ISS).
+  late final TextEditingController _codigoServico;
+  late final TextEditingController _aliquotaIss;
+
   /// Bloco código-first.
   final _lookupCode = TextEditingController();
 
@@ -93,6 +103,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _marginPct = TextEditingController(text: _fmt(it?.marginPct));
     _minStock = TextEditingController(text: _fmt(it?.minStock));
     _currentStock = TextEditingController(text: _fmt(it?.currentStock));
+    _ncm = TextEditingController(text: it?.ncm ?? '');
+    _cfop = TextEditingController(text: it?.cfop ?? '');
+    _origem = TextEditingController(text: it?.origem ?? '');
+    _gtin = TextEditingController(text: it?.gtin ?? '');
+    _codigoServico = TextEditingController(text: it?.codigoServico ?? '');
+    _aliquotaIss = TextEditingController(text: _fmt(it?.aliquotaIss));
   }
 
   String _fmt(String? decimal) {
@@ -130,6 +146,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       _minStock,
       _currentStock,
       _durationMinutes,
+      _ncm,
+      _cfop,
+      _origem,
+      _gtin,
+      _codigoServico,
+      _aliquotaIss,
       _lookupCode,
       ..._dynamic.values,
     ]) {
@@ -248,6 +270,10 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _marginPct.text = _fmt(it.marginPct);
     _minStock.text = _fmt(it.minStock);
     _currentStock.text = _fmt(it.currentStock);
+    _ncm.text = it.ncm ?? '';
+    _cfop.text = it.cfop ?? '';
+    _origem.text = it.origem ?? '';
+    _gtin.text = it.gtin ?? '';
     for (final entry in _dynamic.entries) {
       final v = it.attributes[entry.key];
       entry.value.text = v is List ? v.join(', ') : (v?.toString() ?? '');
@@ -303,6 +329,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       minStock: isService ? null : _toDouble(_minStock.text),
       currentStock: isService ? null : _toDouble(_currentStock.text),
       attributes: attributes.isEmpty ? null : attributes,
+      ncm: isService ? null : _opt(_ncm.text),
+      cfop: isService ? null : _opt(_cfop.text),
+      origem: isService ? null : _opt(_origem.text),
+      gtin: isService ? null : _opt(_gtin.text),
+      codigoServico: isService ? _opt(_codigoServico.text) : null,
+      aliquotaIss: isService ? _toDouble(_aliquotaIss.text) : null,
     );
     try {
       if (widget.existing == null) {
@@ -501,6 +533,56 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       const SizedBox(height: 12),
       _numField(_currentStock, 'Estoque atual', null,
           Icons.inventory_outlined),
+      const SizedBox(height: 20),
+      _SectionHeader(icon: Icons.receipt_long_outlined, text: 'Fiscal'),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _ncm,
+              decoration: const InputDecoration(
+                labelText: 'NCM',
+                prefixIcon: Icon(Icons.numbers),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: _cfop,
+              decoration: const InputDecoration(
+                labelText: 'CFOP',
+                prefixIcon: Icon(Icons.swap_horiz),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _origem,
+              decoration: const InputDecoration(
+                labelText: 'Origem',
+                prefixIcon: Icon(Icons.public),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: _gtin,
+              decoration: const InputDecoration(
+                labelText: 'GTIN',
+                prefixIcon: Icon(Icons.qr_code),
+              ),
+            ),
+          ),
+        ],
+      ),
       if (fields.isNotEmpty) ...[
         const SizedBox(height: 20),
         _SectionHeader(icon: Icons.tune, text: 'Detalhes do item'),
@@ -592,6 +674,25 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                   : const Icon(Icons.auto_fix_high),
               onPressed: _suggestingSku ? null : _suggestSku,
             )),
+      ),
+      const SizedBox(height: 20),
+      _SectionHeader(icon: Icons.receipt_long_outlined, text: 'Fiscal'),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _codigoServico,
+              decoration: const InputDecoration(
+                labelText: 'Código do serviço (LC116)',
+                prefixIcon: Icon(Icons.assignment_outlined),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: _numField(_aliquotaIss, 'Alíquota ISS %', null,
+              Icons.percent)),
+        ],
       ),
       if (fields.isNotEmpty) ...[
         const SizedBox(height: 20),

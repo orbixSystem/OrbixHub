@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$InventoryItem {
 
  String get id; String get name; String get kind;// 'product' | 'service'
-@JsonKey(name: 'duration_minutes') int? get durationMinutes; String? get sku;@JsonKey(name: 'manufacturer_code') String? get manufacturerCode; String? get barcode; String? get category; String? get brand; String? get unit;@JsonKey(name: 'sale_price') String? get salePrice;@JsonKey(name: 'cost_price') String? get costPrice;@JsonKey(name: 'margin_pct') String? get marginPct;@JsonKey(name: 'current_stock') String get currentStock;@JsonKey(name: 'min_stock') String? get minStock; Map<String, dynamic> get attributes;@JsonKey(name: 'is_active') bool get isActive;
+@JsonKey(name: 'duration_minutes') int? get durationMinutes; String? get sku;@JsonKey(name: 'manufacturer_code') String? get manufacturerCode; String? get barcode; String? get category; String? get brand; String? get unit;@JsonKey(name: 'sale_price') String? get salePrice;@JsonKey(name: 'cost_price') String? get costPrice;@JsonKey(name: 'margin_pct') String? get marginPct;@JsonKey(name: 'current_stock') String get currentStock;@JsonKey(name: 'min_stock') String? get minStock; Map<String, dynamic> get attributes;@JsonKey(name: 'is_active') bool get isActive; String? get ncm; String? get cfop; String? get origem; String? get gtin;@JsonKey(name: 'codigo_servico') String? get codigoServico;@JsonKey(name: 'aliquota_iss') String? get aliquotaIss;
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $InventoryItemCopyWith<InventoryItem> get copyWith => _$InventoryItemCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other.attributes, attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other.attributes, attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.ncm, ncm) || other.ncm == ncm)&&(identical(other.cfop, cfop) || other.cfop == cfop)&&(identical(other.origem, origem) || other.origem == origem)&&(identical(other.gtin, gtin) || other.gtin == gtin)&&(identical(other.codigoServico, codigoServico) || other.codigoServico == codigoServico)&&(identical(other.aliquotaIss, aliquotaIss) || other.aliquotaIss == aliquotaIss));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,kind,durationMinutes,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(attributes),isActive);
+int get hashCode => Object.hashAll([runtimeType,id,name,kind,durationMinutes,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(attributes),isActive,ncm,cfop,origem,gtin,codigoServico,aliquotaIss]);
 
 @override
 String toString() {
-  return 'InventoryItem(id: $id, name: $name, kind: $kind, durationMinutes: $durationMinutes, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive)';
+  return 'InventoryItem(id: $id, name: $name, kind: $kind, durationMinutes: $durationMinutes, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive, ncm: $ncm, cfop: $cfop, origem: $origem, gtin: $gtin, codigoServico: $codigoServico, aliquotaIss: $aliquotaIss)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $InventoryItemCopyWith<$Res>  {
   factory $InventoryItemCopyWith(InventoryItem value, $Res Function(InventoryItem) _then) = _$InventoryItemCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String kind,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive
+ String id, String name, String kind,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive, String? ncm, String? cfop, String? origem, String? gtin,@JsonKey(name: 'codigo_servico') String? codigoServico,@JsonKey(name: 'aliquota_iss') String? aliquotaIss
 });
 
 
@@ -66,7 +66,7 @@ class _$InventoryItemCopyWithImpl<$Res>
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? durationMinutes = freezed,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? durationMinutes = freezed,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,Object? ncm = freezed,Object? cfop = freezed,Object? origem = freezed,Object? gtin = freezed,Object? codigoServico = freezed,Object? aliquotaIss = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -85,7 +85,13 @@ as String?,currentStock: null == currentStock ? _self.currentStock : currentStoc
 as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
 as String?,attributes: null == attributes ? _self.attributes : attributes // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,ncm: freezed == ncm ? _self.ncm : ncm // ignore: cast_nullable_to_non_nullable
+as String?,cfop: freezed == cfop ? _self.cfop : cfop // ignore: cast_nullable_to_non_nullable
+as String?,origem: freezed == origem ? _self.origem : origem // ignore: cast_nullable_to_non_nullable
+as String?,gtin: freezed == gtin ? _self.gtin : gtin // ignore: cast_nullable_to_non_nullable
+as String?,codigoServico: freezed == codigoServico ? _self.codigoServico : codigoServico // ignore: cast_nullable_to_non_nullable
+as String?,aliquotaIss: freezed == aliquotaIss ? _self.aliquotaIss : aliquotaIss // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -170,10 +176,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive,  String? ncm,  String? cfop,  String? origem,  String? gtin, @JsonKey(name: 'codigo_servico')  String? codigoServico, @JsonKey(name: 'aliquota_iss')  String? aliquotaIss)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InventoryItem() when $default != null:
-return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
+return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive,_that.ncm,_that.cfop,_that.origem,_that.gtin,_that.codigoServico,_that.aliquotaIss);case _:
   return orElse();
 
 }
@@ -191,10 +197,10 @@ return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive,  String? ncm,  String? cfop,  String? origem,  String? gtin, @JsonKey(name: 'codigo_servico')  String? codigoServico, @JsonKey(name: 'aliquota_iss')  String? aliquotaIss)  $default,) {final _that = this;
 switch (_that) {
 case _InventoryItem():
-return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
+return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive,_that.ncm,_that.cfop,_that.origem,_that.gtin,_that.codigoServico,_that.aliquotaIss);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -211,10 +217,10 @@ return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String kind, @JsonKey(name: 'duration_minutes')  int? durationMinutes,  String? sku, @JsonKey(name: 'manufacturer_code')  String? manufacturerCode,  String? barcode,  String? category,  String? brand,  String? unit, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'cost_price')  String? costPrice, @JsonKey(name: 'margin_pct')  String? marginPct, @JsonKey(name: 'current_stock')  String currentStock, @JsonKey(name: 'min_stock')  String? minStock,  Map<String, dynamic> attributes, @JsonKey(name: 'is_active')  bool isActive,  String? ncm,  String? cfop,  String? origem,  String? gtin, @JsonKey(name: 'codigo_servico')  String? codigoServico, @JsonKey(name: 'aliquota_iss')  String? aliquotaIss)?  $default,) {final _that = this;
 switch (_that) {
 case _InventoryItem() when $default != null:
-return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive);case _:
+return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_that.manufacturerCode,_that.barcode,_that.category,_that.brand,_that.unit,_that.salePrice,_that.costPrice,_that.marginPct,_that.currentStock,_that.minStock,_that.attributes,_that.isActive,_that.ncm,_that.cfop,_that.origem,_that.gtin,_that.codigoServico,_that.aliquotaIss);case _:
   return null;
 
 }
@@ -226,7 +232,7 @@ return $default(_that.id,_that.name,_that.kind,_that.durationMinutes,_that.sku,_
 @JsonSerializable()
 
 class _InventoryItem implements InventoryItem {
-  const _InventoryItem({required this.id, required this.name, this.kind = 'product', @JsonKey(name: 'duration_minutes') this.durationMinutes, this.sku, @JsonKey(name: 'manufacturer_code') this.manufacturerCode, this.barcode, this.category, this.brand, this.unit, @JsonKey(name: 'sale_price') this.salePrice, @JsonKey(name: 'cost_price') this.costPrice, @JsonKey(name: 'margin_pct') this.marginPct, @JsonKey(name: 'current_stock') this.currentStock = '0', @JsonKey(name: 'min_stock') this.minStock, final  Map<String, dynamic> attributes = const <String, dynamic>{}, @JsonKey(name: 'is_active') this.isActive = true}): _attributes = attributes;
+  const _InventoryItem({required this.id, required this.name, this.kind = 'product', @JsonKey(name: 'duration_minutes') this.durationMinutes, this.sku, @JsonKey(name: 'manufacturer_code') this.manufacturerCode, this.barcode, this.category, this.brand, this.unit, @JsonKey(name: 'sale_price') this.salePrice, @JsonKey(name: 'cost_price') this.costPrice, @JsonKey(name: 'margin_pct') this.marginPct, @JsonKey(name: 'current_stock') this.currentStock = '0', @JsonKey(name: 'min_stock') this.minStock, final  Map<String, dynamic> attributes = const <String, dynamic>{}, @JsonKey(name: 'is_active') this.isActive = true, this.ncm, this.cfop, this.origem, this.gtin, @JsonKey(name: 'codigo_servico') this.codigoServico, @JsonKey(name: 'aliquota_iss') this.aliquotaIss}): _attributes = attributes;
   factory _InventoryItem.fromJson(Map<String, dynamic> json) => _$InventoryItemFromJson(json);
 
 @override final  String id;
@@ -253,6 +259,12 @@ class _InventoryItem implements InventoryItem {
 }
 
 @override@JsonKey(name: 'is_active') final  bool isActive;
+@override final  String? ncm;
+@override final  String? cfop;
+@override final  String? origem;
+@override final  String? gtin;
+@override@JsonKey(name: 'codigo_servico') final  String? codigoServico;
+@override@JsonKey(name: 'aliquota_iss') final  String? aliquotaIss;
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
@@ -267,16 +279,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other._attributes, _attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryItem&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.sku, sku) || other.sku == sku)&&(identical(other.manufacturerCode, manufacturerCode) || other.manufacturerCode == manufacturerCode)&&(identical(other.barcode, barcode) || other.barcode == barcode)&&(identical(other.category, category) || other.category == category)&&(identical(other.brand, brand) || other.brand == brand)&&(identical(other.unit, unit) || other.unit == unit)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.costPrice, costPrice) || other.costPrice == costPrice)&&(identical(other.marginPct, marginPct) || other.marginPct == marginPct)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock)&&const DeepCollectionEquality().equals(other._attributes, _attributes)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.ncm, ncm) || other.ncm == ncm)&&(identical(other.cfop, cfop) || other.cfop == cfop)&&(identical(other.origem, origem) || other.origem == origem)&&(identical(other.gtin, gtin) || other.gtin == gtin)&&(identical(other.codigoServico, codigoServico) || other.codigoServico == codigoServico)&&(identical(other.aliquotaIss, aliquotaIss) || other.aliquotaIss == aliquotaIss));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,kind,durationMinutes,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(_attributes),isActive);
+int get hashCode => Object.hashAll([runtimeType,id,name,kind,durationMinutes,sku,manufacturerCode,barcode,category,brand,unit,salePrice,costPrice,marginPct,currentStock,minStock,const DeepCollectionEquality().hash(_attributes),isActive,ncm,cfop,origem,gtin,codigoServico,aliquotaIss]);
 
 @override
 String toString() {
-  return 'InventoryItem(id: $id, name: $name, kind: $kind, durationMinutes: $durationMinutes, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive)';
+  return 'InventoryItem(id: $id, name: $name, kind: $kind, durationMinutes: $durationMinutes, sku: $sku, manufacturerCode: $manufacturerCode, barcode: $barcode, category: $category, brand: $brand, unit: $unit, salePrice: $salePrice, costPrice: $costPrice, marginPct: $marginPct, currentStock: $currentStock, minStock: $minStock, attributes: $attributes, isActive: $isActive, ncm: $ncm, cfop: $cfop, origem: $origem, gtin: $gtin, codigoServico: $codigoServico, aliquotaIss: $aliquotaIss)';
 }
 
 
@@ -287,7 +299,7 @@ abstract mixin class _$InventoryItemCopyWith<$Res> implements $InventoryItemCopy
   factory _$InventoryItemCopyWith(_InventoryItem value, $Res Function(_InventoryItem) _then) = __$InventoryItemCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String kind,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive
+ String id, String name, String kind,@JsonKey(name: 'duration_minutes') int? durationMinutes, String? sku,@JsonKey(name: 'manufacturer_code') String? manufacturerCode, String? barcode, String? category, String? brand, String? unit,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'cost_price') String? costPrice,@JsonKey(name: 'margin_pct') String? marginPct,@JsonKey(name: 'current_stock') String currentStock,@JsonKey(name: 'min_stock') String? minStock, Map<String, dynamic> attributes,@JsonKey(name: 'is_active') bool isActive, String? ncm, String? cfop, String? origem, String? gtin,@JsonKey(name: 'codigo_servico') String? codigoServico,@JsonKey(name: 'aliquota_iss') String? aliquotaIss
 });
 
 
@@ -304,7 +316,7 @@ class __$InventoryItemCopyWithImpl<$Res>
 
 /// Create a copy of InventoryItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? durationMinutes = freezed,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? durationMinutes = freezed,Object? sku = freezed,Object? manufacturerCode = freezed,Object? barcode = freezed,Object? category = freezed,Object? brand = freezed,Object? unit = freezed,Object? salePrice = freezed,Object? costPrice = freezed,Object? marginPct = freezed,Object? currentStock = null,Object? minStock = freezed,Object? attributes = null,Object? isActive = null,Object? ncm = freezed,Object? cfop = freezed,Object? origem = freezed,Object? gtin = freezed,Object? codigoServico = freezed,Object? aliquotaIss = freezed,}) {
   return _then(_InventoryItem(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -323,7 +335,13 @@ as String?,currentStock: null == currentStock ? _self.currentStock : currentStoc
 as String,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
 as String?,attributes: null == attributes ? _self._attributes : attributes // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,ncm: freezed == ncm ? _self.ncm : ncm // ignore: cast_nullable_to_non_nullable
+as String?,cfop: freezed == cfop ? _self.cfop : cfop // ignore: cast_nullable_to_non_nullable
+as String?,origem: freezed == origem ? _self.origem : origem // ignore: cast_nullable_to_non_nullable
+as String?,gtin: freezed == gtin ? _self.gtin : gtin // ignore: cast_nullable_to_non_nullable
+as String?,codigoServico: freezed == codigoServico ? _self.codigoServico : codigoServico // ignore: cast_nullable_to_non_nullable
+as String?,aliquotaIss: freezed == aliquotaIss ? _self.aliquotaIss : aliquotaIss // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
