@@ -444,38 +444,39 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _manufacturerCode,
-              readOnly: editing,
+              label: 'Cód. do fabricante (opcional)',
+              fieldKey: 'manufacturerCode',
+              prefixIcon: Icons.precision_manufacturing_outlined,
+              locked: editing,
               maxLength: 60,
-              decoration: _dec('Cód. do fabricante (opcional)', 'manufacturerCode',
-                  prefixIcon:
-                      const Icon(Icons.precision_manufacturing_outlined),
-                  locked: editing),
               onChanged: editing ? null : (_) => _onEdit('manufacturerCode'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _barcode,
-              readOnly: editing,
+              label: 'Código de barras (opcional)',
+              fieldKey: 'barcode',
+              prefixIcon: Icons.qr_code_2,
+              locked: editing,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(14)],
-              decoration: _dec('Código de barras (opcional)', 'barcode',
-                  prefixIcon: const Icon(Icons.qr_code_2), locked: editing),
               onChanged: editing ? null : (_) => _onEdit('barcode'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _name,
-        textCapitalization: TextCapitalization.words,
+        label: 'Nome *',
+        fieldKey: 'name',
+        prefixIcon: Icons.label_outline,
         maxLength: 120,
-        decoration: _dec('Nome *', 'name',
-            prefixIcon: const Icon(Icons.label_outline)),
+        textCapitalization: TextCapitalization.words,
         onChanged: (_) => _onEdit('name'),
         validator: Validators.required('Nome'),
       ),
@@ -483,46 +484,49 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _category,
-              textCapitalization: TextCapitalization.words,
+              label: 'Categoria (opcional)',
+              fieldKey: 'category',
+              prefixIcon: Icons.category_outlined,
               maxLength: 60,
-              decoration: _dec('Categoria (opcional)', 'category',
-                  prefixIcon: const Icon(Icons.category_outlined)),
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('category'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _brand,
-              textCapitalization: TextCapitalization.words,
+              label: 'Marca (opcional)',
+              fieldKey: 'brand',
+              prefixIcon: Icons.business_outlined,
               maxLength: 60,
-              decoration: _dec('Marca (opcional)', 'brand',
-                  prefixIcon: const Icon(Icons.business_outlined)),
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('brand'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _sku,
+        label: 'SKU (opcional)',
+        fieldKey: 'sku',
+        prefixIcon: Icons.tag,
         maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
-        decoration: _dec('SKU (opcional)', 'sku',
-            prefixIcon: const Icon(Icons.tag),
-            suffixIcon: IconButton(
-              tooltip: 'Sugerir SKU',
-              icon: _suggestingSku
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_fix_high),
-              onPressed: _suggestingSku ? null : _suggestSku,
-            )),
+        suffix: IconButton(
+          tooltip: 'Sugerir SKU',
+          icon: _suggestingSku
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_fix_high),
+          onPressed: _suggestingSku ? null : _suggestSku,
+        ),
       ),
       const SizedBox(height: 12),
       Row(
@@ -557,26 +561,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _ncm,
+              label: 'NCM (opcional)',
+              prefixIcon: Icons.numbers,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(8)],
-              decoration: const InputDecoration(
-                labelText: 'NCM (opcional)',
-                prefixIcon: Icon(Icons.numbers),
-              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _cfop,
+              label: 'CFOP (opcional)',
+              prefixIcon: Icons.swap_horiz,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(4)],
-              decoration: const InputDecoration(
-                labelText: 'CFOP (opcional)',
-                prefixIcon: Icon(Icons.swap_horiz),
-              ),
             ),
           ),
         ],
@@ -585,26 +585,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _origem,
+              label: 'Origem (opcional)',
+              prefixIcon: Icons.public,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(1)],
-              decoration: const InputDecoration(
-                labelText: 'Origem (opcional)',
-                prefixIcon: Icon(Icons.public),
-              ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _gtin,
+              label: 'GTIN (opcional)',
+              prefixIcon: Icons.qr_code,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(14)],
-              decoration: const InputDecoration(
-                labelText: 'GTIN (opcional)',
-                prefixIcon: Icon(Icons.qr_code),
-              ),
             ),
           ),
         ],
@@ -625,12 +621,13 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   /// estoque atual/mínimo). Foca em nome, preços, duração e classificação.
   List<Widget> _serviceForm(List<ItemFieldConfig> fields, bool editing) {
     return [
-      TextFormField(
+      _field(
         controller: _name,
-        textCapitalization: TextCapitalization.words,
+        label: 'Nome *',
+        fieldKey: 'name',
+        prefixIcon: Icons.label_outline,
         maxLength: 120,
-        decoration: _dec('Nome *', 'name',
-            prefixIcon: const Icon(Icons.label_outline)),
+        textCapitalization: TextCapitalization.words,
         onChanged: (_) => _onEdit('name'),
         validator: Validators.required('Nome'),
       ),
@@ -655,14 +652,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
               Icons.percent)),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _durationMinutes,
+              label: 'Duração (min) (opcional)',
+              prefixIcon: Icons.schedule_outlined,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(4)],
-              decoration: const InputDecoration(
-                labelText: 'Duração (min) (opcional)',
-                prefixIcon: Icon(Icons.schedule_outlined),
-              ),
             ),
           ),
         ],
@@ -671,46 +666,49 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _category,
-              textCapitalization: TextCapitalization.words,
+              label: 'Categoria (opcional)',
+              fieldKey: 'category',
+              prefixIcon: Icons.category_outlined,
               maxLength: 60,
-              decoration: _dec('Categoria (opcional)', 'category',
-                  prefixIcon: const Icon(Icons.category_outlined)),
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('category'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _brand,
-              textCapitalization: TextCapitalization.words,
+              label: 'Marca (opcional)',
+              fieldKey: 'brand',
+              prefixIcon: Icons.business_outlined,
               maxLength: 60,
-              decoration: _dec('Marca (opcional)', 'brand',
-                  prefixIcon: const Icon(Icons.business_outlined)),
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('brand'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _sku,
+        label: 'SKU (opcional)',
+        fieldKey: 'sku',
+        prefixIcon: Icons.tag,
         maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
-        decoration: _dec('SKU (opcional)', 'sku',
-            prefixIcon: const Icon(Icons.tag),
-            suffixIcon: IconButton(
-              tooltip: 'Sugerir SKU',
-              icon: _suggestingSku
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_fix_high),
-              onPressed: _suggestingSku ? null : _suggestSku,
-            )),
+        suffix: IconButton(
+          tooltip: 'Sugerir SKU',
+          icon: _suggestingSku
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_fix_high),
+          onPressed: _suggestingSku ? null : _suggestSku,
+        ),
       ),
       const SizedBox(height: 20),
       _SectionHeader(icon: Icons.receipt_long_outlined, text: 'Fiscal'),
@@ -718,14 +716,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _codigoServico,
+              label: 'Código do serviço (LC116) (opcional)',
+              prefixIcon: Icons.assignment_outlined,
               keyboardType: TextInputType.number,
               inputFormatters: const [DigitsOnlyFormatter(6)],
-              decoration: const InputDecoration(
-                labelText: 'Código do serviço (LC116) (opcional)',
-                prefixIcon: Icon(Icons.assignment_outlined),
-              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -745,48 +741,56 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     ];
   }
 
-  /// Monta a `InputDecoration` de um campo, aplicando o destaque tangerina
-  /// quando [key] estiver em [_autoFilled] (preenchido pelo catálogo/item).
-  InputDecoration _dec(String label, String? key,
-      {Widget? prefixIcon, Widget? suffixIcon, bool locked = false}) {
-    // Campo travado na edição (identifica o item): visual apagado + cadeado.
+  /// Campo de texto do design system (rótulo SEMPRE acima), aplicando o
+  /// destaque de autofill quando [fieldKey] estiver em [_autoFilled] e a trava
+  /// visual quando [locked] (campo que identifica o item, não editável).
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    String? fieldKey,
+    IconData? prefixIcon,
+    Widget? suffix,
+    String? hint,
+    String? helper,
+    bool locked = false,
+    int? maxLength,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
+  }) {
+    // Campo travado na edição (identifica o item): desabilitado + cadeado.
     if (locked) {
-      return InputDecoration(
-        labelText: label,
-        counterText: '',
+      return NeuTextField(
+        label: label,
+        controller: controller,
         prefixIcon: prefixIcon,
-        filled: true,
-        fillColor: AppColors.surfaceSunken,
         enabled: false,
-        suffixIcon: const Icon(Icons.lock_outline, size: 18),
-        helperText: 'Não editável',
+        suffix: const Icon(Icons.lock_outline, size: 18),
+        helper: 'Não editável',
+        maxLength: maxLength,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
       );
     }
-    final highlighted = key != null && _autoFilled.contains(key);
-    if (!highlighted) {
-      return InputDecoration(
-        labelText: label,
-        counterText: '',
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-      );
-    }
-    return InputDecoration(
-      labelText: label,
-      counterText: '',
+    final highlighted = fieldKey != null && _autoFilled.contains(fieldKey);
+    return NeuTextField(
+      label: label,
+      controller: controller,
+      hint: hint,
+      // Destaque do catálogo: ícone + helper sinalizam (o campo já é inset).
+      helper: highlighted ? 'Preenchido pelo catálogo' : helper,
+      suffix: highlighted
+          ? Icon(Icons.auto_awesome, size: 18, color: context.neu.accent)
+          : suffix,
       prefixIcon: prefixIcon,
-      filled: true,
-      fillColor: AppColors.brandTint,
-      suffixIcon: const Icon(
-        Icons.auto_awesome,
-        size: 18,
-        color: AppColors.brandDeep,
-      ),
-      helperText: 'Preenchido pelo catálogo',
-      helperStyle: const TextStyle(
-        color: AppColors.brandDeep,
-        fontWeight: FontWeight.w600,
-      ),
+      maxLength: maxLength,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      validator: validator,
+      onChanged: onChanged,
     );
   }
 
@@ -804,18 +808,33 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     IconData icon, {
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
+    return NeuTextField(
+      label: label,
       controller: c,
+      // O NeuTextField não tem prefixText; o "R$" vira dica dentro do campo.
+      hint: prefixText != null ? 'R\$ 0,00' : null,
+      prefixIcon: icon,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
       ],
-      decoration: InputDecoration(
-        labelText: label,
-        prefixText: prefixText,
-        prefixIcon: Icon(icon),
-      ),
       validator: validator,
+    );
+  }
+
+  /// Rótulo acima do campo, no mesmo estilo do [NeuTextField] — para envolver
+  /// widgets que não são NeuTextField (ex.: dropdowns) sem truncar o rótulo.
+  Widget _fieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.neu.inkMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
@@ -834,43 +853,60 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         final controller = _dynamic[f.key]!;
         final current =
             options.contains(controller.text) ? controller.text : null;
-        return DropdownButtonFormField<String>(
-          key: Key('itemField-${f.key}'),
-          initialValue: current,
-          decoration: InputDecoration(labelText: label),
-          items: [
-            for (final o in options)
-              DropdownMenuItem(value: o, child: Text(o)),
+        // Rótulo acima (nunca trunca) + dropdown numa cavidade do tema.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _fieldLabel(label),
+            NeuSurface(
+              elevation: NeuElevation.inset,
+              radius: NeuTokens.rField,
+              child: DropdownButtonFormField<String>(
+                key: Key('itemField-${f.key}'),
+                initialValue: current,
+                isExpanded: true,
+                style: TextStyle(color: context.neu.ink, fontSize: 15),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  filled: false,
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                items: [
+                  for (final o in options)
+                    DropdownMenuItem(value: o, child: Text(o)),
+                ],
+                onChanged: (v) => controller.text = v ?? '',
+                validator: (v) => requiredValidator(v),
+              ),
+            ),
           ],
-          onChanged: (v) => controller.text = v ?? '',
-          validator: (v) => requiredValidator(v),
         );
       case 'tags':
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: 'Separe por vírgula',
-          ),
+          helper: 'Separe por vírgula',
           validator: requiredValidator,
         );
       case 'number':
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
           ],
-          decoration: InputDecoration(labelText: label),
           validator: requiredValidator,
         );
       default:
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
-          decoration: InputDecoration(labelText: label),
           validator: requiredValidator,
         );
     }

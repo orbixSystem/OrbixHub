@@ -73,6 +73,22 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
 
   String? _opt(String v) => v.trim().isEmpty ? null : v.trim();
 
+  /// Rótulo acima do campo, no mesmo estilo do [NeuTextField] — para envolver
+  /// o dropdown de tipo sem que o rótulo trunque.
+  Widget _fieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.neu.inkMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -128,51 +144,67 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-                TextFormField(
+                NeuTextField(
+                  label: 'Nome *',
                   controller: _name,
                   textCapitalization: TextCapitalization.words,
                   maxLength: 120,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome *',
-                    counterText: '',
-                  ),
                   validator: Validators.required('Nome'),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _type,
-                        decoration: const InputDecoration(labelText: 'Tipo'),
-                        items: const [
-                          DropdownMenuItem(value: 'PF', child: Text('Pessoa física')),
-                          DropdownMenuItem(value: 'PJ', child: Text('Pessoa jurídica')),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Tipo'),
+                          NeuSurface(
+                            elevation: NeuElevation.inset,
+                            radius: NeuTokens.rField,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _type,
+                              isExpanded: true,
+                              style: TextStyle(
+                                  color: context.neu.ink, fontSize: 15),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                filled: false,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 'PF', child: Text('Pessoa física')),
+                                DropdownMenuItem(
+                                    value: 'PJ', child: Text('Pessoa jurídica')),
+                              ],
+                              onChanged: (v) {
+                                setState(() {
+                                  _type = v ?? 'PF';
+                                  // Reaplica a máscara do documento ao trocar PF/PJ.
+                                  _document.text = _type == 'PJ'
+                                      ? formatCnpj(_document.text)
+                                      : formatCpf(_document.text);
+                                });
+                              },
+                            ),
+                          ),
                         ],
-                        onChanged: (v) {
-                          setState(() {
-                            _type = v ?? 'PF';
-                            // Reaplica a máscara do documento ao trocar PF/PJ.
-                            _document.text = _type == 'PJ'
-                                ? formatCnpj(_document.text)
-                                : formatCpf(_document.text);
-                          });
-                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextFormField(
+                      child: NeuTextField(
+                        label:
+                            'Documento${widget.documentRequired ? ' *' : ' (opcional)'}',
                         controller: _document,
                         keyboardType: TextInputType.number,
                         inputFormatters: [documentFormatter(_type)],
-                        decoration: InputDecoration(
-                          labelText:
-                              'Documento${widget.documentRequired ? ' *' : ' (opcional)'}',
-                          hintText: _type == 'PJ'
-                              ? '00.000.000/0000-00'
-                              : '000.000.000-00',
-                        ),
+                        hint: _type == 'PJ'
+                            ? '00.000.000/0000-00'
+                            : '000.000.000-00',
                         validator: Validators.combine([
                           if (widget.documentRequired) Validators.required('Documento'),
                           Validators.document(_type),
@@ -182,48 +214,37 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Telefone *',
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [PhoneInputFormatter()],
-                  decoration: const InputDecoration(
-                    labelText: 'Telefone *',
-                    hintText: '(00) 00000-0000',
-                  ),
+                  hint: '(00) 00000-0000',
                   validator: Validators.phone(optional: false),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'E-mail (opcional)',
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
                   maxLength: 160,
-                  decoration: const InputDecoration(
-                    labelText: 'E-mail (opcional)',
-                    counterText: '',
-                  ),
                   validator: Validators.email(),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Endereço (opcional)',
                   controller: _address,
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: 200,
-                  decoration: const InputDecoration(
-                    labelText: 'Endereço (opcional)',
-                    counterText: '',
-                  ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Observações (opcional)',
                   controller: _notes,
                   maxLines: 2,
                   maxLength: 500,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Observações (opcional)',
-                    counterText: '',
-                  ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
