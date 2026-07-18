@@ -41,17 +41,28 @@ Future<QueryExecutor> Function(String tenantId, File file)? executorFactory;
 ///   do bundle). Windows/Linux já carregam o SQLCipher do `sqlcipher_flutter_libs`.
 Future<void> initOfflineDb() async {
   await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
-  _useSqlCipherOnApple();
+  _useSqlCipher();
 }
 
-/// Aponta o `package:sqlite3` para o SQLCipher no macOS/iOS. O override do `open`
-/// é uma global POR ISOLATE, então precisa rodar em TODO isolate que abre o banco:
-/// aqui (isolate principal) E via `isolateSetup` no isolate de background do drift
-/// ([_encryptedExecutor]) — sem isso o background isolate abre o `sqlite3.framework`
-/// puro (ou falha ao não achá-lo) em vez do SQLCipher. Função top-level de propósito:
-/// o `isolateSetup` é enviado para outro isolate e não pode capturar estado.
-void _useSqlCipherOnApple() {
-  if (Platform.isMacOS) {
+/// Aponta o `package:sqlite3` para o SQLCipher em cada plataforma. O override do
+/// `open` é uma global POR ISOLATE, então precisa rodar em TODO isolate que abre
+/// o banco: aqui (isolate principal) E via `isolateSetup` no isolate de background
+/// do drift ([_encryptedExecutor]). Função top-level de propósito: o `isolateSetup`
+/// é enviado para outro isolate e não pode capturar estado.
+///
+/// - **Android:** o `sqlcipher_flutter_libs` fornece `libsqlcipher.so`, mas o
+///   default do `package:sqlite3` abre `libsqlite3.so` (inexistente) → dlopen
+///   falha e TODA rodada de sync/abertura do banco estoura. `openCipherOnAndroid`
+///   abre a lib certa.
+/// - **Apple (macOS/iOS):** o app embute `SQLCipher.framework` e um
+///   `sqlite3.framework` PURO; sem override o pacote abriria o puro → banco sem
+///   cifra. Aponta para `SQLCipher.framework/SQLCipher`.
+/// - Windows/Linux: o `sqlcipher_flutter_libs` já entrega o SQLCipher no nome
+///   esperado — sem override.
+void _useSqlCipher() {
+  if (Platform.isAndroid) {
+    open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+  } else if (Platform.isMacOS) {
     open.overrideFor(OperatingSystem.macOS, _openSqlCipherApple);
   } else if (Platform.isIOS) {
     open.overrideFor(OperatingSystem.iOS, _openSqlCipherApple);
@@ -90,7 +101,7 @@ Future<QueryExecutor> _encryptedExecutor(String tenantId, File file) async {
     file,
     // O banco abre num isolate de background — o override do `open` (SQLCipher)
     // precisa ser reaplicado LÁ, senão ele carrega o sqlite3 puro / falha.
-    isolateSetup: _useSqlCipherOnApple,
+    isolateSetup: _useSqlCipher,
     setup: (raw) {
       // S6 — cifra AES via SQLCipher. `x'<hex>'` = chave crua (sem KDF sobre o
       // texto), já que geramos 32 bytes aleatórios.
