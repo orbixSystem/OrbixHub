@@ -29,6 +29,7 @@ class NeuTextField extends StatelessWidget {
     this.inputFormatters,
     this.maxLength,
     this.textCapitalization = TextCapitalization.none,
+    this.autofocus = false,
   });
 
   final String label;
@@ -56,6 +57,9 @@ class NeuTextField extends StatelessWidget {
 
   /// Capitalização automática do teclado (nomes → words; texto livre → sentences).
   final TextCapitalization textCapitalization;
+
+  /// Foca o campo automaticamente ao abrir (ex.: 1º campo de um modal).
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +96,7 @@ class NeuTextField extends StatelessWidget {
             inputFormatters: inputFormatters,
             maxLength: maxLength,
             textCapitalization: textCapitalization,
+            autofocus: autofocus,
             style: TextStyle(color: neu.ink, fontSize: 15),
             decoration: InputDecoration(
               counterText: '', // esconde o contador; o cap de maxLength continua

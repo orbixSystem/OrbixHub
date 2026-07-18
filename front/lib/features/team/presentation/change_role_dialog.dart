@@ -143,11 +143,34 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: _role,
-            decoration: const InputDecoration(labelText: 'Cargo'),
-            items: items,
-            onChanged: _busy ? null : (v) => setState(() => _role = v ?? _role),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              'Cargo *',
+              style: TextStyle(
+                color: context.neu.inkMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rField,
+            child: DropdownButtonFormField<String>(
+              initialValue: _role,
+              isExpanded: true,
+              style: TextStyle(color: context.neu.ink, fontSize: 15),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              items: items,
+              onChanged: _busy ? null : (v) => setState(() => _role = v ?? _role),
+            ),
           ),
           if (widget.isLastActiveOwner) ...[
             const SizedBox(height: 12),

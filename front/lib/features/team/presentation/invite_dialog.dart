@@ -120,8 +120,55 @@ class _InviteDialogState extends State<_InviteDialog> {
     }
   }
 
+  /// Rótulo acima (mesmo estilo do NeuTextField) + conteúdo numa cavidade
+  /// inset — para dropdowns/seletores ficarem no padrão do design system.
+  Widget _labeledInset({
+    required String label,
+    required Widget child,
+    String? helper,
+  }) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          child: child,
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              helper,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            ),
+          ),
+      ],
+    );
+  }
+
+  InputDecoration get _bareDec => const InputDecoration(
+        border: InputBorder.none,
+        filled: false,
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
     return NeuDialog(
       title: 'Convidar para a equipe',
       maxWidth: context.isMobile ? 560 : 480,
@@ -144,73 +191,83 @@ class _InviteDialogState extends State<_InviteDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextFormField(
+            NeuTextField(
+              label: 'E-mail *',
               controller: _emailController,
               autofocus: true,
+              hint: 'nome@empresa.com',
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
               maxLength: 160,
-              decoration: const InputDecoration(
-                labelText: 'E-mail',
-                counterText: '',
-              ),
               validator: Validators.email(optional: false),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Cargo'),
-              items: [
-                for (final r in widget.roles)
-                  DropdownMenuItem(value: r.key, child: Text(r.name)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _role = v ?? _role),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _expiresIn,
-              decoration: const InputDecoration(labelText: 'Validade'),
-              items: [
-                for (final (label, token) in inviteExpiryOptions)
-                  DropdownMenuItem(value: token, child: Text(label)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _expiresIn = v ?? _expiresIn),
-            ),
-            const SizedBox(height: 16),
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Acesso válido até',
-                helperText: 'Após esta data o funcionário perde o acesso.',
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _accessExpiresAt == null
-                          ? 'Sem expiração'
-                          : _fmtDate(_accessExpiresAt!),
-                    ),
-                  ),
-                  if (_accessExpiresAt != null)
-                    IconButton(
-                      tooltip: 'Remover',
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() => _accessExpiresAt = null),
-                    ),
-                  IconButton(
-                    tooltip: 'Escolher data',
-                    icon: const Icon(Icons.event, size: 20),
-                    onPressed: _busy ? null : _pickAccessDate,
-                  ),
+            _labeledInset(
+              label: 'Cargo *',
+              child: DropdownButtonFormField<String>(
+                initialValue: _role,
+                isExpanded: true,
+                style: TextStyle(color: neu.ink, fontSize: 15),
+                decoration: _bareDec,
+                items: [
+                  for (final r in widget.roles)
+                    DropdownMenuItem(value: r.key, child: Text(r.name)),
                 ],
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _role = v ?? _role),
               ),
+            ),
+            const SizedBox(height: 16),
+            _labeledInset(
+              label: 'Validade',
+              child: DropdownButtonFormField<String>(
+                initialValue: _expiresIn,
+                isExpanded: true,
+                style: TextStyle(color: neu.ink, fontSize: 15),
+                decoration: _bareDec,
+                items: [
+                  for (final (label, token) in inviteExpiryOptions)
+                    DropdownMenuItem(value: token, child: Text(label)),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _expiresIn = v ?? _expiresIn),
               ),
+            ),
+            const SizedBox(height: 16),
+            _labeledInset(
+              label: 'Acesso válido até (opcional)',
+              helper: 'Após esta data o funcionário perde o acesso.',
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _accessExpiresAt == null
+                            ? 'Sem expiração'
+                            : _fmtDate(_accessExpiresAt!),
+                        style: TextStyle(color: neu.ink, fontSize: 15),
+                      ),
+                    ),
+                    if (_accessExpiresAt != null)
+                      IconButton(
+                        tooltip: 'Remover',
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _accessExpiresAt = null),
+                      ),
+                    IconButton(
+                      tooltip: 'Escolher data',
+                      icon: const Icon(Icons.event, size: 20),
+                      onPressed: _busy ? null : _pickAccessDate,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

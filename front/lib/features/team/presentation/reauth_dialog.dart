@@ -68,19 +68,18 @@ class _ReauthDialogState extends State<_ReauthDialog> {
               'Por segurança, confirme sua senha para continuar.',
             ),
             const SizedBox(height: 16),
-            TextFormField(
+            NeuTextField(
+              label: 'Senha atual *',
               controller: _controller,
               autofocus: true,
               obscureText: _obscure,
               onFieldSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                labelText: 'Senha atual',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
+              suffix: IconButton(
+                icon: Icon(
+                  _obscure ? Icons.visibility_off : Icons.visibility,
+                  size: 20,
                 ),
+                onPressed: () => setState(() => _obscure = !_obscure),
               ),
               validator: Validators.required('Senha atual'),
             ),
