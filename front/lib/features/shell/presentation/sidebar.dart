@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/offline/offline_routes.dart';
 import '../../../core/offline/widgets/connection_chip.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
@@ -116,6 +118,7 @@ class SidebarContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = _SideColors(context);
     final unreadMessages = ref.watch(unreadConversationsCountProvider);
+    final offline = ref.watch(isOfflineProvider);
     final logoUrl = ref
         .watch(settingsControllerProvider)
         .whenOrNull(data: (b) => b.company['logoUrl'] as String?);
@@ -206,6 +209,9 @@ class SidebarContent extends ConsumerWidget {
                       item: items[i],
                       active: i == selectedIndex,
                       collapsed: collapsed,
+                      // Offline: rotas online-only ficam bloqueadas (wifi cortado)
+                      // e não navegam — impede o acesso já na sidebar.
+                      blocked: offline && isOnlineOnlyRoute(items[i].route),
                       badge: items[i].route == '/mensagens'
                           ? unreadMessages
                           : 0,
@@ -411,6 +417,7 @@ class _SideNavItem extends StatefulWidget {
     required this.onTap,
     this.collapsed = false,
     this.badge = 0,
+    this.blocked = false,
   });
 
   final NavItem item;
@@ -418,6 +425,10 @@ class _SideNavItem extends StatefulWidget {
   final bool collapsed;
   final VoidCallback onTap;
   final int badge;
+
+  /// Offline + rota online-only: item esmaecido, com ícone de wifi cortado, e
+  /// o toque NÃO navega (mostra um aviso).
+  final bool blocked;
 
   @override
   State<_SideNavItem> createState() => _SideNavItemState();
@@ -435,7 +446,11 @@ class _SideNavItemState extends State<_SideNavItem> {
         : _hover
             ? c.bgHi
             : Colors.transparent;
-    final fg = active ? c.fg : c.fgMuted;
+    final fg = widget.blocked
+        ? c.fgMuted.withValues(alpha: 0.4)
+        : active
+            ? c.fg
+            : c.fgMuted;
 
     final Widget inner;
     if (widget.collapsed) {
@@ -443,7 +458,13 @@ class _SideNavItemState extends State<_SideNavItem> {
         alignment: Alignment.center,
         children: [
           Icon(widget.item.icon, size: 21, color: fg),
-          if (widget.badge > 0)
+          if (widget.blocked)
+            Positioned(
+              top: 1,
+              right: 3,
+              child: Icon(Icons.wifi_off_rounded, size: 12, color: fg),
+            )
+          else if (widget.badge > 0)
             Positioned(
               top: 2,
               right: 6,
@@ -475,7 +496,9 @@ class _SideNavItemState extends State<_SideNavItem> {
               ),
             ),
           ),
-          if (widget.badge > 0)
+          if (widget.blocked)
+            Icon(Icons.wifi_off_rounded, size: 16, color: fg)
+          else if (widget.badge > 0)
             Container(
               constraints: const BoxConstraints(minWidth: 20),
               height: 20,
@@ -510,7 +533,14 @@ class _SideNavItemState extends State<_SideNavItem> {
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
-          onTap: widget.onTap,
+          onTap: widget.blocked
+              ? () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text('Sem conexão — esta área precisa de internet.'),
+                    ),
+                  )
+              : widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
@@ -529,8 +559,13 @@ class _SideNavItemState extends State<_SideNavItem> {
       ),
     );
 
-    // No modo colapsado, o rótulo vira tooltip.
-    if (widget.collapsed) {
+    // Tooltip: bloqueado explica o porquê; colapsado mostra o rótulo.
+    if (widget.blocked) {
+      tile = Tooltip(
+        message: '${widget.item.label} — requer conexão',
+        child: tile,
+      );
+    } else if (widget.collapsed) {
       tile = Tooltip(message: widget.item.label, child: tile);
     }
     return tile;
