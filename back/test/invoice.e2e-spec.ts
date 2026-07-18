@@ -154,10 +154,9 @@ describe('Invoice — Nota Fiscal (e2e)', () => {
         items: [
           { name: 'Troca de óleo', kind: 'service', quantity: 1, unitPrice: 90 },
         ],
-        paymentMethod: 'dinheiro',
       });
     expect(res.status).toBe(201);
-    expect(res.body.status).toBe('concluida');
+    expect(res.body.status).toBe('active');
     return res.body.id as string;
   }
 
