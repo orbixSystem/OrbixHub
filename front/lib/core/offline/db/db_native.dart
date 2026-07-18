@@ -41,6 +41,16 @@ Future<QueryExecutor> Function(String tenantId, File file)? executorFactory;
 ///   do bundle). Windows/Linux já carregam o SQLCipher do `sqlcipher_flutter_libs`.
 Future<void> initOfflineDb() async {
   await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
+  _useSqlCipherOnApple();
+}
+
+/// Aponta o `package:sqlite3` para o SQLCipher no macOS/iOS. O override do `open`
+/// é uma global POR ISOLATE, então precisa rodar em TODO isolate que abre o banco:
+/// aqui (isolate principal) E via `isolateSetup` no isolate de background do drift
+/// ([_encryptedExecutor]) — sem isso o background isolate abre o `sqlite3.framework`
+/// puro (ou falha ao não achá-lo) em vez do SQLCipher. Função top-level de propósito:
+/// o `isolateSetup` é enviado para outro isolate e não pode capturar estado.
+void _useSqlCipherOnApple() {
   if (Platform.isMacOS) {
     open.overrideFor(OperatingSystem.macOS, _openSqlCipherApple);
   } else if (Platform.isIOS) {
@@ -78,6 +88,9 @@ Future<QueryExecutor> _encryptedExecutor(String tenantId, File file) async {
   final key = await DbKeyStore().getOrCreate();
   return NativeDatabase.createInBackground(
     file,
+    // O banco abre num isolate de background — o override do `open` (SQLCipher)
+    // precisa ser reaplicado LÁ, senão ele carrega o sqlite3 puro / falha.
+    isolateSetup: _useSqlCipherOnApple,
     setup: (raw) {
       // S6 — cifra AES via SQLCipher. `x'<hex>'` = chave crua (sem KDF sobre o
       // texto), já que geramos 32 bytes aleatórios.
