@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/offline/offline_routes.dart';
 import '../../../core/offline/widgets/connection_banner.dart';
 import '../../../core/offline/widgets/connection_chip.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
@@ -33,6 +35,39 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  /// Evita reentrância enquanto o modal de "sem conexão" está aberto / o
+  /// redirect em voo (o build re-roda algumas vezes na transição).
+  bool _offlineRedirecting = false;
+
+  /// Tira o usuário de uma rota online-only enquanto offline: redireciona para
+  /// uma tela que funciona offline e explica em modal (desktop e mobile).
+  void _guardOfflineRoute(Me me) {
+    if (!mounted || _offlineRedirecting) return;
+    _offlineRedirecting = true;
+    context.go(offlineSafeRoute(me));
+    showNeuDialog<void>(
+      context,
+      dialog: NeuDialog(
+        title: 'Sem conexão',
+        maxWidth: 420,
+        actions: [
+          Builder(
+            builder: (ctx) => NeuButton(
+              label: 'Entendi',
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ],
+        child: Text(
+          'Esta área precisa de internet e não funciona offline. '
+          'Levamos você para uma tela que funciona sem conexão — suas '
+          'alterações sobem sozinhas quando a conexão voltar.',
+          style: TextStyle(color: context.neu.inkMuted, height: 1.4),
+        ),
+      ),
+    ).whenComplete(() => _offlineRedirecting = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
@@ -42,6 +77,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
     final items = gatedNavItems(me);
     final location = GoRouterState.of(context).matchedLocation;
+
+    // Guard offline: numa rota 100% online-only sem conexão, avisa em modal e
+    // leva o usuário para uma tela que funciona offline. Telas parciais
+    // (Config, detalhe da OS) bloqueiam por seção — não entram aqui.
+    if (ref.watch(isOfflineProvider) && isOnlineOnlyRoute(location)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _guardOfflineRoute(me));
+    }
     final selected = selectedNavIndex(items, location);
     final size = context.screenSize;
 
