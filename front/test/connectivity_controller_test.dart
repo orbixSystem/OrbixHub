@@ -216,6 +216,29 @@ void main() {
           ConnStatus.online);
     });
 
+    test(
+        'regressão: sem rede (SO reporta none), markSyncing/markSynced NÃO '
+        'voltam a online — o backend local alcançável com WiFi off não conta',
+        () async {
+      final container = makeContainer();
+      final notifier = container.read(connectivityControllerProvider.notifier);
+      // WiFi desligado: o SO reporta sem rede → offline.
+      connectivity.add([ConnectivityResult.none]);
+      await pumpEventQueue();
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline);
+
+      // O SyncEngine sincroniza com o localhost (alcançável) e tenta marcar
+      // syncing/online — mas sem interface de rede isso é no-op.
+      notifier.markSyncing();
+      notifier.markSynced();
+
+      expect(container.read(connectivityControllerProvider).status,
+          ConnStatus.offline,
+          reason: 'sem internet real, alcançar um backend local não pode '
+              'reivindicar online (NF/APIs externas dependem de rede)');
+    });
+
     test('markOffline forces offline', () {
       final container = makeContainer();
       final notifier = container.read(connectivityControllerProvider.notifier);

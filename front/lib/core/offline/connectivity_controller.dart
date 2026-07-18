@@ -149,6 +149,14 @@ class ConnectivityController extends Notifier<ConnState> {
   /// deles (mudança de conectividade ou mark* do SyncEngine).
   int _generation = 0;
 
+  /// Última leitura do `connectivity_plus`: há alguma interface de rede? É a
+  /// VERDADE do SO sobre "existe caminho de rede". Começa `true` (otimista, igual
+  /// ao fallback do bootstrap) e é corrigido no 1º evento. Quando `false`, o
+  /// SyncEngine NÃO pode marcar `online`/`syncing`: em dev o backend é `localhost`
+  /// e continua alcançável com o WiFi desligado — sem esta trava o sync local
+  /// voltava "magicamente" para online mesmo sem rede.
+  bool _hasNetwork = true;
+
   /// O provider já foi descartado (container/teste encerrado): nenhuma
   /// callback assíncrona em voo pode mais tocar o `ref` (isso explodia como
   /// "used after dispose" nos testes que criam e derrubam containers).
@@ -193,6 +201,7 @@ class ConnectivityController extends Notifier<ConnState> {
     if (_disposed) return;
     _generation++; // invalida qualquer ping em voo da situação anterior
     final hasNetwork = results.any((r) => r != ConnectivityResult.none);
+    _hasNetwork = hasNetwork; // verdade do SO: trava markSynced/markSyncing sem rede
     _timer?.cancel();
     _timer = null;
     if (!hasNetwork) {
@@ -229,13 +238,22 @@ class ConnectivityController extends Notifier<ConnState> {
 
   /// O SyncEngine iniciou uma rodada de sincronização. Pings em voo
   /// disparados ANTES desta chamada ficam stale (não demovem o syncing).
+  ///
+  /// Sem rede (SO reporta `none`) isto é NO-OP: o indicador continua `offline`.
+  /// O SyncEngine ainda pode alcançar um backend `localhost` em dev, mas sem
+  /// internet real (WiFi off) NF/APIs externas não funcionam — a verdade do SO
+  /// manda.
   void markSyncing() {
+    if (!_hasNetwork) return;
     _generation++;
     state = state.copyWith(status: ConnStatus.syncing);
   }
 
-  /// O SyncEngine terminou uma rodada de sincronização com sucesso.
+  /// O SyncEngine terminou uma rodada de sincronização com sucesso. Também é
+  /// NO-OP sem rede (ver [markSyncing]): alcançar o backend local não prova
+  /// internet real.
   void markSynced() {
+    if (!_hasNetwork) return;
     _generation++;
     state = state.copyWith(status: ConnStatus.online);
   }
