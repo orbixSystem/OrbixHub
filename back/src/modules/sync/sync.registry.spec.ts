@@ -102,11 +102,12 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(SYNC_OPS['subject.create'].structuralKeys).toEqual(['customerId']);
   });
 
-  it('PULL_ROUTES cobre as 11 entidades dos 4 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
+  it('PULL_ROUTES cobre as 13 entidades dos 5 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
     // Permissões dos GETs reais: customers → customer.read; subjects →
     // subject.read; inventory → inventory.read; os → os.read; cashier →
-    // cashier.read. O pull nunca pode ser mais permissivo que o online
-    // (ex.: mechanic sem cashier.read não pode puxar o extrato do caixa).
+    // cashier.read; mensagens (conversation/message) → os.read. O pull nunca
+    // pode ser mais permissivo que o online (ex.: mechanic sem cashier.read não
+    // pode puxar o extrato do caixa).
     const expected: Record<
       string,
       { service: keyof SyncServices; module: string; permission: string }
@@ -122,6 +123,8 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
       cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
       cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+      conversation: { service: 'messages', module: 'os', permission: 'os.read' },
+      message: { service: 'messages', module: 'os', permission: 'os.read' },
     };
     expect(PULL_ROUTES).toEqual(expected);
   });

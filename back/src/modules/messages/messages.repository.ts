@@ -1,6 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
+
+/** Entidades do módulo messages expostas ao pull de sync offline (só leitura). */
+export type MessagesSyncEntity = 'conversation' | 'message';
+
+/**
+ * `conversation` e `message` não têm `updated_at` próprio — ambas viajam pelo
+ * `created_at` (imutável): a conversa nasce uma vez e as mensagens são
+ * append-only, como `service_order_event`/`service_order_photo` no módulo os.
+ * (Mudanças de `last_message_at`/`staff_unread`/`read_at` não re-emergem no pull;
+ * o histórico offline é de LEITURA — enviar mensagem continua online.)
+ */
+const SYNC_ENTITY_COLUMN: Record<MessagesSyncEntity, 'updated_at' | 'created_at'> =
+  {
+    conversation: 'created_at',
+    message: 'created_at',
+  };
 
 export interface CreateConversationData {
   refType: string;
@@ -199,5 +220,19 @@ export class MessagesRepository {
       where: { conversation_id: convId, sender: 'staff', read_at: null },
       data: { read_at: new Date() },
     });
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de `conversation`/`message` desde o cursor. Sync pull
+   * — ver `common/database/changed-since.ts`. Cliente tx-scoped sob RLS.
+   */
+  listChangedSince(
+    table: MessagesSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }

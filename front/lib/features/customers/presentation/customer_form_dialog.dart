@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
 
@@ -70,6 +73,22 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
 
   String? _opt(String v) => v.trim().isEmpty ? null : v.trim();
 
+  /// Rótulo acima do campo, no mesmo estilo do [NeuTextField] — para envolver
+  /// o dropdown de tipo sem que o rótulo trunque.
+  Widget _fieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.neu.inkMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -103,75 +122,129 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.existing != null;
-    return AlertDialog(
-      title: Text(editing ? 'Editar cliente' : 'Novo cliente'),
-      content: SizedBox(
-        width: 420,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
+    return NeuDialog(
+      title: editing ? 'Editar cliente' : 'Novo cliente',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+                NeuTextField(
+                  label: 'Nome *',
                   controller: _name,
-                  decoration: const InputDecoration(labelText: 'Nome *'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                  textCapitalization: TextCapitalization.words,
+                  maxLength: 120,
+                  validator: Validators.required('Nome'),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _type,
-                        decoration: const InputDecoration(labelText: 'Tipo'),
-                        items: const [
-                          DropdownMenuItem(value: 'PF', child: Text('Pessoa física')),
-                          DropdownMenuItem(value: 'PJ', child: Text('Pessoa jurídica')),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Tipo'),
+                          NeuSurface(
+                            elevation: NeuElevation.inset,
+                            radius: NeuTokens.rField,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _type,
+                              isExpanded: true,
+                              style: TextStyle(
+                                  color: context.neu.ink, fontSize: 15),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                filled: false,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 'PF', child: Text('Pessoa física')),
+                                DropdownMenuItem(
+                                    value: 'PJ', child: Text('Pessoa jurídica')),
+                              ],
+                              onChanged: (v) {
+                                setState(() {
+                                  _type = v ?? 'PF';
+                                  // Reaplica a máscara do documento ao trocar PF/PJ.
+                                  _document.text = _type == 'PJ'
+                                      ? formatCnpj(_document.text)
+                                      : formatCpf(_document.text);
+                                });
+                              },
+                            ),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _type = v ?? 'PF'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextFormField(
+                      child: NeuTextField(
+                        label:
+                            'Documento${widget.documentRequired ? ' *' : ' (opcional)'}',
                         controller: _document,
-                        decoration: InputDecoration(
-                          labelText:
-                              'Documento${widget.documentRequired ? ' *' : ''}',
-                        ),
-                        validator: (v) {
-                          if (widget.documentRequired &&
-                              (v == null || v.trim().isEmpty)) {
-                            return 'Documento obrigatório';
-                          }
-                          return null;
-                        },
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [documentFormatter(_type)],
+                        hint: _type == 'PJ'
+                            ? '00.000.000/0000-00'
+                            : '000.000.000-00',
+                        validator: Validators.combine([
+                          if (widget.documentRequired) Validators.required('Documento'),
+                          Validators.document(_type),
+                        ]),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Telefone *',
                   controller: _phone,
-                  decoration: const InputDecoration(labelText: 'Telefone'),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [PhoneInputFormatter()],
+                  hint: '(00) 00000-0000',
+                  validator: Validators.phone(optional: false),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'E-mail (opcional)',
                   controller: _email,
-                  decoration: const InputDecoration(labelText: 'E-mail'),
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  maxLength: 160,
+                  validator: Validators.email(),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Endereço (opcional)',
                   controller: _address,
-                  decoration: const InputDecoration(labelText: 'Endereço'),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 200,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                NeuTextField(
+                  label: 'Observações (opcional)',
                   controller: _notes,
-                  decoration: const InputDecoration(labelText: 'Observações'),
                   maxLines: 2,
+                  maxLength: 500,
+                  textCapitalization: TextCapitalization.sentences,
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
@@ -180,27 +253,9 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 }

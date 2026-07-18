@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
@@ -23,6 +25,7 @@ class ItemPickerDialog extends ConsumerStatefulWidget {
 }
 
 class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
+  final _formKey = GlobalKey<FormState>();
   bool _avulso = false; // false = do estoque, true = item avulso
 
   // Estoque
@@ -73,6 +76,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
   }
 
   Future<void> _confirm() async {
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     final qty = _toDouble(_quantity.text) ?? 1;
 
     // Aviso de estoque: só para produto vinculado ao estoque (serviço não tem
@@ -131,15 +135,27 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Adicionar item'),
-      content: SizedBox(
-        width: 460,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return NeuDialog(
+      title: 'Adicionar item',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Adicionar',
+          icon: Icons.check_rounded,
+          onPressed: _canConfirm ? () => _confirm() : null,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(
@@ -163,43 +179,48 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _quantity,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Quantidade',
+                        labelText: 'Quantidade *',
                         prefixIcon: Icon(Icons.numbers),
                       ),
+                      validator:
+                          Validators.positiveNumber(field: 'Quantidade'),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _unitPrice,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Preço unit.',
+                        labelText: 'Preço unit. *',
                         prefixText: 'R\$ ',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),
+                      validator: Validators.positiveNumber(field: 'Preço'),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: _discount,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Desconto',
+                  labelText: 'Desconto (opcional)',
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),
+                validator:
+                    Validators.positiveNumber(optional: true, field: 'Desconto'),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
@@ -208,20 +229,9 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                 unitPrice: _toDouble(_unitPrice.text),
                 discount: _toDouble(_discount.text),
               ),
-            ],
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _canConfirm ? () => _confirm() : null,
-          child: const Text('Adicionar'),
-        ),
-      ],
     );
   }
 
@@ -317,12 +327,16 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
         onSelectionChanged: (sel) => setState(() => _kind = sel.first),
       ),
       const SizedBox(height: 12),
-      TextField(
+      TextFormField(
         controller: _name,
+        maxLength: 120,
+        textCapitalization: TextCapitalization.words,
         decoration: const InputDecoration(
           labelText: 'Descrição *',
           prefixIcon: Icon(Icons.label_outline),
+          counterText: '',
         ),
+        validator: Validators.required('Descrição'),
         onChanged: (_) => setState(() {}),
       ),
     ];

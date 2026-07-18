@@ -3,6 +3,7 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OsService } from '../os/os.service';
+import { MessagesService } from '../messages/messages.service';
 import { CashierServiceImpl } from '../cashier/cashier.service.impl';
 import {
   CreateCustomerDto,
@@ -40,6 +41,7 @@ export interface SyncServices {
   inventory: InventoryService;
   os: OsService;
   cashier: CashierServiceImpl;
+  messages: MessagesService;
 }
 
 /** Payload já validado (chaves estruturais + campos do DTO). */
@@ -134,6 +136,10 @@ export const PULL_ROUTES: Record<string, PullRouteDef> = {
   service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
   cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
   cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+  // Mensagens são gated pelo módulo `os` e usam `os.read` (como no messages.controller) —
+  // só PULL: o histórico é sincronizado ao SQLite p/ leitura offline; enviar continua online.
+  conversation: { service: 'messages', module: 'os', permission: 'os.read' },
+  message: { service: 'messages', module: 'os', permission: 'os.read' },
 };
 
 /**

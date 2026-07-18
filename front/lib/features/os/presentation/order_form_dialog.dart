@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -651,20 +653,22 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           controller: _newName,
           prefixIcon: Icons.person_outline,
           enabled: !_saving,
+          maxLength: 120,
           // Reavalia o botão "Próximo" enquanto digita.
           onChanged: (_) => setState(() {}),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+          validator: Validators.required('Nome'),
         ),
         const SizedBox(height: 12),
         NeuTextField(
-          label: 'Telefone *',
+          label: 'Telefone (opcional)',
           controller: _newPhone,
           keyboardType: TextInputType.phone,
+          inputFormatters: [PhoneInputFormatter()],
           prefixIcon: Icons.phone_outlined,
           enabled: !_saving,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Informe o telefone' : null,
+          // Cadastro rápido na OS: telefone opcional (o cadastro completo do
+          // cliente, esse sim, exige telefone). Valida só o formato se preenchido.
+          validator: Validators.phone(),
         ),
       ],
     );
@@ -692,7 +696,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         );
       }
       return _labeledDropdown(
-        label: _subjectLabelSingular,
+        label: '$_subjectLabelSingular (opcional)',
         value: _subject?.id,
         icon: Icons.directions_car_outlined,
         items: [
@@ -754,11 +758,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     // A identificação (placa) é obrigatória se preenchida; demais campos livres.
     final isIdentifier = f.chave == 'identifier';
     return NeuTextField(
-      label: isIdentifier ? '${f.rotulo} *' : f.rotulo,
+      label: isIdentifier ? '${f.rotulo} *' : '${f.rotulo} (opcional)',
       controller: _subjFields[f.chave],
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
+      // Identificação = placa: máscara Mercosul/antiga (MAIÚSCULO, 7 chars).
+      inputFormatters: isIdentifier ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
               ? 'Informe a ${f.rotulo.toLowerCase()}'
@@ -798,7 +804,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           children: [
             Expanded(
               child: _DateTimeField(
-                label: 'Início previsto',
+                label: 'Início previsto (opcional)',
                 value: _scheduledStart,
                 fmt: _dtFmt,
                 enabled: !_saving,
@@ -808,7 +814,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: _DateTimeField(
-                label: 'Término previsto',
+                label: 'Término previsto (opcional)',
                 value: _scheduledEnd,
                 fmt: _dtFmt,
                 enabled: !_saving,
@@ -1109,7 +1115,7 @@ class _SubjectLookupField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 6),
               child: Text(
-                field.rotulo,
+                '${field.rotulo} (opcional)',
                 style: TextStyle(
                   color: neu.inkMuted,
                   fontSize: 13,

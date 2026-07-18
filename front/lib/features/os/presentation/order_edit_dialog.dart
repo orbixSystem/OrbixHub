@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 
@@ -26,6 +28,7 @@ class OrderEditDialog extends ConsumerStatefulWidget {
 }
 
 class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _complaint;
   late final TextEditingController _discount;
 
@@ -131,6 +134,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
   }
 
   Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -155,21 +159,38 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Editar ${widget.order.number}'),
-      content: SizedBox(
-        width: 460,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+    return NeuDialog(
+      title: 'Editar ${widget.order.number}',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               TextField(
                 controller: _complaint,
                 maxLines: 3,
+                maxLength: 500,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  labelText: 'Relato do cliente',
+                  labelText: 'Relato do cliente (opcional)',
                   prefixIcon: Icon(Icons.chat_outlined),
                   alignLabelWithHint: true,
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 12),
@@ -177,7 +198,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 initialValue: _assignedTo,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Responsável',
+                  labelText: 'Responsável (opcional)',
                   prefixIcon: Icon(Icons.engineering_outlined),
                 ),
                 items: [
@@ -208,7 +229,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 children: [
                   Expanded(
                     child: _DateField(
-                      label: 'Previsão início',
+                      label: 'Previsão início (opcional)',
                       icon: Icons.event_outlined,
                       value: _scheduledStart == null
                           ? null
@@ -223,7 +244,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _DateField(
-                      label: 'Previsão fim',
+                      label: 'Previsão fim (opcional)',
                       icon: Icons.event_available_outlined,
                       value: _scheduledEnd == null
                           ? null
@@ -247,14 +268,16 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: _discount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Desconto da OS',
+                  labelText: 'Desconto da OS (opcional)',
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),
+                validator:
+                    Validators.positiveNumber(optional: true, field: 'Desconto'),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -266,23 +289,6 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 }

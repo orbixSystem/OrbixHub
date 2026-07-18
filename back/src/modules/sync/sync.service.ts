@@ -12,6 +12,7 @@ import { clampChangedSinceLimit } from '../../common/database/changed-since';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OsService } from '../os/os.service';
+import { MessagesService } from '../messages/messages.service';
 import { CashierServiceImpl } from '../cashier/cashier.service.impl';
 import { BillingService } from '../billing/billing.service';
 import {
@@ -60,8 +61,9 @@ export class SyncService {
     inventory: InventoryService,
     os: OsService,
     cashier: CashierServiceImpl,
+    messages: MessagesService,
   ) {
-    this.services = { customers, inventory, os, cashier };
+    this.services = { customers, inventory, os, cashier, messages };
   }
 
   // ===================== Pull (GET /sync/changes) =====================

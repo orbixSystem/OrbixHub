@@ -78,7 +78,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(_fieldByLabel('Nome *'), 'Maria Teste');
     await tester.pump();
-    await tester.enterText(_fieldByLabel('Telefone *'), '11999998888');
+    await tester.enterText(_fieldByLabel('Telefone (opcional)'), '11999998888');
     await tester.pump();
 
     // Nome preenchido habilita "Próximo".
@@ -89,12 +89,12 @@ void main() {
 
     // Passo 2 — Veículo (usaSubjects=true por default): campos dinâmicos da
     // config, incl. o picker de Marca e os campos Ano e Cor.
-    expect(find.text('Marca'), findsOneWidget);
-    expect(find.text('Ano'), findsOneWidget);
-    expect(find.text('Cor'), findsOneWidget);
+    expect(find.text('Marca (opcional)'), findsOneWidget);
+    expect(find.text('Ano (opcional)'), findsOneWidget);
+    expect(find.text('Cor (opcional)'), findsOneWidget);
     await tester.enterText(
         _fieldByLabel('Placa / Identificação *'), 'ABC1D23');
-    await tester.enterText(_fieldByLabel('Cor'), 'Prata');
+    await tester.enterText(_fieldByLabel('Cor (opcional)'), 'Prata');
     await tester.pump();
     await _next(tester);
 

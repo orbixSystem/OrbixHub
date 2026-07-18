@@ -53,7 +53,9 @@ class SyncEngine {
     this.maxPagesPerEntity = 200,
   });
 
-  /// As 11 entidades replicadas (espelha `PULL_ROUTES` do backend).
+  /// As 13 entidades replicadas (espelha `PULL_ROUTES` do backend). `conversation`
+  /// e `message` são só-leitura (histórico de mensagens offline): o app puxa para
+  /// o SQLite local, mas ENVIAR mensagem continua exigindo conexão.
   static const entities = <String>[
     'customer',
     'subject',
@@ -66,6 +68,8 @@ class SyncEngine {
     'service_order_template',
     'cash_session',
     'cash_entry',
+    'conversation',
+    'message',
   ];
 
   final SyncApi api;
@@ -92,7 +96,13 @@ class SyncEngine {
   void start() {
     if (kIsWeb) return;
     _timer ??= Timer.periodic(interval, (_) => unawaited(nudge()));
-    unawaited(nudge());
+    // Disparo inicial ADIADO para um microtask: `start()` é chamado durante a
+    // criação do `syncEngineProvider` e a 1ª rodada chama `conn.markSyncing()`
+    // de forma síncrona — e Riverpod proíbe um provider modificar outro durante
+    // o build (crash ao logar no desktop). O microtask roda após o build. Os
+    // demais disparos (timer, repos LocalFirst, transição online) já vêm do
+    // event loop, nunca de dentro de um build.
+    scheduleMicrotask(() => unawaited(nudge()));
   }
 
   /// Desliga o motor (logout / troca de tenant / dispose do provider): cancela o

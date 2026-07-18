@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/util/cnpj.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/auth_models.dart';
 import 'auth_scaffold.dart';
@@ -208,30 +209,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _legalName,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 120,
               decoration: const InputDecoration(
                 labelText: 'Razão social',
                 helperText: 'Preenchida automaticamente pelo CNPJ',
+                counterText: '',
               ),
-              validator: (v) => (v == null || v.trim().length < 2)
-                  ? 'Informe a razão social'
-                  : null,
+              validator: Validators.required('Razão social'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _tenantName,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 120,
               decoration: const InputDecoration(
                 labelText: 'Nome de exibição',
                 hintText: 'ex.: nome fantasia',
+                counterText: '',
               ),
-              validator: (v) =>
-                  (v == null || v.trim().length < 2) ? 'Nome muito curto' : null,
+              validator: Validators.required('Nome de exibição'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _slug,
+              maxLength: 40,
               decoration: const InputDecoration(
                 labelText: 'Identificador (slug)',
                 hintText: 'ex.: minha-empresa',
+                counterText: '',
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9-]')),
@@ -243,25 +249,36 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _fullName,
-              decoration: const InputDecoration(labelText: 'Seu nome'),
-              validator: (v) =>
-                  (v == null || v.trim().length < 2) ? 'Nome muito curto' : null,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 120,
+              decoration: const InputDecoration(
+                labelText: 'Seu nome',
+                counterText: '',
+              ),
+              validator: Validators.required('Nome'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _email,
-              decoration: const InputDecoration(labelText: 'E-mail'),
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                counterText: '',
+              ),
               keyboardType: TextInputType.emailAddress,
-              validator: (v) =>
-                  (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
+              autofillHints: const [AutofillHints.email],
+              maxLength: 160,
+              validator: Validators.email(optional: false),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _password,
               decoration: const InputDecoration(labelText: 'Senha (mín. 8)'),
               obscureText: true,
-              validator: (v) =>
-                  (v == null || v.length < 8) ? 'Mínimo de 8 caracteres' : null,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: Validators.combine([
+                Validators.required('Senha'),
+                Validators.minLength(8, 'Senha'),
+              ]),
             ),
             const SizedBox(height: 20),
             FilledButton(

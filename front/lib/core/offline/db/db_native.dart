@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -5,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
+import 'package:sqlite3/open.dart';
 
 import 'db_key_store.dart';
 
@@ -29,12 +31,47 @@ Future<QueryExecutor> Function(String tenantId, File file)? executorFactory;
 
 /// Setup de plataforma chamado uma vez no bootstrap (main isolate).
 ///
-/// Com `sqlite3` 3.x a lib nativa (SQLCipher, provida por `sqlcipher_flutter_libs`)
-/// é resolvida via *native assets* no build — não existe mais `open.overrideFor`.
-/// Resta apenas o workaround defensivo para Android antigo (no-op fora do Android).
+/// - Android: workaround para abrir `libsqlcipher.so` em versões antigas.
+/// - **Apple (macOS/iOS): força o carregamento do SQLCipher.** O app embute
+///   TANTO `SQLCipher.framework` quanto um `sqlite3.framework` (SQLite PURO, sem
+///   cifra). Sem override, o `package:sqlite3` abre o framework puro (ou o
+///   `libsqlite3` do sistema) e o banco seria gravado SEM cifra — o guard em
+///   [_encryptedExecutor] então aborta com "SQLCipher indisponível". Apontar o
+///   `open` para `SQLCipher.framework/SQLCipher` resolve (resolvido via @rpath
+///   do bundle). Windows/Linux já carregam o SQLCipher do `sqlcipher_flutter_libs`.
 Future<void> initOfflineDb() async {
   await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
+  _useSqlCipher();
 }
+
+/// Aponta o `package:sqlite3` para o SQLCipher em cada plataforma. O override do
+/// `open` é uma global POR ISOLATE, então precisa rodar em TODO isolate que abre
+/// o banco: aqui (isolate principal) E via `isolateSetup` no isolate de background
+/// do drift ([_encryptedExecutor]). Função top-level de propósito: o `isolateSetup`
+/// é enviado para outro isolate e não pode capturar estado.
+///
+/// - **Android:** o `sqlcipher_flutter_libs` fornece `libsqlcipher.so`, mas o
+///   default do `package:sqlite3` abre `libsqlite3.so` (inexistente) → dlopen
+///   falha e TODA rodada de sync/abertura do banco estoura. `openCipherOnAndroid`
+///   abre a lib certa.
+/// - **Apple (macOS/iOS):** o app embute `SQLCipher.framework` e um
+///   `sqlite3.framework` PURO; sem override o pacote abriria o puro → banco sem
+///   cifra. Aponta para `SQLCipher.framework/SQLCipher`.
+/// - Windows/Linux: o `sqlcipher_flutter_libs` já entrega o SQLCipher no nome
+///   esperado — sem override.
+void _useSqlCipher() {
+  if (Platform.isAndroid) {
+    open.overrideFor(OperatingSystem.android, openCipherOnAndroid);
+  } else if (Platform.isMacOS) {
+    open.overrideFor(OperatingSystem.macOS, _openSqlCipherApple);
+  } else if (Platform.isIOS) {
+    open.overrideFor(OperatingSystem.iOS, _openSqlCipherApple);
+  }
+}
+
+/// Carrega o binário do SQLCipher embutido no bundle Apple (macOS/iOS).
+DynamicLibrary _openSqlCipherApple() =>
+    DynamicLibrary.open('SQLCipher.framework/SQLCipher');
 
 Future<Directory> _supportDir() async {
   final override = supportDirOverride;
@@ -62,6 +99,9 @@ Future<QueryExecutor> _encryptedExecutor(String tenantId, File file) async {
   final key = await DbKeyStore().getOrCreate();
   return NativeDatabase.createInBackground(
     file,
+    // O banco abre num isolate de background — o override do `open` (SQLCipher)
+    // precisa ser reaplicado LÁ, senão ele carrega o sqlite3 puro / falha.
+    isolateSetup: _useSqlCipher,
     setup: (raw) {
       // S6 — cifra AES via SQLCipher. `x'<hex>'` = chave crua (sem KDF sobre o
       // texto), já que geramos 32 bytes aleatórios.

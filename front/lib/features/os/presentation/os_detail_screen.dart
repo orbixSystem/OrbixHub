@@ -1182,6 +1182,7 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
                   hint: 'Descreva o que foi identificado no veículo.',
                   minLines: 3,
                   maxLines: 8,
+                  maxLength: 500,
                   enabled: !_saving,
                 ),
                 const SizedBox(height: 12),
@@ -1557,13 +1558,31 @@ class _ItemEditDialogState extends State<_ItemEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.item.name),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return NeuDialog(
+      title: widget.item.name,
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          onPressed: () => Navigator.of(context).pop(
+            OrderItemPatch(
+              quantity: _toDouble(_qty.text),
+              unitPrice: _toDouble(_price.text),
+              discount: _toDouble(_disc.text),
+            ),
+          ),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
             TextField(
               controller: _qty,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1585,23 +1604,6 @@ class _ItemEditDialogState extends State<_ItemEditDialog> {
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            OrderItemPatch(
-              quantity: _toDouble(_qty.text),
-              unitPrice: _toDouble(_price.text),
-              discount: _toDouble(_disc.text),
-            ),
-          ),
-          child: const Text('Salvar'),
-        ),
-      ],
     );
   }
 }
@@ -2242,24 +2244,38 @@ class _NoteDialogState extends State<_NoteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Adicionar nota'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return NeuDialog(
+      title: 'Adicionar nota',
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Adicionar',
+          icon: Icons.check_rounded,
+          onPressed: _submit,
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             TextField(
               controller: _message,
               autofocus: true,
               minLines: 3,
               maxLines: 6,
+              maxLength: 500,
+              textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.newline,
               decoration: const InputDecoration(
                 labelText: 'Nota',
                 hintText: 'Ex.: peça pedida ao fornecedor, previsão de chegada…',
                 alignLabelWithHint: true,
+                counterText: '',
               ),
             ),
             const SizedBox(height: 4),
@@ -2274,17 +2290,6 @@ class _NoteDialogState extends State<_NoteDialog> {
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Adicionar'),
-        ),
-      ],
     );
   }
 }
@@ -2658,10 +2663,13 @@ class _PhotoCommentsPanelState extends ConsumerState<_PhotoCommentsPanel> {
                   controller: _input,
                   minLines: 1,
                   maxLines: 4,
+                  maxLength: 500,
+                  textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.send,
                   style: TextStyle(color: neu.ink, fontSize: 14.5),
                   decoration: InputDecoration(
                     isDense: true,
+                    counterText: '',
                     hintText: 'Adicionar comentário…',
                     hintStyle: TextStyle(color: neu.inkFaint),
                     border: InputBorder.none,

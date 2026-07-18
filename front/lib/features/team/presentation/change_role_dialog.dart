@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../domain/team_models.dart';
 import 'reauth_dialog.dart';
@@ -122,17 +123,54 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
         ),
     ];
 
-    return AlertDialog(
-      title: Text('Cargo de ${widget.employee.fullName}'),
-      content: Column(
+    return NeuDialog(
+      title: 'Cargo de ${widget.employee.fullName}',
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
+      ],
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: _role,
-            decoration: const InputDecoration(labelText: 'Cargo'),
-            items: items,
-            onChanged: _busy ? null : (v) => setState(() => _role = v ?? _role),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              'Cargo *',
+              style: TextStyle(
+                color: context.neu.inkMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rField,
+            child: DropdownButtonFormField<String>(
+              initialValue: _role,
+              isExpanded: true,
+              style: TextStyle(color: context.neu.ink, fontSize: 15),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              items: items,
+              onChanged: _busy ? null : (v) => setState(() => _role = v ?? _role),
+            ),
           ),
           if (widget.isLastActiveOwner) ...[
             const SizedBox(height: 12),
@@ -145,22 +183,6 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
           ],
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 }

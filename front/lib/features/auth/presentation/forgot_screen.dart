@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
@@ -72,11 +73,14 @@ class _ForgotScreenState extends ConsumerState<ForgotScreen> {
                 children: [
                   TextFormField(
                     controller: _email,
-                    decoration: const InputDecoration(labelText: 'E-mail'),
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail',
+                      counterText: '',
+                    ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (v) => (v == null || !v.contains('@'))
-                        ? 'E-mail inválido'
-                        : null,
+                    autofillHints: const [AutofillHints.email],
+                    maxLength: 160,
+                    validator: Validators.email(optional: false),
                   ),
                   const SizedBox(height: 20),
                   FilledButton(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/team_models.dart';
 import 'reauth_dialog.dart';
@@ -118,125 +120,157 @@ class _InviteDialogState extends State<_InviteDialog> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Convidar para a equipe'),
-      // Pin a comfortable width so the form fields breathe and the action
-      // buttons sit side by side instead of stacking vertically.
-      content: SizedBox(
-        width: 420,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            TextFormField(
-              controller: _emailController,
-              autofocus: true,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'E-mail'),
-              validator: (v) {
-                final value = v?.trim() ?? '';
-                if (value.isEmpty) return 'Informe um e-mail.';
-                if (!value.contains('@')) return 'E-mail inválido.';
-                return null;
-              },
+  /// Rótulo acima (mesmo estilo do NeuTextField) + conteúdo numa cavidade
+  /// inset — para dropdowns/seletores ficarem no padrão do design system.
+  Widget _labeledInset({
+    required String label,
+    required Widget child,
+    String? helper,
+  }) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Cargo'),
-              items: [
-                for (final r in widget.roles)
-                  DropdownMenuItem(value: r.key, child: Text(r.name)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _role = v ?? _role),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _expiresIn,
-              decoration: const InputDecoration(labelText: 'Validade'),
-              items: [
-                for (final (label, token) in inviteExpiryOptions)
-                  DropdownMenuItem(value: token, child: Text(label)),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _expiresIn = v ?? _expiresIn),
-            ),
-            const SizedBox(height: 16),
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Acesso válido até',
-                helperText: 'Após esta data o funcionário perde o acesso.',
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _accessExpiresAt == null
-                          ? 'Sem expiração'
-                          : _fmtDate(_accessExpiresAt!),
-                    ),
-                  ),
-                  if (_accessExpiresAt != null)
-                    IconButton(
-                      tooltip: 'Remover',
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() => _accessExpiresAt = null),
-                    ),
-                  IconButton(
-                    tooltip: 'Escolher data',
-                    icon: const Icon(Icons.event, size: 20),
-                    onPressed: _busy ? null : _pickAccessDate,
-                  ),
-                ],
-              ),
-              ),
-            ],
           ),
         ),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-      actions: [
-        // A single min-width Row keeps both buttons on the same line with a
-        // clean gap; OverflowBar measures action children at unbounded width,
-        // so the Row must be MainAxisSize.min (and the FilledButton pinned).
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: _busy ? null : () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          child: child,
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              helper,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
             ),
-            const SizedBox(width: 12),
-            _busy
-                ? FilledButton(
-                    style:
-                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: null,
-                    child: const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : FilledButton.icon(
-                    style:
-                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: _submit,
-                    icon: const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('Enviar convite'),
-                  ),
-          ],
+          ),
+      ],
+    );
+  }
+
+  InputDecoration get _bareDec => const InputDecoration(
+        border: InputBorder.none,
+        filled: false,
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuDialog(
+      title: 'Convidar para a equipe',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Enviar convite',
+          icon: Icons.send_rounded,
+          loading: _busy,
+          onPressed: _busy ? null : _submit,
         ),
       ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            NeuTextField(
+              label: 'E-mail *',
+              controller: _emailController,
+              autofocus: true,
+              hint: 'nome@empresa.com',
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              maxLength: 160,
+              validator: Validators.email(optional: false),
+            ),
+            const SizedBox(height: 16),
+            _labeledInset(
+              label: 'Cargo *',
+              child: DropdownButtonFormField<String>(
+                initialValue: _role,
+                isExpanded: true,
+                style: TextStyle(color: neu.ink, fontSize: 15),
+                decoration: _bareDec,
+                items: [
+                  for (final r in widget.roles)
+                    DropdownMenuItem(value: r.key, child: Text(r.name)),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _role = v ?? _role),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _labeledInset(
+              label: 'Validade',
+              child: DropdownButtonFormField<String>(
+                initialValue: _expiresIn,
+                isExpanded: true,
+                style: TextStyle(color: neu.ink, fontSize: 15),
+                decoration: _bareDec,
+                items: [
+                  for (final (label, token) in inviteExpiryOptions)
+                    DropdownMenuItem(value: token, child: Text(label)),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _expiresIn = v ?? _expiresIn),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _labeledInset(
+              label: 'Acesso válido até (opcional)',
+              helper: 'Após esta data o funcionário perde o acesso.',
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _accessExpiresAt == null
+                            ? 'Sem expiração'
+                            : _fmtDate(_accessExpiresAt!),
+                        style: TextStyle(color: neu.ink, fontSize: 15),
+                      ),
+                    ),
+                    if (_accessExpiresAt != null)
+                      IconButton(
+                        tooltip: 'Remover',
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _accessExpiresAt = null),
+                      ),
+                    IconButton(
+                      tooltip: 'Escolher data',
+                      icon: const Icon(Icons.event, size: 20),
+                      onPressed: _busy ? null : _pickAccessDate,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

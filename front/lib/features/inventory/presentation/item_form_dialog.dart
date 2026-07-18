@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../domain/inventory_models.dart';
 import 'inventory_providers.dart';
 
@@ -360,17 +364,28 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         const <ItemFieldConfig>[];
     _ensureDynamicControllers(fields);
 
-    return AlertDialog(
-      title: Text(editing ? 'Editar item' : 'Novo item'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+    return NeuDialog(
+      title: editing ? 'Editar item' : 'Novo item',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : () => _save(fields),
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
                 SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
@@ -403,27 +418,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : () => _save(fields),
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 
@@ -447,99 +444,116 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _manufacturerCode,
-              readOnly: editing,
-              decoration: _dec('Cód. do fabricante', 'manufacturerCode',
-                  prefixIcon:
-                      const Icon(Icons.precision_manufacturing_outlined),
-                  locked: editing),
+              label: 'Cód. do fabricante (opcional)',
+              fieldKey: 'manufacturerCode',
+              prefixIcon: Icons.precision_manufacturing_outlined,
+              locked: editing,
+              maxLength: 60,
               onChanged: editing ? null : (_) => _onEdit('manufacturerCode'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _barcode,
-              readOnly: editing,
-              decoration: _dec('Código de barras', 'barcode',
-                  prefixIcon: const Icon(Icons.qr_code_2), locked: editing),
+              label: 'Código de barras (opcional)',
+              fieldKey: 'barcode',
+              prefixIcon: Icons.qr_code_2,
+              locked: editing,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(14)],
               onChanged: editing ? null : (_) => _onEdit('barcode'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _name,
-        decoration: _dec('Nome *', 'name',
-            prefixIcon: const Icon(Icons.label_outline)),
+        label: 'Nome *',
+        fieldKey: 'name',
+        prefixIcon: Icons.label_outline,
+        maxLength: 120,
+        textCapitalization: TextCapitalization.words,
         onChanged: (_) => _onEdit('name'),
-        validator: (v) =>
-            (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+        validator: Validators.required('Nome'),
       ),
       const SizedBox(height: 12),
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _category,
-              decoration: _dec('Categoria', 'category',
-                  prefixIcon: const Icon(Icons.category_outlined)),
+              label: 'Categoria (opcional)',
+              fieldKey: 'category',
+              prefixIcon: Icons.category_outlined,
+              maxLength: 60,
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('category'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _brand,
-              decoration: _dec('Marca', 'brand',
-                  prefixIcon: const Icon(Icons.business_outlined)),
+              label: 'Marca (opcional)',
+              fieldKey: 'brand',
+              prefixIcon: Icons.business_outlined,
+              maxLength: 60,
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('brand'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _sku,
+        label: 'SKU (opcional)',
+        fieldKey: 'sku',
+        prefixIcon: Icons.tag,
+        maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
-        decoration: _dec('SKU', 'sku',
-            prefixIcon: const Icon(Icons.tag),
-            suffixIcon: IconButton(
-              tooltip: 'Sugerir SKU',
-              icon: _suggestingSku
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_fix_high),
-              onPressed: _suggestingSku ? null : _suggestSku,
-            )),
+        suffix: IconButton(
+          tooltip: 'Sugerir SKU',
+          icon: _suggestingSku
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_fix_high),
+          onPressed: _suggestingSku ? null : _suggestSku,
+        ),
       ),
       const SizedBox(height: 12),
       Row(
         children: [
-          Expanded(child: _numField(_salePrice, 'Preço de venda', 'R\$ ',
-              Icons.sell_outlined)),
+          Expanded(child: _numField(_salePrice, 'Preço de venda (opcional)', 'R\$ ',
+              Icons.sell_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de venda', optional: true))),
           const SizedBox(width: 12),
-          Expanded(child: _numField(_costPrice, 'Preço de custo', 'R\$ ',
-              Icons.payments_outlined)),
+          Expanded(child: _numField(_costPrice, 'Preço de custo (opcional)', 'R\$ ',
+              Icons.payments_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de custo', optional: true))),
         ],
       ),
       const SizedBox(height: 12),
       Row(
         children: [
-          Expanded(child: _numField(_marginPct, 'Margem %', null,
+          Expanded(child: _numField(_marginPct, 'Margem % (opcional)', null,
               Icons.percent)),
           const SizedBox(width: 12),
-          Expanded(child: _numField(_minStock, 'Estoque mínimo', null,
+          Expanded(child: _numField(_minStock, 'Estoque mínimo (opcional)', null,
               Icons.warning_amber_outlined)),
         ],
       ),
       const SizedBox(height: 12),
-      _numField(_currentStock, 'Estoque atual', null,
+      _numField(_currentStock, 'Estoque atual (opcional)', null,
           Icons.inventory_outlined),
       const SizedBox(height: 20),
       _SectionHeader(icon: Icons.receipt_long_outlined, text: 'Fiscal'),
@@ -547,22 +561,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _ncm,
-              decoration: const InputDecoration(
-                labelText: 'NCM',
-                prefixIcon: Icon(Icons.numbers),
-              ),
+              label: 'NCM (opcional)',
+              prefixIcon: Icons.numbers,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(8)],
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _cfop,
-              decoration: const InputDecoration(
-                labelText: 'CFOP',
-                prefixIcon: Icon(Icons.swap_horiz),
-              ),
+              label: 'CFOP (opcional)',
+              prefixIcon: Icons.swap_horiz,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(4)],
             ),
           ),
         ],
@@ -571,22 +585,22 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _origem,
-              decoration: const InputDecoration(
-                labelText: 'Origem',
-                prefixIcon: Icon(Icons.public),
-              ),
+              label: 'Origem (opcional)',
+              prefixIcon: Icons.public,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(1)],
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _gtin,
-              decoration: const InputDecoration(
-                labelText: 'GTIN',
-                prefixIcon: Icon(Icons.qr_code),
-              ),
+              label: 'GTIN (opcional)',
+              prefixIcon: Icons.qr_code,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(14)],
             ),
           ),
         ],
@@ -607,38 +621,43 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   /// estoque atual/mínimo). Foca em nome, preços, duração e classificação.
   List<Widget> _serviceForm(List<ItemFieldConfig> fields, bool editing) {
     return [
-      TextFormField(
+      _field(
         controller: _name,
-        decoration: _dec('Nome *', 'name',
-            prefixIcon: const Icon(Icons.label_outline)),
+        label: 'Nome *',
+        fieldKey: 'name',
+        prefixIcon: Icons.label_outline,
+        maxLength: 120,
+        textCapitalization: TextCapitalization.words,
         onChanged: (_) => _onEdit('name'),
-        validator: (v) =>
-            (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+        validator: Validators.required('Nome'),
       ),
       const SizedBox(height: 12),
       Row(
         children: [
-          Expanded(child: _numField(_salePrice, 'Preço de venda', 'R\$ ',
-              Icons.sell_outlined)),
+          Expanded(child: _numField(_salePrice, 'Preço de venda (opcional)', 'R\$ ',
+              Icons.sell_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de venda', optional: true))),
           const SizedBox(width: 12),
-          Expanded(child: _numField(_costPrice, 'Preço de custo', 'R\$ ',
-              Icons.payments_outlined)),
+          Expanded(child: _numField(_costPrice, 'Preço de custo (opcional)', 'R\$ ',
+              Icons.payments_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de custo', optional: true))),
         ],
       ),
       const SizedBox(height: 12),
       Row(
         children: [
-          Expanded(child: _numField(_marginPct, 'Margem %', null,
+          Expanded(child: _numField(_marginPct, 'Margem % (opcional)', null,
               Icons.percent)),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _durationMinutes,
+              label: 'Duração (min) (opcional)',
+              prefixIcon: Icons.schedule_outlined,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Duração (min)',
-                prefixIcon: Icon(Icons.schedule_outlined),
-              ),
+              inputFormatters: const [DigitsOnlyFormatter(4)],
             ),
           ),
         ],
@@ -647,41 +666,49 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _category,
-              decoration: _dec('Categoria', 'category',
-                  prefixIcon: const Icon(Icons.category_outlined)),
+              label: 'Categoria (opcional)',
+              fieldKey: 'category',
+              prefixIcon: Icons.category_outlined,
+              maxLength: 60,
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('category'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _brand,
-              decoration: _dec('Marca', 'brand',
-                  prefixIcon: const Icon(Icons.business_outlined)),
+              label: 'Marca (opcional)',
+              fieldKey: 'brand',
+              prefixIcon: Icons.business_outlined,
+              maxLength: 60,
+              textCapitalization: TextCapitalization.words,
               onChanged: (_) => _onEdit('brand'),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      TextFormField(
+      _field(
         controller: _sku,
+        label: 'SKU (opcional)',
+        fieldKey: 'sku',
+        prefixIcon: Icons.tag,
+        maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
-        decoration: _dec('SKU', 'sku',
-            prefixIcon: const Icon(Icons.tag),
-            suffixIcon: IconButton(
-              tooltip: 'Sugerir SKU',
-              icon: _suggestingSku
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_fix_high),
-              onPressed: _suggestingSku ? null : _suggestSku,
-            )),
+        suffix: IconButton(
+          tooltip: 'Sugerir SKU',
+          icon: _suggestingSku
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_fix_high),
+          onPressed: _suggestingSku ? null : _suggestSku,
+        ),
       ),
       const SizedBox(height: 20),
       _SectionHeader(icon: Icons.receipt_long_outlined, text: 'Fiscal'),
@@ -689,16 +716,16 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(
-            child: TextFormField(
+            child: _field(
               controller: _codigoServico,
-              decoration: const InputDecoration(
-                labelText: 'Código do serviço (LC116)',
-                prefixIcon: Icon(Icons.assignment_outlined),
-              ),
+              label: 'Código do serviço (LC116) (opcional)',
+              prefixIcon: Icons.assignment_outlined,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(6)],
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: _numField(_aliquotaIss, 'Alíquota ISS %', null,
+          Expanded(child: _numField(_aliquotaIss, 'Alíquota ISS % (opcional)', null,
               Icons.percent)),
         ],
       ),
@@ -714,45 +741,56 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     ];
   }
 
-  /// Monta a `InputDecoration` de um campo, aplicando o destaque tangerina
-  /// quando [key] estiver em [_autoFilled] (preenchido pelo catálogo/item).
-  InputDecoration _dec(String label, String? key,
-      {Widget? prefixIcon, Widget? suffixIcon, bool locked = false}) {
-    // Campo travado na edição (identifica o item): visual apagado + cadeado.
+  /// Campo de texto do design system (rótulo SEMPRE acima), aplicando o
+  /// destaque de autofill quando [fieldKey] estiver em [_autoFilled] e a trava
+  /// visual quando [locked] (campo que identifica o item, não editável).
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    String? fieldKey,
+    IconData? prefixIcon,
+    Widget? suffix,
+    String? hint,
+    String? helper,
+    bool locked = false,
+    int? maxLength,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
+  }) {
+    // Campo travado na edição (identifica o item): desabilitado + cadeado.
     if (locked) {
-      return InputDecoration(
-        labelText: label,
+      return NeuTextField(
+        label: label,
+        controller: controller,
         prefixIcon: prefixIcon,
-        filled: true,
-        fillColor: AppColors.surfaceSunken,
         enabled: false,
-        suffixIcon: const Icon(Icons.lock_outline, size: 18),
-        helperText: 'Não editável',
+        suffix: const Icon(Icons.lock_outline, size: 18),
+        helper: 'Não editável',
+        maxLength: maxLength,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
       );
     }
-    final highlighted = key != null && _autoFilled.contains(key);
-    if (!highlighted) {
-      return InputDecoration(
-        labelText: label,
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-      );
-    }
-    return InputDecoration(
-      labelText: label,
+    final highlighted = fieldKey != null && _autoFilled.contains(fieldKey);
+    return NeuTextField(
+      label: label,
+      controller: controller,
+      hint: hint,
+      // Destaque do catálogo: ícone + helper sinalizam (o campo já é inset).
+      helper: highlighted ? 'Preenchido pelo catálogo' : helper,
+      suffix: highlighted
+          ? Icon(Icons.auto_awesome, size: 18, color: context.neu.accent)
+          : suffix,
       prefixIcon: prefixIcon,
-      filled: true,
-      fillColor: AppColors.brandTint,
-      suffixIcon: const Icon(
-        Icons.auto_awesome,
-        size: 18,
-        color: AppColors.brandDeep,
-      ),
-      helperText: 'Preenchido pelo catálogo',
-      helperStyle: const TextStyle(
-        color: AppColors.brandDeep,
-        fontWeight: FontWeight.w600,
-      ),
+      maxLength: maxLength,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      validator: validator,
+      onChanged: onChanged,
     );
   }
 
@@ -767,21 +805,41 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     TextEditingController c,
     String label,
     String? prefixText,
-    IconData icon,
-  ) {
-    return TextFormField(
+    IconData icon, {
+    String? Function(String?)? validator,
+  }) {
+    return NeuTextField(
+      label: label,
       controller: c,
+      // O NeuTextField não tem prefixText; o "R$" vira dica dentro do campo.
+      hint: prefixText != null ? 'R\$ 0,00' : null,
+      prefixIcon: icon,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixText: prefixText,
-        prefixIcon: Icon(icon),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+      ],
+      validator: validator,
+    );
+  }
+
+  /// Rótulo acima do campo, no mesmo estilo do [NeuTextField] — para envolver
+  /// widgets que não são NeuTextField (ex.: dropdowns) sem truncar o rótulo.
+  Widget _fieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.neu.inkMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
 
   Widget _dynamicField(ItemFieldConfig f) {
-    final label = '${f.label}${f.isRequired ? ' *' : ''}';
+    final label = '${f.label}${f.isRequired ? ' *' : ' (opcional)'}';
     String? requiredValidator(String? v) {
       if (f.isRequired && (v == null || v.trim().isEmpty)) {
         return '${f.label} é obrigatório';
@@ -795,40 +853,60 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         final controller = _dynamic[f.key]!;
         final current =
             options.contains(controller.text) ? controller.text : null;
-        return DropdownButtonFormField<String>(
-          key: Key('itemField-${f.key}'),
-          initialValue: current,
-          decoration: InputDecoration(labelText: label),
-          items: [
-            for (final o in options)
-              DropdownMenuItem(value: o, child: Text(o)),
+        // Rótulo acima (nunca trunca) + dropdown numa cavidade do tema.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _fieldLabel(label),
+            NeuSurface(
+              elevation: NeuElevation.inset,
+              radius: NeuTokens.rField,
+              child: DropdownButtonFormField<String>(
+                key: Key('itemField-${f.key}'),
+                initialValue: current,
+                isExpanded: true,
+                style: TextStyle(color: context.neu.ink, fontSize: 15),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  filled: false,
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                items: [
+                  for (final o in options)
+                    DropdownMenuItem(value: o, child: Text(o)),
+                ],
+                onChanged: (v) => controller.text = v ?? '',
+                validator: (v) => requiredValidator(v),
+              ),
+            ),
           ],
-          onChanged: (v) => controller.text = v ?? '',
-          validator: (v) => requiredValidator(v),
         );
       case 'tags':
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
-          decoration: InputDecoration(
-            labelText: label,
-            helperText: 'Separe por vírgula',
-          ),
+          helper: 'Separe por vírgula',
           validator: requiredValidator,
         );
       case 'number':
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: label),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          ],
           validator: requiredValidator,
         );
       default:
-        return TextFormField(
+        return NeuTextField(
           key: Key('itemField-${f.key}'),
+          label: label,
           controller: _dynamic[f.key],
-          decoration: InputDecoration(labelText: label),
           validator: requiredValidator,
         );
     }

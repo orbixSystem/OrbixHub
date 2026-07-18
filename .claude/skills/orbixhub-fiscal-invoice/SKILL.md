@@ -5,10 +5,12 @@ description: Use when building or changing anything about Nota Fiscal / fiscal e
 
 # OrbixHub — Módulo Fiscal / Nota Fiscal (`invoice`)
 
-> **Estado (implementado — backend, 2026-07-04):** fundação do módulo `invoice` pronta,
-> compilando (`nest build` ok) e com lint 0 warnings. Emite NF a partir da OS, **online-only**,
-> via **gateway fiscal abstrato**. Falta aplicar o schema no DB local, endpoints de config
-> sensível, testes e2e e a feature no front (front bloqueado por `flutter pub get`).
+> **Estado (2026-07-17 — FULL-STACK):** módulo `invoice` implementado no backend E no front.
+> Emite NF a partir de uma **OS ou de uma venda** (migration `0030_invoice_sale_source`), **online-only**,
+> via **gateway fiscal abstrato**. Feature Flutter completa (lista `/m/invoice` + detalhe `/m/invoice/:id`
+> + emissão a partir da OS e da venda + Abrir PDF/XML + cancelar). **Ainda falta:** `GovBrNfseGateway`
+> real, endpoints de config sensível (cert A1/CSC/série — hoje `fields:[]`), testes e2e, e o estado
+> desabilitado "Requer conexão" offline (camada offline ainda não construída).
 
 ## Decisões do dono (DECIDIDAS — não reabrir sem pedir)
 
@@ -29,14 +31,13 @@ description: Use when building or changing anything about Nota Fiscal / fiscal e
 
 ## Regra-mãe: "aponta, não invade" (como o invoice se relaciona)
 
-O módulo `invoice` **é dono do próprio registro** e **aponta** para OS e cliente por **id**:
-- Guarda `order_id` (uuid **escalar**, SEM relation/FK Prisma para `service_order`) + snapshot
-  (`order_number`, `customer_id`, `customer_name`, `customer_document`) e as **linhas** da nota.
-- Lê a OS via `OsService.getOrderWithItems(id)` → `{ order, items }` (**service público**, criado
-  como seam) e o documento do cliente via `CustomersService.getCustomer(user, id)`.
-- **NUNCA** lê/escreve `service_order*` nem `customer` diretamente.
-- No banco, `invoice.order_id` tem `REFERENCES tenant(id)`? Não — só `tenant_id` referencia tenant.
-  `order_id` é ponteiro puro (uuid), preservando o desacoplamento.
+O módulo `invoice` **é dono do próprio registro** e **aponta** para OS/venda e cliente por **id**:
+- Guarda `order_id` **ou** `sale_id` (uuid **escalar**, SEM relation/FK Prisma para `service_order`/`sale`)
+  + snapshot (`order_number`, `customer_id`, `customer_name`, `customer_document`) e as **linhas** da nota.
+- Lê a OS via `OsService.getOrderWithItems(id)` → `{ order, items }`, a venda via `SalesService.getOne(id)`
+  (ambos **services públicos** = seams) e o documento do cliente via `CustomersService.getCustomer(user, id)`.
+- **NUNCA** lê/escreve `service_order*`, `sale*` nem `customer` diretamente. OS/Sales **não** importam invoice de volta.
+- No banco só `tenant_id` referencia tenant; `order_id`/`sale_id` são ponteiros puros (uuid), preservando o desacoplamento.
 
 ## Arquitetura implementada (`back/src/modules/invoice/`)
 
@@ -44,30 +45,34 @@ O módulo `invoice` **é dono do próprio registro** e **aponta** para OS e clie
 |---|---|
 | `fiscal/fiscal-gateway.ts` | Contrato agnóstico. `FISCAL_GATEWAY` (Symbol) + tipos `FiscalDocumentType`, `FiscalEnvironment`, `FiscalLineKind`, `FiscalIssueLine`, `FiscalIssueParams`, `FiscalIssueResult`, `FiscalCancelParams/Result` + interface `FiscalGateway { issue(); cancel(); verifySignature() }`. Mesmo padrão do `PaymentGateway`. |
 | `fiscal/noop-fiscal-gateway.ts` | Impl dev. `issue()` retorna síncrono `authorized` com número/série/`accessKey` fake. `cancel()` → `canceled`. `verifySignature()` = HMAC-SHA256 com `INVOICE_WEBHOOK_SECRET` + `timingSafeEqual`. `static sign()` compartilhado. |
-| `dto/invoice.dto.ts` | `IssueInvoiceDto {orderId:@IsUUID, documentType?:@IsEnum opt}`, `ListInvoicesQueryDto {page?,status?,orderId?}`, `CancelInvoiceDto {reason:@IsString @MinLength(3) @MaxLength(255)}`. |
-| `invoice.repository.ts` | Único que toca o banco. Tabelas de tenant via `TenantContext.getClient()`; `invoice_webhook_event` (global) via `PrismaService`. `resolveByExternalId` via `$queryRaw` da função `SECURITY DEFINER`. Métodos: `createWithLines`, `findById`, `findByIdWithLines`, `listLines`, `listEvents`, `countAuthorizedByOrder`, `listInvoices`, `updateInvoice`, `createEvent`, `insertWebhookEvent`, `markWebhookProcessed`, `findWebhookEventByExternalId`, `resolveByExternalId`. |
+| `dto/invoice.dto.ts` | `IssueInvoiceDto {orderId?:@IsUUID, saleId?:@IsUUID, documentType?:@IsEnum opt}` (XOR: informe OS **ou** venda, só uma), `ListInvoicesQueryDto {page?,status?,orderId?,saleId?}`, `CancelInvoiceDto {reason:@IsString @MinLength(3) @MaxLength(255)}`. |
+| `invoice.repository.ts` | Único que toca o banco. Tabelas de tenant via `TenantContext.getClient()`; `invoice_webhook_event` (global) via `PrismaService`. `resolveByExternalId` via `$queryRaw` da função `SECURITY DEFINER`. Métodos incluem `createWithLines`, `findByIdWithLines`, `listLines`, `listEvents`, `countAuthorizedByOrder`, `countAuthorizedBySale`, `listInvoices` (filtra por orderId/saleId), `updateInvoice`, `createEvent`, `insertWebhookEvent`, `markWebhookProcessed`, `resolveByExternalId`. |
 | `invoice.service.ts` | Regra de negócio. `issue`/`list`/`getOne`/`cancel`/`processWebhook`. |
 | `invoice.controller.ts` | Gated: `@Controller('invoices')` + `@UseGuards(ModuleAccessGuard)` + `@RequiresModule('invoice')`. `GET /` + `GET /:id` (`@Permissions('invoice.read')`), `POST /` + `POST /:id/cancel` (`@Permissions('invoice.issue')`). |
 | `invoice-webhook.controller.ts` | Público (classe separada, SEM `@RequiresModule`). `@Public() @Post('webhook') @HttpCode(200)` lê `req.rawBody` + `@Headers('x-webhook-signature')`. |
 | `invoice.config.ts` | `INVOICE_CONFIG_KEY = 'invoice'`. |
-| `invoice.module.ts` | `imports: [BillingModule, OsModule, CustomersModule, SettingsModule]`, provê `{ provide: FISCAL_GATEWAY, useClass: NoopFiscalGateway }`, `implements OnModuleInit` → registra seção de config (`SettingsSectionRegistry.register({ key:'invoice', title:'Nota Fiscal', moduleKey:'invoice', fields:[] })`). |
+| `invoice.module.ts` | `imports: [BillingModule, OsModule, SalesModule, CustomersModule, SettingsModule]`, provê `{ provide: FISCAL_GATEWAY, useClass: NoopFiscalGateway }`, `implements OnModuleInit` → registra seção de config (`SettingsSectionRegistry.register({ key:'invoice', title:'Nota Fiscal', moduleKey:'invoice', fields:[] })`). |
 
-Wired em `back/src/app.module.ts` (após `OsModule`, antes de `ReportModule`).
+Wired em `back/src/app.module.ts` (após `OsModule`, antes de `SalesModule`).
 
-## Fluxo de emissão (`InvoiceService.issue`) — a lógica
+## Fluxo de emissão (`InvoiceService.issue` + `resolveSource`) — a lógica
 
-1. `os.getOrderWithItems(dto.orderId)` → bloqueia se OS `cancelada` (`BadRequest`) ou sem itens.
-2. `countAuthorizedByOrder(orderId) > 0` → `ConflictException` (uma OS não tem 2 notas ativas;
-   ativa = status `draft`/`processing`/`authorized`).
-3. **Snapshot** das linhas: cada item vira `invoice_line { kind: product|service, name, quantity,
+0. `documentType = dto.documentType ?? 'nfse'`. **XOR**: `(orderId==null) === (saleId==null)` →
+   `BadRequestException('Informe uma OS ou uma venda (apenas uma).')`. `resolveSource(dto)` normaliza as
+   duas origens num shape comum `{orderId, saleId, number, customerId, customerName, label, lines[]}`:
+   - **OS:** `os.getOrderWithItems(orderId)` → bloqueia se `cancelada` (`BadRequest`) ou sem itens;
+     `countAuthorizedByOrder>0` → `Conflict`. `label='OS '+number`.
+   - **Venda:** `sales.getOne(saleId)` → bloqueia se `cancelada` ou sem itens; `countAuthorizedBySale>0`
+     → `Conflict`. `customerName = sale.customer_name ?? 'Consumidor final'`. `label='venda '+number`.
+2. **Snapshot** das linhas: cada item vira `invoice_line { kind: product|service, name, quantity,
    unit_price, total }`. Calcula `service_amount`, `product_amount`, `total_amount` (round2).
-4. Busca `customer_document` via `customers.getCustomer` (try/catch → null se não achar).
-5. **Tx curta:** cria o rascunho (`createWithLines`) + evento `created`.
-6. **FORA de tx:** `gateway.issue(...)`. Falha → tx curta marca `status:'error'` + evento `error`
+3. Busca `customer_document` via `customers.getCustomer` (try/catch → null; só se houver `customerId`).
+4. **Tx curta:** cria o rascunho (`createWithLines`) + evento `created`.
+5. **FORA de tx:** `gateway.issue(...)`. Falha → tx curta marca `status:'error'` + evento `error`
    + `ServiceUnavailableException`.
-7. **Tx curta:** persiste resultado (`status`, `external_id`, `number`, `series`, `access_key`,
+6. **Tx curta:** persiste resultado (`status`, `external_id`, `number`, `series`, `access_key`,
    `pdf_url`, `xml_url`, `rejection_reason`, `authorized_at`) + evento (`authorized`/`sent`/`rejected`).
-8. `audit.log(tenantId, userId, 'invoice_issue', invoiceId, {...})` **por último**.
+7. `audit.log(tenantId, userId, 'invoice_issue', invoiceId, {orderId, saleId, documentType, status})` **por último**.
 
 **Cancelamento (`cancel`):** exige `status === 'authorized'`; chama `gateway.cancel` FORA de tx;
 atualiza (`status:'canceled'` + `canceled_at`) + evento + `audit.log('invoice_cancel')`.
@@ -85,15 +90,18 @@ Espelha exatamente `billing.service.ts`:
 5. `runWithTenant(tenantId, ...)`: `updateInvoice` + `createEvent`.
 6. `audit.log('invoice_webhook')` + `markWebhookProcessed`.
 
-## Banco — migration 0025_invoice (aditiva nos 3 lugares)
+## Banco — migrations 0025_invoice + 0030_invoice_sale_source (aditivas nos 3 lugares)
 
 Nos 3 lugares mantidos juntos: `sql/auth-multitenant-schema.sql` (canônico/idempotente) +
-`prisma/migrations/0025_invoice/migration.sql` + `prisma/schema.prisma` (à mão).
+`prisma/migrations/0025_invoice/migration.sql` + `prisma/migrations/0030_invoice_sale_source/migration.sql`
++ `prisma/schema.prisma` (à mão). A `0030` adicionou `invoice.sale_id` (uuid ponteiro, nullable) +
+índice `idx_invoice_tenant_sale (tenant_id,sale_id) WHERE sale_id IS NOT NULL`.
 
 **Tabelas de tenant (RLS + FORCE + policy `tenant_isolation` = `tenant_id = current_tenant_id()`, GRANT app_user):**
 - `invoice` (header): `id`, `tenant_id`→tenant CASCADE, `document_type` (def `nfse`, CHECK nfse|nfce|nfe),
   `status` (def `draft`, CHECK draft|processing|authorized|rejected|canceled|error), `environment`
-  (def `homologacao`, CHECK homologacao|producao), `order_id` (uuid ponteiro, nullable), `order_number`,
+  (def `homologacao`, CHECK homologacao|producao), `order_id` (uuid ponteiro, nullable),
+  `sale_id` (uuid ponteiro, nullable — origem venda), `order_number`,
   `customer_id`, `customer_name`, `customer_document`, `series`, `number`, `access_key`,
   `service_amount`/`product_amount`/`total_amount` (numeric 14,2), `external_id`, `pdf_url`, `xml_url`,
   `rejection_reason`, `issued_by`, `canceled_at`, `authorized_at`, `created_at`, `updated_at`.
@@ -109,9 +117,10 @@ Nos 3 lugares mantidos juntos: `sql/auth-multitenant-schema.sql` (canônico/idem
 
 **Função:** `invoice_resolve_by_external_id(text)` `SECURITY DEFINER` → `(tenant_id, invoice_id)`.
 
-**Seeds:** permission `invoice.read`; role_permission — `invoice.read` → owner/gerente/caixa/mechanic,
-`invoice.issue` → owner/gerente/caixa (já semeada no baseline); `module` `invoice` (`is_core=false`);
-`plan_module` `invoice` → `trial` + `pro`; backfill `tenant_module` (enable p/ todos os tenants, source `plan`).
+**Seeds:** permissions `invoice.read` (0025) + `invoice.issue` (baseline); role_permission — `invoice.read`
+→ owner/gerente/caixa/mechanic, `invoice.issue` → owner/gerente/caixa (**mechanic NÃO emite**); `module`
+`invoice` (`is_core=false`); `plan_module` `invoice` → `trial` + `pro`; backfill `tenant_module`
+(enable p/ todos os tenants, source `plan`).
 
 **Prisma:** models `invoice` (com `lines invoice_line[]` + `events invoice_event[]`, **sem** relation
 `tenant` — só `tenant_id` escalar), `invoice_line`, `invoice_event`, `invoice_webhook_event` (global).
@@ -133,14 +142,31 @@ Nos 3 lugares mantidos juntos: `sql/auth-multitenant-schema.sql` (canônico/idem
   certificado A1 (.pfx, criptografado), ambiente, série/numeração, CSC/token. O módulo **aponta** para
   `tenant.settings` (lê CNPJ/IE/endereço), **não invade** a tabela de settings do núcleo.
 
+## Front (`front/lib/features/invoice/`) — IMPLEMENTADO
+
+Feature-first (domain/data/presentation), repo dio real + fake, registrado em `di.dart`
+(`invoiceRepositoryProvider`). Rotas (gated por `me.hasModule('invoice')`): `/m/invoice` (`InvoiceScreen`
+lista — chips de filtro de status, desktop `NeuListTile`+`NeuPageControls` / mobile cards+infinite-scroll)
+e `/m/invoice/:id` (`InvoiceDetailScreen` — header nº/série+status, destinatário, linhas, totais,
+**Abrir PDF/XML** via `url_launcher` c/ fallback clipboard, **cancelar** se `authorized`+`invoice.issue`,
+timeline). Nav item `invoice`→('Notas Fiscais', `receipt_long`). Providers: `invoiceListProvider`,
+`invoiceProvider(id)`, `orderInvoicesProvider(orderId)`, `saleInvoicesProvider(saleId)`. Repo:
+`list/getOne/issue({orderId?,saleId?,documentType?})/cancel(id,reason)`.
+
+**Fluxos de emissão:** (1) da **OS** (`os_detail_screen`): botão "Emitir nota fiscal" ou "Ver nota
+fiscal · <status>" se já existe ativa; **auto-oferta** (`showNeuConfirm`) ao concluir/entregar a OS.
+(2) da **venda** (`sale_detail_screen`, só `status==concluida`): `_IssueNfSection`/`_NfExistingSection`.
+Sempre `repo.issue(...)` → navega pra nota (evita o 409). Design segue `orbixhub-frontend-flutter`
+(neumorfismo, `context.neu`).
+
 ## PENDENTE (próximos passos)
 
-1. Aplicar schema no DB local: `ADMIN_DATABASE_URL=... npx ts-node scripts/ci-db-setup.ts` (app_owner).
-2. Endpoints de config sensível do módulo (certificado A1, série, ambiente, CSC).
-3. Testes e2e: isolamento de tenant, autorização por cargo, idempotência de webhook, guardrails
-   (OS cancelada, sem itens, nota duplicada).
-4. `GovBrNfseGateway` real (quando for para produção) — nova impl do contrato.
-5. Front: feature `invoice` + botão "emitir nota" na tela da OS (bloqueado por `flutter pub get`).
+1. Endpoints de config sensível do módulo (certificado A1, série, ambiente, CSC) — hoje `fields:[]`.
+2. Testes e2e: isolamento de tenant, autorização por cargo, idempotência de webhook, guardrails
+   (OS/venda cancelada, sem itens, nota duplicada).
+3. `GovBrNfseGateway` real (quando for para produção) — nova impl do contrato (`FISCAL_PROVIDER=govbr`
+   já é aceito pelo Zod mas nada ramifica nele ainda).
+4. Estado desabilitado "Requer conexão" no front quando offline (depende da camada offline, ainda não construída).
 
 > Ao mexer aqui, siga também a skill `orbixhub-arquitetura` (regras de ouro) e
 > `orbixhub-billing` (padrão de gateway + webhook idempotente que o invoice espelha).

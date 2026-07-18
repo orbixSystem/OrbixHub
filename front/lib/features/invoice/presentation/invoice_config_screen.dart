@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../domain/invoice_config_models.dart';
@@ -543,37 +544,41 @@ class _PreferenciasSection extends StatelessWidget {
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NFS-e',
+                      label: 'Série NFS-e (opcional)',
                       controller: serieNfse,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NFC-e',
+                      label: 'Série NFC-e (opcional)',
                       controller: serieNfce,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NF-e',
+                      label: 'Série NF-e (opcional)',
                       controller: serieNfe,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'ID do CSC',
+                      label: 'ID do CSC (opcional)',
                       controller: idCsc,
                       enabled: canManage,
                       keyboardType: TextInputType.text,
+                      maxLength: 60,
                       helper: 'Identificador do CSC (o segredo fica no provedor).',
                     ),
                   ),

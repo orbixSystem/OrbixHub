@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
@@ -51,6 +52,7 @@ class _SaleCreateDialog extends ConsumerStatefulWidget {
 }
 
 class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
+  final _formKey = GlobalKey<FormState>();
   final List<_DraftLine> _lines = [];
   bool _submitting = false;
 
@@ -138,6 +140,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       );
       return;
     }
+    // Valida nome/quantidade/preço de cada linha (positiveNumber etc.).
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_insufficientCash) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Informe o valor recebido.')),
@@ -230,7 +234,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
+        child: Form(
+          key: _formKey,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -319,8 +325,11 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             // Descrição livre da venda (MELHORIA) — vai para o extrato do caixa.
             TextField(
               controller: _descCtrl,
+              maxLength: 500,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 isDense: true,
+                counterText: '',
                 labelText: 'Descrição da venda (opcional)',
                 hintText: 'Ex.: cliente levou fiado, obs. do balcão…',
               ),
@@ -364,6 +373,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               ],
             ),
           ],
+          ),
         ),
       ),
     );
@@ -666,8 +676,13 @@ class _LineTile extends StatelessWidget {
             child: line.isFree
                 ? TextFormField(
                     initialValue: line.name,
+                    maxLength: 120,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                        isDense: true, hintText: 'Descrição do item avulso'),
+                        isDense: true,
+                        counterText: '',
+                        hintText: 'Descrição do item avulso'),
+                    validator: Validators.required('Descrição'),
                     onChanged: (v) {
                       line.name = v;
                       onChanged();
@@ -683,6 +698,7 @@ class _LineTile extends StatelessWidget {
               textAlign: TextAlign.center,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(isDense: true),
+              validator: Validators.positiveNumber(field: 'Quantidade'),
               onChanged: (v) {
                 line.quantity = double.tryParse(v.replaceAll(',', '.')) ?? 0;
                 onChanged();
@@ -697,6 +713,7 @@ class _LineTile extends StatelessWidget {
               textAlign: TextAlign.right,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(isDense: true),
+              validator: Validators.positiveNumber(field: 'Preço'),
               onChanged: (v) {
                 line.unitPrice = double.tryParse(v.replaceAll(',', '.')) ?? 0;
                 onChanged();

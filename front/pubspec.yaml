@@ -60,6 +60,9 @@ dependencies:
   # Offline-first: DB local, conectividade e cripto (só usados em !kIsWeb)
   drift: ^2.28.0
   sqlcipher_flutter_libs: ^0.6.5
+  # Direto (não só transitivo): precisamos de `open.overrideFor` no macOS/iOS
+  # para forçar o SQLCipher em vez do sqlite3 puro do bundle.
+  sqlite3: ^2.9.0
   connectivity_plus: ^7.0.0
   sodium_libs: ^3.4.6+4
   uuid: ^4.5.1

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
 import 'customers_providers.dart';
@@ -416,6 +418,39 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     );
   }
 
+  // ---- Regras de validação/máscara por campo dinâmico (keyed na `chave`) ----
+  // `identifier` (placa) → máscara/validação de placa; `ano` → só 4 dígitos;
+  // números → filtro numérico; demais → texto com teto razoável.
+  List<TextInputFormatter>? _fieldFormatters(SubjectFieldConfig f) {
+    if (f.chave == 'identifier') return [PlateInputFormatter()];
+    if (f.chave == 'ano') return const [DigitsOnlyFormatter(4)];
+    if (f.tipo == 'number') {
+      return [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
+    }
+    return null;
+  }
+
+  TextInputType _fieldKeyboard(SubjectFieldConfig f) {
+    if (f.chave == 'ano') return TextInputType.number;
+    if (f.tipo == 'number') {
+      return const TextInputType.numberWithOptions(decimal: true);
+    }
+    return TextInputType.text;
+  }
+
+  int? _fieldMaxLength(SubjectFieldConfig f) {
+    // Placa e ano já têm teto pelo próprio formatter.
+    if (f.chave == 'identifier' || f.chave == 'ano') return null;
+    return 120;
+  }
+
+  String? Function(String?) _fieldValidator(SubjectFieldConfig f) {
+    return Validators.combine([
+      if (f.obrigatorio) Validators.required(f.rotulo),
+      if (f.chave == 'identifier') Validators.plate(),
+    ]);
+  }
+
   Widget _fieldsColumn(NeuTokens neu, {bool offline = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -423,8 +458,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
       children: [
         NeuTextField(
           controller: _label,
-          label: 'Apelido',
-          hint: 'Ex.: Carro da esposa (opcional)',
+          label: 'Apelido (opcional)',
+          hint: 'Ex.: Carro da esposa',
+          maxLength: 120,
         ),
         for (final f in widget.config.subjectFields) ...[
           const SizedBox(height: 14),
@@ -433,14 +469,12 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             NeuTextField(
               key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
-              label: '${f.rotulo}${f.obrigatorio ? ' *' : ''}',
+              label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
               helper: 'Sem conexão — digite manualmente',
-              validator: (v) {
-                if (f.obrigatorio && (v == null || v.trim().isEmpty)) {
-                  return '${f.rotulo} é obrigatório';
-                }
-                return null;
-              },
+              keyboardType: _fieldKeyboard(f),
+              inputFormatters: _fieldFormatters(f),
+              maxLength: _fieldMaxLength(f),
+              validator: _fieldValidator(f),
             )
           else if (f.fonte != null)
             _LookupField(
@@ -451,6 +485,8 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               ),
               field: f,
               controller: _fields[f.chave]!,
+              inputFormatters: _fieldFormatters(f),
+              keyboardType: _fieldKeyboard(f),
               ancestorCodes: _ancestorCodesOf(f),
               onSelected: (opt) {
                 setState(() {
@@ -462,19 +498,11 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
           else
             NeuTextField(
               controller: _fields[f.chave],
-              label: '${f.rotulo}${f.obrigatorio ? ' *' : ''}',
-              keyboardType: f.tipo == 'number'
-                  ? const TextInputType.numberWithOptions(decimal: true)
-                  : TextInputType.text,
-              inputFormatters: f.tipo == 'number'
-                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
-                  : null,
-              validator: (v) {
-                if (f.obrigatorio && (v == null || v.trim().isEmpty)) {
-                  return '${f.rotulo} é obrigatório';
-                }
-                return null;
-              },
+              label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              keyboardType: _fieldKeyboard(f),
+              inputFormatters: _fieldFormatters(f),
+              maxLength: _fieldMaxLength(f),
+              validator: _fieldValidator(f),
             ),
         ],
       ],
@@ -644,10 +672,16 @@ class _LookupField extends ConsumerWidget {
     required this.controller,
     required this.ancestorCodes,
     required this.onSelected,
+    this.inputFormatters,
+    this.keyboardType,
   });
 
   final SubjectFieldConfig field;
   final TextEditingController controller;
+
+  /// Máscara/teclado herdados das regras do campo (ex.: ano → só 4 dígitos).
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputType? keyboardType;
 
   /// Códigos dos ancestrais da cascata, por chave (marca/modelo).
   final Map<String, String?> ancestorCodes;
@@ -729,7 +763,7 @@ class _LookupField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 6),
               child: Text(
-                '${field.rotulo}${field.obrigatorio ? ' *' : ''}',
+                '${field.rotulo}${field.obrigatorio ? ' *' : ' (opcional)'}',
                 style: TextStyle(
                   color: neu.inkMuted,
                   fontSize: 13,
@@ -744,6 +778,8 @@ class _LookupField extends ConsumerWidget {
                 key: Key('subjectField-${field.chave}'),
                 controller: textController,
                 focusNode: focusNode,
+                keyboardType: keyboardType,
+                inputFormatters: inputFormatters,
                 onChanged: (v) => controller.text = v,
                 // Enter seleciona a opção destacada (a 1ª por padrão).
                 onFieldSubmitted: (_) => onSubmit(),

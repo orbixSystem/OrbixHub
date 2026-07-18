@@ -46,6 +46,7 @@ import 'features/dashboard/presentation/dashboard_providers.dart';
 import 'features/inventory/data/inventory_repository_impl.dart';
 import 'features/inventory/data/local_first_inventory_repository.dart';
 import 'features/inventory/presentation/inventory_providers.dart';
+import 'features/messages/data/local_first_messages_repository.dart';
 import 'features/messages/data/messages_repository_impl.dart';
 import 'features/messages/presentation/messages_providers.dart';
 import 'features/notifications/data/notifications_repository_impl.dart';
@@ -246,9 +247,19 @@ final diOverrides = [
       onWrite: deps.onWrite,
     );
   }),
-  messagesRepositoryProvider.overrideWith(
-    (ref) => MessagesRepositoryImpl(ref.read(dioProvider)),
-  ),
+  messagesRepositoryProvider.overrideWith((ref) {
+    final inner = MessagesRepositoryImpl(ref.read(dioProvider));
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstMessagesRepository(
+      inner: inner,
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+      onWrite: deps.onWrite,
+    );
+  }),
   notificationsRepositoryProvider.overrideWith(
     (ref) => NotificationsRepositoryImpl(ref.read(dioProvider)),
   ),

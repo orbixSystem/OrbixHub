@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Rede: INTERNET (HTTP, também no release); ACCESS_NETWORK_STATE/WIFI_STATE
+         são exigidas pelo connectivity_plus para detectar online/offline — sem
+         elas o app fica sempre "offline" no Android. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <application
         android:label="orbixhub_front"
         android:name="${applicationName}"

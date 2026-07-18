@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
@@ -92,8 +93,14 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
             if (_error != null) AuthErrorBanner(message: _error!),
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: 'Seu nome'),
+              decoration: const InputDecoration(
+                labelText: 'Seu nome',
+                counterText: '',
+              ),
               autofillHints: const [AutofillHints.name],
+              textCapitalization: TextCapitalization.words,
+              maxLength: 120,
+              validator: Validators.required('Nome'),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -101,9 +108,10 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
               decoration: const InputDecoration(labelText: 'Senha'),
               obscureText: true,
               autofillHints: const [AutofillHints.newPassword],
-              validator: (v) => (v == null || v.length < 8)
-                  ? 'Mínimo de 8 caracteres'
-                  : null,
+              validator: Validators.combine([
+                Validators.required('Senha'),
+                Validators.minLength(8, 'Senha'),
+              ]),
             ),
             const SizedBox(height: 12),
             TextFormField(
