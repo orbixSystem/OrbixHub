@@ -660,13 +660,15 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         ),
         const SizedBox(height: 12),
         NeuTextField(
-          label: 'Telefone *',
+          label: 'Telefone (opcional)',
           controller: _newPhone,
           keyboardType: TextInputType.phone,
           inputFormatters: [PhoneInputFormatter()],
           prefixIcon: Icons.phone_outlined,
           enabled: !_saving,
-          validator: Validators.phone(optional: false),
+          // Cadastro rápido na OS: telefone opcional (o cadastro completo do
+          // cliente, esse sim, exige telefone). Valida só o formato se preenchido.
+          validator: Validators.phone(),
         ),
       ],
     );
@@ -694,7 +696,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         );
       }
       return _labeledDropdown(
-        label: _subjectLabelSingular,
+        label: '$_subjectLabelSingular (opcional)',
         value: _subject?.id,
         icon: Icons.directions_car_outlined,
         items: [
@@ -756,7 +758,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     // A identificação (placa) é obrigatória se preenchida; demais campos livres.
     final isIdentifier = f.chave == 'identifier';
     return NeuTextField(
-      label: isIdentifier ? '${f.rotulo} *' : f.rotulo,
+      label: isIdentifier ? '${f.rotulo} *' : '${f.rotulo} (opcional)',
       controller: _subjFields[f.chave],
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
@@ -802,7 +804,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           children: [
             Expanded(
               child: _DateTimeField(
-                label: 'Início previsto',
+                label: 'Início previsto (opcional)',
                 value: _scheduledStart,
                 fmt: _dtFmt,
                 enabled: !_saving,
@@ -812,7 +814,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: _DateTimeField(
-                label: 'Término previsto',
+                label: 'Término previsto (opcional)',
                 value: _scheduledEnd,
                 fmt: _dtFmt,
                 enabled: !_saving,
@@ -1113,7 +1115,7 @@ class _SubjectLookupField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 6),
               child: Text(
-                field.rotulo,
+                '${field.rotulo} (opcional)',
                 style: TextStyle(
                   color: neu.inkMuted,
                   fontSize: 13,

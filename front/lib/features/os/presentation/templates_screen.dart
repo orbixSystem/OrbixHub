@@ -441,7 +441,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                 maxLength: 500,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  labelText: 'Descrição',
+                  labelText: 'Descrição (opcional)',
                   prefixIcon: Icon(Icons.notes_outlined),
                   counterText: '',
                 ),
@@ -661,7 +661,7 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Quantidade',
+                        labelText: 'Quantidade *',
                         prefixIcon: Icon(Icons.numbers),
                       ),
                       validator:
@@ -675,7 +675,7 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Preço unit.',
+                        labelText: 'Preço unit. *',
                         prefixText: 'R\$ ',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),

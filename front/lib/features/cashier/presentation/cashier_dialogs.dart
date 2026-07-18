@@ -112,7 +112,7 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           NeuTextField(
-            label: 'Valor inicial (gaveta)',
+            label: 'Valor inicial (gaveta) (opcional)',
             controller: amountCtrl,
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,
@@ -181,7 +181,7 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
               ),
               const SizedBox(height: 16),
               NeuTextField(
-                label: 'Valor contado',
+                label: 'Valor contado *',
                 controller: countedCtrl,
                 hint: '0,00',
                 prefixIcon: Icons.attach_money_rounded,
@@ -450,7 +450,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
           const SizedBox(height: 14),
           // 3) Valor (pré-preenchido com o saldo da OS; editável → permite parcial)
           NeuTextField(
-            label: 'Valor',
+            label: 'Valor *',
             controller: _amountCtrl,
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,

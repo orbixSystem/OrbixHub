@@ -544,7 +544,7 @@ class _PreferenciasSection extends StatelessWidget {
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NFS-e',
+                      label: 'Série NFS-e (opcional)',
                       controller: serieNfse,
                       enabled: canManage,
                       keyboardType: TextInputType.number,
@@ -554,7 +554,7 @@ class _PreferenciasSection extends StatelessWidget {
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NFC-e',
+                      label: 'Série NFC-e (opcional)',
                       controller: serieNfce,
                       enabled: canManage,
                       keyboardType: TextInputType.number,
@@ -564,7 +564,7 @@ class _PreferenciasSection extends StatelessWidget {
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'Série NF-e',
+                      label: 'Série NF-e (opcional)',
                       controller: serieNfe,
                       enabled: canManage,
                       keyboardType: TextInputType.number,
@@ -574,7 +574,7 @@ class _PreferenciasSection extends StatelessWidget {
                   SizedBox(
                     width: twoCols ? halfW : maxW,
                     child: NeuTextField(
-                      label: 'ID do CSC',
+                      label: 'ID do CSC (opcional)',
                       controller: idCsc,
                       enabled: canManage,
                       keyboardType: TextInputType.text,

@@ -251,6 +251,19 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   /// Campos somente-leitura que nunca devem ser enviados no patch.
   static const _readOnlyFields = {'taxId'};
 
+  /// Campos obrigatórios (exigidos para salvar) — recebem ' *' no rótulo.
+  static const _requiredFields = {'companyName', 'legalName'};
+
+  /// Rótulo com sufixo de obrigatoriedade: obrigatórios terminam com ' *',
+  /// opcionais com ' (opcional)'. Campos read-only (taxId) ficam sem sufixo
+  /// (o próprio campo já sinaliza "não editável").
+  String _labelFor(SettingsField field) {
+    if (_readOnlyFields.contains(field.key)) return field.label;
+    return _requiredFields.contains(field.key)
+        ? '${field.label} *'
+        : '${field.label} (opcional)';
+  }
+
   Map<String, dynamic> _buildPatch() {
     final patch = <String, dynamic>{};
     final section = _companySection;
@@ -651,7 +664,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // Campos somente-leitura: exibe desabilitado com ícone de cadeado.
     if (_readOnlyFields.contains(field.key)) {
       return NeuTextField(
-        label: field.label,
+        label: _labelFor(field),
         controller: _textCtrl[field.key],
         hint: 'não editável',
         enabled: false,
@@ -672,7 +685,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       // Campo CEP: busca endereço via ViaCEP ao confirmar digitação.
       if (field.key == 'cep') {
         return NeuTextField(
-          label: field.label,
+          label: _labelFor(field),
           controller: _textCtrl[field.key],
           keyboardType: TextInputType.number,
           inputFormatters: [CepInputFormatter()],
@@ -695,7 +708,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       }
 
       return NeuTextField(
-        label: field.label,
+        label: _labelFor(field),
         controller: _textCtrl[field.key],
         keyboardType: _keyboardFor(field),
         inputFormatters: _formattersFor(field.key),
@@ -713,7 +726,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
     // Unsupported field types: show read-only hint.
     return _labeledInset(
-      label: field.label,
+      label: _labelFor(field),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
@@ -775,7 +788,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   Widget _buildSelectDropdown(SettingsField field) {
     final neu = context.neu;
     return _labeledInset(
-      label: field.label,
+      label: _labelFor(field),
       helper: _helperFor(field.key),
       child: SizedBox(
         height: 48,
@@ -826,7 +839,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // Ainda carregando.
     if (_cnaes == null) {
       return NeuTextField(
-        label: field.label,
+        label: _labelFor(field),
         enabled: false,
         hint: 'Carregando lista CNAE…',
         suffix: const Padding(
@@ -843,7 +856,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // Falha ao carregar: fallback para campo texto livre.
     if (_cnaes!.isEmpty) {
       return NeuTextField(
-        label: field.label,
+        label: _labelFor(field),
         controller: _textCtrl.putIfAbsent(
           field.key,
           () => TextEditingController(text: currentCode),
@@ -892,7 +905,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return _labeledInset(
-          label: field.label,
+          label: _labelFor(field),
           helper: _helperFor(field.key),
           child: TextFormField(
             controller: controller,

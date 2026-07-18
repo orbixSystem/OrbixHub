@@ -168,7 +168,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                         inputFormatters: [documentFormatter(_type)],
                         decoration: InputDecoration(
                           labelText:
-                              'Documento${widget.documentRequired ? ' *' : ''}',
+                              'Documento${widget.documentRequired ? ' *' : ' (opcional)'}',
                           hintText: _type == 'PJ'
                               ? '00.000.000/0000-00'
                               : '000.000.000-00',
@@ -199,7 +199,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                   autofillHints: const [AutofillHints.email],
                   maxLength: 160,
                   decoration: const InputDecoration(
-                    labelText: 'E-mail',
+                    labelText: 'E-mail (opcional)',
                     counterText: '',
                   ),
                   validator: Validators.email(),
@@ -210,7 +210,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: 200,
                   decoration: const InputDecoration(
-                    labelText: 'Endereço',
+                    labelText: 'Endereço (opcional)',
                     counterText: '',
                   ),
                 ),
@@ -221,7 +221,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                   maxLength: 500,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
-                    labelText: 'Observações',
+                    labelText: 'Observações (opcional)',
                     counterText: '',
                   ),
                 ),

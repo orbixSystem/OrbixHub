@@ -187,7 +187,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 maxLength: 500,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  labelText: 'Relato do cliente',
+                  labelText: 'Relato do cliente (opcional)',
                   prefixIcon: Icon(Icons.chat_outlined),
                   alignLabelWithHint: true,
                   counterText: '',
@@ -198,7 +198,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 initialValue: _assignedTo,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Responsável',
+                  labelText: 'Responsável (opcional)',
                   prefixIcon: Icon(Icons.engineering_outlined),
                 ),
                 items: [
@@ -229,7 +229,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 children: [
                   Expanded(
                     child: _DateField(
-                      label: 'Previsão início',
+                      label: 'Previsão início (opcional)',
                       icon: Icons.event_outlined,
                       value: _scheduledStart == null
                           ? null
@@ -244,7 +244,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _DateField(
-                      label: 'Previsão fim',
+                      label: 'Previsão fim (opcional)',
                       icon: Icons.event_available_outlined,
                       value: _scheduledEnd == null
                           ? null
@@ -272,7 +272,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 controller: _discount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Desconto da OS',
+                  labelText: 'Desconto da OS (opcional)',
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),

@@ -458,8 +458,8 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
       children: [
         NeuTextField(
           controller: _label,
-          label: 'Apelido',
-          hint: 'Ex.: Carro da esposa (opcional)',
+          label: 'Apelido (opcional)',
+          hint: 'Ex.: Carro da esposa',
           maxLength: 120,
         ),
         for (final f in widget.config.subjectFields) ...[
@@ -469,7 +469,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             NeuTextField(
               key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
-              label: '${f.rotulo}${f.obrigatorio ? ' *' : ''}',
+              label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
               helper: 'Sem conexão — digite manualmente',
               keyboardType: _fieldKeyboard(f),
               inputFormatters: _fieldFormatters(f),
@@ -498,7 +498,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
           else
             NeuTextField(
               controller: _fields[f.chave],
-              label: '${f.rotulo}${f.obrigatorio ? ' *' : ''}',
+              label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
               keyboardType: _fieldKeyboard(f),
               inputFormatters: _fieldFormatters(f),
               maxLength: _fieldMaxLength(f),
@@ -763,7 +763,7 @@ class _LookupField extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 6),
               child: Text(
-                '${field.rotulo}${field.obrigatorio ? ' *' : ''}',
+                '${field.rotulo}${field.obrigatorio ? ' *' : ' (opcional)'}',
                 style: TextStyle(
                   color: neu.inkMuted,
                   fontSize: 13,

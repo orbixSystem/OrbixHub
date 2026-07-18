@@ -184,7 +184,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Quantidade',
+                        labelText: 'Quantidade *',
                         prefixIcon: Icon(Icons.numbers),
                       ),
                       validator:
@@ -199,7 +199,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Preço unit.',
+                        labelText: 'Preço unit. *',
                         prefixText: 'R\$ ',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),
@@ -215,7 +215,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Desconto',
+                  labelText: 'Desconto (opcional)',
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),
