@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/util/validators.dart';
+
 /// Prompts for the caller's current password (owner-gated mutations require it)
 /// and returns the typed value on confirm, or null if canceled/dismissed.
 Future<String?> showReauthDialog(
@@ -66,8 +68,7 @@ class _ReauthDialogState extends State<_ReauthDialog> {
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Informe sua senha.' : null,
+              validator: Validators.required('Senha atual'),
             ),
           ],
         ),

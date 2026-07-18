@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
 
@@ -115,9 +117,13 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
               children: [
                 TextFormField(
                   controller: _name,
-                  decoration: const InputDecoration(labelText: 'Nome *'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                  textCapitalization: TextCapitalization.words,
+                  maxLength: 120,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome *',
+                    counterText: '',
+                  ),
+                  validator: Validators.required('Nome'),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -130,24 +136,34 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                           DropdownMenuItem(value: 'PF', child: Text('Pessoa física')),
                           DropdownMenuItem(value: 'PJ', child: Text('Pessoa jurídica')),
                         ],
-                        onChanged: (v) => setState(() => _type = v ?? 'PF'),
+                        onChanged: (v) {
+                          setState(() {
+                            _type = v ?? 'PF';
+                            // Reaplica a máscara do documento ao trocar PF/PJ.
+                            _document.text = _type == 'PJ'
+                                ? formatCnpj(_document.text)
+                                : formatCpf(_document.text);
+                          });
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _document,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [documentFormatter(_type)],
                         decoration: InputDecoration(
                           labelText:
                               'Documento${widget.documentRequired ? ' *' : ''}',
+                          hintText: _type == 'PJ'
+                              ? '00.000.000/0000-00'
+                              : '000.000.000-00',
                         ),
-                        validator: (v) {
-                          if (widget.documentRequired &&
-                              (v == null || v.trim().isEmpty)) {
-                            return 'Documento obrigatório';
-                          }
-                          return null;
-                        },
+                        validator: Validators.combine([
+                          if (widget.documentRequired) Validators.required('Documento'),
+                          Validators.document(_type),
+                        ]),
                       ),
                     ),
                   ],
@@ -155,23 +171,46 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _phone,
-                  decoration: const InputDecoration(labelText: 'Telefone'),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [PhoneInputFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'Telefone *',
+                    hintText: '(00) 00000-0000',
+                  ),
+                  validator: Validators.phone(optional: false),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _email,
-                  decoration: const InputDecoration(labelText: 'E-mail'),
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  maxLength: 160,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail',
+                    counterText: '',
+                  ),
+                  validator: Validators.email(),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _address,
-                  decoration: const InputDecoration(labelText: 'Endereço'),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 200,
+                  decoration: const InputDecoration(
+                    labelText: 'Endereço',
+                    counterText: '',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _notes,
-                  decoration: const InputDecoration(labelText: 'Observações'),
                   maxLines: 2,
+                  maxLength: 500,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações',
+                    counterText: '',
+                  ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),

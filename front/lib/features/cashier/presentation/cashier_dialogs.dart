@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../os/domain/os_models.dart';
@@ -121,6 +122,7 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
           NeuTextField(
             label: 'Observação (opcional)',
             controller: notesCtrl,
+            maxLength: 500,
           ),
         ],
       ),
@@ -190,6 +192,7 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
               NeuTextField(
                 label: 'Observação (opcional)',
                 controller: notesCtrl,
+                maxLength: 500,
               ),
             ],
           );
@@ -239,6 +242,7 @@ class EntryDialog extends ConsumerStatefulWidget {
 }
 
 class _EntryDialogState extends ConsumerState<EntryDialog> {
+  final _formKey = GlobalKey<FormState>();
   late String _category =
       widget.presetCategory ?? (widget.presetSaleId != null ? 'os_payment' : 'suprimento');
   late String _method = widget.config.paymentMethods.first;
@@ -314,6 +318,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
   }
 
   Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
     final amount = _parseAmount(_amountCtrl.text);
     if (amount == null || amount <= 0) {
       _snack(context, 'Informe um valor maior que zero.', error: true);
@@ -407,7 +412,9 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
           onPressed: _saving ? null : _submit,
         ),
       ],
-      child: Column(
+      child: Form(
+        key: _formKey,
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -448,6 +455,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            validator: Validators.positiveNumber(field: 'Valor'),
             helper: isOsPayment && _osPayment != null
                 ? 'Pode receber parcial — edite o valor à vontade.'
                 : null,
@@ -485,8 +493,10 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
           NeuTextField(
             label: 'Descrição (opcional)',
             controller: _descCtrl,
+            maxLength: 500,
           ),
         ],
+        ),
       ),
     );
   }

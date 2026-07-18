@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../domain/invoice_config_models.dart';
@@ -546,7 +547,8 @@ class _PreferenciasSection extends StatelessWidget {
                       label: 'Série NFS-e',
                       controller: serieNfse,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
@@ -555,7 +557,8 @@ class _PreferenciasSection extends StatelessWidget {
                       label: 'Série NFC-e',
                       controller: serieNfce,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
@@ -564,7 +567,8 @@ class _PreferenciasSection extends StatelessWidget {
                       label: 'Série NF-e',
                       controller: serieNfe,
                       enabled: canManage,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [DigitsOnlyFormatter(3)],
                     ),
                   ),
                   SizedBox(
@@ -574,6 +578,7 @@ class _PreferenciasSection extends StatelessWidget {
                       controller: idCsc,
                       enabled: canManage,
                       keyboardType: TextInputType.text,
+                      maxLength: 60,
                       helper: 'Identificador do CSC (o segredo fica no provedor).',
                     ),
                   ),

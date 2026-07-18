@@ -27,6 +27,8 @@ class NeuTextField extends StatelessWidget {
     this.minLines,
     this.textInputAction,
     this.inputFormatters,
+    this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final String label;
@@ -47,6 +49,13 @@ class NeuTextField extends StatelessWidget {
   final int? minLines;
   final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
+
+  /// Limite de caracteres (cap rígido na digitação). O contador é escondido
+  /// para preservar o visual do campo; o limite continua valendo.
+  final int? maxLength;
+
+  /// Capitalização automática do teclado (nomes → words; texto livre → sentences).
+  final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +90,11 @@ class NeuTextField extends StatelessWidget {
             minLines: minLines,
             textInputAction: textInputAction,
             inputFormatters: inputFormatters,
+            maxLength: maxLength,
+            textCapitalization: textCapitalization,
             style: TextStyle(color: neu.ink, fontSize: 15),
             decoration: InputDecoration(
+              counterText: '', // esconde o contador; o cap de maxLength continua
               hintText: hint,
               hintStyle: TextStyle(color: neu.inkFaint),
               prefixIcon: prefixIcon != null

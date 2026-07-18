@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -651,20 +653,20 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           controller: _newName,
           prefixIcon: Icons.person_outline,
           enabled: !_saving,
+          maxLength: 120,
           // Reavalia o botão "Próximo" enquanto digita.
           onChanged: (_) => setState(() {}),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+          validator: Validators.required('Nome'),
         ),
         const SizedBox(height: 12),
         NeuTextField(
           label: 'Telefone *',
           controller: _newPhone,
           keyboardType: TextInputType.phone,
+          inputFormatters: [PhoneInputFormatter()],
           prefixIcon: Icons.phone_outlined,
           enabled: !_saving,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Informe o telefone' : null,
+          validator: Validators.phone(optional: false),
         ),
       ],
     );
@@ -759,6 +761,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
+      // Identificação = placa: máscara Mercosul/antiga (MAIÚSCULO, 7 chars).
+      inputFormatters: isIdentifier ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
               ? 'Informe a ${f.rotulo.toLowerCase()}'

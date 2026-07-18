@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../domain/inventory_models.dart';
 import 'inventory_providers.dart';
 
@@ -450,6 +453,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
             child: TextFormField(
               controller: _manufacturerCode,
               readOnly: editing,
+              maxLength: 60,
               decoration: _dec('Cód. do fabricante', 'manufacturerCode',
                   prefixIcon:
                       const Icon(Icons.precision_manufacturing_outlined),
@@ -462,6 +466,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
             child: TextFormField(
               controller: _barcode,
               readOnly: editing,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(14)],
               decoration: _dec('Código de barras', 'barcode',
                   prefixIcon: const Icon(Icons.qr_code_2), locked: editing),
               onChanged: editing ? null : (_) => _onEdit('barcode'),
@@ -472,11 +478,12 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       const SizedBox(height: 12),
       TextFormField(
         controller: _name,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 120,
         decoration: _dec('Nome *', 'name',
             prefixIcon: const Icon(Icons.label_outline)),
         onChanged: (_) => _onEdit('name'),
-        validator: (v) =>
-            (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+        validator: Validators.required('Nome'),
       ),
       const SizedBox(height: 12),
       Row(
@@ -484,6 +491,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _category,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 60,
               decoration: _dec('Categoria', 'category',
                   prefixIcon: const Icon(Icons.category_outlined)),
               onChanged: (_) => _onEdit('category'),
@@ -493,6 +502,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _brand,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 60,
               decoration: _dec('Marca', 'brand',
                   prefixIcon: const Icon(Icons.business_outlined)),
               onChanged: (_) => _onEdit('brand'),
@@ -503,6 +514,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       const SizedBox(height: 12),
       TextFormField(
         controller: _sku,
+        maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
         decoration: _dec('SKU', 'sku',
             prefixIcon: const Icon(Icons.tag),
@@ -522,10 +534,14 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       Row(
         children: [
           Expanded(child: _numField(_salePrice, 'Preço de venda', 'R\$ ',
-              Icons.sell_outlined)),
+              Icons.sell_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de venda', optional: true))),
           const SizedBox(width: 12),
           Expanded(child: _numField(_costPrice, 'Preço de custo', 'R\$ ',
-              Icons.payments_outlined)),
+              Icons.payments_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de custo', optional: true))),
         ],
       ),
       const SizedBox(height: 12),
@@ -549,6 +565,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _ncm,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(8)],
               decoration: const InputDecoration(
                 labelText: 'NCM',
                 prefixIcon: Icon(Icons.numbers),
@@ -559,6 +577,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _cfop,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(4)],
               decoration: const InputDecoration(
                 labelText: 'CFOP',
                 prefixIcon: Icon(Icons.swap_horiz),
@@ -573,6 +593,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _origem,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(1)],
               decoration: const InputDecoration(
                 labelText: 'Origem',
                 prefixIcon: Icon(Icons.public),
@@ -583,6 +605,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _gtin,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(14)],
               decoration: const InputDecoration(
                 labelText: 'GTIN',
                 prefixIcon: Icon(Icons.qr_code),
@@ -609,20 +633,25 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     return [
       TextFormField(
         controller: _name,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 120,
         decoration: _dec('Nome *', 'name',
             prefixIcon: const Icon(Icons.label_outline)),
         onChanged: (_) => _onEdit('name'),
-        validator: (v) =>
-            (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+        validator: Validators.required('Nome'),
       ),
       const SizedBox(height: 12),
       Row(
         children: [
           Expanded(child: _numField(_salePrice, 'Preço de venda', 'R\$ ',
-              Icons.sell_outlined)),
+              Icons.sell_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de venda', optional: true))),
           const SizedBox(width: 12),
           Expanded(child: _numField(_costPrice, 'Preço de custo', 'R\$ ',
-              Icons.payments_outlined)),
+              Icons.payments_outlined,
+              validator: Validators.positiveNumber(
+                  field: 'Preço de custo', optional: true))),
         ],
       ),
       const SizedBox(height: 12),
@@ -635,6 +664,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
             child: TextFormField(
               controller: _durationMinutes,
               keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(4)],
               decoration: const InputDecoration(
                 labelText: 'Duração (min)',
                 prefixIcon: Icon(Icons.schedule_outlined),
@@ -649,6 +679,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _category,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 60,
               decoration: _dec('Categoria', 'category',
                   prefixIcon: const Icon(Icons.category_outlined)),
               onChanged: (_) => _onEdit('category'),
@@ -658,6 +690,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _brand,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 60,
               decoration: _dec('Marca', 'brand',
                   prefixIcon: const Icon(Icons.business_outlined)),
               onChanged: (_) => _onEdit('brand'),
@@ -668,6 +702,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       const SizedBox(height: 12),
       TextFormField(
         controller: _sku,
+        maxLength: 40,
         onChanged: (_) => _onEdit('sku'),
         decoration: _dec('SKU', 'sku',
             prefixIcon: const Icon(Icons.tag),
@@ -691,6 +726,8 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           Expanded(
             child: TextFormField(
               controller: _codigoServico,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [DigitsOnlyFormatter(6)],
               decoration: const InputDecoration(
                 labelText: 'Código do serviço (LC116)',
                 prefixIcon: Icon(Icons.assignment_outlined),
@@ -722,6 +759,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     if (locked) {
       return InputDecoration(
         labelText: label,
+        counterText: '',
         prefixIcon: prefixIcon,
         filled: true,
         fillColor: AppColors.surfaceSunken,
@@ -734,12 +772,14 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     if (!highlighted) {
       return InputDecoration(
         labelText: label,
+        counterText: '',
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
       );
     }
     return InputDecoration(
       labelText: label,
+      counterText: '',
       prefixIcon: prefixIcon,
       filled: true,
       fillColor: AppColors.brandTint,
@@ -767,16 +807,21 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     TextEditingController c,
     String label,
     String? prefixText,
-    IconData icon,
-  ) {
+    IconData icon, {
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
       controller: c,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+      ],
       decoration: InputDecoration(
         labelText: label,
         prefixText: prefixText,
         prefixIcon: Icon(icon),
       ),
+      validator: validator,
     );
   }
 
@@ -821,6 +866,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           key: Key('itemField-${f.key}'),
           controller: _dynamic[f.key],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          ],
           decoration: InputDecoration(labelText: label),
           validator: requiredValidator,
         );

@@ -851,10 +851,12 @@ class _Composer extends StatelessWidget {
                     controller: controller,
                     minLines: 1,
                     maxLines: 5,
+                    maxLength: 2000,
                     textInputAction: TextInputAction.send,
                     style: TextStyle(color: neu.ink, fontSize: 14.5),
                     decoration: InputDecoration(
                       isDense: true,
+                      counterText: '',
                       hintText: 'Escreva uma resposta…',
                       hintStyle: TextStyle(color: neu.inkFaint),
                       border: InputBorder.none,

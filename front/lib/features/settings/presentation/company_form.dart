@@ -1,10 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/external_lookups_repository.dart';
 import '../domain/settings_models.dart';
@@ -44,6 +47,9 @@ class CompanyForm extends ConsumerStatefulWidget {
 }
 
 class _CompanyFormState extends ConsumerState<CompanyForm> {
+  /// Valida os campos de texto (required/e-mail/telefone/CEP) antes de salvar.
+  final _formKey = GlobalKey<FormState>();
+
   /// Controllers de texto indexados por field.key.
   final Map<String, TextEditingController> _textCtrl = {};
 
@@ -155,6 +161,93 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
   }
 
+  /// Teclado por campo — sobrepõe [_keyboardType] para campos numéricos
+  /// específicos (inscrições, número do endereço).
+  TextInputType _keyboardFor(SettingsField field) {
+    switch (field.key) {
+      case 'inscricaoEstadual':
+      case 'inscricaoMunicipal':
+      case 'numero':
+        return TextInputType.number;
+      default:
+        return _keyboardType(field.type);
+    }
+  }
+
+  /// Máscaras de digitação por campo (telefone, CEP, inscrição só-dígitos).
+  List<TextInputFormatter>? _formattersFor(String key) {
+    switch (key) {
+      case 'phone':
+        return [PhoneInputFormatter()];
+      case 'cep':
+        return [CepInputFormatter()];
+      case 'inscricaoMunicipal':
+        return [DigitsOnlyFormatter(14)];
+      default:
+        return null;
+    }
+  }
+
+  /// Validador por campo (obrigatórios + formato de e-mail/telefone/CEP).
+  Validator? _validatorFor(String key) {
+    switch (key) {
+      case 'companyName':
+        return Validators.required('Nome fantasia');
+      case 'legalName':
+        return Validators.required('Razão social');
+      case 'email':
+        return Validators.email();
+      case 'phone':
+        return Validators.phone();
+      case 'cep':
+        return Validators.cep();
+      default:
+        return null;
+    }
+  }
+
+  /// Limite de caracteres por campo.
+  int? _maxLengthFor(String key) {
+    switch (key) {
+      case 'companyName':
+      case 'legalName':
+      case 'bairro':
+      case 'municipio':
+        return 120;
+      case 'email':
+        return 160;
+      case 'website':
+      case 'logradouro':
+      case 'complemento':
+        return 200;
+      case 'inscricaoEstadual':
+        return 20;
+      case 'numero':
+        return 10;
+      default:
+        return null;
+    }
+  }
+
+  /// Capitalização automática por campo (nomes → words; endereço → sentences;
+  /// inscrição estadual → characters, para aceitar "ISENTO" em maiúsculas).
+  TextCapitalization _capitalizationFor(String key) {
+    switch (key) {
+      case 'companyName':
+      case 'legalName':
+      case 'bairro':
+      case 'municipio':
+        return TextCapitalization.words;
+      case 'logradouro':
+      case 'complemento':
+        return TextCapitalization.sentences;
+      case 'inscricaoEstadual':
+        return TextCapitalization.characters;
+      default:
+        return TextCapitalization.none;
+    }
+  }
+
   /// Campos somente-leitura que nunca devem ser enviados no patch.
   static const _readOnlyFields = {'taxId'};
 
@@ -189,6 +282,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   }
 
   Future<void> _save() async {
+    final form = _formKey.currentState;
+    if (form != null && !form.validate()) return;
     final patch = _buildPatch();
     if (patch.isEmpty) {
       if (mounted) {
@@ -361,7 +456,9 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
     final logoUrl = widget.company['logoUrl'] as String?;
 
-    final content = Column(
+    final content = Form(
+      key: _formKey,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!widget.embedded) ...[
@@ -429,6 +526,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
             ],
           ),
       ],
+      ),
     );
 
     final padded = Padding(
@@ -577,6 +675,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
           label: field.label,
           controller: _textCtrl[field.key],
           keyboardType: TextInputType.number,
+          inputFormatters: [CepInputFormatter()],
+          validator: Validators.cep(),
           helper: _helperFor(field.key),
           onFieldSubmitted: _buscarCep,
           suffix: Padding(
@@ -597,7 +697,11 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       return NeuTextField(
         label: field.label,
         controller: _textCtrl[field.key],
-        keyboardType: _keyboardType(field.type),
+        keyboardType: _keyboardFor(field),
+        inputFormatters: _formattersFor(field.key),
+        validator: _validatorFor(field.key),
+        maxLength: _maxLengthFor(field.key),
+        textCapitalization: _capitalizationFor(field.key),
         helper: _helperFor(field.key),
       );
     }

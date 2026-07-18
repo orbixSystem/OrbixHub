@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
@@ -74,16 +75,18 @@ class _ResetScreenState extends ConsumerState<ResetScreen> {
             TextFormField(
               controller: _token,
               decoration: const InputDecoration(labelText: 'Token'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Informe o token' : null,
+              validator: Validators.required('Token'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _password,
               decoration: const InputDecoration(labelText: 'Nova senha (mín. 8)'),
               obscureText: true,
-              validator: (v) =>
-                  (v == null || v.length < 8) ? 'Mínimo de 8 caracteres' : null,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: Validators.combine([
+                Validators.required('Senha'),
+                Validators.minLength(8, 'Senha'),
+              ]),
             ),
             const SizedBox(height: 20),
             FilledButton(

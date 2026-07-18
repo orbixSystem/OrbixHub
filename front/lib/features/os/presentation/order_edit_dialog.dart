@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
+import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 
@@ -26,6 +27,7 @@ class OrderEditDialog extends ConsumerStatefulWidget {
 }
 
 class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _complaint;
   late final TextEditingController _discount;
 
@@ -131,6 +133,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
   }
 
   Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -159,17 +162,22 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
       title: Text('Editar ${widget.order.number}'),
       content: SizedBox(
         width: 460,
-        child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: _complaint,
                 maxLines: 3,
+                maxLength: 500,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Relato do cliente',
                   prefixIcon: Icon(Icons.chat_outlined),
                   alignLabelWithHint: true,
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 12),
@@ -247,7 +255,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: _discount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
@@ -255,6 +263,8 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),
+                validator:
+                    Validators.positiveNumber(optional: true, field: 'Desconto'),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -264,6 +274,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 ),
               ],
             ],
+          ),
           ),
         ),
       ),

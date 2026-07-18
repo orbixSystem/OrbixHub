@@ -536,6 +536,7 @@ class _EntryTile extends ConsumerWidget {
           label: 'Motivo do estorno',
           controller: reasonCtrl,
           hint: 'Ex.: valor lançado errado',
+          maxLength: 500,
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
@@ -336,6 +337,7 @@ class TemplateFormDialog extends ConsumerStatefulWidget {
 }
 
 class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final List<_DraftRow> _items;
@@ -381,6 +383,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
   }
 
   void _submit() {
+    if (!_formKey.currentState!.validate()) return;
     final name = _name.text.trim();
     if (name.isEmpty) return;
     final desc = _description.text.trim();
@@ -401,17 +404,23 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
       title: Text(isEdit ? 'Editar template' : 'Novo template'),
       content: SizedBox(
         width: 480,
-        child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              TextFormField(
                 controller: _name,
+                maxLength: 120,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Nome *',
                   prefixIcon: Icon(Icons.label_outline),
+                  counterText: '',
                 ),
+                validator: Validators.required('Nome'),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
@@ -419,9 +428,12 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                 controller: _description,
                 minLines: 1,
                 maxLines: 3,
+                maxLength: 500,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Descrição',
                   prefixIcon: Icon(Icons.notes_outlined),
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 20),
@@ -467,6 +479,7 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                   ],
                 ),
             ],
+          ),
           ),
         ),
       ),
@@ -542,6 +555,7 @@ class _TemplateItemDialog extends ConsumerStatefulWidget {
 }
 
 class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
+  final _formKey = GlobalKey<FormState>();
   bool _avulso = false;
   InventoryOption? _picked;
   final _name = TextEditingController();
@@ -576,6 +590,7 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
   }
 
   void _confirm() {
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     final draft = _avulso
         ? OsTemplateItemDraft(
             kind: _kind,
@@ -602,7 +617,9 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
       title: const Text('Adicionar item'),
       content: SizedBox(
         width: 460,
-        child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -631,7 +648,7 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _quantity,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
@@ -639,11 +656,13 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
                         labelText: 'Quantidade',
                         prefixIcon: Icon(Icons.numbers),
                       ),
+                      validator:
+                          Validators.positiveNumber(field: 'Quantidade'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _unitPrice,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
@@ -652,11 +671,13 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
                         prefixText: 'R\$ ',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),
+                      validator: Validators.positiveNumber(field: 'Preço'),
                     ),
                   ),
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -760,12 +781,16 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
         onSelectionChanged: (sel) => setState(() => _kind = sel.first),
       ),
       const SizedBox(height: 12),
-      TextField(
+      TextFormField(
         controller: _name,
+        maxLength: 120,
+        textCapitalization: TextCapitalization.words,
         decoration: const InputDecoration(
           labelText: 'Descrição *',
           prefixIcon: Icon(Icons.label_outline),
+          counterText: '',
         ),
+        validator: Validators.required('Descrição'),
         onChanged: (_) => setState(() {}),
       ),
     ];

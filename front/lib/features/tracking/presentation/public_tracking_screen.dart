@@ -199,6 +199,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               controller: ctrl,
               label: 'Seu nome',
               hint: 'Ex.: João Silva',
+              maxLength: 80,
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) =>
                   Navigator.of(context).pop(ctrl.text.trim()),

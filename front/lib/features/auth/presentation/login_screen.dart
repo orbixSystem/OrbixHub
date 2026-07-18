@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/devtools/dev_flag.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 import 'session_state.dart';
@@ -90,8 +91,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               prefixIcon: Icons.mail_outline_rounded,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              validator: (v) =>
-                  (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
+              maxLength: 160,
+              validator: Validators.email(optional: false),
             ),
             const SizedBox(height: 14),
             NeuTextField(
@@ -99,8 +100,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               controller: _password,
               obscureText: true,
               prefixIcon: Icons.lock_outline_rounded,
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Informe a senha' : null,
+              validator: Validators.required('Senha'),
               onFieldSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 12),

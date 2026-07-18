@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
@@ -23,6 +24,7 @@ class ItemPickerDialog extends ConsumerStatefulWidget {
 }
 
 class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
+  final _formKey = GlobalKey<FormState>();
   bool _avulso = false; // false = do estoque, true = item avulso
 
   // Estoque
@@ -73,6 +75,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
   }
 
   Future<void> _confirm() async {
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     final qty = _toDouble(_quantity.text) ?? 1;
 
     // Aviso de estoque: só para produto vinculado ao estoque (serviço não tem
@@ -135,7 +138,9 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
       title: const Text('Adicionar item'),
       content: SizedBox(
         width: 460,
-        child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -163,7 +168,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _quantity,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -171,12 +176,14 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                         labelText: 'Quantidade',
                         prefixIcon: Icon(Icons.numbers),
                       ),
+                      validator:
+                          Validators.positiveNumber(field: 'Quantidade'),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
+                    child: TextFormField(
                       controller: _unitPrice,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -185,13 +192,14 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                         prefixText: 'R\$ ',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),
+                      validator: Validators.positiveNumber(field: 'Preço'),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              TextField(
+              TextFormField(
                 controller: _discount,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
@@ -200,6 +208,8 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                   prefixText: 'R\$ ',
                   prefixIcon: Icon(Icons.discount_outlined),
                 ),
+                validator:
+                    Validators.positiveNumber(optional: true, field: 'Desconto'),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
@@ -209,6 +219,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                 discount: _toDouble(_discount.text),
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -317,12 +328,16 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
         onSelectionChanged: (sel) => setState(() => _kind = sel.first),
       ),
       const SizedBox(height: 12),
-      TextField(
+      TextFormField(
         controller: _name,
+        maxLength: 120,
+        textCapitalization: TextCapitalization.words,
         decoration: const InputDecoration(
           labelText: 'Descrição *',
           prefixIcon: Icon(Icons.label_outline),
+          counterText: '',
         ),
+        validator: Validators.required('Descrição'),
         onChanged: (_) => setState(() {}),
       ),
     ];

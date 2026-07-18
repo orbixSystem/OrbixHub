@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/team_models.dart';
 import 'reauth_dialog.dart';
@@ -136,13 +137,13 @@ class _InviteDialogState extends State<_InviteDialog> {
               controller: _emailController,
               autofocus: true,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'E-mail'),
-              validator: (v) {
-                final value = v?.trim() ?? '';
-                if (value.isEmpty) return 'Informe um e-mail.';
-                if (!value.contains('@')) return 'E-mail inválido.';
-                return null;
-              },
+              autofillHints: const [AutofillHints.email],
+              maxLength: 160,
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                counterText: '',
+              ),
+              validator: Validators.email(optional: false),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
