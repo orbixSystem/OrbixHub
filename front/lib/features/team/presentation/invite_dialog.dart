@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../domain/team_models.dart';
@@ -121,18 +122,28 @@ class _InviteDialogState extends State<_InviteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Convidar para a equipe'),
-      // Pin a comfortable width so the form fields breathe and the action
-      // buttons sit side by side instead of stacking vertically.
-      content: SizedBox(
-        width: 420,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    return NeuDialog(
+      title: 'Convidar para a equipe',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Enviar convite',
+          icon: Icons.send_rounded,
+          loading: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             TextFormField(
               controller: _emailController,
               autofocus: true,
@@ -200,44 +211,9 @@ class _InviteDialogState extends State<_InviteDialog> {
                 ],
               ),
               ),
-            ],
-          ),
-        ),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-      actions: [
-        // A single min-width Row keeps both buttons on the same line with a
-        // clean gap; OverflowBar measures action children at unbounded width,
-        // so the Row must be MainAxisSize.min (and the FilledButton pinned).
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: _busy ? null : () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            const SizedBox(width: 12),
-            _busy
-                ? FilledButton(
-                    style:
-                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: null,
-                    child: const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : FilledButton.icon(
-                    style:
-                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                    onPressed: _submit,
-                    icon: const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('Enviar convite'),
-                  ),
           ],
         ),
-      ],
+      ),
     );
   }
 }

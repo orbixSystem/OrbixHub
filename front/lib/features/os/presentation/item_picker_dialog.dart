@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -134,17 +135,27 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Adicionar item'),
-      content: SizedBox(
-        width: 460,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return NeuDialog(
+      title: 'Adicionar item',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Adicionar',
+          icon: Icons.check_rounded,
+          onPressed: _canConfirm ? () => _confirm() : null,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(
@@ -218,21 +229,9 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                 unitPrice: _toDouble(_unitPrice.text),
                 discount: _toDouble(_discount.text),
               ),
-            ],
-          ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _canConfirm ? () => _confirm() : null,
-          child: const Text('Adicionar'),
-        ),
-      ],
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
 
 /// Prompts for the caller's current password (owner-gated mutations require it)
@@ -42,9 +43,22 @@ class _ReauthDialogState extends State<_ReauthDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: Form(
+    return NeuDialog(
+      title: widget.title,
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Confirmar',
+          icon: Icons.check_rounded,
+          onPressed: _submit,
+        ),
+      ],
+      child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -73,16 +87,6 @@ class _ReauthDialogState extends State<_ReauthDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Confirmar'),
-        ),
-      ],
     );
   }
 }

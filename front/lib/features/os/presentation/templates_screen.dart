@@ -400,17 +400,27 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isEdit = widget.template != null;
-    return AlertDialog(
-      title: Text(isEdit ? 'Editar template' : 'Novo template'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return NeuDialog(
+      title: isEdit ? 'Editar template' : 'Novo template',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: isEdit ? 'Salvar' : 'Criar',
+          icon: Icons.check_rounded,
+          onPressed: _name.text.trim().isEmpty ? null : _submit,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               TextFormField(
                 controller: _name,
                 maxLength: 120,
@@ -478,21 +488,9 @@ class _TemplateFormDialogState extends ConsumerState<TemplateFormDialog> {
                       ),
                   ],
                 ),
-            ],
-          ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _name.text.trim().isEmpty ? null : _submit,
-          child: Text(isEdit ? 'Salvar' : 'Criar'),
-        ),
-      ],
     );
   }
 }
@@ -613,17 +611,27 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Adicionar item'),
-      content: SizedBox(
-        width: 460,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return NeuDialog(
+      title: 'Adicionar item',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Adicionar',
+          icon: Icons.check_rounded,
+          onPressed: _canConfirm ? _confirm : null,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(
@@ -676,21 +684,9 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
                   ),
                 ],
               ),
-            ],
-          ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _canConfirm ? _confirm : null,
-          child: const Text('Adicionar'),
-        ),
-      ],
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../domain/inventory_models.dart';
@@ -363,17 +364,28 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         const <ItemFieldConfig>[];
     _ensureDynamicControllers(fields);
 
-    return AlertDialog(
-      title: Text(editing ? 'Editar item' : 'Novo item'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+    return NeuDialog(
+      title: editing ? 'Editar item' : 'Novo item',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : () => _save(fields),
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
                 SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
@@ -406,27 +418,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : () => _save(fields),
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 

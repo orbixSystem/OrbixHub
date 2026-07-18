@@ -1558,13 +1558,31 @@ class _ItemEditDialogState extends State<_ItemEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.item.name),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return NeuDialog(
+      title: widget.item.name,
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          onPressed: () => Navigator.of(context).pop(
+            OrderItemPatch(
+              quantity: _toDouble(_qty.text),
+              unitPrice: _toDouble(_price.text),
+              discount: _toDouble(_disc.text),
+            ),
+          ),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
             TextField(
               controller: _qty,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1586,23 +1604,6 @@ class _ItemEditDialogState extends State<_ItemEditDialog> {
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            OrderItemPatch(
-              quantity: _toDouble(_qty.text),
-              unitPrice: _toDouble(_price.text),
-              discount: _toDouble(_disc.text),
-            ),
-          ),
-          child: const Text('Salvar'),
-        ),
-      ],
     );
   }
 }
@@ -2243,14 +2244,25 @@ class _NoteDialogState extends State<_NoteDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Adicionar nota'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return NeuDialog(
+      title: 'Adicionar nota',
+      maxWidth: context.isMobile ? 560 : 420,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        NeuButton(
+          label: 'Adicionar',
+          icon: Icons.check_rounded,
+          onPressed: _submit,
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             TextField(
               controller: _message,
               autofocus: true,
@@ -2278,17 +2290,6 @@ class _NoteDialogState extends State<_NoteDialog> {
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Adicionar'),
-        ),
-      ],
     );
   }
 }

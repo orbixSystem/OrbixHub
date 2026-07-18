@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -158,16 +159,28 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Editar ${widget.order.number}'),
-      content: SizedBox(
-        width: 460,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+    return NeuDialog(
+      title: 'Editar ${widget.order.number}',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
               TextField(
                 controller: _complaint,
                 maxLines: 3,
@@ -275,25 +288,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
               ],
             ],
           ),
-          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 }

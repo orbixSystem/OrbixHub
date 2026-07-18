@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../../di.dart';
@@ -105,16 +106,28 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.existing != null;
-    return AlertDialog(
-      title: Text(editing ? 'Editar cliente' : 'Novo cliente'),
-      content: SizedBox(
-        width: 420,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+    return NeuDialog(
+      title: editing ? 'Editar cliente' : 'Novo cliente',
+      maxWidth: context.isMobile ? 560 : 480,
+      actions: [
+        NeuButton(
+          label: 'Cancelar',
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+        ),
+        NeuButton(
+          label: 'Salvar',
+          icon: Icons.check_rounded,
+          loading: _saving,
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
                 TextFormField(
                   controller: _name,
                   textCapitalization: TextCapitalization.words,
@@ -219,27 +232,9 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Salvar'),
-        ),
-      ],
     );
   }
 }
