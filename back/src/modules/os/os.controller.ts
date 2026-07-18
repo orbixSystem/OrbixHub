@@ -31,7 +31,11 @@ import {
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
 import { PostPhotoCommentDto } from './dto/photo-comment.dto';
-import { CreateTemplateDto, UpdateTemplateDto } from './dto/template.dto';
+import {
+  CreateTemplateDto,
+  ListTemplatesQueryDto,
+  UpdateTemplateDto,
+} from './dto/template.dto';
 
 @Controller('os')
 @UseGuards(ModuleAccessGuard)
@@ -59,8 +63,11 @@ export class OsController {
   // não colidirem (segmentos distintos, mas mantemos explícito).
   @Get('templates')
   @Permissions('os.read')
-  listTemplates(@CurrentUser() user: AuthUser) {
-    return this.os.listTemplates(user);
+  listTemplates(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListTemplatesQueryDto,
+  ) {
+    return this.os.listTemplates(user, query);
   }
 
   @Get('templates/:id')

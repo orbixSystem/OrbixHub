@@ -14,6 +14,8 @@ import 'package:orbixhub_front/features/customers/presentation/customer_detail_s
 import 'package:orbixhub_front/features/customers/presentation/customers_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
 
+import 'support/online_conn.dart';
+
 const _me = Me(
   user: User(id: 'u1', email: 'dono@teste.com', fullName: 'Dono Teste'),
   activeTenant: Tenant(id: 't1', slug: 's1', name: 'Oficina'),
@@ -132,6 +134,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           sessionControllerProvider.overrideWith(_AuthedSession.new),
           customersRepositoryProvider.overrideWithValue(repo),
         ],
@@ -164,6 +167,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           sessionControllerProvider.overrideWith(_AuthedSession.new),
           customersRepositoryProvider.overrideWithValue(repo),
         ],
@@ -207,6 +211,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           customersRepositoryProvider.overrideWithValue(fake),
         ],
         child: const MaterialApp(
@@ -254,7 +259,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,
+          customersRepositoryProvider.overrideWithValue(fake),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: SubjectFormDialog(customerId: 'cus-1', config: config),
@@ -293,7 +301,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [customersRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,
+          customersRepositoryProvider.overrideWithValue(fake),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: SubjectFormDialog(customerId: 'cus-1', config: config),

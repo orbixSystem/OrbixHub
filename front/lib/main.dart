@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/devtools/dev_inbox_overlay.dart';
+import 'core/offline/db/db_bootstrap.dart';
 import 'core/router/app_router.dart';
 import 'core/router/navigator_key.dart';
 import 'core/theme/app_theme.dart';
@@ -12,7 +13,11 @@ import 'core/ui/neu_tokens.dart';
 import 'di.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_BR', null);
+  // Offline (B5): prepara a plataforma p/ o banco local cifrado. No-op na web
+  // (online-only); no nativo cobre o Android antigo. Seguro em qualquer alvo.
+  await initOfflineDb();
   runApp(ProviderScope(overrides: diOverrides, child: const OrbixApp()));
 }
 
@@ -57,6 +62,9 @@ class _OrbixAppState extends ConsumerState<OrbixApp> {
 
   @override
   Widget build(BuildContext context) {
+    // B7 — mantém o SyncEngine vivo enquanto o app estiver de pé (o provider
+    // nasce/morre com a sessão e o tenant ativo). No-op na web.
+    ref.watch(syncEngineProvider);
     final router = ref.watch(routerProvider);
     final seed = ref
         .watch(brandingSeedProvider)

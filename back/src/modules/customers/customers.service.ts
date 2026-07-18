@@ -15,7 +15,11 @@ import {
   StorageProvider,
 } from '../../common/storage/storage.provider';
 import { BillingService } from '../billing/billing.service';
-import { CustomersRepository } from './customers.repository';
+import { CustomersRepository, CustomersSyncEntity } from './customers.repository';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { SubjectHistoryProvider } from './subject-history.provider';
 import type { SubjectHistoryEntry } from './subject-history.provider';
 import {
@@ -35,12 +39,12 @@ import {
   UpdateSubjectDto,
 } from './dto/subject.dto';
 import { UpdateCustomersConfigDto } from './dto/config.dto';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-function isUniqueViolation(e: unknown): boolean {
-  return (e as { code?: string })?.code === 'P2002';
-}
 
 @Injectable()
 export class CustomersService {
@@ -105,6 +109,7 @@ export class CustomersService {
     try {
       return await this.tenant.withTenantTx(() =>
         this.repo.createCustomer(user.tenantId, {
+          id: dto.id,
           name: dto.name.trim(),
           type: dto.type ?? 'PF',
           document: dto.document?.trim() || null,
@@ -115,10 +120,22 @@ export class CustomersService {
         }),
       );
     } catch (e) {
-      if (isUniqueViolation(e)) {
-        throw new ConflictException('Já existe um cliente com este documento.');
+      if (!isUniqueViolation(e)) throw e;
+      // PK duplicada (replay offline com id) ≠ documento duplicado. Sob RLS o
+      // Postgres suprime o meta.target (vem null) — quando o detalhe não diz
+      // que foi a PK, confirmamos com uma LEITURA por id em nova tx: se o
+      // registro com aquele id existe no tenant, o conflito é de id.
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findCustomerById(dto.id as string),
+          )) != null;
+        if (idTaken) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
       }
-      throw e;
+      throw new ConflictException('Já existe um cliente com este documento.');
     }
   }
 
@@ -237,15 +254,25 @@ export class CustomersService {
     const config = await this.assertSubjectsEnabled(user.tenantId);
     const identifier = dto.identifier?.trim() || null;
     this.assertRequiredSubjectFields(config, identifier, dto.attributes);
-    return this.tenant.withTenantTx(async () => {
-      const customer = await this.repo.findCustomerById(customerId);
-      if (!customer) throw new BadRequestException('Cliente inválido.');
-      return this.repo.createSubject(user.tenantId, customerId, {
-        label: dto.label?.trim() || null,
-        identifier,
-        attributes: dto.attributes,
+    try {
+      return await this.tenant.withTenantTx(async () => {
+        const customer = await this.repo.findCustomerById(customerId);
+        if (!customer) throw new BadRequestException('Cliente inválido.');
+        return this.repo.createSubject(user.tenantId, customerId, {
+          id: dto.id,
+          label: dto.label?.trim() || null,
+          identifier,
+          attributes: dto.attributes,
+        });
       });
-    });
+    } catch (e) {
+      // `subject` não tem unique além da PK: P2002 com id do cliente presente
+      // SÓ pode ser o id duplicado (replay offline repetido).
+      if (dto.id && isUniqueViolation(e)) {
+        throw new ConflictException('Registro já existe (id duplicado).');
+      }
+      throw e;
+    }
   }
 
   async listSubjects(user: AuthUser, query: ListSubjectsQueryDto) {
@@ -434,5 +461,34 @@ export class CustomersService {
     return subjectId
       ? this.history.listBySubject(subjectId)
       : this.history.listByCustomer(customerId);
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<CustomersSyncEntity>([
+    'customer',
+    'subject',
+  ]);
+
+  /**
+   * Página de mudanças de `customer`/`subject` para o pull de sync offline
+   * (`GET /sync/changes`, módulo `sync` — "aponta, não invade": ele nunca lê
+   * estas tabelas direto, só chama este service público). Mesma shape JSON dos
+   * endpoints de leitura (linhas cruas do Prisma).
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!CustomersService.SYNC_ENTITIES.has(entity as CustomersSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo customers: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as CustomersSyncEntity, cursor, clamped),
+    );
   }
 }

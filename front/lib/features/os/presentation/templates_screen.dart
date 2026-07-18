@@ -21,7 +21,7 @@ class TemplatesScreen extends ConsumerWidget {
 
   bool _canWrite(WidgetRef ref) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('os.write');
+    return s.meOrNull?.hasPermission('os.write') ?? false;
   }
 
   @override

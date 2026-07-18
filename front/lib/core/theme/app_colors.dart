@@ -32,6 +32,19 @@ class AppColors {
   static const inkMuted = Color(0xFF7B8094);
   static const inkFaint = Color(0xFFA6AABC);
 
+  // Deep-space — the dark "azul-noite + ciano" treatment used on the auth
+  // screens (login/register/…). Cool, ambient; the tangerine brand stays as a
+  // warm focal pop against it.
+  static const spaceBg = Color(0xFF080B16);
+  static const spaceBg2 = Color(0xFF0C1122);
+  static const spaceSurface = Color(0xFF121A30);
+  static const spaceSurfaceHi = Color(0xFF18233D);
+  static const spaceLine = Color(0xFF243352);
+  static const spaceCyan = Color(0xFF38D6F0);
+  static const spaceCyanDim = Color(0xFF1C9BBE);
+  static const onSpace = Color(0xFFEAF1FC);
+  static const onSpaceMuted = Color(0xFF8C9AB8);
+
   // Semantic.
   static const success = Color(0xFF0E9F6E);
   static const successTint = Color(0xFFDDF0E8);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/theme_presets.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
@@ -83,13 +84,19 @@ class AppearanceSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 14),
-        _SwatchGrid(
-          selectedKey: selectedKey,
-          onSelect: (key) {
-            ref
-                .read(settingsControllerProvider.notifier)
-                .saveAppearance({'themePreset': key});
-          },
+        // O PRESET é config da EMPRESA (salva no servidor) — offline fica
+        // inerte e explicado. O MODO (claro/escuro) abaixo é LOCAL e continua
+        // funcionando normalmente offline.
+        RequiresConnection(
+          reason: 'o tema da empresa é salvo no servidor',
+          child: _SwatchGrid(
+            selectedKey: selectedKey,
+            onSelect: (key) {
+              ref
+                  .read(settingsControllerProvider.notifier)
+                  .saveAppearance({'themePreset': key});
+            },
+          ),
         ),
         const SizedBox(height: 24),
 

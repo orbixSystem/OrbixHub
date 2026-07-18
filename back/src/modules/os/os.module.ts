@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
+import { CashierModule } from '../cashier/cashier.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { MessagesModule } from '../messages/messages.module';
@@ -22,6 +23,7 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
 @Module({
   imports: [
     BillingModule,
+    CashierModule,
     forwardRef(() => CustomersModule),
     InventoryModule,
     MessagesModule,

@@ -60,6 +60,28 @@ class FakeReportRepository implements ReportRepository {
   }
 
   @override
+  Future<Uint8List> osCsv({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+  }) async =>
+      Uint8List.fromList(
+          utf8.encode('Número;Cliente\r\nOS-0001;Maria Silva\r\n'));
+
+  @override
+  Future<Uint8List> osPdf({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+    ReportExportCompany? company,
+  }) async =>
+      Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) async =>
       const RevenueReport(
         total: 1730.90,
@@ -178,26 +200,98 @@ class FakeReportRepository implements ReportRepository {
   }) async =>
       Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
 
+  static const _customerRows = <CustomerReportRow>[
+    CustomerReportRow(
+      id: 'c1',
+      name: 'Maria Silva',
+      type: 'pf',
+      createdAt: '2026-06-03T12:00:00.000Z',
+    ),
+    CustomerReportRow(
+      id: 'c2',
+      name: 'Auto Center LTDA',
+      type: 'pj',
+      createdAt: '2026-06-10T08:00:00.000Z',
+    ),
+  ];
+
   @override
-  Future<CustomersReport> customers({required ReportRange range}) async =>
-      const CustomersReport(
-        active: 42,
-        newInRange: 3,
-        rows: [
-          CustomerReportRow(
-            id: 'c1',
-            name: 'Maria Silva',
-            type: 'pf',
-            createdAt: '2026-06-03T12:00:00.000Z',
-          ),
-          CustomerReportRow(
-            id: 'c2',
-            name: 'Auto Center LTDA',
-            type: 'pj',
-            createdAt: '2026-06-10T08:00:00.000Z',
-          ),
-        ],
-      );
+  Future<CustomersReport> customers({
+    required ReportRange range,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final start = (page - 1) * pageSize;
+    final slice = start >= _customerRows.length
+        ? const <CustomerReportRow>[]
+        : _customerRows.sublist(
+            start,
+            (start + pageSize).clamp(0, _customerRows.length),
+          );
+    return CustomersReport(
+      active: 42,
+      newInRange: _customerRows.length,
+      rows: slice,
+      total: _customerRows.length,
+      page: page,
+      pageSize: pageSize,
+      series: const [
+        CustomersSeriesPoint(day: '2026-06-03', type: 'pf', count: 1),
+        CustomersSeriesPoint(day: '2026-06-10', type: 'pj', count: 1),
+      ],
+    );
+  }
+
+  @override
+  Future<Uint8List> customersCsv({required ReportRange range}) async =>
+      Uint8List.fromList(utf8.encode('Nome;Tipo\r\nMaria Silva;pf\r\n'));
+
+  @override
+  Future<Uint8List> customersPdf({
+    required ReportRange range,
+    ReportExportCompany? company,
+  }) async =>
+      Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
+
+  @override
+  Future<SalesLedger> salesLedger({
+    required ReportRange range,
+    String? type,
+    String? paymentStatus,
+  }) async {
+    const rows = [
+      SalesLedgerRow(
+        id: 'os-1',
+        date: '2026-06-12T10:00:00.000Z',
+        type: 'servico',
+        origin: 'os',
+        originNumber: 'OS-0001',
+        customerName: 'Maria Silva',
+        value: 320,
+        paymentStatus: 'pago',
+      ),
+      SalesLedgerRow(
+        id: 'sale-1',
+        date: '2026-06-11T15:30:00.000Z',
+        type: 'produto',
+        origin: 'sale',
+        originNumber: 'VND-0001',
+        customerName: null,
+        value: 80,
+        paymentStatus: 'a_receber',
+      ),
+    ];
+    final filtered = rows.where((r) {
+      if (type != null && type.isNotEmpty && r.type != type) return false;
+      if (paymentStatus != null &&
+          paymentStatus.isNotEmpty &&
+          r.paymentStatus != paymentStatus) {
+        return false;
+      }
+      return true;
+    }).toList();
+    return SalesLedger(rows: filtered);
+  }
 
   @override
   Future<List<ReportMemberOption>> members() async => const [

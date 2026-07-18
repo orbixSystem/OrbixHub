@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,65 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
+import '../domain/external_lookups_repository.dart';
 import '../domain/settings_models.dart';
 import '../../auth/presentation/session_state.dart';
-
-// ---------------------------------------------------------------------------
-// CNAE cache — carregado uma vez e reutilizado em todos os rebuilds
-// ---------------------------------------------------------------------------
-
-/// Entrada da lista de subclasses CNAE do IBGE.
-class _CnaeEntry {
-  const _CnaeEntry({required this.id, required this.descricao});
-  final String id;
-  final String descricao;
-
-  String get label => '$id - $descricao';
-}
-
-/// Cache em memória das subclasses CNAE. `null` = ainda não carregado.
-/// `[]` = falha na requisição (fallback para campo texto).
-List<_CnaeEntry>? _cnaeCache;
-bool _cnaeLoading = false;
-
-Future<List<_CnaeEntry>> _loadCnaes() async {
-  if (_cnaeCache != null) return _cnaeCache!;
-  if (_cnaeLoading) {
-    // Aguarda até o cache ficar disponível (poll simples).
-    while (_cnaeLoading) {
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-    }
-    return _cnaeCache ?? [];
-  }
-  _cnaeLoading = true;
-  final cnaeDio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 12),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
-  try {
-    final resp = await cnaeDio.get<String>(
-      'https://servicodados.ibge.gov.br/api/v2/cnae/subclasses',
-    );
-    if (resp.statusCode == 200 && resp.data != null) {
-      final raw = jsonDecode(resp.data!) as List<dynamic>;
-      _cnaeCache = raw
-          .map((e) => _CnaeEntry(
-                id: (e['id'] as dynamic)?.toString() ?? '',
-                descricao: (e['descricao'] as String?) ?? '',
-              ))
-          .where((e) => e.id.isNotEmpty)
-          .toList();
-    } else {
-      _cnaeCache = [];
-    }
-  } catch (_) {
-    _cnaeCache = [];
-  } finally {
-    cnaeDio.close();
-    _cnaeLoading = false;
-  }
-  return _cnaeCache!;
-}
 
 // ---------------------------------------------------------------------------
 // CompanyForm
@@ -113,7 +54,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
 
   /// Lista de subclasses CNAE — carregada de forma lazy no initState.
   /// `null` enquanto ainda está carregando; `[]` indica falha (usa fallback texto).
-  List<_CnaeEntry>? _cnaes;
+  List<CnaeOption>? _cnaes;
 
   /// Retorna a seção 'company' do bundle, ou null se não existir.
   SettingsSection? get _companySection {
@@ -156,8 +97,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // de email da empresa estiver vazio.
     String ownerEmail() {
       final session = ref.read(sessionControllerProvider);
-      if (session is SessionAuthenticated) return session.me.user.email;
-      return '';
+      return session.meOrNull?.user.email ?? '';
     }
 
     for (final field in section.fields) {
@@ -184,7 +124,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   }
 
   Future<void> _loadCnaesAsync() async {
-    final list = await _loadCnaes();
+    final list =
+        await ref.read(externalLookupsRepositoryProvider).cnaeSubclasses();
     if (mounted) {
       setState(() => _cnaes = list);
     }
@@ -318,58 +259,41 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     }
   }
 
-  /// Consulta o ViaCEP e preenche os campos de endereço automaticamente.
+  /// Consulta o ViaCEP (via repository) e preenche os campos de endereço.
   Future<void> _buscarCep(String rawCep) async {
     final digits = rawCep.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 8) return;
 
-    // Usa Dio independente — sem o interceptor de auth da app (que aponta para a API).
-    final viaCepDio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 8),
-    ));
-    try {
-      final response = await viaCepDio
-          .get<String>('https://viacep.com.br/ws/$digits/json/');
-      if (response.statusCode != 200 || response.data == null) {
-        _showCepSnack('CEP não encontrado.');
-        return;
-      }
-      final data = jsonDecode(response.data!) as Map<String, dynamic>;
-      if (data['erro'] == true || data['erro'] == 'true') {
-        _showCepSnack('CEP não encontrado.');
-        return;
-      }
-      setState(() {
-        if (_textCtrl.containsKey('logradouro')) {
-          _textCtrl['logradouro']!.text = (data['logradouro'] as String?) ?? '';
-        }
-        if (_textCtrl.containsKey('bairro')) {
-          _textCtrl['bairro']!.text = (data['bairro'] as String?) ?? '';
-        }
-        if (_textCtrl.containsKey('municipio')) {
-          _textCtrl['municipio']!.text = (data['localidade'] as String?) ?? '';
-        }
-        // complemento: preenche apenas se estiver vazio
-        if (_textCtrl.containsKey('complemento')) {
-          final comp = (data['complemento'] as String?) ?? '';
-          if (_textCtrl['complemento']!.text.isEmpty && comp.isNotEmpty) {
-            _textCtrl['complemento']!.text = comp;
-          }
-        }
-        // UF: atualiza o select
-        final uf = (data['uf'] as String?);
-        if (uf != null && _selectValues.containsKey('uf')) {
-          _selectValues['uf'] = uf;
-        }
-      });
-    } on DioException {
-      // Falha silenciosa — não crasha o form
-    } catch (_) {
-      // Falha silenciosa
-    } finally {
-      viaCepDio.close();
+    final addr =
+        await ref.read(externalLookupsRepositoryProvider).addressByCep(digits);
+    if (!mounted) return;
+    if (addr == null) {
+      _showCepSnack('CEP não encontrado.');
+      return;
     }
+    setState(() {
+      if (_textCtrl.containsKey('logradouro')) {
+        _textCtrl['logradouro']!.text = addr.logradouro ?? '';
+      }
+      if (_textCtrl.containsKey('bairro')) {
+        _textCtrl['bairro']!.text = addr.bairro ?? '';
+      }
+      if (_textCtrl.containsKey('municipio')) {
+        _textCtrl['municipio']!.text = addr.municipio ?? '';
+      }
+      // complemento: preenche apenas se estiver vazio
+      if (_textCtrl.containsKey('complemento')) {
+        final comp = addr.complemento ?? '';
+        if (_textCtrl['complemento']!.text.isEmpty && comp.isNotEmpty) {
+          _textCtrl['complemento']!.text = comp;
+        }
+      }
+      // UF: atualiza o select
+      final uf = addr.uf;
+      if (uf != null && _selectValues.containsKey('uf')) {
+        _selectValues['uf'] = uf;
+      }
+    });
   }
 
   void _showCepSnack(String msg) {
@@ -831,7 +755,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
     // Sucesso: Autocomplete com limite de 40 opções para performance.
     // O initialValue é o label completo do código salvo, se encontrado.
     final all = _cnaes!;
-    final matchingEntry = all.cast<_CnaeEntry?>()
+    final matchingEntry = all.cast<CnaeOption?>()
         .firstWhere((e) => e?.id == currentCode, orElse: () => null);
 
     return Autocomplete<String>(

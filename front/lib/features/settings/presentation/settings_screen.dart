@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
@@ -51,10 +52,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     final neu = context.neu;
-    final canManage = session is SessionAuthenticated &&
-        session.me.hasPermission('settings.manage');
+    final canManage =
+        session.meOrNull?.hasPermission('settings.manage') ?? false;
 
     final settingsAsync = ref.watch(settingsControllerProvider);
+
+    // Offline: empresa e módulos são gravados no SERVIDOR (sem outbox) — a tela
+    // explica em vez de mostrar formulários que não salvam. Mas a APARÊNCIA
+    // (tema claro/escuro) é 100% LOCAL e continua utilizável.
+    if (ref.watch(isOfflineProvider)) {
+      final company =
+          settingsAsync.asData?.value.company ?? const <String, dynamic>{};
+      return _offlineLayout(company, canManage);
+    }
 
     return settingsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -136,6 +146,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ? _mobileLayout(categories, canManage)
             : _desktopLayout(categories, canManage);
       },
+    );
+  }
+
+  // ===================== Offline =====================
+
+  /// Layout offline: a seção de Aparência (tema local) continua utilizável; o
+  /// resto (empresa + módulos, gravados no servidor) vira "Requer conexão".
+  Widget _offlineLayout(Map<String, dynamic> company, bool canManage) {
+    final isMobile = context.isMobile;
+    return Padding(
+      padding: EdgeInsets.all(isMobile ? 16 : 28),
+      child: ListView(
+        children: [
+          _PageHeader(canManage: canManage),
+          const SizedBox(height: 22),
+          AppearanceSection(company: company),
+          const SizedBox(height: 16),
+          const SizedBox(
+            height: 300,
+            child: RequiresConnectionView(
+              message:
+                  'As configurações da empresa e dos módulos são salvas no '
+                  'servidor. Conecte-se à internet para vê-las e alterá-las — '
+                  'o tema acima continua funcionando offline.',
+            ),
+          ),
+        ],
+      ),
     );
   }
 

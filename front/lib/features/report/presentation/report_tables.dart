@@ -1,3 +1,5 @@
+import '../../cashier/domain/cashier_format.dart' show methodLabel;
+import '../../cashier/domain/cashier_models.dart' show CashSummary;
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, formatCycle;
 import '../../os/presentation/os_status.dart' show osStatusLabel;
@@ -168,11 +170,67 @@ ReportTable inventoryTable(InventoryReport r, {bool includeTotal = true}) =>
       ],
     );
 
-ReportTable customersTable(CustomersReport r) => ReportTable(
-      title: 'Clientes',
-      headers: const ['Nome', 'Tipo', 'Cadastro'],
+/// Rótulo PT-BR do tipo da venda (origem) na lente "Vendas".
+String saleTypeLabel(String type) => switch (type) {
+      'servico' => 'Serviço (OS)',
+      'produto' => 'Produto (venda)',
+      _ => type,
+    };
+
+/// Rótulo PT-BR do status de pagamento.
+String paymentStatusLabel(String status) => switch (status) {
+      'pago' => 'Paga',
+      'parcial' => 'Parcial',
+      'a_receber' => 'A receber',
+      _ => status,
+    };
+
+ReportTable salesLedgerTable(SalesLedger r) => ReportTable(
+      title: 'Vendas',
+      headers: const ['Data', 'Tipo', 'Cliente', 'Origem', 'Pagamento', 'Valor'],
       rows: [
-        for (final c in r.rows)
-          [c.name, customerTypeLabel(c.type), fmtDate(c.createdAt)],
+        for (final s in r.rows)
+          [
+            fmtDate(s.date),
+            saleTypeLabel(s.type),
+            s.customerName ?? 'Balcão',
+            s.originNumber,
+            paymentStatusLabel(s.paymentStatus),
+            formatMoney(s.value),
+          ],
+        [
+          'TOTAL',
+          '${r.rows.length} venda(s)',
+          '',
+          '',
+          '',
+          formatMoney(r.rows.fold<num>(0, (a, b) => a + b.value)),
+        ],
       ],
     );
+
+/// Caixa — recebido por forma (entrou/saiu/saldo). "Recebido" = movimento do
+/// caixa (não é faturamento).
+ReportTable cashFlowTable(CashSummary s) => ReportTable(
+      title: 'Caixa — recebido por forma',
+      headers: const ['Forma', 'Entrou', 'Saiu', 'Saldo'],
+      rows: [
+        for (final m in s.byMethod)
+          [
+            methodLabel(m.method),
+            formatMoney(m.inAmount),
+            formatMoney(m.outAmount),
+            formatMoney(m.inAmount - m.outAmount),
+          ],
+        [
+          'TOTAL',
+          formatMoney(s.totalIn),
+          formatMoney(s.totalOut),
+          formatMoney(s.net),
+        ],
+      ],
+    );
+
+// (O relatório de Clientes não usa mais builder de tabela: a tela é uma lista
+// paginada com scroll infinito e o export CSV/PDF é gerado no servidor —
+// `GET /report/customers.csv|.pdf` — como o de OS/estoque.)

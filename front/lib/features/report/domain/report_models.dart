@@ -17,6 +17,39 @@ class ReportRange {
 }
 
 // ---------------------------------------------------------------------------
+// Lente "Vendas" — GET /report/sales (histórico unificado OS + venda avulsa)
+// ---------------------------------------------------------------------------
+
+/// Uma linha da lente "Vendas": OS (serviço) ou venda avulsa (produto).
+@freezed
+abstract class SalesLedgerRow with _$SalesLedgerRow {
+  const factory SalesLedgerRow({
+    @Default('') String id,
+    @Default('') String date, // ISO
+    @Default('servico') String type, // 'servico' | 'produto'
+    @Default('os') String origin, // 'os' | 'sale'
+    @JsonKey(name: 'originNumber') @Default('') String originNumber,
+    @JsonKey(name: 'customerName') String? customerName,
+    @Default(0) num value,
+    @JsonKey(name: 'paymentStatus') @Default('a_receber') String paymentStatus,
+  }) = _SalesLedgerRow;
+
+  factory SalesLedgerRow.fromJson(Map<String, dynamic> json) =>
+      _$SalesLedgerRowFromJson(json);
+}
+
+/// Lente "Vendas" (`GET /report/sales`): linhas unificadas OS + venda.
+@freezed
+abstract class SalesLedger with _$SalesLedger {
+  const factory SalesLedger({
+    @Default(<SalesLedgerRow>[]) List<SalesLedgerRow> rows,
+  }) = _SalesLedger;
+
+  factory SalesLedger.fromJson(Map<String, dynamic> json) =>
+      _$SalesLedgerFromJson(json);
+}
+
+// ---------------------------------------------------------------------------
 // OS operacional — GET /report/os
 // ---------------------------------------------------------------------------
 
@@ -222,13 +255,34 @@ abstract class CustomerReportRow with _$CustomerReportRow {
       _$CustomerReportRowFromJson(json);
 }
 
-/// Relatório de clientes: novos no range + total ativo.
+/// Ponto da série do gráfico de clientes: novos por dia (YYYY-MM-DD) e por
+/// tipo (pf/pj/...). Agregado no servidor — o gráfico não depende das linhas
+/// (que agora vêm paginadas).
+@freezed
+abstract class CustomersSeriesPoint with _$CustomersSeriesPoint {
+  const factory CustomersSeriesPoint({
+    @Default('') String day,
+    @Default('') String type,
+    @Default(0) int count,
+  }) = _CustomersSeriesPoint;
+
+  factory CustomersSeriesPoint.fromJson(Map<String, dynamic> json) =>
+      _$CustomersSeriesPointFromJson(json);
+}
+
+/// Relatório de clientes PAGINADO (scroll infinito na tela): linhas da página +
+/// total ativo + `newInRange` (TOTAL de novos no período, não o tamanho da
+/// página) + metadados do paginador + série por dia/tipo para o gráfico.
 @freezed
 abstract class CustomersReport with _$CustomersReport {
   const factory CustomersReport({
     @Default(<CustomerReportRow>[]) List<CustomerReportRow> rows,
     @Default(0) int active,
     @JsonKey(name: 'newInRange') @Default(0) int newInRange,
+    @Default(0) int total,
+    @Default(1) int page,
+    @JsonKey(name: 'pageSize') @Default(50) int pageSize,
+    @Default(<CustomersSeriesPoint>[]) List<CustomersSeriesPoint> series,
   }) = _CustomersReport;
 
   factory CustomersReport.fromJson(Map<String, dynamic> json) =>

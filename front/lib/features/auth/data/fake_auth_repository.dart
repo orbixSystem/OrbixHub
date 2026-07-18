@@ -9,6 +9,7 @@ class FakeAuthRepository implements AuthRepository {
     Me? me,
     List<Membership>? loginMemberships,
     this.failRefresh = false,
+    this.failSwitchTenant = false,
   })  : _me = me ?? _defaultMe,
         _loginMemberships = loginMemberships ?? const [
           Membership(
@@ -23,6 +24,10 @@ class FakeAuthRepository implements AuthRepository {
 
   /// When true, [refresh] throws a 401 [AppException] (simulates expired family).
   bool failRefresh;
+
+  /// Simula uma troca de oficina que falha (rede instável) — o tenant ativo NÃO
+  /// muda e o banco local do tenant atual precisa continuar utilizável.
+  bool failSwitchTenant;
 
   int loginCount = 0;
   int refreshCount = 0;
@@ -112,8 +117,19 @@ class FakeAuthRepository implements AuthRepository {
       const Tokens(accessToken: 'fake-access', refreshToken: 'fake-refresh');
 
   @override
-  Future<Tokens> switchTenant(String tenantId) async =>
-      const Tokens(accessToken: 'fake-access-2', refreshToken: 'fake-refresh-2');
+  Future<Tokens> switchTenant(String tenantId) async {
+    if (failSwitchTenant) {
+      throw const AppException(
+        statusCode: 503,
+        error: 'ServiceUnavailable',
+        message: 'Não foi possível trocar de oficina agora.',
+      );
+    }
+    return const Tokens(
+      accessToken: 'fake-access-2',
+      refreshToken: 'fake-refresh-2',
+    );
+  }
 
   @override
   Future<Tokens> refresh(String refreshToken) async {

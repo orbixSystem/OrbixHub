@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/presentation/cashier_providers.dart';
 import '../../dashboard/domain/dashboard_models.dart';
 import '../../dashboard/presentation/period_controller.dart';
 import '../domain/report_models.dart';
@@ -60,6 +62,8 @@ class ReportFilters {
     this.limit = 10,
     this.osQ,
     this.osSort = OsReportSort.recent,
+    this.saleType,
+    this.salePaymentStatus,
   });
 
   /// Técnico (uuid do membro) — OS operacional.
@@ -80,6 +84,12 @@ class ReportFilters {
   /// Ordenação — OS operacional.
   final OsReportSort osSort;
 
+  /// Tipo (servico/produto) — lente Vendas.
+  final String? saleType;
+
+  /// Status de pagamento (a_receber/parcial/pago) — lente Vendas.
+  final String? salePaymentStatus;
+
   ReportFilters copyWith({
     String? assignedTo,
     bool clearAssignedTo = false,
@@ -91,6 +101,10 @@ class ReportFilters {
     String? osQ,
     bool clearOsQ = false,
     OsReportSort? osSort,
+    String? saleType,
+    bool clearSaleType = false,
+    String? salePaymentStatus,
+    bool clearSalePaymentStatus = false,
   }) =>
       ReportFilters(
         assignedTo: clearAssignedTo ? null : (assignedTo ?? this.assignedTo),
@@ -99,6 +113,10 @@ class ReportFilters {
         limit: limit ?? this.limit,
         osQ: clearOsQ ? null : (osQ ?? this.osQ),
         osSort: osSort ?? this.osSort,
+        saleType: clearSaleType ? null : (saleType ?? this.saleType),
+        salePaymentStatus: clearSalePaymentStatus
+            ? null
+            : (salePaymentStatus ?? this.salePaymentStatus),
       );
 }
 
@@ -130,6 +148,14 @@ class ReportFiltersController extends Notifier<ReportFilters> {
       : state.copyWith(osQ: q.trim());
 
   void setOsSort(OsReportSort sort) => state = state.copyWith(osSort: sort);
+
+  void setSaleType(String? type) => state = (type == null || type.isEmpty)
+      ? state.copyWith(clearSaleType: true)
+      : state.copyWith(saleType: type);
+
+  void setSalePaymentStatus(String? s) => state = (s == null || s.isEmpty)
+      ? state.copyWith(clearSalePaymentStatus: true)
+      : state.copyWith(salePaymentStatus: s);
 }
 
 /// Membros da equipe (para o filtro "técnico"). autoDispose: re-busca ao reentrar.
@@ -279,8 +305,134 @@ final inventoryReportProvider =
       );
 });
 
+/// Resumo de clientes para a Visão geral (KPI "Novos clientes"): só precisa de
+/// `newInRange`/`active` — busca 1 linha para não carregar a lista à toa
+/// (`newInRange` é o TOTAL do período, independente da página).
 final customersReportProvider =
     FutureProvider.autoDispose<CustomersReport>((ref) {
   final range = ref.watch(reportRangeProvider);
-  return ref.read(reportRepositoryProvider).customers(range: range);
+  return ref
+      .read(reportRepositoryProvider)
+      .customers(range: range, page: 1, pageSize: 1);
+});
+
+/// Linhas por página do relatório de clientes (scroll infinito na tela).
+const customersReportPageSize = 50;
+
+/// Estado da lista paginada do relatório de clientes: linhas acumuladas +
+/// resumo (ativos/novos) + série do gráfico (independente da paginação).
+class CustomersReportListState {
+  const CustomersReportListState({
+    required this.rows,
+    required this.total,
+    required this.hasMore,
+    required this.active,
+    required this.series,
+    this.loadingMore = false,
+  });
+
+  final List<CustomerReportRow> rows;
+  final int total;
+  final bool hasMore;
+  final int active;
+  final List<CustomersSeriesPoint> series;
+  final bool loadingMore;
+
+  /// Novos no período = total do período (o backend já manda o TOTAL).
+  int get newInRange => total;
+
+  CustomersReportListState copyWith({
+    List<CustomerReportRow>? rows,
+    int? total,
+    bool? hasMore,
+    int? active,
+    List<CustomersSeriesPoint>? series,
+    bool? loadingMore,
+  }) =>
+      CustomersReportListState(
+        rows: rows ?? this.rows,
+        total: total ?? this.total,
+        hasMore: hasMore ?? this.hasMore,
+        active: active ?? this.active,
+        series: series ?? this.series,
+        loadingMore: loadingMore ?? this.loadingMore,
+      );
+}
+
+/// Clientes PAGINADO (scroll infinito): `build` carrega a 1ª página e reage ao
+/// período (mudança reinicia da página 1); [loadMore] anexa o próximo lote.
+/// Evita carregar todos os clientes do período de uma vez (causa do travamento
+/// da tela). autoDispose: re-busca ao reentrar. Espelha o notifier da OS.
+class CustomersReportListNotifier
+    extends AsyncNotifier<CustomersReportListState> {
+  int _page = 1;
+  late ReportRange _range;
+
+  @override
+  Future<CustomersReportListState> build() async {
+    _range = ref.watch(reportRangeProvider);
+    _page = 1;
+    final p = await _fetch(1);
+    return CustomersReportListState(
+      rows: p.rows,
+      total: p.total,
+      hasMore: p.rows.length < p.total,
+      active: p.active,
+      series: p.series,
+    );
+  }
+
+  Future<CustomersReport> _fetch(int page) =>
+      ref.read(reportRepositoryProvider).customers(
+            range: _range,
+            page: page,
+            pageSize: customersReportPageSize,
+          );
+
+  /// Carrega o próximo lote e anexa. No-op se já carregando, sem mais páginas ou
+  /// sem o 1º lote pronto. Em erro, mantém as linhas atuais e para o spinner.
+  Future<void> loadMore() async {
+    final current = state.asData?.value;
+    if (current == null || !current.hasMore || current.loadingMore) return;
+    state = AsyncData(current.copyWith(loadingMore: true));
+    try {
+      final next = await _fetch(_page + 1);
+      _page += 1;
+      final merged = [...current.rows, ...next.rows];
+      state = AsyncData(CustomersReportListState(
+        rows: merged,
+        total: next.total,
+        hasMore: merged.length < next.total && next.rows.isNotEmpty,
+        active: next.active,
+        series: next.series,
+      ));
+    } catch (_) {
+      state = AsyncData(current.copyWith(loadingMore: false));
+    }
+  }
+}
+
+final customersReportListProvider = AsyncNotifierProvider.autoDispose<
+    CustomersReportListNotifier, CustomersReportListState>(
+  CustomersReportListNotifier.new,
+);
+
+/// Detalhamento linha-a-linha do faturamento (OS + venda avulsa) no período —
+/// alimenta a seção "Detalhamento" da lente Faturamento. Reage ao período.
+final salesLedgerReportProvider =
+    FutureProvider.autoDispose<SalesLedger>((ref) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(reportRepositoryProvider).salesLedger(range: range);
+});
+
+/// Recebido no caixa por forma de pagamento (entrou/saiu/saldo) no período —
+/// alimenta a lente "Caixa" do Relatório. Vem do módulo Caixa (`/cashier/summary`,
+/// gated por cashier.manage — que o gestor já tem). É "recebido", não faturamento.
+final cashierRecebidoReportProvider =
+    FutureProvider.autoDispose<CashSummary>((ref) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(cashierRepositoryProvider).summary(
+        from: range.fromIso,
+        to: range.toIso,
+      );
 });

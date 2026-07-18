@@ -1,5 +1,5 @@
 import {
-  IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString,
+  IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, IsUUID,
   Max, MaxLength, Min, MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -10,6 +10,8 @@ import type { ItemSort } from '../inventory.repository';
  * duration. `attributes` é validado dinamicamente no service contra `itemFields`.
  */
 export class CreateInventoryItemDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
   @IsOptional() @IsInt() @Min(0) durationMinutes?: number;
@@ -24,6 +26,13 @@ export class CreateInventoryItemDto {
   @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;
   @IsOptional() @IsNumber() @Min(0) currentStock?: number;
   @IsOptional() @IsNumber() @Min(0) minStock?: number;
+  /** Classificação fiscal — produto (ncm/cfop/origem/gtin) OU serviço (codigoServico/aliquotaIss), gated por `kind` no service. */
+  @IsOptional() @IsString() @MaxLength(8) ncm?: string;
+  @IsOptional() @IsString() @MaxLength(4) cfop?: string;
+  @IsOptional() @IsString() @MaxLength(1) origem?: string;
+  @IsOptional() @IsString() @MaxLength(14) gtin?: string;
+  @IsOptional() @IsString() @MaxLength(10) codigoServico?: string;
+  @IsOptional() @IsNumber() @Min(0) @Max(100) aliquotaIss?: number;
   /** Campos da vertical — validados dinâmico no service contra itemFields. */
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
 }
@@ -42,6 +51,13 @@ export class UpdateInventoryItemDto {
   @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;
   @IsOptional() @IsNumber() @Min(0) currentStock?: number;
   @IsOptional() @IsNumber() @Min(0) minStock?: number;
+  /** Classificação fiscal — produto (ncm/cfop/origem/gtin) OU serviço (codigoServico/aliquotaIss), gated por `kind` (imutável) no service. */
+  @IsOptional() @IsString() @MaxLength(8) ncm?: string;
+  @IsOptional() @IsString() @MaxLength(4) cfop?: string;
+  @IsOptional() @IsString() @MaxLength(1) origem?: string;
+  @IsOptional() @IsString() @MaxLength(14) gtin?: string;
+  @IsOptional() @IsString() @MaxLength(10) codigoServico?: string;
+  @IsOptional() @IsNumber() @Min(0) @Max(100) aliquotaIss?: number;
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/audio/notification_sound.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/router/navigator_key.dart';
 import '../../../core/theme/app_colors.dart';
@@ -247,6 +248,17 @@ class _PanelContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Notificações vêm do servidor (push/poll) — offline o painel explica.
+    if (ref.watch(isOfflineProvider)) {
+      return const SizedBox(
+        width: 320,
+        height: 260,
+        child: RequiresConnectionView(
+          message: 'As notificações chegam do servidor. Conecte-se à internet '
+              'para vê-las.',
+        ),
+      );
+    }
     final async = ref.watch(notificationsProvider);
     final scheme = Theme.of(context).colorScheme;
     final unread = async.maybeWhen(data: (r) => r.unread, orElse: () => 0);

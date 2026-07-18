@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import 'order_form_dialog.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
+import 'payment_status.dart';
 
 /// Lista de ordens de serviço — adaptativa (spec 2026-07-04):
 /// desktop = linhas densas + paginação numerada; mobile = cards grandes +
@@ -50,7 +52,7 @@ class _OsListScreenState extends ConsumerState<OsListScreen> {
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('os.write');
+    return s.meOrNull?.hasPermission('os.write') ?? false;
   }
 
   Future<void> _create() async {
@@ -299,10 +301,12 @@ class _Body extends ConsumerWidget {
             }
             final o = page.items[i];
             return _OrderTile(
+              id: o.id,
               number: o.number,
               customerName: o.customerName,
               subjectLabel: o.subjectLabel,
               status: o.status,
+              paymentStatus: o.paymentStatus,
               total: o.total,
               dense: !isMobile,
               onTap: () => context.go('/m/os/${o.id}'),
@@ -338,19 +342,23 @@ class _Body extends ConsumerWidget {
 
 class _OrderTile extends StatelessWidget {
   const _OrderTile({
+    required this.id,
     required this.number,
     required this.customerName,
     required this.subjectLabel,
     required this.status,
+    required this.paymentStatus,
     required this.total,
     required this.dense,
     required this.onTap,
   });
 
+  final String id;
   final String number;
   final String? customerName;
   final String? subjectLabel;
   final String status;
+  final String paymentStatus;
   final String? total;
   final bool dense;
   final VoidCallback onTap;
@@ -371,11 +379,25 @@ class _OrderTile extends StatelessWidget {
         index: 1,
         size: dense ? 40 : 44,
       ),
-      title: Text(number),
+      // OS criada offline (número provisório OS-P…) ganha o selo "pendente de
+      // envio" — Wrap para não estourar o tile no mobile.
+      title: isPendingOsNumber(number)
+          ? Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(number),
+                SyncRowBadge(entity: 'service_order', id: id, dense: true),
+              ],
+            )
+          : Text(number),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          PaymentTag(status: paymentStatus, dense: true),
+          const SizedBox(width: 8),
           OsStatusChip(status: status),
           const SizedBox(width: 14),
           Text(

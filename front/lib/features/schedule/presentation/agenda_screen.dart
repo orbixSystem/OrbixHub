@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
@@ -102,6 +103,13 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Agenda (módulo schedule) não tem camada offline — consulta o servidor.
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'A agenda é montada no servidor. Conecte-se à internet para '
+            'ver e alterar os agendamentos.',
+      );
+    }
     final query = ref.watch(agendaQueryProvider);
     final agendaAsync = ref.watch(agendaProvider);
     final monthDots = ref.watch(

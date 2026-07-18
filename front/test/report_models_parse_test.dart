@@ -112,10 +112,13 @@ void main() {
     expect(r.rows.first.belowMin, isTrue);
   });
 
-  test('CustomersReport parseia novos + ativos', () {
+  test('CustomersReport parseia novos + ativos + paginação + série', () {
     final r = CustomersReport.fromJson({
       'active': 42,
       'newInRange': 3,
+      'total': 3,
+      'page': 1,
+      'pageSize': 50,
       'rows': [
         {
           'id': 'c1',
@@ -124,10 +127,34 @@ void main() {
           'created_at': '2026-06-03T12:00:00.000Z',
         },
       ],
+      'series': [
+        {'day': '2026-06-03', 'type': 'pf', 'count': 2},
+        {'day': '2026-06-04', 'type': 'pj', 'count': 1},
+      ],
     });
 
     expect(r.active, 42);
     expect(r.newInRange, 3);
+    expect(r.total, 3);
+    expect(r.page, 1);
+    expect(r.pageSize, 50);
     expect(r.rows.first.name, 'Maria');
+    expect(r.series, hasLength(2));
+    expect(r.series.first.day, '2026-06-03');
+    expect(r.series.first.type, 'pf');
+    expect(r.series.first.count, 2);
+  });
+
+  test('CustomersReport tolera resposta sem paginação/série (defaults)', () {
+    final r = CustomersReport.fromJson({
+      'active': 1,
+      'newInRange': 0,
+      'rows': [],
+    });
+
+    expect(r.total, 0);
+    expect(r.page, 1);
+    expect(r.pageSize, 50);
+    expect(r.series, isEmpty);
   });
 }

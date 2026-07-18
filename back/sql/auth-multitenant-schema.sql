@@ -367,6 +367,7 @@ INSERT INTO permission (key, name) VALUES
   ('os.approve','Aprovar OS'),
   ('tracking.manage','Gerenciar acompanhamento'),
   ('cashier.read','Ver caixa'), ('cashier.write','Operar caixa'),
+  ('cashier.manage','Gerenciar caixa'),
   ('invoice.issue','Emitir nota'),
   ('finance.read','Ver financeiro'), ('finance.write','Editar financeiro'),
   ('report.read','Ver relatórios'),
@@ -606,6 +607,14 @@ DO $$ BEGIN
     ALTER TABLE inventory_item ADD CONSTRAINT inventory_item_kind_chk CHECK (kind IN ('product','service'));
   END IF;
 END $$;
+
+-- Classificação fiscal (produto: ncm/cfop/origem/gtin; serviço: codigo_servico/aliquota_iss)
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
 
 CREATE INDEX IF NOT EXISTS idx_inventory_item_tenant_barcode
   ON inventory_item(tenant_id, barcode);
@@ -1197,6 +1206,14 @@ CREATE TABLE IF NOT EXISTS invoice_line (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS ncm            text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS cfop           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS unidade        text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS gtin           text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS codigo_servico text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS origem         text;
+ALTER TABLE invoice_line ADD COLUMN IF NOT EXISTS aliquota_iss   numeric(7,2);
+
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_kind_chk') THEN
     ALTER TABLE invoice_line ADD CONSTRAINT invoice_line_kind_chk
@@ -1264,6 +1281,16 @@ ON CONFLICT (key) DO NOTHING;
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.read'
 WHERE r.key IN ('owner','gerente','caixa','mechanic')
+ON CONFLICT DO NOTHING;
+
+-- invoice.config — configuração fiscal sensível (owner-only)
+INSERT INTO permission (key, name) VALUES
+  ('invoice.config','Configurar nota fiscal')
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key = 'invoice.config'
+WHERE r.key IN ('owner')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permission (role_id, permission_id)
@@ -1387,87 +1414,317 @@ ALTER TABLE subject
   ADD COLUMN IF NOT EXISTS photo_storage_key text;
 
 -- ============================================================
--- 0029 — Módulo `sales` (venda avulsa de produto / caixa). Aditivo, idempotente.
--- Venda direta ao cliente (fora da OS). Baixa estoque via seam público do
--- inventory (ref_type='sale'). "Aponta não invade": só ids + snapshots.
+-- 0029 — (removido) módulo `sales` duplicado — substituído pelo módulo `sale`
+-- (seção 0032). Se uma instalação anterior criou a tabela `sale` no formato
+-- antigo (coluna payment_method, sem fiscal_status) e ela está VAZIA, derruba
+-- para o CREATE do 0032 recriar no formato atual. Com dados, exige migração manual.
 -- ============================================================
-CREATE TABLE IF NOT EXISTS sale (
-  id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id      uuid          NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
-  number         text          NOT NULL,
-  customer_id    uuid,
-  customer_name  text,
-  status         text          NOT NULL DEFAULT 'concluida'
-                   CHECK (status IN ('concluida','cancelada')),
-  payment_method text          NOT NULL DEFAULT 'dinheiro'
-                   CHECK (payment_method IN ('dinheiro','cartao','pix','outro')),
-  discount       numeric(14,2) NOT NULL DEFAULT 0,
-  subtotal       numeric(14,2) NOT NULL DEFAULT 0,
-  total          numeric(14,2) NOT NULL DEFAULT 0,
-  stock_applied  boolean       NOT NULL DEFAULT false,
-  sold_by        uuid,
-  canceled_at    timestamptz,
-  created_at     timestamptz   NOT NULL DEFAULT now(),
-  updated_at     timestamptz   NOT NULL DEFAULT now()
-);
-
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='sale' AND policyname='tenant_isolation') THEN
-    ALTER TABLE sale ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE sale FORCE ROW LEVEL SECURITY;
-    CREATE POLICY tenant_isolation ON sale USING (tenant_id = current_tenant_id());
+DO $$
+DECLARE n bigint;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale' AND column_name='payment_method')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale' AND column_name='fiscal_status') THEN
+    EXECUTE 'SELECT count(*) FROM sale' INTO n;
+    IF n = 0 THEN
+      DROP TABLE IF EXISTS sale_item;
+      DROP TABLE IF EXISTS sale;
+    ELSE
+      RAISE EXCEPTION 'Tabela sale no formato antigo (módulo sales) contém dados — migre manualmente antes de aplicar o schema.';
+    END IF;
   END IF;
 END $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_sale_tenant_number ON sale (tenant_id, number);
-CREATE INDEX IF NOT EXISTS idx_sale_tenant_created ON sale (tenant_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_sale_tenant_customer ON sale (tenant_id, customer_id);
-CREATE INDEX IF NOT EXISTS idx_sale_tenant_status ON sale (tenant_id, status);
-GRANT SELECT, INSERT, UPDATE, DELETE ON sale TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON sale TO app_migrator;
+-- Desabilita o módulo `sales` legado onde tiver sido semeado (o módulo atual é `sale`).
+UPDATE tenant_module tm SET enabled = false
+FROM module m WHERE m.id = tm.module_id AND m.key = 'sales' AND tm.enabled;
 
-CREATE TABLE IF NOT EXISTS sale_item (
-  id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         uuid          NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
-  sale_id           uuid          NOT NULL REFERENCES sale(id) ON DELETE CASCADE,
-  inventory_item_id uuid,
-  kind              text          NOT NULL DEFAULT 'product'
-                      CHECK (kind IN ('product','service')),
-  name              text          NOT NULL,
-  quantity          numeric(14,3) NOT NULL DEFAULT 1,
-  unit_price        numeric(14,2) NOT NULL DEFAULT 0,
-  discount          numeric(14,2) NOT NULL DEFAULT 0,
-  total             numeric(14,2) NOT NULL DEFAULT 0,
-  created_at        timestamptz   NOT NULL DEFAULT now()
+-- ============================================================
+-- 0030 — Módulo `cashier` (Caixa) — aditivo, idempotente
+-- ============================================================
+-- Registrador de dinheiro + livro caixa. `cash_session` = sessão do dia (abre/fecha
+-- com expected×counted×difference; 1 aberta por tenant via índice parcial). `cash_entry`
+-- = lançamentos (entradas/saídas). Um recebimento APONTA para a venda via
+-- (sale_kind, sale_id) e lê o total pelo service da venda — "aponta, não invade"
+-- (nunca toca service_order). Estorno é LÓGICO (reversed_at), nunca hard delete.
+-- RLS + FORCE como toda tabela tenant-scoped. Permissões cashier.read/cashier.write
+-- já semeadas e mapeadas (owner/gerente/caixa) acima.
+
+CREATE TABLE IF NOT EXISTS cash_session (
+  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id               uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  opened_by               uuid NOT NULL,
+  opened_at               timestamptz NOT NULL DEFAULT now(),
+  opening_amount          numeric(14,2) NOT NULL DEFAULT 0,
+  closed_by               uuid,
+  closed_at               timestamptz,
+  closing_amount_counted  numeric(14,2),
+  closing_amount_expected numeric(14,2),
+  difference              numeric(14,2),
+  status                  text NOT NULL DEFAULT 'open',
+  device_id               uuid,                          -- dispositivo dono da sessão (0031); NULL = ponto legado/único
+  notes                   text,
+  created_at              timestamptz NOT NULL DEFAULT now(),
+  updated_at              timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT cash_session_status_chk CHECK (status IN ('open','closed'))
+);
+-- Idempotente p/ DBs já criados antes da coluna acima existir (0031_offline_sync).
+ALTER TABLE cash_session ADD COLUMN IF NOT EXISTS device_id uuid;
+
+CREATE INDEX IF NOT EXISTS idx_cash_session_tenant ON cash_session(tenant_id);
+-- 1 sessão aberta por (tenant, ponto de caixa/dispositivo); NULL = ponto legado/único (0031_offline_sync).
+DROP INDEX IF EXISTS uq_cash_session_one_open;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cash_session_open_device
+  ON cash_session (tenant_id, COALESCE(device_id, '00000000-0000-0000-0000-000000000000'::uuid))
+  WHERE status = 'open';
+
+CREATE TABLE IF NOT EXISTS cash_entry (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  cash_session_id uuid NOT NULL REFERENCES cash_session(id) ON DELETE CASCADE,
+  direction       text NOT NULL,                  -- 'in' (entrada) | 'out' (saída)
+  amount          numeric(14,2) NOT NULL,
+  method          text NOT NULL,                  -- pix|dinheiro|cartao_credito|cartao_debito|outro
+  category        text NOT NULL,                  -- os_payment|venda_avulsa|despesa|sangria|suprimento
+  sale_kind       text,                           -- 'os' | 'sale' (nullable) — venda recebida
+  sale_id         uuid,                           -- id da venda apontada (nullable)
+  description     text,
+  reversed_at     timestamptz,                    -- estorno lógico (fora dos somatórios)
+  reversed_by     uuid,
+  reversal_reason text,
+  created_by      uuid NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT cash_entry_direction_chk CHECK (direction IN ('in','out')),
+  CONSTRAINT cash_entry_amount_chk    CHECK (amount > 0),
+  CONSTRAINT cash_entry_method_chk    CHECK (method IN ('pix','dinheiro','cartao_credito','cartao_debito','outro')),
+  CONSTRAINT cash_entry_category_chk  CHECK (category IN ('os_payment','venda_avulsa','despesa','sangria','suprimento')),
+  CONSTRAINT cash_entry_sale_kind_chk CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale'))
 );
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='sale_item' AND policyname='tenant_isolation') THEN
-    ALTER TABLE sale_item ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE sale_item FORCE ROW LEVEL SECURITY;
-    CREATE POLICY tenant_isolation ON sale_item USING (tenant_id = current_tenant_id());
-  END IF;
+CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_session  ON cash_entry(tenant_id, cash_session_id);
+CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_sale     ON cash_entry(tenant_id, sale_kind, sale_id);
+CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_created  ON cash_entry(tenant_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_category ON cash_entry(tenant_id, category);
+CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_method   ON cash_entry(tenant_id, method);
+
+-- RLS + FORCE + policy (idempotente).
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['cash_session','cash_entry']
+  LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = 'tenant_isolation') THEN
+      EXECUTE format($f$
+        CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+      $f$, t);
+    END IF;
+  END LOOP;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_sale_item_tenant_sale ON sale_item (tenant_id, sale_id);
-GRANT SELECT, INSERT, UPDATE, DELETE ON sale_item TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON sale_item TO app_migrator;
+GRANT SELECT, INSERT, UPDATE, DELETE ON cash_session TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON cash_entry   TO app_user;
 
-INSERT INTO module (key, name, is_core) VALUES ('sales','Vendas', false)
+-- Módulo contratado `cashier` — habilitado em trial + pro (como report). is_core=false.
+INSERT INTO module (key, name, is_core) VALUES
+  ('cashier','Caixa', false)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO plan_module (plan_id, module_id)
-SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key = 'sales'
+SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key = 'cashier'
 WHERE pl.key IN ('trial','pro')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM role r JOIN permission p ON p.key IN ('cashier.read','cashier.write')
-WHERE r.key IN ('owner','gerente')
-ON CONFLICT DO NOTHING;
-
+-- Backfill: todo tenant existente ganha o módulo `cashier` habilitado (source 'plan').
 INSERT INTO tenant_module (tenant_id, module_id, enabled, source)
 SELECT t.id, m.id, true, 'plan'
 FROM tenant t CROSS JOIN module m
-WHERE m.key = 'sales'
+WHERE m.key = 'cashier'
 ON CONFLICT (tenant_id, module_id) DO NOTHING;
+
+-- ============================================================
+-- 0031 — Status fiscal (snapshot) na OS/venda — aditivo, idempotente
+-- ============================================================
+-- A OS dispara a emissão de nota via o módulo Fiscal (service público) e guarda
+-- um SNAPSHOT do status fiscal devolvido — só para exibir. O Fiscal continua
+-- DONO do dado (autoridade). Pagamento NÃO tem coluna: é derivado do Caixa em
+-- runtime. Colunas nullable; RLS/FORCE herdadas da tabela service_order.
+ALTER TABLE service_order ADD COLUMN IF NOT EXISTS fiscal_status text;
+ALTER TABLE service_order ADD COLUMN IF NOT EXISTS fiscal_external_id text;
+ALTER TABLE service_order ADD COLUMN IF NOT EXISTS fiscal_emitted_at timestamptz;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_order_fiscal_status_chk') THEN
+    ALTER TABLE service_order ADD CONSTRAINT service_order_fiscal_status_chk
+      CHECK (fiscal_status IS NULL OR fiscal_status IN ('nao_emitida','processando','emitida','rejeitada'));
+  END IF;
+END $$;
+
+-- ============================================================
+-- 0032 — Módulo `sale` (Venda avulsa / Balcão) — aditivo, idempotente
+-- ============================================================
+-- Venda de balcão como entidade PRÓPRIA (não é OS). `sale` = cabeçalho (cliente
+-- OPCIONAL — balcão pode ser sem cadastro; total; fiscal_status snapshot). `sale_item`
+-- = linhas (snapshot do item de estoque). A baixa de estoque é via InventoryService
+-- ("aponta, não invade"); o pagamento é DERIVADO do Caixa (a venda não guarda valor
+-- pago); a nota é disparada via InvoiceService (Fiscal é dono do status). Cancelamento
+-- é LÓGICO (status='canceled'), nunca hard delete. RLS + FORCE. Permissões
+-- sale.read/sale.write semeadas e mapeadas (owner/gerente/caixa).
+
+CREATE TABLE IF NOT EXISTS sale (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id          uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  number             text NOT NULL,                  -- ex.: 'VND-0001' (único por tenant)
+  customer_id        uuid,                            -- ponteiro (customers) — NULLABLE (balcão s/ cadastro)
+  customer_name      text,                            -- snapshot (nullable)
+  status             text NOT NULL DEFAULT 'active',  -- 'active' | 'canceled'
+  total              numeric(14,2) NOT NULL DEFAULT 0,
+  fiscal_status      text,                            -- snapshot do status fiscal (Fiscal é dono)
+  fiscal_external_id text,
+  fiscal_emitted_at  timestamptz,
+  created_by         uuid,
+  canceled_by        uuid,
+  canceled_at        timestamptz,                     -- estorno lógico (nunca hard delete)
+  canceled_reason    text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT sale_status_chk CHECK (status IN ('active','canceled')),
+  CONSTRAINT sale_fiscal_status_chk
+    CHECK (fiscal_status IS NULL OR fiscal_status IN ('nao_emitida','processando','emitida','rejeitada'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_tenant_status   ON sale(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_sale_tenant_customer ON sale(tenant_id, customer_id);
+CREATE INDEX IF NOT EXISTS idx_sale_tenant_created  ON sale(tenant_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sale_tenant_number ON sale(tenant_id, number);
+
+CREATE TABLE IF NOT EXISTS sale_item (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  sale_id           uuid NOT NULL REFERENCES sale(id) ON DELETE CASCADE,
+  kind              text NOT NULL,                 -- 'product' | 'service'
+  inventory_item_id uuid,                           -- ponteiro (inventory) — null = avulso
+  name              text NOT NULL,                  -- snapshot
+  quantity          numeric(14,3) NOT NULL DEFAULT 1,
+  unit_price        numeric(14,2) NOT NULL DEFAULT 0,
+  subtotal          numeric(14,2) NOT NULL DEFAULT 0,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT sale_item_kind_chk CHECK (kind IN ('product','service'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_item_tenant_sale ON sale_item(tenant_id, sale_id);
+
+-- RLS + FORCE + policy (idempotente).
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['sale','sale_item']
+  LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = 'tenant_isolation') THEN
+      EXECUTE format($f$
+        CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+      $f$, t);
+    END IF;
+  END LOOP;
+END $$;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON sale      TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sale_item TO app_user;
+
+-- Permissões do módulo (catálogo global) + mapeamento nos cargos.
+INSERT INTO permission (key, name) VALUES
+  ('sale.read','Ver vendas'), ('sale.write','Registrar vendas')
+ON CONFLICT (key) DO NOTHING;
+
+-- owner: re-grant garante que ganhe as permissões novas também.
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r, permission p WHERE r.key = 'owner'
+ON CONFLICT DO NOTHING;
+
+-- gerente: todas, exceto billing.manage.
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r, permission p
+WHERE r.key = 'gerente' AND p.key <> 'billing.manage'
+ON CONFLICT DO NOTHING;
+
+-- caixa: vendas (operador do balcão).
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r JOIN permission p ON p.key IN ('sale.read','sale.write')
+WHERE r.key = 'caixa'
+ON CONFLICT DO NOTHING;
+
+-- Módulo contratado `sale` — habilitado em trial + pro (como cashier/report). is_core=false.
+INSERT INTO module (key, name, is_core) VALUES
+  ('sale','Vendas', false)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO plan_module (plan_id, module_id)
+SELECT pl.id, m.id FROM plan pl JOIN module m ON m.key = 'sale'
+WHERE pl.key IN ('trial','pro')
+ON CONFLICT DO NOTHING;
+
+-- Backfill: todo tenant existente ganha o módulo `sale` habilitado (source 'plan').
+INSERT INTO tenant_module (tenant_id, module_id, enabled, source)
+SELECT t.id, m.id, true, 'plan'
+FROM tenant t CROSS JOIN module m
+WHERE m.key = 'sale'
+ON CONFLICT (tenant_id, module_id) DO NOTHING;
+
+-- ============================================================
+-- 0031_offline_sync — Sincronização offline-first — aditivo, idempotente
+-- ============================================================
+-- Caixa por dispositivo (device_id + índice único já refletidos acima, junto da
+-- criação de cash_session). `updated_at` em service_order_item/cash_entry (faltava
+-- nessas duas) + trigger genérico `orbix_set_updated_at()` aplicado nas 7 tabelas
+-- que o front offline sincroniza (versão p/ resolução de conflito/replay). `sync_mutation`
+-- é a tabela de idempotência do push: cada mutação do cliente (client_mutation_id) só
+-- é aplicada uma vez por (tenant, autor); guarda o resultado (applied|discarded|error)
+-- p/ o cliente saber o que aconteceu num retry. RLS + FORCE como toda tabela tenant-scoped.
+
+ALTER TABLE service_order_item ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE cash_entry        ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+CREATE OR REPLACE FUNCTION orbix_set_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['customer','subject','inventory_item','service_order',
+                           'service_order_item','cash_session','cash_entry'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_updated_at ON %I', t, t);
+    EXECUTE format('CREATE TRIGGER trg_%s_updated_at BEFORE UPDATE ON %I
+                    FOR EACH ROW EXECUTE FUNCTION orbix_set_updated_at()', t, t);
+  END LOOP;
+END $$;
+
+CREATE TABLE IF NOT EXISTS sync_mutation (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  author_user_id uuid NOT NULL,
+  client_mutation_id uuid NOT NULL,
+  entity text NOT NULL,
+  op text NOT NULL,
+  result text NOT NULL,               -- applied | discarded | error
+  error_message text,
+  entity_id uuid,
+  applied_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_sync_mutation UNIQUE (tenant_id, author_user_id, client_mutation_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sync_mutation_tenant ON sync_mutation(tenant_id);
+ALTER TABLE sync_mutation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sync_mutation FORCE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='sync_mutation') THEN
+    CREATE POLICY tenant_isolation ON sync_mutation
+      USING (tenant_id = current_tenant_id())
+      WITH CHECK (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sync_mutation TO app_user;

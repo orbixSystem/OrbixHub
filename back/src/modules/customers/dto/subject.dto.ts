@@ -4,6 +4,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -11,6 +12,8 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateSubjectDto {
+  /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
+  @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsString() @MaxLength(200) label?: string;
   /** Genérico/indexado — é a placa na oficina. */
   @IsOptional() @IsString() @MaxLength(120) identifier?: string;

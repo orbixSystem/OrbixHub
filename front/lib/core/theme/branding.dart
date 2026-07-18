@@ -12,6 +12,8 @@ import 'theme_presets.dart';
 /// or when the color is missing/invalid.
 final brandingSeedProvider = FutureProvider<Color>((ref) async {
   final session = ref.watch(sessionControllerProvider);
+  // Só com sessão ONLINE: no modo offline (B6) esta busca em `/settings` seria
+  // uma chamada de rede fadada ao erro — cai no seed padrão sem tocar no dio.
   if (session is! SessionAuthenticated) return NeuTokens.lavanderSeed;
   try {
     final res = await ref.read(dioProvider).get<Object?>('/settings');

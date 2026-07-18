@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -19,6 +20,7 @@ import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
 import { IamService } from '../iam/iam.service';
+import { CashierService } from '../cashier/cashier.service';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -31,10 +33,19 @@ import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
 import {
   CreateTemplateDto,
+  ListTemplatesQueryDto,
   TemplateItemDto,
   UpdateTemplateDto,
 } from './dto/template.dto';
-import type { CreateTemplateItemData } from './os.repository';
+import type { CreateTemplateItemData, OsSyncEntity } from './os.repository';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -113,6 +124,9 @@ export class OsService {
     private readonly inventory: InventoryService,
     private readonly messages: MessagesService,
     private readonly iam: IamService,
+    // "Aponta, não invade": o pagamento é de OUTRO módulo (Caixa) — só via
+    // service público por id; a OS nunca lê/escreve as tabelas do caixa.
+    private readonly cashier: CashierService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
@@ -168,33 +182,55 @@ export class OsService {
       );
     }
 
-    const order = await this.tenant.withTenantTx(async () => {
-      const n = (await this.repo.maxOrderNumber()) + 1;
-      const number = `OS-${String(n).padStart(4, '0')}`;
-      const created = await this.repo.createOrder(user.tenantId, {
-        number,
-        customer_id: customer.id,
-        customer_name: customer.name,
-        subject_id: subjectId,
-        subject_label: subjectLabel,
-        status: 'aberta',
-        opened_by: user.userId,
-        assigned_to: dto.assignedTo ?? null,
-        complaint: dto.complaint?.trim() || null,
-        diagnosis: dto.diagnosis?.trim() || null,
-        scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
-        scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
-      });
-      // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
-      await this.repo.createEvent(user.tenantId, created.id, {
-        kind: 'created',
-        message: 'OS aberta',
-        statusSnapshot: 'aberta',
-        visiblePublic: true,
-        createdBy: user.userId,
-      });
-      return created;
-    });
+    const order = await (async () => {
+      try {
+        return await this.tenant.withTenantTx(async () => {
+          const n = (await this.repo.maxOrderNumber()) + 1;
+          const number = `OS-${String(n).padStart(4, '0')}`;
+          const created = await this.repo.createOrder(user.tenantId, {
+            id: dto.id,
+            number,
+            customer_id: customer.id,
+            customer_name: customer.name,
+            subject_id: subjectId,
+            subject_label: subjectLabel,
+            status: 'aberta',
+            opened_by: user.userId,
+            assigned_to: dto.assignedTo ?? null,
+            complaint: dto.complaint?.trim() || null,
+            diagnosis: dto.diagnosis?.trim() || null,
+            scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
+            scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
+          });
+          // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
+          await this.repo.createEvent(user.tenantId, created.id, {
+            kind: 'created',
+            message: 'OS aberta',
+            statusSnapshot: 'aberta',
+            visiblePublic: true,
+            createdBy: user.userId,
+          });
+          return created;
+        });
+      } catch (e) {
+        // PK duplicada (replay offline com id) ≠ nº da OS duplicado (corrida do
+        // uq_service_order_tenant_number). Sob RLS o meta.target vem null —
+        // quando o detalhe não aponta a PK, confirmamos com uma leitura por id
+        // em nova tx (id existe no tenant ⇒ conflito de id). Colisão de número
+        // segue o fluxo normal do erro (comportamento pré-existente).
+        if (dto.id && isUniqueViolation(e)) {
+          const idTaken =
+            isIdUniqueViolation(e) ||
+            (await this.tenant.withTenantTx(() =>
+              this.repo.findOrderById(dto.id as string),
+            )) != null;
+          if (idTaken) {
+            throw new ConflictException('Registro já existe (id duplicado).');
+          }
+        }
+        throw e;
+      }
+    })();
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
 
@@ -230,11 +266,21 @@ export class OsService {
         take: pageSize,
       }),
     );
-    return { items, total, page, pageSize };
+    // Tag de pagamento na listagem: status DERIVADO do caixa em UMA chamada batch
+    // (evita N+1). Caixa Noop ⇒ todas `a_receber`. "Aponta, não invade".
+    const summaries = await this.cashier.getPaymentSummaryBatch(
+      user.tenantId,
+      items.map((o) => ({ id: o.id, total: toNum(o.total) })),
+    );
+    const enriched = items.map((o) => ({
+      ...o,
+      payment_status: (summaries.get(o.id)?.status ?? 'a_receber') as string,
+    }));
+    return { items: enriched, total, page, pageSize };
   }
 
-  async getOrderOrThrow(id: string) {
-    return this.tenant.withTenantTx(async () => {
+  async getOrderOrThrow(id: string, tenantId?: string) {
+    const result = await this.tenant.withTenantTx(async () => {
       const order = await this.repo.findOrderById(id);
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
@@ -243,8 +289,46 @@ export class OsService {
         this.repo.listEvents(id),
         this.repo.listPhotos(id),
       ]);
-      return { ...order, events, photos };
+      return { order, events, photos };
     });
+    // Resumo de pagamento derivado do caixa (fora da tx da OS — o caixa abre a
+    // própria via). Caixa Noop ⇒ `a_receber`. `fiscal_status` é snapshot do Fiscal.
+    const tid = tenantId ?? result.order.tenant_id;
+    const payment = await this.cashier.getPaymentSummary(
+      tid,
+      id,
+      toNum(result.order.total),
+    );
+    // Conversa da OS via service público do `messages` ("aponta, não invade") —
+    // find-or-create idempotente, mesmo padrão do fluxo público (os-public).
+    // best-effort: falha de mensageria nunca quebra o detalhe da OS.
+    let conversationId: string | null = null;
+    try {
+      const conv =
+        (await this.messages.findByRef(tid, 'os', id)) ??
+        (await this.messages.createConversation(tid, {
+          refType: 'os',
+          refId: id,
+          title: result.order.customer_name,
+          refLabel: result.order.number,
+        }));
+      conversationId = conv.id;
+    } catch (e) {
+      this.logger.warn(
+        `Falha ao resolver conversa da OS ${id}: ${(e as Error).message}`,
+      );
+    }
+    return {
+      ...result.order,
+      events: result.events,
+      photos: result.photos,
+      payment,
+      // Campo flat espelhando `payment.status` — uniformiza com a listagem
+      // (a tag de pagamento no front lê sempre `payment_status`).
+      payment_status: payment.status,
+      // Atalho staff → thread do chat desta OS (front: botão "Mensagens").
+      conversation_id: conversationId,
+    };
   }
 
   /**
@@ -660,16 +744,28 @@ export class OsService {
       if (!order || order.deleted_at)
         throw new NotFoundException('OS não encontrada.');
       this.assertEditable(order);
-      const item = await this.repo.addItem(user.tenantId, {
-        order_id: orderId,
-        kind,
-        inventory_item_id: inventoryItemId,
-        name,
-        quantity,
-        unit_price: unitPrice,
-        discount,
-        total,
-      });
+      const item = await (async () => {
+        try {
+          return await this.repo.addItem(user.tenantId, {
+            id: dto.id,
+            order_id: orderId,
+            kind,
+            inventory_item_id: inventoryItemId,
+            name,
+            quantity,
+            unit_price: unitPrice,
+            discount,
+            total,
+          });
+        } catch (e) {
+          // `service_order_item` não tem unique além da PK: P2002 com id do
+          // cliente presente SÓ pode ser o id duplicado (replay repetido).
+          if (dto.id && isUniqueViolation(e)) {
+            throw new ConflictException('Registro já existe (id duplicado).');
+          }
+          throw e;
+        }
+      })();
       await this.recomputeTotal(orderId);
       return item;
     });
@@ -880,11 +976,18 @@ export class OsService {
     });
   }
 
-  async listTemplates(_user: AuthUser) {
-    const templates = await this.tenant.withTenantTx(() =>
-      this.repo.listTemplates(),
+  async listTemplates(_user: AuthUser, query: ListTemplatesQueryDto = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const { items, total } = await this.tenant.withTenantTx(() =>
+      this.repo.listTemplates({
+        q: query.q?.trim() || undefined,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
     );
-    return this.enrichTemplates(templates);
+    const enriched = await this.enrichTemplates(items);
+    return { items: enriched, total, page, pageSize };
   }
 
   async getTemplate(_user: AuthUser, id: string) {
@@ -1137,6 +1240,96 @@ export class OsService {
         scheduled_end: null,
       });
     });
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<OsSyncEntity>([
+    'service_order',
+    'service_order_item',
+    'service_order_event',
+    'service_order_photo',
+    'service_order_template',
+  ]);
+
+  /**
+   * Página de mudanças de uma entidade do módulo os para o pull de sync
+   * offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público). Mesma shape JSON dos endpoints de leitura: fotos ganham
+   * `comment_count` (como `listPhotos`); templates ganham `items` aninhados
+   * (como `findTemplateById`) — `service_order_template_item` não tem
+   * `updated_at` próprio, então seus itens viajam dentro da linha do template;
+   * OS ganham `payment_status` derivado do caixa em batch (como `listOrders`).
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!OsService.SYNC_ENTITIES.has(entity as OsSyncEntity)) {
+      throw new BadRequestException(`Entidade não pertence ao módulo os: ${entity}`);
+    }
+    const table = entity as OsSyncEntity;
+    const clamped = clampChangedSinceLimit(limit);
+    const tenantId = this.tenant.getTenantId();
+    const page = await this.tenant.withTenantTx(async () => {
+      const page = await this.repo.listChangedSince(table, cursor, clamped);
+      if (table === 'service_order_photo' && page.rows.length) {
+        const ids = page.rows.map((r) => (r as { id: string }).id);
+        const counts = await this.repo.commentCountsByIds(ids);
+        return {
+          ...page,
+          rows: page.rows.map((r) => {
+            const row = r as { id: string };
+            return { ...row, comment_count: counts.get(row.id) ?? 0 };
+          }),
+        };
+      }
+      if (table === 'service_order_template' && page.rows.length) {
+        // Batch (1 query pra página toda) — nunca 1 query por template (N+1).
+        const ids = page.rows.map((r) => (r as { id: string }).id);
+        const allItems = await this.repo.listTemplateItemsByTemplateIds(ids);
+        const byTemplate = new Map<string, typeof allItems>();
+        for (const item of allItems) {
+          const bucket = byTemplate.get(item.template_id) ?? [];
+          bucket.push(item);
+          byTemplate.set(item.template_id, bucket);
+        }
+        return {
+          ...page,
+          rows: page.rows.map((r) => {
+            const row = r as { id: string };
+            return { ...row, items: byTemplate.get(row.id) ?? [] };
+          }),
+        };
+      }
+      return page;
+    });
+    // Tag de pagamento nas OS: DERIVADA do caixa, como em `listOrders` — mesma
+    // shape que o front já parseia (`payment_status`; ausente ⇒ 'a_receber').
+    // FORA do withTenantTx: o caixa abre a própria via (runWithTenant) e
+    // aninhar transações esgota o pool.
+    if (table === 'service_order' && page.rows.length && tenantId) {
+      const summaries = await this.cashier.getPaymentSummaryBatch(
+        tenantId,
+        page.rows.map((r) => {
+          const row = r as { id: string; total: Prisma.Decimal | number | null };
+          return { id: row.id, total: toNum(row.total) };
+        }),
+      );
+      return {
+        ...page,
+        rows: page.rows.map((r) => {
+          const row = r as { id: string };
+          return {
+            ...row,
+            payment_status: (summaries.get(row.id)?.status ??
+              'a_receber') as string,
+          };
+        }),
+      };
+    }
+    return page;
   }
 
   // ===================== Internos =====================

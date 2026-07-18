@@ -7,6 +7,8 @@ import 'package:orbixhub_front/features/messages/domain/messages_models.dart';
 import 'package:orbixhub_front/features/messages/presentation/messages_inbox_screen.dart';
 import 'package:orbixhub_front/features/messages/presentation/messages_providers.dart';
 
+import 'support/online_conn.dart';
+
 void main() {
   testWidgets('inbox lista conversas e mostra bolha de não-lidos',
       (tester) async {
@@ -26,6 +28,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           messagesRepositoryProvider.overrideWithValue(fake),
         ],
         child: const MaterialApp(home: Scaffold(body: MessagesInboxScreen())),
@@ -75,7 +78,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [messagesRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          onlineConnOverride,
+          messagesRepositoryProvider.overrideWithValue(fake),
+        ],
         child: const MaterialApp(home: Scaffold(body: MessagesInboxScreen())),
       ),
     );

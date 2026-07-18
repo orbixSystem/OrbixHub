@@ -57,6 +57,62 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
+  Future<Uint8List> osCsv({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/os.csv',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (assignedTo != null && assignedTo.isNotEmpty)
+              'assignedTo': assignedTo,
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (q != null && q.isNotEmpty) 'q': q,
+            'sort': sort,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<Uint8List> osPdf({
+    required ReportRange range,
+    String? assignedTo,
+    String? status,
+    String? q,
+    String sort = 'recent',
+    ReportExportCompany? company,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/os.pdf',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (assignedTo != null && assignedTo.isNotEmpty)
+              'assignedTo': assignedTo,
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (q != null && q.isNotEmpty) 'q': q,
+            'sort': sort,
+            if (company != null) 'companyName': company.name,
+            if (company?.legalName != null && company!.legalName!.isNotEmpty)
+              'companyLegalName': company.legalName,
+            if (company?.cnpj != null && company!.cnpj!.isNotEmpty)
+              'companyCnpj': company.cnpj,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) =>
       _guard(() async {
         final res = await _dio.get<Object?>(
@@ -144,13 +200,75 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
-  Future<CustomersReport> customers({required ReportRange range}) =>
+  Future<CustomersReport> customers({
+    required ReportRange range,
+    int page = 1,
+    int pageSize = 50,
+  }) =>
       _guard(() async {
         final res = await _dio.get<Object?>(
           '/report/customers',
-          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            'page': page,
+            'pageSize': pageSize,
+          },
         );
         return CustomersReport.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Uint8List> customersCsv({required ReportRange range}) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/customers.csv',
+          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<Uint8List> customersPdf({
+    required ReportRange range,
+    ReportExportCompany? company,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/customers.pdf',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (company != null) 'companyName': company.name,
+            if (company?.legalName != null && company!.legalName!.isNotEmpty)
+              'companyLegalName': company.legalName,
+            if (company?.cnpj != null && company!.cnpj!.isNotEmpty)
+              'companyCnpj': company.cnpj,
+          },
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
+  Future<SalesLedger> salesLedger({
+    required ReportRange range,
+    String? type,
+    String? paymentStatus,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/sales',
+          queryParameters: {
+            'from': range.fromIso,
+            'to': range.toIso,
+            if (type != null && type.isNotEmpty) 'type': type,
+            if (paymentStatus != null && paymentStatus.isNotEmpty)
+              'paymentStatus': paymentStatus,
+          },
+        );
+        return SalesLedger.fromJson(_asMap(res.data));
       });
 
   @override

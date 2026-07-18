@@ -9,6 +9,8 @@ import 'package:orbixhub_front/features/settings/data/fake_settings_repository.d
 import 'package:orbixhub_front/features/settings/domain/settings_repository.dart';
 import 'package:orbixhub_front/features/settings/presentation/settings_screen.dart';
 
+import 'support/online_conn.dart';
+
 /// Session controller fixo com permissão settings.manage, sem tocar plataforma.
 class _FakeSession extends SessionController {
   @override
@@ -43,6 +45,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository() as SettingsRepository,
           ),
@@ -74,6 +77,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          onlineConnOverride,
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository() as SettingsRepository,
           ),

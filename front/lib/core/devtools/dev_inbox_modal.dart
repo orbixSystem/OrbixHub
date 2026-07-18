@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dev_inbox.dart';
+import 'dev_role.dart';
 
 /// Content of the dev-inbox bottom sheet. Theme-aware (light + dark) and shows
 /// the latest invite link / verification & reset tokens with copy buttons.
@@ -58,6 +59,8 @@ class DevInboxModal extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
+            const _RolePreview(),
+            const SizedBox(height: 12),
             // Title row.
             Row(
               children: [
@@ -101,6 +104,68 @@ class DevInboxModal extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Pré-visualizar a UI como outro cargo (dev). Cliente-only: muda só o que a tela
+/// mostra (menu/botões/permissões); o backend usa o cargo real do JWT.
+class _RolePreview extends ConsumerWidget {
+  const _RolePreview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final override = ref.watch(devRoleOverrideProvider);
+    void setRole(String? r) =>
+        ref.read(devRoleOverrideProvider.notifier).set(r);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.visibility_outlined, size: 18, color: colors.primary),
+              const SizedBox(width: 8),
+              Text('Pré-visualizar como cargo',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Real'),
+                selected: override == null,
+                onSelected: (_) => setRole(null),
+              ),
+              for (final r in devPreviewRoles)
+                ChoiceChip(
+                  label: Text(r.$2),
+                  selected: override == r.$1,
+                  onSelected: (_) => setRole(r.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Muda só a visão no app (cliente). O servidor continua usando seu '
+            'cargo real — ações podem dar 403 se o cargo real não permitir.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

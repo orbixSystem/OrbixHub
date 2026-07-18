@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/offline/widgets/connection_banner.dart';
+import '../../../core/offline/widgets/connection_chip.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
@@ -11,6 +13,7 @@ import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
+import '../../sale/presentation/sale_create_dialog.dart';
 import 'nav_items.dart';
 import 'sidebar.dart';
 
@@ -33,10 +36,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final me = session.me;
     final items = gatedNavItems(me);
     final location = GoRouterState.of(context).matchedLocation;
     final selected = selectedNavIndex(items, location);
@@ -79,28 +82,39 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           if (isDesktop) sidebar,
           Expanded(
-            child: Stack(
-              clipBehavior: Clip.none,
+            child: Column(
               children: [
-                Column(
-                  children: [
-                    _ContentHeader(
-                      title: items[selected].label,
-                      showMenu: !isDesktop && !isMobile,
-                    ),
-                    // A transição entre telas é feita pelo Navigator do ShellRoute
-                    // (pageBuilder + neuPage), não aqui — envolver o child num
-                    // AnimatedSwitcher duplicava a GlobalKey da página do go_router.
-                    Expanded(child: widget.child),
-                  ],
-                ),
-                // FAB de criação rápida aninhado no berço do header (centro).
-                // Sobe para dentro do entalhe fundo → protrai só ~8px na tela.
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 68 - 46,
-                  left: 0,
-                  right: 0,
-                  child: const Center(child: _QuickCreateFab()),
+                // Banner de transição de conectividade (offline/syncing/flash de
+                // reconexão) — fora do Stack do header para não bagunçar a
+                // matemática do notch/FAB, que é relativa ao topo do Stack.
+                const ConnectionBanner(),
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Column(
+                        children: [
+                          _ContentHeader(
+                            title: items[selected].label,
+                            showMenu: !isDesktop && !isMobile,
+                          ),
+                          // A transição entre telas é feita pelo Navigator do
+                          // ShellRoute (pageBuilder + neuPage), não aqui — envolver
+                          // o child num AnimatedSwitcher duplicava a GlobalKey da
+                          // página do go_router.
+                          Expanded(child: widget.child),
+                        ],
+                      ),
+                      // FAB de criação rápida aninhado no berço do header (centro).
+                      // Sobe para dentro do entalhe fundo → protrai só ~8px na tela.
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top + 68 - 46,
+                        left: 0,
+                        right: 0,
+                        child: const Center(child: _QuickCreateFab()),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -172,6 +186,15 @@ class _ContentHeader extends StatelessWidget {
                                   ?.copyWith(color: neu.ink),
                             ),
                           ),
+                        // Mobile não tem sidebar visível (bottom nav) — o status de
+                        // conexão (persistente, mesmo indicador da sidebar) entra
+                        // compacto aqui em vez de sumir de vista. Flexible é
+                        // obrigatório: como filho direto do Row o chip receberia
+                        // largura ILIMITADA e o Flexible interno dele nunca
+                        // ativaria — rótulo longo (muitas pendências) estouraria
+                        // o header num telefone estreito.
+                        if (context.isMobile)
+                          const Flexible(child: ConnectionChip(dense: true)),
                         const Spacer(),
                         // Sino + toggle de tema vivem no overlay global (GlobalControls).
                       ],
@@ -440,8 +463,9 @@ class _QuickCreateFab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) return const SizedBox.shrink();
-    final actions = _quickActions(session.me);
+    final me = session.meOrNull;
+    if (me == null) return const SizedBox.shrink();
+    final actions = _quickActions(me);
     if (actions.isEmpty) return const SizedBox.shrink();
     final neu = context.neu;
     return Tooltip(
@@ -549,8 +573,8 @@ class _QuickCreateFab extends ConsumerWidget {
         final ok = await ItemFormDialog.show(context);
         if (ok == true) ref.invalidate(itemListProvider);
       case 'sale':
-        // Venda avulsa = tela de balcão (rota própria), não um dialog.
-        context.go('/m/sales/nova');
+        // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).
+        await showSaleCreateDialog(context);
     }
   }
 
@@ -558,7 +582,7 @@ class _QuickCreateFab extends ConsumerWidget {
     return [
       if (me.hasModule('os') && me.hasPermission('os.write'))
         const _QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
-      if (me.hasModule('sales') && me.hasPermission('cashier.write'))
+      if (me.hasModule('sale') && me.hasPermission('sale.write'))
         const _QuickAction(
             'sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
       if (me.hasModule('customers') && me.hasPermission('customer.write'))

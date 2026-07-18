@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
+import '../../../di.dart';
+import '../../auth/presentation/session_state.dart';
 import '../../os/presentation/os_status.dart' show money;
 import '../domain/invoice_models.dart';
 import 'invoice_providers.dart';
@@ -43,9 +46,22 @@ class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
     }
   }
 
+  bool _canConfig(WidgetRef ref) {
+    final s = ref.read(sessionControllerProvider);
+    return s is SessionAuthenticated && s.me.hasPermission('invoice.config');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
+    // Fiscal é online-only (emissão/consulta acontecem no servidor fiscal).
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'As notas fiscais são emitidas e consultadas no servidor '
+            'fiscal. Conecte-se à internet para acessá-las.',
+      );
+    }
+    final canConfig = _canConfig(ref);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
@@ -53,14 +69,26 @@ class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Notas Fiscais',
-              style: TextStyle(
-                color: context.neu.ink,
-                fontSize: isMobile ? 22 : 26,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Notas Fiscais',
+                    style: TextStyle(
+                      color: context.neu.ink,
+                      fontSize: isMobile ? 22 : 26,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                if (canConfig)
+                  NeuIconButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Configuração fiscal',
+                    onPressed: () => context.go('/m/invoice/config'),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             const _StatusFilterBar(),

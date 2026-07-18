@@ -15,7 +15,11 @@ import { BillingService } from '../billing/billing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { crossedIntoLowStock } from './low-stock';
 import { computeReconcile } from './stock-reconcile';
-import { InventoryRepository } from './inventory.repository';
+import { InventoryRepository, InventorySyncEntity } from './inventory.repository';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import {
   INVENTORY_CONFIG_KEY,
   INVENTORY_MODULE_KEY,
@@ -37,11 +41,12 @@ import {
 } from './catalog/catalog.provider';
 import { CatalogProductStore } from './catalog/catalog-product.store';
 import { isValidGtin } from './catalog/gtin';
+import {
+  isIdUniqueViolation,
+  isUniqueViolation,
+} from '../../common/database/prisma-errors';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-const isUniqueViolation = (e: unknown): boolean =>
-  (e as { code?: string })?.code === 'P2002';
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -115,6 +120,7 @@ export class InventoryService {
 
     const isService = dto.kind === 'service';
     const data = {
+      id: dto.id,
       name: dto.name.trim(),
       kind: dto.kind ?? 'product',
       // Serviço não controla estoque: sem barcode/código do fabricante/estoque.
@@ -130,6 +136,12 @@ export class InventoryService {
       current_stock: isService ? 0 : (dto.currentStock ?? 0),
       min_stock: isService ? null : (dto.minStock ?? null),
       duration_minutes: isService ? (dto.durationMinutes ?? null) : null,
+      ncm: isService ? null : trimOrNull(dto.ncm),
+      cfop: isService ? null : trimOrNull(dto.cfop),
+      origem: isService ? null : trimOrNull(dto.origem),
+      gtin: isService ? null : trimOrNull(dto.gtin),
+      codigo_servico: isService ? trimOrNull(dto.codigoServico) : null,
+      aliquota_iss: isService ? (dto.aliquotaIss ?? null) : null,
       attributes: (dto.attributes ?? {}) as Prisma.InputJsonValue,
     };
     try {
@@ -144,9 +156,21 @@ export class InventoryService {
       );
       return item;
     } catch (e) {
-      if (isUniqueViolation(e))
-        throw new ConflictException('Já existe um item com este código.');
-      throw e;
+      if (!isUniqueViolation(e)) throw e;
+      // PK duplicada (replay offline com id) ≠ SKU/barcode duplicado. Sob RLS o
+      // meta.target vem null — quando o detalhe não aponta a PK, confirmamos
+      // com uma leitura por id em nova tx (id existe no tenant ⇒ conflito de id).
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findItemById(dto.id as string),
+          )) != null;
+        if (idTaken) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+      }
+      throw new ConflictException('Já existe um item com este código.');
     }
   }
 
@@ -224,6 +248,17 @@ export class InventoryService {
         if (!isService && dto.minStock !== undefined) data.min_stock = dto.minStock;
         if (dto.durationMinutes !== undefined)
           data.duration_minutes = dto.durationMinutes;
+        if (!isService) {
+          if (dto.ncm !== undefined) data.ncm = trimOrNull(dto.ncm);
+          if (dto.cfop !== undefined) data.cfop = trimOrNull(dto.cfop);
+          if (dto.origem !== undefined) data.origem = trimOrNull(dto.origem);
+          if (dto.gtin !== undefined) data.gtin = trimOrNull(dto.gtin);
+        } else {
+          if (dto.codigoServico !== undefined)
+            data.codigo_servico = trimOrNull(dto.codigoServico);
+          if (dto.aliquotaIss !== undefined)
+            data.aliquota_iss = dto.aliquotaIss ?? null;
+        }
         if (dto.attributes !== undefined)
           data.attributes = dto.attributes as Prisma.InputJsonValue;
         try {
@@ -405,7 +440,11 @@ export class InventoryService {
       if (!item || item.kind === 'service') return null;
 
       const prevConsumed = await this.repo.sumConsumedByRefItem(args.refItemId);
-      const plan = computeReconcile(prevConsumed, args.targetQty);
+      const plan = computeReconcile(
+        prevConsumed,
+        args.targetQty,
+        args.refType === 'sale' ? 'sale' : 'os',
+      );
       if (!plan) return null; // sem mudança
 
       const prev = toNum(item.current_stock);
@@ -436,6 +475,34 @@ export class InventoryService {
         result.min,
       );
     }
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<InventorySyncEntity>([
+    'inventory_item',
+    'stock_movement',
+  ]);
+
+  /**
+   * Página de mudanças de `inventory_item`/`stock_movement` para o pull de
+   * sync offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público). `stock_movement` não tem mapper próprio — linha crua da tabela.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!InventoryService.SYNC_ENTITIES.has(entity as InventorySyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo inventory: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as InventorySyncEntity, cursor, clamped),
+    );
   }
 
   /**

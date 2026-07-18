@@ -5,18 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
+import '../../features/cashier/presentation/cashier_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/invoice/presentation/invoice_screen.dart';
 import '../../features/invoice/presentation/invoice_detail_screen.dart';
+import '../../features/invoice/presentation/invoice_config_screen.dart';
 import '../../features/messages/presentation/messages_inbox_screen.dart';
 import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
 import '../../features/os/presentation/os_detail_screen.dart';
 import '../../features/os/presentation/templates_screen.dart';
 import '../../features/report/presentation/report_screen.dart';
-import '../../features/sales/presentation/sales_history_screen.dart';
-import '../../features/sales/presentation/sale_counter_screen.dart';
-import '../../features/sales/presentation/sale_detail_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -71,7 +70,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return location == '/splash' ? null : '/splash';
       }
 
-      final authed = session is SessionAuthenticated;
+      // B6 — a sessão OFFLINE conta como autenticada para o roteamento (os
+      // módulos offline continuam navegáveis); as telas online-only tratam o
+      // modo offline por conta própria.
+      final me = session.meOrNull;
+      final authed = me != null;
 
       // Public routes are always reachable (deep-link tracking, auth forms).
       if (_isPublic(location)) {
@@ -91,12 +94,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (location.startsWith('/m/')) {
         final segments = location.split('/');
         final moduleKey = segments.length > 2 ? segments[2] : null;
-        final me = session.me;
         if (moduleKey != null &&
             moduleKey.isNotEmpty &&
             !me.hasModule(moduleKey)) {
           return '/';
         }
+        // `sale` é entitlement, mas NÃO tem tela própria (venda avulsa é ação no
+        // Caixa). Deep-link a /m/sale volta pra home (sem placeholder).
+        if (moduleKey == 'sale') return '/';
         // Relatórios também exige `report.read` (gerencial). Sem ela, manda pra
         // home — o backend já 403a; isto evita a tela quebrada. Esconder ≠
         // proteger, mas escondemos o que não é do papel.
@@ -241,6 +246,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/m/invoice',
             pageBuilder: (_, s) => neuPage(s, const InvoiceScreen()),
           ),
+          // Configuração fiscal — literal antes de /m/invoice/:id (senão
+          // "config" seria capturado como id).
+          GoRoute(
+            path: '/m/invoice/config',
+            pageBuilder: (_, s) => neuPage(s, const InvoiceConfigScreen()),
+          ),
           GoRoute(
             path: '/m/invoice/:id',
             pageBuilder: (_, s) => neuPage(
@@ -248,22 +259,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               InvoiceDetailScreen(invoiceId: s.pathParameters['id'] ?? ''),
             ),
           ),
-          // Vendas/Caixa — literais antes do placeholder genérico; gated sob
-          // /m/sales (módulo `sales`). /nova (balcão) antes de /:id.
+          // Caixa — literal antes do placeholder genérico; gated sob /m/cashier.
           GoRoute(
-            path: '/m/sales',
-            pageBuilder: (_, s) => neuPage(s, const SalesHistoryScreen()),
-          ),
-          GoRoute(
-            path: '/m/sales/nova',
-            pageBuilder: (_, s) => neuPage(s, const SaleCounterScreen()),
-          ),
-          GoRoute(
-            path: '/m/sales/:id',
-            pageBuilder: (_, s) => neuPage(
-              s,
-              SaleDetailScreen(saleId: s.pathParameters['id'] ?? ''),
-            ),
+            path: '/m/cashier',
+            builder: (_, _) => const CashierScreen(),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.

@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
+
+/** Entidades do módulo customers expostas ao pull de sync offline. */
+export type CustomersSyncEntity = 'customer' | 'subject';
 
 /** Ordenação da lista de clientes; desempate estável por `id`. */
 const CUSTOMER_ORDER_BY: Record<
@@ -48,6 +56,8 @@ export class CustomersRepository {
   createCustomer(
     tenantId: string,
     data: {
+      /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+      id?: string;
       name: string;
       type: string;
       document: string | null;
@@ -125,6 +135,8 @@ export class CustomersRepository {
     tenantId: string,
     customerId: string,
     data: {
+      /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+      id?: string;
       label: string | null;
       identifier: string | null;
       attributes: Record<string, unknown> | undefined;
@@ -133,6 +145,7 @@ export class CustomersRepository {
     const db = this.tenant.getClient();
     return db.subject.create({
       data: {
+        id: data.id,
         tenant_id: tenantId,
         customer_id: customerId,
         label: data.label,
@@ -229,7 +242,7 @@ export class CustomersRepository {
     });
   }
 
-  /** Linhas de novos clientes no range (relatório — Fase 2). */
+  /** Linhas de novos clientes no range (export COMPLETO do relatório). */
   listNewInRange(from: Date, to: Date) {
     const db = this.tenant.getClient();
     return db.customer.findMany({
@@ -237,5 +250,61 @@ export class CustomersRepository {
       orderBy: { created_at: 'desc' },
       select: { id: true, name: true, type: true, created_at: true },
     });
+  }
+
+  /**
+   * Linhas de novos clientes no range PAGINADAS (tela — scroll infinito) + total
+   * no mesmo where. Espelha o padrão de `listCustomers`/`listForReportPage` da OS.
+   */
+  async listNewInRangePage(from: Date, to: Date, skip: number, take: number) {
+    const db = this.tenant.getClient();
+    const where: Prisma.customerWhereInput = {
+      created_at: { gte: from, lte: to },
+    };
+    const [rows, total] = await Promise.all([
+      db.customer.findMany({
+        where,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        select: { id: true, name: true, type: true, created_at: true },
+      }),
+      db.customer.count({ where }),
+    ]);
+    return { rows, total };
+  }
+
+  /**
+   * Série do gráfico: novos clientes agrupados por dia-calendário (servidor) e
+   * por tipo, no range. Tenant-scoped por RLS (sem WHERE tenant manual) —
+   * parametrizado via Prisma.sql, como os agregados de `os.repository`.
+   */
+  newInRangeSeries(from: Date, to: Date) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<
+      Array<{ day: string; type: string; count: number }>
+    >(Prisma.sql`
+      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+             type,
+             COUNT(*)::int AS count
+      FROM customer
+      WHERE created_at >= ${from} AND created_at <= ${to}
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `);
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de `customer`/`subject` desde o cursor (ambas com
+   * `updated_at`). Sync pull — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: CustomersSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, 'updated_at', cursor, limit);
   }
 }

@@ -56,6 +56,8 @@ abstract class OrderPhoto with _$OrderPhoto {
     required String id,
     required String url,
     String? caption,
+    // Nº de comentários na foto — badge na miniatura (0 = sem selo).
+    @JsonKey(name: 'comment_count') @Default(0) int commentCount,
     @JsonKey(name: 'created_at') String? createdAt,
   }) = _OrderPhoto;
 
@@ -64,13 +66,15 @@ abstract class OrderPhoto with _$OrderPhoto {
 }
 
 /// Comentário numa foto da OS (thread). `authorKind ∈ 'staff'|'customer'`.
+/// A API de comentários responde em camelCase (igual ao endpoint público) —
+/// snake_case aqui fazia todo comentário cair no default 'staff' ("Equipe").
 @freezed
 abstract class PhotoComment with _$PhotoComment {
   const factory PhotoComment({
-    @JsonKey(name: 'author_kind') @Default('staff') String authorKind,
-    @JsonKey(name: 'author_name') String? authorName,
+    @Default('staff') String authorKind,
+    String? authorName,
     @Default('') String body,
-    @JsonKey(name: 'created_at') String? createdAt,
+    String? createdAt,
   }) = _PhotoComment;
 
   factory PhotoComment.fromJson(Map<String, dynamic> json) =>
@@ -110,6 +114,25 @@ abstract class OsTemplate with _$OsTemplate {
 
   factory OsTemplate.fromJson(Map<String, dynamic> json) =>
       _$OsTemplateFromJson(json);
+}
+
+/// Uma página de templates (busca server-side em `GET /os/templates`):
+/// itens da página + total do conjunto filtrado. `hasMore` indica se há mais
+/// páginas a carregar (rolagem infinita). Classe simples — não precisa freezed.
+class OsTemplatePage {
+  const OsTemplatePage({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<OsTemplate> items;
+  final int total;
+  final int page;
+  final int pageSize;
+
+  bool get hasMore => page * pageSize < total;
 }
 
 /// Draft de item de template (create/update). `inventoryItemId` aponta para o
@@ -180,6 +203,15 @@ abstract class ServiceOrder with _$ServiceOrder {
     @JsonKey(name: 'public_token') String? publicToken,
     String? discount,
     String? total,
+    // Status de pagamento DERIVADO do caixa (a_receber | parcial | pago). Vem
+    // flat tanto na listagem quanto no detalhe; a venda nasce 'a_receber'.
+    @JsonKey(name: 'payment_status')
+    @Default('a_receber')
+    String paymentStatus,
+    // Snapshot do status fiscal (o Fiscal é dono): nao_emitida|processando|emitida|rejeitada.
+    @JsonKey(name: 'fiscal_status') String? fiscalStatus,
+    // Conversa (chat) desta OS — atalho staff para /mensagens/:id. Só no detalhe.
+    @JsonKey(name: 'conversation_id') String? conversationId,
     @Default(<OrderItem>[]) List<OrderItem> items,
     @Default(<OrderEvent>[]) List<OrderEvent> events,
     @Default(<OrderPhoto>[]) List<OrderPhoto> photos,

@@ -17,6 +17,15 @@ export interface PlanView {
   billingPeriod: string;
   modules: string[];
 }
+/** Acesso a um módulo para um tenant: entitlement + status da assinatura. */
+export interface ModuleAccessView {
+  /** Status da assinatura (`trialing`/`active`/`past_due`/`canceled`). */
+  status: string;
+  /** O módulo está habilitado para o tenant (`tenant_module.enabled`). */
+  enabled: boolean;
+  /** Módulo de núcleo: ignora o flag `enabled` (mas respeita o status). */
+  isCore: boolean;
+}
 export interface SubscriptionView {
   planKey: string;
   status: string;
@@ -94,6 +103,31 @@ export class BillingService {
         include: { module: true },
       });
       return tms.map((tm) => tm.module.key);
+    });
+  }
+
+  /**
+   * Acesso a UM módulo (mesma régua do `ModuleAccessGuard`), resolvido pelo dono
+   * da tabela `tenant_module` — quem não é o billing pergunta AQUI, nunca lê a
+   * tabela ("aponta, não invade"). Usado pelo `/sync/*`, que não pode usar o
+   * `@RequiresModule` (uma rota, N entidades de módulos diferentes).
+   */
+  async getModuleAccess(
+    tenantId: string,
+    moduleKey: string,
+  ): Promise<ModuleAccessView> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const sub = await db.subscription.findFirst();
+      const tm = await db.tenant_module.findFirst({
+        where: { module: { key: moduleKey } },
+        include: { module: true },
+      });
+      return {
+        status: sub?.status ?? 'canceled',
+        enabled: tm?.enabled ?? false,
+        isCore: tm?.module?.is_core ?? false,
+      };
     });
   }
 

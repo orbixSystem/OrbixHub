@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -299,6 +300,48 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       const got = await getOrder(o.access, created.body.id);
       expect(got.status).toBe(200);
       expect(got.body.items).toEqual([]);
+    });
+  });
+
+  // ---- create-with-id (replay offline preserva uuid) --------------------
+  describe('create com id fixo (replay offline)', () => {
+    it('order e item aceitam id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const customerId = await createCustomer(o.access);
+
+      const fixedOrderId = randomUUID();
+      const created = await createOrder(o.access, {
+        customerId,
+        id: fixedOrderId,
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(fixedOrderId);
+
+      const dupOrder = await createOrder(o.access, {
+        customerId,
+        id: fixedOrderId,
+      });
+      expect(dupOrder.status).toBe(409);
+      expect(dupOrder.body.message).toBe('Registro já existe (id duplicado).');
+
+      const fixedItemId = randomUUID();
+      const item = await addItem(o.access, fixedOrderId, {
+        kind: 'service',
+        name: 'Mão de obra',
+        unitPrice: 10,
+        id: fixedItemId,
+      });
+      expect(item.status).toBe(201);
+      expect(item.body.id).toBe(fixedItemId);
+
+      const dupItem = await addItem(o.access, fixedOrderId, {
+        kind: 'service',
+        name: 'Mão de obra 2',
+        unitPrice: 5,
+        id: fixedItemId,
+      });
+      expect(dupItem.status).toBe(409);
+      expect(dupItem.body.message).toBe('Registro já existe (id duplicado).');
     });
   });
 
@@ -847,7 +890,10 @@ describe('OS — Ordens de Serviço (e2e)', () => {
 
       const list = await listTemplates(o.access);
       expect(list.status).toBe(200);
-      expect(ids(list.body as IdRow[])).toContain(created.body.id as string);
+      expect(ids(list.body.items as IdRow[])).toContain(
+        created.body.id as string,
+      );
+      expect(typeof list.body.total).toBe('number');
     });
 
     it('applies a template to an OS: pre-fills items, recomputes total, re-snapshots current price', async () => {
@@ -912,7 +958,7 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       const list = await listTemplates(o.access);
       expect(list.status).toBe(200);
       const found = (
-        list.body as Array<{
+        list.body.items as Array<{
           id: string;
           total: string;
           items: Array<{ inventory_item_id: string | null; unit_price: string }>;
@@ -936,7 +982,38 @@ describe('OS — Ordens de Serviço (e2e)', () => {
       expect(del.status).toBe(200);
 
       const list = await listTemplates(o.access);
-      expect(ids(list.body as IdRow[])).not.toContain(tpl.body.id as string);
+      expect(ids(list.body.items as IdRow[])).not.toContain(
+        tpl.body.id as string,
+      );
+    });
+
+    it('paginates and searches templates (q matches name, page/pageSize)', async () => {
+      const o = await registerOwner();
+      for (const name of ['Alpha brake', 'Beta brake', 'Gamma filter']) {
+        const r = await createTemplate(o.access, {
+          name,
+          items: [{ kind: 'service', name: 'X', quantity: 1, unitPrice: 10 }],
+        });
+        expect(r.status).toBe(201);
+      }
+
+      // Busca por nome: só os dois "brake".
+      const search = await request(srv())
+        .get('/api/os/templates')
+        .query({ q: 'brake' })
+        .set(auth(o.access));
+      expect(search.status).toBe(200);
+      expect(search.body.total).toBe(2);
+      expect((search.body.items as IdRow[]).length).toBe(2);
+
+      // Paginação: pageSize 1 devolve 1 item mas total reflete o conjunto todo.
+      const page1 = await request(srv())
+        .get('/api/os/templates')
+        .query({ pageSize: 1, page: 1 })
+        .set(auth(o.access));
+      expect(page1.status).toBe(200);
+      expect((page1.body.items as IdRow[]).length).toBe(1);
+      expect(page1.body.total).toBe(3);
     });
   });
 

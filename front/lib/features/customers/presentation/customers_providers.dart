@@ -10,7 +10,7 @@ import '../domain/customers_models.dart';
 final customersConfigProvider = FutureProvider<CustomersConfig>((ref) {
   final session = ref.watch(sessionControllerProvider);
   final tenantId =
-      session is SessionAuthenticated ? session.me.activeTenant?.id : null;
+      session.meOrNull?.activeTenant?.id;
   if (tenantId == null) {
     throw StateError('Nenhum tenant ativo na sessão.');
   }

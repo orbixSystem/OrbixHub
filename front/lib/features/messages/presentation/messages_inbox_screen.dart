@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/realtime/realtime_chat.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/widgets/read_ticks.dart';
@@ -67,6 +68,13 @@ class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mensagens são tempo real (WebSocket + servidor): não há modo offline.
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'As mensagens trocadas com os clientes chegam em tempo real '
+            'pelo servidor. Conecte-se à internet para ler e responder.',
+      );
+    }
     final async = ref.watch(conversationsProvider);
     final queryNotifier = ref.read(conversationQueryProvider.notifier);
     final isMobile = context.isMobile;

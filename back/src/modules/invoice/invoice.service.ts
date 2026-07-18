@@ -13,19 +13,28 @@ import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenantContext } from '../../common/database/tenant-context';
+import { BillingService } from '../billing/billing.service';
 import { CustomersService } from '../customers/customers.service';
 import { OsService } from '../os/os.service';
-import { SalesService } from '../sales/sales.service';
+import { SaleService } from '../sale/sale.service';
+import { TenancyService } from '../tenancy/tenancy.service';
 import {
   CancelInvoiceDto,
   IssueInvoiceDto,
   ListInvoicesQueryDto,
 } from './dto/invoice.dto';
+import { UpdateInvoiceConfigDto } from './dto/invoice-config.dto';
+import {
+  INVOICE_CONFIG_KEY,
+  InvoiceConfig,
+  mergeInvoiceConfig,
+} from './invoice.config';
 import {
   FISCAL_GATEWAY,
   FiscalGateway,
   FiscalIssueLine,
 } from './fiscal/fiscal-gateway';
+import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
 import {
   InvoiceLineData,
   InvoiceRepository,
@@ -39,6 +48,27 @@ const toNum = (d: Prisma.Decimal | number | null | undefined): number => {
 };
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Identidade fiscal do tenant, normalizada a partir da company view do núcleo
+ * (TenancyService.getCompanyView) — consumida pelo gateway fiscal (ex.: NuvemFiscalClient). */
+export interface FiscalIdentity {
+  cnpj: string | null;
+  razaoSocial: string | null;
+  inscricaoEstadual: string | null;
+  inscricaoMunicipal: string | null;
+  regimeTributario: string | null;
+  cnae: string | null;
+  email: string | null;
+  endereco: {
+    cep: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    municipio: string | null;
+    uf: string | null;
+  };
+}
 
 /** Deriva o `kind` do evento de timeline a partir do status da emissão. */
 function issueEventKind(status: 'processing' | 'authorized' | 'rejected'): string {
@@ -61,6 +91,14 @@ const WEBHOOK_STATUS: Record<string, 'authorized' | 'rejected' | 'canceled'> = {
   'invoice.canceled': 'canceled',
 };
 
+/** Status da nota → snapshot fiscal exibido na venda (`sale.fiscal_status`). */
+function saleFiscalStatus(status: string): string {
+  if (status === 'authorized') return 'emitida';
+  if (status === 'rejected' || status === 'error') return 'rejeitada';
+  if (status === 'canceled') return 'nao_emitida';
+  return 'processando';
+}
+
 /**
  * Emissão de Nota Fiscal a partir da OS (ONLINE-ONLY). "Aponta, não invade": a OS e
  * o cliente são lidos via services públicos (`OsService`/`CustomersService`) e a
@@ -77,12 +115,128 @@ export class InvoiceService {
     private readonly tenant: TenantContext,
     private readonly repo: InvoiceRepository,
     private readonly os: OsService,
-    private readonly sales: SalesService,
+    private readonly sales: SaleService,
     private readonly customers: CustomersService,
     private readonly audit: AuditService,
+    private readonly billing: BillingService,
     @Inject(FISCAL_GATEWAY) private readonly gateway: FiscalGateway,
     @Inject(ENV) private readonly env: Env,
+    private readonly tenancy: TenancyService,
+    private readonly nuvem: NuvemFiscalClient,
   ) {}
+
+  /**
+   * Identidade fiscal do tenant (CNPJ, razão social, IE/IM, regime, CNAE,
+   * endereço), lida do NÚCLEO via TenancyService.getCompanyView — "aponta,
+   * não invade": nunca toca a tabela `tenant` diretamente.
+   */
+  async getFiscalIdentity(tenantId: string): Promise<FiscalIdentity> {
+    const c = await this.tenancy.getCompanyView(tenantId);
+    const s = (k: string) => (typeof c[k] === 'string' ? (c[k] as string) : null);
+    return {
+      cnpj: s('taxId'),
+      razaoSocial: s('legalName') ?? s('companyName'),
+      inscricaoEstadual: s('inscricaoEstadual'),
+      inscricaoMunicipal: s('inscricaoMunicipal'),
+      regimeTributario: s('regimeTributario'),
+      cnae: s('cnae'),
+      email: s('email'),
+      endereco: {
+        cep: s('cep'),
+        logradouro: s('logradouro'),
+        numero: s('numero'),
+        complemento: s('complemento'),
+        bairro: s('bairro'),
+        municipio: s('municipio'),
+        uf: s('uf'),
+      },
+    };
+  }
+
+  /** Config fiscal não-sensível do tenant (defaults se ainda não configurado). */
+  async getConfig(tenantId: string): Promise<InvoiceConfig> {
+    const settings = await this.billing.getModuleSettings(tenantId, INVOICE_CONFIG_KEY);
+    return mergeInvoiceConfig(settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined);
+  }
+
+  /** Atualiza (merge) a config fiscal do tenant; owner-only, auditado. */
+  async updateConfig(user: AuthUser, dto: UpdateInvoiceConfigDto): Promise<InvoiceConfig> {
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, dto as Partial<InvoiceConfig>);
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_config_update', undefined, {
+        ambiente: merged.ambiente,
+      });
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
+
+  /**
+   * Cadastra (ou atualiza) a empresa no provedor fiscal, a partir da identidade
+   * fiscal do núcleo ("aponta, não invade"). A chamada HTTP roda FORA de
+   * transação de banco; depois só um merge/gravação da config do módulo.
+   */
+  async registerEmpresa(user: AuthUser): Promise<InvoiceConfig> {
+    const identity = await this.getFiscalIdentity(user.tenantId);
+    await this.nuvem.upsertEmpresa(identity); // fora de tx (HTTP)
+
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, { empresaRegistrada: true });
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_empresa_register', identity.cnpj ?? undefined);
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
+
+  /**
+   * Envia o certificado A1 (.pfx) para o provedor — passthrough puro: o arquivo
+   * NUNCA é persistido no nosso banco, só o metadado de validade retornado.
+   */
+  async uploadCertificate(
+    user: AuthUser,
+    file: { buffer: Buffer; originalname: string } | undefined,
+    password: string,
+  ): Promise<InvoiceConfig> {
+    if (!file?.buffer?.length) throw new BadRequestException('Envie o arquivo do certificado (.pfx)');
+    if (!/\.(pfx|p12)$/i.test(file.originalname)) throw new BadRequestException('Certificado deve ser .pfx/.p12');
+    if (!password) throw new BadRequestException('Informe a senha do certificado');
+
+    const identity = await this.getFiscalIdentity(user.tenantId);
+    if (!identity.cnpj) throw new BadRequestException('Configure o CNPJ da empresa antes do certificado');
+
+    const base64 = file.buffer.toString('base64'); // .pfx NUNCA persistido — vai p/ o provedor
+    const r = await this.nuvem.uploadCertificate(identity.cnpj, base64, password); // fora de tx
+
+    const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+    const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+    const merged = mergeInvoiceConfig(current, { certificado: { validoAte: r.notValidAfter } });
+    await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+      ...settings,
+      [INVOICE_CONFIG_KEY]: merged,
+    });
+    try {
+      await this.audit.log(user.tenantId, user.userId, 'invoice_cert_upload', identity.cnpj, {
+        validoAte: r.notValidAfter,
+      });
+    } catch {
+      /* auditoria best-effort */
+    }
+    return merged;
+  }
 
   async issue(user: AuthUser, dto: IssueInvoiceDto) {
     const documentType = dto.documentType ?? 'nfse';
@@ -204,6 +358,16 @@ export class InvoiceService {
       return this.repo.findByIdWithLines(draft.id);
     });
 
+    // Snapshot do status fiscal na venda (só p/ exibir — a nota é a autoridade).
+    // "Aponta, não invade": escrito via service público do módulo `sale`.
+    if (source.saleId) {
+      await this.sales.setFiscalSnapshot(user.tenantId, source.saleId, {
+        fiscal_status: saleFiscalStatus(result.status),
+        fiscal_external_id: result.externalId ?? null,
+        fiscal_emitted_at: result.status === 'authorized' ? new Date() : null,
+      });
+    }
+
     await this.audit.log(user.tenantId, user.userId, 'invoice_issue', draft.id, {
       orderId: source.orderId,
       saleId: source.saleId,
@@ -263,9 +427,9 @@ export class InvoiceService {
       };
     }
 
-    // Venda
-    const sale = await this.sales.getOne(dto.saleId!);
-    if (sale.status === 'cancelada') {
+    // Venda (módulo `sale` — service público; itens usam `subtotal` como total da linha)
+    const sale = await this.sales.getSaleWithItems(dto.saleId!);
+    if (sale.status === 'canceled') {
       throw new BadRequestException('Não é possível emitir nota de uma venda cancelada.');
     }
     if (sale.items.length === 0) {
@@ -284,7 +448,15 @@ export class InvoiceService {
       customerId: sale.customer_id,
       customerName: sale.customer_name ?? 'Consumidor final',
       label: 'venda ' + sale.number,
-      lines: sale.items.map(toLine),
+      lines: sale.items.map((it) =>
+        toLine({
+          kind: it.kind,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          total: it.subtotal,
+        }),
+      ),
     };
   }
 
@@ -394,24 +566,37 @@ export class InvoiceService {
     if (status && externalId) {
       const resolved = await this.repo.resolveByExternalId(externalId);
       if (resolved) {
-        await this.tenant.runWithTenant(resolved.tenantId, async () => {
-          await this.repo.updateInvoice(resolved.invoiceId, {
-            status,
-            number: payload.data?.number ?? undefined,
-            series: payload.data?.series ?? undefined,
-            access_key: payload.data?.accessKey ?? undefined,
-            pdf_url: payload.data?.pdfUrl ?? undefined,
-            xml_url: payload.data?.xmlUrl ?? undefined,
-            rejection_reason: payload.data?.rejectionReason ?? null,
-            authorized_at: status === 'authorized' ? new Date() : undefined,
-            canceled_at: status === 'canceled' ? new Date() : undefined,
+        const saleId = await this.tenant.runWithTenant(
+          resolved.tenantId,
+          async () => {
+            await this.repo.updateInvoice(resolved.invoiceId, {
+              status,
+              number: payload.data?.number ?? undefined,
+              series: payload.data?.series ?? undefined,
+              access_key: payload.data?.accessKey ?? undefined,
+              pdf_url: payload.data?.pdfUrl ?? undefined,
+              xml_url: payload.data?.xmlUrl ?? undefined,
+              rejection_reason: payload.data?.rejectionReason ?? null,
+              authorized_at: status === 'authorized' ? new Date() : undefined,
+              canceled_at: status === 'canceled' ? new Date() : undefined,
+            });
+            await this.repo.createEvent(resolved.tenantId, resolved.invoiceId, {
+              kind: status,
+              message: `Atualização do provedor fiscal: ${payload.type}`,
+              statusSnapshot: status,
+            });
+            const inv = await this.repo.findByIdWithLines(resolved.invoiceId);
+            return inv?.sale_id ?? null;
+          },
+        );
+        // Espelha na venda (snapshot só p/ exibir — a nota é a autoridade).
+        if (saleId) {
+          await this.sales.setFiscalSnapshot(resolved.tenantId, saleId, {
+            fiscal_status: saleFiscalStatus(status),
+            fiscal_external_id: externalId,
+            fiscal_emitted_at: status === 'authorized' ? new Date() : null,
           });
-          await this.repo.createEvent(resolved.tenantId, resolved.invoiceId, {
-            kind: status,
-            message: `Atualização do provedor fiscal: ${payload.type}`,
-            statusSnapshot: status,
-          });
-        });
+        }
         await this.audit.log(resolved.tenantId, null, 'invoice_webhook', resolved.invoiceId, {
           type: payload.type,
           externalId,

@@ -60,6 +60,7 @@ _OrderPhoto _$OrderPhotoFromJson(Map<String, dynamic> json) => _OrderPhoto(
   id: json['id'] as String,
   url: json['url'] as String,
   caption: json['caption'] as String?,
+  commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
   createdAt: json['created_at'] as String?,
 );
 
@@ -68,23 +69,24 @@ Map<String, dynamic> _$OrderPhotoToJson(_OrderPhoto instance) =>
       'id': instance.id,
       'url': instance.url,
       'caption': instance.caption,
+      'comment_count': instance.commentCount,
       'created_at': instance.createdAt,
     };
 
 _PhotoComment _$PhotoCommentFromJson(Map<String, dynamic> json) =>
     _PhotoComment(
-      authorKind: json['author_kind'] as String? ?? 'staff',
-      authorName: json['author_name'] as String?,
+      authorKind: json['authorKind'] as String? ?? 'staff',
+      authorName: json['authorName'] as String?,
       body: json['body'] as String? ?? '',
-      createdAt: json['created_at'] as String?,
+      createdAt: json['createdAt'] as String?,
     );
 
 Map<String, dynamic> _$PhotoCommentToJson(_PhotoComment instance) =>
     <String, dynamic>{
-      'author_kind': instance.authorKind,
-      'author_name': instance.authorName,
+      'authorKind': instance.authorKind,
+      'authorName': instance.authorName,
       'body': instance.body,
-      'created_at': instance.createdAt,
+      'createdAt': instance.createdAt,
     };
 
 _OsTemplateItem _$OsTemplateItemFromJson(Map<String, dynamic> json) =>
@@ -147,6 +149,9 @@ _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
       publicToken: json['public_token'] as String?,
       discount: json['discount'] as String?,
       total: json['total'] as String?,
+      paymentStatus: json['payment_status'] as String? ?? 'a_receber',
+      fiscalStatus: json['fiscal_status'] as String?,
+      conversationId: json['conversation_id'] as String?,
       items:
           (json['items'] as List<dynamic>?)
               ?.map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
@@ -184,6 +189,9 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'public_token': instance.publicToken,
       'discount': instance.discount,
       'total': instance.total,
+      'payment_status': instance.paymentStatus,
+      'fiscal_status': instance.fiscalStatus,
+      'conversation_id': instance.conversationId,
       'items': instance.items,
       'events': instance.events,
       'photos': instance.photos,

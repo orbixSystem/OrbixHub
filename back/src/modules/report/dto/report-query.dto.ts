@@ -51,6 +51,32 @@ export class ReportOsQueryDto extends ReportRangeQueryDto {
   pageSize?: number;
 }
 
+/**
+ * Query do export de OS (CSV/PDF do relatório COMPLETO): mesmos filtros da OS
+ * (range + técnico + status + busca + ordenação) + empresa (cabeçalho do PDF).
+ * Sem paginação — o servidor gera o relatório inteiro respeitando os filtros.
+ */
+export class ReportOsExportQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsUUID() assignedTo?: string;
+  @IsOptional() @IsIn(OS_STATUSES) status?: OsStatus;
+  @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @IsString() @MaxLength(160) companyName?: string;
+  @IsOptional() @IsString() @MaxLength(200) companyLegalName?: string;
+  @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
+}
+
+/**
+ * Query da lente "Vendas" (histórico unificado OS + venda avulsa): range + filtro
+ * por tipo (servico = OS / produto = venda) e por status de pagamento.
+ */
+export class ReportSalesQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsIn(['servico', 'produto']) type?: 'servico' | 'produto';
+  @IsOptional()
+  @IsIn(['a_receber', 'parcial', 'pago'])
+  paymentStatus?: 'a_receber' | 'parcial' | 'pago';
+}
+
 /** Query da posição de estoque (tela): página + tamanho + busca opcional. */
 export class ReportInventoryQueryDto {
   @IsOptional()
@@ -75,6 +101,35 @@ export class ReportInventoryExportQueryDto {
   @IsOptional() @IsString() @MaxLength(200) companyLegalName?: string;
   @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
   @IsOptional() @IsString() @MaxLength(120) q?: string;
+}
+
+/**
+ * Query do relatório de clientes (tela): range + paginação (scroll infinito —
+ * evita carregar todos os clientes do período de uma vez).
+ */
+export class ReportCustomersQueryDto extends ReportRangeQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  pageSize?: number;
+}
+
+/**
+ * Query do export de clientes (CSV/PDF do relatório COMPLETO do período):
+ * range + empresa (cabeçalho do PDF). Sem paginação — o servidor gera tudo.
+ */
+export class ReportCustomersExportQueryDto extends ReportRangeQueryDto {
+  @IsOptional() @IsString() @MaxLength(160) companyName?: string;
+  @IsOptional() @IsString() @MaxLength(200) companyLegalName?: string;
+  @IsOptional() @IsString() @MaxLength(40) companyCnpj?: string;
 }
 
 /** Query do top de itens: range + kind (produto/serviço) + limit. */

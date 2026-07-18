@@ -1,0 +1,273 @@
+import 'dart:convert';
+
+import 'package:drift/native.dart' show NativeDatabase;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/error/app_exception.dart';
+import 'package:orbixhub_front/core/offline/db/local_db.dart';
+import 'package:orbixhub_front/core/offline/trusted_clock.dart';
+import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
+import 'package:orbixhub_front/features/os/data/local_first_os_repository.dart';
+import 'package:orbixhub_front/features/os/domain/os_models.dart';
+
+/// B8 — repository LocalFirst da OS: número provisório `OS-P<n>` offline, itens
+/// otimistas + outbox, fotos como BLOB pendente (S6) e os métodos online-only.
+LocalDb _memDb() => LocalDb(NativeDatabase.memory());
+
+void main() {
+  late LocalDb db;
+  late FakeOsRepository fake;
+  var online = false;
+
+  LocalFirstOsRepository repo() => LocalFirstOsRepository(
+        inner: fake,
+        db: db,
+        clock: TrustedClock(clock: () => DateTime.utc(2026, 7, 13)),
+        isOnline: () => online,
+        currentUserId: () => 'user-1',
+      );
+
+  setUp(() {
+    db = _memDb();
+    fake = FakeOsRepository(
+      customers: const [CustomerOption(id: 'cus-1', name: 'Maria')],
+    );
+    online = false;
+  });
+
+  tearDown(() => db.close());
+
+  Future<ServiceOrder> createOffline(LocalFirstOsRepository r) =>
+      r.createOrder(const OrderDraft(customerId: 'cus-1', complaint: 'Barulho'));
+
+  test('offline create: número provisório OS-P1, row-store + outbox service_order.create',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    expect(order.number, 'OS-P1');
+    expect(order.status, 'aberta');
+    expect(order.customerId, 'cus-1');
+    expect(order.events, isNotEmpty); // evento 'created' local
+
+    final outbox = await db.pendingFor('user-1');
+    expect(outbox.single.entity, 'service_order');
+    expect(outbox.single.op, 'create');
+    expect(outbox.single.authorUserId, 'user-1');
+    expect(
+      (jsonDecode(outbox.single.payload) as Map<String, dynamic>)['id'],
+      order.id,
+    );
+
+    // A 2ª OS offline pega o próximo número provisório.
+    final second = await createOffline(r);
+    expect(second.number, 'OS-P2');
+  });
+
+  test('offline create com cliente novo: enfileira customer.create ANTES da OS',
+      () async {
+    final r = repo();
+    final order = await r.createOrder(
+      const OrderDraft(
+        newCustomerName: 'João',
+        newCustomerPhone: '9999',
+        newSubjectIdentifier: 'ABC1D23',
+      ),
+    );
+
+    expect(order.customerName, 'João');
+    final outbox = await db.pendingFor('user-1');
+    expect(
+      outbox.map((m) => '${m.entity}.${m.op}'),
+      ['customer.create', 'subject.create', 'service_order.create'],
+    );
+    expect(order.subjectId, isNotNull);
+  });
+
+  test('offline list + getOrder: saem do row-store', () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    final page = await r.listOrders();
+    expect(page.total, 1);
+    expect(page.items.single.number, 'OS-P1');
+
+    final fetched = await r.getOrder(order.id);
+    expect(fetched.complaint, 'Barulho');
+  });
+
+  test('offline addItem: item otimista, total recalculado e outbox cresce',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    final updated = await r.addItem(
+      order.id,
+      const OrderItemDraft(kind: 'service', name: 'Troca de óleo',
+          quantity: 2, unitPrice: 50),
+    );
+
+    expect(updated.items.single.name, 'Troca de óleo');
+    expect(updated.total, '100.00');
+
+    final outbox = await db.pendingFor('user-1');
+    expect(outbox.last.op, 'addItem');
+    // C1 — a OS-pai vai em `orderId` (NUNCA `id`: no servidor o `CreateItemDto`
+    // declara um campo `id` e a chave estrutural homônima era apagada na
+    // validação; o item nunca chegava e a mutação virava `failed` para sempre).
+    final payload =
+        jsonDecode(outbox.last.payload) as Map<String, dynamic>;
+    expect(payload['orderId'], order.id);
+    expect(payload.containsKey('id'), isFalse);
+    // ...e a OS continua "suja" (o item pendente ainda não existe no servidor).
+    expect(await db.unsyncedIds('service_order'), contains(order.id));
+  });
+
+  test('offline changeStatus: status local + evento + outbox', () async {
+    final r = repo();
+    final order = await createOffline(r);
+    final updated = await r.changeStatus(order.id, 'em_execucao');
+
+    expect(updated.status, 'em_execucao');
+    final outbox = await db.pendingFor('user-1');
+    expect(outbox.last.op, 'changeStatus');
+    expect((await r.getOrder(order.id)).status, 'em_execucao');
+  });
+
+  test('offline addPhoto: BLOB em pendingUploads + foto otimista na OS', () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    final updated = await r.addPhoto(
+      order.id,
+      bytes: const [1, 2, 3, 4],
+      filename: 'foto.jpg',
+      contentType: 'image/jpeg',
+      caption: 'Antes',
+    );
+
+    expect(updated.photos.single.caption, 'Antes');
+
+    final uploads = await db.listPendingUploads();
+    expect(uploads, hasLength(1));
+    expect(uploads.single.orderId, order.id);
+    expect(uploads.single.filename, 'foto.jpg');
+    expect(uploads.single.bytes, [1, 2, 3, 4]);
+  });
+
+  test('online read: passthrough para a impl real E espelha a OS no row-store',
+      () async {
+    online = true;
+    final r = repo();
+    final order = await createOffline(r);
+    expect(order.number, isNot(startsWith('OS-P')));
+    expect(await db.pendingFor('user-1'), isEmpty);
+
+    await r.addItem(order.id, const OrderItemDraft(name: 'Peça', quantity: 1, unitPrice: 10));
+
+    online = false;
+    final offline = await r.getOrder(order.id);
+    expect(offline.items.single.name, 'Peça');
+    expect((await r.listOrders()).total, 1);
+  });
+
+  test('replay + pull: o item local é podado — 1 item só e o total do servidor',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+    await r.addItem(
+      order.id,
+      const OrderItemDraft(kind: 'service', name: 'Troca de óleo',
+          quantity: 1, unitPrice: 100),
+    );
+    expect((await r.getOrder(order.id)).items, hasLength(1));
+
+    // Simula o SyncEngine: push aplicado (outbox sai de `pending`) + pull do
+    // servidor (upsert do cabeçalho e do item COM O ID DO SERVIDOR).
+    for (final m in await db.pendingFor('user-1')) {
+      await db.markOutbox(m.clientMutationId, 'applied');
+    }
+    await db.upsertRows('service_order', [
+      (
+        id: order.id,
+        payload: jsonEncode({
+          ...jsonDecode(
+            (await db.rowsOf('service_order')).single.payload,
+          ) as Map<String, dynamic>,
+          'number': 'OS-0007',
+          'total': '100.00',
+        }),
+        updatedAt: DateTime.utc(2026, 7, 13, 1),
+      ),
+    ]);
+    await db.upsertRows('service_order_item', [
+      (
+        id: 'srv-item-1',
+        payload: jsonEncode({
+          'id': 'srv-item-1',
+          'order_id': order.id,
+          'kind': 'service',
+          'name': 'Troca de óleo',
+          'quantity': '1',
+          'unit_price': '100.00',
+          'discount': '0.00',
+          'total': '100.00',
+          'created_at': '2026-07-13T01:00:00.000Z',
+        }),
+        updatedAt: DateTime.utc(2026, 7, 13, 1),
+      ),
+    ]);
+
+    final reconciled = await r.getOrder(order.id);
+    expect(reconciled.items, hasLength(1)); // sem fantasma
+    expect(reconciled.items.single.id, 'srv-item-1');
+    expect(reconciled.total, '100.00'); // total não dobrou
+    expect(reconciled.number, 'OS-0007');
+  });
+
+  test('linha suja: com a rede de volta e o create AINDA na fila, a OS não vai ao servidor',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    // Rede voltou, mas a mutação segue `pending`: a OS só existe localmente.
+    online = true;
+
+    final fetched = await r.getOrder(order.id); // não pode 404 no servidor
+    expect(fetched.number, 'OS-P1');
+
+    final page = await r.listOrders(); // o servidor não conhece a OS-P1
+    expect(page.items.map((o) => o.number), contains('OS-P1'));
+
+    final edited = await r.addItem(
+      order.id,
+      const OrderItemDraft(name: 'Peça', quantity: 1, unitPrice: 10),
+    );
+    expect(edited.items.single.name, 'Peça');
+    expect(edited.total, '10.00');
+    // A edição foi para o outbox (caminho local), não para o servidor.
+    expect((await db.pendingFor('user-1')).last.op, 'addItem');
+  });
+
+  test('offline: emitInvoice / deleteOrder / listMembers lançam "Requer conexão"',
+      () async {
+    final r = repo();
+    final order = await createOffline(r);
+
+    Matcher requerConexao() => throwsA(
+          isA<AppException>().having(
+            (e) => e.message,
+            'message',
+            startsWith('Requer conexão'),
+          ),
+        );
+
+    await expectLater(r.emitInvoice(order.id), requerConexao());
+    await expectLater(r.deleteOrder(order.id), requerConexao());
+    await expectLater(r.listMembers(), requerConexao());
+    await expectLater(
+      r.createTemplate(const OsTemplateDraft(name: 'Revisão')),
+      requerConexao(),
+    );
+    await expectLater(r.listPhotoComments(order.id, 'p1'), requerConexao());
+  });
+}

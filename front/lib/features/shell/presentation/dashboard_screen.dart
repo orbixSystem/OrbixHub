@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../billing/presentation/billing_providers.dart';
@@ -66,10 +67,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final ref = this.ref;
     final session = ref.watch(sessionControllerProvider);
-    if (session is! SessionAuthenticated) {
+    final me = session.meOrNull;
+    if (me == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final me = session.me;
+    // O painel é 100% números calculados no servidor — offline não há o que
+    // mostrar (em vez de uma tela vazia/quebrada, explicamos).
+    if (ref.watch(isOfflineProvider)) {
+      return const RequiresConnectionView(
+        message: 'O painel mostra números calculados no servidor. Sem conexão '
+            'não dá para atualizá-los — os módulos de OS, Clientes, Estoque e '
+            'Caixa continuam funcionando normalmente.',
+      );
+    }
     final firstName = me.user.fullName.split(' ').first;
     final subAsync = ref.watch(subscriptionProvider);
     final sub = subAsync.asData?.value;

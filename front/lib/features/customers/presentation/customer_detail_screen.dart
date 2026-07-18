@@ -47,7 +47,7 @@ class CustomerDetailScreen extends ConsumerWidget {
 
   bool _has(WidgetRef ref, String perm) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission(perm);
+    return s.meOrNull?.hasPermission(perm) ?? false;
   }
 
   @override

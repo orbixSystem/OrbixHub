@@ -25,6 +25,8 @@ import { BillingModule } from './modules/billing/billing.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { CashierModule } from './modules/cashier/cashier.module';
+import { SaleModule } from './modules/sale/sale.module';
 import { OsModule } from './modules/os/os.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { ReportModule } from './modules/report/report.module';
@@ -32,7 +34,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { MessagesModule } from './modules/messages/messages.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
-import { SalesModule } from './modules/sales/sales.module';
+import { SyncModule } from './modules/sync/sync.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
 @Module({
@@ -55,14 +57,16 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     SettingsModule,
     CustomersModule,
     InventoryModule,
+    CashierModule,
+    SaleModule,
     NotificationsModule,
     MessagesModule,
     OsModule,
     InvoiceModule,
     ScheduleModule,
-    SalesModule,
     ReportModule,
     RealtimeModule,
+    SyncModule,
     DevtoolsModule,
   ],
   controllers: [HealthController],

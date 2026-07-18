@@ -1,6 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
+
+/** Entidades do módulo inventory expostas ao pull de sync offline. */
+export type InventorySyncEntity = 'inventory_item' | 'stock_movement';
+
+/** `stock_movement` é append-only → cursor por `created_at`; o resto por `updated_at`. */
+const SYNC_ENTITY_COLUMN: Record<InventorySyncEntity, 'updated_at' | 'created_at'> = {
+  inventory_item: 'updated_at',
+  stock_movement: 'created_at',
+};
 
 /** Chaves de ordenação aceitas pela lista de itens. */
 export type ItemSort =
@@ -47,6 +61,8 @@ const ITEM_ORDER_BY: Record<
 type DecimalIn = Prisma.Decimal | number;
 
 export interface ItemData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   name?: string;
   kind?: 'product' | 'service';
   duration_minutes?: number | null;
@@ -61,6 +77,12 @@ export interface ItemData {
   margin_pct?: DecimalIn | null;
   current_stock?: DecimalIn;
   min_stock?: DecimalIn | null;
+  ncm?: string | null;
+  cfop?: string | null;
+  origem?: string | null;
+  gtin?: string | null;
+  codigo_servico?: string | null;
+  aliquota_iss?: DecimalIn | null;
   attributes?: Prisma.InputJsonValue;
 }
 
@@ -191,7 +213,11 @@ export class InventoryRepository {
     data: {
       inventory_item_id: string;
       stock_delta: Prisma.Decimal | number;
-      reason: 'os_consumption' | 'os_reversal';
+      reason:
+        | 'os_consumption'
+        | 'os_reversal'
+        | 'sale_consumption'
+        | 'sale_reversal';
       ref_type: string;
       ref_id: string;
       ref_item_id: string | null;
@@ -333,5 +359,19 @@ export class InventoryRepository {
       db.inventory_item.count({ where }),
     ]);
     return { items, total };
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de `inventory_item`/`stock_movement` desde o cursor.
+   * Sync pull — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: InventorySyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }

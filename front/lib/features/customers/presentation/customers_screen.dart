@@ -49,7 +49,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission('customer.write');
+    return s.meOrNull?.hasPermission('customer.write') ?? false;
   }
 
   Future<void> _create() async {

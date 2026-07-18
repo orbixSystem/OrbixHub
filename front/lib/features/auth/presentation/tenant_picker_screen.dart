@@ -37,7 +37,7 @@ class _TenantPickerScreenState extends ConsumerState<TenantPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
-    final me = session is SessionAuthenticated ? session.me : null;
+    final me = session.meOrNull;
     final memberships = me?.memberships ?? const [];
     final activeTenantId = me?.activeTenant?.id;
 

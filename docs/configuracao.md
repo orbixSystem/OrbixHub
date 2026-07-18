@@ -129,4 +129,39 @@ vertical no provisionamento do tenant (oficina semeia `vehicleApplication`; pets
 - No create/update de item, `attributes` é validado **whitelist** contra `itemFields`
   (chave desconhecida → 400; tipo errado → 400; `required` ausente → 400).
 
+### Caixa (módulo `cashier`)
+Seção registrada pelo módulo `cashier` — aparece em `GET /settings` quando o módulo
+está habilitado no tenant. Os **valores** ficam em `tenant_module.settings['cashier']`,
+lidos/gravados via `BillingService.getModuleSettings`/`setModuleSettings` ("aponta, não
+invade").
+
+| Config | Chave | Tipo | Default | Obs |
+|---|---|---|---|---|
+| Formas de pagamento | `paymentMethods` | lista de `pix\|dinheiro\|cartao_credito\|cartao_debito\|outro` | todas | oferecidas na UI; lista vazia/invalida cai no default |
+| Exigir caixa aberto | `requireOpenSession` | bool | `true` | sem caixa aberto, lançar é 400 (se `false`, abre sessão implícita) |
+| Conferir só dinheiro | `countCashOnly` | bool | `true` | `expected` no fechamento usa só dinheiro; pix/cartão são informativos |
+
+- Leitura: `GET /cashier/config` (requer `cashier.read`). Escrita:
+  `PATCH /cashier/config` (requer `settings.manage`). Os toggles escalares
+  (`requireOpenSession`, `countCashOnly`) também aparecem na seção registrada do host;
+  `paymentMethods` é lista, gerida pelo PATCH próprio.
+
+### Vendas (módulo `sale`)
+O módulo `sale` (venda de balcão) **não registra seção de config própria** hoje — a
+venda usa o caixa/estoque/fiscal já configurados (formas de pagamento vêm da config do
+`cashier`; preço/itens vêm do `inventory`; identidade fiscal vem do núcleo + `invoice`).
+Não há toggles em `tenant_module.settings['sale']`.
+
+**Importante (UX):** `sale` é um **entitlement**, não um item de menu. Venda avulsa é uma
+**ação rápida dentro do Caixa** (botão "Venda avulsa" → fluxo único: itens + cliente
+opcional → pagamento (receber agora / a receber) → emitir nota). Não há tela/rota própria
+(`/m/sale` redireciona pra home); o **histórico** de vendas é a lente **"Vendas"** do
+Relatório (`GET /report/sales`, OS + venda unificados). O front esconde `sale` do menu de
+propósito (`gatedNavItems` ignora a chave) — esconder ≠ proteger; o backend segue gated por
+`@RequiresModule('sale')`.
+
+Se surgir configuração específica de venda (ex.: numeração, desconto máximo), registre a
+seção aqui via `SettingsSectionRegistry.register({ key:'sale', moduleKey:'sale', ... })` e
+documente nesta subseção.
+
 <!-- Próximos módulos: registrem e documentem a subseção de config de cada um aqui. -->

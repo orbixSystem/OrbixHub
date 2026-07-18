@@ -85,6 +85,15 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<ServiceOrder> emitInvoice(String id) => _guard(() async {
+        // O endpoint devolve o resultado fiscal; refazemos o GET para trazer a OS
+        // com o snapshot atualizado de `fiscalStatus` (padrão addItem/etc.).
+        await _dio.post<Object?>('/os/orders/$id/invoice');
+        final res = await _dio.get<Object?>('/os/orders/$id');
+        return ServiceOrder.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<ServiceOrder> createNote(
     String id, {
     required String message,
@@ -182,6 +191,33 @@ class OsRepositoryImpl implements OsRepository {
 
   @override
   Future<List<OsTemplate>> listTemplatesFull() => listTemplates();
+
+  @override
+  Future<OsTemplatePage> listTemplatesPage({
+    String? query,
+    int page = 1,
+    int pageSize = 20,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/os/templates',
+          queryParameters: {
+            if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+            'page': page,
+            'pageSize': pageSize,
+          },
+        );
+        final map = _asMap(res.data);
+        final raw = map['items'] as List? ?? const [];
+        final items =
+            raw.cast<Map<String, dynamic>>().map(OsTemplate.fromJson).toList();
+        return OsTemplatePage(
+          items: items,
+          total: (map['total'] as num?)?.toInt() ?? items.length,
+          page: (map['page'] as num?)?.toInt() ?? page,
+          pageSize: (map['pageSize'] as num?)?.toInt() ?? pageSize,
+        );
+      });
 
   @override
   Future<OsTemplate> getTemplate(String id) => _guard(() async {

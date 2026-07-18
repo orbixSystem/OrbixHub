@@ -6,6 +6,41 @@ part of 'report_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_SalesLedgerRow _$SalesLedgerRowFromJson(Map<String, dynamic> json) =>
+    _SalesLedgerRow(
+      id: json['id'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      type: json['type'] as String? ?? 'servico',
+      origin: json['origin'] as String? ?? 'os',
+      originNumber: json['originNumber'] as String? ?? '',
+      customerName: json['customerName'] as String?,
+      value: json['value'] as num? ?? 0,
+      paymentStatus: json['paymentStatus'] as String? ?? 'a_receber',
+    );
+
+Map<String, dynamic> _$SalesLedgerRowToJson(_SalesLedgerRow instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'date': instance.date,
+      'type': instance.type,
+      'origin': instance.origin,
+      'originNumber': instance.originNumber,
+      'customerName': instance.customerName,
+      'value': instance.value,
+      'paymentStatus': instance.paymentStatus,
+    };
+
+_SalesLedger _$SalesLedgerFromJson(Map<String, dynamic> json) => _SalesLedger(
+  rows:
+      (json['rows'] as List<dynamic>?)
+          ?.map((e) => SalesLedgerRow.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <SalesLedgerRow>[],
+);
+
+Map<String, dynamic> _$SalesLedgerToJson(_SalesLedger instance) =>
+    <String, dynamic>{'rows': instance.rows};
+
 _OsReportRow _$OsReportRowFromJson(Map<String, dynamic> json) => _OsReportRow(
   number: json['number'] as String,
   customerName: json['customer_name'] as String? ?? '',
@@ -238,22 +273,49 @@ Map<String, dynamic> _$CustomerReportRowToJson(_CustomerReportRow instance) =>
       'created_at': instance.createdAt,
     };
 
-_CustomersReport _$CustomersReportFromJson(Map<String, dynamic> json) =>
-    _CustomersReport(
-      rows:
-          (json['rows'] as List<dynamic>?)
-              ?.map(
-                (e) => CustomerReportRow.fromJson(e as Map<String, dynamic>),
-              )
-              .toList() ??
-          const <CustomerReportRow>[],
-      active: (json['active'] as num?)?.toInt() ?? 0,
-      newInRange: (json['newInRange'] as num?)?.toInt() ?? 0,
-    );
+_CustomersSeriesPoint _$CustomersSeriesPointFromJson(
+  Map<String, dynamic> json,
+) => _CustomersSeriesPoint(
+  day: json['day'] as String? ?? '',
+  type: json['type'] as String? ?? '',
+  count: (json['count'] as num?)?.toInt() ?? 0,
+);
+
+Map<String, dynamic> _$CustomersSeriesPointToJson(
+  _CustomersSeriesPoint instance,
+) => <String, dynamic>{
+  'day': instance.day,
+  'type': instance.type,
+  'count': instance.count,
+};
+
+_CustomersReport _$CustomersReportFromJson(
+  Map<String, dynamic> json,
+) => _CustomersReport(
+  rows:
+      (json['rows'] as List<dynamic>?)
+          ?.map((e) => CustomerReportRow.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <CustomerReportRow>[],
+  active: (json['active'] as num?)?.toInt() ?? 0,
+  newInRange: (json['newInRange'] as num?)?.toInt() ?? 0,
+  total: (json['total'] as num?)?.toInt() ?? 0,
+  page: (json['page'] as num?)?.toInt() ?? 1,
+  pageSize: (json['pageSize'] as num?)?.toInt() ?? 50,
+  series:
+      (json['series'] as List<dynamic>?)
+          ?.map((e) => CustomersSeriesPoint.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <CustomersSeriesPoint>[],
+);
 
 Map<String, dynamic> _$CustomersReportToJson(_CustomersReport instance) =>
     <String, dynamic>{
       'rows': instance.rows,
       'active': instance.active,
       'newInRange': instance.newInRange,
+      'total': instance.total,
+      'page': instance.page,
+      'pageSize': instance.pageSize,
+      'series': instance.series,
     };

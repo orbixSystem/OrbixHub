@@ -15,9 +15,9 @@ const Map<String, (String, IconData)> moduleMeta = {
   'os': ('Ordens de Serviço', Icons.build_outlined),
   'customers': ('Clientes', Icons.people_alt_outlined),
   'inventory': ('Estoque', Icons.inventory_2_outlined),
+  'cashier': ('Caixa', Icons.point_of_sale_outlined),
   'report': ('Relatórios', Icons.bar_chart_outlined),
   'invoice': ('Notas Fiscais', Icons.receipt_long_outlined),
-  'sales': ('Vendas', Icons.point_of_sale_outlined),
 };
 
 /// Pure gating: the navigation items a user may see, derived ONLY from their
@@ -28,6 +28,10 @@ List<NavItem> gatedNavItems(Me me) {
     const NavItem('Início', Icons.home_outlined, '/'),
   ];
   for (final key in me.modules) {
+    // `sale` (venda avulsa) NÃO é um destino de menu — é uma ação rápida dentro
+    // do Caixa. O entitlement existe no backend, mas não vira item de navegação
+    // (não vazar estrutura interna pro usuário).
+    if (key == 'sale') continue;
     // Relatórios é o único módulo com visibilidade gerencial/financeira: além do
     // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
     // veem o item. Demais módulos seguem só pelo módulo habilitado.

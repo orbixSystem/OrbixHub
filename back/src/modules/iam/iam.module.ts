@@ -17,6 +17,8 @@ import { AuthModule } from '../auth/auth.module';
   providers: [IamService, EmployeesService, ReauthService, IamRepository],
   // IamService é service público (resolveMemberName) consumido por outros
   // módulos — ex.: OS mostra o responsável no link de acompanhamento.
-  exports: [IamService],
+  // EmployeesService (listAssignableMembers) é consumido pelo módulo `report`
+  // para resolver o nome do técnico no export de OS.
+  exports: [IamService, EmployeesService],
 })
 export class IamModule {}

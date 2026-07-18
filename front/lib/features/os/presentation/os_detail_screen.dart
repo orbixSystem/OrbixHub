@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -9,12 +11,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../invoice/presentation/invoice_providers.dart';
 import '../../invoice/presentation/invoice_status.dart';
+import '../../messages/domain/messages_models.dart';
 import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
@@ -36,19 +40,18 @@ class OsDetailScreen extends ConsumerWidget {
 
   bool _has(WidgetRef ref, String perm) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasPermission(perm);
+    return s.meOrNull?.hasPermission(perm) ?? false;
   }
 
   bool _hasModule(WidgetRef ref, String key) {
     final s = ref.read(sessionControllerProvider);
-    return s is SessionAuthenticated && s.me.hasModule(key);
+    return s.meOrNull?.hasModule(key) ?? false;
   }
 
   /// Identificação da empresa (tenant ativo) p/ exibir e imprimir na OS.
   OsCompany? _company(WidgetRef ref) {
     final s = ref.read(sessionControllerProvider);
-    if (s is! SessionAuthenticated) return null;
-    final t = s.me.activeTenant;
+    final t = s.meOrNull?.activeTenant;
     if (t == null) return null;
     return OsCompany(
       name: t.name,
@@ -95,6 +98,10 @@ class OsDetailScreen extends ConsumerWidget {
           _TimelineSection(order: order, canWrite: canEdit),
         ];
         final asideSections = <Widget>[
+          // Caixinha com as mensagens DESTA OS (prévia + atalho pra thread).
+          if (order.conversationId != null &&
+              order.conversationId!.isNotEmpty)
+            _MessagesSection(conversationId: order.conversationId!),
           if (hasTracking) _TrackingLinkCard(token: order.publicToken!),
           _PhotosSection(order: order, canWrite: canEdit),
         ];
@@ -143,8 +150,13 @@ class OsDetailScreen extends ConsumerWidget {
                 onEdit: () => _edit(context, ref, order),
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
                 onPrint: () => _printOrder(context, order, company),
+                // Emitir/ver NF fala com o servidor fiscal — offline a ação
+                // fica inerte com tooltip "Requer conexão".
                 invoiceAction: canIssueInvoice
-                    ? _IssueInvoiceButton(orderId: order.id)
+                    ? RequiresConnection(
+                        reason: 'a nota é emitida pelo servidor fiscal',
+                        child: _IssueInvoiceButton(orderId: order.id),
+                      )
                     : null,
               ),
               const SizedBox(height: 20),
@@ -271,18 +283,9 @@ class OsDetailScreen extends ConsumerWidget {
     ServiceOrder order,
   ) async {
     final repo = ref.read(osRepositoryProvider);
-    List<OsTemplate> templates;
-    try {
-      templates = await repo.listTemplates();
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-      return;
-    }
-    if (!context.mounted) return;
-    final chosen = await _TemplatePickerDialog.show(context, templates);
+    // O seletor carrega os templates sob demanda (busca + rolagem infinita),
+    // então não pré-carregamos a lista inteira aqui.
+    final chosen = await _TemplatePickerDialog.show(context);
     if (chosen == null) return;
     try {
       await repo.applyTemplate(order.id, chosen.id);
@@ -483,17 +486,41 @@ class _Header extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    OsStatusChip(status: order.status),
+                    // OS criada offline (número provisório OS-P…): o registro
+                    // ainda não existe no servidor.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        OsStatusChip(status: order.status),
+                        if (isPendingOsNumber(order.number))
+                          SyncRowBadge(entity: 'service_order', id: order.id),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              if (canEdit)
+              // Atalho direto para a conversa desta OS (inbox de mensagens) —
+              // a conversa é criada pelo backend junto com a OS.
+              if (order.conversationId != null &&
+                  order.conversationId!.isNotEmpty)
+                NeuIconButton(
+                  tooltip: 'Mensagens da OS',
+                  icon: Icons.forum_outlined,
+                  size: 42,
+                  onPressed: () =>
+                      context.go('/mensagens/${order.conversationId}'),
+                ),
+              if (canEdit) ...[
+                const SizedBox(width: 8),
                 NeuIconButton(
                   tooltip: 'Aplicar template',
                   icon: Icons.dashboard_customize_outlined,
                   size: 42,
                   onPressed: onApplyTemplate,
                 ),
+              ],
               if (canRead) ...[
                 const SizedBox(width: 8),
                 NeuIconButton(
@@ -647,6 +674,7 @@ class _SectionCard extends StatelessWidget {
     required this.child,
     this.glyphIndex = 5,
     this.action,
+    this.notice,
   });
 
   final IconData icon;
@@ -654,6 +682,9 @@ class _SectionCard extends StatelessWidget {
   final Widget child;
   final int glyphIndex;
   final Widget? action;
+
+  /// Aviso no rodapé da seção (ex.: [OfflinePendingNotice] — some quando online).
+  final Widget? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -683,6 +714,7 @@ class _SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           child,
+          ?notice,
         ],
       ),
     );
@@ -1138,6 +1170,8 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
               onTap: () => setState(() => _editing = true),
             )
           : null,
+      // Offline o diagnóstico é salvo no aparelho e sobe no replay do outbox.
+      notice: const OfflinePendingNotice(),
       child: _editing
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1660,6 +1694,184 @@ class _TotalRow extends StatelessWidget {
 /// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
 /// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
 /// pública não casa e o cliente cai no login).
+// ===================== Mensagens da OS (prévia) =====================
+
+/// Caixinha compacta com as últimas mensagens DESTA OS (cliente ↔ equipe).
+/// Prévia somente-leitura: usa `before` no futuro para NÃO zerar o contador de
+/// não-lidas do inbox; a conversa completa abre em /mensagens/:id.
+class _MessagesSection extends ConsumerWidget {
+  const _MessagesSection({required this.conversationId});
+
+  final String conversationId;
+
+  void _open(BuildContext context) => context.go('/mensagens/$conversationId');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final async = ref.watch(osConversationPreviewProvider(conversationId));
+    return _SectionCard(
+      icon: Icons.forum_rounded,
+      title: 'Mensagens',
+      glyphIndex: 1,
+      action: _HeaderAction(
+        icon: Icons.open_in_new_rounded,
+        label: 'Abrir',
+        onTap: () => _open(context),
+      ),
+      child: async.when(
+        skipLoadingOnReload: true,
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+          ),
+        ),
+        error: (e, _) => Text(
+          e is AppException ? e.message : 'Erro ao carregar as mensagens.',
+          style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+        ),
+        data: (thread) {
+          final unread = thread.conversation.staffUnread;
+          final messages = thread.messages;
+          if (messages.isEmpty) {
+            return Text(
+              'Nenhuma mensagem ainda. O cliente pode escrever pelo link de '
+              'acompanhamento — a conversa aparece aqui.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+            );
+          }
+          // As 3 mais recentes (a página vem em ordem cronológica).
+          final recent = messages.length > 3
+              ? messages.sublist(messages.length - 3)
+              : messages;
+          final older =
+              thread.hasMore ? '${messages.length}+' : '${messages.length}';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (unread > 0) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: NeuStatusChip(
+                    label: unread == 1
+                        ? '1 mensagem não lida'
+                        : '$unread mensagens não lidas',
+                    color: neu.accent,
+                    tint: neu.accentTint,
+                    icon: Icons.mark_chat_unread_outlined,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              for (var i = 0; i < recent.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _MessagePreviewTile(
+                  message: recent[i],
+                  onTap: () => _open(context),
+                ),
+              ],
+              if (messages.length > recent.length || thread.hasMore) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Mostrando as ${recent.length} mais recentes de $older — '
+                  'toque em "Abrir" para ver tudo.',
+                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Uma mensagem na prévia: remetente + hora numa linha, corpo em até 2 linhas.
+class _MessagePreviewTile extends StatelessWidget {
+  const _MessagePreviewTile({required this.message, required this.onTap});
+
+  final Message message;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final fromCustomer = message.sender == 'customer';
+    final who = (message.authorName?.trim().isNotEmpty ?? false)
+        ? message.authorName!.trim()
+        : (fromCustomer ? 'Cliente' : 'Equipe');
+    final hasPhoto =
+        message.photoUrl != null && message.photoUrl!.isNotEmpty;
+    final body = message.body.trim();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  fromCustomer
+                      ? Icons.person_rounded
+                      : Icons.support_agent_rounded,
+                  size: 14,
+                  color: fromCustomer ? neu.accent : neu.inkFaint,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    who,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fromCustomer ? neu.accent : neu.inkMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  _fmtCommentDate(message.createdAt),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasPhoto) ...[
+                  Icon(Icons.photo_outlined, size: 14, color: neu.inkFaint),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    body.isNotEmpty ? body : (hasPhoto ? 'Foto' : ''),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(color: neu.ink, fontSize: 13, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TrackingLinkCard extends StatelessWidget {
   const _TrackingLinkCard({required this.token});
 
@@ -1731,28 +1943,33 @@ class _TrackingLinkCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              NeuButton(
-                label: 'Copiar link',
-                icon: Icons.copy_rounded,
-                onPressed: () => _copy(context),
-              ),
-              NeuButton(
-                label: 'WhatsApp',
-                icon: Icons.chat_outlined,
-                kind: NeuButtonKind.secondary,
-                onPressed: () => _whatsApp(context),
-              ),
-              NeuButton(
-                label: 'E-mail',
-                icon: Icons.email_outlined,
-                kind: NeuButtonKind.secondary,
-                onPressed: () => _email(context),
-              ),
-            ],
+          // Enviar o link ao cliente é a ÚNICA coisa da OS que não funciona
+          // offline (o cliente precisa alcançar o servidor pelo link).
+          RequiresConnection(
+            reason: 'o envio do link ao cliente exige internet',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                NeuButton(
+                  label: 'Copiar link',
+                  icon: Icons.copy_rounded,
+                  onPressed: () => _copy(context),
+                ),
+                NeuButton(
+                  label: 'WhatsApp',
+                  icon: Icons.chat_outlined,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: () => _whatsApp(context),
+                ),
+                NeuButton(
+                  label: 'E-mail',
+                  icon: Icons.email_outlined,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: () => _email(context),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1793,6 +2010,11 @@ class _TimelineSection extends ConsumerWidget {
       icon: Icons.timeline_rounded,
       title: 'Linha do tempo',
       glyphIndex: 4,
+      // Notas criadas offline ficam no aparelho até a conexão voltar.
+      notice: const OfflinePendingNotice(
+        message: 'Notas criadas agora só serão enviadas ao sistema quando a '
+            'conexão voltar',
+      ),
       action: canWrite
           ? _HeaderAction(
               icon: Icons.add_comment_outlined,
@@ -2136,8 +2358,8 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
   }
 
   /// Abre a thread de comentários da foto (staff lê e adiciona).
-  void _openComments(OrderPhoto photo) {
-    showNeuDialog<void>(
+  Future<void> _openComments(OrderPhoto photo) async {
+    await showNeuDialog<void>(
       context,
       dialog: NeuDialog(
         title: 'Comentários da foto',
@@ -2145,15 +2367,25 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
         child: _PhotoCommentsPanel(orderId: order.id, photo: photo),
       ),
     );
+    // Recarrega o detalhe ao fechar: o badge de comentários da miniatura
+    // reflete o que a thread mostrou (inclui comentários novos do cliente).
+    if (mounted) ref.invalidate(orderProvider(order.id));
   }
 
   @override
   Widget build(BuildContext context) {
     final photos = order.photos;
+    // Offline: a foto fica guardada no aparelho (blob) e sobe no replay; abrir
+    // comentários e remover foto exigem a foto existir no servidor.
+    final offline = ref.watch(isOfflineProvider);
     return _SectionCard(
       icon: Icons.photo_library_rounded,
       title: 'Fotos',
       glyphIndex: 5,
+      notice: const OfflinePendingNotice(
+        message: 'As fotos adicionadas agora só serão enviadas ao sistema '
+            'quando a conexão voltar',
+      ),
       action: widget.canWrite
           ? _HeaderAction(
               icon: _busy ? Icons.hourglass_top_rounded : Icons.add_a_photo_outlined,
@@ -2176,6 +2408,7 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
                 itemBuilder: (_, i) => _PhotoThumb(
                   photo: photos[i],
                   canWrite: widget.canWrite,
+                  offline: offline,
                   onRemove: () => _remove(photos[i]),
                   onTap: () => _openComments(photos[i]),
                 ),
@@ -2191,10 +2424,15 @@ class _PhotoThumb extends StatelessWidget {
     required this.canWrite,
     required this.onRemove,
     required this.onTap,
+    this.offline = false,
   });
 
   final OrderPhoto photo;
   final bool canWrite;
+
+  /// Offline: comentários e remoção da foto exigem servidor (B8) — o toque é
+  /// bloqueado e a miniatura ganha tooltip "Requer conexão".
+  final bool offline;
   final VoidCallback onRemove;
 
   /// Toque na miniatura abre a thread de comentários da foto.
@@ -2202,48 +2440,75 @@ class _PhotoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget image = NeuNetworkImage(
+      url: photo.url,
+      width: 96,
+      height: 96,
+      radius: 12,
+    );
     return Stack(
       children: [
-        GestureDetector(
-          onTap: onTap,
-          child: NeuNetworkImage(
-            url: photo.url,
-            width: 96,
-            height: 96,
-            radius: 12,
-          ),
-        ),
-        // Selo de comentários: abre a thread ao tocar.
-        Positioned(
-          bottom: 2,
-          left: 2,
-          child: Material(
-            color: Colors.black54,
-            shape: const StadiumBorder(),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: onTap,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                child: Icon(Icons.mode_comment_outlined,
-                    size: 13, color: Colors.white),
+        if (offline)
+          Tooltip(
+            message: '$kRequiresConnectionTooltip — comentários da foto',
+            child: Opacity(opacity: 0.75, child: image),
+          )
+        else
+          GestureDetector(onTap: onTap, child: image),
+        // Selo de comentários: só aparece quando a foto TEM comentários, com a
+        // contagem — assim a equipe sabe sem precisar abrir a foto.
+        if (photo.commentCount > 0)
+          Positioned(
+            bottom: 2,
+            left: 2,
+            child: Material(
+              color: Colors.black54,
+              shape: const StadiumBorder(),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: offline ? null : onTap,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mode_comment_outlined,
+                          size: 13, color: Colors.white),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${photo.commentCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+        // Remover foto exige a foto NO SERVIDOR (não há op de sync p/ remoção):
+        // offline o botão continua VISÍVEL, mas inerte e explicado — some ≠
+        // explicar.
         if (canWrite)
           Positioned(
             top: 2,
             right: 2,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onRemove,
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close, size: 14, color: Colors.white),
+            child: RequiresConnection(
+              reason: 'remover foto',
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onRemove,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 14, color: Colors.white),
+                  ),
                 ),
               ),
             ),
@@ -2485,19 +2750,120 @@ class _CommentTile extends StatelessWidget {
 /// Dialog para escolher um template de OS a aplicar. Lista cada template como
 /// um ListTile clicável; devolve o escolhido (ou null em Cancelar). Vazio →
 /// mensagem orientando a criar templates.
-class _TemplatePickerDialog extends StatelessWidget {
-  const _TemplatePickerDialog({required this.templates});
+class _TemplatePickerDialog extends ConsumerStatefulWidget {
+  const _TemplatePickerDialog();
 
-  final List<OsTemplate> templates;
-
-  static Future<OsTemplate?> show(
-    BuildContext context,
-    List<OsTemplate> templates,
-  ) {
+  static Future<OsTemplate?> show(BuildContext context) {
     return showDialog<OsTemplate>(
       context: context,
-      builder: (_) => _TemplatePickerDialog(templates: templates),
+      builder: (_) => const _TemplatePickerDialog(),
     );
+  }
+
+  @override
+  ConsumerState<_TemplatePickerDialog> createState() =>
+      _TemplatePickerDialogState();
+}
+
+class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
+  static const _pageSize = 20;
+
+  final _scroll = ScrollController();
+  final _search = TextEditingController();
+  Timer? _debounce;
+
+  final List<OsTemplate> _items = [];
+  String _query = '';
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loading = true;
+  bool _loadingMore = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _scroll.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final q = value.trim();
+      if (q == _query) return;
+      _query = q;
+      _load(reset: true);
+    });
+  }
+
+  Future<void> _load({required bool reset}) async {
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _page = 1;
+      });
+    }
+    try {
+      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+            query: _query.isEmpty ? null : _query,
+            page: _page,
+            pageSize: _pageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        if (reset) _items.clear();
+        _items.addAll(pageData.items);
+        _hasMore = pageData.hasMore;
+        _loading = false;
+      });
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _loading) return;
+    setState(() => _loadingMore = true);
+    _page += 1;
+    try {
+      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+            query: _query.isEmpty ? null : _query,
+            page: _page,
+            pageSize: _pageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(pageData.items);
+        _hasMore = pageData.hasMore;
+        _loadingMore = false;
+      });
+    } on AppException {
+      if (!mounted) return;
+      setState(() {
+        _page -= 1;
+        _loadingMore = false;
+      });
+    }
   }
 
   @override
@@ -2506,31 +2872,23 @@ class _TemplatePickerDialog extends StatelessWidget {
     return AlertDialog(
       title: const Text('Aplicar template'),
       content: SizedBox(
-        width: 420,
-        child: templates.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Nenhum template — crie em Templates.'),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final t in templates)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.dashboard_customize_outlined),
-                      title: Text(t.name),
-                      subtitle: (t.description != null &&
-                              t.description!.isNotEmpty)
-                          ? Text(
-                              t.description!,
-                              style: TextStyle(color: scheme.onSurfaceVariant),
-                            )
-                          : null,
-                      onTap: () => Navigator.of(context).pop(t),
-                    ),
-                ],
+        width: 440,
+        height: 460,
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              onChanged: _onSearchChanged,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Buscar template',
+                prefixIcon: Icon(Icons.search),
               ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(child: _body(scheme)),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -2538,6 +2896,57 @@ class _TemplatePickerDialog extends StatelessWidget {
           child: const Text('Cancelar'),
         ),
       ],
+    );
+  }
+
+  Widget _body(ColorScheme scheme) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Text(_error is AppException
+            ? (_error as AppException).message
+            : 'Erro ao carregar os templates.'),
+      );
+    }
+    if (_items.isEmpty) {
+      return Center(
+        child: Text(
+          _query.isEmpty
+              ? 'Nenhum template — crie em Templates.'
+              : 'Nenhum template para "$_query".',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: scheme.onSurfaceVariant),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      itemCount: _items.length + (_hasMore ? 1 : 0),
+      itemBuilder: (_, i) {
+        if (i >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final t = _items[i];
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.dashboard_customize_outlined),
+          title: Text(t.name),
+          subtitle: (t.description != null && t.description!.isNotEmpty)
+              ? Text(
+                  t.description!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                )
+              : null,
+          onTap: () => Navigator.of(context).pop(t),
+        );
+      },
     );
   }
 }

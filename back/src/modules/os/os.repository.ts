@@ -1,8 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  ChangeCursor,
+  ChangedSincePage,
+  queryChangedSince,
+} from '../../common/database/changed-since';
 
 type DecimalIn = Prisma.Decimal | number;
+
+/** Entidades do módulo os expostas ao pull de sync offline. */
+export type OsSyncEntity =
+  | 'service_order'
+  | 'service_order_item'
+  | 'service_order_event'
+  | 'service_order_photo'
+  | 'service_order_template';
+
+/**
+ * `service_order_event`/`service_order_photo` são append-only → cursor por
+ * `created_at`; o resto (tem trigger de `updated_at` — migration 0031) usa
+ * `updated_at`.
+ */
+const SYNC_ENTITY_COLUMN: Record<OsSyncEntity, 'updated_at' | 'created_at'> = {
+  service_order: 'updated_at',
+  service_order_item: 'updated_at',
+  service_order_event: 'created_at',
+  service_order_photo: 'created_at',
+  service_order_template: 'updated_at',
+};
 
 /**
  * Ordenação da lista de OS (`created_at`). Cada chave tem um desempate estável
@@ -45,7 +71,15 @@ export interface OrderListFilter {
   take: number;
 }
 
+export interface TemplateListFilter {
+  q?: string;
+  skip: number;
+  take: number;
+}
+
 export interface CreateOrderData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   number: string;
   customer_id: string;
   customer_name: string;
@@ -69,6 +103,12 @@ export interface UpdateOrderData {
   discount?: DecimalIn;
 }
 
+export interface FiscalSnapshotFields {
+  fiscal_status: string | null;
+  fiscal_external_id: string | null;
+  fiscal_emitted_at: Date | null;
+}
+
 export interface StatusFields {
   status?: string;
   started_at?: Date | null;
@@ -78,6 +118,8 @@ export interface StatusFields {
 }
 
 export interface CreateItemData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
+  id?: string;
   order_id: string;
   kind: 'product' | 'service';
   inventory_item_id: string | null;
@@ -203,6 +245,15 @@ export class OsRepository {
     return db.service_order.update({
       where: { id },
       data: { ...data, updated_at: new Date() },
+    });
+  }
+
+  /** Snapshot do status fiscal devolvido pelo Fiscal (só p/ exibir; Fiscal é dono). */
+  setFiscalSnapshot(id: string, fields: FiscalSnapshotFields) {
+    const db = this.tenant.getClient();
+    return db.service_order.update({
+      where: { id },
+      data: { ...fields, updated_at: new Date() },
     });
   }
 
@@ -380,12 +431,31 @@ export class OsRepository {
     return db.service_order_photo.delete({ where: { id } });
   }
 
-  listPhotos(orderId: string) {
+  /** Fotos da OS + nº de comentários por foto (badge nas miniaturas do front). */
+  async listPhotos(orderId: string) {
     const db = this.tenant.getClient();
-    return db.service_order_photo.findMany({
+    const photos = await db.service_order_photo.findMany({
       where: { order_id: orderId },
       orderBy: { created_at: 'desc' },
     });
+    if (photos.length === 0) return [];
+    const byPhoto = await this.commentCountsByIds(photos.map((p) => p.id));
+    return photos.map((p) => ({
+      ...p,
+      comment_count: byPhoto.get(p.id) ?? 0,
+    }));
+  }
+
+  /** Nº de comentários por foto, em lote (sem relação no schema — FK vive no banco). */
+  async commentCountsByIds(photoIds: string[]): Promise<Map<string, number>> {
+    if (photoIds.length === 0) return new Map();
+    const db = this.tenant.getClient();
+    const counts = await db.service_order_photo_comment.groupBy({
+      by: ['photo_id'],
+      where: { photo_id: { in: photoIds } },
+      _count: { _all: true },
+    });
+    return new Map(counts.map((c) => [c.photo_id, c._count._all]));
   }
 
   // ---- comentários das fotos (thread staff + cliente) ----
@@ -444,13 +514,30 @@ export class OsRepository {
     });
   }
 
-  listTemplates() {
+  async listTemplates(filter: TemplateListFilter) {
     const db = this.tenant.getClient();
-    return db.service_order_template.findMany({
-      where: { deleted_at: null },
-      orderBy: { name: 'asc' },
-      include: { items: { orderBy: { created_at: 'asc' } } },
-    });
+    const where: Prisma.service_order_templateWhereInput = {
+      deleted_at: null,
+      ...(filter.q
+        ? {
+            OR: [
+              { name: { contains: filter.q, mode: 'insensitive' } },
+              { description: { contains: filter.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      db.service_order_template.findMany({
+        where,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        include: { items: { orderBy: { created_at: 'asc' } } },
+        skip: filter.skip,
+        take: filter.take,
+      }),
+      db.service_order_template.count({ where }),
+    ]);
+    return { items, total };
   }
 
   updateTemplate(
@@ -499,6 +586,15 @@ export class OsRepository {
     const db = this.tenant.getClient();
     return db.service_order_template_item.findMany({
       where: { template_id: templateId },
+      orderBy: { created_at: 'asc' },
+    });
+  }
+
+  /** Itens de VÁRIOS templates em 1 query (sync pull — evita N+1 por página). */
+  listTemplateItemsByTemplateIds(templateIds: string[]) {
+    const db = this.tenant.getClient();
+    return db.service_order_template_item.findMany({
+      where: { template_id: { in: templateIds } },
       orderBy: { created_at: 'asc' },
     });
   }
@@ -792,6 +888,60 @@ export class OsRepository {
       db.service_order.count({ where }),
     ]);
     return { rows, total };
+  }
+
+  /**
+   * TODAS as linhas do relatório de OS (export COMPLETO) — mesmos filtros do
+   * `listForReportPage` (range/escopo + status + busca + ordenação), porém SEM
+   * paginação. Alimenta o export server-side (CSV/PDF do relatório inteiro que o
+   * usuário está vendo, respeitando os filtros ativos). Tenant-scoped por RLS.
+   */
+  listAllForReport(
+    p: MetricsRange & { status?: string; q?: string; sort?: string },
+  ) {
+    const db = this.tenant.getClient();
+    const where: Prisma.service_orderWhereInput = {
+      ...this.metricsWhere(p),
+      ...(p.status ? { status: p.status } : {}),
+      ...(p.q
+        ? {
+            OR: [
+              { number: { contains: p.q, mode: 'insensitive' } },
+              { customer_name: { contains: p.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    return db.service_order.findMany({
+      where,
+      orderBy:
+        OS_REPORT_ORDER_BY[p.sort ?? 'recent'] ?? OS_REPORT_ORDER_BY.recent,
+      select: {
+        id: true,
+        number: true,
+        customer_name: true,
+        status: true,
+        assigned_to: true,
+        total: true,
+        opened_at: true,
+        started_at: true,
+        finished_at: true,
+      },
+    });
+  }
+
+  // ---- sync pull (offline) ----
+  /**
+   * Página de mudanças de uma entidade do módulo os desde o cursor. Sync pull
+   * — ver `common/database/changed-since.ts`.
+   */
+  listChangedSince(
+    table: OsSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }
 

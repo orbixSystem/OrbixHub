@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/error/app_exception.dart';
 import 'package:orbixhub_front/core/network/access_token_store.dart';
 import 'package:orbixhub_front/core/platform/app_reloader.dart';
 import 'package:orbixhub_front/core/storage/secure_token_store.dart';
@@ -34,18 +35,32 @@ void main() {
   late FakeAuthRepository auth;
   late _RecordingReloader reloader;
 
+  /// Quantas vezes o `localDbProvider` foi (re)construído — proxy do "os
+  /// repositórios recebem um LocalDb VÁLIDO" (I5).
+  late int localDbBuilds;
+
   ProviderContainer makeContainer() {
     final c = ProviderContainer(overrides: [
       accessTokenStoreProvider.overrideWithValue(access),
       secureTokenStoreProvider.overrideWithValue(secure),
       authRepositoryProvider.overrideWithValue(auth),
       appReloaderProvider.overrideWithValue(reloader),
+      // Nunca abre o banco cifrado real (SQLCipher + secure storage) em teste:
+      // só contamos as reconstruções do provider.
+      localDbProvider.overrideWith((ref) {
+        localDbBuilds++;
+        return null;
+      }),
+      // Caminho ONLINE puro: sem banco de credenciais offline (B6 é coberto em
+      // offline_login_test.dart) — não toca no `orbix_device.db` nem em plugins.
+      offlineCredentialsStoreProvider.overrideWithValue(null),
     ]);
     addTearDown(c.dispose);
     return c;
   }
 
   setUp(() {
+    localDbBuilds = 0;
     access = AccessTokenStore();
     secure = InMemorySecureTokenStore();
     auth = FakeAuthRepository();
@@ -140,5 +155,33 @@ void main() {
         container.read(sessionControllerProvider), isA<SessionUnauthenticated>());
     expect(access.token, isNull);
     expect(await secure.readRefreshToken(), isNull);
+  });
+
+  test(
+      'I5: switchTenant que FALHA não deixa os repositórios com um LocalDb '
+      'fechado (o provider é reconstruído e a sessão continua a mesma)',
+      () async {
+    final container = makeContainer();
+    final controller = container.read(sessionControllerProvider.notifier);
+    await pumpEventQueue();
+    await controller.login(email: 'dono@teste.com', password: 'senha12345');
+    container.read(localDbProvider); // materializa o banco do tenant atual
+    final buildsBefore = localDbBuilds;
+    final before = container.read(sessionControllerProvider).meOrNull;
+
+    auth.failSwitchTenant = true;
+    await expectLater(
+      controller.switchTenant('outro-tenant'),
+      throwsA(isA<AppException>()),
+    );
+
+    // A sessão (e o tenant ativo) não mudou...
+    final after = container.read(sessionControllerProvider).meOrNull;
+    expect(after?.activeTenant?.id, before?.activeTenant?.id);
+    // ...e o `localDbProvider` foi invalidado: quem ler agora recebe uma
+    // instância NOVA/aberta — antes, o banco era fechado ANTES da troca e o
+    // provider memoizado seguia entregando a instância FECHADA.
+    container.read(localDbProvider);
+    expect(localDbBuilds, greaterThan(buildsBefore));
   });
 }

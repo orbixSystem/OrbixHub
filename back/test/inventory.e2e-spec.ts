@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -219,6 +220,48 @@ describe('Inventory — Produtos (e2e)', () => {
       // direct fetch is invisible under B's RLS -> 404
       const bGet = await getItem(b.access, id);
       expect(bGet.status).toBe(404);
+    });
+  });
+
+  // ---- create-with-id (replay offline preserva uuid) --------------------
+  describe('create com id fixo (replay offline)', () => {
+    it('aceita id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const fixedId = randomUUID();
+
+      const created = await createItem(o.access, {
+        name: 'Item replay offline',
+        id: fixedId,
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(fixedId);
+
+      const fetched = await getItem(o.access, fixedId);
+      expect(fetched.status).toBe(200);
+      expect(fetched.body.id).toBe(fixedId);
+
+      const dup = await createItem(o.access, {
+        name: 'Item replay offline 2',
+        id: fixedId,
+      });
+      expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('Registro já existe (id duplicado).');
+    });
+
+    it('id NOVO + SKU duplicado → mensagem de código (não "id duplicado")', async () => {
+      const o = await registerOwner();
+      const sku = 'SKU-MIX-1';
+      expect((await createItem(o.access, { name: 'Dono do SKU', sku })).status).toBe(201);
+
+      // id inédito, mas colide na natural key (tenant_id, sku): a mensagem de
+      // negócio pré-existente deve vencer — nunca "id duplicado".
+      const mixed = await createItem(o.access, {
+        name: 'Outro item',
+        sku,
+        id: randomUUID(),
+      });
+      expect(mixed.status).toBe(409);
+      expect(mixed.body.message).toBe('Já existe um item com este código.');
     });
   });
 
@@ -450,6 +493,85 @@ describe('Inventory — Produtos (e2e)', () => {
       expect(productList.status).toBe(200);
       expect(ids(productList.body.items as IdRow[])).toContain(prodId);
       expect(ids(productList.body.items as IdRow[])).not.toContain(svcId);
+    });
+  });
+
+  // ---- 7c. classificação fiscal (gated por kind) ------------------------
+  describe('classificação fiscal (gated por kind)', () => {
+    it('persiste classificação fiscal de produto e ignora campos de serviço', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, {
+        name: 'Óleo 5W30', kind: 'product',
+        ncm: '27101259', cfop: '5102', origem: '0', gtin: '7891234567895',
+        codigoServico: '14.01', aliquotaIss: 5, // devem ser ignorados p/ produto
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.ncm).toBe('27101259');
+      expect(res.body.cfop).toBe('5102');
+      expect(res.body.origem).toBe('0');
+      expect(res.body.gtin).toBe('7891234567895');
+      expect(res.body.codigo_servico).toBeNull();
+      expect(res.body.aliquota_iss).toBeNull();
+    });
+
+    it('persiste classificação fiscal de serviço e ignora campos de produto', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, {
+        name: 'Troca de óleo', kind: 'service', durationMinutes: 30,
+        codigoServico: '14.01', aliquotaIss: 5,
+        ncm: '27101259', cfop: '5102', // devem ser ignorados p/ serviço
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.codigo_servico).toBe('14.01');
+      // Decimal(7,2): Prisma's Decimal.toString() normaliza zeros à direita
+      // (mesma convenção usada para sale_price/margin_pct neste arquivo) — comparar
+      // numericamente em vez de string exata.
+      expect(Number(res.body.aliquota_iss)).toBe(5);
+      expect(res.body.ncm).toBeNull();
+      expect(res.body.cfop).toBeNull();
+    });
+
+    it('rejeita campo fiscal fora do whitelist do DTO', async () => {
+      const o = await registerOwner();
+      const res = await createItem(o.access, { name: 'x', foo_fiscal: '1' });
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH em produto atualiza ncm e ignora codigoServico', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Óleo 5W30',
+        kind: 'product',
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        ncm: '27101259',
+        codigoServico: '14.01', // stray: deve ser ignorado p/ produto
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.ncm).toBe('27101259');
+      expect(patched.body.codigo_servico).toBeNull();
+    });
+
+    it('PATCH em serviço atualiza codigoServico e ignora ncm', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Troca de óleo',
+        kind: 'service',
+        durationMinutes: 30,
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.id as string;
+
+      const patched = await patchItem(o.access, id, {
+        codigoServico: '14.01',
+        ncm: '27101259', // stray: deve ser ignorado p/ serviço
+      });
+      expect(patched.status).toBe(200);
+      expect(patched.body.codigo_servico).toBe('14.01');
+      expect(patched.body.ncm).toBeNull();
     });
   });
 

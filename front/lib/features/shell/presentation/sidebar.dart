@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/offline/widgets/connection_chip.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
@@ -228,6 +229,19 @@ class SidebarContent extends ConsumerWidget {
                   onTap: () => onNavigate('/picker'),
                 ),
               ),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: collapsed ? 0 : 14,
+                vertical: 8,
+              ),
+              child: collapsed
+                  ? const Center(
+                      child: ConnectionChip(collapsed: true, onDark: true))
+                  : const Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConnectionChip(onDark: true),
+                    ),
+            ),
             _UserFooter(me: me, collapsed: collapsed),
           ],
           ),

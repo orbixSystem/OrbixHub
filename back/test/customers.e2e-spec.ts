@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { REDIS } from '../src/common/redis/redis.module';
@@ -289,6 +290,55 @@ describe('Customers & Subjects (e2e)', () => {
       expect(
         (await createCustomer(b.access, { name: 'B', document: 'SHARED' })).status,
       ).toBe(201);
+    });
+  });
+
+  // ---- create-with-id (replay offline preserva uuid) -------------------
+  describe('create com id fixo (replay offline)', () => {
+    it('aceita id fornecido; repetir o mesmo create com o mesmo id gera conflito', async () => {
+      const o = await registerOwner();
+      const fixedId = randomUUID();
+
+      const created = await createCustomer(o.access, {
+        name: 'Replay Offline',
+        id: fixedId,
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(fixedId);
+
+      const fetched = await request(app.getHttpServer())
+        .get(`/api/customers/${fixedId}`)
+        .set(auth(o.access));
+      expect(fetched.status).toBe(200);
+      expect(fetched.body.id).toBe(fixedId);
+
+      const dup = await createCustomer(o.access, {
+        name: 'Replay Offline 2',
+        id: fixedId,
+      });
+      expect(dup.status).toBe(409);
+      expect(dup.body.message).toBe('Registro já existe (id duplicado).');
+    });
+
+    it('id NOVO + documento duplicado → mensagem de documento (não "id duplicado")', async () => {
+      const o = await registerOwner();
+      const first = await createCustomer(o.access, {
+        name: 'Titular do doc',
+        document: 'DOC-MIX-1',
+      });
+      expect(first.status).toBe(201);
+
+      // id inédito, mas colide na natural key (tenant_id, document): a mensagem
+      // de negócio pré-existente deve vencer — nunca "id duplicado".
+      const mixed = await createCustomer(o.access, {
+        name: 'Outro titular',
+        document: 'DOC-MIX-1',
+        id: randomUUID(),
+      });
+      expect(mixed.status).toBe(409);
+      expect(mixed.body.message).toBe(
+        'Já existe um cliente com este documento.',
+      );
     });
   });
 
