@@ -235,12 +235,8 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (ref.watch(isOfflineProvider)) {
-      return const RequiresConnectionView(
-        message: 'A conversa com o cliente acontece em tempo real pelo '
-            'servidor. Conecte-se à internet para ler e responder.',
-      );
-    }
+    // O thread é LIDO do cache local (SQLite) offline; só o compositor (enviar
+    // resposta / citar foto) exige conexão — envolto em [RequiresConnection].
     final async = ref.watch(threadProvider(widget.conversationId));
     return Column(
       children: [
@@ -281,15 +277,20 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
             },
           ),
         ),
-        _Composer(
-          controller: _reply,
-          sending: _sending,
-          replyTo: _replyTo,
-          photoUrl: _photoUrl,
-          onSend: _send,
-          onPickPhoto: _pickOsPhoto,
-          onCancelReply: _cancelReply,
-          onCancelPhoto: _cancelPhoto,
+        // Enviar mensagem é online-only (chat/tempo real): offline o compositor
+        // fica inerte com o aviso "Requer conexão" (a leitura acima continua).
+        RequiresConnection(
+          reason: 'enviar mensagens exige conexão',
+          child: _Composer(
+            controller: _reply,
+            sending: _sending,
+            replyTo: _replyTo,
+            photoUrl: _photoUrl,
+            onSend: _send,
+            onPickPhoto: _pickOsPhoto,
+            onCancelReply: _cancelReply,
+            onCancelPhoto: _cancelPhoto,
+          ),
         ),
       ],
     );

@@ -16,8 +16,6 @@ void main() {
         '/billing',
         '/m/invoice',
         '/m/invoice/abc',
-        '/mensagens',
-        '/mensagens/42',
         '/m/report',
         '/agenda',
         '/agenda/horarios',
@@ -37,6 +35,8 @@ void main() {
         '/m/inventory',
         '/m/sales',
         '/m/sales/nova',
+        '/mensagens', // histórico legível offline
+        '/mensagens/42',
         '/configuracoes', // Aparência funciona offline
       ]) {
         expect(isOnlineOnlyRoute(loc), isFalse, reason: loc);

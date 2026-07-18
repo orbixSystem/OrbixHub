@@ -53,7 +53,9 @@ class SyncEngine {
     this.maxPagesPerEntity = 200,
   });
 
-  /// As 11 entidades replicadas (espelha `PULL_ROUTES` do backend).
+  /// As 13 entidades replicadas (espelha `PULL_ROUTES` do backend). `conversation`
+  /// e `message` são só-leitura (histórico de mensagens offline): o app puxa para
+  /// o SQLite local, mas ENVIAR mensagem continua exigindo conexão.
   static const entities = <String>[
     'customer',
     'subject',
@@ -66,6 +68,8 @@ class SyncEngine {
     'service_order_template',
     'cash_session',
     'cash_entry',
+    'conversation',
+    'message',
   ];
 
   final SyncApi api;

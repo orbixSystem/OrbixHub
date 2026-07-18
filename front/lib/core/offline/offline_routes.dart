@@ -10,7 +10,6 @@ import '../../features/auth/domain/auth_models.dart';
 bool isOnlineOnlyRoute(String location) {
   return location == '/billing' || // planos
       location.startsWith('/m/invoice') || // notas fiscais
-      location.startsWith('/mensagens') || // chat (tempo real)
       location == '/m/report' || // relatórios (BI do servidor)
       location.startsWith('/agenda') || // agenda + horários (servidor)
       location == '/equipe'; // gestão de equipe (servidor)

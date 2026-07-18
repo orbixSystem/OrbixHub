@@ -2,8 +2,12 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { NotificationsService } from '../notifications/notifications.service';
-import { MessagesRepository } from './messages.repository';
+import { MessagesRepository, MessagesSyncEntity } from './messages.repository';
 
 export interface CreateConversationInput {
   refType: string;
@@ -341,6 +345,36 @@ export class MessagesService {
           : null,
       };
     });
+  }
+
+  // ===================== Sync pull (offline) =====================
+
+  private static readonly SYNC_ENTITIES = new Set<MessagesSyncEntity>([
+    'conversation',
+    'message',
+  ]);
+
+  /**
+   * Página de mudanças de uma entidade do módulo messages para o pull de sync
+   * offline ("aponta, não invade": o módulo `sync` só chama este service
+   * público). Só LEITURA — o app sincroniza o histórico de mensagens ao SQLite
+   * local; enviar mensagem continua online.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!MessagesService.SYNC_ENTITIES.has(entity as MessagesSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo messages: ${entity}`,
+      );
+    }
+    const table = entity as MessagesSyncEntity;
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(table, cursor, clamped),
+    );
   }
 }
 
