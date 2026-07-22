@@ -7,9 +7,10 @@
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 
-# Toolchain nativo p/ compilar argon2 (bindings C). Removido no estágio final.
+# Toolchain nativo p/ compilar argon2 (bindings C) + openssl para o Prisma
+# detectar a versão certa (openssl-3.0.x) ao gerar o client/engines.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
+  && apt-get install -y --no-install-recommends python3 make g++ openssl \
   && rm -rf /var/lib/apt/lists/*
 
 # Instala deps a partir do manifesto do workspace (cache-friendly).
@@ -30,6 +31,12 @@ RUN npm prune --omit=dev
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app/back
 ENV NODE_ENV=production
+
+# Prisma precisa do OpenSSL em runtime (o motor de migração/engine falha sem
+# libssl na imagem slim). ca-certificates p/ chamadas HTTPS de saída.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # node_modules ficam hasteados na raiz do workspace (/app/node_modules);
 # o Node resolve subindo a árvore a partir de /app/back.
