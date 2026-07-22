@@ -87,15 +87,17 @@ fi
 echo "$IMAGE_REF" > "$STATE_FILE"
 log "OK — backend no ar: $IMAGE_REF"
 
-# Disco de 8 GB: remove imagens antigas do backend (mantem a que está rodando)
-# e camadas soltas. Roda DEPOIS do swap, então é seguro.
+# Disco de 8 GB: remove imagens ANTIGAS do backend, mantendo a atual e a :latest.
+# Compara pela referência repo:tag (não por ID) e NUNCA usa -f — assim o podman
+# se recusa a apagar uma imagem em uso, protegendo o container que acabou de subir.
 log "limpando imagens antigas do backend"
-CURRENT_ID=$(podman inspect --format '{{.Image}}' "$CONTAINER" 2>/dev/null || true)
-for id in $(podman images --format '{{.ID}} {{.Repository}}' | awk '$2 ~ /backend$/ {print $1}' | sort -u); do
-  if [ -n "$id" ] && [ "$id" != "$CURRENT_ID" ]; then
-    podman rmi -f "$id" >/dev/null 2>&1 || true
-  fi
-done
+podman images --format '{{.Repository}}:{{.Tag}}' \
+  | grep -E '/backend:' \
+  | grep -vE ':(latest|<none>)$' \
+  | while read -r ref; do
+      [ "$ref" = "$IMAGE_REF" ] && continue
+      podman rmi "$ref" >/dev/null 2>&1 || true
+    done
 podman image prune -f >/dev/null 2>&1 || true
 log "disco: $(df -h / | awk 'NR==2{print $4" livres ("$5" usado)"}')"
 log "concluido"
