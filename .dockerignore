@@ -1,0 +1,18 @@
+# Não enviar pro build da imagem do backend (context = raiz do monorepo).
+**/node_modules
+**/dist
+**/build
+front
+docs
+correcao-bugs
+tmp-pw
+.storage
+**/.storage
+.git
+.github
+*.log
+**/*.freezed.dart
+**/*.g.dart
+.vscode
+.claude
+.superpowers

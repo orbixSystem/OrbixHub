@@ -1,0 +1,146 @@
+name: Deploy prod
+
+# Push na master => builda no GitHub (nunca na EC2) e faz deploy sozinho.
+# Tambem pode ser disparado na mao (workflow_dispatch).
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Nunca deixa dois deploys correrem ao mesmo tempo.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/backend
+  FLUTTER_VERSION: 3.44.1
+
+jobs:
+  # 1) Portao de qualidade: lint + testes unitarios do backend.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run lint --workspace back
+      - run: npm run prisma:generate --workspace back
+      - run: npm run test --workspace back
+        env: { NODE_ENV: test }
+
+  # 2) Builda a imagem do backend e publica no GHCR.
+  build-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.meta.outputs.image_ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ref da imagem (lowercase + sha)
+        id: meta
+        run: |
+          IMG=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
+          echo "image_ref=${IMG}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${IMG}:latest" >> "$GITHUB_OUTPUT"
+      - name: Build + push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: back/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_ref }}
+            ${{ steps.meta.outputs.image_latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 3) Builda o Flutter web (artefato pro nginx).
+  build-front:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - working-directory: front
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
+          flutter build web --release \
+            --dart-define=API_BASE_URL=https://hub.orbixsystem.com/api \
+            --dart-define=APP_PUBLIC_URL=https://hub.orbixsystem.com
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: front/build/web
+          retention-days: 3
+
+  # 4) Deploy na EC2 via Tailscale (sem porta aberta pro mundo).
+  deploy:
+    needs: [build-backend, build-front]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conecta na Tailnet
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          # ephemeral: o node do CI some depois; sem sujeira na tailnet.
+
+      - name: Baixa o Flutter web
+        uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: web
+
+      - name: Prepara chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}          # IP tailscale ou MagicDNS da EC2
+          USER: ${{ secrets.DEPLOY_USER }}          # ubuntu
+          IMAGE_REF: ${{ needs.build-backend.outputs.image_ref }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SSH="ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 ${USER}@${HOST}"
+
+          echo "== login no GHCR (na EC2) =="
+          echo "${GHCR_TOKEN}" | $SSH "podman login ghcr.io -u ${GHCR_USER} --password-stdin"
+
+          echo "== envia o Flutter web =="
+          rsync -az -e "ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new" \
+            --delete web/ "${USER}@${HOST}:/tmp/orbix-web/"
+          $SSH "sudo rsync -a --delete /tmp/orbix-web/ /var/www/orbixhub/ && rm -rf /tmp/orbix-web"
+
+          echo "== envia o script de deploy e executa (backend) =="
+          scp -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new \
+            scripts/deploy/remote-deploy.sh "${USER}@${HOST}:/tmp/remote-deploy.sh"
+          $SSH "chmod +x /tmp/remote-deploy.sh && /tmp/remote-deploy.sh '${IMAGE_REF}'"
+
+          echo "== confere pela borda publica =="
+          curl -fsS https://hub.orbixsystem.com/api/health | grep -q '"status":"ok"'
+          echo "deploy OK"
