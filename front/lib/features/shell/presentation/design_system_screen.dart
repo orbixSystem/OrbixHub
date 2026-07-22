@@ -184,7 +184,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                 OxBadge(label: 'Inativo', color: AppColors.inkMuted, background: AppColors.surfaceSunken),
                 OxBadge(label: 'Pendente', color: AppColors.warning, background: AppColors.warningTint),
                 OxBadge(label: 'Erro', color: AppColors.danger, background: AppColors.dangerTint),
-                OxBadge(label: 'Info', color: AppColors.info, background: AppColors.infoTint),
+                OxBadge(label: 'Info', color: AppColors.info, background: AppColors.brandTint),
               ],
             ),
           ),

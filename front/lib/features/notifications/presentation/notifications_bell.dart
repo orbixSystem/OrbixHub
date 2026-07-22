@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -69,6 +71,14 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
 
   @override
   Widget build(BuildContext context) {
+    // Em mobile, oculta o sino enquanto a página de notificações está aberta
+    // para evitar que o usuário abra várias instâncias empilhadas.
+    if (!kIsWeb &&
+        (Platform.isAndroid || Platform.isIOS) &&
+        ref.watch(notificationsPageOpenProvider)) {
+      return const SizedBox.shrink();
+    }
+
     final unread = ref.watch(unreadCountProvider);
 
     // Toast + som só no AUMENTO do não-lido (não-spammy). Agendado fora do build.
@@ -141,17 +151,53 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
     );
   }
 
-  /// Alterna o painel. Quando aberto, o barrier cobre tudo (inclusive o sino),
-  /// então o caminho de fechar passa por [_buildPanelOverlay]; este toggle cobre
-  /// o caso de o painel estar fechado (e o re-clique programático, por garantia).
+  /// Alterna o painel. Em mobile (Android/iOS) empurra uma página própria com
+  /// animação slide-up; no desktop/web mantém o dropdown ancorado no sino.
   void _togglePanel() {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      _showMobilePage();
+      return;
+    }
     if (_portal.isShowing) {
       _portal.hide();
       return;
     }
-    // Atualiza ao abrir.
     unawaited(ref.read(notificationsProvider.notifier).refresh());
     _portal.show();
+  }
+
+  void _showMobilePage() {
+    ref.read(notificationsPageOpenProvider.notifier).open = true;
+    unawaited(ref.read(notificationsProvider.notifier).refresh());
+    Navigator.of(context)
+        .push(
+          _SlidePageRoute<void>(
+            builder: (pageCtx) => NotificationsPage(
+              onTapItem: (n) {
+                Navigator.of(pageCtx).pop();
+                unawaited(
+                    ref.read(notificationsProvider.notifier).markRead(n.id));
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  if (n.refType == 'message' &&
+                      (n.refId?.isNotEmpty ?? false)) {
+                    context.go('/mensagens/${n.refId}');
+                  } else if (n.type == 'inventory_low_stock') {
+                    context.go('/m/inventory');
+                  }
+                });
+              },
+              onMarkAll: () =>
+                  ref.read(notificationsProvider.notifier).markAllRead(),
+            ),
+          ),
+        )
+        .then((_) {
+      // Página foi fechada (pop ou swipe): restaura a visibilidade do sino.
+      if (mounted) {
+        ref.read(notificationsPageOpenProvider.notifier).open = false;
+      }
+    });
   }
 
   Widget _buildPanelOverlay(BuildContext context) {
@@ -633,6 +679,130 @@ class _NotificationToastState extends State<_NotificationToast>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Sinaliza que a NotificationsPage está aberta no mobile para que o sino
+/// se oculte enquanto estamos dentro dela.
+final notificationsPageOpenProvider =
+    NotifierProvider<_NotificationsPageOpenNotifier, bool>(
+        _NotificationsPageOpenNotifier.new);
+
+class _NotificationsPageOpenNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  // ignore: avoid_setters_without_getters
+  set open(bool value) => state = value;
+}
+
+/// Rota com animação horizontal: nova tela desliza da direita para a esquerda
+/// ao abrir e volta da esquerda para a direita ao fechar — padrão de push
+/// lateral nativo em Android e iOS.
+class _SlidePageRoute<T> extends PageRouteBuilder<T> {
+  _SlidePageRoute({required WidgetBuilder builder})
+      : super(
+          pageBuilder: (ctx, _, _) => builder(ctx),
+          transitionDuration: const Duration(milliseconds: 320),
+          reverseTransitionDuration: const Duration(milliseconds: 260),
+          transitionsBuilder: (_, animation, _, child) {
+            final slide = Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            ));
+            return SlideTransition(position: slide, child: child);
+          },
+        );
+}
+
+/// Página de notificações para mobile (Android/iOS).
+/// Ocupa toda a tela, com AppBar nativa (botão de voltar + "Marcar lidas")
+/// e lista completa de notificações sem restrição de altura.
+class NotificationsPage extends ConsumerWidget {
+  const NotificationsPage({
+    super.key,
+    required this.onTapItem,
+    required this.onMarkAll,
+  });
+
+  final void Function(AppNotification) onTapItem;
+  final VoidCallback onMarkAll;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final async = ref.watch(notificationsProvider);
+    final unread = async.maybeWhen(data: (r) => r.unread, orElse: () => 0);
+
+    return Scaffold(
+      appBar: AppBar(
+        // Botão de voltar usa o gesto nativo (swipe-down no iOS,
+        // swipe-right / botão físico no Android).
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Notificações'),
+            if (unread > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.brand,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$unread',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (unread > 0)
+            TextButton(
+              onPressed: onMarkAll,
+              style: TextButton.styleFrom(foregroundColor: AppColors.brand),
+              child: const Text('Marcar lidas'),
+            ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: async.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
+        error: (_, _) => Center(
+          child: Text(
+            'Não foi possível carregar.',
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        ),
+        data: (r) {
+          if (r.items.isEmpty) {
+            return Center(child: _EmptyState(scheme: scheme));
+          }
+          return ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: r.items.length,
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: scheme.outlineVariant),
+            itemBuilder: (_, i) => _NotificationRow(
+              notification: r.items[i],
+              onTap: () => onTapItem(r.items[i]),
+              scheme: scheme,
+            ),
+          );
+        },
       ),
     );
   }

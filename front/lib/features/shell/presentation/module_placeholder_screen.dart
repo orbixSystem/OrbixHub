@@ -13,7 +13,8 @@ class ModulePlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meta = moduleMeta[moduleKey] ?? (moduleKey, Icons.extension_outlined);
+    final meta = moduleMeta[moduleKey] ??
+        (moduleKey, Icons.extension_outlined);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"console.log('[OrbixHub] Regras invioláveis:\\n1. Módulos independentes: guarda só o ID de entidades externas, acessa via service público — NUNCA lê/escreve tabela alheia.\\n2. Multi-tenant via RLS + withTenantTx sempre. Nunca filtro na query como substituto de RLS.\\n3. Migrations aditivas nos 3 lugares: sql/auth-multitenant-schema.sql + prisma/migrations/ + schema.prisma.\\n4. Planos/módulos NUNCA hardcoded no front — vêm de /me + /billing/plans em runtime.\\n5. Front: UI só via repository (interface no domain). Nunca dio direto na tela.\\nSe ainda não carregou a skill orbixhub-arquitetura, invoque-a agora para o inventário completo e playbooks.')\""
+          }
+        ]
+      }
+    ]
+  }
+}

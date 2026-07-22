@@ -1,6 +1,11 @@
 ---
 name: orbixhub-arquitetura
-description: Use when building or changing anything in the OrbixHub repo (back/ NestJS or front/ Flutter) — new module, endpoint, screen, migration, plan, or refactor. Encodes the non-negotiable architecture rules, the "módulos independentes — aponta, não invade" law, the real module/role/plan inventory, and the new-module playbook.
+description: >
+  LOAD PROACTIVELY at the start of every session in this repository — do not wait
+  to be asked. Use when building or changing anything in OrbixHub (back/ NestJS or
+  front/ Flutter): new module, endpoint, screen, migration, plan, or refactor.
+  Encodes the non-negotiable architecture rules, the "módulos independentes — aponta,
+  não invade" law, the real module/role/plan inventory, and the new-module playbook.
 ---
 
 # OrbixHub — Arquitetura & Convenções

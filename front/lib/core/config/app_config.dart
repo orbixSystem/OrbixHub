@@ -1,15 +1,18 @@
-/// App configuration sourced from `--dart-define` at build/run time.
-///
-/// No secrets here — only the backend base URL. Default points at the local
-/// Nest dev server (`/api` prefix). Override with:
-///   flutter run --dart-define=API_BASE_URL=https://api.example.com/api
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   const AppConfig._();
 
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000/api',
-  );
+  static const String _envUrl = String.fromEnvironment('API_BASE_URL');
+
+  static String get apiBaseUrl {
+    if (_envUrl.isNotEmpty) return _envUrl;
+    // Android emulator: localhost refere-se ao próprio emulador; 10.0.2.2 é o host
+    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:4400/api';
+    return 'http://localhost:4400/api';
+  }
 
   /// Base URL pública do app WEB (onde a página de acompanhamento
   /// `/#/t/<token>` é servida). Na web o origin vem de `Uri.base.origin`; em

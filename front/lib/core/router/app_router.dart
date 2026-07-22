@@ -32,6 +32,7 @@ import '../../features/shell/presentation/module_placeholder_screen.dart';
 import '../../features/team/presentation/team_screen.dart';
 import '../../features/schedule/presentation/agenda_screen.dart';
 import '../../features/schedule/presentation/business_hours_screen.dart';
+import '../../features/shell/presentation/design_system_screen.dart';
 import '../../features/tracking/presentation/public_tracking_screen.dart';
 import '../devtools/dev_flag.dart';
 import '../devtools/ui_showcase_screen.dart';
@@ -168,6 +169,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/',
             pageBuilder: (_, s) => neuPage(s, const DashboardScreen()),
           ),
+          if (kDevTools)
+            GoRoute(
+              path: '/design',
+              builder: (_, _) => const DesignSystemScreen(),
+            ),
           GoRoute(
             path: '/billing',
             pageBuilder: (_, s) => neuPage(s, const PlansScreen()),

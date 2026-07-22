@@ -39,7 +39,7 @@ class AuthScaffold extends StatelessWidget {
                 Expanded(flex: 6, child: form),
               ],
             )
-          : form,
+          : SafeArea(child: form),
     );
   }
 }

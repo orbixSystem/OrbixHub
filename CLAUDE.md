@@ -5,17 +5,28 @@
 > mexer no código. Detalhes de setup/endpoints do backend estão no
 > [`README.md`](./README.md); designs aprovados estão em `docs/superpowers/specs/`.
 
-> **Skill obrigatória:** antes de construir/alterar qualquer coisa (módulo, endpoint,
-> tela, migration, plano, refactor), carregue a skill **`orbixhub-arquitetura`**
-> (`.claude/skills/orbixhub-arquitetura/SKILL.md`). Ela codifica as regras de ouro, o
-> inventário real (módulos/cargos/planos) e o playbook de módulo novo. Regras-mãe em
-> uma linha:
-> 1. **Módulos independentes — "aponta, não invade":** guarde só o *id* de entidades
->    de outro módulo e busque via *service público*; **nunca** leia/escreva a *tabela*
->    alheia. 2. Multi-tenant via **RLS** (`tenant_id` do JWT, `withTenantTx`). 3. Migrations
->    **aditivas** nos 3 lugares. 4. Genérico, sem casca de vertical vazando. 5. Planos/módulos
->    **nunca** hardcoded no front (vêm de `/me` + `/billing/plans`). 6. **Sem hard delete**.
->    7. Mutações sensíveis: `@Permissions` + auditadas. 8. Front: UI só via repository.
+---
+
+## ⚡ BOOT OBRIGATÓRIO — execute ANTES de qualquer resposta técnica
+
+**Invoque a skill `orbixhub-arquitetura` imediatamente ao iniciar qualquer sessão
+neste repositório.** Não espere pedido explícito do usuário — faça isso
+proativamente na primeira mensagem que envolva código, arquitetura ou decisão
+técnica. Outros desenvolvedores trabalham neste repo sem conhecer todas as regras;
+a skill é o guardião que garante consistência entre todos os agentes.
+
+```
+Skill("orbixhub-arquitetura")   ← invoque isso agora se ainda não o fez
+```
+
+As 5 regras que NUNCA podem ser quebradas (mesmo sem carregar a skill):
+1. **Módulos independentes** — guarde só o *id* de entidades de outro módulo; nunca leia/escreva tabela alheia; acesse via service público.
+2. **Multi-tenant via RLS** — `withTenantTx` em todo acesso tenant-scoped; nunca filtro na query como substituto.
+3. **Migrations aditivas** — refletidas nos 3 lugares: `sql/auth-multitenant-schema.sql` + `prisma/migrations/` + `schema.prisma`.
+4. **Planos/módulos nunca hardcoded no front** — vêm de `/me` + `/billing/plans` em runtime.
+5. **UI só via repository** — nunca `dio` direto na tela; interface no domain, impl no data.
+
+---
 
 ---
 

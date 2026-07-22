@@ -14,7 +14,8 @@
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "seed:dev": "ts-node scripts/seed-dev.ts"
+    "seed:dev": "ts-node scripts/seed-dev.ts",
+    "db:setup": "node -r ts-node/register scripts/ci-db-setup.ts"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",

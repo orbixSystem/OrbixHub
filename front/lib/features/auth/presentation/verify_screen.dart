@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/widgets/ox_button.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
@@ -65,15 +66,15 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen> {
             const Text('E-mail verificado com sucesso!',
                 textAlign: TextAlign.center),
             const SizedBox(height: 20),
-            FilledButton(
+            OxButton(
+              label: 'Ir para o login',
               onPressed: () => context.go('/login'),
-              child: const Text('Ir para o login'),
             ),
           ] else ...[
             if (_error != null) AuthErrorBanner(message: _error!),
-            FilledButton(
+            OxButton(
+              label: 'Voltar ao login',
               onPressed: () => context.go('/login'),
-              child: const Text('Voltar ao login'),
             ),
           ],
         ],

@@ -10,7 +10,9 @@
     "back:seed": "npm run seed:dev --workspace back",
     "back:test": "npm run test --workspace back",
     "back:test:e2e": "npm run test:e2e --workspace back",
-    "back:lint": "npm run lint --workspace back"
+    "back:lint": "npm run lint --workspace back",
+    "back:db:setup": "npm run db:setup --workspace back",
+    "design:pdf": "node scripts/generate-design-system-pdf.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
