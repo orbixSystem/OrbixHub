@@ -31,10 +31,13 @@ podman exec postgres pg_dump -U app_owner orbixhub | gzip > "$BACKUP_DIR/db-$TS.
 ls -1t "$BACKUP_DIR"/db-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -f
 log "backup salvo em $BACKUP_DIR/db-$TS.sql.gz"
 
-log "aplicando migrations (prisma migrate deploy como app_migrator)"
-MIG_URL=$(grep -E '^MIGRATION_DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
+# Migrations como app_owner (dono das tabelas + superuser): DDL (ALTER/CREATE)
+# exige ser dono da tabela; app_migrator só tem BypassRLS e não consegue alterar
+# as tabelas existentes. Este é o role que historicamente migrou esta base.
+log "aplicando migrations (prisma migrate deploy como app_owner)"
+ADMIN_URL=$(grep -E '^ADMIN_DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
 podman run --rm --network host --env-file "$ENV_FILE" \
-  -e DATABASE_URL="$MIG_URL" "$IMAGE_REF" \
+  -e DATABASE_URL="$ADMIN_URL" "$IMAGE_REF" \
   npx prisma migrate deploy
 
 # guarda a imagem atual para rollback
