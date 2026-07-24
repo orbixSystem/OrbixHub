@@ -25,51 +25,66 @@ class NeuEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              NeuSurface(
-                elevation: NeuElevation.raised,
-                radius: 40,
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Icon(icon, size: 36, color: neu.accent),
-                ),
+    final content = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 360),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NeuSurface(
+              elevation: NeuElevation.raised,
+              radius: 40,
+              child: SizedBox(
+                width: 80,
+                height: 80,
+                child: Icon(icon, size: 36, color: neu.accent),
               ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: neu.ink,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
+            ),
+            if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 20),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: neu.ink,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
+              NeuButton(
+                label: actionLabel!,
+                icon: Icons.add_rounded,
+                onPressed: onAction,
               ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
-              ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 20),
-                NeuButton(
-                  label: actionLabel!,
-                  icon: Icons.add_rounded,
-                  onPressed: onAction,
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
+    );
+    // Resiliente a altura apertada: dentro de um Expanded pequeno (ex.: extrato
+    // do caixa aberto sem movimentos) o conteúdo natural é maior que o espaço e
+    // estouraria. Com altura limitada, rola em vez de estourar; com espaço amplo
+    // ou ilimitado (dentro de ListView/SingleChildScrollView), fica centrado.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight == double.infinity) {
+          return Center(child: content);
+        }
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: content),
+          ),
+        );
+      },
     );
   }
 }
