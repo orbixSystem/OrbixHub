@@ -520,7 +520,7 @@ class _Header extends StatelessWidget {
                     icon: Icons.forum_outlined,
                     size: 42,
                     onPressed: () =>
-                        context.go('/mensagens/${order.conversationId}'),
+                        context.push('/mensagens/${order.conversationId}'),
                   ),
                 if (canEdit)
                   NeuIconButton(

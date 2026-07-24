@@ -173,7 +173,7 @@ class _ConversationTile extends StatelessWidget {
     final color = neu.glyphs[initial.codeUnitAt(0) % neu.glyphs.length];
 
     return NeuListTile(
-      onTap: () => context.go('/mensagens/${conversation.id}'),
+      onTap: () => context.push('/mensagens/${conversation.id}'),
       leading: Container(
         width: 44,
         height: 44,

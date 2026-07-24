@@ -322,7 +322,10 @@ class _ThreadHeader extends StatelessWidget {
             icon: Icons.arrow_back_rounded,
             tooltip: 'Voltar para as conversas',
             size: 42,
-            onPressed: () => context.go('/mensagens'),
+            // Volta para a origem real (OS ou inbox) quando o chat foi
+            // empilhado; se abriu direto por URL, cai na lista de conversas.
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/mensagens'),
           ),
           const SizedBox(width: 10),
           NeuIconChip.glyph(
