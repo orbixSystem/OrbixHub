@@ -126,10 +126,6 @@ class _AppShellState extends ConsumerState<AppShell> {
           Expanded(
             child: Column(
               children: [
-                // Banner de transição de conectividade (offline/syncing/flash de
-                // reconexão) — fora do Stack do header para não bagunçar a
-                // matemática do notch/FAB, que é relativa ao topo do Stack.
-                const ConnectionBanner(),
                 Expanded(
                   child: Stack(
                     clipBehavior: Clip.none,
@@ -140,6 +136,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                             title: items[selected].label,
                             showMenu: !isDesktop && !isMobile,
                           ),
+                          // Banner de transição de conectividade (offline/syncing/
+                          // flash de reconexão): no topo da ÁREA DE CONTEÚDO — ou
+                          // seja, ABAIXO do header, que já reserva a status bar.
+                          // Antes ficava acima do header e corria sob os ícones de
+                          // bateria/rede. O header/FAB seguem no topo do Stack, então
+                          // a matemática do notch não muda.
+                          const ConnectionBanner(),
                           // A transição entre telas é feita pelo Navigator do
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da

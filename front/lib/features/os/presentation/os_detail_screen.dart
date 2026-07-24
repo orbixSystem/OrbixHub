@@ -467,17 +467,26 @@ class _Header extends StatelessWidget {
             Divider(height: 1, color: neu.base),
             const SizedBox(height: 14),
           ],
-          Row(
-            children: [
-              NeuIconChip.glyph(context,
-                  icon: Icons.build_rounded, index: 0, size: 52),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+          Builder(
+            builder: (context) {
+              final isMobile = context.isMobile;
+              final leading = NeuIconChip.glyph(context,
+                  icon: Icons.build_rounded, index: 0, size: 52);
+              // Número: fica em 24px quando cabe e, só num extremo, encolhe suave
+              // (nunca quebra em 2 linhas nem corta com "…" — ilegível num número).
+              // No mobile o bloco do número recebe a LARGURA TODA; os botões de
+              // ação vão para uma linha própria abaixo, então o número não disputa
+              // espaço com eles por mais longo que seja.
+              final titleColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
                       order.number,
+                      maxLines: 1,
+                      softWrap: false,
                       style: TextStyle(
                         color: neu.ink,
                         fontSize: 24,
@@ -485,61 +494,94 @@ class _Header extends StatelessWidget {
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    // OS criada offline (número provisório OS-P…): o registro
-                    // ainda não existe no servidor.
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                  ),
+                  const SizedBox(height: 6),
+                  // OS criada offline (número provisório OS-P…): o registro
+                  // ainda não existe no servidor.
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      OsStatusChip(status: order.status),
+                      if (isPendingOsNumber(order.number))
+                        SyncRowBadge(entity: 'service_order', id: order.id),
+                    ],
+                  ),
+                ],
+              );
+              final actions = <Widget>[
+                // Atalho direto para a conversa desta OS (inbox de mensagens) —
+                // a conversa é criada pelo backend junto com a OS.
+                if (order.conversationId != null &&
+                    order.conversationId!.isNotEmpty)
+                  NeuIconButton(
+                    tooltip: 'Mensagens da OS',
+                    icon: Icons.forum_outlined,
+                    size: 42,
+                    onPressed: () =>
+                        context.go('/mensagens/${order.conversationId}'),
+                  ),
+                if (canEdit)
+                  NeuIconButton(
+                    tooltip: 'Aplicar template',
+                    icon: Icons.dashboard_customize_outlined,
+                    size: 42,
+                    onPressed: onApplyTemplate,
+                  ),
+                if (canRead)
+                  NeuIconButton(
+                    tooltip: 'Imprimir',
+                    icon: Icons.print_outlined,
+                    size: 42,
+                    onPressed: onPrint,
+                  ),
+                if (canEdit)
+                  NeuIconButton(
+                    tooltip: 'Editar',
+                    icon: Icons.edit_outlined,
+                    size: 42,
+                    onPressed: onEdit,
+                  ),
+              ];
+              // Espaçamento de 8px entre os botões (lista dinâmica).
+              final actionRow = <Widget>[
+                for (var i = 0; i < actions.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  actions[i],
+                ],
+              ];
+
+              if (isMobile) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       children: [
-                        OsStatusChip(status: order.status),
-                        if (isPendingOsNumber(order.number))
-                          SyncRowBadge(entity: 'service_order', id: order.id),
+                        leading,
+                        const SizedBox(width: 16),
+                        Expanded(child: titleColumn),
                       ],
                     ),
+                    if (actionRow.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: actionRow,
+                      ),
+                    ],
                   ],
-                ),
-              ),
-              // Atalho direto para a conversa desta OS (inbox de mensagens) —
-              // a conversa é criada pelo backend junto com a OS.
-              if (order.conversationId != null &&
-                  order.conversationId!.isNotEmpty)
-                NeuIconButton(
-                  tooltip: 'Mensagens da OS',
-                  icon: Icons.forum_outlined,
-                  size: 42,
-                  onPressed: () =>
-                      context.go('/mensagens/${order.conversationId}'),
-                ),
-              if (canEdit) ...[
-                const SizedBox(width: 8),
-                NeuIconButton(
-                  tooltip: 'Aplicar template',
-                  icon: Icons.dashboard_customize_outlined,
-                  size: 42,
-                  onPressed: onApplyTemplate,
-                ),
-              ],
-              if (canRead) ...[
-                const SizedBox(width: 8),
-                NeuIconButton(
-                  tooltip: 'Imprimir',
-                  icon: Icons.print_outlined,
-                  size: 42,
-                  onPressed: onPrint,
-                ),
-              ],
-              if (canEdit) ...[
-                const SizedBox(width: 8),
-                NeuIconButton(
-                  tooltip: 'Editar',
-                  icon: Icons.edit_outlined,
-                  size: 42,
-                  onPressed: onEdit,
-                ),
-              ],
-            ],
+                );
+              }
+              return Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 16),
+                  Expanded(child: titleColumn),
+                  ...actionRow,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           Wrap(

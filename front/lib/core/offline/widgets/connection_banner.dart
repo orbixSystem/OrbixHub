@@ -137,13 +137,12 @@ class _BannerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // O sino + o toggle de tema vivem num overlay fixo no canto superior
-    // direito (GlobalControls) e passam POR CIMA desta faixa — sem reservar a
-    // largura deles o texto corria por baixo dos botões no telefone.
-    const controlsGutter = 104.0;
+    // A faixa vive no topo da ÁREA DE CONTEÚDO (abaixo do header). O sino + o
+    // toggle de tema (GlobalControls) ficam no topo-direito da TELA, sobre o
+    // header — não sobre esta faixa —, então não é preciso reservar largura p/ eles.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 9, 16 + controlsGutter, 9),
+      padding: const EdgeInsets.fromLTRB(16, 9, 16, 9),
       color: spec.tint,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

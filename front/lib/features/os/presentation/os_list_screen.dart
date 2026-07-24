@@ -300,6 +300,22 @@ class _Body extends ConsumerWidget {
               );
             }
             final o = page.items[i];
+            // Mobile ganha um card vertical grande (número em destaque, cliente/
+            // veículo legíveis, rodapé com pagamento + valor); desktop usa a linha
+            // densa. O tile denso apertava tudo numa Row só → número/cliente
+            // viravam "…" e a cauda estourava.
+            if (isMobile) {
+              return _OrderCardMobile(
+                id: o.id,
+                number: o.number,
+                customerName: o.customerName,
+                subjectLabel: o.subjectLabel,
+                status: o.status,
+                paymentStatus: o.paymentStatus,
+                total: o.total,
+                onTap: () => context.go('/m/os/${o.id}'),
+              );
+            }
             return _OrderTile(
               id: o.id,
               number: o.number,
@@ -308,7 +324,7 @@ class _Body extends ConsumerWidget {
               status: o.status,
               paymentStatus: o.paymentStatus,
               total: o.total,
-              dense: !isMobile,
+              dense: true,
               onTap: () => context.go('/m/os/${o.id}'),
             );
           },
@@ -410,6 +426,127 @@ class _OrderTile extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Icon(Icons.chevron_right, color: neu.inkFaint, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card de OS para mobile: layout vertical e arejado.
+/// - Cabeçalho: ícone + número em destaque + selo de status.
+/// - Corpo: cliente · veículo (até 2 linhas, sem cortar no "…" cedo demais).
+/// - Rodapé: situação de pagamento à esquerda; valor à direita.
+class _OrderCardMobile extends StatelessWidget {
+  const _OrderCardMobile({
+    required this.id,
+    required this.number,
+    required this.customerName,
+    required this.subjectLabel,
+    required this.status,
+    required this.paymentStatus,
+    required this.total,
+    required this.onTap,
+  });
+
+  final String id;
+  final String number;
+  final String? customerName;
+  final String? subjectLabel;
+  final String status;
+  final String paymentStatus;
+  final String? total;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final subtitle = [
+      if (customerName != null && customerName!.isNotEmpty) customerName!,
+      if (subjectLabel != null && subjectLabel!.isNotEmpty) subjectLabel!,
+    ].join(' · ');
+
+    return NeuCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      radius: NeuTokens.rField,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho: número (destaque) + status.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              NeuIconChip.glyph(
+                context,
+                icon: Icons.build_outlined,
+                index: 1,
+                size: 44,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      number,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                    // OS offline (número provisório) mostra o selo de envio.
+                    if (isPendingOsNumber(number)) ...[
+                      const SizedBox(height: 6),
+                      SyncRowBadge(
+                        entity: 'service_order',
+                        id: id,
+                        dense: true,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              OsStatusChip(status: status),
+            ],
+          ),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 14,
+                height: 1.3,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Divider(height: 1, thickness: 1, color: neu.inkFaint.withValues(alpha: .15)),
+          const SizedBox(height: 12),
+          // Rodapé: pagamento + valor.
+          Row(
+            children: [
+              PaymentTag(status: paymentStatus),
+              const Spacer(),
+              Text(
+                money(total),
+                style: TextStyle(
+                  color: neu.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, color: neu.inkFaint, size: 22),
+            ],
+          ),
         ],
       ),
     );
