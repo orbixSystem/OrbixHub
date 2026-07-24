@@ -36,7 +36,15 @@ class GlobalControls extends ConsumerWidget {
       listenable: ref.read(routerProvider).routerDelegate,
       builder: (context, _) {
         if (_isPublicTrackingRoute(ref)) return const SizedBox.shrink();
-        return _buildControls(context, ref);
+        // Esconde enquanto um modal (diálogo/sheet) estiver aberto — como este
+        // chrome vive no topo do overlay do root navigator, senão flutuaria
+        // acima da barreira do modal.
+        return ValueListenableBuilder<int>(
+          valueListenable: modalRouteObserver.depth,
+          builder: (context, modals, _) => modals > 0
+              ? const SizedBox.shrink()
+              : _buildControls(context, ref),
+        );
       },
     );
   }
@@ -106,7 +114,12 @@ class DevBeetleControl extends ConsumerWidget {
       listenable: ref.read(routerProvider).routerDelegate,
       builder: (context, _) {
         if (_isPublicTrackingRoute(ref)) return const SizedBox.shrink();
-        return _buildBeetle(context, ref);
+        return ValueListenableBuilder<int>(
+          valueListenable: modalRouteObserver.depth,
+          builder: (context, modals, _) => modals > 0
+              ? const SizedBox.shrink()
+              : _buildBeetle(context, ref),
+        );
       },
     );
   }

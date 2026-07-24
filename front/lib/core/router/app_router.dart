@@ -62,6 +62,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
+    // Observa modais (PopupRoute) p/ o chrome global (sino + tema) se esconder
+    // enquanto um diálogo/sheet estiver aberto — senão flutua acima da barreira.
+    observers: [modalRouteObserver],
     redirect: (context, state) {
       final session = ref.read(sessionControllerProvider);
       final location = state.matchedLocation;
