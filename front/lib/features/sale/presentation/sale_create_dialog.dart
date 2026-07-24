@@ -228,7 +228,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     // Responsivo: em telas estreitas (celular) o diálogo ocupa quase a tela toda;
     // em desktop fica num cartão de 560px. Evita campos espremidos/cortados.
     final media = MediaQuery.sizeOf(context);
-    final maxW = media.width < 620 ? media.width - 24 : 560.0;
+    final isNarrow = media.width < 620; // celular: empilha os controles
+    final maxW = isNarrow ? media.width - 24 : 560.0;
     final maxH = media.height < 780 ? media.height - 40 : 720.0;
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
@@ -240,6 +241,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Cabeçalho FIXO (não rola com o corpo).
             Row(
               children: [
                 const Icon(Icons.shopping_cart_checkout_outlined,
@@ -255,6 +257,14 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               ],
             ),
             const SizedBox(height: 8),
+            // Miolo ROLÁVEL: em telas baixas ou com o teclado aberto, só esta
+            // parte rola — cabeçalho e rodapé permanecem fixos.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
             // cliente opcional
             Row(
               children: [
@@ -298,27 +308,28 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             // Tabela de itens — SEMPRE visível (adicionar não troca a tela).
             const _ItemsHeader(),
             const SizedBox(height: 4),
-            Flexible(
-              child: _lines.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      child: Text(
-                        'Busque um produto do estoque ou adicione um item avulso.',
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 13),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _lines.length,
-                      itemBuilder: (_, i) => _LineTile(
-                        line: _lines[i],
-                        onChanged: () => setState(() {}),
-                        onRemove: () => setState(() => _lines.removeAt(i)),
-                      ),
-                    ),
-            ),
+            if (_lines.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Text(
+                  'Busque um produto do estoque ou adicione um item avulso.',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                // O scroll é do corpo (SingleChildScrollView); a lista só empilha.
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _lines.length,
+                itemBuilder: (_, i) => _LineTile(
+                  line: _lines[i],
+                  onChanged: () => setState(() {}),
+                  onRemove: () => setState(() => _lines.removeAt(i)),
+                ),
+              ),
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 16),
@@ -336,6 +347,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             ),
             const SizedBox(height: 16),
             _PaymentSection(
+              isNarrow: isNarrow,
               receiveNow: _receiveNow,
               method: _method,
               emitInvoice: _emitInvoice,
@@ -352,25 +364,18 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 onChanged: () => setState(() {}),
               ),
             ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Total: ${formatMoney(_total)}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _submitting || _insufficientCash ? null : _submit,
-                  icon: _submitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.check),
-                  label: Text(_receiveNow ? 'Vender e receber' : 'Vender (a receber)'),
-                  style: FilledButton.styleFrom(minimumSize: const Size(190, 44)),
+                  ],
                 ),
-              ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Rodapé FIXO (total + botão de vender).
+            _SubmitBar(
+              isNarrow: isNarrow,
+              total: _total,
+              receiveNow: _receiveNow,
+              submitting: _submitting,
+              onSubmit: _submitting || _insufficientCash ? null : _submit,
             ),
           ],
           ),
@@ -498,6 +503,7 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
 /// opção de emitir nota.
 class _PaymentSection extends StatelessWidget {
   const _PaymentSection({
+    required this.isNarrow,
     required this.receiveNow,
     required this.method,
     required this.emitInvoice,
@@ -505,6 +511,7 @@ class _PaymentSection extends StatelessWidget {
     required this.onMethod,
     required this.onEmitInvoice,
   });
+  final bool isNarrow;
   final bool receiveNow;
   final String method;
   final bool emitInvoice;
@@ -514,39 +521,47 @@ class _PaymentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final segmented = SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(value: true, label: Text('Receber agora')),
+        ButtonSegment(value: false, label: Text('A receber')),
+      ],
+      selected: {receiveNow},
+      onSelectionChanged: (s) => onReceiveNow(s.first),
+      showSelectedIcon: false,
+    );
+    final forma = receiveNow
+        ? DropdownButtonFormField<String>(
+            initialValue: method,
+            isExpanded: true,
+            decoration:
+                const InputDecoration(isDense: true, labelText: 'Forma'),
+            items: [
+              for (final m in cashierMethods)
+                DropdownMenuItem(value: m, child: Text(methodLabel(m))),
+            ],
+            onChanged: (v) => onMethod(v ?? method),
+          )
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: true, label: Text('Receber agora')),
-                  ButtonSegment(value: false, label: Text('A receber')),
-                ],
-                selected: {receiveNow},
-                onSelectionChanged: (s) => onReceiveNow(s.first),
-                showSelectedIcon: false,
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (receiveNow)
-              SizedBox(
-                width: 150,
-                child: DropdownButtonFormField<String>(
-                  initialValue: method,
-                  decoration: const InputDecoration(
-                      isDense: true, labelText: 'Forma'),
-                  items: [
-                    for (final m in cashierMethods)
-                      DropdownMenuItem(value: m, child: Text(methodLabel(m))),
-                  ],
-                  onChanged: (v) => onMethod(v ?? method),
-                ),
-              ),
+        // No mobile empilha: o segmentado ocupa a linha toda (senão os rótulos
+        // quebram em 2-3 linhas) e a "Forma" vem abaixo, também full-width.
+        if (isNarrow) ...[
+          SizedBox(width: double.infinity, child: segmented),
+          if (forma != null) ...[
+            const SizedBox(height: 10),
+            forma,
           ],
-        ),
+        ] else
+          Row(
+            children: [
+              Expanded(child: segmented),
+              const SizedBox(width: 10),
+              if (forma != null) SizedBox(width: 150, child: forma),
+            ],
+          ),
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
@@ -555,6 +570,62 @@ class _PaymentSection extends StatelessWidget {
           onChanged: (v) => onEmitInvoice(v ?? false),
           title: const Text('Emitir nota fiscal'),
         ),
+      ],
+    );
+  }
+}
+
+/// Rodapé do diálogo: total + botão de vender. No mobile empilha (total em cima,
+/// botão full-width embaixo) para o rótulo do botão não quebrar em várias linhas;
+/// no desktop mantém total à esquerda e botão à direita.
+class _SubmitBar extends StatelessWidget {
+  const _SubmitBar({
+    required this.isNarrow,
+    required this.total,
+    required this.receiveNow,
+    required this.submitting,
+    required this.onSubmit,
+  });
+  final bool isNarrow;
+  final double total;
+  final bool receiveNow;
+  final bool submitting;
+  final VoidCallback? onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalText = Text(
+      'Total: ${formatMoney(total)}',
+      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+    );
+    final button = FilledButton.icon(
+      onPressed: onSubmit,
+      icon: submitting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.check),
+      label: Text(receiveNow ? 'Vender e receber' : 'Vender (a receber)'),
+      style: FilledButton.styleFrom(
+        minimumSize: isNarrow ? const Size(0, 48) : const Size(190, 44),
+      ),
+    );
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          totalText,
+          const SizedBox(height: 12),
+          button,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        totalText,
+        const Spacer(),
+        button,
       ],
     );
   }
