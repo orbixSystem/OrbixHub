@@ -71,6 +71,13 @@ dependencies:
   path: ^1.9.0
   hashlib: ^2.4.2
 
+dependency_overrides:
+  # file_picker 11.0.2 pula kotlin-android para AGP 9+ (espera builtInKotlin=true).
+  # Usamos builtInKotlin=false para compat com audioplayers/sodium/share_plus,
+  # então usamos cópia local com build.gradle corrigido.
+  file_picker:
+    path: packages/file_picker
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
