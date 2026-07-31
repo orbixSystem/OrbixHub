@@ -153,9 +153,10 @@ void main() {
       expect(find.textContaining('Notas criadas agora'), findsOneWidget);
       expect(find.textContaining('As fotos adicionadas agora'), findsOneWidget);
 
-      // Ações que exigem o registro NO SERVIDOR: link de acompanhamento,
-      // emitir NF e remover foto (não há op de sync para a remoção — o botão
-      // fica visível e explicado, em vez de sumir).
+      // Ações que exigem o registro NO SERVIDOR: link de acompanhamento e
+      // remover foto (não há op de sync para a remoção — o botão fica visível e
+      // explicado, em vez de sumir). A emissão de NF foi retirada do front
+      // (kInvoiceEnabled=false), então não há mais ação de nota aqui.
       final blocked = tester
           .widgetList<IgnorePointer>(
             find.descendant(
@@ -164,7 +165,7 @@ void main() {
             ),
           )
           .toList();
-      expect(blocked, hasLength(3));
+      expect(blocked, hasLength(2));
       expect(blocked.every((w) => w.ignoring), isTrue);
       expect(
         find.byTooltip(
@@ -176,7 +177,7 @@ void main() {
         find.byTooltip(
           'Requer conexão — a nota é emitida pelo servidor fiscal',
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.byTooltip('Requer conexão — remover foto'), findsOneWidget);
     });

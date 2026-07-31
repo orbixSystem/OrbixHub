@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
@@ -462,6 +463,13 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         // devem aparecer como linha de texto nos grupos.
         if (g == 'Aparência') continue;
         if (f.type == 'image') continue;
+        // NF desligada no front (kInvoiceEnabled=false): esconde o grupo de
+        // identidade fiscal (inscrições/regime/CNAE) — só serve p/ emitir NFS-e.
+        if (!kInvoiceEnabled &&
+            (g.toLowerCase().contains('fiscal') ||
+                g.toLowerCase().contains('tribut'))) {
+          continue;
+        }
         groups.putIfAbsent(g, () => []).add(f);
       }
     }
