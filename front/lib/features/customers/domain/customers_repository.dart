@@ -60,4 +60,14 @@ abstract interface class CustomersRepository {
     String? modelo,
     String? q,
   });
+
+  // ---- consulta de veículo por placa (API Placas via backend) ----
+  /// Consulta os dados do veículo pela placa. Online-only: o token e o
+  /// contador de cota (1000/mês) vivem no backend; cache de 30 dias por placa
+  /// lá não consome cota. Erros amigáveis: 400 placa inválida, 404 sem
+  /// resultado, 429 cota estourada, 503 serviço indisponível.
+  Future<PlateInfo> plateLookup(String plate);
+
+  /// Contador da cota mensal (X de N consultas usadas no mês corrente).
+  Future<PlateQuota> plateUsage();
 }

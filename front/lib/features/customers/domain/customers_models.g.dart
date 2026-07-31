@@ -179,3 +179,102 @@ Map<String, dynamic> _$LookupOptionToJson(_LookupOption instance) =>
       'label': instance.label,
       'meta': instance.meta,
     };
+
+_PlateFipe _$PlateFipeFromJson(Map<String, dynamic> json) => _PlateFipe(
+  codigoFipe: json['codigoFipe'] as String?,
+  marca: json['marca'] as String?,
+  modelo: json['modelo'] as String?,
+  valor: json['valor'] as String?,
+  combustivel: json['combustivel'] as String?,
+  anoModelo: json['anoModelo'] as String?,
+  mesReferencia: json['mesReferencia'] as String?,
+  score: (json['score'] as num?)?.toInt(),
+);
+
+Map<String, dynamic> _$PlateFipeToJson(_PlateFipe instance) =>
+    <String, dynamic>{
+      'codigoFipe': instance.codigoFipe,
+      'marca': instance.marca,
+      'modelo': instance.modelo,
+      'valor': instance.valor,
+      'combustivel': instance.combustivel,
+      'anoModelo': instance.anoModelo,
+      'mesReferencia': instance.mesReferencia,
+      'score': instance.score,
+    };
+
+_PlateQuota _$PlateQuotaFromJson(Map<String, dynamic> json) => _PlateQuota(
+  period: json['period'] as String,
+  used: (json['used'] as num).toInt(),
+  limit: (json['limit'] as num).toInt(),
+  remaining: (json['remaining'] as num).toInt(),
+  enabled: json['enabled'] as bool? ?? false,
+);
+
+Map<String, dynamic> _$PlateQuotaToJson(_PlateQuota instance) =>
+    <String, dynamic>{
+      'period': instance.period,
+      'used': instance.used,
+      'limit': instance.limit,
+      'remaining': instance.remaining,
+      'enabled': instance.enabled,
+    };
+
+_PlateInfo _$PlateInfoFromJson(Map<String, dynamic> json) => _PlateInfo(
+  placa: json['placa'] as String,
+  placaAlternativa: json['placaAlternativa'] as String?,
+  marca: json['marca'] as String?,
+  modelo: json['modelo'] as String?,
+  versao: json['versao'] as String?,
+  ano: json['ano'] as String?,
+  anoModelo: json['anoModelo'] as String?,
+  cor: json['cor'] as String?,
+  chassi: json['chassi'] as String?,
+  municipio: json['municipio'] as String?,
+  uf: json['uf'] as String?,
+  situacao: json['situacao'] as String?,
+  origem: json['origem'] as String?,
+  combustivel: json['combustivel'] as String?,
+  cilindradas: json['cilindradas'] as String?,
+  especie: json['especie'] as String?,
+  tipoVeiculo: json['tipoVeiculo'] as String?,
+  passageiros: json['passageiros'] as String?,
+  segmento: json['segmento'] as String?,
+  nacionalidade: json['nacionalidade'] as String?,
+  logoUrl: json['logoUrl'] as String?,
+  fipe: json['fipe'] == null
+      ? null
+      : PlateFipe.fromJson(json['fipe'] as Map<String, dynamic>),
+  cached: json['cached'] as bool? ?? false,
+  usage: json['usage'] == null
+      ? null
+      : PlateQuota.fromJson(json['usage'] as Map<String, dynamic>),
+);
+
+Map<String, dynamic> _$PlateInfoToJson(_PlateInfo instance) =>
+    <String, dynamic>{
+      'placa': instance.placa,
+      'placaAlternativa': instance.placaAlternativa,
+      'marca': instance.marca,
+      'modelo': instance.modelo,
+      'versao': instance.versao,
+      'ano': instance.ano,
+      'anoModelo': instance.anoModelo,
+      'cor': instance.cor,
+      'chassi': instance.chassi,
+      'municipio': instance.municipio,
+      'uf': instance.uf,
+      'situacao': instance.situacao,
+      'origem': instance.origem,
+      'combustivel': instance.combustivel,
+      'cilindradas': instance.cilindradas,
+      'especie': instance.especie,
+      'tipoVeiculo': instance.tipoVeiculo,
+      'passageiros': instance.passageiros,
+      'segmento': instance.segmento,
+      'nacionalidade': instance.nacionalidade,
+      'logoUrl': instance.logoUrl,
+      'fipe': instance.fipe,
+      'cached': instance.cached,
+      'usage': instance.usage,
+    };

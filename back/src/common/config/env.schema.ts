@@ -56,6 +56,19 @@ export const envSchema = z.object({
   COSMOS_TOKEN: z.string().optional(),
   // User-Agent exigido pela Cosmos (fornecido na sua conta ao logar).
   COSMOS_USER_AGENT: z.string().default('OrbixHub/1.0 (+https://orbixhub)'),
+  // --- Consulta de placas (apiplacas.com.br, servida em wdapi2.com.br) ---
+  // Kill-switch: false = nunca chama fora (endpoint responde 503 "não configurada").
+  // NB: z.coerce.boolean() treats the string "false" as TRUE. Parse explicitly.
+  PLACAS_ENABLED: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  // Token da conta na API Placas (secret — nunca enviado ao front).
+  PLACAS_TOKEN: z.string().optional(),
+  PLACAS_BASE_URL: z.string().default('https://wdapi2.com.br'),
+  // Cota mensal contratada — o backend bloqueia consultas acima disto (contador
+  // atômico em plate_lookup_usage; cache por placa não consome).
+  PLACAS_MONTHLY_LIMIT: z.coerce.number().int().positive().default(1000),
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
   // 'minio' = S3-compatible (MinIO em dev / S3 em prod).

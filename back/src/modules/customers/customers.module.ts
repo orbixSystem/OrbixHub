@@ -13,6 +13,13 @@ import { SubjectHistoryProvider } from './subject-history.provider';
 import { CUSTOMERS_CONFIG_KEY } from './customers.config';
 import { SubjectLookupService } from './subject-lookup.service';
 import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
+import { NoopPlateProvider, PLATE_PROVIDER } from './plates/plate.provider';
+import { WdapiPlateProvider } from './plates/wdapi-plate.provider';
+import { PlateCacheStore } from './plates/plate-cache.store';
+import { PlateQuotaStore } from './plates/plate-quota.store';
+import { PlateLookupService } from './plates/plate-lookup.service';
 
 /**
  * Módulo Clientes & Veículos — núcleo de cadastros-base (genérico/multi-vertical).
@@ -31,6 +38,19 @@ import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
     { provide: SubjectHistoryProvider, useExisting: OsSubjectHistoryProvider },
     SubjectLookupService,
     { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },
+    // Consulta de placa (API Placas): cache global + cota mensal + provider real
+    // só quando habilitado por env (senão Noop — nunca chama fora).
+    PlateCacheStore,
+    PlateQuotaStore,
+    PlateLookupService,
+    {
+      provide: PLATE_PROVIDER,
+      inject: [ENV],
+      useFactory: (env: Env) =>
+        env.PLACAS_ENABLED && env.PLACAS_TOKEN
+          ? new WdapiPlateProvider(env)
+          : new NoopPlateProvider(),
+    },
   ],
   exports: [CustomersService, CustomersMetricsService],
 })

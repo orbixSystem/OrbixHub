@@ -2541,4 +2541,943 @@ as Map<String, dynamic>,
 
 }
 
+
+/// @nodoc
+mixin _$PlateFipe {
+
+ String? get codigoFipe; String? get marca; String? get modelo; String? get valor; String? get combustivel; String? get anoModelo; String? get mesReferencia; int? get score;
+/// Create a copy of PlateFipe
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlateFipeCopyWith<PlateFipe> get copyWith => _$PlateFipeCopyWithImpl<PlateFipe>(this as PlateFipe, _$identity);
+
+  /// Serializes this PlateFipe to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlateFipe&&(identical(other.codigoFipe, codigoFipe) || other.codigoFipe == codigoFipe)&&(identical(other.marca, marca) || other.marca == marca)&&(identical(other.modelo, modelo) || other.modelo == modelo)&&(identical(other.valor, valor) || other.valor == valor)&&(identical(other.combustivel, combustivel) || other.combustivel == combustivel)&&(identical(other.anoModelo, anoModelo) || other.anoModelo == anoModelo)&&(identical(other.mesReferencia, mesReferencia) || other.mesReferencia == mesReferencia)&&(identical(other.score, score) || other.score == score));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,codigoFipe,marca,modelo,valor,combustivel,anoModelo,mesReferencia,score);
+
+@override
+String toString() {
+  return 'PlateFipe(codigoFipe: $codigoFipe, marca: $marca, modelo: $modelo, valor: $valor, combustivel: $combustivel, anoModelo: $anoModelo, mesReferencia: $mesReferencia, score: $score)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PlateFipeCopyWith<$Res>  {
+  factory $PlateFipeCopyWith(PlateFipe value, $Res Function(PlateFipe) _then) = _$PlateFipeCopyWithImpl;
+@useResult
+$Res call({
+ String? codigoFipe, String? marca, String? modelo, String? valor, String? combustivel, String? anoModelo, String? mesReferencia, int? score
+});
+
+
+
+
+}
+/// @nodoc
+class _$PlateFipeCopyWithImpl<$Res>
+    implements $PlateFipeCopyWith<$Res> {
+  _$PlateFipeCopyWithImpl(this._self, this._then);
+
+  final PlateFipe _self;
+  final $Res Function(PlateFipe) _then;
+
+/// Create a copy of PlateFipe
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? codigoFipe = freezed,Object? marca = freezed,Object? modelo = freezed,Object? valor = freezed,Object? combustivel = freezed,Object? anoModelo = freezed,Object? mesReferencia = freezed,Object? score = freezed,}) {
+  return _then(_self.copyWith(
+codigoFipe: freezed == codigoFipe ? _self.codigoFipe : codigoFipe // ignore: cast_nullable_to_non_nullable
+as String?,marca: freezed == marca ? _self.marca : marca // ignore: cast_nullable_to_non_nullable
+as String?,modelo: freezed == modelo ? _self.modelo : modelo // ignore: cast_nullable_to_non_nullable
+as String?,valor: freezed == valor ? _self.valor : valor // ignore: cast_nullable_to_non_nullable
+as String?,combustivel: freezed == combustivel ? _self.combustivel : combustivel // ignore: cast_nullable_to_non_nullable
+as String?,anoModelo: freezed == anoModelo ? _self.anoModelo : anoModelo // ignore: cast_nullable_to_non_nullable
+as String?,mesReferencia: freezed == mesReferencia ? _self.mesReferencia : mesReferencia // ignore: cast_nullable_to_non_nullable
+as String?,score: freezed == score ? _self.score : score // ignore: cast_nullable_to_non_nullable
+as int?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PlateFipe].
+extension PlateFipePatterns on PlateFipe {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PlateFipe value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PlateFipe() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PlateFipe value)  $default,){
+final _that = this;
+switch (_that) {
+case _PlateFipe():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PlateFipe value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PlateFipe() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? codigoFipe,  String? marca,  String? modelo,  String? valor,  String? combustivel,  String? anoModelo,  String? mesReferencia,  int? score)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PlateFipe() when $default != null:
+return $default(_that.codigoFipe,_that.marca,_that.modelo,_that.valor,_that.combustivel,_that.anoModelo,_that.mesReferencia,_that.score);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? codigoFipe,  String? marca,  String? modelo,  String? valor,  String? combustivel,  String? anoModelo,  String? mesReferencia,  int? score)  $default,) {final _that = this;
+switch (_that) {
+case _PlateFipe():
+return $default(_that.codigoFipe,_that.marca,_that.modelo,_that.valor,_that.combustivel,_that.anoModelo,_that.mesReferencia,_that.score);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? codigoFipe,  String? marca,  String? modelo,  String? valor,  String? combustivel,  String? anoModelo,  String? mesReferencia,  int? score)?  $default,) {final _that = this;
+switch (_that) {
+case _PlateFipe() when $default != null:
+return $default(_that.codigoFipe,_that.marca,_that.modelo,_that.valor,_that.combustivel,_that.anoModelo,_that.mesReferencia,_that.score);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PlateFipe implements PlateFipe {
+  const _PlateFipe({this.codigoFipe, this.marca, this.modelo, this.valor, this.combustivel, this.anoModelo, this.mesReferencia, this.score});
+  factory _PlateFipe.fromJson(Map<String, dynamic> json) => _$PlateFipeFromJson(json);
+
+@override final  String? codigoFipe;
+@override final  String? marca;
+@override final  String? modelo;
+@override final  String? valor;
+@override final  String? combustivel;
+@override final  String? anoModelo;
+@override final  String? mesReferencia;
+@override final  int? score;
+
+/// Create a copy of PlateFipe
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PlateFipeCopyWith<_PlateFipe> get copyWith => __$PlateFipeCopyWithImpl<_PlateFipe>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PlateFipeToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlateFipe&&(identical(other.codigoFipe, codigoFipe) || other.codigoFipe == codigoFipe)&&(identical(other.marca, marca) || other.marca == marca)&&(identical(other.modelo, modelo) || other.modelo == modelo)&&(identical(other.valor, valor) || other.valor == valor)&&(identical(other.combustivel, combustivel) || other.combustivel == combustivel)&&(identical(other.anoModelo, anoModelo) || other.anoModelo == anoModelo)&&(identical(other.mesReferencia, mesReferencia) || other.mesReferencia == mesReferencia)&&(identical(other.score, score) || other.score == score));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,codigoFipe,marca,modelo,valor,combustivel,anoModelo,mesReferencia,score);
+
+@override
+String toString() {
+  return 'PlateFipe(codigoFipe: $codigoFipe, marca: $marca, modelo: $modelo, valor: $valor, combustivel: $combustivel, anoModelo: $anoModelo, mesReferencia: $mesReferencia, score: $score)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PlateFipeCopyWith<$Res> implements $PlateFipeCopyWith<$Res> {
+  factory _$PlateFipeCopyWith(_PlateFipe value, $Res Function(_PlateFipe) _then) = __$PlateFipeCopyWithImpl;
+@override @useResult
+$Res call({
+ String? codigoFipe, String? marca, String? modelo, String? valor, String? combustivel, String? anoModelo, String? mesReferencia, int? score
+});
+
+
+
+
+}
+/// @nodoc
+class __$PlateFipeCopyWithImpl<$Res>
+    implements _$PlateFipeCopyWith<$Res> {
+  __$PlateFipeCopyWithImpl(this._self, this._then);
+
+  final _PlateFipe _self;
+  final $Res Function(_PlateFipe) _then;
+
+/// Create a copy of PlateFipe
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? codigoFipe = freezed,Object? marca = freezed,Object? modelo = freezed,Object? valor = freezed,Object? combustivel = freezed,Object? anoModelo = freezed,Object? mesReferencia = freezed,Object? score = freezed,}) {
+  return _then(_PlateFipe(
+codigoFipe: freezed == codigoFipe ? _self.codigoFipe : codigoFipe // ignore: cast_nullable_to_non_nullable
+as String?,marca: freezed == marca ? _self.marca : marca // ignore: cast_nullable_to_non_nullable
+as String?,modelo: freezed == modelo ? _self.modelo : modelo // ignore: cast_nullable_to_non_nullable
+as String?,valor: freezed == valor ? _self.valor : valor // ignore: cast_nullable_to_non_nullable
+as String?,combustivel: freezed == combustivel ? _self.combustivel : combustivel // ignore: cast_nullable_to_non_nullable
+as String?,anoModelo: freezed == anoModelo ? _self.anoModelo : anoModelo // ignore: cast_nullable_to_non_nullable
+as String?,mesReferencia: freezed == mesReferencia ? _self.mesReferencia : mesReferencia // ignore: cast_nullable_to_non_nullable
+as String?,score: freezed == score ? _self.score : score // ignore: cast_nullable_to_non_nullable
+as int?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$PlateQuota {
+
+ String get period; int get used; int get limit; int get remaining; bool get enabled;
+/// Create a copy of PlateQuota
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlateQuotaCopyWith<PlateQuota> get copyWith => _$PlateQuotaCopyWithImpl<PlateQuota>(this as PlateQuota, _$identity);
+
+  /// Serializes this PlateQuota to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlateQuota&&(identical(other.period, period) || other.period == period)&&(identical(other.used, used) || other.used == used)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,period,used,limit,remaining,enabled);
+
+@override
+String toString() {
+  return 'PlateQuota(period: $period, used: $used, limit: $limit, remaining: $remaining, enabled: $enabled)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PlateQuotaCopyWith<$Res>  {
+  factory $PlateQuotaCopyWith(PlateQuota value, $Res Function(PlateQuota) _then) = _$PlateQuotaCopyWithImpl;
+@useResult
+$Res call({
+ String period, int used, int limit, int remaining, bool enabled
+});
+
+
+
+
+}
+/// @nodoc
+class _$PlateQuotaCopyWithImpl<$Res>
+    implements $PlateQuotaCopyWith<$Res> {
+  _$PlateQuotaCopyWithImpl(this._self, this._then);
+
+  final PlateQuota _self;
+  final $Res Function(PlateQuota) _then;
+
+/// Create a copy of PlateQuota
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? period = null,Object? used = null,Object? limit = null,Object? remaining = null,Object? enabled = null,}) {
+  return _then(_self.copyWith(
+period: null == period ? _self.period : period // ignore: cast_nullable_to_non_nullable
+as String,used: null == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
+as int,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
+as int,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PlateQuota].
+extension PlateQuotaPatterns on PlateQuota {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PlateQuota value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PlateQuota() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PlateQuota value)  $default,){
+final _that = this;
+switch (_that) {
+case _PlateQuota():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PlateQuota value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PlateQuota() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String period,  int used,  int limit,  int remaining,  bool enabled)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PlateQuota() when $default != null:
+return $default(_that.period,_that.used,_that.limit,_that.remaining,_that.enabled);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String period,  int used,  int limit,  int remaining,  bool enabled)  $default,) {final _that = this;
+switch (_that) {
+case _PlateQuota():
+return $default(_that.period,_that.used,_that.limit,_that.remaining,_that.enabled);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String period,  int used,  int limit,  int remaining,  bool enabled)?  $default,) {final _that = this;
+switch (_that) {
+case _PlateQuota() when $default != null:
+return $default(_that.period,_that.used,_that.limit,_that.remaining,_that.enabled);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PlateQuota implements PlateQuota {
+  const _PlateQuota({required this.period, required this.used, required this.limit, required this.remaining, this.enabled = false});
+  factory _PlateQuota.fromJson(Map<String, dynamic> json) => _$PlateQuotaFromJson(json);
+
+@override final  String period;
+@override final  int used;
+@override final  int limit;
+@override final  int remaining;
+@override@JsonKey() final  bool enabled;
+
+/// Create a copy of PlateQuota
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PlateQuotaCopyWith<_PlateQuota> get copyWith => __$PlateQuotaCopyWithImpl<_PlateQuota>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PlateQuotaToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlateQuota&&(identical(other.period, period) || other.period == period)&&(identical(other.used, used) || other.used == used)&&(identical(other.limit, limit) || other.limit == limit)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,period,used,limit,remaining,enabled);
+
+@override
+String toString() {
+  return 'PlateQuota(period: $period, used: $used, limit: $limit, remaining: $remaining, enabled: $enabled)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PlateQuotaCopyWith<$Res> implements $PlateQuotaCopyWith<$Res> {
+  factory _$PlateQuotaCopyWith(_PlateQuota value, $Res Function(_PlateQuota) _then) = __$PlateQuotaCopyWithImpl;
+@override @useResult
+$Res call({
+ String period, int used, int limit, int remaining, bool enabled
+});
+
+
+
+
+}
+/// @nodoc
+class __$PlateQuotaCopyWithImpl<$Res>
+    implements _$PlateQuotaCopyWith<$Res> {
+  __$PlateQuotaCopyWithImpl(this._self, this._then);
+
+  final _PlateQuota _self;
+  final $Res Function(_PlateQuota) _then;
+
+/// Create a copy of PlateQuota
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? period = null,Object? used = null,Object? limit = null,Object? remaining = null,Object? enabled = null,}) {
+  return _then(_PlateQuota(
+period: null == period ? _self.period : period // ignore: cast_nullable_to_non_nullable
+as String,used: null == used ? _self.used : used // ignore: cast_nullable_to_non_nullable
+as int,limit: null == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
+as int,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
+as int,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$PlateInfo {
+
+ String get placa; String? get placaAlternativa; String? get marca; String? get modelo; String? get versao; String? get ano; String? get anoModelo; String? get cor; String? get chassi; String? get municipio; String? get uf; String? get situacao; String? get origem; String? get combustivel; String? get cilindradas; String? get especie; String? get tipoVeiculo; String? get passageiros; String? get segmento; String? get nacionalidade; String? get logoUrl; PlateFipe? get fipe; bool get cached; PlateQuota? get usage;
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PlateInfoCopyWith<PlateInfo> get copyWith => _$PlateInfoCopyWithImpl<PlateInfo>(this as PlateInfo, _$identity);
+
+  /// Serializes this PlateInfo to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlateInfo&&(identical(other.placa, placa) || other.placa == placa)&&(identical(other.placaAlternativa, placaAlternativa) || other.placaAlternativa == placaAlternativa)&&(identical(other.marca, marca) || other.marca == marca)&&(identical(other.modelo, modelo) || other.modelo == modelo)&&(identical(other.versao, versao) || other.versao == versao)&&(identical(other.ano, ano) || other.ano == ano)&&(identical(other.anoModelo, anoModelo) || other.anoModelo == anoModelo)&&(identical(other.cor, cor) || other.cor == cor)&&(identical(other.chassi, chassi) || other.chassi == chassi)&&(identical(other.municipio, municipio) || other.municipio == municipio)&&(identical(other.uf, uf) || other.uf == uf)&&(identical(other.situacao, situacao) || other.situacao == situacao)&&(identical(other.origem, origem) || other.origem == origem)&&(identical(other.combustivel, combustivel) || other.combustivel == combustivel)&&(identical(other.cilindradas, cilindradas) || other.cilindradas == cilindradas)&&(identical(other.especie, especie) || other.especie == especie)&&(identical(other.tipoVeiculo, tipoVeiculo) || other.tipoVeiculo == tipoVeiculo)&&(identical(other.passageiros, passageiros) || other.passageiros == passageiros)&&(identical(other.segmento, segmento) || other.segmento == segmento)&&(identical(other.nacionalidade, nacionalidade) || other.nacionalidade == nacionalidade)&&(identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl)&&(identical(other.fipe, fipe) || other.fipe == fipe)&&(identical(other.cached, cached) || other.cached == cached)&&(identical(other.usage, usage) || other.usage == usage));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hashAll([runtimeType,placa,placaAlternativa,marca,modelo,versao,ano,anoModelo,cor,chassi,municipio,uf,situacao,origem,combustivel,cilindradas,especie,tipoVeiculo,passageiros,segmento,nacionalidade,logoUrl,fipe,cached,usage]);
+
+@override
+String toString() {
+  return 'PlateInfo(placa: $placa, placaAlternativa: $placaAlternativa, marca: $marca, modelo: $modelo, versao: $versao, ano: $ano, anoModelo: $anoModelo, cor: $cor, chassi: $chassi, municipio: $municipio, uf: $uf, situacao: $situacao, origem: $origem, combustivel: $combustivel, cilindradas: $cilindradas, especie: $especie, tipoVeiculo: $tipoVeiculo, passageiros: $passageiros, segmento: $segmento, nacionalidade: $nacionalidade, logoUrl: $logoUrl, fipe: $fipe, cached: $cached, usage: $usage)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PlateInfoCopyWith<$Res>  {
+  factory $PlateInfoCopyWith(PlateInfo value, $Res Function(PlateInfo) _then) = _$PlateInfoCopyWithImpl;
+@useResult
+$Res call({
+ String placa, String? placaAlternativa, String? marca, String? modelo, String? versao, String? ano, String? anoModelo, String? cor, String? chassi, String? municipio, String? uf, String? situacao, String? origem, String? combustivel, String? cilindradas, String? especie, String? tipoVeiculo, String? passageiros, String? segmento, String? nacionalidade, String? logoUrl, PlateFipe? fipe, bool cached, PlateQuota? usage
+});
+
+
+$PlateFipeCopyWith<$Res>? get fipe;$PlateQuotaCopyWith<$Res>? get usage;
+
+}
+/// @nodoc
+class _$PlateInfoCopyWithImpl<$Res>
+    implements $PlateInfoCopyWith<$Res> {
+  _$PlateInfoCopyWithImpl(this._self, this._then);
+
+  final PlateInfo _self;
+  final $Res Function(PlateInfo) _then;
+
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? placa = null,Object? placaAlternativa = freezed,Object? marca = freezed,Object? modelo = freezed,Object? versao = freezed,Object? ano = freezed,Object? anoModelo = freezed,Object? cor = freezed,Object? chassi = freezed,Object? municipio = freezed,Object? uf = freezed,Object? situacao = freezed,Object? origem = freezed,Object? combustivel = freezed,Object? cilindradas = freezed,Object? especie = freezed,Object? tipoVeiculo = freezed,Object? passageiros = freezed,Object? segmento = freezed,Object? nacionalidade = freezed,Object? logoUrl = freezed,Object? fipe = freezed,Object? cached = null,Object? usage = freezed,}) {
+  return _then(_self.copyWith(
+placa: null == placa ? _self.placa : placa // ignore: cast_nullable_to_non_nullable
+as String,placaAlternativa: freezed == placaAlternativa ? _self.placaAlternativa : placaAlternativa // ignore: cast_nullable_to_non_nullable
+as String?,marca: freezed == marca ? _self.marca : marca // ignore: cast_nullable_to_non_nullable
+as String?,modelo: freezed == modelo ? _self.modelo : modelo // ignore: cast_nullable_to_non_nullable
+as String?,versao: freezed == versao ? _self.versao : versao // ignore: cast_nullable_to_non_nullable
+as String?,ano: freezed == ano ? _self.ano : ano // ignore: cast_nullable_to_non_nullable
+as String?,anoModelo: freezed == anoModelo ? _self.anoModelo : anoModelo // ignore: cast_nullable_to_non_nullable
+as String?,cor: freezed == cor ? _self.cor : cor // ignore: cast_nullable_to_non_nullable
+as String?,chassi: freezed == chassi ? _self.chassi : chassi // ignore: cast_nullable_to_non_nullable
+as String?,municipio: freezed == municipio ? _self.municipio : municipio // ignore: cast_nullable_to_non_nullable
+as String?,uf: freezed == uf ? _self.uf : uf // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,origem: freezed == origem ? _self.origem : origem // ignore: cast_nullable_to_non_nullable
+as String?,combustivel: freezed == combustivel ? _self.combustivel : combustivel // ignore: cast_nullable_to_non_nullable
+as String?,cilindradas: freezed == cilindradas ? _self.cilindradas : cilindradas // ignore: cast_nullable_to_non_nullable
+as String?,especie: freezed == especie ? _self.especie : especie // ignore: cast_nullable_to_non_nullable
+as String?,tipoVeiculo: freezed == tipoVeiculo ? _self.tipoVeiculo : tipoVeiculo // ignore: cast_nullable_to_non_nullable
+as String?,passageiros: freezed == passageiros ? _self.passageiros : passageiros // ignore: cast_nullable_to_non_nullable
+as String?,segmento: freezed == segmento ? _self.segmento : segmento // ignore: cast_nullable_to_non_nullable
+as String?,nacionalidade: freezed == nacionalidade ? _self.nacionalidade : nacionalidade // ignore: cast_nullable_to_non_nullable
+as String?,logoUrl: freezed == logoUrl ? _self.logoUrl : logoUrl // ignore: cast_nullable_to_non_nullable
+as String?,fipe: freezed == fipe ? _self.fipe : fipe // ignore: cast_nullable_to_non_nullable
+as PlateFipe?,cached: null == cached ? _self.cached : cached // ignore: cast_nullable_to_non_nullable
+as bool,usage: freezed == usage ? _self.usage : usage // ignore: cast_nullable_to_non_nullable
+as PlateQuota?,
+  ));
+}
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlateFipeCopyWith<$Res>? get fipe {
+    if (_self.fipe == null) {
+    return null;
+  }
+
+  return $PlateFipeCopyWith<$Res>(_self.fipe!, (value) {
+    return _then(_self.copyWith(fipe: value));
+  });
+}/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlateQuotaCopyWith<$Res>? get usage {
+    if (_self.usage == null) {
+    return null;
+  }
+
+  return $PlateQuotaCopyWith<$Res>(_self.usage!, (value) {
+    return _then(_self.copyWith(usage: value));
+  });
+}
+}
+
+
+/// Adds pattern-matching-related methods to [PlateInfo].
+extension PlateInfoPatterns on PlateInfo {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PlateInfo value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PlateInfo() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PlateInfo value)  $default,){
+final _that = this;
+switch (_that) {
+case _PlateInfo():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PlateInfo value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PlateInfo() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String placa,  String? placaAlternativa,  String? marca,  String? modelo,  String? versao,  String? ano,  String? anoModelo,  String? cor,  String? chassi,  String? municipio,  String? uf,  String? situacao,  String? origem,  String? combustivel,  String? cilindradas,  String? especie,  String? tipoVeiculo,  String? passageiros,  String? segmento,  String? nacionalidade,  String? logoUrl,  PlateFipe? fipe,  bool cached,  PlateQuota? usage)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PlateInfo() when $default != null:
+return $default(_that.placa,_that.placaAlternativa,_that.marca,_that.modelo,_that.versao,_that.ano,_that.anoModelo,_that.cor,_that.chassi,_that.municipio,_that.uf,_that.situacao,_that.origem,_that.combustivel,_that.cilindradas,_that.especie,_that.tipoVeiculo,_that.passageiros,_that.segmento,_that.nacionalidade,_that.logoUrl,_that.fipe,_that.cached,_that.usage);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String placa,  String? placaAlternativa,  String? marca,  String? modelo,  String? versao,  String? ano,  String? anoModelo,  String? cor,  String? chassi,  String? municipio,  String? uf,  String? situacao,  String? origem,  String? combustivel,  String? cilindradas,  String? especie,  String? tipoVeiculo,  String? passageiros,  String? segmento,  String? nacionalidade,  String? logoUrl,  PlateFipe? fipe,  bool cached,  PlateQuota? usage)  $default,) {final _that = this;
+switch (_that) {
+case _PlateInfo():
+return $default(_that.placa,_that.placaAlternativa,_that.marca,_that.modelo,_that.versao,_that.ano,_that.anoModelo,_that.cor,_that.chassi,_that.municipio,_that.uf,_that.situacao,_that.origem,_that.combustivel,_that.cilindradas,_that.especie,_that.tipoVeiculo,_that.passageiros,_that.segmento,_that.nacionalidade,_that.logoUrl,_that.fipe,_that.cached,_that.usage);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String placa,  String? placaAlternativa,  String? marca,  String? modelo,  String? versao,  String? ano,  String? anoModelo,  String? cor,  String? chassi,  String? municipio,  String? uf,  String? situacao,  String? origem,  String? combustivel,  String? cilindradas,  String? especie,  String? tipoVeiculo,  String? passageiros,  String? segmento,  String? nacionalidade,  String? logoUrl,  PlateFipe? fipe,  bool cached,  PlateQuota? usage)?  $default,) {final _that = this;
+switch (_that) {
+case _PlateInfo() when $default != null:
+return $default(_that.placa,_that.placaAlternativa,_that.marca,_that.modelo,_that.versao,_that.ano,_that.anoModelo,_that.cor,_that.chassi,_that.municipio,_that.uf,_that.situacao,_that.origem,_that.combustivel,_that.cilindradas,_that.especie,_that.tipoVeiculo,_that.passageiros,_that.segmento,_that.nacionalidade,_that.logoUrl,_that.fipe,_that.cached,_that.usage);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PlateInfo implements PlateInfo {
+  const _PlateInfo({required this.placa, this.placaAlternativa, this.marca, this.modelo, this.versao, this.ano, this.anoModelo, this.cor, this.chassi, this.municipio, this.uf, this.situacao, this.origem, this.combustivel, this.cilindradas, this.especie, this.tipoVeiculo, this.passageiros, this.segmento, this.nacionalidade, this.logoUrl, this.fipe, this.cached = false, this.usage});
+  factory _PlateInfo.fromJson(Map<String, dynamic> json) => _$PlateInfoFromJson(json);
+
+@override final  String placa;
+@override final  String? placaAlternativa;
+@override final  String? marca;
+@override final  String? modelo;
+@override final  String? versao;
+@override final  String? ano;
+@override final  String? anoModelo;
+@override final  String? cor;
+@override final  String? chassi;
+@override final  String? municipio;
+@override final  String? uf;
+@override final  String? situacao;
+@override final  String? origem;
+@override final  String? combustivel;
+@override final  String? cilindradas;
+@override final  String? especie;
+@override final  String? tipoVeiculo;
+@override final  String? passageiros;
+@override final  String? segmento;
+@override final  String? nacionalidade;
+@override final  String? logoUrl;
+@override final  PlateFipe? fipe;
+@override@JsonKey() final  bool cached;
+@override final  PlateQuota? usage;
+
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PlateInfoCopyWith<_PlateInfo> get copyWith => __$PlateInfoCopyWithImpl<_PlateInfo>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PlateInfoToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlateInfo&&(identical(other.placa, placa) || other.placa == placa)&&(identical(other.placaAlternativa, placaAlternativa) || other.placaAlternativa == placaAlternativa)&&(identical(other.marca, marca) || other.marca == marca)&&(identical(other.modelo, modelo) || other.modelo == modelo)&&(identical(other.versao, versao) || other.versao == versao)&&(identical(other.ano, ano) || other.ano == ano)&&(identical(other.anoModelo, anoModelo) || other.anoModelo == anoModelo)&&(identical(other.cor, cor) || other.cor == cor)&&(identical(other.chassi, chassi) || other.chassi == chassi)&&(identical(other.municipio, municipio) || other.municipio == municipio)&&(identical(other.uf, uf) || other.uf == uf)&&(identical(other.situacao, situacao) || other.situacao == situacao)&&(identical(other.origem, origem) || other.origem == origem)&&(identical(other.combustivel, combustivel) || other.combustivel == combustivel)&&(identical(other.cilindradas, cilindradas) || other.cilindradas == cilindradas)&&(identical(other.especie, especie) || other.especie == especie)&&(identical(other.tipoVeiculo, tipoVeiculo) || other.tipoVeiculo == tipoVeiculo)&&(identical(other.passageiros, passageiros) || other.passageiros == passageiros)&&(identical(other.segmento, segmento) || other.segmento == segmento)&&(identical(other.nacionalidade, nacionalidade) || other.nacionalidade == nacionalidade)&&(identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl)&&(identical(other.fipe, fipe) || other.fipe == fipe)&&(identical(other.cached, cached) || other.cached == cached)&&(identical(other.usage, usage) || other.usage == usage));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hashAll([runtimeType,placa,placaAlternativa,marca,modelo,versao,ano,anoModelo,cor,chassi,municipio,uf,situacao,origem,combustivel,cilindradas,especie,tipoVeiculo,passageiros,segmento,nacionalidade,logoUrl,fipe,cached,usage]);
+
+@override
+String toString() {
+  return 'PlateInfo(placa: $placa, placaAlternativa: $placaAlternativa, marca: $marca, modelo: $modelo, versao: $versao, ano: $ano, anoModelo: $anoModelo, cor: $cor, chassi: $chassi, municipio: $municipio, uf: $uf, situacao: $situacao, origem: $origem, combustivel: $combustivel, cilindradas: $cilindradas, especie: $especie, tipoVeiculo: $tipoVeiculo, passageiros: $passageiros, segmento: $segmento, nacionalidade: $nacionalidade, logoUrl: $logoUrl, fipe: $fipe, cached: $cached, usage: $usage)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PlateInfoCopyWith<$Res> implements $PlateInfoCopyWith<$Res> {
+  factory _$PlateInfoCopyWith(_PlateInfo value, $Res Function(_PlateInfo) _then) = __$PlateInfoCopyWithImpl;
+@override @useResult
+$Res call({
+ String placa, String? placaAlternativa, String? marca, String? modelo, String? versao, String? ano, String? anoModelo, String? cor, String? chassi, String? municipio, String? uf, String? situacao, String? origem, String? combustivel, String? cilindradas, String? especie, String? tipoVeiculo, String? passageiros, String? segmento, String? nacionalidade, String? logoUrl, PlateFipe? fipe, bool cached, PlateQuota? usage
+});
+
+
+@override $PlateFipeCopyWith<$Res>? get fipe;@override $PlateQuotaCopyWith<$Res>? get usage;
+
+}
+/// @nodoc
+class __$PlateInfoCopyWithImpl<$Res>
+    implements _$PlateInfoCopyWith<$Res> {
+  __$PlateInfoCopyWithImpl(this._self, this._then);
+
+  final _PlateInfo _self;
+  final $Res Function(_PlateInfo) _then;
+
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? placa = null,Object? placaAlternativa = freezed,Object? marca = freezed,Object? modelo = freezed,Object? versao = freezed,Object? ano = freezed,Object? anoModelo = freezed,Object? cor = freezed,Object? chassi = freezed,Object? municipio = freezed,Object? uf = freezed,Object? situacao = freezed,Object? origem = freezed,Object? combustivel = freezed,Object? cilindradas = freezed,Object? especie = freezed,Object? tipoVeiculo = freezed,Object? passageiros = freezed,Object? segmento = freezed,Object? nacionalidade = freezed,Object? logoUrl = freezed,Object? fipe = freezed,Object? cached = null,Object? usage = freezed,}) {
+  return _then(_PlateInfo(
+placa: null == placa ? _self.placa : placa // ignore: cast_nullable_to_non_nullable
+as String,placaAlternativa: freezed == placaAlternativa ? _self.placaAlternativa : placaAlternativa // ignore: cast_nullable_to_non_nullable
+as String?,marca: freezed == marca ? _self.marca : marca // ignore: cast_nullable_to_non_nullable
+as String?,modelo: freezed == modelo ? _self.modelo : modelo // ignore: cast_nullable_to_non_nullable
+as String?,versao: freezed == versao ? _self.versao : versao // ignore: cast_nullable_to_non_nullable
+as String?,ano: freezed == ano ? _self.ano : ano // ignore: cast_nullable_to_non_nullable
+as String?,anoModelo: freezed == anoModelo ? _self.anoModelo : anoModelo // ignore: cast_nullable_to_non_nullable
+as String?,cor: freezed == cor ? _self.cor : cor // ignore: cast_nullable_to_non_nullable
+as String?,chassi: freezed == chassi ? _self.chassi : chassi // ignore: cast_nullable_to_non_nullable
+as String?,municipio: freezed == municipio ? _self.municipio : municipio // ignore: cast_nullable_to_non_nullable
+as String?,uf: freezed == uf ? _self.uf : uf // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,origem: freezed == origem ? _self.origem : origem // ignore: cast_nullable_to_non_nullable
+as String?,combustivel: freezed == combustivel ? _self.combustivel : combustivel // ignore: cast_nullable_to_non_nullable
+as String?,cilindradas: freezed == cilindradas ? _self.cilindradas : cilindradas // ignore: cast_nullable_to_non_nullable
+as String?,especie: freezed == especie ? _self.especie : especie // ignore: cast_nullable_to_non_nullable
+as String?,tipoVeiculo: freezed == tipoVeiculo ? _self.tipoVeiculo : tipoVeiculo // ignore: cast_nullable_to_non_nullable
+as String?,passageiros: freezed == passageiros ? _self.passageiros : passageiros // ignore: cast_nullable_to_non_nullable
+as String?,segmento: freezed == segmento ? _self.segmento : segmento // ignore: cast_nullable_to_non_nullable
+as String?,nacionalidade: freezed == nacionalidade ? _self.nacionalidade : nacionalidade // ignore: cast_nullable_to_non_nullable
+as String?,logoUrl: freezed == logoUrl ? _self.logoUrl : logoUrl // ignore: cast_nullable_to_non_nullable
+as String?,fipe: freezed == fipe ? _self.fipe : fipe // ignore: cast_nullable_to_non_nullable
+as PlateFipe?,cached: null == cached ? _self.cached : cached // ignore: cast_nullable_to_non_nullable
+as bool,usage: freezed == usage ? _self.usage : usage // ignore: cast_nullable_to_non_nullable
+as PlateQuota?,
+  ));
+}
+
+/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlateFipeCopyWith<$Res>? get fipe {
+    if (_self.fipe == null) {
+    return null;
+  }
+
+  return $PlateFipeCopyWith<$Res>(_self.fipe!, (value) {
+    return _then(_self.copyWith(fipe: value));
+  });
+}/// Create a copy of PlateInfo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PlateQuotaCopyWith<$Res>? get usage {
+    if (_self.usage == null) {
+    return null;
+  }
+
+  return $PlateQuotaCopyWith<$Res>(_self.usage!, (value) {
+    return _then(_self.copyWith(usage: value));
+  });
+}
+}
+
 // dart format on

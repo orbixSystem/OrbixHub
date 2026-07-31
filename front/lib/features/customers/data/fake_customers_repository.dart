@@ -249,4 +249,53 @@ class FakeCustomersRepository implements CustomersRepository {
     if (term == null || term.isEmpty) return all;
     return all.where((o) => o.label.toLowerCase().contains(term)).toList();
   }
+
+  int _plateLookups = 0;
+
+  @override
+  Future<PlateInfo> plateLookup(String plate) async {
+    _plateLookups += 1;
+    return PlateInfo(
+      placa: plate.toUpperCase(),
+      marca: 'VW',
+      modelo: 'CROSSFOX',
+      versao: 'CROSSFOX',
+      ano: '2007',
+      anoModelo: '2007',
+      cor: 'Prata',
+      chassi: '*****10137',
+      municipio: 'São Leopoldo',
+      uf: 'RS',
+      situacao: 'Sem restrição',
+      combustivel: 'Alcool / Gasolina',
+      cilindradas: '1599',
+      passageiros: '5',
+      tipoVeiculo: 'Automovel',
+      fipe: const PlateFipe(
+        codigoFipe: '005225-6',
+        marca: 'VW - VolksWagen',
+        modelo: 'CROSSFOX 1.6 Mi Total Flex 8V 5p',
+        valor: 'R\$ 28.799,00',
+        mesReferencia: 'maio de 2022',
+        score: 101,
+      ),
+      cached: _plateLookups > 1,
+      usage: PlateQuota(
+        period: '2026-07',
+        used: _plateLookups,
+        limit: 1000,
+        remaining: 1000 - _plateLookups,
+        enabled: true,
+      ),
+    );
+  }
+
+  @override
+  Future<PlateQuota> plateUsage() async => PlateQuota(
+        period: '2026-07',
+        used: _plateLookups,
+        limit: 1000,
+        remaining: 1000 - _plateLookups,
+        enabled: true,
+      );
 }

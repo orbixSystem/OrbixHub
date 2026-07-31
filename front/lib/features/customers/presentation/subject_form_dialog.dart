@@ -78,6 +78,25 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   /// Código FIPE da opção selecionada por campo (alimenta a cascata).
   final Map<String, String?> _selectedCode = {};
 
+  // ---- consulta por placa (API Placas via backend) ----
+  /// Consultando a placa agora (desabilita o botão e mostra progresso).
+  bool _plateLookupBusy = false;
+
+  /// Campos preenchidos pela última consulta de placa (destaque visual +
+  /// "revise antes de salvar", padrão do lookup EAN do estoque).
+  final Set<String> _autoFilled = {};
+
+  /// Geração do autofill: entra nas ValueKeys dos campos Autocomplete para
+  /// forçar rebuild com o texto novo (o Autocomplete só lê o initialValue).
+  int _fillGen = 0;
+
+  /// O botão de busca só existe quando o identificador é uma placa de fato —
+  /// decidido pela CONFIG do tenant (rótulo), nunca hardcoded por vertical.
+  bool get _identifierIsPlate {
+    final f = _byChave['identifier'];
+    return f != null && f.rotulo.toLowerCase().contains('placa');
+  }
+
   Map<String, SubjectFieldConfig> get _byChave =>
       {for (final f in widget.config.subjectFields) f.chave: f};
 
@@ -217,6 +236,70 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         _localContentType = null;
       });
     }
+  }
+
+  /// Consulta a placa digitada e preenche os campos do formulário (marca,
+  /// modelo, ano, cor — os que existirem na config). A consulta gasta cota
+  /// mensal no servidor (salvo cache), então o retorno mostra o contador.
+  Future<void> _plateLookup() async {
+    final plate = _fields['identifier']?.text.trim() ?? '';
+    if (!isValidPlate(plate)) {
+      _snack('Digite uma placa válida antes de buscar (ex.: ABC1D23).');
+      return;
+    }
+    setState(() => _plateLookupBusy = true);
+    try {
+      final info =
+          await ref.read(customersRepositoryProvider).plateLookup(plate);
+      if (!mounted) return;
+      // Valor por chave da config; só preenche campos que existem no form.
+      final values = <String, String?>{
+        'marca': info.marca,
+        'modelo': info.modelo,
+        'ano': info.anoModelo ?? info.ano,
+        'cor': _titleCase(info.cor),
+      };
+      setState(() {
+        _autoFilled.clear();
+        values.forEach((chave, value) {
+          final ctrl = _fields[chave];
+          if (ctrl == null || value == null || value.isEmpty) return;
+          ctrl.text = value;
+          // Texto veio do emplacamento, não da cascata FIPE — zera o código
+          // selecionado para não arrastar um filtro antigo de marca/modelo.
+          _selectedCode[chave] = null;
+          _autoFilled.add(chave);
+        });
+        // Autocomplete só lê o texto no build inicial — força rebuild.
+        _fillGen += 1;
+      });
+      final usage = info.usage;
+      final custo = info.cached
+          ? 'do cache — não gastou consulta'
+          : usage != null
+              ? 'consulta ${usage.used} de ${usage.limit} do mês'
+              : 'consulta realizada';
+      _snack(
+        _autoFilled.isEmpty
+            ? 'Veículo encontrado, mas sem dados para preencher ($custo).'
+            : 'Dados do veículo preenchidos ($custo). Revise antes de salvar.',
+      );
+    } on AppException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _plateLookupBusy = false);
+    }
+  }
+
+  /// 'PRATA' → 'Prata' (a API devolve cores em caixa alta).
+  String? _titleCase(String? v) {
+    if (v == null || v.isEmpty) return v;
+    return v
+        .split(' ')
+        .map((w) => w.isEmpty
+            ? w
+            : w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
   }
 
   Future<void> _save() async {
@@ -464,7 +547,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         ),
         for (final f in widget.config.subjectFields) ...[
           const SizedBox(height: 14),
-          if (f.fonte != null && offline)
+          if (f.chave == 'identifier' && _identifierIsPlate)
+            _identifierWithLookup(f, offline: offline)
+          else if (f.fonte != null && offline)
             // Sem conexão: campo de sugestão (marca/modelo/ano) vira texto livre.
             NeuTextField(
               key: Key('subjectField-${f.chave}'),
@@ -480,8 +565,11 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             _LookupField(
               // A key inclui os códigos dos ancestrais: ao trocar marca
               // (ou modelo), os campos dependentes rebuildam já limpos.
+              // A geração do autofill ($_fillGen) também entra: preencher pela
+              // placa rebuilda o Autocomplete com o texto novo.
               key: ValueKey(
-                'lookup-${f.chave}-${_ancestorCodesOf(f).values.join(',')}',
+                'lookup-${f.chave}-$_fillGen-'
+                '${_ancestorCodesOf(f).values.join(',')}',
               ),
               field: f,
               controller: _fields[f.chave]!,
@@ -499,12 +587,64 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             NeuTextField(
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              helper: _autoFilled.contains(f.chave)
+                  ? 'Preenchido pela consulta da placa'
+                  : null,
               keyboardType: _fieldKeyboard(f),
               inputFormatters: _fieldFormatters(f),
               maxLength: _fieldMaxLength(f),
               validator: _fieldValidator(f),
             ),
         ],
+      ],
+    );
+  }
+
+  /// Campo do identificador quando ele é uma placa: input + botão "buscar
+  /// dados pela placa" (API Placas via backend). Online-only — offline o botão
+  /// fica inerte com o tooltip padrão "Requer conexão".
+  Widget _identifierWithLookup(SubjectFieldConfig f, {required bool offline}) {
+    Widget button = _plateLookupBusy
+        ? const SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ),
+          )
+        : NeuIconButton(
+            icon: Icons.manage_search_rounded,
+            tooltip: 'Buscar dados do veículo pela placa',
+            size: 48,
+            onPressed: _saving ? null : _plateLookup,
+          );
+    if (offline) {
+      button = RequiresConnection(
+        reason: 'a consulta de placa é feita no servidor',
+        child: button,
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: NeuTextField(
+            key: Key('subjectField-${f.chave}'),
+            controller: _fields[f.chave],
+            label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+            keyboardType: _fieldKeyboard(f),
+            inputFormatters: _fieldFormatters(f),
+            maxLength: _fieldMaxLength(f),
+            validator: _fieldValidator(f),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Alinha o botão com a cavidade do input (o rótulo fica acima).
+        Padding(padding: const EdgeInsets.only(top: 25), child: button),
       ],
     );
   }

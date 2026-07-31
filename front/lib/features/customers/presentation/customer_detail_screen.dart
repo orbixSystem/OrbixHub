@@ -2,10 +2,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/util/masks.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
@@ -14,6 +17,7 @@ import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
 import 'os_report_dialog.dart';
 import 'subject_form_dialog.dart';
+import 'vehicle_ficha_pdf.dart';
 
 const _maxContentWidth = 940.0;
 
@@ -431,6 +435,7 @@ class _VehicleCard extends ConsumerStatefulWidget {
 class _VehicleCardState extends ConsumerState<_VehicleCard> {
   bool _expanded = false;
   bool _photoBusy = false;
+  bool _fichaBusy = false;
 
   Subject get _s => widget.subject;
   String get _title => _s.label?.isNotEmpty == true
@@ -488,6 +493,61 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  /// Gera a "Ficha do Veículo" em PDF a partir da consulta por placa. A
+  /// consulta reaproveita o cache do servidor (30 dias) — normalmente não
+  /// gasta cota quando o veículo foi cadastrado com autofill.
+  Future<void> _ficha() async {
+    final plate = _s.identifier ?? '';
+    setState(() => _fichaBusy = true);
+    try {
+      final info =
+          await ref.read(customersRepositoryProvider).plateLookup(plate);
+      if (!mounted) return;
+      final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
+      final company = t == null
+          ? null
+          : FichaCompany(
+              name: t.name,
+              legalName: t.legalName,
+              cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty)
+                  ? formatCnpj(t.cnpj)
+                  : null,
+            );
+      final customerName = ref
+          .read(customerProvider(widget.customerId))
+          .whenOrNull(data: (c) => c.name);
+      final usage = info.usage;
+      if (!info.cached && usage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Consulta de placa: ${usage.used} de ${usage.limit} do mês.'),
+        ));
+      }
+      await Printing.layoutPdf(
+        onLayout: (format) => buildVehicleFichaPdf(
+          info,
+          format,
+          company: company,
+          apelido: _s.label,
+          customerName: customerName,
+          km: _s.attributes['km']?.toString(),
+        ),
+      );
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Não foi possível gerar o PDF.')));
+      }
+    } finally {
+      if (mounted) setState(() => _fichaBusy = false);
     }
   }
 
@@ -594,6 +654,10 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
               onEdit: _edit,
               onArchive: _toggleArchive,
               onDelete: _delete,
+              // Ficha em PDF só quando o identificador é uma placa válida
+              // (a consulta por placa é o que alimenta a ficha).
+              onFicha: isValidPlate(_s.identifier) ? _ficha : null,
+              fichaBusy: _fichaBusy,
             ),
             crossFadeState: _expanded
                 ? CrossFadeState.showSecond
@@ -795,6 +859,8 @@ class _VehicleBody extends StatelessWidget {
     required this.onEdit,
     required this.onArchive,
     required this.onDelete,
+    this.onFicha,
+    this.fichaBusy = false,
   });
 
   final Subject subject;
@@ -807,6 +873,10 @@ class _VehicleBody extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+
+  /// Gera a ficha do veículo em PDF (null = identificador não é placa).
+  final VoidCallback? onFicha;
+  final bool fichaBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -870,12 +940,34 @@ class _VehicleBody extends StatelessWidget {
           Divider(height: 1, color: scheme.outlineVariant),
           const SizedBox(height: 16),
           content,
-          if (canWrite) ...[
+          if (canWrite || onFicha != null) ...[
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
+                // Ficha do veículo (PDF) — leitura; fora do guard canWrite.
+                // Consulta por placa é online-only → inerte offline.
+                if (onFicha != null)
+                  RequiresConnection(
+                    reason: 'a consulta de placa é feita no servidor',
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40)),
+                      onPressed: fichaBusy ? null : onFicha,
+                      icon: fichaBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.picture_as_pdf_outlined,
+                              size: 18),
+                      label: const Text('Ficha (PDF)'),
+                    ),
+                  ),
+                if (canWrite) ...[
                 OutlinedButton.icon(
                   // Pin a finite min width (global theme uses infinite width).
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
@@ -902,6 +994,7 @@ class _VehicleBody extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('Excluir'),
                 ),
+                ],
               ],
             ),
           ],

@@ -455,6 +455,20 @@ model catalog_product {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 }
 
+model plate_cache {
+  plate      String   @id
+  payload    Json
+  source     String   @default("apiplacas")
+  fetched_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model plate_lookup_usage {
+  period     String   @id
+  count      Int      @default(0)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invite {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

@@ -187,3 +187,75 @@ abstract class LookupOption with _$LookupOption {
   factory LookupOption.fromJson(Map<String, dynamic> json) =>
       _$LookupOptionFromJson(json);
 }
+
+/// Melhor correspondência FIPE da consulta de placa (a de maior `score`,
+/// recomendação da própria API Placas).
+@freezed
+abstract class PlateFipe with _$PlateFipe {
+  const factory PlateFipe({
+    String? codigoFipe,
+    String? marca,
+    String? modelo,
+    String? valor,
+    String? combustivel,
+    String? anoModelo,
+    String? mesReferencia,
+    int? score,
+  }) = _PlateFipe;
+
+  factory PlateFipe.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeFromJson(json);
+}
+
+/// Contador da cota mensal de consultas de placa — vem do backend junto de
+/// cada consulta e em `GET /customers/plates/usage`. NUNCA calculado no front.
+@freezed
+abstract class PlateQuota with _$PlateQuota {
+  const factory PlateQuota({
+    required String period,
+    required int used,
+    required int limit,
+    required int remaining,
+    @Default(false) bool enabled,
+  }) = _PlateQuota;
+
+  factory PlateQuota.fromJson(Map<String, dynamic> json) =>
+      _$PlateQuotaFromJson(json);
+}
+
+/// Resultado normalizado de `GET /customers/plates/:placa` (API Placas via
+/// backend — o token e a cota vivem lá). `cached=true` = servido do cache do
+/// servidor, sem consumir a cota do mês. Alimenta o autofill do cadastro de
+/// veículo e a ficha em PDF.
+@freezed
+abstract class PlateInfo with _$PlateInfo {
+  const factory PlateInfo({
+    required String placa,
+    String? placaAlternativa,
+    String? marca,
+    String? modelo,
+    String? versao,
+    String? ano,
+    String? anoModelo,
+    String? cor,
+    String? chassi,
+    String? municipio,
+    String? uf,
+    String? situacao,
+    String? origem,
+    String? combustivel,
+    String? cilindradas,
+    String? especie,
+    String? tipoVeiculo,
+    String? passageiros,
+    String? segmento,
+    String? nacionalidade,
+    String? logoUrl,
+    PlateFipe? fipe,
+    @Default(false) bool cached,
+    PlateQuota? usage,
+  }) = _PlateInfo;
+
+  factory PlateInfo.fromJson(Map<String, dynamic> json) =>
+      _$PlateInfoFromJson(json);
+}
