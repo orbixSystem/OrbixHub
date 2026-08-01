@@ -90,6 +90,11 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   /// forçar rebuild com o texto novo (o Autocomplete só lê o initialValue).
   int _fillGen = 0;
 
+  /// Retorno da última consulta por placa — persistido no veículo ao salvar
+  /// (colunas exclusivas), alimentando a aba "Informações adicionais". Null =
+  /// não houve consulta nesta edição; o que já estava salvo é preservado.
+  PlateInfo? _plateInfo;
+
   /// O botão de busca só existe quando o identificador é uma placa de fato —
   /// decidido pela CONFIG do tenant (rótulo), nunca hardcoded por vertical.
   bool get _identifierIsPlate {
@@ -268,6 +273,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         'cor': (_titleCase(info.cor), null),
       };
       setState(() {
+        // Guarda a consulta para salvar junto com o cadastro (sem os campos de
+        // transporte `cached`/`usage`, que não descrevem o veículo).
+        _plateInfo = info.copyWith(cached: false, usage: null);
         _autoFilled.clear();
         values.forEach((chave, entry) {
           final (value, codigo) = entry;
@@ -335,6 +343,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
       label: _label.text.trim().isEmpty ? null : _label.text.trim(),
       identifier: identifier,
       attributes: attributes,
+      plateData: _plateInfo?.toJson(),
     );
     final repo = ref.read(customersRepositoryProvider);
     try {
@@ -389,24 +398,18 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     final offline = ref.watch(isOfflineProvider);
     final fields = _fieldsColumn(neu, offline: offline);
 
-    final Widget content = twoCol
-        ? Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: 244, child: photo),
-              const SizedBox(width: 22),
-              Expanded(child: fields),
-            ],
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              photo,
-              const SizedBox(height: 20),
-              fields,
-            ],
-          );
+    // Foto SEMPRE numa linha própria no topo (faixa larga), campos abaixo —
+    // em qualquer tamanho de tela. Empilhar dá largura inteira aos campos, que
+    // é o que a maior parte do formulário precisa.
+    final Widget content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        photo,
+        const SizedBox(height: 20),
+        fields,
+      ],
+    );
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -659,7 +662,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   }
 }
 
-/// Seletor de foto do veículo (destaque no topo do form). Com foto: preview
+/// Seletor de foto do veículo — faixa larga no topo do form. Com foto: preview
 /// (memória na criação, rede na edição) + "Trocar"/"Remover". Sem foto: estado
 /// vazio convidativo e tocável.
 class _VehiclePhotoPicker extends StatelessWidget {
@@ -698,8 +701,10 @@ class _VehiclePhotoPicker extends StatelessWidget {
             ),
           ),
         ),
-        AspectRatio(
-          aspectRatio: 4 / 3,
+        // Faixa de altura fixa: ocupando a linha inteira, uma proporção 4/3
+        // viraria um bloco altíssimo e empurraria os campos para fora da tela.
+        SizedBox(
+          height: 180,
           child: _hasPhoto ? _preview(neu) : _empty(neu),
         ),
         if (_hasPhoto) ...[

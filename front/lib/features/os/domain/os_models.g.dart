@@ -126,7 +126,7 @@ Map<String, dynamic> _$OsTemplateToJson(_OsTemplate instance) =>
       'id': instance.id,
       'name': instance.name,
       'description': instance.description,
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
     };
 
@@ -192,9 +192,9 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'payment_status': instance.paymentStatus,
       'fiscal_status': instance.fiscalStatus,
       'conversation_id': instance.conversationId,
-      'items': instance.items,
-      'events': instance.events,
-      'photos': instance.photos,
+      'items': instance.items.map((e) => e.toJson()).toList(),
+      'events': instance.events.map((e) => e.toJson()).toList(),
+      'photos': instance.photos.map((e) => e.toJson()).toList(),
       'created_at': instance.createdAt,
     };
 
@@ -211,7 +211,7 @@ _OrderPage _$OrderPageFromJson(Map<String, dynamic> json) => _OrderPage(
 
 Map<String, dynamic> _$OrderPageToJson(_OrderPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,

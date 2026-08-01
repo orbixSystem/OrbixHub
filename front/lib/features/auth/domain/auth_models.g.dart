@@ -73,12 +73,12 @@ _Me _$MeFromJson(Map<String, dynamic> json) => _Me(
 );
 
 Map<String, dynamic> _$MeToJson(_Me instance) => <String, dynamic>{
-  'user': instance.user,
-  'activeTenant': instance.activeTenant,
+  'user': instance.user.toJson(),
+  'activeTenant': instance.activeTenant?.toJson(),
   'role': instance.role,
   'permissions': instance.permissions,
   'modules': instance.modules,
-  'memberships': instance.memberships,
+  'memberships': instance.memberships.map((e) => e.toJson()).toList(),
 };
 
 _Tokens _$TokensFromJson(Map<String, dynamic> json) => _Tokens(
@@ -127,8 +127,8 @@ Map<String, dynamic> _$LoginResultToJson(_LoginResult instance) =>
     <String, dynamic>{
       'accessToken': instance.accessToken,
       'refreshToken': instance.refreshToken,
-      'user': instance.user,
-      'memberships': instance.memberships,
+      'user': instance.user.toJson(),
+      'memberships': instance.memberships.map((e) => e.toJson()).toList(),
     };
 
 _RegisterResult _$RegisterResultFromJson(Map<String, dynamic> json) =>
@@ -143,6 +143,6 @@ Map<String, dynamic> _$RegisterResultToJson(_RegisterResult instance) =>
     <String, dynamic>{
       'accessToken': instance.accessToken,
       'refreshToken': instance.refreshToken,
-      'user': instance.user,
-      'tenant': instance.tenant,
+      'user': instance.user.toJson(),
+      'tenant': instance.tenant.toJson(),
     };

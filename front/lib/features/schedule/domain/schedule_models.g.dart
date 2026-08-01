@@ -68,7 +68,7 @@ Map<String, dynamic> _$AgendaItemToJson(_AgendaItem instance) =>
       'scheduled_end': instance.scheduledEnd,
       'estimated_duration': instance.estimatedDuration,
       'order_id': instance.orderId,
-      'order': instance.order,
+      'order': instance.order.toJson(),
     };
 
 _AgendaResult _$AgendaResultFromJson(Map<String, dynamic> json) =>
@@ -81,4 +81,4 @@ _AgendaResult _$AgendaResultFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$AgendaResultToJson(_AgendaResult instance) =>
-    <String, dynamic>{'items': instance.items};
+    <String, dynamic>{'items': instance.items.map((e) => e.toJson()).toList()};

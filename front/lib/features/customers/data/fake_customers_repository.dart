@@ -149,6 +149,8 @@ class FakeCustomersRepository implements CustomersRepository {
       label: draft.label,
       identifier: draft.identifier,
       attributes: draft.attributes ?? const {},
+      plateData: draft.plateData,
+      plateDataAt: draft.plateData == null ? null : '2026-08-01T12:00:00Z',
     );
     _subjects.add(s);
     return s;
@@ -161,6 +163,11 @@ class FakeCustomersRepository implements CustomersRepository {
       label: draft.label ?? _subjects[i].label,
       identifier: draft.identifier ?? _subjects[i].identifier,
       attributes: draft.attributes ?? _subjects[i].attributes,
+      // Consulta só é sobrescrita quando veio no draft (reconsulta).
+      plateData: draft.plateData ?? _subjects[i].plateData,
+      plateDataAt: draft.plateData == null
+          ? _subjects[i].plateDataAt
+          : '2026-08-01T12:00:00Z',
     );
     _subjects[i] = updated;
     return updated;

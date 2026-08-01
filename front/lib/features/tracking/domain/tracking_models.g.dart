@@ -109,9 +109,9 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
       'responsibleName': instance.responsibleName,
       'scheduledEnd': instance.scheduledEnd,
       'diagnosis': instance.diagnosis,
-      'photos': instance.photos,
-      'timeline': instance.timeline,
-      'company': instance.company,
+      'photos': instance.photos.map((e) => e.toJson()).toList(),
+      'timeline': instance.timeline.map((e) => e.toJson()).toList(),
+      'company': instance.company.toJson(),
     };
 
 _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>
@@ -136,6 +136,6 @@ Map<String, dynamic> _$PublicMessageToJson(_PublicMessage instance) =>
       'body': instance.body,
       'createdAt': instance.createdAt,
       'readAt': instance.readAt,
-      'replyTo': instance.replyTo,
+      'replyTo': instance.replyTo?.toJson(),
       'photoUrl': instance.photoUrl,
     };

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
+import '../../features/customers/presentation/subject_detail_screen.dart';
 import '../../features/cashier/presentation/cashier_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../config/feature_flags.dart';
@@ -222,6 +223,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/customers',
             pageBuilder: (_, s) => neuPage(s, const CustomersScreen()),
+          ),
+          // Veículo (subject) do cliente — literal antes de /m/customers/:id
+          // não é preciso (o segmento extra já distingue), mas mantemos junto.
+          GoRoute(
+            path: '/m/customers/:id/veiculo/:subjectId',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              SubjectDetailScreen(
+                customerId: s.pathParameters['id'] ?? '',
+                subjectId: s.pathParameters['subjectId'] ?? '',
+              ),
+            ),
           ),
           GoRoute(
             path: '/m/customers/:id',

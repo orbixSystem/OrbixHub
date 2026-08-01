@@ -37,8 +37,8 @@ Map<String, dynamic> _$CashSessionToJson(_CashSession instance) =>
       'closing_amount_expected': instance.closingAmountExpected,
       'difference': instance.difference,
       'notes': instance.notes,
-      'byMethod': instance.byMethod,
-      'totals': instance.totals,
+      'byMethod': instance.byMethod.map((e) => e.toJson()).toList(),
+      'totals': instance.totals?.toJson(),
     };
 
 _SessionTotals _$SessionTotalsFromJson(Map<String, dynamic> json) =>
@@ -121,7 +121,7 @@ _EntryPage _$EntryPageFromJson(Map<String, dynamic> json) => _EntryPage(
 
 Map<String, dynamic> _$EntryPageToJson(_EntryPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,
@@ -140,7 +140,7 @@ _SessionPage _$SessionPageFromJson(Map<String, dynamic> json) => _SessionPage(
 
 Map<String, dynamic> _$SessionPageToJson(_SessionPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,
@@ -169,9 +169,9 @@ _CashSummary _$CashSummaryFromJson(Map<String, dynamic> json) => _CashSummary(
 
 Map<String, dynamic> _$CashSummaryToJson(_CashSummary instance) =>
     <String, dynamic>{
-      'byMethod': instance.byMethod,
-      'byCategory': instance.byCategory,
-      'byOrigin': instance.byOrigin,
+      'byMethod': instance.byMethod.map((e) => e.toJson()).toList(),
+      'byCategory': instance.byCategory.map((e) => e.toJson()).toList(),
+      'byOrigin': instance.byOrigin.map((e) => e.toJson()).toList(),
       'totalIn': instance.totalIn,
       'totalOut': instance.totalOut,
       'net': instance.net,
@@ -196,7 +196,7 @@ Map<String, dynamic> _$PaymentDetailToJson(_PaymentDetail instance) =>
       'paid': instance.paid,
       'balance': instance.balance,
       'status': instance.status,
-      'entries': instance.entries,
+      'entries': instance.entries.map((e) => e.toJson()).toList(),
     };
 
 _CashierConfig _$CashierConfigFromJson(Map<String, dynamic> json) =>

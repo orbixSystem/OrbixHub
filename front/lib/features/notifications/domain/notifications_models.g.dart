@@ -42,4 +42,7 @@ _NotificationsResult _$NotificationsResultFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$NotificationsResultToJson(
   _NotificationsResult instance,
-) => <String, dynamic>{'items': instance.items, 'unread': instance.unread};
+) => <String, dynamic>{
+  'items': instance.items.map((e) => e.toJson()).toList(),
+  'unread': instance.unread,
+};

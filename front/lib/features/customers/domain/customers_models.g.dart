@@ -39,6 +39,8 @@ _Subject _$SubjectFromJson(Map<String, dynamic> json) => _Subject(
       json['attributes'] as Map<String, dynamic>? ?? const <String, dynamic>{},
   photoUrl: json['photo_url'] as String?,
   status: json['status'] as String? ?? 'active',
+  plateData: json['plate_data'] as Map<String, dynamic>?,
+  plateDataAt: json['plate_data_at'] as String?,
 );
 
 Map<String, dynamic> _$SubjectToJson(_Subject instance) => <String, dynamic>{
@@ -49,6 +51,8 @@ Map<String, dynamic> _$SubjectToJson(_Subject instance) => <String, dynamic>{
   'attributes': instance.attributes,
   'photo_url': instance.photoUrl,
   'status': instance.status,
+  'plate_data': instance.plateData,
+  'plate_data_at': instance.plateDataAt,
 };
 
 _SubjectLabel _$SubjectLabelFromJson(Map<String, dynamic> json) =>
@@ -99,8 +103,8 @@ _CustomersConfig _$CustomersConfigFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$CustomersConfigToJson(_CustomersConfig instance) =>
     <String, dynamic>{
       'usaSubjects': instance.usaSubjects,
-      'subjectLabel': instance.subjectLabel,
-      'subjectFields': instance.subjectFields,
+      'subjectLabel': instance.subjectLabel.toJson(),
+      'subjectFields': instance.subjectFields.map((e) => e.toJson()).toList(),
       'documentRequired': instance.documentRequired,
     };
 
@@ -141,7 +145,7 @@ _CustomerPage _$CustomerPageFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$CustomerPageToJson(_CustomerPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,
@@ -160,7 +164,7 @@ _SubjectPage _$SubjectPageFromJson(Map<String, dynamic> json) => _SubjectPage(
 
 Map<String, dynamic> _$SubjectPageToJson(_SubjectPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,
@@ -204,9 +208,9 @@ _PlateFipeMatch _$PlateFipeMatchFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PlateFipeMatchToJson(_PlateFipeMatch instance) =>
     <String, dynamic>{
-      'marca': instance.marca,
-      'modelo': instance.modelo,
-      'ano': instance.ano,
+      'marca': instance.marca?.toJson(),
+      'modelo': instance.modelo?.toJson(),
+      'ano': instance.ano?.toJson(),
     };
 
 _PlateFipe _$PlateFipeFromJson(Map<String, dynamic> json) => _PlateFipe(
@@ -320,10 +324,10 @@ Map<String, dynamic> _$PlateInfoToJson(_PlateInfo instance) =>
       'nacionalidade': instance.nacionalidade,
       'logoUrl': instance.logoUrl,
       'consultadoEm': instance.consultadoEm,
-      'fipe': instance.fipe,
-      'fipeTodos': instance.fipeTodos,
-      'fipeMatch': instance.fipeMatch,
+      'fipe': instance.fipe?.toJson(),
+      'fipeTodos': instance.fipeTodos.map((e) => e.toJson()).toList(),
+      'fipeMatch': instance.fipeMatch?.toJson(),
       'extra': instance.extra,
       'cached': instance.cached,
-      'usage': instance.usage,
+      'usage': instance.usage?.toJson(),
     };

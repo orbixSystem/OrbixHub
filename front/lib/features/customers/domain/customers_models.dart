@@ -34,10 +34,31 @@ abstract class Subject with _$Subject {
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
     @JsonKey(name: 'photo_url') String? photoUrl,
     @Default('active') String status,
+
+    /// Retorno da consulta por placa (colunas exclusivas dela no banco).
+    /// Mapa cru — o contrato é jsonb livre; use `plateInfo` para tipar com
+    /// segurança. Null = veículo cadastrado à mão, sem consulta.
+    @JsonKey(name: 'plate_data') Map<String, dynamic>? plateData,
+    @JsonKey(name: 'plate_data_at') String? plateDataAt,
   }) = _Subject;
 
   factory Subject.fromJson(Map<String, dynamic> json) =>
       _$SubjectFromJson(json);
+}
+
+extension SubjectPlateData on Subject {
+  /// Consulta por placa já tipada. Devolve null quando não há dados ou quando
+  /// o payload salvo não bate com o formato atual — um registro antigo nunca
+  /// derruba a tela de detalhes.
+  PlateInfo? get plateInfo {
+    final raw = plateData;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return PlateInfo.fromJson(raw);
+    } on Object {
+      return null;
+    }
+  }
 }
 
 /// Rótulo dinâmico do subject (singular/plural).
@@ -161,16 +182,26 @@ class CustomerDraft {
 
 /// Draft de escrita de subject (create/update).
 class SubjectDraft {
-  const SubjectDraft({this.label, this.identifier, this.attributes});
+  const SubjectDraft({
+    this.label,
+    this.identifier,
+    this.attributes,
+    this.plateData,
+  });
 
   final String? label;
   final String? identifier;
   final Map<String, dynamic>? attributes;
 
+  /// Retorno da consulta por placa a persistir (só quando houve consulta —
+  /// omitir mantém o que já estava salvo).
+  final Map<String, dynamic>? plateData;
+
   Map<String, dynamic> toJson() => {
         if (label != null) 'label': label,
         if (identifier != null) 'identifier': identifier,
         if (attributes != null) 'attributes': attributes,
+        if (plateData != null) 'plateData': plateData,
       };
 }
 

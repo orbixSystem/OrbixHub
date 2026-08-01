@@ -140,6 +140,8 @@ export class CustomersRepository {
       label: string | null;
       identifier: string | null;
       attributes: Record<string, unknown> | undefined;
+      /** Consulta por placa (opcional); carimba plate_data_at quando vem. */
+      plateData?: Record<string, unknown>;
     },
   ) {
     const db = this.tenant.getClient();
@@ -151,6 +153,12 @@ export class CustomersRepository {
         label: data.label,
         identifier: data.identifier,
         attributes: (data.attributes as Prisma.InputJsonValue) ?? undefined,
+        ...(data.plateData !== undefined
+          ? {
+              plate_data: data.plateData as Prisma.InputJsonValue,
+              plate_data_at: new Date(),
+            }
+          : {}),
       },
     });
   }
@@ -187,16 +195,24 @@ export class CustomersRepository {
       label: string | null;
       identifier: string | null;
       attributes: Record<string, unknown>;
+      plateData: Record<string, unknown>;
     }>,
   ) {
     const db = this.tenant.getClient();
-    const { attributes, ...rest } = data;
+    const { attributes, plateData, ...rest } = data;
     return db.subject.update({
       where: { id },
       data: {
         ...rest,
         ...(attributes !== undefined
           ? { attributes: attributes as Prisma.InputJsonValue }
+          : {}),
+        // Reconsultar a placa renova o carimbo de quando o dado foi obtido.
+        ...(plateData !== undefined
+          ? {
+              plate_data: plateData as Prisma.InputJsonValue,
+              plate_data_at: new Date(),
+            }
           : {}),
         updated_at: new Date(),
       },

@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # Objetos aninhados são serializados via toJson() em vez de irem como
+          # instâncias Dart dentro do mapa. Sem isto, `model.toJson()` só
+          # sobrevive a um jsonEncode imediato e quebra ao persistir/reler o
+          # mapa (ex.: o payload da consulta de placa em `subject.plate_data`).
+          explicit_to_json: true

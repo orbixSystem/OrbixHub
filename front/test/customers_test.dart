@@ -280,6 +280,12 @@ void main() {
 
   testWidgets('cascata marca→modelo→ano libera o ano só após escolher o modelo',
       (tester) async {
+    // Viewport alta: a foto ocupa a primeira linha do formulário, então os três
+    // campos da cascata + as listas de sugestão precisam de espaço vertical.
+    tester.view.physicalSize = const Size(1000, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     final fake = FakeCustomersRepository();
     const config = CustomersConfig(
       subjectFields: [
