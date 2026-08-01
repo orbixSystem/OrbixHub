@@ -11,6 +11,7 @@ import 'package:orbixhub_front/features/auth/presentation/session_controller.dar
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
+import 'package:orbixhub_front/features/customers/presentation/customer_detail_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
 import 'package:orbixhub_front/features/customers/presentation/vehicle_ficha_pdf.dart';
 import 'package:pdf/pdf.dart';
@@ -85,6 +86,52 @@ void main() {
     expect(find.byTooltip('Remover foto'), findsOneWidget);
     // Sem rótulo de texto no botão — era ele que estourava na faixa da foto.
     expect(find.text('Trocar'), findsNothing);
+  });
+
+  testWidgets('no card do cliente, trocar/remover também são só ícones', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    const subject = Subject(
+      id: 's1',
+      customerId: 'c1',
+      label: 'Carro do João',
+      identifier: 'ABC1D23',
+      photoUrl: 'http://localhost:3000/files/foto.jpg',
+    );
+    final repo = FakeCustomersRepository(
+      customers: const [Customer(id: 'c1', name: 'João da Silva')],
+      subjects: const [subject],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          connectivityControllerProvider.overrideWith(_FakeConn.new),
+          sessionControllerProvider.overrideWith(_FakeSession.new),
+          customersRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const Scaffold(
+            body: CustomerDetailScreen(customerId: 'c1'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Expande o card do veículo para revelar o bloco da foto.
+    await tester.tap(find.text('Carro do João'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Trocar foto'), findsOneWidget);
+    expect(find.byTooltip('Remover foto'), findsOneWidget);
+    expect(find.text('Trocar'), findsNothing);
+    expect(find.text('Remover'), findsNothing);
   });
 
   group('ficha em PDF', () {
