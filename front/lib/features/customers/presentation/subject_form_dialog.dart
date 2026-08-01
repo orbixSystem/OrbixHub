@@ -709,15 +709,16 @@ class _VehiclePhotoPicker extends StatelessWidget {
         ),
         if (_hasPhoto) ...[
           const SizedBox(height: 10),
+          // Só ícones: com a foto em faixa larga, o rótulo "Trocar" espremia o
+          // botão e quebrava o texto. A própria imagem também é tocável.
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(
-                child: NeuButton(
-                  label: 'Trocar',
-                  icon: Icons.sync_rounded,
-                  kind: NeuButtonKind.secondary,
-                  onPressed: busy ? null : onPick,
-                ),
+              NeuIconButton(
+                icon: Icons.sync_rounded,
+                tooltip: 'Trocar foto',
+                size: 48,
+                onPressed: busy ? null : onPick,
               ),
               const SizedBox(width: 8),
               NeuIconButton(

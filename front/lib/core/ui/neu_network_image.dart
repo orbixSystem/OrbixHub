@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../network/media_url.dart';
 import 'neu_tokens.dart';
 
 /// Imagem de rede (S3/MinIO) com placeholder de carregamento e de ERRO embutidos
@@ -55,7 +56,10 @@ class NeuNetworkImage extends StatelessWidget {
                 ),
         );
 
-    final src = url?.trim() ?? '';
+    // A URL vem do backend com o host que ELE conhece; resolvemos para o que
+    // este dispositivo alcança (senão a foto vira "indisponível" no emulador
+    // ou quando a porta da API não é a do STORAGE_PUBLIC_URL).
+    final src = resolveMediaUrl(url) ?? '';
     final Widget child = src.isEmpty
         ? placeholder(loading: false)
         : Image.network(

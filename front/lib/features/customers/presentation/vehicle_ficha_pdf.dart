@@ -25,6 +25,9 @@ Future<Uint8List> buildVehicleFichaPdf(
   String? apelido,
   String? customerName,
   String? km,
+  /// Foto do veículo já carregada (a função não acessa rede — quem chama a
+  /// busca com `networkImage`, do package printing).
+  pw.ImageProvider? photo,
 }) async {
   const brand = PdfColor.fromInt(0xFFEC5E12);
   const graphite = PdfColor.fromInt(0xFF15171C);
@@ -198,7 +201,27 @@ Future<Uint8List> buildVehicleFichaPdf(
 
             if (identificacao.isNotEmpty) ...[
               sectionTitle('Identificação'),
-              factGrid(identificacao),
+              // Com foto: retrato à esquerda, dados à direita.
+              if (photo != null)
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.ClipRRect(
+                      horizontalRadius: 6,
+                      verticalRadius: 6,
+                      child: pw.Image(
+                        photo,
+                        width: 150,
+                        height: 112,
+                        fit: pw.BoxFit.cover,
+                      ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Expanded(child: factGrid(identificacao)),
+                  ],
+                )
+              else
+                factGrid(identificacao),
               pw.SizedBox(height: 16),
             ],
             if (caracteristicas.isNotEmpty) ...[
@@ -299,6 +322,9 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
   String? apelido,
   String? customerName,
   String? km,
+  /// Foto do veículo já carregada (a função não acessa rede — quem chama a
+  /// busca com `networkImage`, do package printing).
+  pw.ImageProvider? photo,
 }) async {
   const brand = PdfColor.fromInt(0xFFEC5E12);
   const graphite = PdfColor.fromInt(0xFF15171C);
@@ -485,6 +511,21 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
         pw.SizedBox(height: 6),
         pw.Divider(color: line, thickness: 1),
 
+        if (photo != null) ...[
+          pw.SizedBox(height: 12),
+          pw.Center(
+            child: pw.ClipRRect(
+              horizontalRadius: 8,
+              verticalRadius: 8,
+              child: pw.Image(
+                photo,
+                width: 260,
+                height: 195,
+                fit: pw.BoxFit.cover,
+              ),
+            ),
+          ),
+        ],
         if (identificacao.isNotEmpty) ...[
           sectionTitle('Identificação'),
           kvTable(identificacao),

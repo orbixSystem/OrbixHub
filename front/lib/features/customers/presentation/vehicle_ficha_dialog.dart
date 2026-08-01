@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/network/media_url.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/customers_models.dart';
 import 'plate_labels.dart';
@@ -20,6 +22,7 @@ Future<void> showVehicleFichaDialog(
   String? apelido,
   String? customerName,
   String? km,
+  String? photoUrl,
 }) {
   final ficha = VehicleFichaDialog(
     info: info,
@@ -27,6 +30,7 @@ Future<void> showVehicleFichaDialog(
     apelido: apelido,
     customerName: customerName,
     km: km,
+    photoUrl: photoUrl,
   );
   return showNeuDialog<void>(context, dialog: ficha.build(context));
 }
@@ -38,6 +42,7 @@ class VehicleFichaDialog {
     this.apelido,
     this.customerName,
     this.km,
+    this.photoUrl,
   });
 
   final PlateInfo info;
@@ -46,9 +51,25 @@ class VehicleFichaDialog {
   final String? customerName;
   final String? km;
 
+  /// Foto do veículo (cadastro). Vai impressa na ficha quando existir.
+  final String? photoUrl;
+
+  /// Baixa a foto do veículo para embutir no PDF. Best-effort: sem foto, foto
+  /// fora do ar ou host inalcançável, a ficha sai sem imagem em vez de falhar.
+  Future<pw.ImageProvider?> _fetchPhoto() async {
+    final url = resolveMediaUrl(photoUrl);
+    if (url == null) return null;
+    try {
+      return await networkImage(url);
+    } on Object {
+      return null;
+    }
+  }
+
   Future<void> _print(BuildContext context, {required bool completa}) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
+      final photo = await _fetchPhoto();
       await Printing.layoutPdf(
         onLayout: (format) => completa
             ? buildVehicleFichaCompletaPdf(
@@ -58,6 +79,7 @@ class VehicleFichaDialog {
                 apelido: apelido,
                 customerName: customerName,
                 km: km,
+                photo: photo,
               )
             : buildVehicleFichaPdf(
                 info,
@@ -66,6 +88,7 @@ class VehicleFichaDialog {
                 apelido: apelido,
                 customerName: customerName,
                 km: km,
+                photo: photo,
               ),
       );
     } on Exception {

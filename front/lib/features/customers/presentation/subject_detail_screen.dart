@@ -405,6 +405,8 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
                   apelido: _s.label,
                   customerName: widget.customerName,
                   km: _s.attributes['km']?.toString(),
+                  // Foto do cadastro entra impressa na ficha.
+                  photoUrl: _s.photoUrl,
                 ),
               ),
               if (podeConsultar)
