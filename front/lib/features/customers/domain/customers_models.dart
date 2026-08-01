@@ -188,8 +188,34 @@ abstract class LookupOption with _$LookupOption {
       _$LookupOptionFromJson(json);
 }
 
-/// Melhor correspondência FIPE da consulta de placa (a de maior `score`,
-/// recomendação da própria API Placas).
+/// Opção casada no catálogo FIPE do cadastro; `codigo` alimenta a cascata
+/// marca → modelo → ano.
+@freezed
+abstract class PlateFipeRef with _$PlateFipeRef {
+  const factory PlateFipeRef({required String value, String? codigo}) =
+      _PlateFipeRef;
+
+  factory PlateFipeRef.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeRefFromJson(json);
+}
+
+/// "Equivalente" do veículo no catálogo FIPE que o cadastro já usa — resolvido
+/// no backend. É o que permite o autofill escrever o valor CANÔNICO nos campos
+/// e manter a cascata funcionando.
+@freezed
+abstract class PlateFipeMatch with _$PlateFipeMatch {
+  const factory PlateFipeMatch({
+    PlateFipeRef? marca,
+    PlateFipeRef? modelo,
+    PlateFipeRef? ano,
+  }) = _PlateFipeMatch;
+
+  factory PlateFipeMatch.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeMatchFromJson(json);
+}
+
+/// Uma correspondência FIPE da consulta de placa (a consulta pode trazer mais
+/// de uma; a de maior `score` é a melhor, recomendação da própria API).
 @freezed
 abstract class PlateFipe with _$PlateFipe {
   const factory PlateFipe({
@@ -234,6 +260,7 @@ abstract class PlateInfo with _$PlateInfo {
     String? placaAlternativa,
     String? marca,
     String? modelo,
+    String? marcaModelo,
     String? versao,
     String? ano,
     String? anoModelo,
@@ -251,7 +278,18 @@ abstract class PlateInfo with _$PlateInfo {
     String? segmento,
     String? nacionalidade,
     String? logoUrl,
+    String? consultadoEm,
     PlateFipe? fipe,
+
+    /// Todas as correspondências FIPE (ficha detalhada), maior score primeiro.
+    @Default(<PlateFipe>[]) List<PlateFipe> fipeTodos,
+
+    /// Equivalente no catálogo do cadastro (autofill + cascata).
+    PlateFipeMatch? fipeMatch,
+
+    /// Bloco técnico completo da consulta (chave crua → valor). Rótulos em
+    /// `plate_labels.dart`; pode vir vazio (a API não garante este bloco).
+    @Default(<String, String>{}) Map<String, String> extra,
     @Default(false) bool cached,
     PlateQuota? usage,
   }) = _PlateInfo;

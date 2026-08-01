@@ -208,14 +208,14 @@ class NeuDialog extends StatelessWidget {
               Flexible(child: SingleChildScrollView(child: child)),
               if (actions.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    for (var i = 0; i < actions.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 10),
-                      actions[i],
-                    ],
-                  ],
+                // Wrap (não Row): com 3+ ações — ou no mobile, onde o diálogo é
+                // estreito — os botões quebram de linha em vez de estourar.
+                // Com espaço sobrando o resultado é idêntico a uma Row.
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: actions,
                 ),
               ],
             ],

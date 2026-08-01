@@ -80,34 +80,49 @@ export function normalizeWdapiResponse(
 ): PlateHit {
   const extra = (raw.extra ?? {}) as Record<string, unknown>;
   const fipeDados = (raw.fipe as { dados?: unknown } | undefined)?.dados;
-  let fipe: PlateFipe | undefined;
+  let fipeTodos: PlateFipe[] | undefined;
   if (Array.isArray(fipeDados) && fipeDados.length > 0) {
-    const best = [...fipeDados].sort(
-      (a, b) =>
-        (Number((b as Record<string, unknown>).score) || 0) -
-        (Number((a as Record<string, unknown>).score) || 0),
-    )[0] as Record<string, unknown>;
-    fipe = {
-      codigoFipe: s(best.codigo_fipe),
-      marca: s(best.texto_marca),
-      modelo: s(best.texto_modelo),
-      valor: s(best.texto_valor),
-      combustivel: s(best.combustivel),
-      anoModelo: s(best.ano_modelo),
-      mesReferencia: s(best.mes_referencia),
-      score: Number(best.score) || undefined,
-    };
+    // Ordenadas por score desc: a 1ª é a melhor correspondência (recomendação
+    // da doc), as demais aparecem na ficha detalhada.
+    fipeTodos = fipeDados
+      .map((d) => {
+        const e = d as Record<string, unknown>;
+        return {
+          codigoFipe: s(e.codigo_fipe),
+          marca: s(e.texto_marca),
+          modelo: s(e.texto_modelo),
+          valor: s(e.texto_valor),
+          combustivel: s(e.combustivel),
+          anoModelo: s(e.ano_modelo),
+          mesReferencia: s(e.mes_referencia),
+          score: Number(e.score) || undefined,
+        };
+      })
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   }
+  const fipe = fipeTodos?.[0];
+
+  // Bloco técnico completo: toda chave do `extra` com valor não-vazio. Fica cru
+  // (a apresentação rotula) — é o que permite "tudo que o serviço oferece".
+  const extraSane: Record<string, string> = {};
+  for (const [k, v] of Object.entries(extra)) {
+    const val = s(v);
+    if (val !== undefined) extraSane[k] = val;
+  }
+
   return {
     placa: s(raw.placa) ?? plate,
     placaAlternativa: s(raw.placa_alternativa),
     marca: s(raw.MARCA) ?? s(raw.marca),
     modelo: s(raw.MODELO) ?? s(raw.modelo),
+    marcaModelo: s(raw.marcaModelo) ?? s(extra.modelo),
     versao: s(raw.VERSAO) ?? s(raw.SUBMODELO),
     ano: s(raw.ano) ?? s(extra.ano_fabricacao),
     anoModelo: s(raw.anoModelo) ?? s(extra.ano_modelo),
     cor: s(raw.cor),
-    chassi: s(raw.chassi),
+    // O topo vem mascarado ("*****10137"); o bloco técnico costuma trazer o
+    // chassi completo — a oficina precisa dele inteiro (peças/orçamento).
+    chassi: s(extra.chassi) ?? s(raw.chassi),
     municipio: s(raw.municipio) ?? s(extra.municipio),
     uf: s(raw.uf) ?? s(extra.uf),
     situacao: s(raw.situacao),
@@ -120,6 +135,9 @@ export function normalizeWdapiResponse(
     segmento: s(extra.sub_segmento),
     nacionalidade: s(extra.nacionalidade),
     logoUrl: s(raw.logo),
+    consultadoEm: s(raw.data),
     ...(fipe ? { fipe } : {}),
+    ...(fipeTodos && fipeTodos.length > 0 ? { fipeTodos } : {}),
+    ...(Object.keys(extraSane).length > 0 ? { extra: extraSane } : {}),
   };
 }

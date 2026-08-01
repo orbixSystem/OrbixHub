@@ -13,7 +13,7 @@ export function normalizePlate(raw: string): string | null {
   return PLATE_RE.test(p) ? p : null;
 }
 
-/** Melhor correspondência FIPE da consulta (a de maior `score`, ver doc da API). */
+/** Uma correspondência FIPE da consulta (a API pode devolver várias). */
 export interface PlateFipe {
   codigoFipe?: string;
   marca?: string; // texto_marca ("VW - VolksWagen")
@@ -23,6 +23,24 @@ export interface PlateFipe {
   anoModelo?: string;
   mesReferencia?: string;
   score?: number;
+}
+
+/** Opção casada na NOSSA base de marcas/modelos (FIPE) — `codigo` alimenta a cascata. */
+export interface PlateFipeRef {
+  value: string;
+  codigo?: string;
+}
+
+/**
+ * "Equivalente" do veículo no catálogo FIPE que o cadastro já usa (mesma fonte
+ * dos campos marca/modelo/ano). Permite o autofill preencher os campos com o
+ * valor CANÔNICO da nossa base e manter a cascata funcionando (o `codigo` da
+ * marca destrava os modelos; o do modelo destrava os anos).
+ */
+export interface PlateFipeMatch {
+  marca?: PlateFipeRef;
+  modelo?: PlateFipeRef;
+  ano?: PlateFipeRef;
 }
 
 /**
@@ -36,6 +54,7 @@ export interface PlateHit {
   placaAlternativa?: string;
   marca?: string;
   modelo?: string;
+  marcaModelo?: string; // "VW/CROSSFOX" como consta no registro
   versao?: string;
   ano?: string; // ano de fabricação
   anoModelo?: string;
@@ -53,7 +72,20 @@ export interface PlateHit {
   segmento?: string;
   nacionalidade?: string;
   logoUrl?: string;
+  /** Data em que a base do provedor registrou os dados ("20/07/2022 15:10:09"). */
+  consultadoEm?: string;
+  /** Melhor correspondência FIPE (maior `score`) — a que vai na ficha resumida. */
   fipe?: PlateFipe;
+  /** TODAS as correspondências FIPE, ordenadas por score (ficha detalhada). */
+  fipeTodos?: PlateFipe[];
+  /** Equivalente no catálogo FIPE do cadastro (autofill + cascata). */
+  fipeMatch?: PlateFipeMatch;
+  /**
+   * TODOS os campos técnicos do bloco `extra` da API, já saneados (chave crua →
+   * valor). É o que alimenta a ficha detalhada sem precisar nomear cada campo;
+   * a doc avisa que este bloco pode vir incompleto ou ausente.
+   */
+  extra?: Record<string, string>;
 }
 
 /**

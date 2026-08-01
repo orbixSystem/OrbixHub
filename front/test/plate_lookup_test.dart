@@ -9,7 +9,9 @@ import 'package:orbixhub_front/features/auth/presentation/session_controller.dar
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
+import 'package:orbixhub_front/features/customers/presentation/plate_labels.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
+import 'package:orbixhub_front/features/customers/presentation/vehicle_ficha_dialog.dart';
 
 /// Consulta de placa (API Placas via backend): models, fake e autofill no
 /// formulário de veículo, incluindo o contador de cota e o modo offline.
@@ -110,6 +112,65 @@ void main() {
     });
   });
 
+  group('rótulos do bloco técnico', () {
+    test('traduz chaves conhecidas e humaniza as desconhecidas', () {
+      expect(plateFieldLabel('cap_maxima_tracao'), 'Cap. máxima de tração');
+      expect(plateFieldLabel('restricao_1'), 'Restrição 1');
+      expect(plateFieldLabel('s.especie'), 'Subespécie');
+      // Chave nova que a API venha a mandar: aparece humanizada, nunca some.
+      expect(plateFieldLabel('campo_novo_qualquer'), 'Campo novo qualquer');
+    });
+
+    test('omite o que já aparece nas seções principais e ordena', () {
+      final rows = plateTechnicalRows(const {
+        'peso_bruto_total': '158',
+        'chassi': '9BW...', // já sai em Identificação
+        'ano_modelo': '2007', // idem
+        'eixos': '2',
+        'vazio': '   ',
+      });
+      expect(rows.map((r) => r.$1), ['Eixos', 'Peso bruto total']);
+    });
+  });
+
+  group('ficha do veículo (diálogo)', () {
+    testWidgets('mostra dados técnicos, FIPE e as duas opções de PDF', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final info = await FakeCustomersRepository().plateLookup('ABC1D23');
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showVehicleFichaDialog(context, info: info),
+              child: const Text('abrir'),
+            ),
+          ),
+          status: ConnStatus.online,
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ficha do veículo'), findsOneWidget);
+      // Identificação com o chassi COMPLETO (o bloco técnico não vem mascarado).
+      expect(find.text('9BWKB05Z174110137'), findsOneWidget);
+      // Bloco técnico rotulado em PT-BR.
+      expect(find.text('Peso bruto total'), findsOneWidget);
+      expect(find.text('Cap. máxima de tração'), findsOneWidget);
+      // TODAS as correspondências FIPE, não só a melhor.
+      expect(find.textContaining('CROSSFOX 1.6 Mi Total Flex'), findsWidgets);
+      expect(find.textContaining('CROSSFOX 1.6 T.Flex'), findsOneWidget);
+      // As duas versões de impressão.
+      expect(find.text('Ficha resumida'), findsOneWidget);
+      expect(find.text('Ficha completa'), findsOneWidget);
+    });
+  });
+
   group('formulário de veículo — buscar pela placa', () {
     testWidgets('online: preenche marca/cor/ano e mostra o contador da cota', (
       tester,
@@ -149,8 +210,10 @@ void main() {
       await tester.tap(button);
       await tester.pumpAndSettle();
 
-      // Campos preenchidos pelo fake (marca é Autocomplete; cor/ano são NeuTextField).
-      expect(find.text('VW'), findsWidgets);
+      // Marca vem do EQUIVALENTE FIPE (valor canônico do catálogo), não da
+      // sigla crua do registro ("VW") — é o que mantém a cascata viva.
+      expect(find.text('VW - VolksWagen'), findsWidgets);
+      expect(find.text('VW'), findsNothing);
       expect(find.text('Prata'), findsOneWidget);
       expect(find.text('2007'), findsOneWidget);
       // Contador da cota no aviso + marca de revisão nos campos simples.

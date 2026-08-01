@@ -12,6 +12,7 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { ENV } from '../../../common/config/config.module';
 import type { Env } from '../../../common/config/env.schema';
 import { PlateCacheStore } from './plate-cache.store';
+import { PlateFipeMatcher } from './plate-fipe-matcher.service';
 import { PlateQuotaStore } from './plate-quota.store';
 import {
   normalizePlate,
@@ -49,6 +50,7 @@ export class PlateLookupService {
     private readonly cache: PlateCacheStore,
     private readonly quota: PlateQuotaStore,
     private readonly audit: AuditService,
+    private readonly fipeMatcher: PlateFipeMatcher,
     @Inject(PLATE_PROVIDER) private readonly provider: PlateProvider,
     @Inject(ENV) private readonly env: Env,
   ) {}
@@ -64,6 +66,16 @@ export class PlateLookupService {
     // Cache fresco não gasta cota (mesma placa consultada de novo é grátis).
     const cached = await this.cache.get(plate);
     if (cached) {
+      // Hit gravado antes do match FIPE (ou quando a FIPE estava fora): calcula
+      // agora e regrava — assim o autofill não fica pior por ter cache.
+      if (!cached.fipeMatch) {
+        const fipeMatch = await this.fipeMatcher.match(cached);
+        if (fipeMatch) {
+          const enriched = { ...cached, fipeMatch };
+          await this.cache.upsert(plate, enriched, 'apiplacas');
+          return { ...enriched, cached: true, usage: await this.usage() };
+        }
+      }
       return { ...cached, cached: true, usage: await this.usage() };
     }
 
@@ -89,13 +101,16 @@ export class PlateLookupService {
 
     switch (outcome.status) {
       case 'ok': {
-        await this.cache.upsert(plate, outcome.hit, 'apiplacas');
+        // Equivalente no catálogo FIPE do cadastro (best-effort, fora de tx).
+        const fipeMatch = await this.fipeMatcher.match(outcome.hit);
+        const hit = fipeMatch ? { ...outcome.hit, fipeMatch } : outcome.hit;
+        await this.cache.upsert(plate, hit, 'apiplacas');
         // Mutação de cota (custo real) é auditada: quem gastou, qual placa.
         await this.audit.log(user.tenantId, user.userId, 'plate_lookup', plate, {
           used: usedAfter,
           limit,
         });
-        return { ...outcome.hit, cached: false, usage: await this.usage() };
+        return { ...hit, cached: false, usage: await this.usage() };
       }
       case 'not_found':
         // O provedor respondeu (consulta consumida lá) — mantém o consumo local.

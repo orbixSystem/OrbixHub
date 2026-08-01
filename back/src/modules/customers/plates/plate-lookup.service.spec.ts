@@ -8,6 +8,7 @@ import type { AuthUser } from '../../../common/auth/auth.types';
 import type { Env } from '../../../common/config/env.schema';
 import type { AuditService } from '../../../common/audit/audit.service';
 import type { PlateCacheStore } from './plate-cache.store';
+import type { PlateFipeMatcher } from './plate-fipe-matcher.service';
 import type { PlateQuotaStore } from './plate-quota.store';
 import { PlateLookupService } from './plate-lookup.service';
 import {
@@ -59,6 +60,8 @@ function makeService(opts: {
     used: jest.fn().mockResolvedValue(used),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
+  // Matcher FIPE é best-effort e ortogonal ao fluxo de cota — fake neutro.
+  const fipeMatcher = { match: jest.fn().mockResolvedValue(undefined) };
   const provider = new FakeProvider(opts.outcome ?? { status: 'ok', hit });
   const env = {
     PLACAS_ENABLED: opts.enabled ?? true,
@@ -69,10 +72,11 @@ function makeService(opts: {
     cache as unknown as PlateCacheStore,
     quota as unknown as PlateQuotaStore,
     audit as unknown as AuditService,
+    fipeMatcher as unknown as PlateFipeMatcher,
     provider,
     env,
   );
-  return { svc, cache, quota, audit, provider };
+  return { svc, cache, quota, audit, provider, fipeMatcher };
 }
 
 describe('normalizePlate', () => {

@@ -2,7 +2,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
@@ -17,6 +16,7 @@ import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
 import 'os_report_dialog.dart';
 import 'subject_form_dialog.dart';
+import 'vehicle_ficha_dialog.dart';
 import 'vehicle_ficha_pdf.dart';
 
 const _maxContentWidth = 940.0;
@@ -496,7 +496,8 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
     }
   }
 
-  /// Gera a "Ficha do Veículo" em PDF a partir da consulta por placa. A
+  /// Abre a ficha do veículo: consulta a placa e mostra TUDO o que o serviço
+  /// devolveu, com opção de imprimir a versão resumida ou a completa. A
   /// consulta reaproveita o cache do servidor (30 dias) — normalmente não
   /// gasta cota quando o veículo foi cadastrado com autofill.
   Future<void> _ficha() async {
@@ -526,15 +527,14 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
               'Consulta de placa: ${usage.used} de ${usage.limit} do mês.'),
         ));
       }
-      await Printing.layoutPdf(
-        onLayout: (format) => buildVehicleFichaPdf(
-          info,
-          format,
-          company: company,
-          apelido: _s.label,
-          customerName: customerName,
-          km: _s.attributes['km']?.toString(),
-        ),
+      if (!mounted) return;
+      await showVehicleFichaDialog(
+        context,
+        info: info,
+        company: company,
+        apelido: _s.label,
+        customerName: customerName,
+        km: _s.attributes['km']?.toString(),
       );
     } on AppException catch (e) {
       if (mounted) {
@@ -964,7 +964,7 @@ class _VehicleBody extends StatelessWidget {
                             )
                           : const Icon(Icons.picture_as_pdf_outlined,
                               size: 18),
-                      label: const Text('Ficha (PDF)'),
+                      label: const Text('Ficha do veículo'),
                     ),
                   ),
                 if (canWrite) ...[

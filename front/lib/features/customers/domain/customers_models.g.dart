@@ -180,6 +180,35 @@ Map<String, dynamic> _$LookupOptionToJson(_LookupOption instance) =>
       'meta': instance.meta,
     };
 
+_PlateFipeRef _$PlateFipeRefFromJson(Map<String, dynamic> json) =>
+    _PlateFipeRef(
+      value: json['value'] as String,
+      codigo: json['codigo'] as String?,
+    );
+
+Map<String, dynamic> _$PlateFipeRefToJson(_PlateFipeRef instance) =>
+    <String, dynamic>{'value': instance.value, 'codigo': instance.codigo};
+
+_PlateFipeMatch _$PlateFipeMatchFromJson(Map<String, dynamic> json) =>
+    _PlateFipeMatch(
+      marca: json['marca'] == null
+          ? null
+          : PlateFipeRef.fromJson(json['marca'] as Map<String, dynamic>),
+      modelo: json['modelo'] == null
+          ? null
+          : PlateFipeRef.fromJson(json['modelo'] as Map<String, dynamic>),
+      ano: json['ano'] == null
+          ? null
+          : PlateFipeRef.fromJson(json['ano'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$PlateFipeMatchToJson(_PlateFipeMatch instance) =>
+    <String, dynamic>{
+      'marca': instance.marca,
+      'modelo': instance.modelo,
+      'ano': instance.ano,
+    };
+
 _PlateFipe _$PlateFipeFromJson(Map<String, dynamic> json) => _PlateFipe(
   codigoFipe: json['codigoFipe'] as String?,
   marca: json['marca'] as String?,
@@ -225,6 +254,7 @@ _PlateInfo _$PlateInfoFromJson(Map<String, dynamic> json) => _PlateInfo(
   placaAlternativa: json['placaAlternativa'] as String?,
   marca: json['marca'] as String?,
   modelo: json['modelo'] as String?,
+  marcaModelo: json['marcaModelo'] as String?,
   versao: json['versao'] as String?,
   ano: json['ano'] as String?,
   anoModelo: json['anoModelo'] as String?,
@@ -242,9 +272,23 @@ _PlateInfo _$PlateInfoFromJson(Map<String, dynamic> json) => _PlateInfo(
   segmento: json['segmento'] as String?,
   nacionalidade: json['nacionalidade'] as String?,
   logoUrl: json['logoUrl'] as String?,
+  consultadoEm: json['consultadoEm'] as String?,
   fipe: json['fipe'] == null
       ? null
       : PlateFipe.fromJson(json['fipe'] as Map<String, dynamic>),
+  fipeTodos:
+      (json['fipeTodos'] as List<dynamic>?)
+          ?.map((e) => PlateFipe.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <PlateFipe>[],
+  fipeMatch: json['fipeMatch'] == null
+      ? null
+      : PlateFipeMatch.fromJson(json['fipeMatch'] as Map<String, dynamic>),
+  extra:
+      (json['extra'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      const <String, String>{},
   cached: json['cached'] as bool? ?? false,
   usage: json['usage'] == null
       ? null
@@ -257,6 +301,7 @@ Map<String, dynamic> _$PlateInfoToJson(_PlateInfo instance) =>
       'placaAlternativa': instance.placaAlternativa,
       'marca': instance.marca,
       'modelo': instance.modelo,
+      'marcaModelo': instance.marcaModelo,
       'versao': instance.versao,
       'ano': instance.ano,
       'anoModelo': instance.anoModelo,
@@ -274,7 +319,11 @@ Map<String, dynamic> _$PlateInfoToJson(_PlateInfo instance) =>
       'segmento': instance.segmento,
       'nacionalidade': instance.nacionalidade,
       'logoUrl': instance.logoUrl,
+      'consultadoEm': instance.consultadoEm,
       'fipe': instance.fipe,
+      'fipeTodos': instance.fipeTodos,
+      'fipeMatch': instance.fipeMatch,
+      'extra': instance.extra,
       'cached': instance.cached,
       'usage': instance.usage,
     };

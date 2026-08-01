@@ -20,6 +20,7 @@ import { WdapiPlateProvider } from './plates/wdapi-plate.provider';
 import { PlateCacheStore } from './plates/plate-cache.store';
 import { PlateQuotaStore } from './plates/plate-quota.store';
 import { PlateLookupService } from './plates/plate-lookup.service';
+import { PlateFipeMatcher } from './plates/plate-fipe-matcher.service';
 
 /**
  * Módulo Clientes & Veículos — núcleo de cadastros-base (genérico/multi-vertical).
@@ -42,6 +43,7 @@ import { PlateLookupService } from './plates/plate-lookup.service';
     // só quando habilitado por env (senão Noop — nunca chama fora).
     PlateCacheStore,
     PlateQuotaStore,
+    PlateFipeMatcher,
     PlateLookupService,
     {
       provide: PLATE_PROVIDER,

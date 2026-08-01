@@ -252,22 +252,31 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
       final info =
           await ref.read(customersRepositoryProvider).plateLookup(plate);
       if (!mounted) return;
-      // Valor por chave da config; só preenche campos que existem no form.
-      final values = <String, String?>{
-        'marca': info.marca,
-        'modelo': info.modelo,
-        'ano': info.anoModelo ?? info.ano,
-        'cor': _titleCase(info.cor),
+      // O backend já casa o veículo com o EQUIVALENTE no catálogo FIPE que
+      // este formulário usa (mesma fonte da cascata). Quando há equivalente,
+      // preenchemos o valor canônico ("VW - VolksWagen") e guardamos o código
+      // — assim modelo e ano continuam sugerindo normalmente. Sem equivalente,
+      // cai no texto cru do registro ("VW"), que ao menos adianta a digitação.
+      final match = info.fipeMatch;
+      final values = <String, (String?, String?)>{
+        'marca': (match?.marca?.value ?? info.marca, match?.marca?.codigo),
+        'modelo': (match?.modelo?.value ?? info.modelo, match?.modelo?.codigo),
+        'ano': (
+          match?.ano?.value ?? info.anoModelo ?? info.ano,
+          match?.ano?.codigo,
+        ),
+        'cor': (_titleCase(info.cor), null),
       };
       setState(() {
         _autoFilled.clear();
-        values.forEach((chave, value) {
+        values.forEach((chave, entry) {
+          final (value, codigo) = entry;
           final ctrl = _fields[chave];
           if (ctrl == null || value == null || value.isEmpty) return;
           ctrl.text = value;
-          // Texto veio do emplacamento, não da cascata FIPE — zera o código
-          // selecionado para não arrastar um filtro antigo de marca/modelo.
-          _selectedCode[chave] = null;
+          // Com código, a cascata segue viva; sem ele, zera para não arrastar
+          // um filtro antigo de marca/modelo.
+          _selectedCode[chave] = codigo;
           _autoFilled.add(chave);
         });
         // Autocomplete só lê o texto no build inicial — força rebuild.
