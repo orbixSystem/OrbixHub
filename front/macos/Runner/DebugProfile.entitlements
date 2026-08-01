@@ -11,5 +11,15 @@
 	<false/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+	<!-- Seleção de arquivos (foto do veículo/OS, logo, certificado A1).
+	     OBRIGATÓRIO MESMO COM A SANDBOX DESLIGADA: o file_picker consulta os
+	     entitlements do processo (SecTaskCopyValueForEntitlement) e recusa a
+	     operação com ENTITLEMENT_NOT_FOUND antes de abrir o diálogo. Read-write
+	     (não read-only) porque o painel de impressão salva PDF em disco. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- Impressão de OS/ficha/relatórios (package printing). -->
+	<key>com.apple.security.print</key>
+	<true/>
 </dict>
 </plist>

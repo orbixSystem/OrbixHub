@@ -6,6 +6,21 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Seleção de arquivos (foto do veículo/OS, logo, certificado A1). Exigido
+	     pelo file_picker (ENTITLEMENT_NOT_FOUND sem ele) e pela própria sandbox,
+	     que só libera o que o usuário escolhe no diálogo. Read-write porque o
+	     painel de impressão salva PDF em disco. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- Impressão de OS/ficha/relatórios (package printing). Sob sandbox, sem
+	     este entitlement o job de impressão é recusado. -->
+	<key>com.apple.security.print</key>
+	<true/>
+	<!-- Exportar relatório (CSV/PDF) salva em ~/Downloads no desktop. Sob
+	     sandbox, sem este entitlement a pasta some para o app e o arquivo cai
+	     num diretório temporário — o usuário não acha o que baixou. -->
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
 	<!-- Para distribuir (release assinado) usando flutter_secure_storage, assine
 	     com um time de desenvolvedor (Signing & Capabilities) e adicione:
 	         <key>keychain-access-groups</key>
