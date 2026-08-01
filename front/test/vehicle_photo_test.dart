@@ -88,7 +88,7 @@ void main() {
     expect(find.text('Trocar'), findsNothing);
   });
 
-  testWidgets('no card do cliente, trocar/remover também são só ícones', (
+  testWidgets('no card do cliente, só o "Trocar" perde o rótulo', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 1800);
@@ -128,10 +128,11 @@ void main() {
     await tester.tap(find.text('Carro do João'));
     await tester.pumpAndSettle();
 
+    // "Trocar" só no ícone (o rótulo quebrava na coluna estreita da foto);
+    // "Remover" segue com o texto.
     expect(find.byTooltip('Trocar foto'), findsOneWidget);
-    expect(find.byTooltip('Remover foto'), findsOneWidget);
     expect(find.text('Trocar'), findsNothing);
-    expect(find.text('Remover'), findsNothing);
+    expect(find.text('Remover'), findsOneWidget);
   });
 
   group('ficha em PDF', () {

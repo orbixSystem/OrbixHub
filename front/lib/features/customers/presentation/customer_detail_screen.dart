@@ -761,10 +761,10 @@ class _SubjectPhotoBlock extends StatelessWidget {
         ),
         if (canWrite) ...[
           const SizedBox(height: 10),
-          // Só ícones (com tooltip): a coluna da foto é estreita e os rótulos
-          // "Trocar"/"Remover" quebravam o texto dentro do botão.
+          // "Trocar" fica só no ícone: com a coluna da foto estreita, o rótulo
+          // não cabia ao lado do "Remover" e quebrava dentro do botão. O
+          // "Remover" mantém o texto e leva o espaço restante.
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               NeuIconButton(
                 icon: Icons.sync_rounded,
@@ -773,12 +773,16 @@ class _SubjectPhotoBlock extends StatelessWidget {
                 onPressed: busy ? null : onPick,
               ),
               const SizedBox(width: 8),
-              NeuIconButton(
-                icon: Icons.delete_outline_rounded,
-                tooltip: 'Remover foto',
-                size: 44,
-                color: neu.danger,
-                onPressed: busy ? null : onRemove,
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    foregroundColor: neu.danger,
+                  ),
+                  onPressed: busy ? null : onRemove,
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Remover'),
+                ),
               ),
             ],
           ),
