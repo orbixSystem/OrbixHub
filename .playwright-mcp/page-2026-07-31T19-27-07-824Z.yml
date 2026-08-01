@@ -1,0 +1,170 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e5] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e6]:
+          - list [ref=e7]:
+            - listitem [ref=e8]:
+              - link "Home" [ref=e9] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e10]:
+              - link "Contratar" [ref=e11] [cursor=pointer]:
+                - /url: contratar.php
+            - listitem [ref=e12]:
+              - link "Documentação" [ref=e13] [cursor=pointer]:
+                - /url: doc.php
+            - listitem [ref=e14]:
+              - link "Contato/FAQ" [ref=e15] [cursor=pointer]:
+                - /url: contato.php
+            - listitem [ref=e16]:
+              - link "Status" [ref=e17] [cursor=pointer]:
+                - /url: status.php
+          - link [ref=e18] [cursor=pointer]:
+            - /url: login.php
+            - button " Área do cliente" [ref=e19]:
+              - generic [ref=e20]: 
+              - text: Área do cliente
+  - link [ref=e21] [cursor=pointer]:
+    - /url: https://wa.me/5544997062756
+    - img "WhatsApp" [ref=e23]
+  - generic [ref=e24]:
+    - generic [ref=e27]:
+      - heading "Documentação" [level=1] [ref=e28]
+      - generic [ref=e29]: Confira a documentação do API
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Sobre" [level=4] [ref=e36]
+        - paragraph [ref=e37]: A API Placas fornece dados e informações sobre veículos emplacados no Brasil através da placa do mesmo.
+      - generic [ref=e38]:
+        - heading "Token" [level=4] [ref=e39]
+        - paragraph [ref=e40]:
+          - text: Os tokens para uso da API são fornecidos após a criação de seu
+          - link "Cadastro" [ref=e41] [cursor=pointer]:
+            - /url: cadastro.php
+          - text: conosco. Você receberá um token para as consultas normais e outro para as consultas premium.
+        - paragraph
+        - paragraph [ref=e42]:
+          - text: Para visualizar seus tokens, basta efetuar o login de sua conta e ir até o menu
+          - link "Painel do Usuário" [ref=e43] [cursor=pointer]:
+            - /url: painel.php
+          - text: .
+        - paragraph
+      - generic [ref=e44]:
+        - heading "Informações" [level=4] [ref=e45]
+        - paragraph [ref=e46]: "A API fornece os dados através de uma URL utilizando o método (GET).Segue abaixo a url de exemplo:"
+        - generic [ref=e47]: https://wdapi2.com.br/consulta/placa/token
+        - paragraph [ref=e49]: "O parâmetro (placa) deve ser informado no formato: AAA0X00 ou AAA9999."
+        - alert [ref=e50]: "📌 Informação Importante: Os dados do campo \"extra\" são exibidos sempre que disponíveis, mas podem estar incompletos ou ausentes em algumas consultas. A disponibilidade dessas informações depende da base de dados no momento da busca. Sempre confira se o campo \"extra\" foi retornado e revise as informações antes de utilizá-las."
+        - alert [ref=e51]: 📌 Os valores da Tabela FIPE podem não ser retornados em algumas consultas. Não garantimos a disponibilidade desses dados. Além disso, pode haver múltiplos valores da Tabela FIPE em uma mesma consulta. Recomendamos escolher o valor com o maior score, pois ele indica a melhor correspondência entre nome e marca do veículo. O score reflete o nível de precisão da informação.
+      - separator [ref=e52]
+      - generic [ref=e53]:
+        - heading "Utilização da API" [level=4] [ref=e54]
+        - heading "Placa" [level=5] [ref=e55]
+        - paragraph [ref=e56]: Para obter os dados do veículo basta informar a placa do mesmo e o seu token na (URL). Neste exemplo vamos utilizar a placa INT8C36, veja como fica abaixo.
+        - generic [ref=e57]: https://wdapi2.com.br/consulta/INT8C36/token
+        - alert [ref=e59]: O campo "extra" e suas informações podem não estar disponíveis em todas as consultas. Verifique sempre a presença deste campo antes de usá-lo.
+        - paragraph [ref=e60]: "Você receberá os dados no formato JSON:"
+        - code [ref=e64]: "{ \"MARCA\": \"VW\", \"MODELO\": \"CROSSFOX\", \"SUBMODELO\": \"CROSSFOX\", \"VERSAO\": \"CROSSFOX\", \"ano\": \"2007\", \"anoModelo\": \"2007\", \"chassi\": \"*****10137\", \"codigoSituacao\": \"0\", \"cor\": \"Prata\", \"data\": \"20/07/2022 15:10:09\", \"extra\": { \"ano_fabricacao\": \"2007\", \"ano_modelo\": \"2007\", \"caixa_cambio\": \"\", \"cap_maxima_tracao\": \"198\", \"carroceria\": \"\", \"cilindradas\": \"1599\", \"combustivel\": \"Alcool / Gasolina\", \"di\": \"0\", \"eixo_traseiro_dif\": \"\", \"eixos\": \"2\", \"especie\": \"Passageiro\", \"grupo\": \"CROSS FOX\", \"modelo\": \"VW/CROSSFOX\", \"municipio\": \"SAO LEOPOLDO\", \"nacionalidade\": \"Nacional\", \"peso_bruto_total\": \"158\", \"placa\": \"INT8236\", \"placa_modelo_antigo\": \"INT8236\", \"placa_modelo_novo\": \"INT8C36\", \"quantidade_passageiro\": \"5\", \"s.especie\": \"Passageiro\", \"segmento\": \"Auto\", \"situacao_chassi\": \"N\", \"situacao_veiculo\": \"S\", \"sub_segmento\": \"AU - HATCH PEQUENO\", \"terceiro_eixo\": \"\", \"tipo_carroceria\": \"NAO APLICAVEL\", \"tipo_doc_faturado\": \"Juridica\", \"tipo_doc_importadora\": \"Outros\", \"tipo_doc_prop\": \"Fisica\", \"tipo_montagem\": \"1\", \"tipo_veiculo\": \"Automovel\", \"uf\": \"RS\", \"uf_faturado\": \"RS\", \"uf_placa\": \"RS\", }, \"fipe\": { \"dados\": [ { \"ano_modelo\": \"2007\", \"codigo_fipe\": \"005225-6\", \"codigo_marca\": 59, \"codigo_modelo\": \"2368\", \"combustivel\": \"Gasolina\", \"id_valor\": 77250, \"mes_referencia\": \"maio de 2022 \", \"referencia_fipe\": 285, \"score\": 101, \"sigla_combustivel\": \"G\", \"texto_marca\": \"VW - VolksWagen\", \"texto_modelo\": \"CROSSFOX 1.6 Mi Total Flex 8V 5p\", \"texto_valor\": \"R$ 28.799,00\", \"tipo_modelo\": 1 } ] }, \"listamodelo\": [ \"CROSSFOX\" ], \"logo\": \"https://apiplacas.com.br/logos/logosMarcas/vw.png\", \"marca\": \"VW\", \"marcaModelo\": \"VW/CROSSFOX\", \"mensagemRetorno\": \"Sem erros.\", \"modelo\": \"CROSSFOX\", \"municipio\": \"S\\u00e3o Leopoldo\", \"origem\": \"NACIONAL\", \"placa\": \"INT8C36\", \"placa_alternativa\": \"INT8236\", \"situacao\": \"Sem restri\\u00e7\\u00e3o\", \"token\": \"\", \"uf\": \"RS\" }"
+      - separator [ref=e65]
+      - generic [ref=e66]:
+        - heading "Limite" [level=5] [ref=e67]
+        - paragraph [ref=e68]:
+          - text: Você pode consultar o uso e o limite de consultas diárias do seu plano através do menu
+          - link "(Painel do Usuário)" [ref=e69] [cursor=pointer]:
+            - /url: painel.php
+          - text: ", ou também via API, para isto, basta informar seu token na seguinte (URL). Veja como fica abaixo."
+        - generic [ref=e70]: https://wdapi2.com.br/saldo/token
+        - code [ref=e75]: "{ \"qtdConsultas\": 3500 }"
+      - separator [ref=e76]
+      - generic [ref=e77]:
+        - heading "Códigos de retorno" [level=5] [ref=e78]
+        - table [ref=e79]:
+          - rowgroup [ref=e80]:
+            - row [ref=e81]:
+              - cell "200" [ref=e82]
+              - cell "Retorno com sucesso." [ref=e83]
+            - row [ref=e84]:
+              - cell "400" [ref=e85]
+              - cell "URL incorreta!" [ref=e86]
+            - row [ref=e87]:
+              - cell "401" [ref=e88]
+              - cell "Placa Inválida!" [ref=e89]
+            - row [ref=e90]:
+              - cell "402" [ref=e91]
+              - cell "Token inválido!" [ref=e92]
+            - row [ref=e93]:
+              - cell "406" [ref=e94]
+              - cell "Sem resultados!" [ref=e95]
+            - row [ref=e96]:
+              - cell "429" [ref=e97]
+              - cell "Limite de consultas atingido!" [ref=e98]
+        - paragraph [ref=e99]: "Todos os códigos de erro retornam com uma mensagem detalhando o erro. Exemplo:"
+        - code [ref=e103]: "{ \"message\": \"Placa Invalida favor usar o formato AAA0X00 ou AAA9999 \" }"
+  - contentinfo [ref=e104]:
+    - generic [ref=e106]:
+      - generic [ref=e107]:
+        - link [ref=e108] [cursor=pointer]:
+          - /url: /
+        - paragraph [ref=e109]: AETHERIA - Somos especialistas em desenvolvimento de APIs.
+      - generic [ref=e110]:
+        - heading "Mapa do site" [level=6] [ref=e111]
+        - separator [ref=e112]
+        - link " Contratar" [ref=e113] [cursor=pointer]:
+          - /url: contratar.php
+          - paragraph [ref=e114]:
+            - generic [ref=e115]: 
+            - text: Contratar
+        - link " Documentação" [ref=e116] [cursor=pointer]:
+          - /url: doc.php
+          - paragraph [ref=e117]:
+            - generic [ref=e118]: 
+            - text: Documentação
+        - link " Contato" [ref=e119] [cursor=pointer]:
+          - /url: contato.php
+          - paragraph [ref=e120]:
+            - generic [ref=e121]: 
+            - text: Contato
+        - link " Política de Privacidade" [ref=e122] [cursor=pointer]:
+          - /url: politica.php
+          - paragraph [ref=e123]:
+            - generic [ref=e124]: 
+            - text: Política de Privacidade
+      - generic [ref=e125]:
+        - heading "APIs" [level=6] [ref=e126]
+        - separator [ref=e127]
+        - link " API Placas" [ref=e128] [cursor=pointer]:
+          - /url: https://apiplacas.com.br
+          - paragraph [ref=e129]:
+            - generic [ref=e130]: 
+            - text: API Placas
+        - link " API FIPE" [ref=e131] [cursor=pointer]:
+          - /url: https://apifipe.com.br
+          - paragraph [ref=e132]:
+            - generic [ref=e133]: 
+            - text: API FIPE
+        - link " API CNPJs" [ref=e134] [cursor=pointer]:
+          - /url: https://apicnpjs.com.br
+          - paragraph [ref=e135]:
+            - generic [ref=e136]: 
+            - text: API CNPJs
+      - generic [ref=e137]:
+        - heading "Contato" [level=6] [ref=e138]
+        - separator [ref=e139]
+        - link " Contato" [ref=e140] [cursor=pointer]:
+          - /url: contato.php
+          - paragraph [ref=e141]:
+            - generic [ref=e142]: 
+            - text: Contato
+        - link " FAQ" [ref=e143] [cursor=pointer]:
+          - /url: contato.php
+          - paragraph [ref=e144]:
+            - generic [ref=e145]: 
+            - text: FAQ
+        - link " Status" [ref=e146] [cursor=pointer]:
+          - /url: status.php
+          - paragraph [ref=e147]:
+            - generic [ref=e148]: 
+            - text: Status
+    - generic [ref=e149]: © AETHERIA - Todos os direitos reservados - CNPJ 67.877.417/0001-08
