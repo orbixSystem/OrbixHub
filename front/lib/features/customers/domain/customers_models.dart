@@ -34,10 +34,31 @@ abstract class Subject with _$Subject {
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
     @JsonKey(name: 'photo_url') String? photoUrl,
     @Default('active') String status,
+
+    /// Retorno da consulta por placa (colunas exclusivas dela no banco).
+    /// Mapa cru — o contrato é jsonb livre; use `plateInfo` para tipar com
+    /// segurança. Null = veículo cadastrado à mão, sem consulta.
+    @JsonKey(name: 'plate_data') Map<String, dynamic>? plateData,
+    @JsonKey(name: 'plate_data_at') String? plateDataAt,
   }) = _Subject;
 
   factory Subject.fromJson(Map<String, dynamic> json) =>
       _$SubjectFromJson(json);
+}
+
+extension SubjectPlateData on Subject {
+  /// Consulta por placa já tipada. Devolve null quando não há dados ou quando
+  /// o payload salvo não bate com o formato atual — um registro antigo nunca
+  /// derruba a tela de detalhes.
+  PlateInfo? get plateInfo {
+    final raw = plateData;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return PlateInfo.fromJson(raw);
+    } on Object {
+      return null;
+    }
+  }
 }
 
 /// Rótulo dinâmico do subject (singular/plural).
@@ -161,16 +182,26 @@ class CustomerDraft {
 
 /// Draft de escrita de subject (create/update).
 class SubjectDraft {
-  const SubjectDraft({this.label, this.identifier, this.attributes});
+  const SubjectDraft({
+    this.label,
+    this.identifier,
+    this.attributes,
+    this.plateData,
+  });
 
   final String? label;
   final String? identifier;
   final Map<String, dynamic>? attributes;
 
+  /// Retorno da consulta por placa a persistir (só quando houve consulta —
+  /// omitir mantém o que já estava salvo).
+  final Map<String, dynamic>? plateData;
+
   Map<String, dynamic> toJson() => {
         if (label != null) 'label': label,
         if (identifier != null) 'identifier': identifier,
         if (attributes != null) 'attributes': attributes,
+        if (plateData != null) 'plateData': plateData,
       };
 }
 
@@ -186,4 +217,114 @@ abstract class LookupOption with _$LookupOption {
 
   factory LookupOption.fromJson(Map<String, dynamic> json) =>
       _$LookupOptionFromJson(json);
+}
+
+/// Opção casada no catálogo FIPE do cadastro; `codigo` alimenta a cascata
+/// marca → modelo → ano.
+@freezed
+abstract class PlateFipeRef with _$PlateFipeRef {
+  const factory PlateFipeRef({required String value, String? codigo}) =
+      _PlateFipeRef;
+
+  factory PlateFipeRef.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeRefFromJson(json);
+}
+
+/// "Equivalente" do veículo no catálogo FIPE que o cadastro já usa — resolvido
+/// no backend. É o que permite o autofill escrever o valor CANÔNICO nos campos
+/// e manter a cascata funcionando.
+@freezed
+abstract class PlateFipeMatch with _$PlateFipeMatch {
+  const factory PlateFipeMatch({
+    PlateFipeRef? marca,
+    PlateFipeRef? modelo,
+    PlateFipeRef? ano,
+  }) = _PlateFipeMatch;
+
+  factory PlateFipeMatch.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeMatchFromJson(json);
+}
+
+/// Uma correspondência FIPE da consulta de placa (a consulta pode trazer mais
+/// de uma; a de maior `score` é a melhor, recomendação da própria API).
+@freezed
+abstract class PlateFipe with _$PlateFipe {
+  const factory PlateFipe({
+    String? codigoFipe,
+    String? marca,
+    String? modelo,
+    String? valor,
+    String? combustivel,
+    String? anoModelo,
+    String? mesReferencia,
+    int? score,
+  }) = _PlateFipe;
+
+  factory PlateFipe.fromJson(Map<String, dynamic> json) =>
+      _$PlateFipeFromJson(json);
+}
+
+/// Contador da cota mensal de consultas de placa — vem do backend junto de
+/// cada consulta e em `GET /customers/plates/usage`. NUNCA calculado no front.
+@freezed
+abstract class PlateQuota with _$PlateQuota {
+  const factory PlateQuota({
+    required String period,
+    required int used,
+    required int limit,
+    required int remaining,
+    @Default(false) bool enabled,
+  }) = _PlateQuota;
+
+  factory PlateQuota.fromJson(Map<String, dynamic> json) =>
+      _$PlateQuotaFromJson(json);
+}
+
+/// Resultado normalizado de `GET /customers/plates/:placa` (API Placas via
+/// backend — o token e a cota vivem lá). `cached=true` = servido do cache do
+/// servidor, sem consumir a cota do mês. Alimenta o autofill do cadastro de
+/// veículo e a ficha em PDF.
+@freezed
+abstract class PlateInfo with _$PlateInfo {
+  const factory PlateInfo({
+    required String placa,
+    String? placaAlternativa,
+    String? marca,
+    String? modelo,
+    String? marcaModelo,
+    String? versao,
+    String? ano,
+    String? anoModelo,
+    String? cor,
+    String? chassi,
+    String? municipio,
+    String? uf,
+    String? situacao,
+    String? origem,
+    String? combustivel,
+    String? cilindradas,
+    String? especie,
+    String? tipoVeiculo,
+    String? passageiros,
+    String? segmento,
+    String? nacionalidade,
+    String? logoUrl,
+    String? consultadoEm,
+    PlateFipe? fipe,
+
+    /// Todas as correspondências FIPE (ficha detalhada), maior score primeiro.
+    @Default(<PlateFipe>[]) List<PlateFipe> fipeTodos,
+
+    /// Equivalente no catálogo do cadastro (autofill + cascata).
+    PlateFipeMatch? fipeMatch,
+
+    /// Bloco técnico completo da consulta (chave crua → valor). Rótulos em
+    /// `plate_labels.dart`; pode vir vazio (a API não garante este bloco).
+    @Default(<String, String>{}) Map<String, String> extra,
+    @Default(false) bool cached,
+    PlateQuota? usage,
+  }) = _PlateInfo;
+
+  factory PlateInfo.fromJson(Map<String, dynamic> json) =>
+      _$PlateInfoFromJson(json);
 }

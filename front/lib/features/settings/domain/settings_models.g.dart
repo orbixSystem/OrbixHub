@@ -36,7 +36,7 @@ Map<String, dynamic> _$SettingsFieldToJson(_SettingsField instance) =>
       'key': instance.key,
       'label': instance.label,
       'type': instance.type,
-      'options': instance.options,
+      'options': instance.options.map((e) => e.toJson()).toList(),
       'group': instance.group,
     };
 
@@ -59,7 +59,7 @@ Map<String, dynamic> _$SettingsSectionToJson(_SettingsSection instance) =>
       'key': instance.key,
       'title': instance.title,
       'moduleKey': instance.moduleKey,
-      'fields': instance.fields,
+      'fields': instance.fields.map((e) => e.toJson()).toList(),
       'values': instance.values,
     };
 
@@ -77,5 +77,5 @@ _SettingsBundle _$SettingsBundleFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$SettingsBundleToJson(_SettingsBundle instance) =>
     <String, dynamic>{
       'company': instance.company,
-      'sections': instance.sections,
+      'sections': instance.sections.map((e) => e.toJson()).toList(),
     };

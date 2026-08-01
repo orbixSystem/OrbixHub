@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/config/feature_flags.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -562,14 +564,16 @@ class _PaymentSection extends StatelessWidget {
               if (forma != null) SizedBox(width: 150, child: forma),
             ],
           ),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: emitInvoice,
-          onChanged: (v) => onEmitInvoice(v ?? false),
-          title: const Text('Emitir nota fiscal'),
-        ),
+        // NF desligada no front (kInvoiceEnabled): sem a opção de emitir nota.
+        if (kInvoiceEnabled)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: emitInvoice,
+            onChanged: (v) => onEmitInvoice(v ?? false),
+            title: const Text('Emitir nota fiscal'),
+          ),
       ],
     );
   }

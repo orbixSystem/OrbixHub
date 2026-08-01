@@ -1728,3 +1728,35 @@ DO $$ BEGIN
   END IF;
 END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON sync_mutation TO app_user;
+
+-- ============================================================
+-- 0034 — consulta de placas (API Placas): cache global + cota mensal (sem RLS)
+-- ============================================================
+-- Dado público de referência (placa→veículo) compartilhado entre todos os
+-- tenants + contador da cota mensal da plataforma no provedor. Padrão
+-- catalog_product: globais, sem tenant_id, sem RLS — só GRANT ao app_user.
+CREATE TABLE IF NOT EXISTS plate_cache (
+  plate      text PRIMARY KEY,              -- normalizada: ABC1234 / ABC1D23
+  payload    jsonb NOT NULL,                -- PlateHit normalizado (não o raw)
+  source     text NOT NULL DEFAULT 'apiplacas',
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON plate_cache TO app_user;
+
+CREATE TABLE IF NOT EXISTS plate_lookup_usage (
+  period     text PRIMARY KEY,              -- 'YYYY-MM' (UTC)
+  count      integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON plate_lookup_usage TO app_user;
+
+-- ============================================================
+-- 0035 — dados da consulta por placa no veículo (subject)
+-- ============================================================
+-- Colunas EXCLUSIVAS da consulta externa: guardam o retorno completo do
+-- provedor (bloco técnico, FIPE, equivalente) sem misturar com `attributes`,
+-- que é o que o usuário digita/edita no cadastro. Nullable de propósito: o
+-- veículo cadastrado à mão simplesmente não tem estes dados.
+ALTER TABLE subject ADD COLUMN IF NOT EXISTS plate_data    jsonb;
+ALTER TABLE subject ADD COLUMN IF NOT EXISTS plate_data_at timestamptz;

@@ -36,5 +36,5 @@ Map<String, dynamic> _$InvoiceFiscalConfigToJson(
   'serieNfe': instance.serieNfe,
   'idCsc': instance.idCsc,
   'empresaRegistrada': instance.empresaRegistrada,
-  'certificado': instance.certificado,
+  'certificado': instance.certificado.toJson(),
 };

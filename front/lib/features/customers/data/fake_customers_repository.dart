@@ -149,6 +149,8 @@ class FakeCustomersRepository implements CustomersRepository {
       label: draft.label,
       identifier: draft.identifier,
       attributes: draft.attributes ?? const {},
+      plateData: draft.plateData,
+      plateDataAt: draft.plateData == null ? null : '2026-08-01T12:00:00Z',
     );
     _subjects.add(s);
     return s;
@@ -161,6 +163,11 @@ class FakeCustomersRepository implements CustomersRepository {
       label: draft.label ?? _subjects[i].label,
       identifier: draft.identifier ?? _subjects[i].identifier,
       attributes: draft.attributes ?? _subjects[i].attributes,
+      // Consulta só é sobrescrita quando veio no draft (reconsulta).
+      plateData: draft.plateData ?? _subjects[i].plateData,
+      plateDataAt: draft.plateData == null
+          ? _subjects[i].plateDataAt
+          : '2026-08-01T12:00:00Z',
     );
     _subjects[i] = updated;
     return updated;
@@ -249,4 +256,91 @@ class FakeCustomersRepository implements CustomersRepository {
     if (term == null || term.isEmpty) return all;
     return all.where((o) => o.label.toLowerCase().contains(term)).toList();
   }
+
+  int _plateLookups = 0;
+
+  @override
+  Future<PlateInfo> plateLookup(String plate) async {
+    _plateLookups += 1;
+    return PlateInfo(
+      placa: plate.toUpperCase(),
+      marca: 'VW',
+      modelo: 'CROSSFOX',
+      marcaModelo: 'VW/CROSSFOX',
+      versao: 'CROSSFOX',
+      ano: '2007',
+      anoModelo: '2007',
+      cor: 'PRATA',
+      chassi: '9BWKB05Z174110137',
+      municipio: 'São Leopoldo',
+      uf: 'RS',
+      situacao: 'Sem restrição',
+      combustivel: 'Alcool / Gasolina',
+      cilindradas: '1599',
+      passageiros: '5',
+      tipoVeiculo: 'Automovel',
+      consultadoEm: '20/07/2022 15:10:09',
+      fipe: const PlateFipe(
+        codigoFipe: '005225-6',
+        marca: 'VW - VolksWagen',
+        modelo: 'CROSSFOX 1.6 Mi Total Flex 8V 5p',
+        valor: 'R\$ 28.799,00',
+        mesReferencia: 'maio de 2022',
+        score: 101,
+      ),
+      fipeTodos: const [
+        PlateFipe(
+          codigoFipe: '005225-6',
+          marca: 'VW - VolksWagen',
+          modelo: 'CROSSFOX 1.6 Mi Total Flex 8V 5p',
+          valor: 'R\$ 28.799,00',
+          mesReferencia: 'maio de 2022',
+          score: 101,
+        ),
+        PlateFipe(
+          codigoFipe: '005340-6',
+          marca: 'VW - VolksWagen',
+          modelo: 'CROSSFOX 1.6 T.Flex 8V (Antigo)',
+          valor: 'R\$ 25.000,00',
+          mesReferencia: 'maio de 2022',
+          score: 3,
+        ),
+      ],
+      // Equivalente no catálogo FIPE do cadastro (o que destrava a cascata).
+      fipeMatch: const PlateFipeMatch(
+        marca: PlateFipeRef(value: 'VW - VolksWagen', codigo: '59'),
+        modelo: PlateFipeRef(
+          value: 'CROSSFOX 1.6 Mi Total Flex 8V 5p',
+          codigo: '2368',
+        ),
+        ano: PlateFipeRef(value: '2007'),
+      ),
+      extra: const {
+        'ano_fabricacao': '2007',
+        'cap_maxima_tracao': '198',
+        'eixos': '2',
+        'peso_bruto_total': '158',
+        'restricao_1': 'SEM RESTRICAO',
+        'tipo_carroceria': 'NAO APLICAVEL',
+        'tipo_doc_prop': 'Fisica',
+      },
+      cached: _plateLookups > 1,
+      usage: PlateQuota(
+        period: '2026-07',
+        used: _plateLookups,
+        limit: 1000,
+        remaining: 1000 - _plateLookups,
+        enabled: true,
+      ),
+    );
+  }
+
+  @override
+  Future<PlateQuota> plateUsage() async => PlateQuota(
+        period: '2026-07',
+        used: _plateLookups,
+        limit: 1000,
+        remaining: 1000 - _plateLookups,
+        enabled: true,
+      );
 }

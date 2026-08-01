@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../auth/domain/auth_models.dart';
 
 /// A navigable destination, already gated in/out for the current user.
@@ -32,6 +33,9 @@ List<NavItem> gatedNavItems(Me me) {
     // do Caixa. O entitlement existe no backend, mas não vira item de navegação
     // (não vazar estrutura interna pro usuário).
     if (key == 'sale') continue;
+    // NF desligada no front (kInvoiceEnabled=false): não vira item de menu,
+    // mesmo o backend habilitando o módulo `invoice`.
+    if (key == 'invoice' && !kInvoiceEnabled) continue;
     // Relatórios é o único módulo com visibilidade gerencial/financeira: além do
     // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
     // veem o item. Demais módulos seguem só pelo módulo habilitado.

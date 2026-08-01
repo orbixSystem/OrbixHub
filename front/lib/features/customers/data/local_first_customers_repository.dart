@@ -440,4 +440,18 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     if (!isOnline()) requiresConnection('consultar a tabela de marcas/modelos');
     return inner.lookup(fonte, marca: marca, modelo: modelo, q: q);
   }
+
+  /// Consulta de placa — token, cota e cache vivem no servidor; offline não
+  /// há o que servir (o botão da UI já fica desabilitado, isto é o cinto).
+  @override
+  Future<PlateInfo> plateLookup(String plate) async {
+    if (!isOnline()) requiresConnection('consultar a placa');
+    return inner.plateLookup(plate);
+  }
+
+  @override
+  Future<PlateQuota> plateUsage() async {
+    if (!isOnline()) requiresConnection('consultar o uso de placas');
+    return inner.plateUsage();
+  }
 }

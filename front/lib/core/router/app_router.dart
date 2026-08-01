@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../di.dart';
 import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
+import '../../features/customers/presentation/subject_detail_screen.dart';
 import '../../features/cashier/presentation/cashier_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../config/feature_flags.dart';
 import '../../features/invoice/presentation/invoice_screen.dart';
 import '../../features/invoice/presentation/invoice_detail_screen.dart';
 import '../../features/invoice/presentation/invoice_config_screen.dart';
@@ -106,6 +108,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         // `sale` é entitlement, mas NÃO tem tela própria (venda avulsa é ação no
         // Caixa). Deep-link a /m/sale volta pra home (sem placeholder).
         if (moduleKey == 'sale') return '/';
+        // NF desligada no front (kInvoiceEnabled=false): /m/invoice* volta pra
+        // home mesmo com o módulo `invoice` habilitado no backend.
+        if (moduleKey == 'invoice' && !kInvoiceEnabled) return '/';
         // Relatórios também exige `report.read` (gerencial). Sem ela, manda pra
         // home — o backend já 403a; isto evita a tela quebrada. Esconder ≠
         // proteger, mas escondemos o que não é do papel.
@@ -218,6 +223,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/customers',
             pageBuilder: (_, s) => neuPage(s, const CustomersScreen()),
+          ),
+          // Veículo (subject) do cliente — literal antes de /m/customers/:id
+          // não é preciso (o segmento extra já distingue), mas mantemos junto.
+          GoRoute(
+            path: '/m/customers/:id/veiculo/:subjectId',
+            pageBuilder: (_, s) => neuPage(
+              s,
+              SubjectDetailScreen(
+                customerId: s.pathParameters['id'] ?? '',
+                subjectId: s.pathParameters['subjectId'] ?? '',
+              ),
+            ),
           ),
           GoRoute(
             path: '/m/customers/:id',

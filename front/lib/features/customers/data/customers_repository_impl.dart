@@ -206,4 +206,16 @@ class CustomersRepositoryImpl implements CustomersRepository {
         );
         return _asList(res.data).map(LookupOption.fromJson).toList();
       });
+
+  @override
+  Future<PlateInfo> plateLookup(String plate) => _guard(() async {
+        final res = await _dio.get<Object?>('/customers/plates/$plate');
+        return PlateInfo.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<PlateQuota> plateUsage() => _guard(() async {
+        final res = await _dio.get<Object?>('/customers/plates/usage');
+        return PlateQuota.fromJson(_asMap(res.data));
+      });
 }

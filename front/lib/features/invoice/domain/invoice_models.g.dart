@@ -66,8 +66,8 @@ Map<String, dynamic> _$InvoiceToJson(_Invoice instance) => <String, dynamic>{
   'canceled_at': instance.canceledAt,
   'created_at': instance.createdAt,
   'updated_at': instance.updatedAt,
-  'lines': instance.lines,
-  'events': instance.events,
+  'lines': instance.lines.map((e) => e.toJson()).toList(),
+  'events': instance.events.map((e) => e.toJson()).toList(),
 };
 
 _InvoiceLine _$InvoiceLineFromJson(Map<String, dynamic> json) => _InvoiceLine(
@@ -116,7 +116,7 @@ _InvoicePage _$InvoicePageFromJson(Map<String, dynamic> json) => _InvoicePage(
 
 Map<String, dynamic> _$InvoicePageToJson(_InvoicePage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,

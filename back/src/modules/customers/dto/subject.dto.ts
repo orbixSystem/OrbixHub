@@ -19,12 +19,18 @@ export class CreateSubjectDto {
   @IsOptional() @IsString() @MaxLength(120) identifier?: string;
   /** Específico do vertical (marca/modelo/ano/cor/km na oficina). */
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
+  /**
+   * Retorno da consulta por placa. Exclusivo dela — separado de `attributes`,
+   * que é o que o usuário digita. Forma livre (o provedor decide os campos).
+   */
+  @IsOptional() @IsObject() plateData?: Record<string, unknown>;
 }
 
 export class UpdateSubjectDto {
   @IsOptional() @IsString() @MaxLength(200) label?: string;
   @IsOptional() @IsString() @MaxLength(120) identifier?: string;
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
+  @IsOptional() @IsObject() plateData?: Record<string, unknown>;
 }
 
 export class ListSubjectsQueryDto {

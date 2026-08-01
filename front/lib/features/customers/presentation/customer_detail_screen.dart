@@ -491,6 +491,12 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
     }
   }
 
+  /// Abre a tela do veículo: dados do cadastro, informações adicionais da
+  /// consulta por placa (persistidas) e as ordens de serviço, com impressão.
+  void _open() => context.go(
+        '/m/customers/${widget.customerId}/veiculo/${_s.id}',
+      );
+
   Future<void> _edit() async {
     final ok = await SubjectFormDialog.show(
       context,
@@ -594,6 +600,7 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
               onEdit: _edit,
               onArchive: _toggleArchive,
               onDelete: _delete,
+              onOpen: _open,
             ),
             crossFadeState: _expanded
                 ? CrossFadeState.showSecond
@@ -795,6 +802,7 @@ class _VehicleBody extends StatelessWidget {
     required this.onEdit,
     required this.onArchive,
     required this.onDelete,
+    required this.onOpen,
   });
 
   final Subject subject;
@@ -807,6 +815,9 @@ class _VehicleBody extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+
+  /// Abre a tela de detalhes do veículo (dados + consulta + OS).
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -870,12 +881,22 @@ class _VehicleBody extends StatelessWidget {
           Divider(height: 1, color: scheme.outlineVariant),
           const SizedBox(height: 16),
           content,
-          if (canWrite) ...[
+          ...[
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
+                // Abre a tela do veículo (dados, informações da consulta por
+                // placa e ordens de serviço). Leitura — fora do guard canWrite.
+                OutlinedButton.icon(
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                  onPressed: onOpen,
+                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                  label: const Text('Abrir'),
+                ),
+                if (canWrite) ...[
                 OutlinedButton.icon(
                   // Pin a finite min width (global theme uses infinite width).
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
@@ -902,6 +923,7 @@ class _VehicleBody extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('Excluir'),
                 ),
+                ],
               ],
             ),
           ],

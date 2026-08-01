@@ -66,7 +66,7 @@ Map<String, dynamic> _$InventoryMetricsToJson(_InventoryMetrics instance) =>
       'stockValue': instance.stockValue,
       'products': instance.products,
       'services': instance.services,
-      'lowStockSample': instance.lowStockSample,
+      'lowStockSample': instance.lowStockSample.map((e) => e.toJson()).toList(),
     };
 
 _CustomersMetrics _$CustomersMetricsFromJson(Map<String, dynamic> json) =>

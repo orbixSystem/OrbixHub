@@ -33,7 +33,7 @@ Map<String, dynamic> _$SaleToJson(_Sale instance) => <String, dynamic>{
   'fiscal_status': instance.fiscalStatus,
   'payment_status': instance.paymentStatus,
   'created_at': instance.createdAt,
-  'items': instance.items,
+  'items': instance.items.map((e) => e.toJson()).toList(),
 };
 
 _SaleItem _$SaleItemFromJson(Map<String, dynamic> json) => _SaleItem(
@@ -68,7 +68,7 @@ _SalePage _$SalePageFromJson(Map<String, dynamic> json) => _SalePage(
 );
 
 Map<String, dynamic> _$SalePageToJson(_SalePage instance) => <String, dynamic>{
-  'items': instance.items,
+  'items': instance.items.map((e) => e.toJson()).toList(),
   'total': instance.total,
   'page': instance.page,
   'pageSize': instance.pageSize,

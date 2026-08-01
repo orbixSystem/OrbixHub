@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/config/feature_flags.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
@@ -95,7 +97,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       data: (bundle) {
         final moduleSections =
-            bundle.sections.where((s) => s.moduleKey != null).toList();
+            bundle.sections
+                .where((s) => s.moduleKey != null)
+                // NF desligada no front (kInvoiceEnabled=false): esconde a seção
+                // de config fiscal do módulo `invoice`.
+                .where((s) => kInvoiceEnabled || s.moduleKey != 'invoice')
+                .toList();
 
         // Paleta de glyph por categoria (cores do DS, ciclo p/ os módulos).
         const glyphs = [0, 1, 3, 5, 2, 4];

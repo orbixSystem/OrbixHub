@@ -19,6 +19,7 @@ import { CustomersMetricsService } from './customers-metrics.service';
 import { CustomersMetricsQueryDto } from './dto/metrics.dto';
 import { resolveRange } from '../../common/metrics/range';
 import { SubjectLookupService } from './subject-lookup.service';
+import { PlateLookupService } from './plates/plate-lookup.service';
 import {
   CreateCustomerDto,
   ListCustomersQueryDto,
@@ -35,6 +36,7 @@ export class CustomersController {
     private readonly customers: CustomersService,
     private readonly metrics: CustomersMetricsService,
     private readonly lookup: SubjectLookupService,
+    private readonly plates: PlateLookupService,
   ) {}
 
   // --- métricas (Dashboard) — leitura agregada, gated pelo módulo + customer.read ---
@@ -72,6 +74,21 @@ export class CustomersController {
     @Query('q') q?: string,
   ) {
     return this.lookup.lookup(fonte, { marca, modelo, q });
+  }
+
+  // --- consulta de veículo por placa (API externa, cache + cota mensal) ---
+  // Rotas literais ANTES das paramétricas (:id). `subject.read` como o lookup
+  // FIPE: quem vê veículos pode consultar/gerar a ficha.
+  @Get('plates/usage')
+  @Permissions('subject.read')
+  plateUsage() {
+    return this.plates.usage();
+  }
+
+  @Get('plates/:plate')
+  @Permissions('subject.read')
+  plateLookup(@CurrentUser() user: AuthUser, @Param('plate') plate: string) {
+    return this.plates.lookup(user, plate);
   }
 
   // --- customers ---

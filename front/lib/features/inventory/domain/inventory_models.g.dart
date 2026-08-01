@@ -74,7 +74,7 @@ _ItemPage _$ItemPageFromJson(Map<String, dynamic> json) => _ItemPage(
 );
 
 Map<String, dynamic> _$ItemPageToJson(_ItemPage instance) => <String, dynamic>{
-  'items': instance.items,
+  'items': instance.items.map((e) => e.toJson()).toList(),
   'total': instance.total,
   'page': instance.page,
   'pageSize': instance.pageSize,
@@ -110,7 +110,9 @@ _InventoryConfig _$InventoryConfigFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$InventoryConfigToJson(_InventoryConfig instance) =>
-    <String, dynamic>{'itemFields': instance.itemFields};
+    <String, dynamic>{
+      'itemFields': instance.itemFields.map((e) => e.toJson()).toList(),
+    };
 
 _CatalogSuggestion _$CatalogSuggestionFromJson(Map<String, dynamic> json) =>
     _CatalogSuggestion(
@@ -144,6 +146,6 @@ _LookupResult _$LookupResultFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$LookupResultToJson(_LookupResult instance) =>
     <String, dynamic>{
       'source': instance.source,
-      'item': instance.item,
-      'suggestion': instance.suggestion,
+      'item': instance.item?.toJson(),
+      'suggestion': instance.suggestion?.toJson(),
     };

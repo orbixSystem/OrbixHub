@@ -10,6 +10,7 @@ import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/feature_flags.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/theme/app_colors.dart';
@@ -68,8 +69,11 @@ class OsDetailScreen extends ConsumerWidget {
     final canRead = _has(ref, 'os.read');
     // "Emitir NF" só aparece com o módulo fiscal habilitado E a permissão de
     // emissão — o backend é a verdade (aqui só refletimos para UX).
-    final canIssueInvoice =
-        _hasModule(ref, 'invoice') && _has(ref, 'invoice.issue');
+    // NF desligada no front (kInvoiceEnabled=false): sem botão de emitir nota na
+    // OS, mesmo com módulo/permissão. O backend segue capaz — é só retirada de UI.
+    final canIssueInvoice = kInvoiceEnabled &&
+        _hasModule(ref, 'invoice') &&
+        _has(ref, 'invoice.issue');
     final company = _company(ref);
     // Logo do tenant para exibir no cabeçalho da OS.
     final logoUrl = ref

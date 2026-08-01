@@ -71,7 +71,7 @@ Map<String, dynamic> _$MessageToJson(_Message instance) => <String, dynamic>{
   'created_at': instance.createdAt,
   'read_at': instance.readAt,
   'reply_to_id': instance.replyToId,
-  'replyTo': instance.replyTo,
+  'replyTo': instance.replyTo?.toJson(),
   'photo_id': instance.photoId,
   'photo_url': instance.photoUrl,
 };
@@ -90,7 +90,7 @@ _ConversationPage _$ConversationPageFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ConversationPageToJson(_ConversationPage instance) =>
     <String, dynamic>{
-      'items': instance.items,
+      'items': instance.items.map((e) => e.toJson()).toList(),
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,

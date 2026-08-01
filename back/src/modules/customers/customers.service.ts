@@ -263,6 +263,7 @@ export class CustomersService {
           label: dto.label?.trim() || null,
           identifier,
           attributes: dto.attributes,
+          plateData: dto.plateData,
         });
       });
     } catch (e) {
@@ -311,6 +312,7 @@ export class CustomersService {
         data.identifier = dto.identifier.trim() || null;
       }
       if (dto.attributes !== undefined) data.attributes = dto.attributes;
+      if (dto.plateData !== undefined) data.plateData = dto.plateData;
       return this.repo.updateSubject(id, data);
     });
   }

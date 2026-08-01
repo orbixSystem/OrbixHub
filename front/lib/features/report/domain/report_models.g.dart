@@ -39,7 +39,7 @@ _SalesLedger _$SalesLedgerFromJson(Map<String, dynamic> json) => _SalesLedger(
 );
 
 Map<String, dynamic> _$SalesLedgerToJson(_SalesLedger instance) =>
-    <String, dynamic>{'rows': instance.rows};
+    <String, dynamic>{'rows': instance.rows.map((e) => e.toJson()).toList()};
 
 _OsReportRow _$OsReportRowFromJson(Map<String, dynamic> json) => _OsReportRow(
   number: json['number'] as String,
@@ -99,12 +99,12 @@ _OsOperationalReport _$OsOperationalReportFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$OsOperationalReportToJson(
   _OsOperationalReport instance,
 ) => <String, dynamic>{
-  'rows': instance.rows,
+  'rows': instance.rows.map((e) => e.toJson()).toList(),
   'total': instance.total,
   'page': instance.page,
   'pageSize': instance.pageSize,
   'byStatus': instance.byStatus,
-  'byAssignedTo': instance.byAssignedTo,
+  'byAssignedTo': instance.byAssignedTo.map((k, e) => MapEntry(k, e.toJson())),
 };
 
 _RevenueByDay _$RevenueByDayFromJson(Map<String, dynamic> json) =>
@@ -142,8 +142,8 @@ Map<String, dynamic> _$RevenueReportToJson(_RevenueReport instance) =>
     <String, dynamic>{
       'total': instance.total,
       'avgTicket': instance.avgTicket,
-      'byDay': instance.byDay,
-      'byStatus': instance.byStatus,
+      'byDay': instance.byDay.map((e) => e.toJson()).toList(),
+      'byStatus': instance.byStatus.map((k, e) => MapEntry(k, e.toJson())),
     };
 
 _TeamReportRow _$TeamReportRowFromJson(Map<String, dynamic> json) =>
@@ -175,7 +175,7 @@ _TeamReport _$TeamReportFromJson(Map<String, dynamic> json) => _TeamReport(
 );
 
 Map<String, dynamic> _$TeamReportToJson(_TeamReport instance) =>
-    <String, dynamic>{'rows': instance.rows};
+    <String, dynamic>{'rows': instance.rows.map((e) => e.toJson()).toList()};
 
 _TopItemRow _$TopItemRowFromJson(Map<String, dynamic> json) => _TopItemRow(
   name: json['name'] as String? ?? '',
@@ -207,7 +207,10 @@ _TopItemsReport _$TopItemsReportFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$TopItemsReportToJson(_TopItemsReport instance) =>
-    <String, dynamic>{'kind': instance.kind, 'rows': instance.rows};
+    <String, dynamic>{
+      'kind': instance.kind,
+      'rows': instance.rows.map((e) => e.toJson()).toList(),
+    };
 
 _InventoryReportRow _$InventoryReportRowFromJson(Map<String, dynamic> json) =>
     _InventoryReportRow(
@@ -250,7 +253,7 @@ _InventoryReport _$InventoryReportFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$InventoryReportToJson(_InventoryReport instance) =>
     <String, dynamic>{
-      'rows': instance.rows,
+      'rows': instance.rows.map((e) => e.toJson()).toList(),
       'stockValue': instance.stockValue,
       'total': instance.total,
       'page': instance.page,
@@ -311,11 +314,11 @@ _CustomersReport _$CustomersReportFromJson(
 
 Map<String, dynamic> _$CustomersReportToJson(_CustomersReport instance) =>
     <String, dynamic>{
-      'rows': instance.rows,
+      'rows': instance.rows.map((e) => e.toJson()).toList(),
       'active': instance.active,
       'newInRange': instance.newInRange,
       'total': instance.total,
       'page': instance.page,
       'pageSize': instance.pageSize,
-      'series': instance.series,
+      'series': instance.series.map((e) => e.toJson()).toList(),
     };

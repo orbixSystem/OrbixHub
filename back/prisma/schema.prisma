@@ -55,6 +55,9 @@ model subject {
   photo_url         String?
   photo_storage_key String?
   status            String   @default("active")
+  /// Retorno completo da consulta por placa (exclusivo dela; nullable).
+  plate_data        Json?
+  plate_data_at     DateTime? @db.Timestamptz(6)
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
   customer    customer @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -453,6 +456,20 @@ model catalog_product {
   source     String
   fetched_at DateTime @default(now()) @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model plate_cache {
+  plate      String   @id
+  payload    Json
+  source     String   @default("apiplacas")
+  fetched_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model plate_lookup_usage {
+  period     String   @id
+  count      Int      @default(0)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
