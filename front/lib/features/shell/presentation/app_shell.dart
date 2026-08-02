@@ -16,6 +16,9 @@ import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
+import '../../update/domain/update_models.dart';
+import '../../update/presentation/update_banner.dart';
+import '../../update/presentation/update_controller.dart';
 import 'nav_items.dart';
 import 'sidebar.dart';
 
@@ -75,6 +78,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (me == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    // Versão velha demais para o servidor atual: seguir usando daria erro a
+    // cada ação, então a casca inteira dá lugar ao aviso de atualização.
+    final upd = ref.watch(updateStatusProvider).asData?.value;
+    if (upd != null && upd.status == UpdateStatus.obrigatoria) {
+      return UpdateRequiredView(update: upd.update);
+    }
+
     final items = gatedNavItems(me);
     final location = GoRouterState.of(context).matchedLocation;
 
@@ -143,6 +153,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                           // bateria/rede. O header/FAB seguem no topo do Stack, então
                           // a matemática do notch não muda.
                           const ConnectionBanner(),
+                          // Versão nova disponível (adiável). A obrigatória não
+                          // chega aqui — ela substitui a casca inteira.
+                          const UpdateBanner(),
                           // A transição entre telas é feita pelo Navigator do
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da

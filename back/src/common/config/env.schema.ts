@@ -69,6 +69,19 @@ export const envSchema = z.object({
   // Cota mensal contratada — o backend bloqueia consultas acima disto (contador
   // atômico em plate_lookup_usage; cache por placa não consome).
   PLACAS_MONTHLY_LIMIT: z.coerce.number().int().positive().default(1000),
+  // --- Atualização do app instalado (Android/Windows) ---
+  // Kill-switch: false = o endpoint responde "sem atualização" e nada é
+  // consultado no GitHub.
+  // NB: z.coerce.boolean() treats the string "false" as TRUE. Parse explicitly.
+  APP_UPDATE_ENABLED: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  // "owner/repo" de onde saem as releases.
+  GITHUB_RELEASES_REPO: z.string().optional(),
+  // Token de leitura do repositório PRIVADO (secret — nunca vai para o app;
+  // o cliente recebe só a URL assinada que o servidor resolve).
+  GITHUB_RELEASES_TOKEN: z.string().optional(),
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
   // 'minio' = S3-compatible (MinIO em dev / S3 em prod).

@@ -33,6 +33,9 @@ import 'features/cashier/data/cashier_repository_impl.dart';
 import 'features/cashier/data/local_first_cashier_repository.dart';
 import 'features/cashier/presentation/cashier_providers.dart';
 import 'features/customers/data/customers_repository_impl.dart';
+import 'features/update/data/update_installer.dart';
+import 'features/update/data/update_repository_impl.dart';
+import 'features/update/domain/update_repository.dart';
 import 'features/customers/data/local_first_customers_repository.dart';
 import 'features/customers/domain/customers_repository.dart';
 import 'features/invoice/data/invoice_repository_impl.dart';
@@ -159,6 +162,18 @@ final teamRepositoryProvider = Provider<TeamRepository>(
     onWrite: () => ref.read(syncEngineProvider)?.nudge(),
   );
 }
+
+/// Atualização do app instalado (Android/Windows). O servidor resolve a versão
+/// publicada e devolve um link assinado — nenhuma credencial vive no cliente.
+final updateRepositoryProvider = Provider<UpdateRepository>(
+  (ref) => UpdateRepositoryImpl(ref.read(dioProvider)),
+);
+
+/// Baixa o instalador por um Dio LIMPO: a URL assinada aponta para o storage do
+/// provedor, e mandar o nosso bearer para outro host seria vazá-lo.
+final updateInstallerProvider = Provider<UpdateInstaller>(
+  (ref) => UpdateInstaller(Dio()),
+);
 
 final customersRepositoryProvider = Provider<CustomersRepository>((ref) {
   final inner = CustomersRepositoryImpl(ref.read(dioProvider));

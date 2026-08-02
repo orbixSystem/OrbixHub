@@ -1,0 +1,4 @@
+{
+  "_comment": "Menor versão do app que o backend ainda atende. Subir este valor FORÇA a atualização e interrompe quem estiver trabalhando — mexa só quando uma mudança do servidor quebrar de fato os apps antigos (ex.: campo novo obrigatório numa rota que o app velho não envia).",
+  "minSupported": "1.0.0"
+}

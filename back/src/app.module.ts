@@ -34,6 +34,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { MessagesModule } from './modules/messages/messages.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
+import { AppUpdateModule } from './modules/app-update/app-update.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { DevtoolsModule } from './modules/devtools/devtools.module';
 
@@ -67,6 +68,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     ReportModule,
     RealtimeModule,
     SyncModule,
+    AppUpdateModule,
     DevtoolsModule,
   ],
   controllers: [HealthController],
