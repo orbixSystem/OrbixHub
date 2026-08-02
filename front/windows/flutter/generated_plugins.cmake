@@ -8,7 +8,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_secure_storage_windows
   printing
   share_plus
-  sodium_libs
   sqlcipher_flutter_libs
   url_launcher_windows
 )
