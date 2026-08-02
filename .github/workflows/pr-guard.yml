@@ -1,0 +1,25 @@
+name: PR guard
+
+# Rulesets do GitHub restringem o DESTINO de um PR, nunca a ORIGEM. Este
+# workflow e o que efetivamente impede que algo chegue na main sem passar
+# pela qa: PR para main so e aceito se a branch de origem for a qa.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  qa-only:
+    name: PR para main deve vir da qa
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifica a branch de origem
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$HEAD_REF" != "qa" ]; then
+            echo "::error::PR para main so e aceito a partir da branch qa (origem: $HEAD_REF)."
+            echo "Fluxo correto: sua branch -> PR para qa -> valida na qa -> PR qa -> main."
+            exit 1
+          fi
+          echo "origem OK: qa"

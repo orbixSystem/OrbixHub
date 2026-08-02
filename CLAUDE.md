@@ -294,8 +294,26 @@ Nunca diga que algo passa sem rodar e ver o output.
 
 ## 10. Convenções de trabalho
 
-- **Branches**: trabalhe em `feat/...` (ex.: `feat/flutter-app`). Não commite direto
-  na `main`/`master` sem pedir.
+- **Branches — tudo passa pela `qa`.** `main` é **só produção**: todo push nela
+  dispara deploy. Ela recebe commits **exclusivamente** por merge de PR vindo da `qa`
+  (o workflow `pr-guard` reprova PR de qualquer outra origem, e a `main` está travada
+  contra push direto e force-push).
+  ```
+  qa ──► feat/x ──PR──► qa ──(valida)──PR──► main ──► deploy
+  ```
+  1. Branch nova **nasce da `qa`**, nunca da `main`:
+     `git switch qa && git pull && git switch -c feat/x`.
+  2. PR `feat/x` → `qa`, CI verde, merge.
+  3. Validado o que está na `qa`, PR `qa` → `main`.
+  4. Merge **sempre como merge commit** — nunca squash, nunca rebase. Squash/rebase
+     quebram a ancestralidade e a `qa` passaria a exigir force-push pra ressincronizar
+     (o `sync-qa` falha de propósito nesse caso). A `main` só aceita merge commit.
+  5. A ressincronização da `qa` é automática (workflow `sync-qa`).
+
+  **Não há caminho de exceção — hotfix também entra pela `qa`.** Para emergência em
+  prod, reverta o deploy (`workflow_dispatch` no `deploy.yml` com a imagem anterior)
+  em vez de furar a fila. Desenho completo:
+  `docs/superpowers/specs/2026-08-02-processo-git-qa-design.md`.
 - **Commits**: mensagem clara no escopo (`feat(billing): …`, `fix(front): …`).
 - **Antes de "pronto"**: rode lint/analyze + testes e cite o resultado real.
 - **Ponteiros**: setup detalhado → `README.md`; designs → `docs/superpowers/specs/`.
