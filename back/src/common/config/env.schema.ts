@@ -85,8 +85,11 @@ export const envSchema = z.object({
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
   // 'minio' = S3-compatible (MinIO em dev / S3 em prod).
-  STORAGE_PROVIDER: z.enum(['local', 'minio']).default('local'),
-  // Base pública usada pelo provider local para montar a URL (rota GET /files/*).
+  // 's3' = S3 da AWS em prod; autentica pela role da instância (sem chave no env).
+  STORAGE_PROVIDER: z.enum(['local', 'minio', 's3']).default('local'),
+  // Base pública para montar a URL dos arquivos (rota GET /files/*). Usada por
+  // TODOS os providers menos o minio — a URL fica gravada no banco, então é a
+  // API que serve, e o bucket pode continuar privado.
   STORAGE_PUBLIC_URL: z.string().default('http://localhost:4400'),
   // Config do provider S3-compatible (opcional — só usada quando STORAGE_PROVIDER=minio).
   S3_ENDPOINT: z.string().optional(), // ex.: http://localhost:9000

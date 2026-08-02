@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Client as MinioClient } from 'minio';
+import type { Readable } from 'node:stream';
 import type { Env } from '../config/env.schema';
 import { StorageProvider } from './storage.provider';
 
@@ -47,5 +48,15 @@ export class MinioStorageProvider extends StorageProvider {
 
   async remove(key: string): Promise<void> {
     await this.client.removeObject(this.bucket, key);
+  }
+
+  async getStream(key: string): Promise<Readable | null> {
+    try {
+      return await this.client.getObject(this.bucket, key);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'NoSuchKey' || code === 'NotFound') return null;
+      throw err;
+    }
   }
 }

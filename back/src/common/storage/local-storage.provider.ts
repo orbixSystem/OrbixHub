@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { promises as fs } from 'node:fs';
+import { createReadStream, promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import type { Readable } from 'node:stream';
 import type { Env } from '../config/env.schema';
 import { StorageProvider } from './storage.provider';
 
@@ -41,6 +42,21 @@ export class LocalStorageProvider extends StorageProvider {
       // Ausente já é o estado desejado — não relança.
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
+  }
+
+  async getStream(key: string): Promise<Readable | null> {
+    let dest: string;
+    try {
+      dest = this.resolve(key); // key fora da raiz => trata como inexistente
+    } catch {
+      return null;
+    }
+    try {
+      await fs.access(dest);
+    } catch {
+      return null;
+    }
+    return createReadStream(dest);
   }
 
   /** Resolve a key dentro da raiz, barrando path traversal (`..`). */
