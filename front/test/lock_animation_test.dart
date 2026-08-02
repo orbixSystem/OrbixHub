@@ -87,6 +87,41 @@ void main() {
       expect(find.text('Caixa aberto'), findsNothing);
     });
 
+    testWidgets('o texto fica sob um Material (sem sublinhado amarelo)', (
+      tester,
+    ) async {
+      // showGeneralDialog entrega o conteúdo direto ao Overlay: Text sem
+      // Material ancestral sai com o sublinhado amarelo duplo de debug.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () =>
+                    showCashierLockTransition(context, opening: true),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.ancestor(
+          of: find.text('Caixa aberto'),
+          matching: find.byType(Material),
+        ),
+        findsWidgets,
+        reason: 'sem Material acima, o texto sai sublinhado de amarelo',
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('fechar: mostra o resultado da conferência no card', (
       tester,
     ) async {

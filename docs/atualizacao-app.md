@@ -45,6 +45,32 @@ GITHUB_RELEASES_TOKEN=   # opcional: só eleva o limite da API do GitHub
 Lembre que `--env-file` é lido na criação do container: depois de editar o
 `.env` na EC2, **recrie** o container (um `restart` mantém as variáveis antigas).
 
+## Windows: assinatura digital
+
+Sem assinar, o Windows 11 com **Smart App Control** recusa o instalador com
+_"an application control policy has blocked this file"_. Não é bug do
+instalador: essa política bloqueia todo executável sem assinatura e **não aceita
+exceção por arquivo** — ou o binário é assinado, ou não roda. Em máquinas com
+Smart App Control desligado (a maioria das que vieram de upgrade) o instalador
+funciona normalmente.
+
+A solução é um certificado de **code signing** (Authenticode):
+
+| Tipo | Custo/ano | Reputação |
+|---|---|---|
+| OV (validação da empresa) | ~US$ 200-400 | Ganha reputação com o tempo; SmartScreen ainda pode avisar no começo |
+| EV (validação estendida) | ~US$ 300-600 | Reputação imediata, sem aviso |
+
+Com o certificado em mãos, basta cadastrar dois secrets — o passo de assinatura
+já existe no workflow e liga sozinho:
+
+| Secret | Conteúdo |
+|---|---|
+| `WINDOWS_CERT_PFX_BASE64` | `base64 -i certificado.pfx \| tr -d '\n'` |
+| `WINDOWS_CERT_PASSWORD` | senha do .pfx |
+
+Sem eles o build continua funcionando e apenas emite um aviso no log.
+
 ## Secrets do CI (Settings → Secrets → Actions)
 
 Sem eles o workflow falha de propósito — um APK assinado com a chave de debug
@@ -73,6 +99,23 @@ meio do uso, o app pede a atualização de cara.
 
 Fora esse caso, deixe como está: atualização forçada interrompe a oficina no
 meio do expediente.
+
+## Numeração das versões
+
+A `version` do `front/pubspec.yaml` (ex.: `1.0.0`) é a que o usuário lê e só muda
+quando você edita o arquivo. O que diferencia uma publicação da outra é o
+**build**, gerado automaticamente pelo CI: `10000 + número da execução`.
+
+O offset de 10000 não é enfeite: no Android o build reportado é o `versionCode`,
+e um APK gerado localmente com `--split-per-abi` já nasce em 1001/2001/4001
+(o Flutter soma um prefixo por arquitetura). Sem o offset, a primeira publicação
+do CI sairia com build `1` e o aparelho a trataria como mais antiga que a
+instalada — nenhuma atualização apareceria. **Mantenha builds locais abaixo de
+10000.**
+
+Como a comparação é por `(versão, build)`, publicar sem mexer no pubspec já
+conta como versão nova. Suba a `version` quando a mudança for relevante para o
+usuário — é o número que ele vê no aviso.
 
 ## Publicando
 

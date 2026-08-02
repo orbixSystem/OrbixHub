@@ -37,7 +37,14 @@ jobs:
         run: |
           set -euo pipefail
           BASE=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
-          BUILD=${{ github.run_number }}
+          # Build number = contador da execucao + OFFSET. O offset existe porque
+          # o Android reporta o versionCode como build, e um APK gerado local
+          # com --split-per-abi ja nasce em 1001/2001/4001 (o Flutter soma um
+          # prefixo por arquitetura). Sem o offset, a primeira publicacao do CI
+          # sairia com build 1 e o aparelho a veria como MAIS ANTIGA que a
+          # instalada — nenhuma atualizacao seria oferecida.
+          # Mantenha builds locais abaixo de 10000.
+          BUILD=$(( 10000 + ${{ github.run_number }} ))
           # Menor versao que o backend ainda atende.
           # forceAll=true (produto no inicio): o minimo vira a PROPRIA versao
           # publicada, entao toda atualizacao e obrigatoria e ninguem fica para
@@ -143,6 +150,32 @@ jobs:
             $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           }
           & $iscc /DAppVersion=${{ needs.version.outputs.version }} scripts\installer.iss
+
+      # Assinatura digital (Authenticode). Sem ela o Smart App Control do
+      # Windows 11 BLOQUEIA o instalador com "an application control policy has
+      # blocked this file" — ele recusa binario sem assinatura e nao aceita
+      # excecao por arquivo. Os secrets sao opcionais: sem eles o build segue e
+      # apenas avisa, para nao travar quem ainda nao tem certificado.
+      - name: Assina o instalador
+        if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+        env:
+          CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        working-directory: front
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:CERT_PFX_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1
+          Get-ChildItem build\installer\*.exe | ForEach-Object {
+            & $signtool.FullName sign /f cert.pfx /p $env:CERT_PASSWORD `
+              /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+          Remove-Item cert.pfx -Force
+
+      - name: Aviso quando nao ha certificado
+        if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 == '' }}
+        run: |
+          Write-Host "::warning::Instalador NAO assinado. No Windows 11 com Smart App Control ativo ele sera bloqueado ('an application control policy has blocked this file'). Configure WINDOWS_CERT_PFX_BASE64 e WINDOWS_CERT_PASSWORD."
 
       - uses: actions/upload-artifact@v4
         with:
