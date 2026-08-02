@@ -4,6 +4,15 @@
 /// mexer no backend nem em `me.modules` (o módulo continua existindo no back).
 library;
 
+/// Avisos de cobrança desligados no FRONT enquanto o fluxo de pagamento não
+/// existe de ponta a ponta.
+///
+/// Com `false`, some o banner "Pagamento pendente — regularize a assinatura"
+/// do painel. Cobrar uma regularização que o usuário não tem como fazer só
+/// assusta. O backend continua marcando a assinatura como `past_due` e o
+/// `ModuleAccessGuard` segue valendo — isto é retirada de AVISO, não de regra.
+const bool kBillingNoticesEnabled = false;
+
 /// Nota Fiscal desligada no FRONT (o cliente não quer NF por enquanto).
 ///
 /// Com `false`, o app esconde TODOS os pontos de NF: item "Notas Fiscais" no

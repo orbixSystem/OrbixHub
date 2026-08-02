@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
@@ -96,7 +97,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return ListView(
       padding: EdgeInsets.all(context.isMobile ? 16 : 28),
       children: [
-        if (sub != null && sub.isPastDue) const _PastDueBanner(),
+        // Aviso de cobrança gated por kBillingNoticesEnabled — enquanto não há
+        // como o usuário regularizar de fato, o banner só assusta.
+        if (kBillingNoticesEnabled && sub != null && sub.isPastDue)
+          const _PastDueBanner(),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
