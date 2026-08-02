@@ -117,12 +117,13 @@ jobs:
   windows:
     needs: version
     runs-on: windows-latest
-    # O contexto `secrets` não existe no `if:` de um step — só `env`. Expor aqui,
-    # no nível do job, é o que permite pular a assinatura quando não há
-    # certificado configurado.
+    # O contexto `secrets` não existe no `if:` de um step — só `env`. Mas expor o
+    # certificado no nível do job o entregaria a TODOS os steps (inclusive
+    # `flutter build` e `build_runner`, que rodam código de terceiros). Então o
+    # job carrega apenas um BOOLEANO, e o segredo em si só existe no step que
+    # assina.
     env:
-      CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
-      CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      HAS_CERT: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -163,7 +164,11 @@ jobs:
       # excecao por arquivo. Os secrets sao opcionais: sem eles o build segue e
       # apenas avisa, para nao travar quem ainda nao tem certificado.
       - name: Assina o instalador
-        if: env.CERT_PFX_BASE64 != ''
+        if: env.HAS_CERT == 'true'
+        # Segredo com escopo mínimo: existe só neste step.
+        env:
+          CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         working-directory: front
         run: |
           [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:CERT_PFX_BASE64))
@@ -176,7 +181,7 @@ jobs:
           Remove-Item cert.pfx -Force
 
       - name: Aviso quando nao ha certificado
-        if: env.CERT_PFX_BASE64 == ''
+        if: env.HAS_CERT != 'true'
         run: |
           Write-Host "::warning::Instalador NAO assinado. No Windows 11 com Smart App Control ativo ele sera bloqueado ('an application control policy has blocked this file'). Configure WINDOWS_CERT_PFX_BASE64 e WINDOWS_CERT_PASSWORD."
 
