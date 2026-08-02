@@ -37,7 +37,12 @@ class LockPainter extends CustomPainter {
     final bodyH = s * 0.40;
     final bodyBottom = s * 0.96;
     final bodyTop = bodyBottom - bodyH;
-    final bodyRect = Rect.fromLTRB(cx - bodyW / 2, bodyTop, cx + bodyW / 2, bodyBottom);
+    final bodyRect = Rect.fromLTRB(
+      cx - bodyW / 2,
+      bodyTop,
+      cx + bodyW / 2,
+      bodyBottom,
+    );
 
     final shackleR = bodyW * 0.33; // raio do arco da haste
     final shackleW = s * 0.082; // espessura da haste
@@ -157,10 +162,10 @@ class _AnimatedLockState extends State<AnimatedLock>
   /// Abrir tem um leve "salto" no fim (a haste solta); fechar termina firme,
   /// como um encaixe.
   Animation<double> get _t => CurvedAnimation(
-        parent: _c,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeInOutCubic.flipped,
-      );
+    parent: _c,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeInOutCubic.flipped,
+  );
 
   @override
   void didUpdateWidget(covariant AnimatedLock old) {
@@ -184,7 +189,8 @@ class _AnimatedLockState extends State<AnimatedLock>
       builder: (context, _) {
         // Interpola a cor junto com o movimento: fechado (grafite) → aberto
         // (verde), então o status é legível mesmo sem ler o texto.
-        final base = widget.color ??
+        final base =
+            widget.color ??
             Color.lerp(neu.navy, neu.success, _t.value.clamp(0, 1))!;
         return CustomPaint(
           size: Size.square(widget.size),
@@ -210,6 +216,7 @@ class _AnimatedLockState extends State<AnimatedLock>
 Future<void> showCashierLockTransition(
   BuildContext context, {
   required bool opening,
+
   /// Texto sob o título. No fechamento vem o resultado da conferência
   /// (sobra/falta), que é a informação que o operador precisa ver.
   String? message,
@@ -274,51 +281,60 @@ class _LockTransitionCardState extends State<_LockTransitionCard> {
   Widget build(BuildContext context) {
     final neu = context.neu;
     final label = widget.opening ? 'Caixa aberto' : 'Caixa fechado';
-    final hint = widget.message ??
+    final hint =
+        widget.message ??
         (widget.opening
             ? 'Já dá para registrar entradas e saídas.'
             : 'Movimentos do dia encerrados.');
     final accent = widget.opening ? neu.success : neu.navy;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: NeuSurface(
-          elevation: NeuElevation.raisedHigh,
-          radius: NeuTokens.rPanel,
-          color: neu.surface,
-          glow: false,
-          padding: const EdgeInsets.fromLTRB(32, 28, 32, 26),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedLock(open: _open, size: 116),
-              const SizedBox(height: 18),
-              // O rótulo entra depois do cadeado começar a se mexer.
-              AnimatedOpacity(
-                opacity: _open == widget.opening ? 1 : 0,
-                duration: const Duration(milliseconds: 320),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
+    // Material é obrigatório aqui: showGeneralDialog entrega o conteúdo direto
+    // ao Overlay, e Text sem Material ancestral sai com o sublinhado amarelo
+    // duplo de debug do Flutter. (Os outros diálogos não sofrem disso porque
+    // passam por Dialog, que já é Material.) Transparente para não interferir
+    // no neumorfismo.
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: NeuSurface(
+            elevation: NeuElevation.raisedHigh,
+            radius: NeuTokens.rPanel,
+            color: neu.surface,
+            glow: false,
+            padding: const EdgeInsets.fromLTRB(32, 28, 32, 26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedLock(open: _open, size: 116),
+                const SizedBox(height: 18),
+                // O rótulo entra depois do cadeado começar a se mexer.
+                AnimatedOpacity(
+                  opacity: _open == widget.opening ? 1 : 0,
+                  duration: const Duration(milliseconds: 320),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hint,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: neu.inkMuted, fontSize: 13),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        hint,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
