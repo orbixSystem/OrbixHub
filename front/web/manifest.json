@@ -1,11 +1,11 @@
 {
-    "name": "orbixhub_front",
-    "short_name": "orbixhub_front",
+    "name": "OrbixHub",
+    "short_name": "OrbixHub",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1E2245",
+    "theme_color": "#1E2245",
+    "description": "OrbixHub — gestão de oficina: ordens de serviço, clientes, estoque e mais.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
