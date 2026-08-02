@@ -26,7 +26,7 @@ podman pull "$IMAGE_REF"
 
 log "backup do banco (pg_dump comprimido)"
 TS=$(date +%Y%m%d-%H%M%S)
-podman exec postgres pg_dump -U app_owner orbixhub | gzip > "$BACKUP_DIR/db-$TS.sql.gz"
+podman exec orbix-postgres pg_dump -U app_owner orbixhub | gzip > "$BACKUP_DIR/db-$TS.sql.gz"
 # mantem apenas os 5 backups mais recentes (disco de 8 GB)
 ls -1t "$BACKUP_DIR"/db-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -f
 log "backup salvo em $BACKUP_DIR/db-$TS.sql.gz"
@@ -57,10 +57,15 @@ start_container() {
     "$img" >/dev/null
 }
 
-# migracao do runtime antigo (PM2) -> container, uma vez
+# migracao do runtime antigo -> container, uma vez.
+# PM2 (maquina antiga) e systemd (maquina nova) ocupavam a mesma porta 4500;
+# se qualquer um deles continuar de pe, o container sobe e o healthcheck falha.
 if command -v pm2 >/dev/null 2>&1; then
   pm2 delete orbixhub-api >/dev/null 2>&1 || true
   pm2 save --force >/dev/null 2>&1 || true
+fi
+if systemctl list-unit-files orbixhub-api.service >/dev/null 2>&1; then
+  sudo systemctl disable --now orbixhub-api.service >/dev/null 2>&1 || true
 fi
 
 log "subindo container novo"
