@@ -1,0 +1,194 @@
+name: Release app
+
+# Push na main => publica uma release com o APK (Android) e o instalador
+# (Windows). O app instalado consulta o backend (GET /api/app/update), que lê
+# esta release e devolve versao + hash + link de download.
+#
+# Tambem pode ser disparado na mao (workflow_dispatch).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'front/**'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: release-app
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.44.1
+
+jobs:
+  # 1) Versao unica para todos os artefatos: a do pubspec + o numero da
+  #    execucao como build. Assim duas releases nunca colidem.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      build: ${{ steps.v.outputs.build }}
+      tag: ${{ steps.v.outputs.tag }}
+      min_supported: ${{ steps.v.outputs.min_supported }}
+      min_build: ${{ steps.v.outputs.min_build }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          set -euo pipefail
+          BASE=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          BUILD=${{ github.run_number }}
+          # Menor versao que o backend ainda atende.
+          # forceAll=true (produto no inicio): o minimo vira a PROPRIA versao
+          # publicada, entao toda atualizacao e obrigatoria e ninguem fica para
+          # tras. Com forceAll=false vale o minSupported do arquivo, que so
+          # sobe quando uma mudanca do servidor quebra os apps antigos.
+          FORCE=$(jq -r '.forceAll // false' front/release.json)
+          if [ "$FORCE" = "true" ]; then
+            MIN="$BASE"; MIN_BUILD="$BUILD"
+          else
+            MIN=$(jq -r '.minSupported // "0.0.0"' front/release.json)
+            MIN_BUILD=$(jq -r '.minSupportedBuild // 0' front/release.json)
+          fi
+          echo "version=$BASE"        >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD"         >> "$GITHUB_OUTPUT"
+          echo "tag=v$BASE+$BUILD"    >> "$GITHUB_OUTPUT"
+          echo "min_supported=$MIN"   >> "$GITHUB_OUTPUT"
+          echo "min_build=$MIN_BUILD"  >> "$GITHUB_OUTPUT"
+
+  # 2) Android: APK assinado com a chave de RELEASE (secrets), senao o aparelho
+  #    recusa a atualizacao por assinatura diferente.
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '${{ env.FLUTTER_VERSION }}', channel: stable }
+
+      - name: Restaura o keystore de release
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ]; then
+            echo "::error::Sem ANDROID_KEYSTORE_BASE64. Um APK assinado com a chave de debug nao consegue atualizar as instalacoes existentes."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > front/android/app/orbix-release.jks
+          cat > front/android/key.properties <<EOF
+          storeFile=orbix-release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build APK
+        working-directory: front
+        run: |
+          flutter pub get
+          dart run build_runner build
+          flutter build apk --release \
+            --dart-define-from-file=env/prod.json \
+            --build-name=${{ needs.version.outputs.version }} \
+            --build-number=${{ needs.version.outputs.build }}
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             orbixhub-${{ needs.version.outputs.version }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: front/orbixhub-*.apk
+
+  # 3) Windows: compila no runner Windows (nao ha cross-compile) e empacota com
+  #    Inno Setup, que instala por cima da versao anterior.
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '${{ env.FLUTTER_VERSION }}', channel: stable }
+
+      - name: Build Windows
+        working-directory: front
+        run: |
+          flutter config --enable-windows-desktop
+          flutter pub get
+          dart run build_runner build
+          flutter build windows --release `
+            --dart-define-from-file=env/prod.json `
+            --build-name=${{ needs.version.outputs.version }} `
+            --build-number=${{ needs.version.outputs.build }}
+
+      # O instalador (scripts/installer.iss) empacota a pasta Release inteira e
+      # embute o VC++ Redistributable, que o app compilado exige em máquina limpa.
+      - name: Baixa o VC++ Redistributable
+        working-directory: front
+        run: |
+          Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vc_redist.x64.exe `
+            -OutFile scripts\vcredist_x64.exe
+
+      - name: Empacota com Inno Setup
+        working-directory: front
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc /DAppVersion=${{ needs.version.outputs.version }} scripts\installer.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: front/build/installer/*.exe
+
+  # 4) Publica a release com os binarios + manifest.json (versao, minimo
+  #    suportado e sha256 de cada arquivo, que o app confere antes de instalar).
+  publish:
+    needs: [version, android, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+
+      - name: Monta o manifest
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          APK=$(ls dist/android/*.apk)
+          EXE=$(ls dist/windows/*.exe)
+          cp "$APK" "$EXE" out/
+          APK_NAME=$(basename "$APK"); EXE_NAME=$(basename "$EXE")
+          jq -n \
+            --arg v '${{ needs.version.outputs.version }}' \
+            --argjson b ${{ needs.version.outputs.build }} \
+            --arg min '${{ needs.version.outputs.min_supported }}' \
+            --argjson minBuild ${{ needs.version.outputs.min_build }} \
+            --arg apk "$APK_NAME" --arg apkSha "$(sha256sum "$APK" | cut -d' ' -f1)" \
+            --arg exe "$EXE_NAME" --arg exeSha "$(sha256sum "$EXE" | cut -d' ' -f1)" \
+            '{version:$v, buildNumber:$b, minSupported:$min,
+              minSupportedBuild:$minBuild,
+              artifacts:{
+                android:{asset:$apk, sha256:$apkSha},
+                windows:{asset:$exe, sha256:$exeSha}
+              }}' > out/manifest.json
+          cat out/manifest.json
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: OrbixHub ${{ needs.version.outputs.version }} (${{ needs.version.outputs.build }})
+          body: |
+            Atualizacao automatica do app instalado (Android e Windows).
+            Commit: ${{ github.sha }}
+          files: out/*
+          make_latest: true

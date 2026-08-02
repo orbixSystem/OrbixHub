@@ -11,6 +11,7 @@ import '../../os/presentation/payment_status.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import 'cashier_providers.dart';
+import 'lock_animation.dart';
 
 /// Parse de valor digitado (aceita vírgula) → double >= 0, ou null se inválido.
 double? _parseAmount(String raw) {
@@ -135,7 +136,10 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
           openingAmount: amount,
           notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
         );
-    if (context.mounted) _snack(context, 'Caixa aberto.');
+    // Confirmação visual: o cadeado destrava na frente do usuário.
+    if (context.mounted) {
+      await showCashierLockTransition(context, opening: true);
+    }
   } catch (e) {
     if (context.mounted) _snack(context, '$e', error: true);
   }
@@ -218,7 +222,11 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
         : diff > 0
             ? 'Caixa fechado com SOBRA de ${formatMoney(diff)}.'
             : 'Caixa fechado com FALTA de ${formatMoney(diff.abs())}.';
-    _snack(context, label, error: diff != 0);
+    // Cadeado trancando + o resultado da conferência no próprio card.
+    await showCashierLockTransition(context, opening: false, message: label);
+    // Diferença é alerta: mantém também no snackbar, que fica depois que o
+    // card some.
+    if (context.mounted && diff != 0) _snack(context, label, error: true);
   } catch (e) {
     if (context.mounted) _snack(context, '$e', error: true);
   }

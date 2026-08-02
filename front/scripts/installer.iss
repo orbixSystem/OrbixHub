@@ -12,7 +12,10 @@
 #define AppName "OrbixHub"
 #define AppPublisher "OrbixSystem"
 #define AppURL "https://hub.orbixsystem.com"
-#define AppVersion "1.0.0"
+; A versão pode vir do CI (ISCC /DAppVersion=1.2.3); sem isso vale a de baixo.
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppExeName "OrbixHub.exe"
 #define ReleaseDir "..\build\windows\x64\runner\Release"
 

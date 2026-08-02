@@ -296,7 +296,7 @@ Future<Uint8List> buildVehicleFichaPdf(
             pw.Divider(color: line, thickness: 1),
             pw.SizedBox(height: 4),
             pw.Text(
-              'Gerado pelo OrbixHub em $generatedAt — dados da consulta por placa '
+              'Gerado pelo OrbixHub em $generatedAt - dados da consulta por placa '
               '(sujeitos à disponibilidade da base no momento da busca).',
               style: pw.TextStyle(fontSize: 9, color: muted),
             ),
@@ -358,21 +358,62 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
       );
 
   /// Tabela rótulo→valor em 2 colunas; quebra entre páginas sem cortar linha.
-  pw.Widget kvTable(List<List<String>> data) => pw.TableHelper.fromTextArray(
-        border: null,
-        headerCount: 0,
-        cellHeight: 18,
-        cellStyle: const pw.TextStyle(fontSize: 9.5),
-        cellAlignments: const {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerLeft},
-        columnWidths: const {
-          0: pw.FixedColumnWidth(150),
-          1: pw.FlexColumnWidth(),
-        },
-        cellDecoration: (row, _, _) => pw.BoxDecoration(
-          color: row.isEven ? tint : PdfColors.white,
-        ),
-        data: data,
-      );
+  /// Grade de pares rótulo→valor com DOIS pares por linha. Uma A4 tem ~530pt
+  /// úteis: com um par por linha sobrava metade da folha em branco e a ficha
+  /// esticava por páginas à toa.
+  pw.Widget kvGrid(List<List<String>> pairs, {int perRow = 2}) {
+    final rows = <List<String>>[];
+    for (var i = 0; i < pairs.length; i += perRow) {
+      final row = <String>[];
+      for (var c = 0; c < perRow; c++) {
+        final idx = i + c;
+        row.add(idx < pairs.length ? pairs[idx][0] : '');
+        row.add(idx < pairs.length ? pairs[idx][1] : '');
+      }
+      rows.add(row);
+    }
+    // Rótulo estreito e discreto; valor com o espaço que sobra e em negrito —
+    // o olho corre pelos valores, não pelos rótulos.
+    // Quanto mais pares por linha, mais estreito o rótulo — senão o valor
+    // (que é o que interessa) fica espremido e quebra em duas linhas.
+    final labelW = perRow >= 3 ? 74.0 : 96.0;
+    final widths = <int, pw.TableColumnWidth>{};
+    for (var c = 0; c < perRow; c++) {
+      widths[c * 2] = pw.FixedColumnWidth(labelW);
+      widths[c * 2 + 1] = const pw.FlexColumnWidth();
+    }
+    return pw.Table(
+      columnWidths: widths,
+      children: [
+        for (var r = 0; r < rows.length; r++)
+          pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: r.isEven ? tint : PdfColors.white,
+            ),
+            children: [
+              for (var c = 0; c < perRow * 2; c++)
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4.5,
+                  ),
+                  alignment: pw.Alignment.centerLeft,
+                  child: pw.Text(
+                    rows[r][c],
+                    style: c.isEven
+                        ? pw.TextStyle(fontSize: 7.6, color: muted)
+                        : pw.TextStyle(
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                            color: graphite,
+                          ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
 
   final identificacao = rows([
     ('Placa', info.placa),
@@ -528,19 +569,19 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
         ],
         if (identificacao.isNotEmpty) ...[
           sectionTitle('Identificação'),
-          kvTable(identificacao),
+          kvGrid(identificacao),
         ],
         if (caracteristicas.isNotEmpty) ...[
           sectionTitle('Características'),
-          kvTable(caracteristicas),
+          kvGrid(caracteristicas),
         ],
         if (registro.isNotEmpty) ...[
           sectionTitle('Registro'),
-          kvTable(registro),
+          kvGrid(registro),
         ],
         if (tecnicos.isNotEmpty) ...[
           sectionTitle('Dados técnicos e restrições'),
-          kvTable(tecnicos),
+          kvGrid(tecnicos, perRow: 3),
         ],
 
         // Todas as correspondências FIPE, da melhor para a pior.
@@ -572,14 +613,14 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
             data: [
               for (final f in info.fipeTodos)
                 [
-                  f.modelo ?? '—',
-                  f.codigoFipe ?? '—',
+                  f.modelo ?? '-',
+                  f.codigoFipe ?? '-',
                   [
                     if ((f.anoModelo ?? '').isNotEmpty) f.anoModelo!,
                     if ((f.combustivel ?? '').isNotEmpty) f.combustivel!,
                     if ((f.mesReferencia ?? '').isNotEmpty) f.mesReferencia!,
                   ].join(' · '),
-                  f.valor ?? '—',
+                  f.valor ?? '-',
                 ],
             ],
           ),
@@ -596,8 +637,8 @@ Future<Uint8List> buildVehicleFichaCompletaPdf(
         pw.Divider(color: line, thickness: 1),
         pw.SizedBox(height: 4),
         pw.Text(
-          'Dados obtidos por consulta à base de veículos emplacados a partir da '
-          'placa. Podem estar incompletos ou desatualizados — confira antes de '
+          'Dados obtidos por consulta a base de veiculos emplacados a partir da '
+          'placa. Podem estar incompletos ou desatualizados: confira antes de '
           'usar para fins contratuais.',
           style: pw.TextStyle(fontSize: 8, color: muted),
         ),
