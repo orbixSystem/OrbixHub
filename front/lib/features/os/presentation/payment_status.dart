@@ -60,18 +60,24 @@ class PaymentTag extends StatelessWidget {
             status == 'pago'
                 ? Icons.check_circle_outline
                 : status == 'parcial'
-                    ? Icons.hourglass_bottom_outlined
-                    : Icons.schedule_outlined,
+                ? Icons.hourglass_bottom_outlined
+                : Icons.schedule_outlined,
             size: dense ? 13 : 15,
             color: color,
           ),
           const SizedBox(width: 5),
-          Text(
-            paymentStatusLabel(status),
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: dense ? 11 : 12,
+          // Flexible: a tag entra em linhas apertadas (rodapé do card de OS em
+          // celular) e o rótulo precisa ceder em vez de estourar a linha.
+          Flexible(
+            child: Text(
+              paymentStatusLabel(status),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: dense ? 11 : 12,
+              ),
             ),
           ),
         ],
