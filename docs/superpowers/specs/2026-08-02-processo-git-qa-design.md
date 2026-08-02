@@ -176,6 +176,14 @@ Sem `bypass_actors`: a regra vale inclusive para admin. É esse o ponto.
 Deliberadamente **não** exige PR: permite push direto quando conveniente e permite o
 fast-forward do `sync-qa` sem precisar de bypass. A trava dura fica na `main`.
 
+### 3.6 Default branch
+
+A default branch do repositório passa de `main` para `qa`
+(`gh api -X PATCH repos/orbixSystem/OrbixHub -f default_branch=qa`), depois que `qa`
+existir. Efeito: PRs novos abrem com base `qa` e clones novos caem na branch de
+trabalho. Nada que dependa de `main` muda — `deploy.yml`, `pr-guard.yml` e `sync-qa.yml`
+referenciam `main` pelo nome.
+
 ## 4. Documentação
 
 - **`CLAUDE.md` §10** hoje instrui *"trabalhe em `feat/...`. Não commite direto na
@@ -202,6 +210,7 @@ O processo é aceito quando, com o setup aplicado:
 3. Um PR `qa` → `main` com CI verde é mergeável, e o merge dispara `Deploy prod`.
 4. Após esse merge, o run de `Sync qa` termina verde e `origin/qa == origin/main`.
 5. Push na `qa` dispara o workflow `CI`.
+6. A default branch exibida na página do repositório é `qa`.
 
 Os itens 3 e 4 só podem ser confirmados num release real; os demais são verificáveis
 imediatamente após o setup.
