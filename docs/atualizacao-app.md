@@ -4,7 +4,7 @@ O app instalado se atualiza sozinho. O fluxo é:
 
 ```
 push na main
-   └─ CI (release.yml) → builda APK + instalador Windows
+   └─ CI (release.yml) → builda APK + instalador Windows (scripts/installer.iss)
                        → publica release com manifest.json (versão, mínimo, sha256)
 
 app abre → GET /api/app/update?platform=android|windows
