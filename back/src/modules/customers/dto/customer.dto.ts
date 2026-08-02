@@ -18,7 +18,13 @@ export class CreateCustomerDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsOptional() @IsIn(['PF', 'PJ']) type?: 'PF' | 'PJ';
   @IsOptional() @IsString() @MaxLength(60) document?: string;
-  @IsOptional() @IsString() @MaxLength(40) phone?: string;
+  /**
+   * OBRIGATÓRIO: é por ele que a oficina avisa o cliente (link público da OS,
+   * retorno de orçamento). O mínimo de 8 aceita tanto o número cru quanto o
+   * formatado pelo app ("(11) 99999-9999"). Vale só na CRIAÇÃO — cadastros
+   * antigos sem telefone continuam editáveis (ver UpdateCustomerDto).
+   */
+  @IsString() @MinLength(8) @MaxLength(40) phone!: string;
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsString() @MaxLength(300) address?: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;

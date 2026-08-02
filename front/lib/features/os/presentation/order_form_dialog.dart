@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
+import '../../../di.dart';
 import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -68,6 +70,25 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   List<SubjectOption> _subjects = const [];
   SubjectOption? _subject;
   bool _loadingSubjects = false;
+
+  /// Cliente JÁ existente para o qual estamos cadastrando um veículo aqui
+  /// mesmo (ele não tinha nenhum, ou quer registrar mais um). O veículo nasce
+  /// junto com a OS, numa só requisição.
+  bool _novoSubjetoParaExistente = false;
+
+  /// Consultando a placa na API agora.
+  bool _plateBusy = false;
+
+  /// Retorno da última consulta por placa — vai junto no draft e fica salvo no
+  /// veículo (colunas exclusivas), alimentando a ficha depois.
+  PlateInfo? _plateInfo;
+
+  /// Campos preenchidos pela consulta (destaque de "revise antes de salvar").
+  final Set<String> _autoFilled = {};
+
+  /// Geração do autofill — entra nas ValueKeys dos campos com sugestão para
+  /// forçarem rebuild com o texto novo.
+  int _fillGen = 0;
 
   // Config do módulo de clientes (usaSubjects + rótulo + campos dinâmicos).
   // Default seguro: usa veículos, sem campos até a config carregar.
@@ -206,7 +227,20 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   bool get _canSubmit => _mode == _CustomerMode.existing
       ? _customer != null
-      : _newName.text.trim().isNotEmpty;
+      // Cliente novo exige nome E telefone (mesma régua do cadastro completo).
+      : _newName.text.trim().isNotEmpty && isValidPhone(_newPhone.text);
+
+  /// Zera os campos do veículo (e a consulta de placa) — usado ao desistir do
+  /// cadastro na hora ou ao trocar de cliente.
+  void _clearSubjectFields() {
+    for (final c in _subjFields.values) {
+      c.clear();
+    }
+    _selectedCode.clear();
+    _autoFilled.clear();
+    _plateInfo = null;
+    _fillGen++;
+  }
 
   Future<void> _pickCustomer(CustomerOption c) async {
     setState(() {
@@ -214,6 +248,9 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       _subject = null;
       _subjects = const [];
       _loadingSubjects = true;
+      // Trocar de cliente descarta um cadastro de veículo em andamento.
+      _novoSubjetoParaExistente = false;
+      _clearSubjectFields();
     });
     try {
       final subs = await ref.read(osRepositoryProvider).subjectsOf(c.id);
@@ -231,42 +268,56 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     final startIso = _scheduledStart?.toUtc().toIso8601String();
     final endIso = _scheduledEnd?.toUtc().toIso8601String();
     if (_mode == _CustomerMode.existing) {
+      // Cliente existente pode vir com um veículo NOVO cadastrado aqui mesmo —
+      // o backend cria o veículo para ele e já vincula na OS.
+      final (identifier, attrs) = _novoSubjetoParaExistente
+          ? _buildSubjectFields()
+          : (null, null);
       return OrderDraft(
         customerId: _customer!.id,
         subjectId: _subject?.id,
+        newSubjectIdentifier: identifier,
+        newSubjectAttributes: attrs,
+        newSubjectPlateData:
+            _novoSubjetoParaExistente ? _plateInfo?.toJson() : null,
         complaint: complaint,
         assignedTo: assignedTo,
         scheduledStart: startIso,
         scheduledEnd: endIso,
       );
     }
-    // Cliente novo: monta identifier (placa) + atributos do veículo a partir dos
-    // campos dinâmicos da config. Tudo opcional aqui (cadastro-relâmpago da OS).
-    Map<String, dynamic>? attrs;
-    String? identifier;
-    if (_usaSubjects) {
-      final built = <String, dynamic>{};
-      for (final f in _config.subjectFields) {
-        final raw = _subjFields[f.chave]?.text.trim() ?? '';
-        if (f.chave == 'identifier') {
-          identifier = raw.isEmpty ? null : raw;
-          continue;
-        }
-        if (raw.isEmpty) continue;
-        built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
-      }
-      attrs = built.isEmpty ? null : built;
-    }
+    // Cliente novo: identifier (placa) + atributos do veículo a partir dos
+    // campos dinâmicos da config.
+    final (identifier, attrs) = _buildSubjectFields();
     return OrderDraft(
       newCustomerName: _newName.text.trim(),
-      newCustomerPhone: _opt(_newPhone.text),
+      newCustomerPhone: _newPhone.text.trim(),
       newSubjectIdentifier: identifier,
       newSubjectAttributes: attrs,
+      newSubjectPlateData: _plateInfo?.toJson(),
       complaint: complaint,
       assignedTo: assignedTo,
       scheduledStart: startIso,
       scheduledEnd: endIso,
     );
+  }
+
+  /// Lê os campos dinâmicos do veículo: `identifier` (placa) sai separado; o
+  /// resto vira `attributes`. Vazio quando o tenant não usa veículos.
+  (String?, Map<String, dynamic>?) _buildSubjectFields() {
+    if (!_usaSubjects) return (null, null);
+    final built = <String, dynamic>{};
+    String? identifier;
+    for (final f in _config.subjectFields) {
+      final raw = _subjFields[f.chave]?.text.trim() ?? '';
+      if (f.chave == 'identifier') {
+        identifier = raw.isEmpty ? null : raw;
+        continue;
+      }
+      if (raw.isEmpty) continue;
+      built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
+    }
+    return (identifier, built.isEmpty ? null : built);
   }
 
   Future<void> _save() async {
@@ -660,15 +711,20 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         ),
         const SizedBox(height: 12),
         NeuTextField(
-          label: 'Telefone (opcional)',
+          label: 'Telefone *',
           controller: _newPhone,
           keyboardType: TextInputType.phone,
           inputFormatters: [PhoneInputFormatter()],
           prefixIcon: Icons.phone_outlined,
           enabled: !_saving,
-          // Cadastro rápido na OS: telefone opcional (o cadastro completo do
-          // cliente, esse sim, exige telefone). Valida só o formato se preenchido.
-          validator: Validators.phone(),
+          // Obrigatório aqui como no cadastro completo: o cliente criado pela
+          // OS é um cliente como outro qualquer, e é pelo telefone que a
+          // oficina o avisa. O backend também exige.
+          onChanged: (_) => setState(() {}),
+          validator: Validators.combine([
+            Validators.required('Telefone'),
+            Validators.phone(),
+          ]),
         ),
       ],
     );
@@ -688,32 +744,107 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           child: LinearProgressIndicator(),
         );
       }
-      if (_subjects.isEmpty) {
-        return Text(
-          'Nenhum ${_subjectLabelSingular.toLowerCase()} cadastrado para este '
-          'cliente. Você pode seguir sem selecionar.',
-          style: TextStyle(color: neu.inkMuted, fontSize: 14),
+      // Cadastrando um veículo novo para este cliente (aqui mesmo).
+      if (_novoSubjetoParaExistente) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Novo $_subjectLabelSingular para ${_customer?.name ?? "o cliente"}',
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() {
+                            _novoSubjetoParaExistente = false;
+                            _clearSubjectFields();
+                          }),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _novoSubjectFields(),
+          ],
         );
       }
-      return _labeledDropdown(
-        label: '$_subjectLabelSingular (opcional)',
-        value: _subject?.id,
-        icon: Icons.directions_car_outlined,
-        items: [
-          const DropdownMenuItem<String?>(
-            value: null,
-            child: Text('— nenhum —'),
-          ),
-          for (final s in _subjects)
-            DropdownMenuItem<String?>(
-              value: s.id,
-              child: Text(_subjectTitle(s)),
+      if (_subjects.isEmpty) {
+        // Sem veículo cadastrado: em vez de só avisar, oferece cadastrar agora.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Nenhum ${_subjectLabelSingular.toLowerCase()} cadastrado para '
+              'este cliente.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
             ),
+            const SizedBox(height: 14),
+            NeuButton(
+              label: 'Cadastrar $_subjectLabelSingular',
+              icon: Icons.add_rounded,
+              kind: NeuButtonKind.secondary,
+              onPressed: _saving
+                  ? null
+                  : () => setState(() => _novoSubjetoParaExistente = true),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ou siga sem selecionar — dá para vincular depois.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            ),
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _labeledDropdown(
+            label: '$_subjectLabelSingular (opcional)',
+            value: _subject?.id,
+            icon: Icons.directions_car_outlined,
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('— nenhum —'),
+              ),
+              for (final s in _subjects)
+                DropdownMenuItem<String?>(
+                  value: s.id,
+                  child: Text(_subjectTitle(s)),
+                ),
+            ],
+            onChanged: (id) => setState(() {
+              _subject =
+                  id == null ? null : _subjects.firstWhere((s) => s.id == id);
+            }),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _saving
+                  ? null
+                  : () => setState(() {
+                        _subject = null;
+                        _novoSubjetoParaExistente = true;
+                      }),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text('Cadastrar outro $_subjectLabelSingular'),
+            ),
+          ),
         ],
-        onChanged: (id) => setState(() {
-          _subject =
-              id == null ? null : _subjects.firstWhere((s) => s.id == id);
-        }),
       );
     }
     // Cliente novo: campos dinâmicos da config (placa + marca/modelo/ano/cor),
@@ -741,8 +872,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       return _SubjectLookupField(
         // A key inclui os códigos dos ancestrais: ao trocar marca (ou modelo),
         // os dependentes rebuildam já limpos.
+        // A geração do autofill entra na key: preencher pela placa rebuilda o
+        // campo com o texto novo (o Autocomplete só lê o valor inicial).
         key: ValueKey(
-          'os-lookup-${f.chave}-${_ancestorCodesOf(f).values.join(',')}',
+          'os-lookup-${f.chave}-$_fillGen-'
+          '${_ancestorCodesOf(f).values.join(',')}',
         ),
         field: f,
         controller: _subjFields[f.chave]!,
@@ -757,9 +891,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
     // A identificação (placa) é obrigatória se preenchida; demais campos livres.
     final isIdentifier = f.chave == 'identifier';
-    return NeuTextField(
+    final field = NeuTextField(
+      key: Key('os-subjectField-${f.chave}'),
       label: isIdentifier ? '${f.rotulo} *' : '${f.rotulo} (opcional)',
       controller: _subjFields[f.chave],
+      helper: _autoFilled.contains(f.chave)
+          ? 'Preenchido pela consulta da placa'
+          : null,
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
@@ -771,6 +909,127 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
               : null
           : null,
     );
+    // Campo da placa ganha a busca na base de veículos (mesma da tela de
+    // cadastro): preenche marca/modelo/ano/cor e guarda os dados da consulta.
+    if (!isIdentifier || !_identifierIsPlate) return field;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: field),
+        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.only(top: 25),
+          child: _plateLookupButton(),
+        ),
+      ],
+    );
+  }
+
+  /// Botão de consulta por placa. Online-only — offline fica inerte com o
+  /// aviso padrão (a consulta é feita pelo servidor).
+  Widget _plateLookupButton() {
+    if (_plateBusy) {
+      return const SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ),
+      );
+    }
+    final button = NeuIconButton(
+      icon: Icons.manage_search_rounded,
+      tooltip: 'Buscar dados do veículo pela placa',
+      size: 48,
+      onPressed: _saving ? null : _plateLookup,
+    );
+    return ref.watch(isOfflineProvider)
+        ? RequiresConnection(
+            reason: 'a consulta de placa é feita no servidor',
+            child: button,
+          )
+        : button;
+  }
+
+  /// O identificador é uma placa? Decidido pela CONFIG do tenant (rótulo), não
+  /// por vertical hardcoded.
+  bool get _identifierIsPlate {
+    final f = _byChave['identifier'];
+    return f != null && f.rotulo.toLowerCase().contains('placa');
+  }
+
+  /// Consulta a placa e preenche os campos do veículo. Usa o "equivalente"
+  /// FIPE devolvido pelo backend, então a cascata (marca→modelo→ano) continua
+  /// funcionando; sem equivalente, cai no texto cru do registro.
+  Future<void> _plateLookup() async {
+    final plate = _subjFields['identifier']?.text.trim() ?? '';
+    if (!isValidPlate(plate)) {
+      _snack('Digite uma placa válida antes de buscar (ex.: ABC1D23).');
+      return;
+    }
+    setState(() => _plateBusy = true);
+    try {
+      final info =
+          await ref.read(customersRepositoryProvider).plateLookup(plate);
+      if (!mounted) return;
+      final match = info.fipeMatch;
+      final values = <String, (String?, String?)>{
+        'marca': (match?.marca?.value ?? info.marca, match?.marca?.codigo),
+        'modelo': (match?.modelo?.value ?? info.modelo, match?.modelo?.codigo),
+        'ano': (
+          match?.ano?.value ?? info.anoModelo ?? info.ano,
+          match?.ano?.codigo,
+        ),
+        'cor': (_titleCase(info.cor), null),
+      };
+      setState(() {
+        _plateInfo = info.copyWith(cached: false, usage: null);
+        _autoFilled.clear();
+        values.forEach((chave, entry) {
+          final (value, codigo) = entry;
+          final ctrl = _subjFields[chave];
+          if (ctrl == null || value == null || value.isEmpty) return;
+          ctrl.text = value;
+          _selectedCode[chave] = codigo;
+          _autoFilled.add(chave);
+        });
+        _fillGen++;
+      });
+      final usage = info.usage;
+      final custo = info.cached
+          ? 'do cache — não gastou consulta'
+          : usage != null
+              ? 'consulta ${usage.used} de ${usage.limit} do mês'
+              : 'consulta realizada';
+      _snack(
+        _autoFilled.isEmpty
+            ? 'Veículo encontrado, mas sem dados para preencher ($custo).'
+            : 'Dados do veículo preenchidos ($custo). Revise antes de salvar.',
+      );
+    } on AppException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _plateBusy = false);
+    }
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// 'PRATA' → 'Prata' (a base devolve as cores em caixa alta).
+  String? _titleCase(String? v) {
+    if (v == null || v.isEmpty) return v;
+    return v
+        .split(' ')
+        .map((w) =>
+            w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
   }
 
   // ---------------------------------------------------------------------------

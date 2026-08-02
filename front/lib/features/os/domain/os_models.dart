@@ -252,6 +252,7 @@ class OrderDraft {
     this.newCustomerPhone,
     this.newSubjectIdentifier,
     this.newSubjectAttributes,
+    this.newSubjectPlateData,
     this.complaint,
     this.diagnosis,
     this.scheduledStart,
@@ -265,6 +266,10 @@ class OrderDraft {
   final String? newCustomerPhone;
   final String? newSubjectIdentifier;
   final Map<String, dynamic>? newSubjectAttributes;
+
+  /// Retorno da consulta por placa do veículo criado junto com a OS —
+  /// persistido nas colunas exclusivas do veículo (alimenta a ficha depois).
+  final Map<String, dynamic>? newSubjectPlateData;
   final String? complaint;
   final String? diagnosis;
   final String? scheduledStart;
@@ -280,6 +285,8 @@ class OrderDraft {
           'newSubjectIdentifier': newSubjectIdentifier,
         if (newSubjectAttributes != null && newSubjectAttributes!.isNotEmpty)
           'newSubjectAttributes': newSubjectAttributes,
+        if (newSubjectPlateData != null)
+          'newSubjectPlateData': newSubjectPlateData,
         if (complaint != null) 'complaint': complaint,
         if (diagnosis != null) 'diagnosis': diagnosis,
         if (scheduledStart != null) 'scheduledStart': scheduledStart,

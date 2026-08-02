@@ -133,6 +133,35 @@ export class OsService {
   /** Limite de tamanho do upload de foto (~8 MB). */
   private static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
+  /**
+   * Cria o veículo pedido no corpo da OS, para o cliente informado. Só cria se
+   * o tenant usa objetos — do contrário a OS fica só com o cliente (o mesmo
+   * corpo serve a verticais sem veículo). "Aponta, não invade": vai pelo
+   * service público do módulo de clientes.
+   */
+  private async createSubjectFor(
+    user: AuthUser,
+    customerId: string,
+    dto: CreateOrderDto,
+  ): Promise<{ id: string; label: string | null } | null> {
+    const config = await this.customers.getConfig(user.tenantId);
+    if (!config.usaSubjects) {
+      this.logger.warn(
+        `OS criada sem veículo: tenant ${user.tenantId} não usa objetos (usaSubjects=false).`,
+      );
+      return null;
+    }
+    const subject = await this.customers.createSubject(user, customerId, {
+      identifier: dto.newSubjectIdentifier?.trim() || undefined,
+      attributes: dto.newSubjectAttributes,
+      plateData: dto.newSubjectPlateData,
+    });
+    return {
+      id: subject.id,
+      label: subject.label || subject.identifier || null,
+    };
+  }
+
   // ===================== Orders =====================
   async createOrder(user: AuthUser, dto: CreateOrderDto) {
     // "Aponta, não invade": resolve via service público + snapshot (não toca a tabela alheia).
@@ -142,6 +171,13 @@ export class OsService {
     let subjectId: string | null = null;
     let subjectLabel: string | null = null;
 
+    // Veículo novo pedido no corpo (vale tanto para cliente novo quanto para
+    // cliente existente que ainda não tem nenhum cadastrado).
+    const wantsSubject =
+      !!dto.newSubjectIdentifier?.trim() ||
+      (dto.newSubjectAttributes != null &&
+        Object.keys(dto.newSubjectAttributes).length > 0);
+
     if (dto.customerId) {
       // Caminho "cliente existente": ponteiro + snapshot.
       customer = await this.customers.getCustomer(user, dto.customerId);
@@ -149,32 +185,22 @@ export class OsService {
         const subject = await this.customers.getSubject(user, dto.subjectId);
         subjectId = subject.id;
         subjectLabel = subject.label || subject.identifier || null;
+      } else if (wantsSubject) {
+        // Cliente já existe mas não tinha veículo: cadastra na hora.
+        const created = await this.createSubjectFor(user, customer.id, dto);
+        subjectId = created?.id ?? null;
+        subjectLabel = created?.label ?? null;
       }
     } else if (dto.newCustomerName?.trim()) {
       // Caminho "cliente novo na hora": cria o cliente (e o veículo) via service público.
       customer = await this.customers.createCustomer(user, {
         name: dto.newCustomerName.trim(),
-        phone: dto.newCustomerPhone?.trim(),
+        phone: dto.newCustomerPhone.trim(),
       });
-      const wantsSubject =
-        !!dto.newSubjectIdentifier?.trim() ||
-        (dto.newSubjectAttributes != null &&
-          Object.keys(dto.newSubjectAttributes).length > 0);
       if (wantsSubject) {
-        // Só cria o subject se o tenant usa objetos; senão a OS fica só com o cliente.
-        const config = await this.customers.getConfig(user.tenantId);
-        if (config.usaSubjects) {
-          const subject = await this.customers.createSubject(user, customer.id, {
-            identifier: dto.newSubjectIdentifier?.trim() || undefined,
-            attributes: dto.newSubjectAttributes,
-          });
-          subjectId = subject.id;
-          subjectLabel = subject.label || subject.identifier || null;
-        } else {
-          this.logger.warn(
-            `OS criada sem veículo: tenant ${user.tenantId} não usa objetos (usaSubjects=false).`,
-          );
-        }
+        const created = await this.createSubjectFor(user, customer.id, dto);
+        subjectId = created?.id ?? null;
+        subjectLabel = created?.label ?? null;
       }
     } else {
       throw new BadRequestException(
