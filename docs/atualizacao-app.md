@@ -74,6 +74,23 @@ meio do uso, o app pede a atualização de cara.
 Fora esse caso, deixe como está: atualização forçada interrompe a oficina no
 meio do expediente.
 
+## Numeração das versões
+
+A `version` do `front/pubspec.yaml` (ex.: `1.0.0`) é a que o usuário lê e só muda
+quando você edita o arquivo. O que diferencia uma publicação da outra é o
+**build**, gerado automaticamente pelo CI: `10000 + número da execução`.
+
+O offset de 10000 não é enfeite: no Android o build reportado é o `versionCode`,
+e um APK gerado localmente com `--split-per-abi` já nasce em 1001/2001/4001
+(o Flutter soma um prefixo por arquitetura). Sem o offset, a primeira publicação
+do CI sairia com build `1` e o aparelho a trataria como mais antiga que a
+instalada — nenhuma atualização apareceria. **Mantenha builds locais abaixo de
+10000.**
+
+Como a comparação é por `(versão, build)`, publicar sem mexer no pubspec já
+conta como versão nova. Suba a `version` quando a mudança for relevante para o
+usuário — é o número que ele vê no aviso.
+
 ## Publicando
 
 Merge/push na `main` já dispara. Para publicar sem alterar código:

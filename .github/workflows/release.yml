@@ -37,7 +37,14 @@ jobs:
         run: |
           set -euo pipefail
           BASE=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
-          BUILD=${{ github.run_number }}
+          # Build number = contador da execucao + OFFSET. O offset existe porque
+          # o Android reporta o versionCode como build, e um APK gerado local
+          # com --split-per-abi ja nasce em 1001/2001/4001 (o Flutter soma um
+          # prefixo por arquitetura). Sem o offset, a primeira publicacao do CI
+          # sairia com build 1 e o aparelho a veria como MAIS ANTIGA que a
+          # instalada — nenhuma atualizacao seria oferecida.
+          # Mantenha builds locais abaixo de 10000.
+          BUILD=$(( 10000 + ${{ github.run_number }} ))
           # Menor versao que o backend ainda atende.
           # forceAll=true (produto no inicio): o minimo vira a PROPRIA versao
           # publicada, entao toda atualizacao e obrigatoria e ninguem fica para
