@@ -336,7 +336,6 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
     final info = _s.plateInfo;
     final plate = _s.identifier ?? '';
     final podeConsultar = isValidPlate(plate) && widget.canWrite;
@@ -383,17 +382,13 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
         children: [
-          // Barra de ações + quando o dado foi obtido.
+          _PlateHero(info: info, consultadoEm: _s.plateDataAt),
+          // Ações da ficha.
           Wrap(
             spacing: 10,
             runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if ((_s.plateDataAt ?? '').isNotEmpty)
-                Text(
-                  'Consultado em ${_formatDate(_s.plateDataAt!)}',
-                  style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
-                ),
               NeuButton(
                 label: 'Ficha / imprimir',
                 icon: Icons.picture_as_pdf_outlined,
@@ -422,8 +417,9 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           _InfoSection(
+            icon: Icons.badge_outlined,
             title: 'Identificação',
             pairs: [
               ('Placa', info.placa),
@@ -439,6 +435,7 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
             ],
           ),
           _InfoSection(
+            icon: Icons.tune_rounded,
             title: 'Características',
             pairs: [
               ('Combustível', info.combustivel),
@@ -450,6 +447,7 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
             ],
           ),
           _InfoSection(
+            icon: Icons.assignment_outlined,
             title: 'Registro',
             pairs: [
               ('Município', info.municipio),
@@ -463,57 +461,13 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
           ),
           if (tecnicos.isNotEmpty)
             _InfoSection(
+              icon: Icons.precision_manufacturing_outlined,
               title: 'Dados técnicos e restrições',
+              // Campos curtos: cabem 4 por linha num monitor.
+              minTileWidth: 170,
               pairs: [for (final (l, v) in tecnicos) (l, v)],
             ),
-          if (info.fipeTodos.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            Text(
-              'Valores de referência FIPE',
-              style: TextStyle(
-                color: neu.ink,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            for (final f in info.fipeTodos)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: NeuSurface(
-                  elevation: NeuElevation.flat,
-                  radius: NeuTokens.rField,
-                  color: neu.base,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          f.modelo ?? '—',
-                          style: TextStyle(
-                            color: neu.ink,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if ((f.valor ?? '').isNotEmpty)
-                        Text(
-                          f.valor!,
-                          style: TextStyle(
-                            color: neu.accent,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          if (info.fipeTodos.isNotEmpty) _FipeSection(fipes: info.fipeTodos),
         ],
       ),
     );
@@ -692,11 +646,26 @@ class _OrdemTileState extends ConsumerState<_OrdemTile> {
 }
 
 /// Bloco rótulo→valor; some quando não há nada preenchido.
+/// Card de uma seção de informações: cabeçalho com ícone + grid alinhado.
+///
+/// O grid usa COLUNAS DE LARGURA IGUAL calculadas pela largura disponível (2 a
+/// 4 por linha) em vez de um Wrap de caixas soltas — assim os rótulos alinham
+/// entre linhas e a página aproveita a horizontal em vez de virar uma coluna
+/// alta de cartõezinhos.
 class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.title, required this.pairs});
+  const _InfoSection({
+    required this.title,
+    required this.pairs,
+    this.icon = Icons.info_outline_rounded,
+    this.minTileWidth = 210,
+  });
 
   final String title;
   final List<(String, String?)> pairs;
+  final IconData icon;
+
+  /// Largura-alvo de cada célula; define quantas colunas cabem.
+  final double minTileWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -707,32 +676,69 @@ class _InfoSection extends StatelessWidget {
     ];
     if (filled.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 18),
-        Text(
-          title,
-          style: TextStyle(
-            color: neu.ink,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rPanel,
+        color: neu.surface,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final (label, value) in filled)
-              _InfoTile(label: label, value: value),
+            Row(
+              children: [
+                Icon(icon, size: 18, color: neu.accent),
+                const SizedBox(width: 8),
+                Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _InfoGrid(pairs: filled, minTileWidth: minTileWidth),
           ],
         ),
-      ],
+      ),
     );
   }
 }
 
+/// Grid de pares rótulo→valor com colunas de largura igual.
+class _InfoGrid extends StatelessWidget {
+  const _InfoGrid({required this.pairs, this.minTileWidth = 210});
+
+  final List<(String, String)> pairs;
+  final double minTileWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = 10.0;
+    return LayoutBuilder(
+      builder: (context, c) {
+        final cols = (c.maxWidth / minTileWidth).floor().clamp(1, 4);
+        final w = (c.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final (label, value) in pairs)
+              SizedBox(width: w, child: _InfoTile(label: label, value: value)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Célula do grid: rótulo pequeno em cima, valor em destaque embaixo, numa
+/// cavidade neumórfica. Valores são selecionáveis (copiar chassi/placa).
 class _InfoTile extends StatelessWidget {
   const _InfoTile({required this.label, this.value});
 
@@ -742,29 +748,172 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final filled = (value ?? '').trim().isNotEmpty;
-    return SizedBox(
-      width: context.isMobile ? double.infinity : 220,
-      child: NeuSurface(
-        elevation: NeuElevation.flat,
-        radius: NeuTokens.rField,
-        color: neu.base,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(color: neu.inkFaint, fontSize: 11)),
-            const SizedBox(height: 3),
-            SelectableText(
-              filled ? value!.trim() : '—',
-              style: TextStyle(
-                color: filled ? neu.ink : neu.inkFaint,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-              ),
+    final v = (value ?? '').trim();
+    final filled = v.isNotEmpty;
+    // "SEM RESTRICAO" é boa notícia — vale ler em verde no meio dos técnicos.
+    final ok = filled && v.toUpperCase().startsWith('SEM RESTRI');
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      color: neu.base,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: neu.inkFaint,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
-          ],
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            filled ? v : '—',
+            maxLines: 2,
+            style: TextStyle(
+              color: !filled
+                  ? neu.inkFaint
+                  : ok
+                      ? neu.success
+                      : neu.ink,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Faixa de destaque no topo da aba: placa, veículo e valor FIPE — o que a
+/// oficina olha primeiro, antes de descer para os detalhes.
+class _PlateHero extends StatelessWidget {
+  const _PlateHero({required this.info, this.consultadoEm});
+
+  final PlateInfo info;
+  final String? consultadoEm;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final titulo = [info.marca, info.modelo]
+        .where((p) => (p ?? '').isNotEmpty)
+        .cast<String>()
+        .join(' ');
+    final valorFipe = info.fipe?.valor;
+
+    final placa = NeuSurface(
+      elevation: NeuElevation.flat,
+      radius: NeuTokens.rChip,
+      color: neu.accent.withValues(alpha: 0.14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Text(
+        info.placa,
+        style: TextStyle(
+          color: neu.accent,
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.6,
         ),
+      ),
+    );
+
+    final identificacao = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          titulo.isEmpty ? 'Veículo' : titulo,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: neu.ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if ((info.versao ?? '').isNotEmpty && info.versao != info.modelo)
+          Text(
+            info.versao!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          ),
+        if ((consultadoEm ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'Consultado em ${_formatDate(consultadoEm!)}',
+              style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+            ),
+          ),
+      ],
+    );
+
+    final fipe = valorFipe == null || valorFipe.isEmpty
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'REFERÊNCIA FIPE',
+                style: TextStyle(
+                  color: neu.inkFaint,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                valorFipe,
+                style: TextStyle(
+                  color: neu.success,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rPanel,
+        color: neu.surface,
+        padding: const EdgeInsets.all(18),
+        child: context.isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [placa]),
+                  const SizedBox(height: 12),
+                  identificacao,
+                  if (fipe != null) ...[
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: fipe),
+                  ],
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  placa,
+                  const SizedBox(width: 16),
+                  Expanded(child: identificacao),
+                  if (fipe != null) ...[const SizedBox(width: 16), fipe],
+                ],
+              ),
       ),
     );
   }
@@ -791,4 +940,143 @@ class _Bounded extends StatelessWidget {
           child: child,
         ),
       );
+}
+
+/// Valores FIPE em formato de tabela: modelo à esquerda (com a referência
+/// abaixo) e valor à direita. Em card, como as demais seções — antes ficava
+/// solto no fundo da página, destoando do resto.
+class _FipeSection extends StatelessWidget {
+  const _FipeSection({required this.fipes});
+
+  final List<PlateFipe> fipes;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rPanel,
+        color: neu.surface,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.request_quote_outlined, size: 18, color: neu.accent),
+                const SizedBox(width: 8),
+                Text(
+                  'VALORES DE REFERÊNCIA FIPE',
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (var i = 0; i < fipes.length; i++) ...[
+              if (i > 0) Divider(height: 18, color: neu.line),
+              _FipeRow(fipe: fipes[i], best: i == 0),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FipeRow extends StatelessWidget {
+  const _FipeRow({required this.fipe, required this.best});
+
+  final PlateFipe fipe;
+
+  /// A primeira é a de maior score — a correspondência mais provável.
+  final bool best;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final ref = [
+      if ((fipe.codigoFipe ?? '').isNotEmpty) 'Cód. ${fipe.codigoFipe}',
+      if ((fipe.anoModelo ?? '').isNotEmpty) fipe.anoModelo!,
+      if ((fipe.combustivel ?? '').isNotEmpty) fipe.combustivel!,
+      if ((fipe.mesReferencia ?? '').isNotEmpty) 'ref. ${fipe.mesReferencia}',
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        fipe.modelo ?? '—',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: neu.ink,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (best) ...[
+                      const SizedBox(width: 8),
+                      NeuSurface(
+                        elevation: NeuElevation.flat,
+                        radius: NeuTokens.rChip,
+                        color: neu.successTint,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          'melhor correspondência',
+                          style: TextStyle(
+                            color: neu.success,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (ref.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      ref,
+                      style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if ((fipe.valor ?? '').isNotEmpty) ...[
+            const SizedBox(width: 12),
+            Text(
+              fipe.valor!,
+              style: TextStyle(
+                color: best ? neu.success : neu.ink,
+                fontSize: best ? 17 : 14.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

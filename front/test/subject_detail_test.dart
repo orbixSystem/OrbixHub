@@ -189,7 +189,8 @@ void main() {
 
       // Dados vieram do que está SALVO — nenhuma consulta nova foi feita.
       expect(find.text('9BWKB05Z174110137'), findsOneWidget);
-      expect(find.text('Peso bruto total'), findsOneWidget);
+      // Rótulos do grid saem em caixa alta (hierarquia visual da seção).
+      expect(find.text('PESO BRUTO TOTAL'), findsOneWidget);
       expect(find.textContaining('Consultado em 01/08/2026'), findsOneWidget);
       expect(find.text('Ficha / imprimir'), findsOneWidget);
       expect(find.text('Atualizar consulta'), findsOneWidget);
