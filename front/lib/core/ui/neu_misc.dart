@@ -110,41 +110,50 @@ class NeuSegmented<T> extends StatelessWidget {
       elevation: NeuElevation.inset,
       radius: NeuTokens.rField,
       padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final entry in segments.entries)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: InkWell(
-                onTap: entry.key == selected
-                    ? null
-                    : () => onChanged(entry.key),
-                borderRadius: BorderRadius.circular(NeuTokens.rChip),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: entry.key == selected
-                        ? neu.navy
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(NeuTokens.rChip),
-                  ),
-                  child: Text(
-                    entry.value,
-                    style: TextStyle(
-                      color: entry.key == selected ? neu.onNavy : neu.inkMuted,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
+      // Em celular estreito, três ou quatro segmentos de rótulo comprido
+      // ("Aguardando", "Em execução"…) não cabem na largura. Rolar na
+      // horizontal preserva todas as opções — encolher a fonte deixaria
+      // ilegível e quebrar em duas linhas descaracterizaria o controle.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in segments.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: InkWell(
+                  onTap: entry.key == selected
+                      ? null
+                      : () => onChanged(entry.key),
+                  borderRadius: BorderRadius.circular(NeuTokens.rChip),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: entry.key == selected
+                          ? neu.navy
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(NeuTokens.rChip),
+                    ),
+                    child: Text(
+                      entry.value,
+                      style: TextStyle(
+                        color: entry.key == selected
+                            ? neu.onNavy
+                            : neu.inkMuted,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

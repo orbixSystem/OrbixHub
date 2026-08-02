@@ -511,7 +511,9 @@ class _OrderCardMobile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              OsStatusChip(status: status),
+              // Flexible: o rótulo do status ("Aguardando aprovação") somado ao
+              // número da OS não cabia em tela de celular e estourava a linha.
+              Flexible(child: OsStatusChip(status: status)),
             ],
           ),
           if (subtitle.isNotEmpty) ...[
@@ -531,16 +533,23 @@ class _OrderCardMobile extends StatelessWidget {
           Divider(height: 1, thickness: 1, color: neu.inkFaint.withValues(alpha: .15)),
           const SizedBox(height: 12),
           // Rodapé: pagamento + valor.
+          // Tag de pagamento + valor: em celular, com valor na casa dos
+          // milhares, a linha não fechava. Cada lado agora cede espaço.
           Row(
             children: [
-              PaymentTag(status: paymentStatus),
-              const Spacer(),
-              Text(
-                money(total),
-                style: TextStyle(
-                  color: neu.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 17,
+              Flexible(child: PaymentTag(status: paymentStatus)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  money(total),
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                  ),
                 ),
               ),
               const SizedBox(width: 4),

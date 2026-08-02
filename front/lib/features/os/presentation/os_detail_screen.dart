@@ -71,7 +71,8 @@ class OsDetailScreen extends ConsumerWidget {
     // emissão — o backend é a verdade (aqui só refletimos para UX).
     // NF desligada no front (kInvoiceEnabled=false): sem botão de emitir nota na
     // OS, mesmo com módulo/permissão. O backend segue capaz — é só retirada de UI.
-    final canIssueInvoice = kInvoiceEnabled &&
+    final canIssueInvoice =
+        kInvoiceEnabled &&
         _hasModule(ref, 'invoice') &&
         _has(ref, 'invoice.issue');
     final company = _company(ref);
@@ -103,8 +104,7 @@ class OsDetailScreen extends ConsumerWidget {
         ];
         final asideSections = <Widget>[
           // Caixinha com as mensagens DESTA OS (prévia + atalho pra thread).
-          if (order.conversationId != null &&
-              order.conversationId!.isNotEmpty)
+          if (order.conversationId != null && order.conversationId!.isNotEmpty)
             _MessagesSection(conversationId: order.conversationId!),
           if (hasTracking) _TrackingLinkCard(token: order.publicToken!),
           _PhotosSection(order: order, canWrite: canEdit),
@@ -212,8 +212,7 @@ class OsDetailScreen extends ConsumerWidget {
       final ok = await showNeuConfirm(
         context,
         title: 'Confirmar entrega?',
-        message:
-            'A OS será marcada como entregue e ficará somente leitura.',
+        message: 'A OS será marcada como entregue e ficará somente leitura.',
         confirmLabel: 'Confirmar entrega',
         danger: false,
         icon: Icons.local_shipping_outlined,
@@ -225,14 +224,14 @@ class OsDetailScreen extends ConsumerWidget {
       ref.invalidate(orderProvider(orderId));
       ref.invalidate(orderListProvider);
       // Ao finalizar a OS (concluída/entregue) sem nota ativa, oferece emitir.
-      if (context.mounted &&
-          (target == 'concluida' || target == 'entregue')) {
+      if (context.mounted && (target == 'concluida' || target == 'entregue')) {
         await _maybeOfferInvoice(context, ref, order);
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -246,12 +245,15 @@ class OsDetailScreen extends ConsumerWidget {
   ) async {
     if (!(_hasModule(ref, 'invoice') && _has(ref, 'invoice.issue'))) return;
     try {
-      final page =
-          await ref.read(invoiceRepositoryProvider).list(orderId: order.id);
-      final hasActive = page.items.any((i) =>
-          i.status == 'draft' ||
-          i.status == 'processing' ||
-          i.status == 'authorized');
+      final page = await ref
+          .read(invoiceRepositoryProvider)
+          .list(orderId: order.id);
+      final hasActive = page.items.any(
+        (i) =>
+            i.status == 'draft' ||
+            i.status == 'processing' ||
+            i.status == 'authorized',
+      );
       if (hasActive || !context.mounted) return;
     } on AppException {
       return; // falha ao consultar não interrompe o fluxo da OS
@@ -269,14 +271,16 @@ class OsDetailScreen extends ConsumerWidget {
     );
     if (!go || !context.mounted) return;
     try {
-      final inv =
-          await ref.read(invoiceRepositoryProvider).issue(orderId: order.id);
+      final inv = await ref
+          .read(invoiceRepositoryProvider)
+          .issue(orderId: order.id);
       ref.invalidate(orderInvoicesProvider(order.id));
       if (context.mounted) context.go('/m/invoice/${inv.id}');
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -296,13 +300,15 @@ class OsDetailScreen extends ConsumerWidget {
       ref.invalidate(orderProvider(orderId));
       ref.invalidate(orderListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Template aplicado.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Template aplicado.')));
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -363,11 +369,11 @@ class _Bounded extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-          child: child,
-        ),
-      );
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+      child: child,
+    ),
+  );
 }
 
 // ===================== Cabeçalho =====================
@@ -416,11 +422,11 @@ class _Header extends StatelessWidget {
       ('Relato', order.complaint),
       (
         'Previsão início',
-        order.scheduledStart == null ? null : _fmtDate(order.scheduledStart!)
+        order.scheduledStart == null ? null : _fmtDate(order.scheduledStart!),
       ),
       (
         'Previsão fim',
-        order.scheduledEnd == null ? null : _fmtDate(order.scheduledEnd!)
+        order.scheduledEnd == null ? null : _fmtDate(order.scheduledEnd!),
       ),
     ];
     final neu = context.neu;
@@ -452,15 +458,15 @@ class _Header extends StatelessWidget {
                       Text(
                         company!.name,
                         style: TextStyle(
-                            color: neu.inkMuted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700),
+                          color: neu.inkMuted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       if ((company!.cnpj ?? '').isNotEmpty)
                         Text(
                           'CNPJ: ${company!.cnpj}',
-                          style: TextStyle(
-                              color: neu.inkFaint, fontSize: 12),
+                          style: TextStyle(color: neu.inkFaint, fontSize: 12),
                         ),
                     ],
                   ),
@@ -474,8 +480,12 @@ class _Header extends StatelessWidget {
           Builder(
             builder: (context) {
               final isMobile = context.isMobile;
-              final leading = NeuIconChip.glyph(context,
-                  icon: Icons.build_rounded, index: 0, size: 52);
+              final leading = NeuIconChip.glyph(
+                context,
+                icon: Icons.build_rounded,
+                index: 0,
+                size: 52,
+              );
               // Número: fica em 24px quando cabe e, só num extremo, encolhe suave
               // (nunca quebra em 2 linhas nem corta com "…" — ilegível num número).
               // No mobile o bloco do número recebe a LARGURA TODA; os botões de
@@ -624,17 +634,23 @@ class _InlineFact extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: TextStyle(
-                    color: neu.inkFaint,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+            Text(
+              label,
+              style: TextStyle(
+                color: neu.inkFaint,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 15,
-                    color: neu.ink,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 15,
+                color: neu.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -670,8 +686,9 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
       if (mounted) context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -684,10 +701,12 @@ class _IssueInvoiceButtonState extends ConsumerState<_IssueInvoiceButton> {
     // Se sim, o botão vira "ver nota" (a OS reflete o estado fiscal em vez de
     // só oferecer emitir e bater no 409).
     final page = ref.watch(orderInvoicesProvider(widget.orderId)).asData?.value;
-    final active = (page?.items ?? const []).where((i) =>
-        i.status == 'draft' ||
-        i.status == 'processing' ||
-        i.status == 'authorized');
+    final active = (page?.items ?? const []).where(
+      (i) =>
+          i.status == 'draft' ||
+          i.status == 'processing' ||
+          i.status == 'authorized',
+    );
     if (active.isNotEmpty) {
       final inv = active.first;
       return NeuButton(
@@ -742,8 +761,12 @@ class _SectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              NeuIconChip.glyph(context,
-                  icon: icon, index: glyphIndex, size: 34),
+              NeuIconChip.glyph(
+                context,
+                icon: icon,
+                index: glyphIndex,
+                size: 34,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -805,7 +828,8 @@ class _WorkflowPanel extends StatelessWidget {
     final targets = osTransitions[status] ?? const <String>[];
     bool allowed(String t) {
       if (t == 'aprovada') return canApprove;
-      if (cancelled && t == 'aberta') return canApprove; // reabrir é privilegiado
+      // reabrir é privilegiado
+      if (cancelled && t == 'aberta') return canApprove;
       return true;
     }
 
@@ -986,25 +1010,32 @@ class _StepperWide extends StatelessWidget {
     for (var i = 0; i < _happyFlow.length; i++) {
       if (i > 0) {
         final done = !cancelled && i <= curIdx;
-        children.add(Expanded(
-          child: Container(
-            height: 3,
-            margin: const EdgeInsets.only(top: 13),
-            decoration: BoxDecoration(
-              color: done ? neu.navy : neu.base,
-              borderRadius: BorderRadius.circular(2),
+        children.add(
+          Expanded(
+            child: Container(
+              height: 3,
+              margin: const EdgeInsets.only(top: 13),
+              decoration: BoxDecoration(
+                color: done ? neu.navy : neu.base,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ));
+        );
       }
-      children.add(_StepNode(
-        index: i,
-        curIdx: curIdx,
-        cancelled: cancelled,
-        label: osStatusLabel(_happyFlow[i]),
-      ));
+      children.add(
+        _StepNode(
+          index: i,
+          curIdx: curIdx,
+          cancelled: cancelled,
+          label: osStatusLabel(_happyFlow[i]),
+        ),
+      );
     }
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
   }
 }
 
@@ -1091,23 +1122,34 @@ class _StepperMobile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Etapa + rótulo do status: "Aguardando aprovação" não cabia ao lado de
+        // "Etapa 2 de 5" em celular. Os dois cedem espaço em vez de estourar.
         Row(
           children: [
-            Text(
-              cancelled ? 'Fluxo interrompido' : 'Etapa ${idx + 1} de $total',
-              style: TextStyle(
-                color: neu.inkMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                cancelled ? 'Fluxo interrompido' : 'Etapa ${idx + 1} de $total',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: neu.inkMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const Spacer(),
-            Text(
-              label,
-              style: TextStyle(
-                color: cancelled ? neu.danger : neu.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: cancelled ? neu.danger : neu.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
@@ -1180,21 +1222,24 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
     setState(() => _saving = true);
     final text = _controller.text.trim();
     try {
-      await ref.read(osRepositoryProvider).updateOrder(
+      await ref
+          .read(osRepositoryProvider)
+          .updateOrder(
             widget.order.id,
             OrderPatch(diagnosis: text.isEmpty ? '' : text),
           );
       ref.invalidate(orderProvider(widget.order.id));
       if (mounted) {
         setState(() => _editing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Diagnóstico salvo.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Diagnóstico salvo.')));
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1241,10 +1286,9 @@ class _DiagnosisSectionState extends ConsumerState<_DiagnosisSection> {
                       onPressed: _saving
                           ? null
                           : () => setState(() {
-                                _editing = false;
-                                _controller.text =
-                                    widget.order.diagnosis ?? '';
-                              }),
+                              _editing = false;
+                              _controller.text = widget.order.diagnosis ?? '';
+                            }),
                     ),
                     const SizedBox(width: 10),
                     NeuButton(
@@ -1326,8 +1370,9 @@ class _ItemsSection extends ConsumerWidget {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -1349,8 +1394,9 @@ class _ItemsSection extends ConsumerWidget {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -1383,7 +1429,12 @@ class _ItemsSection extends ConsumerWidget {
                 children: [
                   for (var i = 0; i < order.items.length; i++) ...[
                     if (i > 0)
-                      Divider(height: 1, color: neu.base, indent: 14, endIndent: 14),
+                      Divider(
+                        height: 1,
+                        color: neu.base,
+                        indent: 14,
+                        endIndent: 14,
+                      ),
                     _ItemRow(
                       order: order,
                       item: order.items[i],
@@ -1434,7 +1485,11 @@ class _InlineEmpty extends StatelessWidget {
             Text(
               hint!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5, height: 1.3),
+              style: TextStyle(
+                color: neu.inkFaint,
+                fontSize: 12.5,
+                height: 1.3,
+              ),
             ),
           ],
         ],
@@ -1466,8 +1521,9 @@ class _ItemRow extends ConsumerWidget {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -1497,18 +1553,23 @@ class _ItemRow extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name,
-                    style: TextStyle(
-                        color: neu.ink, fontWeight: FontWeight.w700)),
+                Text(
+                  item.name,
+                  style: TextStyle(color: neu.ink, fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
-                Text(detail,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                Text(
+                  detail,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          Text(money(item.total),
-              style: TextStyle(color: neu.ink, fontWeight: FontWeight.w800)),
+          Text(
+            money(item.total),
+            style: TextStyle(color: neu.ink, fontWeight: FontWeight.w800),
+          ),
           if (canWrite) ...[
             const SizedBox(width: 4),
             PopupMenuButton<String>(
@@ -1539,10 +1600,14 @@ class _ItemRow extends ConsumerWidget {
                   child: ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading:
-                        Icon(Icons.delete_outline, color: AppColors.danger),
-                    title: Text('Remover',
-                        style: TextStyle(color: AppColors.danger)),
+                    leading: Icon(
+                      Icons.delete_outline,
+                      color: AppColors.danger,
+                    ),
+                    title: Text(
+                      'Remover',
+                      style: TextStyle(color: AppColors.danger),
+                    ),
                   ),
                 ),
               ],
@@ -1629,27 +1694,31 @@ class _ItemEditDialogState extends State<_ItemEditDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-            TextField(
-              controller: _qty,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Quantidade'),
+          TextField(
+            controller: _qty,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Quantidade'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _price,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Preço unitário',
+              prefixText: 'R\$ ',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _price,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                  labelText: 'Preço unitário', prefixText: 'R\$ '),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _disc,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Desconto',
+              prefixText: 'R\$ ',
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _disc,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  const InputDecoration(labelText: 'Desconto', prefixText: 'R\$ '),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1679,8 +1748,9 @@ class _TotalsCard extends StatelessWidget {
           if (discount > 0) ...[
             const SizedBox(height: 8),
             _TotalRow(
-                label: 'Desconto da OS',
-                value: '- ${money(discount.toString())}'),
+              label: 'Desconto da OS',
+              value: '- ${money(discount.toString())}',
+            ),
           ],
           const SizedBox(height: 14),
           Container(
@@ -1689,21 +1759,31 @@ class _TotalsCard extends StatelessWidget {
               color: neu.navy.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(NeuTokens.rField),
             ),
+            // O valor em fonte 22 não caberia ao lado do rótulo em celular.
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Total',
-                    style: TextStyle(
-                        color: neu.ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16)),
                 Text(
-                  money(order.total),
+                  'Total',
                   style: TextStyle(
+                    color: neu.ink,
                     fontWeight: FontWeight.w800,
-                    fontSize: 22,
-                    color: neu.navy,
-                    letterSpacing: -0.5,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    money(order.total),
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      color: neu.navy,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
               ],
@@ -1727,8 +1807,10 @@ class _TotalRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 14)),
-        Text(value,
-            style: TextStyle(color: neu.ink, fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: TextStyle(color: neu.ink, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
@@ -1797,8 +1879,9 @@ class _MessagesSection extends ConsumerWidget {
           final recent = messages.length > 3
               ? messages.sublist(messages.length - 3)
               : messages;
-          final older =
-              thread.hasMore ? '${messages.length}+' : '${messages.length}';
+          final older = thread.hasMore
+              ? '${messages.length}+'
+              : '${messages.length}';
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1853,8 +1936,7 @@ class _MessagePreviewTile extends StatelessWidget {
     final who = (message.authorName?.trim().isNotEmpty ?? false)
         ? message.authorName!.trim()
         : (fromCustomer ? 'Cliente' : 'Equipe');
-    final hasPhoto =
-        message.photoUrl != null && message.photoUrl!.isNotEmpty;
+    final hasPhoto = message.photoUrl != null && message.photoUrl!.isNotEmpty;
     final body = message.body.trim();
     return InkWell(
       onTap: onTap,
@@ -1907,8 +1989,7 @@ class _MessagePreviewTile extends StatelessWidget {
                     body.isNotEmpty ? body : (hasPhoto ? 'Foto' : ''),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        TextStyle(color: neu.ink, fontSize: 13, height: 1.3),
+                    style: TextStyle(color: neu.ink, fontSize: 13, height: 1.3),
                   ),
                 ),
               ],
@@ -1935,8 +2016,9 @@ class _TrackingLinkCard extends StatelessWidget {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _url));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Link copiado')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Link copiado')));
   }
 
   /// Mensagem padrão compartilhada por WhatsApp/e-mail (link de acompanhamento).
@@ -1953,18 +2035,19 @@ class _TrackingLinkCard extends StatelessWidget {
   }
 
   Future<void> _whatsApp(BuildContext context) => _openExternal(
-        context,
-        Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
-      );
+    context,
+    Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
+  );
 
   Future<void> _email(BuildContext context) => _openExternal(
-        context,
-        Uri(
-          scheme: 'mailto',
-          query: 'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
-              '&body=${Uri.encodeComponent(_shareText)}',
-        ),
-      );
+    context,
+    Uri(
+      scheme: 'mailto',
+      query:
+          'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
+          '&body=${Uri.encodeComponent(_shareText)}',
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -2037,7 +2120,9 @@ class _TimelineSection extends ConsumerWidget {
     final draft = await _NoteDialog.show(context);
     if (draft == null) return;
     try {
-      await ref.read(osRepositoryProvider).createNote(
+      await ref
+          .read(osRepositoryProvider)
+          .createNote(
             order.id,
             message: draft.message,
             visiblePublic: draft.visiblePublic,
@@ -2045,8 +2130,9 @@ class _TimelineSection extends ConsumerWidget {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -2060,7 +2146,8 @@ class _TimelineSection extends ConsumerWidget {
       glyphIndex: 4,
       // Notas criadas offline ficam no aparelho até a conexão voltar.
       notice: const OfflinePendingNotice(
-        message: 'Notas criadas agora só serão enviadas ao sistema quando a '
+        message:
+            'Notas criadas agora só serão enviadas ao sistema quando a '
             'conexão voltar',
       ),
       action: canWrite
@@ -2152,7 +2239,9 @@ class _EventRow extends StatelessWidget {
                         child: Text(
                           _label(),
                           style: TextStyle(
-                              color: neu.ink, fontWeight: FontWeight.w700),
+                            color: neu.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2283,9 +2372,9 @@ class _NoteDialogState extends State<_NoteDialog> {
   void _submit() {
     final text = _message.text.trim();
     if (text.isEmpty) return;
-    Navigator.of(context).pop(
-      _NoteDraft(message: text, visiblePublic: _visiblePublic),
-    );
+    Navigator.of(
+      context,
+    ).pop(_NoteDraft(message: text, visiblePublic: _visiblePublic));
   }
 
   @override
@@ -2309,33 +2398,33 @@ class _NoteDialogState extends State<_NoteDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            TextField(
-              controller: _message,
-              autofocus: true,
-              minLines: 3,
-              maxLines: 6,
-              maxLength: 500,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                labelText: 'Nota',
-                hintText: 'Ex.: peça pedida ao fornecedor, previsão de chegada…',
-                alignLabelWithHint: true,
-                counterText: '',
-              ),
+          TextField(
+            controller: _message,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 6,
+            maxLength: 500,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              labelText: 'Nota',
+              hintText: 'Ex.: peça pedida ao fornecedor, previsão de chegada…',
+              alignLabelWithHint: true,
+              counterText: '',
             ),
-            const SizedBox(height: 4),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _visiblePublic,
-              onChanged: (v) => setState(() => _visiblePublic = v),
-              title: const Text('Visível ao cliente'),
-              subtitle: const Text(
-                'Quando ligado, aparece no acompanhamento do cliente.',
-              ),
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _visiblePublic,
+            onChanged: (v) => setState(() => _visiblePublic = v),
+            title: const Text('Visível ao cliente'),
+            subtitle: const Text(
+              'Quando ligado, aparece no acompanhamento do cliente.',
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2371,7 +2460,9 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
     final ext = (file.extension ?? 'jpeg').toLowerCase();
     setState(() => _busy = true);
     try {
-      await ref.read(osRepositoryProvider).addPhoto(
+      await ref
+          .read(osRepositoryProvider)
+          .addPhoto(
             order.id,
             bytes: file.bytes!,
             filename: file.name,
@@ -2381,8 +2472,9 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -2402,8 +2494,9 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -2434,12 +2527,15 @@ class _PhotosSectionState extends ConsumerState<_PhotosSection> {
       title: 'Fotos',
       glyphIndex: 5,
       notice: const OfflinePendingNotice(
-        message: 'As fotos adicionadas agora só serão enviadas ao sistema '
+        message:
+            'As fotos adicionadas agora só serão enviadas ao sistema '
             'quando a conexão voltar',
       ),
       action: widget.canWrite
           ? _HeaderAction(
-              icon: _busy ? Icons.hourglass_top_rounded : Icons.add_a_photo_outlined,
+              icon: _busy
+                  ? Icons.hourglass_top_rounded
+                  : Icons.add_a_photo_outlined,
               label: _busy ? 'Enviando…' : 'Adicionar',
               onTap: _busy ? () {} : _add,
             )
@@ -2519,13 +2615,18 @@ class _PhotoThumb extends StatelessWidget {
                 customBorder: const StadiumBorder(),
                 onTap: offline ? null : onTap,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.mode_comment_outlined,
-                          size: 13, color: Colors.white),
+                      const Icon(
+                        Icons.mode_comment_outlined,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         '${photo.commentCount}',
@@ -2633,8 +2734,9 @@ class _PhotoCommentsPanelState extends ConsumerState<_PhotoCommentsPanel> {
       setState(() => _comments = [..._comments, created]);
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -2660,8 +2762,7 @@ class _PhotoCommentsPanelState extends ConsumerState<_PhotoCommentsPanel> {
         FutureBuilder<List<PhotoComment>>(
           future: _future,
           builder: (context, snap) {
-            if (!_loaded &&
-                snap.connectionState == ConnectionState.waiting) {
+            if (!_loaded && snap.connectionState == ConnectionState.waiting) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: CircularProgressIndicator()),
@@ -2874,7 +2975,9 @@ class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
       });
     }
     try {
-      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+      final pageData = await ref
+          .read(osRepositoryProvider)
+          .listTemplatesPage(
             query: _query.isEmpty ? null : _query,
             page: _page,
             pageSize: _pageSize,
@@ -2900,7 +3003,9 @@ class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
     setState(() => _loadingMore = true);
     _page += 1;
     try {
-      final pageData = await ref.read(osRepositoryProvider).listTemplatesPage(
+      final pageData = await ref
+          .read(osRepositoryProvider)
+          .listTemplatesPage(
             query: _query.isEmpty ? null : _query,
             page: _page,
             pageSize: _pageSize,
@@ -2959,9 +3064,11 @@ class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
     }
     if (_error != null) {
       return Center(
-        child: Text(_error is AppException
-            ? (_error as AppException).message
-            : 'Erro ao carregar os templates.'),
+        child: Text(
+          _error is AppException
+              ? (_error as AppException).message
+              : 'Erro ao carregar os templates.',
+        ),
       );
     }
     if (_items.isEmpty) {

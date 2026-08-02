@@ -6,6 +6,7 @@ import '../router/navigator_key.dart';
 import '../../di.dart';
 import '../../features/auth/presentation/session_state.dart';
 import '../../features/notifications/presentation/notifications_bell.dart';
+import '../ui/ui.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
 
@@ -72,6 +73,20 @@ class GlobalControls extends ConsumerWidget {
               if (authed) ...[
                 const NotificationsBell(),
                 const SizedBox(width: 8),
+                // Sair só aparece no CELULAR: lá não há sidebar nem drawer
+                // (a navegação é a barra de baixo), então este era o único
+                // lugar sem saída para encerrar a sessão. No desktop/tablet o
+                // botão já existe no rodapé da sidebar — duplicar poluiria.
+                if (context.isMobile) ...[
+                  _CircleButton(
+                    icon: Icons.logout_rounded,
+                    label: 'Sair',
+                    bg: scheme.surfaceContainerHighest,
+                    fg: scheme.onSurface,
+                    onTap: () => _confirmLogout(context, ref),
+                  ),
+                  const SizedBox(width: 8),
+                ],
               ],
               _CircleButton(
                 icon: isDark ? Icons.light_mode : Icons.dark_mode,
@@ -140,6 +155,18 @@ class DevBeetleControl extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Confirma antes de encerrar a sessão: o botão fica no topo da tela, ao lado
+/// do sino, e um toque acidental derrubaria o trabalho em andamento.
+Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  final ok = await showNeuConfirm(
+    context,
+    title: 'Sair da conta?',
+    message: 'Você precisará entrar de novo para continuar usando o OrbixHub.',
+    confirmLabel: 'Sair',
+  );
+  if (ok) await ref.read(sessionControllerProvider.notifier).logout();
 }
 
 class _CircleButton extends StatelessWidget {
