@@ -84,3 +84,8 @@ app.*.map.json
 # Windows / Linux desktop
 **/windows/flutter/ephemeral/
 **/linux/flutter/ephemeral/
+
+# Artefatos locais do build/instalador Windows (não versionar)
+/build_log.txt
+/scripts/vcredist_x64.exe
+/build/installer/

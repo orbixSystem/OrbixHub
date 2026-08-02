@@ -95,6 +95,23 @@
       "request": "launch",
       "command": "bash scripts/run-flutter.sh ios --dart-define=DEV_TOOLS=true",
       "cwd": "${workspaceFolder}/front"
+    },
+    {
+      // Gera o instalador Windows de produção (build release + Inno Setup).
+      // Só roda numa máquina Windows. Pré-requisitos em scripts/build_installer.ps1.
+      "name": "Front: Build Windows installer (prod)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File scripts\\build_installer.ps1",
+      "cwd": "${workspaceFolder}/front"
+    },
+    {
+      // Gera o APK de produção (env/prod.json) para instalação direta no Android.
+      "name": "Front: Build Android APK (prod)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/build_prod.sh apk",
+      "cwd": "${workspaceFolder}/front"
     }
   ]
 }
