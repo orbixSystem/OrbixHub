@@ -33,7 +33,11 @@ jobs:
   # 2) Builda a imagem do backend e publica no GHCR.
   build-backend:
     needs: test
-    runs-on: ubuntu-latest
+    # Runner ARM nativo: a EC2 de producao e t4g (Graviton/arm64). Buildar em
+    # x86 sem isso gera imagem amd64 e o podman falha com "exec format error".
+    # Repo publico => runners ARM sao gratuitos; nada de QEMU (que compilaria
+    # o argon2 nativo sob emulacao, lentissimo).
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
