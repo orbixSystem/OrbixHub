@@ -20,6 +20,7 @@ import 'package:orbixhub_front/features/inventory/presentation/inventory_provide
 import 'package:orbixhub_front/features/inventory/presentation/inventory_screen.dart';
 import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/domain/os_models.dart';
+import 'package:orbixhub_front/features/os/presentation/order_edit_dialog.dart';
 import 'package:orbixhub_front/features/os/presentation/os_detail_screen.dart';
 import 'package:orbixhub_front/features/os/presentation/os_list_screen.dart';
 import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
@@ -183,6 +184,44 @@ void main() {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('datas de previsão nos formulários de OS', () {
+    // Em meia tela de celular, "Previsão início (opcional)" + a data não cabem:
+    // o texto aperta e a linha quebra. Empilhados, cada campo tem a largura toda.
+    testWidgets('editar OS: celular empilha os dois campos', (tester) async {
+      tester.view.physicalSize = _telaComum;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _wrap(const OrderEditDialog(order: _osPesada)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // Empilhado: os dois rótulos aparecem em X iguais (mesma coluna).
+      final inicio = tester.getTopLeft(find.text('Previsão início (opcional)'));
+      final fim = tester.getTopLeft(find.text('Previsão fim (opcional)'));
+      expect(inicio.dx, fim.dx, reason: 'devem estar na mesma coluna');
+      expect(fim.dy, greaterThan(inicio.dy), reason: 'fim abaixo do início');
+    });
+
+    testWidgets('editar OS: desktop mantém lado a lado', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _wrap(const OrderEditDialog(order: _osPesada)),
+      );
+      await tester.pumpAndSettle();
+
+      final inicio = tester.getTopLeft(find.text('Previsão início (opcional)'));
+      final fim = tester.getTopLeft(find.text('Previsão fim (opcional)'));
+      expect(fim.dx, greaterThan(inicio.dx), reason: 'lado a lado');
+      expect(fim.dy, inicio.dy, reason: 'na mesma altura');
     });
   });
 
