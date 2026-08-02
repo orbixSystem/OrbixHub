@@ -1,5 +1,5 @@
 name: orbixhub_front
-description: "A new Flutter project."
+description: "OrbixHub — app de gestão multi-tenant e modular."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -98,6 +98,43 @@ dev_dependencies:
   json_serializable: ^6.14.0
   mocktail: ^1.0.5
   drift_dev: ^2.28.0
+  flutter_launcher_icons: ^0.14.4
+  image: ^4.9.1
+
+# Ícone do app em todas as plataformas. As duas imagens abaixo NÃO são editadas
+# à mão: saem de `dart run tool/build_app_icons.dart`, que as deriva da arte
+# oficial da marca em `tool/icon/orbix-logo-source.png`.
+#
+# Ao trocar a arte, rode nesta ordem:
+#   dart run tool/build_app_icons.dart
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "tool/icon/icon_master.png"
+
+  android: true
+  # O adaptive icon do Android recorta a imagem, então ele recebe o glyph solto
+  # sobre o navy da marca — e não o card arredondado, que seria mascarado duas vezes.
+  adaptive_icon_background: "#1E2245"
+  adaptive_icon_foreground: "tool/icon/icon_foreground.png"
+  # Ícone monocromático (tema dinâmico do Android 13+).
+  adaptive_icon_monochrome: "tool/icon/icon_foreground.png"
+
+  ios: true
+  # iOS rejeita PNG com canal alpha; o master já é opaco, mas manter o flag
+  # protege caso a arte de origem volte a ter transparência.
+  remove_alpha_ios: true
+
+  web:
+    generate: true
+    background_color: "#1E2245"
+    theme_color: "#1E2245"
+
+  windows:
+    generate: true
+    icon_size: 256
+
+  macos:
+    generate: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
