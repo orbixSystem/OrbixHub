@@ -17,7 +17,10 @@ mixin _$AppUpdate {
 
  bool get enabled; String? get platform; String? get version; int? get buildNumber;/// Menor versão que o servidor ainda atende. Abaixo disso o app precisa
 /// atualizar para continuar funcionando.
- String? get minSupported; String? get notes; String? get url;/// Hash do arquivo; conferido antes de instalar.
+ String? get minSupported;/// Build mínimo aceito DENTRO da mesma versão. Necessário porque o número
+/// da versão não muda a cada publicação: sem isto, 1.0.0+13 não seria
+/// reconhecido como mais novo que 1.0.0+12.
+ int? get minSupportedBuild; String? get notes; String? get url;/// Hash do arquivo; conferido antes de instalar.
  String? get sha256; int? get sizeBytes; String? get publishedAt;
 /// Create a copy of AppUpdate
 /// with the given fields replaced by the non-null parameter values.
@@ -31,16 +34,16 @@ $AppUpdateCopyWith<AppUpdate> get copyWith => _$AppUpdateCopyWithImpl<AppUpdate>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AppUpdate&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.version, version) || other.version == version)&&(identical(other.buildNumber, buildNumber) || other.buildNumber == buildNumber)&&(identical(other.minSupported, minSupported) || other.minSupported == minSupported)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.url, url) || other.url == url)&&(identical(other.sha256, sha256) || other.sha256 == sha256)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AppUpdate&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.version, version) || other.version == version)&&(identical(other.buildNumber, buildNumber) || other.buildNumber == buildNumber)&&(identical(other.minSupported, minSupported) || other.minSupported == minSupported)&&(identical(other.minSupportedBuild, minSupportedBuild) || other.minSupportedBuild == minSupportedBuild)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.url, url) || other.url == url)&&(identical(other.sha256, sha256) || other.sha256 == sha256)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,enabled,platform,version,buildNumber,minSupported,notes,url,sha256,sizeBytes,publishedAt);
+int get hashCode => Object.hash(runtimeType,enabled,platform,version,buildNumber,minSupported,minSupportedBuild,notes,url,sha256,sizeBytes,publishedAt);
 
 @override
 String toString() {
-  return 'AppUpdate(enabled: $enabled, platform: $platform, version: $version, buildNumber: $buildNumber, minSupported: $minSupported, notes: $notes, url: $url, sha256: $sha256, sizeBytes: $sizeBytes, publishedAt: $publishedAt)';
+  return 'AppUpdate(enabled: $enabled, platform: $platform, version: $version, buildNumber: $buildNumber, minSupported: $minSupported, minSupportedBuild: $minSupportedBuild, notes: $notes, url: $url, sha256: $sha256, sizeBytes: $sizeBytes, publishedAt: $publishedAt)';
 }
 
 
@@ -51,7 +54,7 @@ abstract mixin class $AppUpdateCopyWith<$Res>  {
   factory $AppUpdateCopyWith(AppUpdate value, $Res Function(AppUpdate) _then) = _$AppUpdateCopyWithImpl;
 @useResult
 $Res call({
- bool enabled, String? platform, String? version, int? buildNumber, String? minSupported, String? notes, String? url, String? sha256, int? sizeBytes, String? publishedAt
+ bool enabled, String? platform, String? version, int? buildNumber, String? minSupported, int? minSupportedBuild, String? notes, String? url, String? sha256, int? sizeBytes, String? publishedAt
 });
 
 
@@ -68,14 +71,15 @@ class _$AppUpdateCopyWithImpl<$Res>
 
 /// Create a copy of AppUpdate
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? enabled = null,Object? platform = freezed,Object? version = freezed,Object? buildNumber = freezed,Object? minSupported = freezed,Object? notes = freezed,Object? url = freezed,Object? sha256 = freezed,Object? sizeBytes = freezed,Object? publishedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? enabled = null,Object? platform = freezed,Object? version = freezed,Object? buildNumber = freezed,Object? minSupported = freezed,Object? minSupportedBuild = freezed,Object? notes = freezed,Object? url = freezed,Object? sha256 = freezed,Object? sizeBytes = freezed,Object? publishedAt = freezed,}) {
   return _then(_self.copyWith(
 enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
 as String?,version: freezed == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String?,buildNumber: freezed == buildNumber ? _self.buildNumber : buildNumber // ignore: cast_nullable_to_non_nullable
 as int?,minSupported: freezed == minSupported ? _self.minSupported : minSupported // ignore: cast_nullable_to_non_nullable
-as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,minSupportedBuild: freezed == minSupportedBuild ? _self.minSupportedBuild : minSupportedBuild // ignore: cast_nullable_to_non_nullable
+as int?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,url: freezed == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String?,sha256: freezed == sha256 ? _self.sha256 : sha256 // ignore: cast_nullable_to_non_nullable
 as String?,sizeBytes: freezed == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable
@@ -165,10 +169,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  int? minSupportedBuild,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AppUpdate() when $default != null:
-return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
+return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.minSupportedBuild,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
   return orElse();
 
 }
@@ -186,10 +190,10 @@ return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  int? minSupportedBuild,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)  $default,) {final _that = this;
 switch (_that) {
 case _AppUpdate():
-return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
+return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.minSupportedBuild,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -206,10 +210,10 @@ return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enabled,  String? platform,  String? version,  int? buildNumber,  String? minSupported,  int? minSupportedBuild,  String? notes,  String? url,  String? sha256,  int? sizeBytes,  String? publishedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _AppUpdate() when $default != null:
-return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
+return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_that.minSupported,_that.minSupportedBuild,_that.notes,_that.url,_that.sha256,_that.sizeBytes,_that.publishedAt);case _:
   return null;
 
 }
@@ -221,7 +225,7 @@ return $default(_that.enabled,_that.platform,_that.version,_that.buildNumber,_th
 @JsonSerializable()
 
 class _AppUpdate extends AppUpdate {
-  const _AppUpdate({this.enabled = false, this.platform, this.version, this.buildNumber, this.minSupported, this.notes, this.url, this.sha256, this.sizeBytes, this.publishedAt}): super._();
+  const _AppUpdate({this.enabled = false, this.platform, this.version, this.buildNumber, this.minSupported, this.minSupportedBuild, this.notes, this.url, this.sha256, this.sizeBytes, this.publishedAt}): super._();
   factory _AppUpdate.fromJson(Map<String, dynamic> json) => _$AppUpdateFromJson(json);
 
 @override@JsonKey() final  bool enabled;
@@ -231,6 +235,10 @@ class _AppUpdate extends AppUpdate {
 /// Menor versão que o servidor ainda atende. Abaixo disso o app precisa
 /// atualizar para continuar funcionando.
 @override final  String? minSupported;
+/// Build mínimo aceito DENTRO da mesma versão. Necessário porque o número
+/// da versão não muda a cada publicação: sem isto, 1.0.0+13 não seria
+/// reconhecido como mais novo que 1.0.0+12.
+@override final  int? minSupportedBuild;
 @override final  String? notes;
 @override final  String? url;
 /// Hash do arquivo; conferido antes de instalar.
@@ -251,16 +259,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AppUpdate&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.version, version) || other.version == version)&&(identical(other.buildNumber, buildNumber) || other.buildNumber == buildNumber)&&(identical(other.minSupported, minSupported) || other.minSupported == minSupported)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.url, url) || other.url == url)&&(identical(other.sha256, sha256) || other.sha256 == sha256)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AppUpdate&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.version, version) || other.version == version)&&(identical(other.buildNumber, buildNumber) || other.buildNumber == buildNumber)&&(identical(other.minSupported, minSupported) || other.minSupported == minSupported)&&(identical(other.minSupportedBuild, minSupportedBuild) || other.minSupportedBuild == minSupportedBuild)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.url, url) || other.url == url)&&(identical(other.sha256, sha256) || other.sha256 == sha256)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.publishedAt, publishedAt) || other.publishedAt == publishedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,enabled,platform,version,buildNumber,minSupported,notes,url,sha256,sizeBytes,publishedAt);
+int get hashCode => Object.hash(runtimeType,enabled,platform,version,buildNumber,minSupported,minSupportedBuild,notes,url,sha256,sizeBytes,publishedAt);
 
 @override
 String toString() {
-  return 'AppUpdate(enabled: $enabled, platform: $platform, version: $version, buildNumber: $buildNumber, minSupported: $minSupported, notes: $notes, url: $url, sha256: $sha256, sizeBytes: $sizeBytes, publishedAt: $publishedAt)';
+  return 'AppUpdate(enabled: $enabled, platform: $platform, version: $version, buildNumber: $buildNumber, minSupported: $minSupported, minSupportedBuild: $minSupportedBuild, notes: $notes, url: $url, sha256: $sha256, sizeBytes: $sizeBytes, publishedAt: $publishedAt)';
 }
 
 
@@ -271,7 +279,7 @@ abstract mixin class _$AppUpdateCopyWith<$Res> implements $AppUpdateCopyWith<$Re
   factory _$AppUpdateCopyWith(_AppUpdate value, $Res Function(_AppUpdate) _then) = __$AppUpdateCopyWithImpl;
 @override @useResult
 $Res call({
- bool enabled, String? platform, String? version, int? buildNumber, String? minSupported, String? notes, String? url, String? sha256, int? sizeBytes, String? publishedAt
+ bool enabled, String? platform, String? version, int? buildNumber, String? minSupported, int? minSupportedBuild, String? notes, String? url, String? sha256, int? sizeBytes, String? publishedAt
 });
 
 
@@ -288,14 +296,15 @@ class __$AppUpdateCopyWithImpl<$Res>
 
 /// Create a copy of AppUpdate
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? enabled = null,Object? platform = freezed,Object? version = freezed,Object? buildNumber = freezed,Object? minSupported = freezed,Object? notes = freezed,Object? url = freezed,Object? sha256 = freezed,Object? sizeBytes = freezed,Object? publishedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? enabled = null,Object? platform = freezed,Object? version = freezed,Object? buildNumber = freezed,Object? minSupported = freezed,Object? minSupportedBuild = freezed,Object? notes = freezed,Object? url = freezed,Object? sha256 = freezed,Object? sizeBytes = freezed,Object? publishedAt = freezed,}) {
   return _then(_AppUpdate(
 enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
 as bool,platform: freezed == platform ? _self.platform : platform // ignore: cast_nullable_to_non_nullable
 as String?,version: freezed == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String?,buildNumber: freezed == buildNumber ? _self.buildNumber : buildNumber // ignore: cast_nullable_to_non_nullable
 as int?,minSupported: freezed == minSupported ? _self.minSupported : minSupported // ignore: cast_nullable_to_non_nullable
-as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,minSupportedBuild: freezed == minSupportedBuild ? _self.minSupportedBuild : minSupportedBuild // ignore: cast_nullable_to_non_nullable
+as int?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,url: freezed == url ? _self.url : url // ignore: cast_nullable_to_non_nullable
 as String?,sha256: freezed == sha256 ? _self.sha256 : sha256 // ignore: cast_nullable_to_non_nullable
 as String?,sizeBytes: freezed == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable

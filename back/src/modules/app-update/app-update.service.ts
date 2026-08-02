@@ -20,6 +20,11 @@ export interface UpdateInfo {
    * jeito que o app antigo não suporta.
    */
   minSupported?: string;
+  /**
+   * Build mínimo aceito DENTRO da mesma versão. Sem isto, publicar 1.0.0+13
+   * depois de 1.0.0+12 não bloquearia nada — o número da versão não mudou.
+   */
+  minSupportedBuild?: number;
   notes?: string;
   /** URL temporária de download (assinada, expira em minutos). */
   url?: string;
@@ -34,6 +39,7 @@ interface ReleaseManifest {
   version?: string;
   buildNumber?: number;
   minSupported?: string;
+  minSupportedBuild?: number;
   artifacts?: Record<string, { asset?: string; sha256?: string }>;
 }
 
@@ -88,6 +94,7 @@ export class AppUpdateService {
       version: meta.manifest.version,
       buildNumber: meta.manifest.buildNumber,
       minSupported: meta.manifest.minSupported,
+      minSupportedBuild: meta.manifest.minSupportedBuild,
       notes: meta.notes,
       url,
       sha256: artifact.sha256,

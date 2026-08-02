@@ -3,7 +3,7 @@
 O app instalado se atualiza sozinho. O fluxo é:
 
 ```
-push na master
+push na main
    └─ CI (release.yml) → builda APK + instalador Windows
                        → publica release com manifest.json (versão, mínimo, sha256)
 
@@ -23,6 +23,12 @@ se o repositório virar privado um dia.
 |---|---|
 | Versão nova disponível | Banner discreto no topo, com "Depois" |
 | Versão instalada < `minSupported` | Tela bloqueante: só sai atualizando |
+
+> **Hoje toda atualização é obrigatória.** `front/release.json` está com
+> `forceAll: true`: o CI publica `minSupported` igual à versão/build que está
+> saindo, então qualquer app anterior fica bloqueado. É o certo no começo do
+> produto — parque pequeno, mudanças rápidas, ninguém preso a uma versão velha.
+> Quando a base crescer, troque para `false` e o banner adiável volta a valer.
 | Sem release / endpoint desligado / offline | Nada — checar atualização nunca atrapalha o trabalho |
 
 O arquivo baixado tem o **sha256 conferido antes de instalar**: se não bater, a
@@ -55,9 +61,11 @@ não consegue atualizar as instalações existentes.
 senhas / cofre). Perder a chave significa nunca mais conseguir publicar
 atualização para quem já instalou — só desinstalando e perdendo os dados locais.
 
-## Quando forçar atualização
+## Quando parar de forçar
 
-`front/release.json` guarda o `minSupported`. Suba esse valor **apenas** quando
+Enquanto `forceAll` for `true`, o `minSupported` do arquivo é ignorado (o CI usa
+a própria versão publicada). Ao trocar para `false`, ele volta a valer: suba
+esse valor **apenas** quando
 uma mudança do servidor quebrar de fato os apps antigos — por exemplo, quando
 uma rota passa a exigir um campo que a versão anterior não envia. É o que evita
 o erro "property X should not exist" chegando ao usuário: em vez de falhar no
@@ -68,5 +76,5 @@ meio do expediente.
 
 ## Publicando
 
-Merge/push na `master` já dispara. Para publicar sem alterar código:
+Merge/push na `main` já dispara. Para publicar sem alterar código:
 Actions → "Release app" → Run workflow.

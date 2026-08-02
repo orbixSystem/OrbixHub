@@ -18,6 +18,11 @@ abstract class AppUpdate with _$AppUpdate {
     /// Menor versão que o servidor ainda atende. Abaixo disso o app precisa
     /// atualizar para continuar funcionando.
     String? minSupported,
+
+    /// Build mínimo aceito DENTRO da mesma versão. Necessário porque o número
+    /// da versão não muda a cada publicação: sem isto, 1.0.0+13 não seria
+    /// reconhecido como mais novo que 1.0.0+12.
+    int? minSupportedBuild,
     String? notes,
     String? url,
 
@@ -69,21 +74,43 @@ enum UpdateStatus {
   obrigatoria,
 }
 
-/// Decide o que fazer comparando a versão instalada com o que o servidor diz.
+/// Compara (versão, build): o build só desempata quando a versão é igual.
+int _compare(String vA, int bA, String vB, int bB) {
+  final byVersion = compareVersions(vA, vB);
+  return byVersion != 0 ? byVersion : bA - bB;
+}
+
+/// Decide o que fazer comparando o que está instalado com o que o servidor diz.
 /// Função pura — é aqui que mora a regra, e por isso é testável sem rede.
+///
+/// O build entra na conta porque publicar não muda o número da versão: entre
+/// 1.0.0+12 e 1.0.0+13 só o build difere, e ignorá-lo faria toda atualização
+/// passar despercebida.
 UpdateStatus resolveUpdateStatus({
   required String installedVersion,
   required AppUpdate update,
+  int installedBuild = 0,
 }) {
   if (!update.hasDownload) return UpdateStatus.emDia;
+
   final min = update.minSupported;
-  if (min != null &&
-      min.isNotEmpty &&
-      compareVersions(installedVersion, min) < 0) {
-    return UpdateStatus.obrigatoria;
+  if (min != null && min.isNotEmpty) {
+    final atrasado = _compare(
+          installedVersion,
+          installedBuild,
+          min,
+          update.minSupportedBuild ?? 0,
+        ) <
+        0;
+    if (atrasado) return UpdateStatus.obrigatoria;
   }
-  if (compareVersions(installedVersion, update.version!) < 0) {
-    return UpdateStatus.disponivel;
-  }
-  return UpdateStatus.emDia;
+
+  final maisNovoDisponivel = _compare(
+        installedVersion,
+        installedBuild,
+        update.version!,
+        update.buildNumber ?? 0,
+      ) <
+      0;
+  return maisNovoDisponivel ? UpdateStatus.disponivel : UpdateStatus.emDia;
 }

@@ -102,6 +102,68 @@ void main() {
     });
   });
 
+  group('build number (mesma versão, publicação nova)', () {
+    // O caso do dia a dia: o pubspec fica em 1.0.0 e cada publicação muda só o
+    // build. Ignorar o build faria toda atualização passar despercebida.
+    const mesmaVersao = AppUpdate(
+      enabled: true,
+      version: '1.0.0',
+      buildNumber: 13,
+      minSupported: '1.0.0',
+      minSupportedBuild: 13,
+      url: 'https://objects.example/app.apk',
+    );
+
+    test('build mais velho na mesma versão → obrigatória (forceAll)', () {
+      expect(
+        resolveUpdateStatus(
+          installedVersion: '1.0.0',
+          installedBuild: 12,
+          update: mesmaVersao,
+        ),
+        UpdateStatus.obrigatoria,
+      );
+    });
+
+    test('mesmo build → em dia', () {
+      expect(
+        resolveUpdateStatus(
+          installedVersion: '1.0.0',
+          installedBuild: 13,
+          update: mesmaVersao,
+        ),
+        UpdateStatus.emDia,
+      );
+    });
+
+    test('versão maior vence o build menor', () {
+      expect(
+        resolveUpdateStatus(
+          installedVersion: '1.1.0',
+          installedBuild: 1,
+          update: mesmaVersao,
+        ),
+        UpdateStatus.emDia,
+      );
+    });
+
+    test('sem mínimo de build, versão nova ainda é sugerida', () {
+      expect(
+        resolveUpdateStatus(
+          installedVersion: '1.0.0',
+          installedBuild: 12,
+          update: const AppUpdate(
+            enabled: true,
+            version: '1.0.0',
+            buildNumber: 13,
+            url: 'https://objects.example/app.apk',
+          ),
+        ),
+        UpdateStatus.disponivel,
+      );
+    });
+  });
+
   group('AppUpdate.fromJson', () {
     test('lê a resposta do backend', () {
       final u = AppUpdate.fromJson(const {

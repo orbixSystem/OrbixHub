@@ -18,11 +18,16 @@ String? updatePlatform() {
   return null;
 }
 
-/// Versão instalada (do pubspec, via metadados do pacote).
-final installedVersionProvider = FutureProvider<String>((ref) async {
-  if (kIsWeb) return '';
+/// Versão E build instalados (do pubspec, via metadados do pacote). O build
+/// importa: entre duas publicações só ele costuma mudar.
+final installedVersionProvider =
+    FutureProvider<({String version, int build})>((ref) async {
+  if (kIsWeb) return (version: '', build: 0);
   final info = await PackageInfo.fromPlatform();
-  return info.version;
+  return (
+    version: info.version,
+    build: int.tryParse(info.buildNumber) ?? 0,
+  );
 });
 
 /// Situação da versão instalada perante o servidor. Silencioso por natureza:
@@ -36,14 +41,15 @@ final updateStatusProvider = FutureProvider<({UpdateStatus status, AppUpdate upd
     }
     try {
       final installed = await ref.watch(installedVersionProvider.future);
-      if (installed.isEmpty) {
+      if (installed.version.isEmpty) {
         return (status: UpdateStatus.emDia, update: const AppUpdate());
       }
       final update =
           await ref.read(updateRepositoryProvider).latest(platform);
       return (
         status: resolveUpdateStatus(
-          installedVersion: installed,
+          installedVersion: installed.version,
+          installedBuild: installed.build,
           update: update,
         ),
         update: update,
