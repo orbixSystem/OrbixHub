@@ -104,12 +104,19 @@ class NeuStatusChip extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 5),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
+          // Flexible + ellipsis: em coluna estreita (painel da agenda, cards no
+          // mobile) um rótulo longo como "Aguardando aprovação" estourava o
+          // chip. Quando há espaço, o resultado é idêntico ao de antes.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
