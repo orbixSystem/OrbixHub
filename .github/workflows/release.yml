@@ -151,6 +151,32 @@ jobs:
           }
           & $iscc /DAppVersion=${{ needs.version.outputs.version }} scripts\installer.iss
 
+      # Assinatura digital (Authenticode). Sem ela o Smart App Control do
+      # Windows 11 BLOQUEIA o instalador com "an application control policy has
+      # blocked this file" — ele recusa binario sem assinatura e nao aceita
+      # excecao por arquivo. Os secrets sao opcionais: sem eles o build segue e
+      # apenas avisa, para nao travar quem ainda nao tem certificado.
+      - name: Assina o instalador
+        if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+        env:
+          CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        working-directory: front
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:CERT_PFX_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1
+          Get-ChildItem build\installer\*.exe | ForEach-Object {
+            & $signtool.FullName sign /f cert.pfx /p $env:CERT_PASSWORD `
+              /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+          }
+          Remove-Item cert.pfx -Force
+
+      - name: Aviso quando nao ha certificado
+        if: ${{ secrets.WINDOWS_CERT_PFX_BASE64 == '' }}
+        run: |
+          Write-Host "::warning::Instalador NAO assinado. No Windows 11 com Smart App Control ativo ele sera bloqueado ('an application control policy has blocked this file'). Configure WINDOWS_CERT_PFX_BASE64 e WINDOWS_CERT_PASSWORD."
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows
