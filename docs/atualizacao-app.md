@@ -102,9 +102,25 @@ meio do expediente.
 
 ## Numeração das versões
 
-A `version` do `front/pubspec.yaml` (ex.: `1.0.0`) é a que o usuário lê e só muda
-quando você edita o arquivo. O que diferencia uma publicação da outra é o
-**build**, gerado automaticamente pelo CI: `10000 + número da execução`.
+A versão publicada é montada assim:
+
+```
+major.minor  ← do front/pubspec.yaml (você controla)
+      .patch ← número da execução do workflow (automático)
+```
+
+| pubspec | execução | versão publicada |
+|---|---|---|
+| `1.0.0` | #1 | **1.0.1** |
+| `1.0.0` | #2 | **1.0.2** |
+| `1.1.0` (você editou) | #4 | **1.1.4** |
+
+O patch é automático para que **cada release tenha um número diferente**: com a
+versão parada, o aviso dizia "Versão 1.0.0 disponível" para quem já tinha a
+1.0.0 — parecia defeito. Para subir major ou minor, edite o pubspec; **deixe o
+patch em `.0`**, porque ele é ignorado (o CI avisa se estiver diferente).
+
+Além da versão, cada publicação tem um **build**: `10000 + número da execução`.
 
 O offset de 10000 não é enfeite: no Android o build reportado é o `versionCode`,
 e um APK gerado localmente com `--split-per-abi` já nasce em 1001/2001/4001
