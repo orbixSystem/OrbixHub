@@ -1,10 +1,10 @@
 name: Deploy prod
 
-# Push na master => builda no GitHub (nunca na EC2) e faz deploy sozinho.
+# Push na main => builda no GitHub (nunca na EC2) e faz deploy sozinho.
 # Tambem pode ser disparado na mao (workflow_dispatch).
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 # Nunca deixa dois deploys correrem ao mesmo tempo.
