@@ -729,7 +729,9 @@ class _EventCard extends StatelessWidget {
     return NeuCard(
       padding: const EdgeInsets.all(12),
       radius: NeuTokens.rCard,
-      onTap: () => context.go('/os/orders/${item.order.id}'),
+      // Rota do detalhe da OS é /m/os/:id (gated pelo módulo). O caminho
+      // antigo '/os/orders/:id' não existe no router — clicar dava erro.
+      onTap: () => context.go('/m/os/${item.order.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -751,6 +753,8 @@ class _EventCard extends StatelessWidget {
                   children: [
                     Text(
                       item.order.number,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
