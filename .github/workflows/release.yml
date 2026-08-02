@@ -36,7 +36,20 @@ jobs:
       - id: v
         run: |
           set -euo pipefail
-          BASE=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          # Versao = major.minor do pubspec + numero da execucao como PATCH.
+          # O patch automatico existe para cada release sair com um numero
+          # diferente: publicar sem mexer no pubspec deixava toda release como
+          # "1.0.0", e o aviso dizia "Versao 1.0.0 disponivel" para quem ja
+          # tinha a 1.0.0 — parecia defeito. Major/minor seguem manuais: mude o
+          # pubspec para 1.1.0 e as proximas saem como 1.1.<execucao>.
+          PUBSPEC=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          MAJOR_MINOR=$(echo "$PUBSPEC" | cut -d. -f1,2)
+          BASE="$MAJOR_MINOR.${{ github.run_number }}"
+          # O patch escrito no pubspec e IGNORADO (quem manda e o numero da
+          # execucao). Deixe-o em .0 para o arquivo nao mentir sobre a versao.
+          if [ "$(echo "$PUBSPEC" | cut -d. -f3)" != "0" ]; then
+            echo "::warning::pubspec.yaml tem patch '$PUBSPEC', mas o patch vem da execucao. Publicando $BASE — mantenha o pubspec como ${MAJOR_MINOR}.0."
+          fi
           # Build number = contador da execucao + OFFSET. O offset existe porque
           # o Android reporta o versionCode como build, e um APK gerado local
           # com --split-per-abi ja nasce em 1001/2001/4001 (o Flutter soma um
@@ -117,12 +130,13 @@ jobs:
   windows:
     needs: version
     runs-on: windows-latest
-    # O contexto `secrets` não existe no `if:` de um step — só `env`. Expor aqui,
-    # no nível do job, é o que permite pular a assinatura quando não há
-    # certificado configurado.
+    # O contexto `secrets` não existe no `if:` de um step — só `env`. Mas expor o
+    # certificado no nível do job o entregaria a TODOS os steps (inclusive
+    # `flutter build` e `build_runner`, que rodam código de terceiros). Então o
+    # job carrega apenas um BOOLEANO, e o segredo em si só existe no step que
+    # assina.
     env:
-      CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
-      CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      HAS_CERT: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -163,7 +177,11 @@ jobs:
       # excecao por arquivo. Os secrets sao opcionais: sem eles o build segue e
       # apenas avisa, para nao travar quem ainda nao tem certificado.
       - name: Assina o instalador
-        if: env.CERT_PFX_BASE64 != ''
+        if: env.HAS_CERT == 'true'
+        # Segredo com escopo mínimo: existe só neste step.
+        env:
+          CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         working-directory: front
         run: |
           [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:CERT_PFX_BASE64))
@@ -176,7 +194,7 @@ jobs:
           Remove-Item cert.pfx -Force
 
       - name: Aviso quando nao ha certificado
-        if: env.CERT_PFX_BASE64 == ''
+        if: env.HAS_CERT != 'true'
         run: |
           Write-Host "::warning::Instalador NAO assinado. No Windows 11 com Smart App Control ativo ele sera bloqueado ('an application control policy has blocked this file'). Configure WINDOWS_CERT_PFX_BASE64 e WINDOWS_CERT_PASSWORD."
 
