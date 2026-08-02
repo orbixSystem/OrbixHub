@@ -1059,20 +1059,19 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         const SizedBox(height: 12),
         // ---- Datas de previsão (OPCIONAIS — cadastro-relâmpago da OS; a agenda
         // usa quando preenchidas). Se preenchidas, término > início.
-        Row(
+        // Empilhados no celular: "Início previsto (opcional)" + data e hora não
+        // caber em meia tela apertava o texto e quebrava a linha.
+        _StackedOrSideBySide(
+          stacked: context.isMobile,
           children: [
-            Expanded(
-              child: _DateTimeField(
+              _DateTimeField(
                 label: 'Início previsto (opcional)',
                 value: _scheduledStart,
                 fmt: _dtFmt,
                 enabled: !_saving,
                 onTap: () => _pickDateTime(isStart: true),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _DateTimeField(
+              _DateTimeField(
                 label: 'Término previsto (opcional)',
                 value: _scheduledEnd,
                 fmt: _dtFmt,
@@ -1087,7 +1086,6 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   return null;
                 },
               ),
-            ),
           ],
         ),
       ],
@@ -1403,6 +1401,43 @@ class _SubjectLookupField extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Dois campos que ficam lado a lado quando há largura e empilhados no celular.
+/// Em meia tela de celular, rótulo + data formatada não cabem: o texto aperta e
+/// a linha quebra. Um sobre o outro dá largura inteira a cada um.
+class _StackedOrSideBySide extends StatelessWidget {
+  const _StackedOrSideBySide({
+    required this.children,
+    required this.stacked,
+  });
+
+  final List<Widget> children;
+  final bool stacked;
+
+  @override
+  Widget build(BuildContext context) {
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            children[i],
+          ],
+        ],
+      );
+    }
+    return Row(
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(child: children[i]),
+        ],
+      ],
     );
   }
 }

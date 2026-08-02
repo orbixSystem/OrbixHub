@@ -225,38 +225,35 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DateField(
-                      label: 'Previsão início (opcional)',
-                      icon: Icons.event_outlined,
-                      value: _scheduledStart == null
-                          ? null
-                          : _fmtDate(_scheduledStart!),
-                      enabled: !_saving,
-                      onTap: () => _pickDate(start: true),
-                      onClear: _scheduledStart == null
-                          ? null
-                          : () => setState(() => _scheduledStart = null),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DateField(
-                      label: 'Previsão fim (opcional)',
-                      icon: Icons.event_available_outlined,
-                      value: _scheduledEnd == null
-                          ? null
-                          : _fmtDate(_scheduledEnd!),
-                      enabled: !_saving,
-                      onTap: () => _pickDate(start: false),
-                      onClear: _scheduledEnd == null
-                          ? null
-                          : () => setState(() => _scheduledEnd = null),
-                    ),
-                  ),
-                ],
+              // Datas: lado a lado só onde há largura. No celular, meia tela
+              // por campo não cabe o rótulo ("Previsão início (opcional)") nem
+              // a data formatada — apertava o texto e quebrava a linha. Então
+              // empilha um sobre o outro.
+              _DatesFields(
+                stacked: context.isMobile,
+                start: _DateField(
+                  label: 'Previsão início (opcional)',
+                  icon: Icons.event_outlined,
+                  value: _scheduledStart == null
+                      ? null
+                      : _fmtDate(_scheduledStart!),
+                  enabled: !_saving,
+                  onTap: () => _pickDate(start: true),
+                  onClear: _scheduledStart == null
+                      ? null
+                      : () => setState(() => _scheduledStart = null),
+                ),
+                end: _DateField(
+                  label: 'Previsão fim (opcional)',
+                  icon: Icons.event_available_outlined,
+                  value:
+                      _scheduledEnd == null ? null : _fmtDate(_scheduledEnd!),
+                  enabled: !_saving,
+                  onTap: () => _pickDate(start: false),
+                  onClear: _scheduledEnd == null
+                      ? null
+                      : () => setState(() => _scheduledEnd = null),
+                ),
               ),
               // Datas de serviço offline: idem — só chegam ao sistema com rede.
               const Align(
@@ -336,6 +333,38 @@ class _DateField extends StatelessWidget {
               : null,
         ),
       ),
+    );
+  }
+}
+
+/// Os dois campos de data: empilhados quando a tela é estreita, lado a lado
+/// quando há largura. Extraído para o mesmo arranjo servir a outros formulários.
+class _DatesFields extends StatelessWidget {
+  const _DatesFields({
+    required this.start,
+    required this.end,
+    required this.stacked,
+  });
+
+  final Widget start;
+  final Widget end;
+  final bool stacked;
+
+  @override
+  Widget build(BuildContext context) {
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [start, const SizedBox(height: 12), end],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: start),
+        const SizedBox(width: 12),
+        Expanded(child: end),
+      ],
     );
   }
 }
