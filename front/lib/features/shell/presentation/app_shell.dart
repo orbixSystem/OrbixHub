@@ -95,7 +95,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     // leva o usuário para uma tela que funciona offline. Telas parciais
     // (Config, detalhe da OS) bloqueiam por seção — não entram aqui.
     if (ref.watch(isOfflineProvider) && isOnlineOnlyRoute(location)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _guardOfflineRoute(me));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _guardOfflineRoute(me),
+      );
     }
     final selected = selectedNavIndex(items, location);
     final size = context.screenSize;
@@ -124,8 +126,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: context.neu.base,
-      drawer:
-          (!isDesktop && !isMobile) ? Drawer(width: 272, child: sidebar) : null,
+      drawer: (!isDesktop && !isMobile)
+          ? Drawer(width: 272, child: sidebar)
+          : null,
       bottomNavigationBar: isMobile
           ? _NeuBottomBar(
               items: items,
@@ -213,7 +216,10 @@ class _ContentHeader extends StatelessWidget {
               height: 68,
               child: Padding(
                 padding: EdgeInsets.only(
-                    left: showMenu ? 8 : 28, right: 20, bottom: 16),
+                  left: showMenu ? 8 : 28,
+                  right: 20,
+                  bottom: 16,
+                ),
                 child: LayoutBuilder(
                   builder: (context, c) {
                     // O berço do FAB é centralizado; o título nunca pode alcançá-lo.
@@ -221,8 +227,8 @@ class _ContentHeader extends StatelessWidget {
                     // já indica a seção — então o título fica só em tablet/desktop,
                     // limitado (ellipsis) para parar antes do berço.
                     final showTitle = !context.isMobile;
-                    final titleMax =
-                        (c.maxWidth / 2 - _headerNotchR - 28).clamp(0.0, 520.0);
+                    final titleMax = (c.maxWidth / 2 - _headerNotchR - 28)
+                        .clamp(0.0, 520.0);
                     return Row(
                       children: [
                         if (showMenu)
@@ -241,10 +247,9 @@ class _ContentHeader extends StatelessWidget {
                               title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(color: neu.ink),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleLarge?.copyWith(color: neu.ink),
                             ),
                           ),
                         // Mobile não tem sidebar visível (bottom nav) — o status de
@@ -280,8 +285,10 @@ class _ContentHeader extends StatelessWidget {
   }
 }
 
-const double _headerNotchR = 64.0; // meia-largura do entalhe (~128px, cabe o FAB)
-const double _headerNotchDepth = 56.0; // profundidade do recorte (folga acima do FAB)
+const double _headerNotchR =
+    64.0; // meia-largura do entalhe (~128px, cabe o FAB)
+const double _headerNotchDepth =
+    56.0; // profundidade do recorte (folga acima do FAB)
 
 /// Traça a borda INFERIOR do header (reta com o entalhe circular no centro),
 /// assumindo que o ponto atual já está em `(0, h)`. Compartilhada pelo clipper
@@ -446,8 +453,11 @@ class _NeuBottomBar extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: NeuListTile(
-                            leading: Icon(item.icon,
-                                color: neu.inkMuted, size: 22),
+                            leading: Icon(
+                              item.icon,
+                              color: neu.inkMuted,
+                              size: 22,
+                            ),
                             title: Text(item.label),
                             onTap: () {
                               Navigator.of(sheetContext).pop();
@@ -569,6 +579,11 @@ class _QuickCreateFab extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      // Sem isto a folha fica limitada a 9/16 da tela: com mais ações — a de
+      // despesa foi a 5ª — a lista passava do teto e estourava por poucos
+      // pixels, no desktop e no celular. Com o teto solto, o `mainAxisSize.min`
+      // do Column dimensiona pelo conteúdo e nada transborda.
+      isScrollControlled: true,
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -602,8 +617,12 @@ class _QuickCreateFab extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: NeuListTile(
-                    leading: NeuIconChip.glyph(context,
-                        icon: a.icon, index: a.glyph, size: 40),
+                    leading: NeuIconChip.glyph(
+                      context,
+                      icon: a.icon,
+                      index: a.glyph,
+                      size: 40,
+                    ),
                     title: Text(a.label),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
@@ -648,10 +667,20 @@ class _QuickCreateFab extends ConsumerWidget {
           cfg = const CashierConfig();
         }
         if (!context.mounted) return;
-        await showEntryDialog(context, ref, cfg, presetCategory: 'despesa');
+        // O diálogo salva via `cashierControllerProvider`, que é `autoDispose`:
+        // FORA da tela do Caixa ninguém o observa, então ele nasceria no
+        // `read(.notifier)` e morreria no mesmo instante — e o uso seguinte
+        // estourava "Cannot use ref after dispose". Uma assinatura manual o
+        // mantém vivo enquanto o diálogo estiver aberto.
+        final manterVivo =
+            ref.listenManual(cashierControllerProvider, (_, _) {});
+        try {
+          await showEntryDialog(context, ref, cfg, presetCategory: 'despesa');
+        } finally {
+          manterVivo.close();
+        }
     }
   }
-
 }
 
 /// Ações do menu "+" para este usuário — MÓDULO + PERMISSÃO, função pura.
@@ -669,13 +698,25 @@ List<QuickAction> quickActionsFor(Me me) {
     // para quem só tem `cashier.write`, então oferecer aqui daria erro.
     if (me.hasModule('cashier') && me.hasPermission('cashier.manage'))
       const QuickAction(
-          'expense', Icons.remove_circle_outline, 4, 'Nova despesa'),
+        'expense',
+        Icons.remove_circle_outline,
+        4,
+        'Nova despesa',
+      ),
     if (me.hasModule('customers') && me.hasPermission('customer.write'))
       const QuickAction(
-          'customer', Icons.person_add_alt_1_rounded, 3, 'Novo cliente'),
+        'customer',
+        Icons.person_add_alt_1_rounded,
+        3,
+        'Novo cliente',
+      ),
     if (me.hasModule('inventory') && me.hasPermission('inventory.write'))
       const QuickAction(
-          'product', Icons.inventory_2_rounded, 5, 'Novo produto ou serviço'),
+        'product',
+        Icons.inventory_2_rounded,
+        5,
+        'Novo produto ou serviço',
+      ),
   ];
 }
 

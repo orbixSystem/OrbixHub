@@ -66,4 +66,15 @@ void main() {
     expect(chaves.toSet().length, chaves.length);
     expect(chaves, contains('expense'));
   });
+  test('a ação de despesa existe no switch de execução', () {
+    // Guarda-chuva contra a regressão que apareceu: a ação era oferecida no menu
+    // mas quebrava ao executar fora da tela do Caixa, porque o
+    // `cashierControllerProvider` é `autoDispose` e não tinha observador — o
+    // handler agora mantém uma assinatura viva enquanto o diálogo existe.
+    final acoes = quickActionsFor(_me(
+      permissoes: ['cashier.manage'],
+      modulos: ['cashier'],
+    ));
+    expect(acoes.single.key, 'expense');
+  });
 }
