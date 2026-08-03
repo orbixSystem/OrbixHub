@@ -5,6 +5,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { OsService } from '../os/os.service';
 import { MessagesService } from '../messages/messages.service';
 import { CashierServiceImpl } from '../cashier/cashier.service.impl';
+import { SaleService } from '../sale/sale.service';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -26,6 +27,7 @@ import { CreateItemDto, UpdateItemDto } from '../os/dto/item.dto';
 import { CreateNoteDto } from '../os/dto/note.dto';
 import { OpenSessionDto, CloseSessionDto } from '../cashier/dto/session.dto';
 import { CreateEntryDto, ReverseEntryDto } from '../cashier/dto/entry.dto';
+import { CancelSaleDto, CreateSaleDto } from '../sale/dto/sale.dto';
 import { EmptyPayloadDto } from './dto/push.dto';
 
 /**
@@ -42,6 +44,7 @@ export interface SyncServices {
   os: OsService;
   cashier: CashierServiceImpl;
   messages: MessagesService;
+  sale: SaleService;
 }
 
 /** Payload já validado (chaves estruturais + campos do DTO). */
@@ -136,6 +139,8 @@ export const PULL_ROUTES: Record<string, PullRouteDef> = {
   service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
   cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
   cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+  sale: { service: 'sale', module: 'sale', permission: 'sale.read' },
+  sale_item: { service: 'sale', module: 'sale', permission: 'sale.read' },
   // Mensagens são gated pelo módulo `os` e usam `os.read` (como no messages.controller) —
   // só PULL: o histórico é sincronizado ao SQLite p/ leitura offline; enviar continua online.
   conversation: { service: 'messages', module: 'os', permission: 'os.read' },
@@ -369,6 +374,28 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     create: true,
     apply: (s, u, p) => s.cashier.createEntry(u, asDto(p)),
   },
+  // ---------------- sale ----------------
+  // Venda de balcão criada offline. O uuid vem do cliente (campo `id` do DTO —
+  // por isso NÃO é chave estrutural: seria a mesma colisão de `addItem`). O
+  // NÚMERO é sempre do servidor: offline o aparelho mostra um provisório
+  // (`VND-P1`) e o pull traz esta linha já numerada.
+  'sale.create': {
+    dto: CreateSaleDto,
+    module: 'sale',
+    permission: 'sale.write',
+    create: true,
+    apply: (s, u, p) => s.sale.createSale(u, asDto(p)),
+  },
+  // Cancelar é o único "editar" da venda (sem LWW: quem cancelou, cancelou — a
+  // regra de reentrância vive no service, que rejeita cancelar duas vezes).
+  'sale.cancel': {
+    dto: CancelSaleDto,
+    module: 'sale',
+    permission: 'sale.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.sale.cancelSale(u, str(p.id), asDto(p)),
+  },
+
   'cash_entry.reverse': {
     dto: ReverseEntryDto,
     module: 'cashier',

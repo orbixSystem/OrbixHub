@@ -34,6 +34,12 @@ export class CreateSaleItemDto {
  * Pelo menos 1 item. Pagamento e nota são passos posteriores (caixa/fiscal).
  */
 export class CreateSaleDto {
+  /**
+   * Uuid gerado no cliente, preservado no replay (venda criada offline). Mesmo
+   * padrão do `CreateOrderDto`: sem ele o aparelho ficaria com uma venda local
+   * que nunca casa com a do servidor.
+   */
+  @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsUUID() customerId?: string;
   /** Desconto em valor sobre o total da venda (≥ 0). O service clampa ao bruto. */
   @IsOptional() @IsNumber() @Min(0) discount?: number;

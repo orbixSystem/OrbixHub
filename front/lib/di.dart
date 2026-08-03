@@ -62,6 +62,7 @@ import 'features/report/presentation/report_providers.dart';
 import 'features/receivables/data/local_first_receivables_repository.dart';
 import 'features/receivables/data/receivables_repository_impl.dart';
 import 'features/receivables/presentation/receivables_providers.dart';
+import 'features/sale/data/local_first_sale_repository.dart';
 import 'features/sale/data/sale_repository_impl.dart';
 import 'features/sale/presentation/sale_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
@@ -290,12 +291,23 @@ final diOverrides = [
   scheduleRepositoryProvider.overrideWith(
     (ref) => ScheduleRepositoryImpl(ref.read(dioProvider)),
   ),
-  saleRepositoryProvider.overrideWith(
-    (ref) => SaleRepositoryImpl(ref.read(dioProvider)),
-  ),
+  // Venda de balcão offline: cria no espelho + outbox (`sale.create`) com número
+  // provisório; o servidor atribui o definitivo no replay.
+  saleRepositoryProvider.overrideWith((ref) {
+    final inner = SaleRepositoryImpl(ref.read(dioProvider));
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstSaleRepository(
+      inner: inner,
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+      onWrite: deps.onWrite,
+    );
+  }),
   // Fiado (contas a receber): online o servidor compõe tudo; offline derivamos
-  // do espelho local (OS + recebimentos). Venda de balcão não está no sync,
-  // então offline a carteira cobre as OS e a tela avisa que está parcial.
+  // do espelho local — OS e venda de balcão, ambas no sync.
   receivablesRepositoryProvider.overrideWith((ref) {
     final inner = ReceivablesRepositoryImpl(ref.read(dioProvider));
     final deps = _localFirstDeps(ref);

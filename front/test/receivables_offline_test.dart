@@ -197,15 +197,12 @@ void main() {
       expect(page.items.map((d) => d.customerName), ['Bruno', 'Ana']);
     });
 
-    test('marca a carteira como parcial (venda de balcão não sincroniza)',
-        () async {
+    test('carteira offline sai INTEIRA (não é mais um recorte)', () async {
+      // Com `sale`/`sale_item` no sync, o espelho tem as duas origens de dívida:
+      // não há mais motivo para avisar que a lista está parcial.
       await semear(osId: '1', total: '100.00');
       final page = await repo(online: false).listDebtors();
-      expect(
-        page.truncated,
-        isTrue,
-        reason: 'sem isto o usuário acharia que viu toda a carteira',
-      );
+      expect(page.truncated, isFalse);
     });
 
     test('traz os itens da OS (de quais serviços é a dívida)', () async {
@@ -263,23 +260,108 @@ void main() {
       expect(page.totalDue, 0);
     });
 
-    test('recebimento de VENDA de balcão não abate a dívida da OS', () async {
-      // O vínculo é polimórfico: `sale_kind` diz se `sale_id` aponta p/ OS ou
-      // venda. Sem checar o kind, um recebimento de venda cairia na conta da OS.
-      await semear(osId: '1', total: '100.00');
-      await gravar('cash_entry', {
-        'id': 'e-venda',
-        'direction': 'in',
-        'amount': '100.00',
-        'method': 'dinheiro',
-        'category': 'sale_payment',
-        'sale_kind': 'sale',
-        'sale_id': '1', // mesmo id, outra natureza
-        'reversed_at': null,
-        'created_at': '2026-07-10T12:00:00Z',
+  });
+
+  group('venda de balcão em fiado entra na carteira', () {
+    /// Semeia uma venda do espelho (como o pull de `sale`/`sale_item` traria).
+    Future<void> semearVenda({
+      required String id,
+      required String total,
+      String status = 'active',
+      String? clienteId = 'c1',
+      String? clienteNome = 'João Silva',
+      String criada = '2026-07-15T10:00:00Z',
+      String? recebido,
+      List<Map<String, dynamic>> itens = const [],
+    }) async {
+      await gravar('sale', {
+        'id': id,
+        'number': 'VND-000$id',
+        'status': status,
+        'customer_id': clienteId,
+        'customer_name': clienteNome,
+        'total': total,
+        'discount': '0',
+        'created_at': criada,
       });
+      for (final i in itens) {
+        await gravar('sale_item', {'sale_id': id, ...i});
+      }
+      if (recebido != null) {
+        await gravar('cash_entry', {
+          'id': 'ev-$id',
+          'direction': 'in',
+          'amount': recebido,
+          'method': 'dinheiro',
+          'category': 'sale_payment',
+          'sale_kind': 'sale',
+          'sale_id': id,
+          'reversed_at': null,
+          'created_at': '2026-07-15T12:00:00Z',
+        });
+      }
+    }
+
+    test('venda sem recebimento é fiado', () async {
+      await semearVenda(id: '9', total: '150.00');
       final page = await repo(online: false).listDebtors();
-      expect(page.items.single.totalDue, 100);
+      expect(page.items.single.totalDue, 150);
+
+      final d = await repo(online: false).titlesOf('c1');
+      expect(d.items.single.origin, 'sale');
+      expect(d.items.single.number, 'VND-0009');
+    });
+
+    test('venda quitada não é fiado', () async {
+      await semearVenda(id: '9', total: '150.00', recebido: '150.00');
+      expect((await repo(online: false).listDebtors()).items, isEmpty);
+    });
+
+    test('venda cancelada não é dívida', () async {
+      await semearVenda(id: '9', total: '150.00', status: 'canceled');
+      expect((await repo(online: false).listDebtors()).items, isEmpty);
+    });
+
+    test('OS e venda do MESMO cliente somam num saldo só', () async {
+      // É a pergunta do balcão: "quanto o João me deve, no total?" — não importa
+      // se a dívida nasceu de uma OS ou de uma venda rápida.
+      await semear(osId: '1', total: '200.00');
+      await semearVenda(id: '9', total: '150.00');
+      final page = await repo(online: false).listDebtors();
+
+      expect(page.items, hasLength(1));
+      expect(page.items.single.totalDue, 350);
+      expect(page.items.single.titleCount, 2);
+
+      final d = await repo(online: false).titlesOf('c1');
+      expect(d.items.map((t) => t.origin), ['os', 'sale']); // mais antigo 1º
+      expect(d.totalDue, 350);
+    });
+
+    test('itens da venda detalham a dívida (subtotal, não total)', () async {
+      // A linha da venda guarda `subtotal`; a da OS, `total`. Ler a coluna errada
+      // mostraria R$ 0,00 em cada item.
+      await semearVenda(id: '9', total: '150.00', itens: [
+        {
+          'id': 'i1',
+          'name': 'Palheta',
+          'kind': 'product',
+          'quantity': '2',
+          'unit_price': '75.00',
+          'subtotal': '150.00',
+        },
+      ]);
+      final d = await repo(online: false).titlesOf('c1');
+      expect(d.items.single.items.single.name, 'Palheta');
+      expect(d.items.single.items.single.total, 150);
+    });
+
+    test('venda parcial mostra quanto falta', () async {
+      await semearVenda(id: '9', total: '150.00', recebido: '50.00');
+      final d = await repo(online: false).titlesOf('c1');
+      expect(d.items.single.status, 'parcial');
+      expect(d.items.single.paid, 50);
+      expect(d.items.single.balance, 100);
     });
   });
 

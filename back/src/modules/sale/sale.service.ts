@@ -12,8 +12,12 @@ import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CashierService } from '../cashier/cashier.service';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { SaleRepository } from './sale.repository';
-import type { FiscalSnapshotFields } from './sale.repository';
+import type { FiscalSnapshotFields, SaleSyncEntity } from './sale.repository';
 import {
   computeSaleTotal,
   applySaleDiscount,
@@ -54,6 +58,12 @@ interface ResolvedItem {
 @Injectable()
 export class SaleService {
   private readonly logger = new Logger(SaleService.name);
+
+  /** Entidades deste módulo que o pull de sync pode puxar (whitelist). */
+  private static readonly SYNC_ENTITIES = new Set<SaleSyncEntity>([
+    'sale',
+    'sale_item',
+  ]);
 
   constructor(
     private readonly tenant: TenantContext,
@@ -116,6 +126,10 @@ export class SaleService {
     const sale = await this.tenant.withTenantTx(async () => {
       const n = (await this.repo.maxSaleNumber()) + 1;
       const created = await this.repo.createSale(user.tenantId, {
+        // Uuid do cliente quando veio (replay de venda criada offline); senão o
+        // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
+        // um provisório e o pull traz esta linha, já com o número real.
+        ...(dto.id ? { id: dto.id } : {}),
         number: formatSaleNumber(n),
         customer_id: customerId,
         customer_name: customerName,
@@ -378,5 +392,28 @@ export class SaleService {
         );
       }
     }
+  }
+
+  // ===================== Sync pull (offline) =====================
+  /**
+   * Página de mudanças de `sale`/`sale_item` para o pull de sync offline
+   * ("aponta, não invade": o módulo `sync` só chama este service público).
+   * Mesma shape JSON dos endpoints de leitura — linhas cruas do Prisma, como
+   * `listSales` também devolve.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!SaleService.SYNC_ENTITIES.has(entity as SaleSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo sale: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as SaleSyncEntity, cursor, clamped),
+    );
   }
 }

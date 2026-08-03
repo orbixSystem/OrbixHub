@@ -1,10 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  queryChangedSince,
+  type ChangeCursor,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { TenantContext } from '../../common/database/tenant-context';
 
 type DecimalIn = Prisma.Decimal | number;
 
+/** Tabelas do módulo replicadas para o offline (whitelist do pull de sync). */
+export type SaleSyncEntity = 'sale' | 'sale_item';
+
+/**
+ * Coluna de cursor por entidade. `sale_item` só tem `created_at` — e isso é
+ * correto, não uma limitação: a linha do item é IMUTÁVEL (nasce com a venda e
+ * nunca é editada; cancelar mexe no `status` da venda, não nos itens). Paginar
+ * por `created_at` cobre toda mudança que pode existir nela.
+ */
+const SYNC_ENTITY_COLUMN: Record<SaleSyncEntity, 'updated_at' | 'created_at'> = {
+  sale: 'updated_at',
+  sale_item: 'created_at',
+};
+
 export interface CreateSaleData {
+  /**
+   * Preserva o uuid gerado no cliente (venda criada offline). Ausente = o banco
+   * gera. Sem isto o replay criaria uma venda com id novo e o aparelho ficaria
+   * com uma órfã que nunca casa com a do servidor.
+   */
+  id?: string;
   number: string;
   customer_id: string | null;
   customer_name: string | null;
@@ -220,6 +245,22 @@ export class SaleRepository {
       _sum: { total: true },
       _count: { _all: true },
     });
+  }
+
+  // ===================== Sync pull (offline) =====================
+  /**
+   * Página de mudanças de `sale`/`sale_item` desde o cursor. Sync pull — ver
+   * `common/database/changed-since.ts`. A tabela vem de [SaleSyncEntity]
+   * (whitelist fixa), nunca de string do request: `queryChangedSince` embute o
+   * identificador via `Prisma.raw`, que não escapa.
+   */
+  listChangedSince(
+    table: SaleSyncEntity,
+    cursor: ChangeCursor | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    const db = this.tenant.getClient();
+    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
   }
 }
 

@@ -1,5 +1,6 @@
 import '../../../core/offline/local_first.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/domain/local_payment.dart';
 import '../domain/receivables_models.dart';
 import '../domain/receivables_repository.dart';
 
@@ -7,15 +8,13 @@ import '../domain/receivables_repository.dart';
 ///
 /// O fiado não tem tabela própria (nem no servidor): é DERIVADO de venda/OS com
 /// saldo. Online, o servidor compõe tudo. Offline, derivamos do espelho local:
-/// para cada OS não cancelada, `total − Σ recebimentos` é o que falta receber.
-///
-/// **Limite conhecido e exposto na UI:** `sale` (venda de balcão) NÃO está no
-/// sync (ver `sync.registry.ts`), então não há espelho local dela. Offline a
-/// carteira cobre as OS — o principal numa oficina — e o campo [parcialOffline]
-/// diz isso à tela, para o usuário não achar que a lista está completa.
+/// para cada OS e cada venda de balcão não cancelada, `total − Σ recebimentos` é
+/// o que falta receber. `sale`/`sale_item` estão no sync (ver `sync.registry.ts`),
+/// então a carteira offline cobre as DUAS origens — não é mais um recorte.
 ///
 /// Nada aqui escreve: receber é lançamento no caixa, que já tem o próprio
-/// caminho offline (`LocalFirstCashierRepository`).
+/// caminho offline (`LocalFirstCashierRepository`) — e como a carteira lê as
+/// mesmas linhas que o lançamento grava, receber offline abate a dívida na hora.
 class LocalFirstReceivablesRepository extends LocalFirstBase
     implements ReceivablesRepository {
   LocalFirstReceivablesRepository({
@@ -31,14 +30,19 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
 
   static const _orders = 'service_order';
   static const _orderItems = 'service_order_item';
+  static const _sales = 'sale';
+  static const _saleItems = 'sale_item';
   static const _entries = 'cash_entry';
 
   /// Um centavo de tolerância: resíduo de arredondamento não é dívida (mesma
   /// régua do backend).
-  static const _eps = 0.005;
+  static const _eps = paymentEps;
 
-  /// Status de OS que não geram dívida.
-  static const _semDivida = {'cancelada', 'rascunho'};
+  /// Status de OS que não geram dívida (rascunho ainda não foi vendido).
+  static const _osSemDivida = {'cancelada', 'rascunho'};
+
+  /// Idem para a venda de balcão — que nasce `active` e só sai por cancelamento.
+  static const _vendaSemDivida = {'canceled'};
 
   @override
   Future<DebtorsPage> listDebtors() async {
@@ -70,9 +74,9 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
     return DebtorsPage(
       items: items,
       totalDue: _round2(items.fold<num>(0, (a, d) => a + d.totalDue)),
-      // Offline a carteira não inclui vendas de balcão (sem espelho local): a
-      // tela avisa em vez de deixar o usuário achar que viu tudo.
-      truncated: true,
+      // Sem cap: offline a carteira sai INTEIRA do espelho (OS + venda), então
+      // não há o que avisar. O `truncated` do servidor é outra coisa — lá existe
+      // teto de páginas.
     );
   }
 
@@ -93,67 +97,87 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
     );
   }
 
-  /// Títulos em aberto derivados do espelho local (OS + recebimentos).
+  /// Títulos em aberto derivados do espelho local: OS **e** venda de balcão,
+  /// menos o que o caixa já recebeu de cada uma.
   Future<List<_TituloLocal>> _titulosLocais() async {
-    final ordens = await rows(_orders);
-    final lancamentos = await rows(_entries);
-    final itens = await rows(_orderItems);
+    // Σ recebido por título — regra compartilhada com o histórico de vendas e
+    // espelho da do servidor (ver `local_payment.dart`).
+    final pago = paidByTitleFrom(await rows(_entries));
 
-    // Σ recebido por OS: entradas não estornadas apontando para ela. O vínculo é
-    // polimórfico (`sale_kind` + `sale_id`), então filtramos por `sale_kind:'os'`
-    // — sem isso um recebimento de venda de balcão entraria na conta da OS caso
-    // os ids algum dia deixassem de ser uuid.
-    final pagoPorOs = <String, double>{};
-    for (final e in lancamentos) {
-      if (e['direction'] != 'in') continue;
-      if (e['reversed_at'] != null) continue;
-      if (e['sale_kind'] != 'os') continue;
-      final id = e['sale_id'] as String?;
-      if (id == null) continue;
-      pagoPorOs[id] =
-          (pagoPorOs[id] ?? 0) + moneyToDouble((e['amount'] ?? '0').toString());
-    }
+    return [
+      ..._titulosDe(
+        linhas: await rows(_orders),
+        itens: await rows(_orderItems),
+        chaveDoPai: 'order_id',
+        colunaTotalDoItem: 'total',
+        origem: 'os',
+        statusSemDivida: _osSemDivida,
+        pago: pago,
+      ),
+      ..._titulosDe(
+        linhas: await rows(_sales),
+        itens: await rows(_saleItems),
+        chaveDoPai: 'sale_id',
+        // O item da venda chama a linha de `subtotal`; o da OS, de `total`.
+        colunaTotalDoItem: 'subtotal',
+        origem: 'sale',
+        statusSemDivida: _vendaSemDivida,
+        pago: pago,
+      ),
+    ];
+  }
 
-    // Itens por OS, para o detalhamento ("de quais serviços é a dívida").
-    final itensPorOs = <String, List<ReceivableItem>>{};
+  /// Monta os títulos em aberto de UMA origem (OS ou venda). As duas tabelas têm
+  /// a mesma forma para o que o fiado precisa — cabeçalho com total/cliente e
+  /// filhos apontando para o pai —, só mudam os nomes das colunas e o vocabulário
+  /// de status (`cancelada` na OS, `canceled` na venda).
+  List<_TituloLocal> _titulosDe({
+    required List<Map<String, dynamic>> linhas,
+    required List<Map<String, dynamic>> itens,
+    required String chaveDoPai,
+    required String colunaTotalDoItem,
+    required String origem,
+    required Set<String> statusSemDivida,
+    required Map<String, double> pago,
+  }) {
+    final itensPorPai = <String, List<ReceivableItem>>{};
     for (final i in itens) {
-      final os = i['order_id'] as String?;
-      if (os == null) continue;
-      (itensPorOs[os] ??= []).add(ReceivableItem(
+      final pai = i[chaveDoPai] as String?;
+      if (pai == null) continue;
+      (itensPorPai[pai] ??= []).add(ReceivableItem(
         name: (i['name'] ?? '').toString(),
         kind: i['kind'] as String?,
         quantity: moneyToDouble((i['quantity'] ?? '0').toString()),
         unitPrice: moneyToDouble((i['unit_price'] ?? '0').toString()),
-        total: moneyToDouble((i['total'] ?? '0').toString()),
+        total: moneyToDouble((i[colunaTotalDoItem] ?? '0').toString()),
       ));
     }
 
     final out = <_TituloLocal>[];
-    for (final o in ordens) {
-      if (o['deleted_at'] != null) continue;
-      final status = (o['status'] ?? '').toString();
-      if (_semDivida.contains(status)) continue;
+    for (final linha in linhas) {
+      if (linha['deleted_at'] != null) continue;
+      if (statusSemDivida.contains((linha['status'] ?? '').toString())) continue;
 
-      final id = o['id'] as String?;
+      final id = linha['id'] as String?;
       if (id == null) continue;
-      final total = moneyToDouble((o['total'] ?? '0').toString());
-      final pago = pagoPorOs[id] ?? 0;
-      final saldo = _round2(total - pago);
-      if (saldo <= _eps) continue; // pago (ou resíduo) não é fiado
+      final total = moneyToDouble((linha['total'] ?? '0').toString());
+      final recebido = pago[id] ?? 0;
+      final saldo = _round2(total - recebido);
+      if (saldo <= _eps) continue; // pago (ou resíduo de centavo) não é fiado
 
       out.add(_TituloLocal(
-        customerId: o['customer_id'] as String?,
-        customerName: (o['customer_name'] ?? 'Sem cliente').toString(),
+        customerId: linha['customer_id'] as String?,
+        customerName: (linha['customer_name'] ?? 'Sem cliente').toString(),
         title: ReceivableTitle(
           id: id,
-          origin: 'os',
-          number: (o['number'] ?? '').toString(),
-          createdAt: o['created_at'] as String?,
+          origin: origem,
+          number: (linha['number'] ?? '').toString(),
+          createdAt: linha['created_at'] as String?,
           total: total,
-          paid: _round2(pago),
+          paid: _round2(recebido),
           balance: saldo,
-          status: pago > _eps ? 'parcial' : 'a_receber',
-          items: itensPorOs[id] ?? const [],
+          status: derivePaymentStatusLocal(total, recebido),
+          items: itensPorPai[id] ?? const [],
         ),
       ));
     }

@@ -232,18 +232,18 @@ void main() {
   });
 
   group('offline — carteira derivada do SQLite', () {
-    testWidgets('avisa que a lista é parcial e diz o motivo certo',
+    testWidgets('mostra a carteira do aparelho, sem bloqueio nem ressalva',
         (tester) async {
       // Offline o `LocalFirstReceivablesRepository` deriva a carteira do espelho
-      // local (OS + recebimentos) e marca `truncated`, porque venda de balcão
-      // não está no sync. O aviso precisa dizer ESSE motivo — não o de carteira
-      // grande — senão o usuário procura um problema que não existe.
+      // local — OS **e** venda de balcão, ambas no sync. Como não sobra recorte,
+      // a aba não deve nem bloquear ("Fiado precisa de conexão", como antes) nem
+      // avisar que a lista está parcial.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             // Sem override de conectividade: o estado inicial não é `online`.
             receivablesRepositoryProvider.overrideWithValue(
-              FakeReceivablesRepository(truncated: true),
+              FakeReceivablesRepository(),
             ),
           ],
           child: MaterialApp(
@@ -254,10 +254,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // A carteira APARECE (não é mais bloqueio) ...
       expect(find.text('João Silva'), findsOneWidget);
-      // ... e o aviso explica o recorte offline.
-      expect(find.textContaining('cobre as OS'), findsOneWidget);
+      expect(find.textContaining('parcial'), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
