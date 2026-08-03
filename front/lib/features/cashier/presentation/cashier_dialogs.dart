@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
+import '../../../core/util/masks.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../os/domain/os_models.dart';
@@ -118,6 +119,7 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [DecimalInputFormatter()],
           ),
           const SizedBox(height: 14),
           NeuTextField(
@@ -191,6 +193,7 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
                 prefixIcon: Icons.attach_money_rounded,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [DecimalInputFormatter()],
               ),
               const SizedBox(height: 14),
               NeuTextField(
@@ -463,6 +466,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [DecimalInputFormatter()],
             validator: Validators.positiveNumber(field: 'Valor'),
             helper: isOsPayment && _osPayment != null
                 ? 'Pode receber parcial — edite o valor à vontade.'

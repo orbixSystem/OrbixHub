@@ -8,6 +8,7 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../../di.dart';
+import '../../auth/presentation/session_state.dart';
 import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
@@ -180,7 +181,17 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     try {
       final members = await ref.read(osRepositoryProvider).listMembers();
       if (!mounted) return;
-      setState(() => _members = members);
+      setState(() {
+        _members = members;
+        // Sugere o usuário logado como responsável (regra pura e testada em
+        // `responsavelSugerido`): o campo é obrigatório e nascia vazio, sem
+        // nenhuma pista de quem escolher.
+        _assignedTo = responsavelSugerido(
+          meuUserId: ref.read(sessionControllerProvider).meOrNull?.user.id,
+          membros: members,
+          jaEscolhido: _assignedTo,
+        );
+      });
     } on AppException {
       // sem membros / falha silenciosa — dropdown fica só com "sem responsável".
     }

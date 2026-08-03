@@ -4,6 +4,7 @@ import '../../../core/config/feature_flags.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
@@ -665,6 +666,7 @@ class _CashChangeRow extends StatelessWidget {
           child: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: const [DecimalInputFormatter()],
             onChanged: (_) => onChanged(),
             decoration: const InputDecoration(
               isDense: true,
@@ -772,6 +774,8 @@ class _LineTile extends StatelessWidget {
               initialValue: _fmtNum(line.quantity),
               textAlign: TextAlign.center,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              // Quantidade admite fração (0,5 h de mão de obra) — 3 casas.
+              inputFormatters: const [DecimalInputFormatter(3)],
               decoration: const InputDecoration(isDense: true),
               validator: Validators.positiveNumber(field: 'Quantidade'),
               onChanged: (v) {
@@ -787,6 +791,7 @@ class _LineTile extends StatelessWidget {
               initialValue: line.unitPrice.toStringAsFixed(2),
               textAlign: TextAlign.right,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: const [DecimalInputFormatter()],
               decoration: const InputDecoration(isDense: true),
               validator: Validators.positiveNumber(field: 'Preço'),
               onChanged: (v) {
