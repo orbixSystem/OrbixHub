@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -835,62 +837,6 @@ class _CashierHistory extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (s.byMethod.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text('Por forma (entrou · saiu · saldo)',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 10),
-                    NeuCard(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      radius: NeuTokens.rField,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < s.byMethod.length; i++) ...[
-                            if (i > 0)
-                              Container(height: 1, color: neu.line),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                        methodLabel(s.byMethod[i].method),
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: neu.ink)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        '+ ${formatMoney(s.byMethod[i].inAmount)}',
-                                        textAlign: TextAlign.right,
-                                        style:
-                                            TextStyle(color: neu.success)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        '− ${formatMoney(s.byMethod[i].outAmount)}',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(color: neu.danger)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        formatMoney(s.byMethod[i].inAmount -
-                                            s.byMethod[i].outAmount),
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: neu.ink)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 24),
                   Text('O que aconteceu',
                       style: Theme.of(context).textTheme.titleMedium),
@@ -915,6 +861,106 @@ class _CashierHistory extends ConsumerWidget {
             },
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Filtros do histórico: tipo + busca.
+///
+/// Ambos são aplicados no SERVIDOR (e no espelho SQLite quando offline), não na
+/// página já carregada — filtrar em memória quebraria a paginação e daria
+/// resultado diferente conforme a conexão.
+class _HistoricoFiltros extends StatefulWidget {
+  const _HistoricoFiltros({
+    required this.filtro,
+    required this.busca,
+    required this.onFiltro,
+    required this.onBusca,
+  });
+
+  final CashierFilter filtro;
+  final String busca;
+  final ValueChanged<CashierFilter> onFiltro;
+  final ValueChanged<String> onBusca;
+
+  @override
+  State<_HistoricoFiltros> createState() => _HistoricoFiltrosState();
+}
+
+class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
+  late final _ctrl = TextEditingController(text: widget.busca);
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  /// Espera o usuário parar de digitar antes de ir ao servidor — sem isso cada
+  /// letra dispararia uma consulta.
+  void _buscar(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      () => widget.onBusca(v),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        NeuTextField(
+          label: 'Buscar',
+          controller: _ctrl,
+          hint: 'Cliente, OS, venda ou descrição',
+          prefixIcon: Icons.search_rounded,
+          onChanged: _buscar,
+          suffix: _ctrl.text.isEmpty
+              ? null
+              : NeuIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: 'Limpar busca',
+                  size: 34,
+                  onPressed: () {
+                    _ctrl.clear();
+                    _debounce?.cancel();
+                    widget.onBusca('');
+                    setState(() {});
+                  },
+                ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final f in CashierFilter.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _ChoicePill(
+                    label: cashierFilterLabel(f),
+                    selected: widget.filtro == f,
+                    onTap: () => widget.onFiltro(f),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        if (widget.filtro == CashierFilter.entradas)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Venda em fiado não conta como entrada — nada entrou no caixa.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 11),
+            ),
+          ),
       ],
     );
   }

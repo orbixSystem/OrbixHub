@@ -510,8 +510,17 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
     }
     // Guarda o nº da OS na descrição → o extrato mostra "OS-0001" (não só "OS").
     final note = _descCtrl.text.trim();
+    // Inclui o CLIENTE na descrição: o lançamento guarda só `sale_id`, e o
+    // histórico não tem como saber para quem foi o recebimento. Gravar aqui é o
+    // que faz a linha do extrato dizer "para quem" sem uma consulta extra.
     final description = isOsPayment && _selectedOs != null
-        ? (note.isEmpty ? _selectedOs!.number : '${_selectedOs!.number} · $note')
+        ? [
+            _selectedOs!.number,
+            ?(_selectedOs!.customerName?.trim().isEmpty ?? true
+                ? null
+                : _selectedOs!.customerName!.trim()),
+            if (note.isNotEmpty) note,
+          ].join(' · ')
         : note;
     setState(() => _saving = true);
     try {

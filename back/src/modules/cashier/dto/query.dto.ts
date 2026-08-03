@@ -4,7 +4,9 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -13,6 +15,12 @@ import { ENTRY_CATEGORIES, PAYMENT_METHODS } from '../cashier.config';
 /** Filtros + paginação do extrato (livro caixa). */
 export class EntryQueryDto {
   @IsOptional() @IsUUID() sessionId?: string;
+  /**
+   * Busca textual na descrição do lançamento — é onde fica o número da OS/venda
+   * e o nome do cliente. Filtrar no SERVIDOR (e não na página já carregada) é o
+   * que mantém a paginação correta e o mesmo comportamento offline.
+   */
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
   @IsOptional() @IsIn(['in', 'out']) direction?: 'in' | 'out';
   @IsOptional() @IsIn(PAYMENT_METHODS as unknown as string[]) method?: string;
   @IsOptional() @IsIn(ENTRY_CATEGORIES as unknown as string[]) category?: string;

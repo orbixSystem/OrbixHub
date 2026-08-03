@@ -394,6 +394,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
   @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -406,6 +407,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
     if (isOnline()) {
       final res = await inner.listEntries(
         sessionId: sessionId,
+        q: q,
         direction: direction,
         method: method,
         category: category,
@@ -424,6 +426,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
         keepExtra: (row) => _matchesEntryFilter(
           row,
           sessionId: sessionId,
+          q: q,
           direction: direction,
           method: method,
           category: category,
@@ -442,6 +445,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
         .where((row) => _matchesEntryFilter(
               row,
               sessionId: sessionId,
+              q: q,
               direction: direction,
               method: method,
               category: category,
@@ -469,6 +473,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
   bool _matchesEntryFilter(
     Map<String, dynamic> row, {
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -478,6 +483,14 @@ class LocalFirstCashierRepository extends LocalFirstBase
     String? to,
   }) {
     if (sessionId != null && row['cash_session_id'] != sessionId) return false;
+    // Mesma semântica do backend (`description contains`, sem caixa): o filtro
+    // vale igual online e offline, senão a busca mudaria de resultado conforme a
+    // conexão.
+    if (q != null && q.trim().isNotEmpty) {
+      final termo = q.trim().toLowerCase();
+      final desc = (row['description'] ?? '').toString().toLowerCase();
+      if (!desc.contains(termo)) return false;
+    }
     if (direction != null && row['direction'] != direction) return false;
     if (method != null && row['method'] != method) return false;
     if (category != null && row['category'] != category) return false;

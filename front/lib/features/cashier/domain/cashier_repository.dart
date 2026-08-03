@@ -29,6 +29,9 @@ abstract interface class CashierRepository {
 
   Future<EntryPage> listEntries({
     String? sessionId,
+    /// Busca textual na descrição (número da OS/venda, cliente). Aplicada no
+    /// SERVIDOR e, offline, no espelho local — nunca só na página carregada.
+    String? q,
     String? direction,
     String? method,
     String? category,

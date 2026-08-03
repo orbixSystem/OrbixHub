@@ -160,6 +160,7 @@ class FakeCashierRepository implements CashierRepository {
   @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,

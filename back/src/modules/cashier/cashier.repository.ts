@@ -34,6 +34,8 @@ export interface NewEntryData {
 
 export interface EntryFilter {
   sessionId?: string;
+  /** Busca textual na descrição (número da OS/venda, nome do cliente). */
+  q?: string;
   direction?: EntryDirection;
   method?: string;
   category?: string;
@@ -174,6 +176,9 @@ export class CashierRepository {
       ...(filter.category ? { category: filter.category } : {}),
       ...(filter.saleKind ? { sale_kind: filter.saleKind } : {}),
       ...(filter.saleId ? { sale_id: filter.saleId } : {}),
+      ...(filter.q
+        ? { description: { contains: filter.q, mode: 'insensitive' as const } }
+        : {}),
       ...(filter.from || filter.to
         ? {
             created_at: {

@@ -154,6 +154,7 @@ class CashierRepositoryImpl implements CashierRepository {
   @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -166,6 +167,7 @@ class CashierRepositoryImpl implements CashierRepository {
       _guard(() async {
         final res = await _dio.get<Object?>('/cashier/entries', queryParameters: {
           'sessionId': ?sessionId,
+          'q': ?q,
           'direction': ?direction,
           'method': ?method,
           'category': ?category,

@@ -94,3 +94,81 @@ String cashierEventTitle(CashierEvent ev) {
 ///
 /// O sinal +/− fica só nos lançamentos, que são movimento de dinheiro de fato.
 bool cashierEventTemMovimento(CashierEvent ev) => !ev.ehVenda;
+
+/// Filtro de tipo do histórico. "Saídas" reúne despesa e sangria (as duas tiram
+/// dinheiro); "Despesas" isola só a despesa, que é a pergunta de custo.
+enum CashierFilter { tudo, vendas, entradas, saidas, despesas }
+
+String cashierFilterLabel(CashierFilter f) => switch (f) {
+      CashierFilter.tudo => 'Tudo',
+      CashierFilter.vendas => 'Vendas',
+      CashierFilter.entradas => 'Entradas',
+      CashierFilter.saidas => 'Saídas',
+      CashierFilter.despesas => 'Despesas',
+    };
+
+/// Aplica filtro de tipo + busca textual sobre a linha do tempo.
+///
+/// A busca é feita no cliente, sobre o que já está carregado: cobre cliente,
+/// número, itens vendidos, forma de pagamento e descrição do lançamento — que é
+/// como o usuário procura ("cadê a venda do João?", "aquela despesa de óleo").
+/// Sem acento e sem caixa, porque ninguém digita "José" com acento no meio do
+/// atendimento.
+List<CashierEvent> filterCashierTimeline(
+  List<CashierEvent> eventos, {
+  CashierFilter filtro = CashierFilter.tudo,
+  String busca = '',
+}) {
+  final termo = _semAcento(busca.trim().toLowerCase());
+  return eventos.where((ev) {
+    if (!_passaFiltro(ev, filtro)) return false;
+    if (termo.isEmpty) return true;
+    return _semAcento(_textoBuscavel(ev).toLowerCase()).contains(termo);
+  }).toList();
+}
+
+bool _passaFiltro(CashierEvent ev, CashierFilter f) {
+  switch (f) {
+    case CashierFilter.tudo:
+      return true;
+    case CashierFilter.vendas:
+      return ev.ehVenda;
+    case CashierFilter.entradas:
+      // Venda em fiado NÃO é entrada: nada entrou no caixa.
+      if (ev.ehVenda) return ev.sale!.paymentStatus == 'pago';
+      return ev.entry!.direction == 'in';
+    case CashierFilter.saidas:
+      return !ev.ehVenda && ev.entry!.direction == 'out';
+    case CashierFilter.despesas:
+      return !ev.ehVenda && ev.entry!.category == 'despesa';
+  }
+}
+
+/// Tudo que a linha "diz", concatenado para a busca.
+String _textoBuscavel(CashierEvent ev) {
+  if (ev.ehVenda) {
+    final s = ev.sale!;
+    return [
+      s.customerName ?? '',
+      s.number,
+      for (final i in s.items) i.name,
+    ].join(' ');
+  }
+  final e = ev.entry!;
+  return [
+    categoryLabel(e.category),
+    methodLabel(e.method),
+    e.description ?? '',
+  ].join(' ');
+}
+
+/// Remove acentos para a busca não depender de digitação exata.
+String _semAcento(String v) {
+  const de = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
+  const para = 'aaaaaeeeeiiiiooooouuuucn';
+  var out = v;
+  for (var i = 0; i < de.length; i++) {
+    out = out.replaceAll(de[i], para[i]);
+  }
+  return out;
+}

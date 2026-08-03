@@ -425,6 +425,7 @@ export class CashierServiceImpl extends CashierService {
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listEntries({
         sessionId: query.sessionId,
+        q: query.q?.trim() || undefined,
         direction: query.direction,
         method: query.method,
         category: query.category,

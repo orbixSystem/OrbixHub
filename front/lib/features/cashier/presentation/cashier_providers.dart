@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_providers.dart';
 import '../domain/cashier_models.dart';
+import '../domain/cashier_timeline.dart';
 import '../domain/cashier_repository.dart';
 
 /// Declarado aqui (lança por padrão) e ganha a impl real (dio) em `di.dart`,
@@ -123,6 +124,27 @@ class CashierHistoryPreset extends Notifier<String> {
   void set(String preset) => state = preset;
 }
 
+/// Filtro de tipo do histórico (tudo/vendas/entradas/saídas/despesas).
+final cashierHistoryFilterProvider =
+    NotifierProvider<CashierHistoryFilter, CashierFilter>(
+        CashierHistoryFilter.new);
+
+class CashierHistoryFilter extends Notifier<CashierFilter> {
+  @override
+  CashierFilter build() => CashierFilter.tudo;
+  void set(CashierFilter v) => state = v;
+}
+
+/// Busca textual do histórico (cliente, número, item, descrição).
+final cashierHistoryBuscaProvider =
+    NotifierProvider<CashierHistoryBusca, String>(CashierHistoryBusca.new);
+
+class CashierHistoryBusca extends Notifier<String> {
+  @override
+  String build() => '';
+  void set(String v) => state = v;
+}
+
 /// Início do período de um preset ('hoje' | '7d' | '30d').
 DateTime periodStart(String preset, DateTime now) => switch (preset) {
       'hoje' => DateTime(now.year, now.month, now.day),
@@ -155,24 +177,52 @@ class CashierHistoryData {
 final cashierHistoryProvider =
     FutureProvider.autoDispose<CashierHistoryData>((ref) async {
   final preset = ref.watch(cashierHistoryPresetProvider);
+  final filtro = ref.watch(cashierHistoryFilterProvider);
+  final busca = ref.watch(cashierHistoryBuscaProvider).trim();
   final now = DateTime.now();
   final fromIso = periodStart(preset, now).toUtc().toIso8601String();
   final toIso = now.toUtc().toIso8601String();
   final repo = ref.read(cashierRepositoryProvider);
   final summary = await repo.summary(from: fromIso, to: toIso);
-  final page = await repo.listEntries(from: fromIso, to: toIso, page: 1);
-  // `sale` é módulo contratável: sem ele (ou sem permissão) o backend recusa.
-  // A ausência de vendas não pode derrubar o histórico do caixa.
-  List<Sale> sales = const [];
-  try {
-    final vendas = await ref.read(saleRepositoryProvider).listSales(
+
+  // Os filtros vão ao SERVIDOR (e ao espelho SQLite quando offline), não a uma
+  // página já carregada: filtrar em memória quebraria a paginação e daria
+  // resultado diferente conforme a conexão.
+  final q = busca.isEmpty ? null : busca;
+  final soVendas = filtro == CashierFilter.vendas;
+  final page = soVendas
+      // Filtro "Vendas": não há lançamento a listar.
+      ? const EntryPage()
+      : await repo.listEntries(
           from: fromIso,
           to: toIso,
+          q: q,
+          direction: switch (filtro) {
+            CashierFilter.entradas => 'in',
+            CashierFilter.saidas => 'out',
+            _ => null,
+          },
+          category: filtro == CashierFilter.despesas ? 'despesa' : null,
           page: 1,
         );
-    sales = vendas.items;
-  } catch (_) {
-    sales = const [];
+  // `sale` é módulo contratável: sem ele (ou sem permissão) o backend recusa.
+  // A ausência de vendas não pode derrubar o histórico do caixa.
+  // Saídas e despesas são movimento de dinheiro — venda não entra nessas lentes.
+  final incluiVendas = filtro != CashierFilter.saidas &&
+      filtro != CashierFilter.despesas;
+  List<Sale> sales = const [];
+  if (incluiVendas) {
+    try {
+      final vendas = await ref.read(saleRepositoryProvider).listSales(
+            from: fromIso,
+            to: toIso,
+            q: q,
+            page: 1,
+          );
+      sales = vendas.items;
+    } catch (_) {
+      sales = const [];
+    }
   }
   return CashierHistoryData(
     summary: summary,
