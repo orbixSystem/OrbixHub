@@ -94,3 +94,20 @@ String cashDifferenceLabel(double difference) {
       ? 'Caixa fechado com SOBRA de ${formatMoney(difference)}.'
       : 'Caixa fechado com FALTA de ${formatMoney(difference.abs())}.';
 }
+
+/// "03/08 14:32" (hora local), ou null quando não há data — a linha simplesmente
+/// omite em vez de mostrar um placeholder.
+String? fmtDataHora(String? iso) {
+  if (iso == null) return null;
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return null;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Quantidade sem casas decimais inúteis ("4" em vez de "4,000").
+String fmtQuantidade(String raw) {
+  final v = double.tryParse(raw.replaceAll(',', '.'));
+  if (v == null) return raw;
+  return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+}

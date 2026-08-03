@@ -634,6 +634,17 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
             prefixIcon: Icons.attach_money_rounded,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: const [DecimalInputFormatter()],
+            // Atalho para receber o saldo inteiro da OS sem redigitar.
+            suffix: _osPayment == null || _osPayment!.balance <= 0
+                ? null
+                : NeuExactAmountButton(
+                    label: 'Tudo',
+                    tooltip: 'Preencher com o saldo da OS',
+                    onTap: () => setState(() {
+                      _amountCtrl.text = formatAmountForInput(
+                          _osPayment!.balance.toDouble());
+                    }),
+                  ),
             validator: Validators.positiveNumber(field: 'Valor'),
             helper: isOsPayment && _osPayment != null
                 ? 'Pode receber parcial — edite o valor à vontade.'

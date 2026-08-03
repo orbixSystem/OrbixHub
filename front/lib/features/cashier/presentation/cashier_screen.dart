@@ -10,10 +10,10 @@ import '../domain/cashier_models.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
-import '../../sale/presentation/sale_detail_dialog.dart';
 import 'cashier_dialogs.dart';
 import 'cashier_providers.dart';
-import 'sales_history.dart';
+import '../domain/cashier_timeline.dart';
+import 'cashier_timeline_list.dart';
 
 /// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
 /// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
@@ -174,10 +174,10 @@ class _Metric extends StatelessWidget {
 
 /// Glyph de direção do movimento: círculo tintado com seta (entrada/saída).
 class _DirectionGlyph extends StatelessWidget {
-  const _DirectionGlyph({required this.color, required this.isIn, this.size = 40});
+  const _DirectionGlyph({required this.color, required this.isIn});
+  static const size = 40.0;
   final Color color;
   final bool isIn;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -653,7 +653,6 @@ class _CashierHistory extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final preset = ref.watch(cashierHistoryPresetProvider);
-    final lente = ref.watch(cashierHistoryLenteProvider);
     final async = ref.watch(cashierHistoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,40 +765,24 @@ class _CashierHistory extends ConsumerWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  // Duas lentes do MESMO período: "Movimentos" é o livro-caixa
-                  // (dinheiro que entrou/saiu, inclusive despesas) e "Vendas" é
-                  // o que foi vendido. Não são a mesma coisa: venda em fiado não
-                  // move o caixa, e sangria não é venda.
-                  NeuSegmented<int>(
-                    segments: const {0: 'Movimentos', 1: 'Vendas'},
-                    selected: lente,
-                    onChanged: (v) =>
-                        ref.read(cashierHistoryLenteProvider.notifier).set(v),
+                  Text('O que aconteceu',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Vendas, recebimentos e despesas em ordem — inclusive as '
+                    'vendas em fiado, que não movimentam o caixa.',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
-                  if (lente == 1)
-                    SalesHistoryList(sales: data.sales)
-                  else if (data.entries.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: NeuEmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Nenhum movimento no período',
-                        message:
-                            'Troque o período acima para ver outros dias do caixa.',
-                      ),
-                    )
-                  else
-                    for (final e in data.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _HistoryEntryTile(
-                          entry: e,
-                          sale: e.saleId == null
-                              ? null
-                              : data.salesById[e.saleId],
-                        ),
-                      ),
+                  // Uma lista só, cada linha detalhada. Antes havia duas lentes
+                  // (Movimentos | Vendas) e o usuário tinha de escolher — mas o
+                  // dia é um só, e alternar escondia metade do que aconteceu.
+                  CashierTimelineList(
+                    events: buildCashierTimeline(
+                      entries: data.entries,
+                      sales: data.sales,
+                    ),
+                  ),
                 ],
               );
             },
@@ -850,84 +833,3 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-/// Linha do extrato histórico: data + categoria + método/origem + valor.
-///
-/// Quando o lançamento aponta para uma VENDA (`saleKind == 'sale'`), a linha
-/// abre o detalhe: o histórico mostrava só "Venda avulsa · R$ 150", sem dizer o
-/// que foi vendido nem permitir agir. Lançamentos de OS não abrem aqui — a OS
-/// tem tela própria, alcançada pela lista de OS.
-class _HistoryEntryTile extends StatelessWidget {
-  const _HistoryEntryTile({required this.entry, this.sale});
-  final CashEntry entry;
-
-  /// Venda de origem, quando o lançamento aponta para uma. Serve para dizer
-  /// PARA QUEM foi a venda — o lançamento do caixa só guarda `sale_id`.
-  final Sale? sale;
-
-  /// Só venda: `saleId` presente e origem 'sale'.
-  String? get _saleId =>
-      entry.saleKind == 'sale' && (entry.saleId?.isNotEmpty ?? false)
-          ? entry.saleId
-          : null;
-
-  String _fmtDate(String? iso) {
-    if (iso == null) return '';
-    final d = DateTime.tryParse(iso)?.toLocal();
-    if (d == null) return '';
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final isIn = entry.direction == 'in';
-    final reversed = entry.reversedAt != null;
-    final color =
-        reversed ? neu.inkMuted : (isIn ? neu.success : neu.danger);
-    final hasDesc = entry.description != null && entry.description!.isNotEmpty;
-    // Cliente da venda antes da descrição: "para quem" é a informação que
-    // faltava na linha (a descrição já traz o número da venda).
-    final cliente = sale?.customerName;
-    final sub = <String>[
-      _fmtDate(entry.createdAt),
-      methodLabel(entry.method),
-      if (cliente != null && cliente.isNotEmpty) cliente,
-      if (hasDesc) entry.description!,
-    ].where((s) => s.isNotEmpty).join(' · ');
-    return NeuListTile(
-      dense: true,
-      leading: _DirectionGlyph(color: color, isIn: isIn, size: 36),
-      title: Text(
-        categoryLabel(entry.category),
-        style: TextStyle(
-          decoration: reversed ? TextDecoration.lineThrough : null,
-          color: reversed ? neu.inkMuted : neu.ink,
-        ),
-      ),
-      subtitle: Text(sub),
-      onTap: _saleId == null
-          ? null
-          : () => showSaleDetailDialog(context, saleId: _saleId!),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-              color: color,
-              decoration: reversed ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          // Affordance: só quem abre detalhe mostra a seta.
-          if (_saleId != null) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
-          ],
-        ],
-      ),
-    );
-  }
-}

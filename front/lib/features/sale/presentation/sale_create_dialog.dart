@@ -4,6 +4,7 @@ import '../../../core/config/feature_flags.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../../di.dart';
@@ -392,6 +393,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             if (_showChange) ...[
               const SizedBox(height: 12),
               _CashChangeRow(
+                total: _total,
                 controller: _receivedCtrl,
                 change: _change,
                 onChanged: () => setState(() {}),
@@ -673,11 +675,17 @@ class _CashChangeRow extends StatelessWidget {
     required this.controller,
     required this.change,
     required this.onChanged,
+    required this.total,
   });
 
   final TextEditingController controller;
   final double change;
   final VoidCallback onChanged;
+
+  /// Total da venda — preenche o campo num toque ("valor exato"), que é o caso
+  /// mais comum no balcão (pix/cartão e dinheiro contado). Digitar o mesmo
+  /// número que já está na tela é trabalho que o sistema devia poupar.
+  final double total;
 
   @override
   Widget build(BuildContext context) {
@@ -704,6 +712,14 @@ class _CashChangeRow extends StatelessWidget {
               prefixText: 'R\$ ',
             ),
           ),
+        ),
+        const SizedBox(width: 8),
+        // Atalho: recebeu exatamente o valor da venda (sem troco).
+        NeuExactAmountButton(
+          onTap: () {
+            controller.text = formatAmountForInput(total);
+            onChanged();
+          },
         ),
         const SizedBox(width: 16),
         Expanded(

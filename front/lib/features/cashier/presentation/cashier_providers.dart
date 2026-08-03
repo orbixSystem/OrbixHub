@@ -112,16 +112,6 @@ class CashierHistoryPreset extends Notifier<String> {
   void set(String preset) => state = preset;
 }
 
-/// Lente do Histórico: 0 = Movimentos (livro-caixa) · 1 = Vendas.
-final cashierHistoryLenteProvider =
-    NotifierProvider<CashierHistoryLente, int>(CashierHistoryLente.new);
-
-class CashierHistoryLente extends Notifier<int> {
-  @override
-  int build() => 0;
-  void set(int v) => state = v;
-}
-
 /// Início do período de um preset ('hoje' | '7d' | '30d').
 DateTime periodStart(String preset, DateTime now) => switch (preset) {
       'hoje' => DateTime(now.year, now.month, now.day),

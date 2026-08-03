@@ -170,15 +170,36 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                 ),
               ),
             const SizedBox(height: 14),
-            NeuTextField(
-              label: 'Valor recebido *',
-              controller: _amountCtrl,
-              hint: '0,00',
-              prefixIcon: Icons.attach_money_rounded,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: const [DecimalInputFormatter()],
-              validator: Validators.positiveNumber(field: 'Valor'),
-              helper: 'Pode receber parcial — edite o valor à vontade.',
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: NeuTextField(
+                    label: 'Valor recebido *',
+                    controller: _amountCtrl,
+                    hint: '0,00',
+                    prefixIcon: Icons.attach_money_rounded,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: const [DecimalInputFormatter()],
+                    validator: Validators.positiveNumber(field: 'Valor'),
+                    helper: 'Pode receber parcial — edite o valor à vontade.',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Quitar de uma vez, sem digitar o saldo.
+                Padding(
+                  padding: const EdgeInsets.only(top: 22),
+                  child: NeuExactAmountButton(
+                    label: 'Quitar',
+                    tooltip: 'Preencher com o saldo total do título',
+                    onTap: () => setState(() {
+                      _amountCtrl.text =
+                          formatAmountForInput(widget.title.balance.toDouble());
+                    }),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             _FormaPagamento(
