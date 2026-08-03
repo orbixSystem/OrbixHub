@@ -7,6 +7,7 @@ import '../../auth/presentation/session_state.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
+import '../../cashier/presentation/entry_edit_dialogs.dart';
 import '../../os/presentation/payment_status.dart';
 import '../domain/sale_models.dart';
 import 'sale_create_dialog.dart';
@@ -19,11 +20,14 @@ import 'sale_providers.dart';
 /// R$ 150"), sem dizer o que foi vendido nem permitir agir. Este diálogo é o
 /// destino do toque naquela linha.
 ///
-/// EDITAR uma venda registrada não existe por decisão de produto: o dinheiro já
-/// passou pelo caixa e reescrever a venda apagaria o rastro de quanto entrou.
-/// Corrigir é CANCELAR e REFAZER — o cancelamento é auditado, estorna o estoque
-/// e a nova venda abre já preenchida com os mesmos itens. "Excluir" também é
-/// cancelar: o projeto não faz hard delete em nenhum módulo.
+/// EDITAR altera itens, quantidade e desconto: o total é recalculado no servidor
+/// e o estoque reconciliado (devolve o que as linhas antigas consumiram, consome
+/// o que as novas pedem). Duas coisas a edição não pode fazer, e o servidor
+/// recusa: mexer no valor depois de EMITIR A NOTA (a NF passaria a divergir) ou
+/// baixar o total abaixo do que o cliente já PAGOU (ficaríamos devendo troco).
+/// Nesses casos o caminho é CANCELAR e REFAZER — auditado, estorna o estoque e
+/// abre a nova já preenchida. "Excluir" também é cancelar: o projeto não faz hard
+/// delete em nenhum módulo.
 Future<void> showSaleDetailDialog(
   BuildContext context, {
   required String saleId,
@@ -105,6 +109,12 @@ class _Corpo extends ConsumerWidget {
   bool _canWriteSale(WidgetRef ref) {
     final me = ref.read(sessionControllerProvider).meOrNull;
     return me?.hasPermission('sale.write') ?? false;
+  }
+
+  /// Corrigir/estornar recebimento é gestão do caixa, não permissão de venda.
+  bool _canManageCashier(WidgetRef ref) {
+    final me = ref.read(sessionControllerProvider).meOrNull;
+    return me?.hasPermission('cashier.manage') ?? false;
   }
 
   @override
@@ -241,7 +251,11 @@ class _Corpo extends ConsumerWidget {
         // Recebimentos: quanto entrou, quando e por qual forma.
         if (payment != null) ...[
           const SizedBox(height: 16),
-          _Pagamentos(payment: payment!, cancelada: cancelada),
+          _Pagamentos(
+            payment: payment!,
+            cancelada: cancelada,
+            canManage: _canManageCashier(ref),
+          ),
         ],
 
         // Ações. Venda cancelada não se cancela de novo.
@@ -270,18 +284,24 @@ class _Corpo extends ConsumerWidget {
                 onPressed: () => _trocarCliente(context, ref),
               ),
               NeuButton(
-                label: 'Corrigir (refazer)',
+                label: 'Editar itens',
                 icon: Icons.edit_outlined,
+                onPressed: () => _editarItens(context, ref),
+              ),
+              NeuButton(
+                label: 'Cancelar e refazer',
+                kind: NeuButtonKind.secondary,
+                icon: Icons.restart_alt_rounded,
                 onPressed: () => _cancelar(context, ref, refazer: true),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'O VALOR de uma venda registrada não se edita: o dinheiro já passou '
-            'pelo caixa. Corrigir cancela esta (com motivo, estornando o '
-            'estoque) e abre uma nova já preenchida com os mesmos itens. O '
-            'cliente, por não mexer em dinheiro, pode ser trocado direto.',
+            'Editar altera itens, quantidade e desconto — o total é recalculado '
+            'e o estoque reconciliado. Não é possível editar depois de emitir a '
+            'nota, nem baixar o total abaixo do que o cliente já pagou; nesses '
+            'casos, cancele e refaça.',
             style: TextStyle(color: neu.inkFaint, fontSize: 11, height: 1.35),
           ),
         ],
@@ -313,6 +333,17 @@ class _Corpo extends ConsumerWidget {
             .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
+  }
+
+  /// Abre a venda para editar os itens (mesma tela da criação, já preenchida).
+  /// O servidor recalcula o total, reconcilia o estoque e recusa o que quebraria
+  /// nota emitida ou pagamento já feito.
+  Future<void> _editarItens(BuildContext context, WidgetRef ref) async {
+    final atualizada = await showSaleEditDialog(context, sale);
+    if (atualizada == null || !context.mounted) return;
+    // O total mudou: o detalhe, o caixa e a carteira de fiado precisam refletir.
+    ref.invalidate(_saleDetailProvider(sale.id));
+    ref.invalidate(cashierControllerProvider);
   }
 
   /// Cancela com motivo obrigatório e, quando [refazer], abre a nova venda já
@@ -426,12 +457,25 @@ class _Corpo extends ConsumerWidget {
   }
 }
 
-/// Recebimentos da venda: total, pago, saldo e cada lançamento do caixa.
+/// Recebimentos da venda: total, pago, saldo e cada lançamento do caixa —
+/// com as ações de cada um.
+///
+/// As ações vivem AQUI (e não mais nos três pontinhos da linha do extrato)
+/// porque é aqui que o recebimento tem contexto: ao lado do total da venda e do
+/// que falta. No Caixa do dia a linha da venda abre este diálogo; no Histórico o
+/// recebimento é deduplicado no cartão da venda, que também abre aqui.
 class _Pagamentos extends StatelessWidget {
-  const _Pagamentos({required this.payment, required this.cancelada});
+  const _Pagamentos({
+    required this.payment,
+    required this.cancelada,
+    this.canManage = false,
+  });
 
   final PaymentDetail payment;
   final bool cancelada;
+
+  /// `cashier.manage` — libera corrigir/estornar o recebimento.
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -495,6 +539,11 @@ class _Pagamentos extends StatelessWidget {
                                 : null,
                           ),
                         ),
+                        // Recebeu o valor errado? Corrigir estorna e relança —
+                        // sem isto, tirar o menu da linha do extrato deixaria a
+                        // correção do recebimento sem porta nenhuma.
+                        if (canManage && e.reversedAt == null)
+                          EntryActionsMenu(entry: e),
                       ],
                     ),
                   ),

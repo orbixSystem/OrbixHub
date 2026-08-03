@@ -1784,3 +1784,30 @@ ALTER TABLE sale
 
 ALTER TABLE sale DROP CONSTRAINT IF EXISTS sale_discount_chk;
 ALTER TABLE sale ADD CONSTRAINT sale_discount_chk CHECK (discount >= 0);
+
+-- ============================================================
+-- 0037 — Caixa sem exigir sessão, para todos os tenants — DADOS, idempotente
+-- ============================================================
+-- O default do código já é `false` (`DEFAULT_CASHIER_CONFIG`), mas o valor
+-- SALVO em `tenant_module.settings` vence o default: tenants criados antes da
+-- mudança continuariam presos na cerimônia de abrir/fechar. Este backfill os
+-- alinha. Sobrescreve quem tinha `true` de propósito — é decisão de produto; a
+-- conferência de gaveta se reativa em Configurações › Caixa.
+-- ATENÇÃO ao `jsonb_set`: ele NÃO cria níveis intermediários (só a última chave),
+-- então em `settings` vazio/nulo o caminho `{cashier,requireOpenSession}` era
+-- ignorado e o UPDATE não surtia efeito — além de reescrever a linha toda rodada.
+-- Daí o merge de objeto (`||`), que constrói o nível `cashier` quando falta.
+UPDATE tenant_module AS tm
+SET settings = COALESCE(tm.settings, '{}'::jsonb)
+               || jsonb_build_object(
+                    'cashier',
+                    COALESCE(tm.settings -> 'cashier', '{}'::jsonb)
+                      || jsonb_build_object('requireOpenSession', false)
+                  )
+FROM module AS m
+WHERE m.id = tm.module_id
+  AND m.key = 'cashier'
+  -- Só o que ainda não está `false`: mantém o UPDATE idempotente (2ª rodada = 0
+  -- linhas) e evita reescrever WAL sem motivo.
+  AND COALESCE(tm.settings #> '{cashier,requireOpenSession}', 'null'::jsonb)
+      IS DISTINCT FROM 'false'::jsonb;

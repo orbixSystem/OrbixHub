@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../core/ui/ui.dart';
 import '../domain/settings_models.dart';
 
-/// Renders a read-only view of a [SettingsSection] using the current [values]
-/// map.  Module-owned sections are always read-only — the section's own module
-/// settings screen (if any) is the authority; this card is just an overview.
+/// Renderiza uma [SettingsSection] com os [values] atuais.
+///
+/// Campos `bool` são EDITÁVEIS quando a seção declara `editable` (o módulo dono
+/// registrou um `setValues` no backend) e o usuário tem `settings.manage`. Antes
+/// tudo aqui era somente-leitura: o toggle existia mas nascia com
+/// `onChanged: null`, então não havia como ligar "Exigir caixa aberto" pela tela
+/// de Configurações — só via API.
+///
+/// Os demais tipos seguem só de leitura por ora: `color` tem editor próprio na
+/// Aparência, e `text`/`select` de módulo ainda não têm caminho de escrita.
 ///
 /// Quando [hideTitle] é `true`, omite o cartão externo e o título interno (útil
 /// quando incorporado em um painel expansível que já provê o cabeçalho).
@@ -15,10 +22,14 @@ class DynamicSection extends StatelessWidget {
     required this.section,
     required this.values,
     this.hideTitle = false,
+    this.onToggle,
   });
 
   final SettingsSection section;
   final Map<String, dynamic> values;
+
+  /// Chamado ao virar um campo `bool`. `null` = seção só de leitura.
+  final void Function(String fieldKey, bool value)? onToggle;
 
   /// Quando `true`, omite cartão externo e título; útil dentro de
   /// [_CollapsibleSection] que já provê o cabeçalho.
@@ -57,6 +68,7 @@ class DynamicSection extends StatelessWidget {
           if (!hideTitle) const SizedBox(height: 18),
           for (final field in section.fields) ...[
             _FieldRow(
+              onToggle: section.editable ? onToggle : null,
               field: field,
               value: values[field.key],
               neu: neu,
@@ -88,11 +100,13 @@ class _FieldRow extends StatelessWidget {
     required this.field,
     required this.value,
     required this.neu,
+    this.onToggle,
   });
 
   final SettingsField field;
   final dynamic value;
   final NeuTokens neu;
+  final void Function(String fieldKey, bool value)? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +127,12 @@ class _FieldRow extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           flex: 3,
-          child: _FieldValue(field: field, value: value, neu: neu),
+          child: _FieldValue(
+            field: field,
+            value: value,
+            neu: neu,
+            onToggle: onToggle,
+          ),
         ),
       ],
     );
@@ -125,23 +144,30 @@ class _FieldValue extends StatelessWidget {
     required this.field,
     required this.value,
     required this.neu,
+    this.onToggle,
   });
 
   final SettingsField field;
   final dynamic value;
   final NeuTokens neu;
+  final void Function(String fieldKey, bool value)? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final type = field.type;
 
     if (type == 'bool') {
+      final aoVirar = onToggle;
       return Align(
         alignment: Alignment.centerLeft,
         child: Switch(
           value: value == true,
           activeThumbColor: neu.navy,
-          onChanged: null, // read-only
+          // `null` mantém o toggle desabilitado nas seções sem escrita — o
+          // desabilitado é honesto, o que não podia continuar era TODA seção ser
+          // somente-leitura sem alternativa na UI.
+          onChanged:
+              aoVirar == null ? null : (v) => aoVirar(field.key, v),
         ),
       );
     }

@@ -18,11 +18,18 @@ abstract interface class SaleRepository {
   Future<Sale> getSale(String id);
   Future<Sale> createSale(SaleDraft draft);
 
-  /// Reatribui a venda a outro cliente (`null` desvincula). É a única edição
-  /// possível numa venda registrada: o total já passou pelo caixa, então mudar
-  /// dinheiro exige cancelar-e-refazer. Resolve o fiado lançado sem identificar
-  /// quem levou — que de outro modo fica incobrável no balde "sem cliente".
-  Future<Sale> updateSale(String id, {String? customerId});
+  /// Edita uma venda registrada: cliente, itens e desconto.
+  ///
+  /// `items` SUBSTITUI as linhas (manda a lista inteira, como na criação); o
+  /// total é recalculado no servidor e o estoque reconciliado. O backend recusa
+  /// quando a edição quebraria algo já emitido: nota fiscal existente ou total
+  /// abaixo do que o cliente já pagou.
+  Future<Sale> updateSale(
+    String id, {
+    String? customerId,
+    List<SaleItemDraft>? items,
+    double? discount,
+  });
 
   /// Cancelamento lógico (estorna estoque no backend). Nunca apaga.
   Future<Sale> cancelSale(String id, {String? reason});

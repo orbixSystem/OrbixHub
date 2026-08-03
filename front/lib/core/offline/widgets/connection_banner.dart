@@ -32,6 +32,14 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
   Timer? _flashTimer;
   bool _showFlash = false;
 
+  /// Houve uma queda de verdade desde o último aviso de reconexão?
+  ///
+  /// Sem isto o banner mentia: o SyncEngine faz `syncing` → `online` a cada
+  /// rodada (60s), e tratar `syncing` como "estava desconectado" anunciava
+  /// "Conexão restabelecida" de minuto em minuto com a internet intacta. Só
+  /// `offline` é queda; `syncing` é o fim normal de uma rodada.
+  bool _houveQueda = false;
+
   @override
   void dispose() {
     _flashTimer?.cancel();
@@ -39,9 +47,9 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
   }
 
   void _onStatusChanged(ConnStatus? previous, ConnStatus next) {
-    final wasDisconnected =
-        previous == ConnStatus.offline || previous == ConnStatus.syncing;
-    if (wasDisconnected && next == ConnStatus.online) {
+    if (next == ConnStatus.offline) _houveQueda = true;
+    if (_houveQueda && next == ConnStatus.online) {
+      _houveQueda = false;
       _flashTimer?.cancel();
       setState(() => _showFlash = true);
       _flashTimer = Timer(const Duration(seconds: 3), () {
@@ -63,7 +71,11 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
       _onStatusChanged(previous?.status, next.status);
     });
     final state = ref.watch(connectivityControllerProvider);
-    final spec = _specFor(state.status, context.neu);
+    // A flag também é ligada AQUI porque `ref.listen` só reage a MUDANÇAS: se a
+    // tela já nasce offline, nenhuma transição é observada e a reconexão
+    // seguinte não seria anunciada.
+    if (state.status == ConnStatus.offline) _houveQueda = true;
+    final spec = _specFor(state, context.neu);
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
@@ -78,7 +90,8 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
     );
   }
 
-  _BannerSpec? _specFor(ConnStatus status, NeuTokens neu) {
+  _BannerSpec? _specFor(ConnState state, NeuTokens neu) {
+    final status = state.status;
     if (_showFlash) {
       return _BannerSpec(
         id: 'reconnected',
@@ -102,6 +115,11 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner> {
           icon: Icons.cloud_off_rounded,
         );
       case ConnStatus.syncing:
+        // Só avisa quando existe alteração DESTE usuário esperando. O engine
+        // marca `syncing` em toda rodada (60s), inclusive nas que só puxam
+        // novidades — anunciar isso pintava um banner de minuto em minuto sem
+        // nada do usuário pendente. Housekeeping não é notícia.
+        if (state.pendingCount == 0 && state.failedCount == 0) return null;
         return _BannerSpec(
           id: 'syncing',
           message: 'Sincronizando alterações…',

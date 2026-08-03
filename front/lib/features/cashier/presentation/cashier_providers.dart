@@ -42,31 +42,48 @@ class CashierController extends AsyncNotifier<CashierState> {
   @override
   Future<CashierState> build() => _load();
 
+  /// Janela do dia de HOJE em hora LOCAL, convertida para UTC (o backend recorta
+  /// `created_at`, que é timestamptz).
+  ///
+  /// O fim é o último instante do dia, não "agora": o dia é o dia inteiro, e um
+  /// lançamento feito um segundo depois desta leitura ainda pertence a ele.
+  ({String from, String to}) _janelaDeHoje() {
+    final agora = DateTime.now();
+    final inicio = DateTime(agora.year, agora.month, agora.day);
+    final fim = inicio.add(const Duration(days: 1)).subtract(
+          const Duration(milliseconds: 1),
+        );
+    return (
+      from: inicio.toUtc().toIso8601String(),
+      to: fim.toUtc().toIso8601String(),
+    );
+  }
+
   Future<CashierState> _load() async {
     final config = await _repo.fetchConfig();
     final session = await _repo.currentSession();
-    // Com sessão: o extrato dela. Sem sessão (caixa sem cerimônia de abertura):
-    // os lançamentos de HOJE — sem recorte, `listEntries` traria o histórico
-    // inteiro paginado, que não é "o caixa de hoje".
-    final hoje = DateTime.now();
-    final page = session != null
+    // O recorte do "Caixa do dia" depende do MODO, não da existência de sessão:
+    //
+    //  - **com** cerimônia de abrir/fechar, o caixa É a sessão: o extrato dela,
+    //    mesmo que atravesse a meia-noite (a gaveta ainda não foi conferida);
+    //  - **sem** cerimônia (o padrão), o caixa é o DIA: meia-noite local até o
+    //    fim do dia, virando por data.
+    //
+    // Isto não era um `if` sobre `session != null` por acidente: com a exigência
+    // desligada o backend cria uma sessão IMPLÍCITA no primeiro lançamento e
+    // nunca a fecha. Escolher por ela fazia "Caixa do dia" mostrar tudo desde
+    // aquela sessão — semanas de movimento — e nunca virar de data.
+    final dia = _janelaDeHoje();
+    final page = session != null && config.requireOpenSession
         ? await _repo.listEntries(sessionId: session.id)
-        : await _repo.listEntries(
-            from: DateTime(hoje.year, hoje.month, hoje.day)
-                .toUtc()
-                .toIso8601String(),
-            to: hoje.toUtc().toIso8601String(),
-          );
+        : await _repo.listEntries(from: dia.from, to: dia.to);
     // Vendas de hoje, para o extrato mostrar o cliente. `sale` é contratável:
     // sem o módulo (ou sem permissão) o backend recusa e o caixa segue normal.
     List<Sale> sales = const [];
     try {
-      final agora = DateTime.now();
       final page = await ref.read(saleRepositoryProvider).listSales(
-            from: DateTime(agora.year, agora.month, agora.day)
-                .toUtc()
-                .toIso8601String(),
-            to: agora.toUtc().toIso8601String(),
+            from: dia.from,
+            to: dia.to,
           );
       sales = page.items;
     } catch (_) {
@@ -108,8 +125,16 @@ class CashierController extends AsyncNotifier<CashierState> {
   }
 }
 
+/// `autoDispose`: o estado morre ao sair da tela e é remontado ao voltar.
+///
+/// Sem isso o provider vivia para o app inteiro e guardava a CONFIG carregada no
+/// primeiro mount — quem desligava "exigir caixa aberto" em Configurações e
+/// voltava continuava caindo na tela "abra o caixa", porque a config em memória
+/// ainda dizia `true`. Além de corrigir isso, recarregar é o comportamento certo
+/// numa tela de dinheiro: os lançamentos podem ter mudado em outro aparelho.
 final cashierControllerProvider =
-    AsyncNotifierProvider<CashierController, CashierState>(CashierController.new);
+    AsyncNotifierProvider.autoDispose<CashierController, CashierState>(
+        CashierController.new);
 
 // ===================== Histórico do caixa (movimentos por período) =====================
 

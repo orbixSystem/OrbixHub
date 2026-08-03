@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -6,6 +6,7 @@ import { CashierModule } from '../cashier/cashier.module';
 import { SaleController } from './sale.controller';
 import { SaleService } from './sale.service';
 import { SaleRepository } from './sale.repository';
+import { SaleSubjectHistoryProvider } from './sale-subject-history.provider';
 
 /**
  * Módulo Venda de balcão (`sale`) — entidade própria (NÃO é OS), plugada no
@@ -22,12 +23,15 @@ import { SaleRepository } from './sale.repository';
 @Module({
   imports: [
     BillingModule,
-    CustomersModule,
+    // forwardRef: `customers` agora também depende de `sale`, para pôr a venda de
+    // balcão no histórico do cliente (SaleSubjectHistoryProvider) — mesma
+    // dependência mútua que já existe entre `customers` e `os`.
+    forwardRef(() => CustomersModule),
     InventoryModule,
     CashierModule,
   ],
   controllers: [SaleController],
-  providers: [SaleService, SaleRepository],
-  exports: [SaleService],
+  providers: [SaleService, SaleRepository, SaleSubjectHistoryProvider],
+  exports: [SaleService, SaleSubjectHistoryProvider],
 })
 export class SaleModule {}

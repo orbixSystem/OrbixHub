@@ -86,13 +86,49 @@ class FakeSaleRepository implements SaleRepository {
   }
 
   @override
-  Future<Sale> updateSale(String id, {String? customerId}) async {
+  Future<Sale> updateSale(
+    String id, {
+    String? customerId,
+    List<SaleItemDraft>? items,
+    double? discount,
+  }) async {
     final idx = _sales.indexWhere((s) => s.id == id);
-    // O fake não tem base de clientes: guarda o ponteiro e rotula o snapshot.
-    final atualizada = _sales[idx].copyWith(
-      customerId: customerId,
-      customerName: customerId == null ? null : 'Cliente $customerId',
-    );
+    var atualizada = _sales[idx];
+    if (customerId != null) {
+      // O fake não tem base de clientes: guarda o ponteiro e rotula o snapshot.
+      atualizada = atualizada.copyWith(
+        customerId: customerId,
+        customerName: 'Cliente $customerId',
+      );
+    }
+    if (items != null) {
+      // Espelha o servidor: as linhas são SUBSTITUÍDAS e o total recalculado.
+      var bruto = 0.0;
+      final novas = <SaleItem>[];
+      for (var i = 0; i < items.length; i++) {
+        final it = items[i];
+        final unit = it.unitPrice ?? 0;
+        final sub = it.quantity * unit;
+        bruto += sub;
+        novas.add(SaleItem(
+          id: 'fake-item-${i + 1}',
+          kind: it.kind ?? 'product',
+          inventoryItemId: it.inventoryItemId,
+          name: it.name ?? 'Item',
+          quantity: it.quantity.toStringAsFixed(3),
+          unitPrice: unit.toStringAsFixed(2),
+          subtotal: sub.toStringAsFixed(2),
+        ));
+      }
+      final desc = (discount ?? double.parse(atualizada.discount))
+          .clamp(0, bruto)
+          .toDouble();
+      atualizada = atualizada.copyWith(
+        items: novas,
+        total: (bruto - desc).toStringAsFixed(2),
+        discount: desc.toStringAsFixed(2),
+      );
+    }
     _sales[idx] = atualizada;
     return atualizada;
   }

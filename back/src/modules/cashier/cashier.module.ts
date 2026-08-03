@@ -34,7 +34,10 @@ import { CASHIER_CONFIG_KEY } from './cashier.config';
   exports: [CashierService, CashierServiceImpl],
 })
 export class CashierModule implements OnModuleInit {
-  constructor(private readonly registry: SettingsSectionRegistry) {}
+  constructor(
+    private readonly registry: SettingsSectionRegistry,
+    private readonly cashier: CashierServiceImpl,
+  ) {}
 
   onModuleInit(): void {
     // Seção aparece em GET /settings só se o módulo `cashier` estiver habilitado.
@@ -54,6 +57,27 @@ export class CashierModule implements OnModuleInit {
           type: 'bool',
         },
       ],
+      // Sem `getValues` a seção era exibida com os valores VAZIOS: o toggle
+      // aparecia desligado mesmo com a exigência ligada no tenant.
+      getValues: async (tenantId) => {
+        const cfg = await this.cashier.getConfig(tenantId);
+        return {
+          requireOpenSession: cfg.requireOpenSession,
+          countCashOnly: cfg.countCashOnly,
+        };
+      },
+      // Contraparte de escrita: o host encaminha o patch e QUEM valida/persiste é
+      // o caixa (o `settings` não conhece a config dele).
+      setValues: async (user, patch) => {
+        const cfg = await this.cashier.updateConfig(user, {
+          requireOpenSession: patch.requireOpenSession as boolean | undefined,
+          countCashOnly: patch.countCashOnly as boolean | undefined,
+        });
+        return {
+          requireOpenSession: cfg.requireOpenSession,
+          countCashOnly: cfg.countCashOnly,
+        };
+      },
     });
   }
 }

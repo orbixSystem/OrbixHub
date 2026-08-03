@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsOptional, IsString, IsUrl, Matches } from 'class-validator';
+import { IsEmail, IsIn, IsObject, IsOptional, IsString, IsUrl, Matches } from 'class-validator';
 
 const HEX = /^#([0-9a-fA-F]{6})$/;
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -57,4 +57,13 @@ export class UpdateCompanyDto {
   @IsOptional() @IsIn(PRESETS, { message: 'themePreset inválido' }) themePreset?: string;
   @IsOptional() @Matches(HEX, { message: 'primaryColor deve ser hex #RRGGBB' }) primaryColor?: string;
   @IsOptional() @Matches(HEX, { message: 'secondaryColor deve ser hex #RRGGBB' }) secondaryColor?: string;
+}
+
+/**
+ * Patch dos valores de uma seção de config de módulo. As chaves aceitas são as
+ * do schema declarado pela própria seção — a validação de tipo/domínio é do
+ * módulo dono (o host não conhece a config dele).
+ */
+export class UpdateSectionDto {
+  @IsObject() values!: Record<string, unknown>;
 }

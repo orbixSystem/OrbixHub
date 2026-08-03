@@ -26,6 +26,20 @@ class SettingsRepositoryImpl implements SettingsRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> updateSection(
+    String key,
+    Map<String, dynamic> values,
+  ) async {
+    // O backend devolve os valores efetivos da seção (já validados pelo módulo
+    // dono), não a empresa — por isso não há `['company']` aqui.
+    final res = await _dio.patch<Object?>(
+      '/settings/section/$key',
+      data: {'values': values},
+    );
+    return (res.data as Map).cast<String, dynamic>();
+  }
+
+  @override
   Future<Map<String, dynamic>> uploadLogo(Uint8List bytes, String filename, String contentType) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename,

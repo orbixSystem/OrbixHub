@@ -6,6 +6,7 @@ import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/settings/data/fake_settings_repository.dart';
+import 'package:orbixhub_front/features/settings/domain/settings_models.dart';
 import 'package:orbixhub_front/features/settings/domain/settings_repository.dart';
 import 'package:orbixhub_front/features/settings/presentation/settings_screen.dart';
 
@@ -38,6 +39,53 @@ class _FakeSessionNoAccess extends SessionController {
         ),
       );
 }
+
+/// Repositório que expõe uma seção de módulo (Caixa) e registra o que foi salvo.
+class _SpySettings extends FakeSettingsRepository {
+  _SpySettings({required this.editable});
+
+  final bool editable;
+  final salvos = <({String key, Map<String, dynamic> values})>[];
+
+  @override
+  Future<SettingsBundle> fetch() async => SettingsBundle(
+        company: const {},
+        sections: [
+          SettingsSection(
+            key: 'cashier',
+            title: 'Caixa',
+            moduleKey: 'cashier',
+            editable: editable,
+            fields: const [
+              SettingsField(
+                key: 'requireOpenSession',
+                label: 'Exigir caixa aberto para lançar',
+                type: 'bool',
+              ),
+            ],
+            values: const {'requireOpenSession': false},
+          ),
+        ],
+      );
+
+  @override
+  Future<Map<String, dynamic>> updateSection(
+    String key,
+    Map<String, dynamic> values,
+  ) async {
+    salvos.add((key: key, values: values));
+    return values;
+  }
+}
+
+Widget _app(SettingsRepository repo) => ProviderScope(
+      overrides: [
+        onlineConnOverride,
+        settingsRepositoryProvider.overrideWithValue(repo),
+        sessionControllerProvider.overrideWith(_FakeSession.new),
+      ],
+      child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
+    );
 
 void main() {
   testWidgets('SettingsScreen renderiza sem lançar exceção com permissão',
@@ -97,5 +145,48 @@ void main() {
     expect(find.text('Aparência'), findsWidgets);
     // Seção de empresa NÃO deve aparecer para não-owners.
     expect(find.text('Empresa & Identidade visual'), findsNothing);
+  });
+  group('toggle de config de módulo', () {
+    testWidgets('seção editável: o toggle é clicável e SALVA', (tester) async {
+      // O bug: a seção dinâmica nascia toda somente-leitura (`onChanged: null`),
+      // então não havia como ligar "Exigir caixa aberto" pela tela.
+      tester.view.physicalSize = const Size(1400, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final repo = _SpySettings(editable: true);
+      await tester.pumpWidget(_app(repo));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Caixa'));
+      await tester.pumpAndSettle();
+
+      final sw = find.byType(Switch).first;
+      expect(tester.widget<Switch>(sw).onChanged, isNotNull,
+          reason: 'seção editável tem de aceitar toque');
+
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+
+      expect(repo.salvos, hasLength(1));
+      expect(repo.salvos.single.key, 'cashier');
+      expect(repo.salvos.single.values['requireOpenSession'], isTrue);
+    });
+
+    testWidgets('seção só de leitura mantém o toggle desabilitado',
+        (tester) async {
+      tester.view.physicalSize = const Size(1400, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final repo = _SpySettings(editable: false);
+      await tester.pumpWidget(_app(repo));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Caixa'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(find.byType(Switch).first).onChanged, isNull);
+      expect(repo.salvos, isEmpty);
+    });
   });
 }

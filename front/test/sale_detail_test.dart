@@ -143,28 +143,30 @@ void main() {
   });
 
   group('ações', () {
-    testWidgets('oferece cancelar e corrigir para quem pode vender',
+    testWidgets('oferece editar, cancelar e refazer para quem pode vender',
         (tester) async {
       await _abrir(tester);
 
       expect(find.text('Cancelar venda'), findsOneWidget);
-      expect(find.text('Corrigir (refazer)'), findsOneWidget);
+      expect(find.text('Editar itens'), findsOneWidget);
+      expect(find.text('Cancelar e refazer'), findsOneWidget);
     });
 
     testWidgets('sem sale.write não oferece nenhuma ação', (tester) async {
       await _abrir(tester, podeVender: false);
 
       expect(find.text('Cancelar venda'), findsNothing);
-      expect(find.text('Corrigir (refazer)'), findsNothing);
+      expect(find.text('Editar itens'), findsNothing);
+      expect(find.text('Cancelar e refazer'), findsNothing);
     });
 
-    testWidgets('explica por que não existe "editar"', (tester) async {
+    testWidgets('diz onde editar NÃO é permitido (nota e já pago)',
+        (tester) async {
+      // Editar itens existe, mas tem dois limites concretos. Anunciá-los evita
+      // o usuário descobrir por erro do servidor no meio da correção.
       await _abrir(tester);
-      expect(
-        find.textContaining('não se edita'),
-        findsOneWidget,
-        reason: 'a ausência de edição precisa ser explicada, não só omitida',
-      );
+      expect(find.textContaining('nota'), findsWidgets);
+      expect(find.textContaining('já pagou'), findsOneWidget);
     });
 
     testWidgets('cancelar exige motivo', (tester) async {
@@ -177,14 +179,15 @@ void main() {
       expect(find.textContaining('estoque'), findsWidgets);
     });
 
-    testWidgets('corrigir sugere o motivo já preenchido', (tester) async {
+    testWidgets('refazer sugere o motivo já preenchido', (tester) async {
       await _abrir(tester);
-      await tester.tap(find.text('Corrigir (refazer)'));
+      await tester.tap(find.text('Cancelar e refazer'));
       await tester.pumpAndSettle();
 
       // Refazer é sempre correção — não faz sentido obrigar a digitar isso.
       expect(find.text('Correção de lançamento'), findsOneWidget);
-      expect(find.text('Cancelar e refazer'), findsOneWidget);
+      // Dois: o botão do detalhe (que abriu) e o de confirmar no diálogo.
+      expect(find.text('Cancelar e refazer'), findsNWidgets(2));
     });
 
     testWidgets('motivo curto é recusado antes de ir ao servidor',

@@ -203,4 +203,71 @@ void main() {
     expect(payload['customerId'], customer.id);
     expect(payload['id'], subject.id);
   });
+  group('histórico do cliente inclui venda de balcão', () {
+    /// Semeia uma linha no espelho local (como o pull traria).
+    Future<void> gravar(String entity, Map<String, dynamic> payload) =>
+        db.upsertRows(entity, [
+          (
+            id: payload['id'] as String,
+            payload: jsonEncode(payload),
+            updatedAt: DateTime.utc(2026, 7, 13),
+          ),
+        ]);
+
+    Future<void> semear() async {
+      await gravar('service_order', {
+        'id': 'os-1',
+        'number': '0001',
+        'status': 'concluida',
+        'customer_id': 'c1',
+        'subject_id': 's1',
+        'subject_label': 'Gol ABC-1234',
+        'created_at': '2026-07-01T10:00:00.000Z',
+      });
+      await gravar('sale', {
+        'id': 'v-1',
+        'number': 'VND-0007',
+        'status': 'active',
+        'customer_id': 'c1',
+        'total': '60.00',
+        'created_at': '2026-07-10T10:00:00.000Z',
+      });
+      // De outro cliente — não pode vazar.
+      await gravar('sale', {
+        'id': 'v-2',
+        'number': 'VND-0008',
+        'status': 'active',
+        'customer_id': 'c2',
+        'total': '10.00',
+        'created_at': '2026-07-11T10:00:00.000Z',
+      });
+    }
+
+    test('une OS e vendas, mais recente primeiro', () async {
+      await semear();
+      final timeline = await repo().customerHistory('c1');
+      expect(timeline.map((e) => e.id), ['v-1', 'os-1']);
+      expect(timeline.first.kind, 'sale');
+      expect(timeline.first.title, 'Venda VND-0007');
+    });
+
+    test('venda de outro cliente não aparece', () async {
+      await semear();
+      final timeline = await repo().customerHistory('c1');
+      expect(timeline.map((e) => e.id), isNot(contains('v-2')));
+    });
+
+    test('filtrando por VEÍCULO só entram OS', () async {
+      // Venda não é "do carro": apareceria repetida em todos os veículos.
+      await semear();
+      final doVeiculo = await repo().customerHistory('c1', subjectId: 's1');
+      expect(doVeiculo.map((e) => e.kind), ['os']);
+    });
+
+    test('cliente sem venda continua com o histórico de OS', () async {
+      await semear();
+      final timeline = await repo().customerHistory('c2');
+      expect(timeline.map((e) => e.id), ['v-2']);
+    });
+  });
 }

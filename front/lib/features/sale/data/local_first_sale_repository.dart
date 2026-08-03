@@ -187,9 +187,19 @@ class LocalFirstSaleRepository extends LocalFirstBase
   }
 
   @override
-  Future<Sale> updateSale(String id, {String? customerId}) async {
+  Future<Sale> updateSale(
+    String id, {
+    String? customerId,
+    List<SaleItemDraft>? items,
+    double? discount,
+  }) async {
     if (!await useLocal(_sales, id)) {
-      final sale = await inner.updateSale(id, customerId: customerId);
+      final sale = await inner.updateSale(
+        id,
+        customerId: customerId,
+        items: items,
+        discount: discount,
+      );
       await _mirrorSale(sale);
       return sale;
     }
@@ -202,18 +212,81 @@ class LocalFirstSaleRepository extends LocalFirstBase
         message: 'Venda cancelada não pode ser editada.',
       );
     }
-    await enqueue(_sales, 'update', {'id': id, 'customerId': customerId});
-    // Offline não há como resolver o NOME do cliente pelo id (isso é snapshot
-    // via service do módulo de clientes, no servidor). Guarda o ponteiro e
-    // limpa o nome: o replay preenche e o pull corrige.
-    final atualizada = {
-      ...row,
-      'customer_id': customerId,
-      'customer_name': null,
-      'updated_at': nowIso(),
-    };
+    // Nota emitida: mesma recusa do servidor (mudar o total faria a NF divergir).
+    // O teto do "já pago" NÃO é checado aqui: quanto entrou depende dos
+    // lançamentos, e offline preferimos deixar o servidor decidir no replay a
+    // bloquear uma edição legítima com um saldo desatualizado.
+    if (items != null &&
+        row['fiscal_status'] != null &&
+        row['fiscal_status'] != 'rejeitada') {
+      throw const AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Esta venda já tem nota fiscal. Mudar o valor faria a nota '
+            'divergir — cancele a venda e faça uma nova.',
+      );
+    }
+
+    await enqueue(_sales, 'update', {
+      'id': id,
+      'customerId': ?customerId,
+      'items': ?items?.map((i) => i.toJson()).toList(),
+      'discount': ?discount,
+    });
+
+    var atualizada = {...row, 'updated_at': nowIso()};
+    if (customerId != null) {
+      // Offline não há como resolver o NOME do cliente pelo id (é snapshot via
+      // service do módulo de clientes, no servidor): guarda o ponteiro e limpa
+      // o nome — o replay preenche e o pull corrige.
+      atualizada = {
+        ...atualizada,
+        'customer_id': customerId,
+        'customer_name': null,
+      };
+    }
+    var linhas = await rows(_items);
+    if (items != null) {
+      // Substitui as linhas locais, como o servidor fará no replay.
+      for (final antiga in linhas.where((i) => i['sale_id'] == id)) {
+        await removeRow(_items, antiga['id'] as String);
+      }
+      var bruto = 0.0;
+      final novas = <Map<String, dynamic>>[];
+      for (final it in items) {
+        final unit = it.unitPrice ?? 0;
+        final sub = round2(it.quantity * unit);
+        bruto += sub;
+        novas.add({
+          'id': newId(),
+          'sale_id': id,
+          'kind': it.kind ?? 'product',
+          'inventory_item_id': it.inventoryItemId,
+          'name': it.name ?? '',
+          'quantity': dec(it.quantity),
+          'unit_price': dec(unit),
+          'subtotal': dec(sub),
+          'created_at': nowIso(),
+          // O servidor gera outro id no replay — marcar como local faz a poda
+          // remover esta linha quando a cópia dele chegar.
+          LocalFirstBase.localOnlyKey: true,
+        });
+      }
+      for (final nova in novas) {
+        await putRow(_items, nova);
+      }
+      final desc = (discount ?? toNum(row['discount']))
+          .clamp(0, bruto)
+          .toDouble();
+      atualizada = {
+        ...atualizada,
+        'total': dec(round2(bruto - desc)),
+        'discount': dec(desc),
+      };
+      linhas = await rows(_items);
+    }
     await putRow(_sales, atualizada);
-    return _assemble(atualizada, await rows(_items), const {});
+    return _assemble(atualizada, linhas, const {});
   }
 
   @override

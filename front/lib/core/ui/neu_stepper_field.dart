@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import '../util/masks.dart';
 import 'neu_tokens.dart';
 
-/// Campo numérico com **−** e **+** clicáveis ao lado do valor digitável.
+/// Campo numérico com **−** e **+** clicáveis DENTRO do campo.
 ///
 /// Existe pelo dedo: no balcão, e sobretudo no celular, ajustar "2 → 3" tocando
-/// um botão é mais rápido e erra menos que apagar e redigitar dentro de um campo
-/// estreito. O campo segue editável — quem quer `0,5` hora de mão de obra digita.
+/// um botão é mais rápido e erra menos que apagar e redigitar. O campo segue
+/// editável — quem quer `0,5` hora de mão de obra digita.
 ///
-/// Os alvos de toque respeitam o mínimo de 40px recomendado para mobile, e o
-/// valor é **travado em zero**: não existe quantidade nem preço negativo, então
-/// o **−** simplesmente para em 0 em vez de deixar o usuário criar um valor que a
-/// validação vai recusar depois.
+/// Os botões ficam **dentro** da moldura (`prefixIcon`/`suffixIcon`), não ao
+/// lado: por fora eles roubavam ~80px da linha e o número aparecia cortado
+/// ("4.000" virava "4."). Por dentro, a largura toda pertence ao campo.
+///
+/// O valor é travado em zero — não existe quantidade nem preço negativo, então o
+/// **−** para em 0 em vez de deixar o usuário criar um valor que a validação vai
+/// recusar depois.
 class NeuStepperField extends StatefulWidget {
   const NeuStepperField({
     super.key,
@@ -22,6 +25,7 @@ class NeuStepperField extends StatefulWidget {
     this.decimals = 0,
     this.min = 0,
     this.max,
+    this.trimTrailingZeros = false,
     this.textAlign = TextAlign.center,
     this.validator,
     this.semanticLabel,
@@ -36,7 +40,7 @@ class NeuStepperField extends StatefulWidget {
   /// Quanto cada toque soma/subtrai.
   final double step;
 
-  /// Casas decimais aceitas na digitação (0 = inteiro; 2 = dinheiro).
+  /// Casas decimais aceitas na DIGITAÇÃO (0 = inteiro; 2 = dinheiro).
   final int decimals;
 
   /// Piso — zero por padrão (nem quantidade nem preço são negativos).
@@ -44,6 +48,10 @@ class NeuStepperField extends StatefulWidget {
 
   /// Teto opcional (sem teto por padrão).
   final double? max;
+
+  /// Mostra `4` em vez de `4,000` quando o valor é inteiro. Para QUANTIDADE:
+  /// ninguém escreve "4,000 palhetas". Dinheiro fica sempre com as 2 casas.
+  final bool trimTrailingZeros;
 
   final TextAlign textAlign;
   final String? Function(String?)? validator;
@@ -76,9 +84,13 @@ class _NeuStepperFieldState extends State<NeuStepperField> {
     super.dispose();
   }
 
-  String _fmt(double v) => widget.decimals == 0
-      ? v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1)
-      : v.toStringAsFixed(widget.decimals);
+  /// Formata no padrão pt-BR (vírgula), como o resto dos campos de valor do app.
+  String _fmt(double v) {
+    if (widget.trimTrailingZeros && v == v.roundToDouble()) {
+      return v.toStringAsFixed(0);
+    }
+    return v.toStringAsFixed(widget.decimals).replaceAll('.', ',');
+  }
 
   double? _parse(String s) => double.tryParse(s.trim().replaceAll(',', '.'));
 
@@ -91,7 +103,8 @@ class _NeuStepperFieldState extends State<NeuStepperField> {
     if (teto != null && novo > teto) novo = teto;
     // Arredonda ao passo para o toque não propagar sujeira de ponto flutuante
     // (0.1 + 0.2 = 0.30000000000000004).
-    novo = double.parse(novo.toStringAsFixed(widget.decimals == 0 ? 3 : widget.decimals));
+    novo = double.parse(
+        novo.toStringAsFixed(widget.decimals == 0 ? 3 : widget.decimals));
     _ctrl.text = _fmt(novo);
     widget.onChanged(novo);
   }
@@ -99,36 +112,43 @@ class _NeuStepperFieldState extends State<NeuStepperField> {
   @override
   Widget build(BuildContext context) {
     final atual = _parse(_ctrl.text) ?? widget.value;
-    final podeMenos = atual > widget.min;
     final teto = widget.max;
-    final podeMais = teto == null || atual < teto;
     return Semantics(
       label: widget.semanticLabel,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _StepButton(
+      child: TextFormField(
+        controller: _ctrl,
+        textAlign: widget.textAlign,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [DecimalInputFormatter(widget.decimals)],
+        validator: widget.validator,
+        onChanged: (v) => widget.onChanged(_parse(v) ?? 0),
+        decoration: InputDecoration(
+          isDense: true,
+          // Sem padding lateral: os botões já ocupam as pontas.
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          prefixIcon: _StepButton(
             icon: Icons.remove_rounded,
             tooltip: 'Diminuir',
-            onTap: podeMenos ? () => _bump(-widget.step) : null,
+            onTap: atual > widget.min ? () => _bump(-widget.step) : null,
           ),
-          Expanded(
-            child: TextFormField(
-              controller: _ctrl,
-              textAlign: widget.textAlign,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [DecimalInputFormatter(widget.decimals)],
-              decoration: const InputDecoration(isDense: true),
-              validator: widget.validator,
-              onChanged: (v) => widget.onChanged(_parse(v) ?? 0),
-            ),
-          ),
-          _StepButton(
+          suffixIcon: _StepButton(
             icon: Icons.add_rounded,
             tooltip: 'Aumentar',
-            onTap: podeMais ? () => _bump(widget.step) : null,
+            onTap: (teto == null || atual < teto)
+                ? () => _bump(widget.step)
+                : null,
           ),
-        ],
+          // Sem estes limites o Material reserva 48px de largura MÍNIMA para
+          // cada ícone, que era parte do aperto que cortava o número.
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: _StepButton.lado,
+            minHeight: _StepButton.lado,
+          ),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: _StepButton.lado,
+            minHeight: _StepButton.lado,
+          ),
+        ),
       ),
     );
   }
@@ -137,6 +157,10 @@ class _NeuStepperFieldState extends State<NeuStepperField> {
 /// Um dos dois botões do stepper. `onTap: null` desabilita (no piso/teto).
 class _StepButton extends StatelessWidget {
   const _StepButton({required this.icon, required this.tooltip, this.onTap});
+
+  /// Lado do botão. Compacto porque vive DENTRO do campo — a área de toque
+  /// efetiva é maior, já que a altura do campo o envolve.
+  static const lado = 34.0;
 
   final IconData icon;
   final String tooltip;
@@ -152,15 +176,13 @@ class _StepButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(NeuTokens.rChip),
         onTap: onTap,
         child: SizedBox(
-          // 40×40: alvo de toque confortável no celular sem estourar a linha do
-          // item (que também carrega nome, subtotal e remover).
-          width: 40,
-          height: 40,
+          width: lado,
+          height: lado,
           child: Center(
             child: Icon(
               icon,
-              size: 18,
-              color: ativo ? neu.ink : neu.inkMuted.withValues(alpha: .4),
+              size: 17,
+              color: ativo ? neu.ink : neu.inkMuted.withValues(alpha: .35),
             ),
           ),
         ),
