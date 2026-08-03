@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/offline/connectivity_controller.dart';
 import '../../../core/ui/ui.dart';
+import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -26,6 +28,11 @@ class ReceivablesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Offline a carteira é DERIVADA do espelho local (OS + recebimentos) pelo
+    // `LocalFirstReceivablesRepository`. Só recarrega quando a conexão muda,
+    // para o usuário ver a carteira completa ao voltar online.
+    final offline = ref.watch(connectivityControllerProvider).status ==
+        ConnStatus.offline;
     final async = ref.watch(debtorsProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -45,9 +52,9 @@ class ReceivablesTab extends ConsumerWidget {
         return ListView(
           children: [
             _TotalNaRua(total: page.totalDue, devedores: page.items.length),
-            if (page.truncated) ...const [
-              SizedBox(height: 12),
-              _AvisoTruncado(),
+            if (page.truncated) ...[
+              const SizedBox(height: 12),
+              _AvisoTruncado(offline: offline),
             ],
             const SizedBox(height: 20),
             Text('Quem deve', style: Theme.of(context).textTheme.titleMedium),
@@ -129,7 +136,12 @@ class _TotalNaRua extends StatelessWidget {
 /// A varredura do servidor bateu no teto: existe dívida fora desta lista. Dizer
 /// isso é obrigatório — deixar o usuário achar que viu tudo seria pior.
 class _AvisoTruncado extends StatelessWidget {
-  const _AvisoTruncado();
+  const _AvisoTruncado({this.offline = false});
+
+  /// Offline a lista é parcial por outro motivo (falta o espelho das vendas de
+  /// balcão), e dizer o motivo certo evita o usuário procurar um problema que
+  /// não existe.
+  final bool offline;
 
   @override
   Widget build(BuildContext context) {
@@ -144,8 +156,13 @@ class _AvisoTruncado extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'A carteira é grande e esta lista está parcial — há fiados não '
-              'exibidos. Receba os títulos listados para revelar os demais.',
+              offline
+                  ? 'Você está offline: esta carteira vem deste aparelho e '
+                      'cobre as OS. Vendas de balcão em fiado aparecem quando a '
+                      'conexão voltar.'
+                  : 'A carteira é grande e esta lista está parcial — há fiados '
+                      'não exibidos. Receba os títulos listados para revelar os '
+                      'demais.',
               style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
             ),
           ),

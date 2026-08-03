@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
+import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
@@ -16,6 +18,7 @@ import 'package:orbixhub_front/features/receivables/presentation/receivables_tab
 Widget _app(ReceivablesRepositoryOverride override, {bool canWrite = true}) {
   return ProviderScope(
     overrides: [
+      connectivityControllerProvider.overrideWith(_OnlineConn.new),
       receivablesRepositoryProvider.overrideWithValue(override.repo),
     ],
     child: MaterialApp(
@@ -29,6 +32,13 @@ Widget _app(ReceivablesRepositoryOverride override, {bool canWrite = true}) {
 class ReceivablesRepositoryOverride {
   ReceivablesRepositoryOverride(this.repo);
   final FakeReceivablesRepository repo;
+}
+
+/// Online por padrão: sem isto a tela mostra o aviso "Fiado precisa de conexão"
+/// (o estado inicial do controller não é `online`).
+class _OnlineConn extends ConnectivityController {
+  @override
+  ConnState build() => const ConnState(status: ConnStatus.online);
 }
 
 void main() {
@@ -218,6 +228,37 @@ void main() {
       expect(p.items, isEmpty);
       expect(p.totalDue, 0);
       expect(p.truncated, isFalse);
+    });
+  });
+
+  group('offline — carteira derivada do SQLite', () {
+    testWidgets('avisa que a lista é parcial e diz o motivo certo',
+        (tester) async {
+      // Offline o `LocalFirstReceivablesRepository` deriva a carteira do espelho
+      // local (OS + recebimentos) e marca `truncated`, porque venda de balcão
+      // não está no sync. O aviso precisa dizer ESSE motivo — não o de carteira
+      // grande — senão o usuário procura um problema que não existe.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            // Sem override de conectividade: o estado inicial não é `online`.
+            receivablesRepositoryProvider.overrideWithValue(
+              FakeReceivablesRepository(truncated: true),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: ReceivablesTab(canWrite: true)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // A carteira APARECE (não é mais bloqueio) ...
+      expect(find.text('João Silva'), findsOneWidget);
+      // ... e o aviso explica o recorte offline.
+      expect(find.textContaining('cobre as OS'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 }

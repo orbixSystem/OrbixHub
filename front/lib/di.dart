@@ -59,6 +59,7 @@ import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
+import 'features/receivables/data/local_first_receivables_repository.dart';
 import 'features/receivables/data/receivables_repository_impl.dart';
 import 'features/receivables/presentation/receivables_providers.dart';
 import 'features/sale/data/sale_repository_impl.dart';
@@ -292,11 +293,21 @@ final diOverrides = [
   saleRepositoryProvider.overrideWith(
     (ref) => SaleRepositoryImpl(ref.read(dioProvider)),
   ),
-  // Fiado (contas a receber): leitura agregada de OS + vendas com saldo. Sem
-  // camada offline — a carteira é consolidada no servidor.
-  receivablesRepositoryProvider.overrideWith(
-    (ref) => ReceivablesRepositoryImpl(ref.read(dioProvider)),
-  ),
+  // Fiado (contas a receber): online o servidor compõe tudo; offline derivamos
+  // do espelho local (OS + recebimentos). Venda de balcão não está no sync,
+  // então offline a carteira cobre as OS e a tela avisa que está parcial.
+  receivablesRepositoryProvider.overrideWith((ref) {
+    final inner = ReceivablesRepositoryImpl(ref.read(dioProvider));
+    final deps = _localFirstDeps(ref);
+    if (deps == null) return inner;
+    return LocalFirstReceivablesRepository(
+      inner: inner,
+      db: deps.db,
+      clock: deps.clock,
+      isOnline: deps.isOnline,
+      currentUserId: deps.currentUserId,
+    );
+  }),
 ];
 
 /// Reset total do app no logout/expire (reload na web, no-op fora).
