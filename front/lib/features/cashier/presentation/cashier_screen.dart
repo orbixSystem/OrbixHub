@@ -7,6 +7,7 @@ import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
+import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import 'cashier_dialogs.dart';
 import 'cashier_providers.dart';
@@ -23,7 +24,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa do dia · 1 = Histórico
+  int _tab = 0; // 0 = Caixa do dia · 1 = Fiado · 2 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
@@ -43,11 +44,25 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     return me != null && me.hasModule('sale') && me.hasPermission('sale.write');
   }
 
+  /// Ler a carteira de fiado exige as mesmas permissões do extrato
+  /// (`cashier.read`) — quem opera o caixa precisa saber quem deve.
+  bool _canReadReceivables() {
+    final s = ref.read(sessionControllerProvider);
+    return s.meOrNull?.hasPermission('cashier.read') ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final showHistory = canManage && _tab == 1;
+    final canFiado = _canReadReceivables();
+    // Abas montadas conforme o papel: o atendente vê Caixa do dia (+ Fiado, que
+    // precisa para cobrar); o Histórico é relatório de gestão.
+    final segments = <int, String>{
+      0: 'Caixa do dia',
+      if (canFiado) 1: 'Fiado',
+      if (canManage) 2: 'Histórico',
+    };
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
@@ -62,20 +77,30 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   'aparelho e só serão efetivados no sistema quando a conexão '
                   'voltar.',
             ),
-            // A aba "Histórico" (relatório do caixa) é só para gestão (dono/gerente).
-            if (canManage) ...[
+            // Com uma única aba disponível não há o que segmentar.
+            if (segments.length > 1) ...[
               NeuSegmented<int>(
-                segments: const {0: 'Caixa do dia', 1: 'Histórico'},
-                selected: _tab,
+                segments: segments,
+                selected: segments.containsKey(_tab) ? _tab : 0,
                 onChanged: (v) => setState(() => _tab = v),
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: showHistory ? const _CashierHistory() : _dayBody()),
+            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
           ],
         ),
       ),
     );
+  }
+
+  /// Corpo da aba selecionada. Cai no Caixa do dia quando a aba guardada não
+  /// está mais disponível (troca de papel/empresa sem recriar a tela).
+  Widget _body({required bool canFiado, required bool canManage}) {
+    if (_tab == 1 && canFiado) {
+      return ReceivablesTab(canWrite: _canWrite());
+    }
+    if (_tab == 2 && canManage) return const _CashierHistory();
+    return _dayBody();
   }
 
   Widget _dayBody() {

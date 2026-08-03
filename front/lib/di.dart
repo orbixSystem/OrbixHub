@@ -59,6 +59,8 @@ import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
 import 'features/report/data/report_repository_impl.dart';
 import 'features/report/presentation/report_providers.dart';
+import 'features/receivables/data/receivables_repository_impl.dart';
+import 'features/receivables/presentation/receivables_providers.dart';
 import 'features/sale/data/sale_repository_impl.dart';
 import 'features/sale/presentation/sale_providers.dart';
 import 'features/team/data/team_repository_impl.dart';
@@ -289,6 +291,11 @@ final diOverrides = [
   ),
   saleRepositoryProvider.overrideWith(
     (ref) => SaleRepositoryImpl(ref.read(dioProvider)),
+  ),
+  // Fiado (contas a receber): leitura agregada de OS + vendas com saldo. Sem
+  // camada offline — a carteira é consolidada no servidor.
+  receivablesRepositoryProvider.overrideWith(
+    (ref) => ReceivablesRepositoryImpl(ref.read(dioProvider)),
   ),
 ];
 
