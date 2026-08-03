@@ -298,6 +298,61 @@ void main() {
     });
   });
 
+  group('config mudou enquanto o app estava aberto', () {
+    testWidgets('desligar a exigência e voltar NÃO manda abrir o caixa',
+        (tester) async {
+      // Fluxo relatado: fecha o caixa, desliga "exigir caixa aberto" em
+      // Configurações, volta à tela — e ela pedia para abrir. O provider não era
+      // autoDispose, então guardava a config do primeiro mount.
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final repo = FakeCashierRepository();
+      await repo.updateConfig(requireOpenSession: true);
+
+      // Um switch externo controla se a tela do caixa está montada, para simular
+      // sair para Configurações e voltar.
+      final mostrando = ValueNotifier<bool>(true);
+      addTearDown(mostrando.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            connectivityControllerProvider.overrideWith(_OnlineConn.new),
+            sessionControllerProvider.overrideWith(_Dono.new),
+            cashierRepositoryProvider.overrideWithValue(repo),
+            saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: ValueListenableBuilder<bool>(
+              valueListenable: mostrando,
+              builder: (_, visivel, _) =>
+                  visivel ? const CashierScreen() : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Caixa fechado + exigência ligada: pede para abrir (correto aqui).
+      expect(find.textContaining('Abrir caixa'), findsWidgets);
+
+      // Sai da tela (vai para Configurações) e desliga a exigência.
+      mostrando.value = false;
+      await tester.pumpAndSettle();
+      await repo.updateConfig(requireOpenSession: false);
+
+      // Volta.
+      mostrando.value = true;
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Abrir caixa'), findsNothing,
+          reason: 'com a exigência desligada não se pede abertura');
+      expect(find.text('Últimos lançamentos'), findsOneWidget);
+    });
+  });
+
   group('linha de venda no extrato do dia', () {
     testWidgets('não tem menu de 3 pontinhos — a linha abre a venda',
         (tester) async {

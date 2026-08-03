@@ -125,8 +125,16 @@ class CashierController extends AsyncNotifier<CashierState> {
   }
 }
 
+/// `autoDispose`: o estado morre ao sair da tela e é remontado ao voltar.
+///
+/// Sem isso o provider vivia para o app inteiro e guardava a CONFIG carregada no
+/// primeiro mount — quem desligava "exigir caixa aberto" em Configurações e
+/// voltava continuava caindo na tela "abra o caixa", porque a config em memória
+/// ainda dizia `true`. Além de corrigir isso, recarregar é o comportamento certo
+/// numa tela de dinheiro: os lançamentos podem ter mudado em outro aparelho.
 final cashierControllerProvider =
-    AsyncNotifierProvider<CashierController, CashierState>(CashierController.new);
+    AsyncNotifierProvider.autoDispose<CashierController, CashierState>(
+        CashierController.new);
 
 // ===================== Histórico do caixa (movimentos por período) =====================
 
