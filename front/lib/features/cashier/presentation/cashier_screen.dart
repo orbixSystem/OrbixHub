@@ -12,6 +12,7 @@ import '../domain/cashier_models.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
+import '../../sale/presentation/sale_detail_dialog.dart';
 import 'cashier_dialogs.dart';
 import 'entry_edit_dialogs.dart';
 import 'cashier_providers.dart';
@@ -624,7 +625,14 @@ class _EntryTile extends ConsumerWidget {
       else if (entry.saleKind == 'sale')
         'Venda',
     ];
+    // Lançamento que aponta para uma VENDA abre o detalhe dela — é de lá que se
+    // edita os itens. Antes só o Histórico levava à venda, então corrigir o que
+    // foi vendido obrigava a sair do Caixa do dia.
+    final daVenda = entry.saleKind == 'sale' && entry.saleId != null;
     return NeuListTile(
+      onTap: daVenda
+          ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
+          : null,
       leading: _DirectionGlyph(color: color, isIn: isIn),
       title: Text(
         categoryLabel(entry.category),
@@ -669,6 +677,11 @@ class _EntryTile extends ConsumerWidget {
               color: neu.inkMuted,
               tint: neu.inkMuted.withValues(alpha: .14),
             ),
+          ],
+          // Afordância: sem isto nada indica que a linha da venda é clicável.
+          if (daVenda) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
           ],
         ],
       ),
