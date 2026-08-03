@@ -22,11 +22,21 @@ class SaleRepositoryImpl implements SaleRepository {
       (data as Map).cast<String, dynamic>();
 
   @override
-  Future<SalePage> listSales({String? status, String? customerId, int page = 1}) =>
+  Future<SalePage> listSales({
+    String? status,
+    String? customerId,
+    String? q,
+    String? from,
+    String? to,
+    int page = 1,
+  }) =>
       _guard(() async {
         final res = await _dio.get<Object?>('/sales', queryParameters: {
           'status': ?status,
           'customerId': ?customerId,
+          'q': ?q,
+          'from': ?from,
+          'to': ?to,
           'page': page,
         });
         return SalePage.fromJson(_asMap(res.data));

@@ -23,6 +23,10 @@ import { CancelSaleDto, CreateSaleDto, ListSalesQueryDto } from './dto/sale.dto'
 
 const DEFAULT_PAGE_SIZE = 20;
 
+/** ISO → Date (mesma conversão do caixa, para os recortes por período). */
+const parseDate = (v: string | undefined): Date | undefined =>
+  v ? new Date(v) : undefined;
+
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
 
@@ -147,6 +151,9 @@ export class SaleService {
       this.repo.listSales({
         status: query.status,
         customerId: query.customerId,
+        q: query.q?.trim() || undefined,
+        from: parseDate(query.from),
+        to: parseDate(query.to),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

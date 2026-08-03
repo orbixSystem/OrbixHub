@@ -8,10 +8,12 @@ import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../receivables/presentation/receivables_tab.dart';
+import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import 'cashier_dialogs.dart';
 import 'cashier_providers.dart';
+import 'sales_history.dart';
 
 /// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
 /// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
@@ -359,7 +361,13 @@ class _OpenBody extends ConsumerWidget {
         const SizedBox(height: 24),
         Text('Extrato', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
-        Expanded(child: _ExtractList(entries: state.entries, canManage: canManage)),
+        Expanded(
+          child: _ExtractList(
+            entries: state.entries,
+            canManage: canManage,
+            salesById: state.salesById,
+          ),
+        ),
       ],
     );
   }
@@ -428,9 +436,14 @@ class _MethodPill extends StatelessWidget {
 }
 
 class _ExtractList extends ConsumerWidget {
-  const _ExtractList({required this.entries, required this.canManage});
+  const _ExtractList({
+    required this.entries,
+    required this.canManage,
+    this.salesById = const {},
+  });
   final List<CashEntry> entries;
   final bool canManage; // estorno = gestão (dono/gerente)
+  final Map<String, Sale> salesById;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -446,15 +459,22 @@ class _ExtractList extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 8),
       itemCount: entries.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _EntryTile(entry: entries[i], canManage: canManage),
+      itemBuilder: (_, i) => _EntryTile(
+        entry: entries[i],
+        canManage: canManage,
+        sale: entries[i].saleId == null ? null : salesById[entries[i].saleId],
+      ),
     );
   }
 }
 
 class _EntryTile extends ConsumerWidget {
-  const _EntryTile({required this.entry, required this.canManage});
+  const _EntryTile({required this.entry, required this.canManage, this.sale});
   final CashEntry entry;
   final bool canManage;
+
+  /// Venda de origem, quando houver — é o que permite dizer PARA QUEM.
+  final Sale? sale;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -474,9 +494,13 @@ class _EntryTile extends ConsumerWidget {
     final pending = (ref.watch(pendingIdsProvider('cash_entry')).value ??
             const <String>{})
         .contains(entry.id);
+    // Cliente antes da descrição (que já traz o número): "para quem" era a
+    // informação que faltava na linha do extrato.
+    final cliente = sale?.customerName;
     final subtitleParts = <String>[
       if (hora.isNotEmpty) hora,
       methodLabel(entry.method),
+      if (cliente != null && cliente.isNotEmpty) cliente,
       if (hasDesc)
         entry.description!
       else if (entry.saleKind == 'os')
@@ -629,6 +653,7 @@ class _CashierHistory extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final preset = ref.watch(cashierHistoryPresetProvider);
+    final lente = ref.watch(cashierHistoryLenteProvider);
     final async = ref.watch(cashierHistoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,10 +766,20 @@ class _CashierHistory extends ConsumerWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  Text('Movimentos',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 10),
-                  if (data.entries.isEmpty)
+                  // Duas lentes do MESMO período: "Movimentos" é o livro-caixa
+                  // (dinheiro que entrou/saiu, inclusive despesas) e "Vendas" é
+                  // o que foi vendido. Não são a mesma coisa: venda em fiado não
+                  // move o caixa, e sangria não é venda.
+                  NeuSegmented<int>(
+                    segments: const {0: 'Movimentos', 1: 'Vendas'},
+                    selected: lente,
+                    onChanged: (v) =>
+                        ref.read(cashierHistoryLenteProvider.notifier).set(v),
+                  ),
+                  const SizedBox(height: 12),
+                  if (lente == 1)
+                    SalesHistoryList(sales: data.sales)
+                  else if (data.entries.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: NeuEmptyState(
@@ -758,7 +793,12 @@ class _CashierHistory extends ConsumerWidget {
                     for (final e in data.entries)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: _HistoryEntryTile(entry: e),
+                        child: _HistoryEntryTile(
+                          entry: e,
+                          sale: e.saleId == null
+                              ? null
+                              : data.salesById[e.saleId],
+                        ),
                       ),
                 ],
               );
@@ -817,8 +857,12 @@ class _ChoicePill extends StatelessWidget {
 /// que foi vendido nem permitir agir. Lançamentos de OS não abrem aqui — a OS
 /// tem tela própria, alcançada pela lista de OS.
 class _HistoryEntryTile extends StatelessWidget {
-  const _HistoryEntryTile({required this.entry});
+  const _HistoryEntryTile({required this.entry, this.sale});
   final CashEntry entry;
+
+  /// Venda de origem, quando o lançamento aponta para uma. Serve para dizer
+  /// PARA QUEM foi a venda — o lançamento do caixa só guarda `sale_id`.
+  final Sale? sale;
 
   /// Só venda: `saleId` presente e origem 'sale'.
   String? get _saleId =>
@@ -842,9 +886,13 @@ class _HistoryEntryTile extends StatelessWidget {
     final color =
         reversed ? neu.inkMuted : (isIn ? neu.success : neu.danger);
     final hasDesc = entry.description != null && entry.description!.isNotEmpty;
+    // Cliente da venda antes da descrição: "para quem" é a informação que
+    // faltava na linha (a descrição já traz o número da venda).
+    final cliente = sale?.customerName;
     final sub = <String>[
       _fmtDate(entry.createdAt),
       methodLabel(entry.method),
+      if (cliente != null && cliente.isNotEmpty) cliente,
       if (hasDesc) entry.description!,
     ].where((s) => s.isNotEmpty).join(' · ');
     return NeuListTile(

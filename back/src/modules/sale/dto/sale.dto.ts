@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -46,10 +47,18 @@ export class CancelSaleDto {
   @IsOptional() @IsString() @MinLength(3) @MaxLength(500) reason?: string;
 }
 
-/** Filtros + paginação da lista de vendas. */
+/**
+ * Filtros + paginação da lista de vendas. `from`/`to` recortam por
+ * `created_at` — sem eles não há como responder "o que vendi neste período",
+ * que é a pergunta do histórico de vendas. `q` busca por número da venda ou
+ * nome do cliente (o snapshot gravado na venda).
+ */
 export class ListSalesQueryDto {
   @IsOptional() @IsIn(['active', 'canceled']) status?: 'active' | 'canceled';
   @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @IsDateString() from?: string;
+  @IsOptional() @IsDateString() to?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }

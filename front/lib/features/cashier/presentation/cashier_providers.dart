@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../sale/domain/sale_models.dart';
+import '../../sale/presentation/sale_providers.dart';
 import '../domain/cashier_models.dart';
 import '../domain/cashier_repository.dart';
 
@@ -15,13 +17,20 @@ class CashierState {
     required this.session,
     required this.entries,
     required this.config,
+    this.sales = const [],
   });
 
   final CashSession? session;
   final List<CashEntry> entries;
   final CashierConfig config;
 
+  /// Vendas do dia — o lançamento do caixa guarda só `sale_id`, então sem isto
+  /// o extrato não consegue dizer PARA QUEM foi a venda.
+  final List<Sale> sales;
+
   bool get isOpen => session != null;
+
+  Map<String, Sale> get salesById => {for (final s in sales) s.id: s};
 }
 
 /// Carrega e orquestra o Caixa do dia. Mutações re-buscam o estado do backend
@@ -36,7 +45,27 @@ class CashierController extends AsyncNotifier<CashierState> {
     final config = await _repo.fetchConfig();
     final session = await _repo.currentSession();
     final page = await _repo.listEntries(sessionId: session?.id);
-    return CashierState(session: session, entries: page.items, config: config);
+    // Vendas de hoje, para o extrato mostrar o cliente. `sale` é contratável:
+    // sem o módulo (ou sem permissão) o backend recusa e o caixa segue normal.
+    List<Sale> sales = const [];
+    try {
+      final agora = DateTime.now();
+      final page = await ref.read(saleRepositoryProvider).listSales(
+            from: DateTime(agora.year, agora.month, agora.day)
+                .toUtc()
+                .toIso8601String(),
+            to: agora.toUtc().toIso8601String(),
+          );
+      sales = page.items;
+    } catch (_) {
+      sales = const [];
+    }
+    return CashierState(
+      session: session,
+      entries: page.items,
+      config: config,
+      sales: sales,
+    );
   }
 
   Future<void> _refresh() async {
@@ -83,27 +112,70 @@ class CashierHistoryPreset extends Notifier<String> {
   void set(String preset) => state = preset;
 }
 
-/// Dados do Histórico do Caixa no período: totais (por método/origem) + extrato.
-/// Lê só via repository. Reage ao preset selecionado.
+/// Lente do Histórico: 0 = Movimentos (livro-caixa) · 1 = Vendas.
+final cashierHistoryLenteProvider =
+    NotifierProvider<CashierHistoryLente, int>(CashierHistoryLente.new);
+
+class CashierHistoryLente extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int v) => state = v;
+}
+
+/// Início do período de um preset ('hoje' | '7d' | '30d').
+DateTime periodStart(String preset, DateTime now) => switch (preset) {
+      'hoje' => DateTime(now.year, now.month, now.day),
+      '30d' => now.subtract(const Duration(days: 30)),
+      _ => now.subtract(const Duration(days: 7)),
+    };
+
+/// Dados do Histórico do Caixa no período: totais (por método/origem), extrato e
+/// as VENDAS do mesmo recorte.
+///
+/// As vendas vêm juntas por dois motivos: alimentam a lente "Vendas" (o que foi
+/// vendido, para quem, quando) e permitem que a linha do extrato mostre o
+/// cliente — o lançamento do caixa guarda só `sale_id`, então sem este mapa o
+/// movimento seria eternamente "Venda avulsa · R$ 150" sem dizer de quem.
 class CashierHistoryData {
-  const CashierHistoryData({required this.summary, required this.entries});
+  const CashierHistoryData({
+    required this.summary,
+    required this.entries,
+    this.sales = const [],
+  });
+
   final CashSummary summary;
   final List<CashEntry> entries;
+  final List<Sale> sales;
+
+  /// Venda por id — usado para enriquecer as linhas do extrato.
+  Map<String, Sale> get salesById => {for (final s in sales) s.id: s};
 }
 
 final cashierHistoryProvider =
     FutureProvider.autoDispose<CashierHistoryData>((ref) async {
   final preset = ref.watch(cashierHistoryPresetProvider);
   final now = DateTime.now();
-  final from = switch (preset) {
-    'hoje' => DateTime(now.year, now.month, now.day),
-    '30d' => now.subtract(const Duration(days: 30)),
-    _ => now.subtract(const Duration(days: 7)),
-  };
-  final fromIso = from.toUtc().toIso8601String();
+  final fromIso = periodStart(preset, now).toUtc().toIso8601String();
   final toIso = now.toUtc().toIso8601String();
   final repo = ref.read(cashierRepositoryProvider);
   final summary = await repo.summary(from: fromIso, to: toIso);
   final page = await repo.listEntries(from: fromIso, to: toIso, page: 1);
-  return CashierHistoryData(summary: summary, entries: page.items);
+  // `sale` é módulo contratável: sem ele (ou sem permissão) o backend recusa.
+  // A ausência de vendas não pode derrubar o histórico do caixa.
+  List<Sale> sales = const [];
+  try {
+    final vendas = await ref.read(saleRepositoryProvider).listSales(
+          from: fromIso,
+          to: toIso,
+          page: 1,
+        );
+    sales = vendas.items;
+  } catch (_) {
+    sales = const [];
+  }
+  return CashierHistoryData(
+    summary: summary,
+    entries: page.items,
+    sales: sales,
+  );
 });

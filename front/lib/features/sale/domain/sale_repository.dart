@@ -4,7 +4,17 @@ import 'sale_models.dart';
 /// gating de módulo); o cliente só reflete para UX. Impl real (dio) + fake,
 /// trocadas por injeção Riverpod. A UI nunca fala com o dio direto.
 abstract interface class SaleRepository {
-  Future<SalePage> listSales({String? status, String? customerId, int page});
+  /// Histórico de vendas. `from`/`to` recortam por data de criação (ISO) e `q`
+  /// busca por número da venda ou nome do cliente — é o que responde "o que
+  /// vendi, para quem e quando".
+  Future<SalePage> listSales({
+    String? status,
+    String? customerId,
+    String? q,
+    String? from,
+    String? to,
+    int page,
+  });
   Future<Sale> getSale(String id);
   Future<Sale> createSale(SaleDraft draft);
 

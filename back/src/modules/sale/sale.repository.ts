@@ -31,6 +31,11 @@ export interface FiscalSnapshotFields {
 export interface SaleListFilter {
   status?: string;
   customerId?: string;
+  /** Busca por número da venda OU nome do cliente (snapshot). */
+  q?: string;
+  /** Recorte por `created_at` (histórico por período). */
+  from?: Date;
+  to?: Date;
   skip: number;
   take: number;
 }
@@ -85,6 +90,22 @@ export class SaleRepository {
     const where: Prisma.saleWhereInput = {
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.customerId ? { customer_id: filter.customerId } : {}),
+      ...(filter.from || filter.to
+        ? {
+            created_at: {
+              ...(filter.from ? { gte: filter.from } : {}),
+              ...(filter.to ? { lte: filter.to } : {}),
+            },
+          }
+        : {}),
+      ...(filter.q
+        ? {
+            OR: [
+              { number: { contains: filter.q, mode: 'insensitive' } },
+              { customer_name: { contains: filter.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
     };
     const [items, total] = await Promise.all([
       db.sale.findMany({
