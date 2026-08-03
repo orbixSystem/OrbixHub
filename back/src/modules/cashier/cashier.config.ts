@@ -47,7 +47,15 @@ export function directionForCategory(category: EntryCategory): EntryDirection {
 export interface CashierConfig {
   /** Formas de pagamento oferecidas na UI (subconjunto de PAYMENT_METHODS). */
   paymentMethods: PaymentMethod[];
-  /** Exige uma sessão aberta para lançar no caixa (default true). */
+  /**
+   * Exige uma sessão aberta para lançar no caixa.
+   *
+   * Default **false**: a cerimônia de abrir/fechar serve para conferir GAVETA de
+   * dinheiro, e a maioria das oficinas recebe por Pix/cartão ou opera com o
+   * próprio dono no caixa — para elas o ritual é atrito sem contrapartida. Quem
+   * tem funcionário mexendo em dinheiro liga a exigência e passa a ter a
+   * conferência (esperado × contado × diferença) como controle.
+   */
   requireOpenSession: boolean;
   /** Conferência de fechamento considera só dinheiro (default true). */
   countCashOnly: boolean;
@@ -55,7 +63,7 @@ export interface CashierConfig {
 
 export const DEFAULT_CASHIER_CONFIG: CashierConfig = {
   paymentMethods: [...PAYMENT_METHODS],
-  requireOpenSession: true,
+  requireOpenSession: false,
   countCashOnly: true,
 };
 
