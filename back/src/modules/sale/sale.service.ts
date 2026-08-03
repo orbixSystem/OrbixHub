@@ -16,6 +16,7 @@ import { SaleRepository } from './sale.repository';
 import type { FiscalSnapshotFields } from './sale.repository';
 import {
   computeSaleTotal,
+  applySaleDiscount,
   computeSubtotal,
   formatSaleNumber,
 } from './sale.config';
@@ -105,9 +106,12 @@ export class SaleService {
       });
     }
 
-    const total = computeSaleTotal(
+    const bruto = computeSaleTotal(
       resolved.map((r) => ({ quantity: r.quantity, unitPrice: r.unit_price })),
     );
+    // `total` é o valor A PAGAR (já líquido) — é ele que o caixa recebe e o
+    // Fiscal emite. `discount` fica ao lado como registro do que foi concedido.
+    const { total, discount } = applySaleDiscount(bruto, dto.discount ?? 0);
 
     const sale = await this.tenant.withTenantTx(async () => {
       const n = (await this.repo.maxSaleNumber()) + 1;
@@ -117,6 +121,7 @@ export class SaleService {
         customer_name: customerName,
         status: 'active',
         total,
+        discount,
         created_by: user.userId,
       });
       for (const r of resolved) {
@@ -133,6 +138,8 @@ export class SaleService {
     });
     await this.audit.log(user.tenantId, user.userId, 'sale_create', sale!.id, {
       total,
+      // Desconto concedido é informação auditável (quem deu, quanto, em qual venda).
+      ...(discount > 0 ? { discount } : {}),
       items: resolved.length,
     });
 

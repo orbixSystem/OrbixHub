@@ -9,7 +9,10 @@ export interface CreateSaleData {
   customer_id: string | null;
   customer_name: string | null;
   status: string;
+  /** Valor A PAGAR (já com desconto aplicado). */
   total: DecimalIn;
+  /** Desconto concedido (registro; não entra no total). */
+  discount?: DecimalIn;
   created_by: string | null;
 }
 

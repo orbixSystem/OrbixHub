@@ -35,6 +35,8 @@ export class CreateSaleItemDto {
  */
 export class CreateSaleDto {
   @IsOptional() @IsUUID() customerId?: string;
+  /** Desconto em valor sobre o total da venda (≥ 0). O service clampa ao bruto. */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

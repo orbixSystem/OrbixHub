@@ -84,8 +84,22 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   final _descCtrl = TextEditingController();
   // Valor recebido em dinheiro (MELHORIA): calcula o troco na hora.
   final _receivedCtrl = TextEditingController();
+  // Desconto em valor sobre o total da venda.
+  final _descontoCtrl = TextEditingController();
 
-  double get _total => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
+  /// Soma dos itens, antes do desconto.
+  double get _bruto => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
+
+  /// Desconto digitado, clampado ao bruto (espelha `applySaleDiscount` do
+  /// backend — total negativo seria dinheiro saindo do caixa numa venda).
+  double get _desconto {
+    final v = double.tryParse(_descontoCtrl.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) return 0;
+    return v > _bruto ? _bruto : v;
+  }
+
+  /// Valor A PAGAR: é o que o caixa recebe e o Fiscal emite.
+  double get _total => _bruto - _desconto;
 
   // Troco só faz sentido recebendo agora, em dinheiro.
   bool get _showChange => _receiveNow && _method == 'dinheiro';
@@ -124,6 +138,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   void dispose() {
     _descCtrl.dispose();
     _receivedCtrl.dispose();
+    _descontoCtrl.dispose();
     super.dispose();
   }
 
@@ -187,6 +202,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       // 1) cria a venda (baixa de estoque) — backend `sale`.
       final draft = SaleDraft(
         customerId: _customerId,
+        discount: _desconto > 0 ? _desconto : null,
         items: [
           for (final l in valid)
             SaleItemDraft(
@@ -378,6 +394,13 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 labelText: 'Descrição da venda (opcional)',
                 hintText: 'Ex.: cliente levou fiado, obs. do balcão…',
               ),
+            ),
+            const SizedBox(height: 16),
+            _DescontoRow(
+              controller: _descontoCtrl,
+              bruto: _bruto,
+              desconto: _desconto,
+              onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 16),
             _PaymentSection(
@@ -669,6 +692,83 @@ class _SubmitBar extends StatelessWidget {
 }
 
 /// Linha de troco (só dinheiro): informa o valor recebido e mostra o troco.
+/// Desconto em valor sobre a venda.
+///
+/// Só aparece quando há itens — desconto sobre nada não faz sentido. Mostra
+/// bruto → desconto → a pagar, para o operador ver o efeito antes de fechar, e
+/// avisa quando o desconto zera a venda (brinde) ou foi limitado ao bruto.
+class _DescontoRow extends StatelessWidget {
+  const _DescontoRow({
+    required this.controller,
+    required this.bruto,
+    required this.desconto,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final double bruto;
+  final double desconto;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bruto <= 0) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    // Digitou mais do que a venda: o backend clampa, então avisamos aqui.
+    final digitado =
+        double.tryParse(controller.text.trim().replaceAll(',', '.')) ?? 0;
+    final limitado = digitado > bruto;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [DecimalInputFormatter()],
+                onChanged: (_) => onChanged(),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  labelText: 'Desconto',
+                  prefixText: r'R$ ',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (desconto > 0)
+              IconButton(
+                tooltip: 'Remover desconto',
+                icon: const Icon(Icons.close_rounded, size: 18),
+                onPressed: () {
+                  controller.clear();
+                  onChanged();
+                },
+              ),
+          ],
+        ),
+        if (desconto > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            limitado
+                ? 'Desconto limitado ao valor da venda '
+                    '(${formatMoney(bruto)}).'
+                : '${formatMoney(bruto)} − ${formatMoney(desconto)} = '
+                    '${formatMoney(bruto - desconto)}'
+                    '${bruto - desconto <= 0 ? ' · venda como brinde' : ''}',
+            style: TextStyle(
+              color: limitado ? AppColors.warning : scheme.onSurfaceVariant,
+              fontSize: 11.5,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// Troco negativo (recebeu menos que o total) fica em vermelho como aviso.
 class _CashChangeRow extends StatelessWidget {
   const _CashChangeRow({

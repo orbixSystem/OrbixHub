@@ -32,6 +32,25 @@ export function computeSaleTotal(
   );
 }
 
+/**
+ * Total A PAGAR depois do desconto (≥ 0) e o desconto EFETIVO aplicado.
+ *
+ * Devolve os dois porque o desconto pedido pode não caber: dar 200 de desconto
+ * numa venda de 150 não pode gerar total negativo (dinheiro saindo do caixa numa
+ * venda) nem registrar um desconto que não aconteceu. Nesse caso o total vai a
+ * zero e o desconto efetivo é o valor bruto — o registro fica coerente com o
+ * dinheiro.
+ */
+export function applySaleDiscount(
+  bruto: number,
+  descontoPedido: number,
+): { total: number; discount: number } {
+  const base = round2(Math.max(0, bruto));
+  const pedido = round2(Math.max(0, descontoPedido));
+  const discount = Math.min(pedido, base);
+  return { total: round2(base - discount), discount };
+}
+
 /** Número sequencial da venda (VND-NNNN). */
 export function formatSaleNumber(seq: number): string {
   return `VND-${String(seq).padStart(4, '0')}`;
