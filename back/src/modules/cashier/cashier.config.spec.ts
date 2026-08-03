@@ -57,4 +57,20 @@ describe('mergeCashierConfig', () => {
         .paymentMethods,
     ).toEqual([...PAYMENT_METHODS]);
   });
+
+  // Decisão de produto: a cerimônia de abrir/fechar serve para conferir gaveta de
+  // dinheiro. A maioria das oficinas recebe por Pix/cartão ou tem o dono no
+  // caixa — para elas o ritual é atrito sem contrapartida, e o backend já sabia
+  // operar sem sessão. Quem tem funcionário liga a exigência.
+  it('por padrão NÃO exige caixa aberto', () => {
+    expect(DEFAULT_CASHIER_CONFIG.requireOpenSession).toBe(false);
+    expect(mergeCashierConfig(undefined).requireOpenSession).toBe(false);
+  });
+
+  it('quem precisa de conferência de gaveta pode exigir', () => {
+    expect(
+      mergeCashierConfig(undefined, { requireOpenSession: true })
+          .requireOpenSession,
+    ).toBe(true);
+  });
 });

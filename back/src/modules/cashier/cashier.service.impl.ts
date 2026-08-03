@@ -33,7 +33,12 @@ import {
   round2,
   SaleKind,
 } from './cashier.config';
-import { CreateEntryDto, ReverseEntryDto } from './dto/entry.dto';
+import {
+  CorrectEntryDto,
+  CreateEntryDto,
+  ReverseEntryDto,
+  UpdateEntryDto,
+} from './dto/entry.dto';
 import { CloseSessionDto, OpenSessionDto } from './dto/session.dto';
 import { EntryQueryDto, SummaryQueryDto } from './dto/query.dto';
 import { UpdateCashierConfigDto } from './dto/config.dto';
@@ -289,11 +294,18 @@ export class CashierServiceImpl extends CashierService {
     });
   }
 
-  async listSessions(_user: AuthUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  async listSessions(
+    _user: AuthUser,
+    page = 1,
+    pageSize = DEFAULT_PAGE_SIZE,
+    filtros: { deviceId?: string | null; status?: 'open' | 'closed' } = {},
+  ) {
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listSessions({
         skip: (page - 1) * pageSize,
         take: pageSize,
+        deviceId: filtros.deviceId,
+        status: filtros.status,
       }),
     );
     return { items, total, page, pageSize };
@@ -366,6 +378,91 @@ export class CashierServiceImpl extends CashierService {
   }
 
   /**
+   * Edita o que o lançamento DIZ (descrição, categoria de mesma direção). Nunca
+   * o quanto ele vale: valor/forma passam por [correctEntry], que estorna e
+   * relança — um livro caixa não sobrescreve movimento, registra a correção.
+   */
+  async updateEntry(user: AuthUser, id: string, dto: UpdateEntryDto) {
+    const entry = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findEntryById(id);
+      if (!existing) throw new NotFoundException('Lançamento não encontrado.');
+      // Estornado é registro histórico fechado: editá-lo reescreveria o passado.
+      if (existing.reversed_at)
+        throw new ConflictException(
+          'Lançamento estornado não pode ser editado.',
+        );
+
+      const category = dto.category as EntryCategory | undefined;
+      if (category && category !== existing.category) {
+        // Mudar a direção altera o saldo do caixa — isso é correção, não edição.
+        if (
+          directionForCategory(category) !==
+          directionForCategory(existing.category as EntryCategory)
+        ) {
+          throw new BadRequestException(
+            'Esta troca de categoria inverte entrada/saída. Use a correção do '
+              + 'lançamento (estorna e relança).',
+          );
+        }
+      }
+      return this.repo.updateEntry(id, {
+        ...(dto.description !== undefined
+          ? { description: dto.description.trim() || null }
+          : {}),
+        ...(category ? { category } : {}),
+      });
+    });
+    await this.audit.log(user.tenantId, user.userId, 'cashier_entry_update', id, {
+      description: dto.description?.trim(),
+      category: dto.category,
+    });
+    return entry;
+  }
+
+  /**
+   * Corrige um lançamento errado: estorna o original (com motivo) e cria o novo
+   * com os valores certos. É o "editar" do dinheiro — e é uma operação só para o
+   * usuário, mesmo sendo duas linhas no livro.
+   *
+   * Campos ausentes herdam do original (corrigir só o valor é o caso comum). O
+   * lançamento novo entra na sessão ABERTA de hoje, não na do original: dinheiro
+   * corrigido hoje pertence ao caixa de hoje — senão a conferência de um dia já
+   * fechado mudaria retroativamente.
+   */
+  async correctEntry(user: AuthUser, id: string, dto: CorrectEntryDto) {
+    const original = await this.tenant.withTenantTx(() =>
+      this.repo.findEntryById(id),
+    );
+    if (!original) throw new NotFoundException('Lançamento não encontrado.');
+    if (original.reversed_at)
+      throw new ConflictException('Lançamento já estornado.');
+
+    // Estorna primeiro: se a criação falhar, o original fica estornado e o
+    // usuário lança de novo — melhor que duplicar dinheiro no caixa.
+    await this.reverseEntry(user, id, { reason: dto.reason });
+
+    const novo = await this.createEntry(user, {
+      id: dto.newId,
+      amount: dto.amount ?? toNum(original.amount),
+      method: (dto.method ?? original.method) as PaymentMethod,
+      category: (dto.category ?? original.category) as EntryCategory,
+      saleKind: (original.sale_kind ?? undefined) as 'os' | 'sale' | undefined,
+      saleId: original.sale_id ?? undefined,
+      description:
+        dto.description ?? (original.description ?? undefined),
+      deviceId: undefined,
+    });
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'cashier_entry_correct',
+      novo.id,
+      { corrigiu: id, motivo: dto.reason, de: toNum(original.amount), para: toNum(novo.amount) },
+    );
+    return novo;
+  }
+
+  /**
    * Valida e resolve o vínculo com a venda. `os_payment` exige (saleKind='os',
    * saleId). Saídas (despesa/sangria) e suprimento nunca apontam venda. `venda_avulsa`
    * é forward-compatible: aceita um vínculo, mas hoje (sem módulo `sale`) fica solto.
@@ -418,6 +515,7 @@ export class CashierServiceImpl extends CashierService {
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listEntries({
         sessionId: query.sessionId,
+        q: query.q?.trim() || undefined,
         direction: query.direction,
         method: query.method,
         category: query.category,

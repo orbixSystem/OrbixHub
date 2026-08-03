@@ -17,11 +17,32 @@ class FakeSaleRepository implements SaleRepository {
   Future<SalePage> listSales({
     String? status,
     String? customerId,
+    String? q,
+    String? from,
+    String? to,
     int page = 1,
   }) async {
+    final termo = q?.trim().toLowerCase();
     final filtered = _sales.where((s) {
       if (status != null && s.status != status) return false;
       if (customerId != null && s.customerId != customerId) return false;
+      // Recorte por data de criação (mesma semântica do backend: inclusivo).
+      if (from != null || to != null) {
+        final criada = DateTime.tryParse(s.createdAt ?? '');
+        if (criada == null) return false;
+        if (from != null) {
+          final ini = DateTime.tryParse(from);
+          if (ini != null && criada.isBefore(ini)) return false;
+        }
+        if (to != null) {
+          final fim = DateTime.tryParse(to);
+          if (fim != null && criada.isAfter(fim)) return false;
+        }
+      }
+      if (termo != null && termo.isNotEmpty) {
+        final alvo = '${s.number} ${s.customerName ?? ''}'.toLowerCase();
+        if (!alvo.contains(termo)) return false;
+      }
       return true;
     }).toList(growable: false);
     return SalePage(items: filtered, total: filtered.length);
@@ -62,6 +83,18 @@ class FakeSaleRepository implements SaleRepository {
     );
     _sales.insert(0, sale);
     return sale;
+  }
+
+  @override
+  Future<Sale> updateSale(String id, {String? customerId}) async {
+    final idx = _sales.indexWhere((s) => s.id == id);
+    // O fake não tem base de clientes: guarda o ponteiro e rotula o snapshot.
+    final atualizada = _sales[idx].copyWith(
+      customerId: customerId,
+      customerName: customerId == null ? null : 'Cliente $customerId',
+    );
+    _sales[idx] = atualizada;
+    return atualizada;
   }
 
   @override

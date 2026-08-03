@@ -34,6 +34,8 @@ export interface NewEntryData {
 
 export interface EntryFilter {
   sessionId?: string;
+  /** Busca textual na descrição (número da OS/venda, nome do cliente). */
+  q?: string;
   direction?: EntryDirection;
   method?: string;
   category?: string;
@@ -113,15 +115,31 @@ export class CashierRepository {
     });
   }
 
-  async listSessions(p: { skip: number; take: number }) {
+  /**
+   * Histórico de sessões, opcionalmente restrito a um PONTO de caixa e/ou
+   * status. `deviceId` ausente ⇒ sem restrição de ponto (todo o tenant); para
+   * alcançar o ponto legado (device_id NULL) o caller passa `deviceId: null`
+   * explicitamente — por isso a distinção entre `undefined` e `null` importa.
+   */
+  async listSessions(p: {
+    skip: number;
+    take: number;
+    deviceId?: string | null;
+    status?: 'open' | 'closed';
+  }) {
     const db = this.tenant.getClient();
+    const where = {
+      ...(p.deviceId !== undefined ? { device_id: p.deviceId } : {}),
+      ...(p.status ? { status: p.status } : {}),
+    };
     const [items, total] = await Promise.all([
       db.cash_session.findMany({
+        where,
         orderBy: [{ opened_at: 'desc' }, { id: 'desc' }],
         skip: p.skip,
         take: p.take,
       }),
-      db.cash_session.count(),
+      db.cash_session.count({ where }),
     ]);
     return { items, total };
   }
@@ -137,6 +155,21 @@ export class CashierRepository {
   findEntryById(id: string) {
     const db = this.tenant.getClient();
     return db.cash_entry.findUnique({ where: { id } });
+  }
+
+  /**
+   * Atualiza campos NÃO-financeiros do lançamento (o que ele diz). Valor, forma
+   * e direção nunca passam por aqui — ver `correctEntry` no service.
+   */
+  updateEntry(
+    id: string,
+    data: { description?: string | null; category?: string },
+  ) {
+    const db = this.tenant.getClient();
+    return db.cash_entry.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
+    });
   }
 
   markReversed(
@@ -158,6 +191,9 @@ export class CashierRepository {
       ...(filter.category ? { category: filter.category } : {}),
       ...(filter.saleKind ? { sale_kind: filter.saleKind } : {}),
       ...(filter.saleId ? { sale_id: filter.saleId } : {}),
+      ...(filter.q
+        ? { description: { contains: filter.q, mode: 'insensitive' as const } }
+        : {}),
       ...(filter.from || filter.to
         ? {
             created_at: {

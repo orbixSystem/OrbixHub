@@ -181,4 +181,14 @@ class ItemDraft {
         if (codigoServico != null) 'codigoServico': codigoServico,
         if (aliquotaIss != null) 'aliquotaIss': aliquotaIss,
       };
+
+  /// Payload de EDIÇÃO — igual ao de criação, menos `kind`.
+  ///
+  /// O tipo (produto/serviço) é IMUTÁVEL depois de criado, então
+  /// `UpdateInventoryItemDto` não declara `kind`. Como o backend valida com
+  /// `whitelist + forbidNonWhitelisted`, mandar a chave derruba a requisição
+  /// com "property kind should not exist" — e o replay da fila offline aplica a
+  /// MESMA validação, então a mutação morria como `failed` e aparecia ao
+  /// usuário na tela "Alterações pendentes".
+  Map<String, dynamic> toUpdateJson() => toJson()..remove('kind');
 }

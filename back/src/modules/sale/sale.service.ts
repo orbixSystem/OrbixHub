@@ -12,16 +12,30 @@ import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CashierService } from '../cashier/cashier.service';
+import {
+  clampChangedSinceLimit,
+  type ChangedSincePage,
+} from '../../common/database/changed-since';
 import { SaleRepository } from './sale.repository';
-import type { FiscalSnapshotFields } from './sale.repository';
+import type { FiscalSnapshotFields, SaleSyncEntity } from './sale.repository';
 import {
   computeSaleTotal,
+  applySaleDiscount,
   computeSubtotal,
   formatSaleNumber,
 } from './sale.config';
-import { CancelSaleDto, CreateSaleDto, ListSalesQueryDto } from './dto/sale.dto';
+import {
+  CancelSaleDto,
+  CreateSaleDto,
+  ListSalesQueryDto,
+  UpdateSaleDto,
+} from './dto/sale.dto';
 
 const DEFAULT_PAGE_SIZE = 20;
+
+/** ISO → Date (mesma conversão do caixa, para os recortes por período). */
+const parseDate = (v: string | undefined): Date | undefined =>
+  v ? new Date(v) : undefined;
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -49,6 +63,12 @@ interface ResolvedItem {
 @Injectable()
 export class SaleService {
   private readonly logger = new Logger(SaleService.name);
+
+  /** Entidades deste módulo que o pull de sync pode puxar (whitelist). */
+  private static readonly SYNC_ENTITIES = new Set<SaleSyncEntity>([
+    'sale',
+    'sale_item',
+  ]);
 
   constructor(
     private readonly tenant: TenantContext,
@@ -101,18 +121,26 @@ export class SaleService {
       });
     }
 
-    const total = computeSaleTotal(
+    const bruto = computeSaleTotal(
       resolved.map((r) => ({ quantity: r.quantity, unitPrice: r.unit_price })),
     );
+    // `total` é o valor A PAGAR (já líquido) — é ele que o caixa recebe e o
+    // Fiscal emite. `discount` fica ao lado como registro do que foi concedido.
+    const { total, discount } = applySaleDiscount(bruto, dto.discount ?? 0);
 
     const sale = await this.tenant.withTenantTx(async () => {
       const n = (await this.repo.maxSaleNumber()) + 1;
       const created = await this.repo.createSale(user.tenantId, {
+        // Uuid do cliente quando veio (replay de venda criada offline); senão o
+        // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
+        // um provisório e o pull traz esta linha, já com o número real.
+        ...(dto.id ? { id: dto.id } : {}),
         number: formatSaleNumber(n),
         customer_id: customerId,
         customer_name: customerName,
         status: 'active',
         total,
+        discount,
         created_by: user.userId,
       });
       for (const r of resolved) {
@@ -129,6 +157,8 @@ export class SaleService {
     });
     await this.audit.log(user.tenantId, user.userId, 'sale_create', sale!.id, {
       total,
+      // Desconto concedido é informação auditável (quem deu, quanto, em qual venda).
+      ...(discount > 0 ? { discount } : {}),
       items: resolved.length,
     });
 
@@ -147,6 +177,9 @@ export class SaleService {
       this.repo.listSales({
         status: query.status,
         customerId: query.customerId,
+        q: query.q?.trim() || undefined,
+        from: parseDate(query.from),
+        to: parseDate(query.to),
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -159,8 +192,12 @@ export class SaleService {
       user.tenantId,
       active.map((s) => ({ id: s.id, total: toNum(s.total) })),
     );
+    // Expõe o resumo COMPLETO (total/pago/saldo), não só a tag: o controle de
+    // fiado precisa do saldo em aberto e o batch já o calculou. Simétrico ao
+    // detalhe (`getSaleOrThrow`), que sempre devolveu `payment`.
     const enriched = items.map((s) => ({
       ...s,
+      payment: summaries.get(s.id) ?? null,
       payment_status: (summaries.get(s.id)?.status ?? 'a_receber') as string,
     }));
     return { items: enriched, total, page, pageSize };
@@ -174,6 +211,43 @@ export class SaleService {
     });
     const tid = tenantId ?? sale.tenant_id;
     return this.enrichOne(sale, tid);
+  }
+
+  /**
+   * Reatribui a venda a outro cliente. É a única edição possível numa venda
+   * registrada: o total já passou pelo caixa (e talvez pela nota), então mudar
+   * dinheiro exige cancelar-e-refazer.
+   *
+   * O caso real é o fiado sem cliente: sem esta correção a dívida fica no balde
+   * "sem cliente" e ninguém consegue cobrar. Cliente vem por id + snapshot do
+   * nome via service público ("aponta, não invade").
+   */
+  async updateSale(user: AuthUser, id: string, dto: UpdateSaleDto) {
+    let customerId: string | null = null;
+    let customerName: string | null = null;
+    if (dto.customerId) {
+      // FORA da tx: getCustomer abre a própria (aninhar esgota o pool).
+      const customer = await this.customers.getCustomer(user, dto.customerId);
+      customerId = customer.id;
+      customerName = customer.name;
+    }
+
+    const sale = await this.tenant.withTenantTx(async () => {
+      const found = await this.repo.findSaleById(id);
+      if (!found) throw new NotFoundException('Venda não encontrada.');
+      // Cancelada é registro histórico fechado — reatribuir reescreveria o passado.
+      if (found.status === 'canceled')
+        throw new ConflictException('Venda cancelada não pode ser editada.');
+      await this.repo.setCustomer(id, {
+        customer_id: customerId,
+        customer_name: customerName,
+      });
+      return this.repo.findSaleById(id);
+    });
+    await this.audit.log(user.tenantId, user.userId, 'sale_update', id, {
+      customerId,
+    });
+    return this.enrichOne(sale!, user.tenantId);
   }
 
   // ===================== Cancelamento (estorno lógico) =====================
@@ -360,5 +434,28 @@ export class SaleService {
         );
       }
     }
+  }
+
+  // ===================== Sync pull (offline) =====================
+  /**
+   * Página de mudanças de `sale`/`sale_item` para o pull de sync offline
+   * ("aponta, não invade": o módulo `sync` só chama este service público).
+   * Mesma shape JSON dos endpoints de leitura — linhas cruas do Prisma, como
+   * `listSales` também devolve.
+   */
+  async listChangedSince(
+    entity: string,
+    cursor: { ts: string; id: string } | null,
+    limit: number,
+  ): Promise<ChangedSincePage> {
+    if (!SaleService.SYNC_ENTITIES.has(entity as SaleSyncEntity)) {
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo sale: ${entity}`,
+      );
+    }
+    const clamped = clampChangedSinceLimit(limit);
+    return this.tenant.withTenantTx(() =>
+      this.repo.listChangedSince(entity as SaleSyncEntity, cursor, clamped),
+    );
   }
 }

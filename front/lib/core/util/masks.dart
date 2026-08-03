@@ -150,6 +150,57 @@ class PlateInputFormatter extends TextInputFormatter {
   }
 }
 
+/// Valor decimal em pt-BR: dígitos + UM separador, com casas limitadas.
+///
+/// `keyboardType: numberWithOptions(decimal: true)` só SUGERE o teclado no
+/// celular — no desktop e na web não barra nada, e era por isso que a venda
+/// avulsa aceitava letras. Este formatter é a barreira real.
+///
+/// Aceita vírgula ou ponto e normaliza para VÍRGULA (padrão brasileiro); o
+/// parse do app já troca vírgula por ponto antes do `double.tryParse`
+/// (`Validators.positiveNumber`, `_parseAmount` do caixa), então o texto
+/// produzido segue parseável.
+///
+/// `decimals` = casas permitidas: 2 para dinheiro, 3 para quantidade.
+class DecimalInputFormatter extends TextInputFormatter {
+  const DecimalInputFormatter([this.decimals = 2]);
+
+  final int decimals;
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue v) {
+    final buf = StringBuffer();
+    var separador = false;
+    var casas = 0;
+    for (final ch in v.text.split('')) {
+      if (ch.compareTo('0') >= 0 && ch.compareTo('9') <= 0) {
+        // Dígito depois do separador conta como casa decimal; além do teto, ignora.
+        if (separador) {
+          if (casas >= decimals) continue;
+          casas++;
+        }
+        buf.write(ch);
+        continue;
+      }
+      // Segundo separador (ou qualquer outro caractere) é descartado.
+      if ((ch == ',' || ch == '.') && !separador) {
+        separador = true;
+        buf.write(',');
+      }
+    }
+    final texto = buf.toString();
+    // Nada mudou de fato: preserva a seleção que o usuário já tinha.
+    if (texto == v.text) return v;
+    // Digitação recusada por completo: mantém o estado anterior (não "pula" o
+    // cursor para o fim de um texto que o usuário não alterou).
+    if (texto == old.text) return old;
+    return TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+  }
+}
+
 /// Só dígitos (para EAN/GTIN, NCM, código de serviço, etc.), com teto opcional.
 class DigitsOnlyFormatter extends TextInputFormatter {
   const DigitsOnlyFormatter([this.maxLength]);

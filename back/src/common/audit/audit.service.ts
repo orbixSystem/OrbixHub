@@ -42,11 +42,17 @@ export type AuditAction =
   | 'schedule_item_unassign'
   | 'sale_create'
   | 'sale_cancel'
+  // Reatribuição de cliente da venda (o dinheiro dela nunca é editado).
+  | 'sale_update'
   | 'os_emit_invoice'
   | 'cashier_session_open'
   | 'cashier_session_close'
   | 'cashier_entry_create'
   | 'cashier_entry_reverse'
+  // Edição de campo não-financeiro do lançamento (descrição/categoria).
+  | 'cashier_entry_update'
+  // Correção de valor: estorno + relançamento numa operação.
+  | 'cashier_entry_correct'
   | 'sale_emit_invoice'
   | 'sync_overwrite'
   | 'plate_lookup';

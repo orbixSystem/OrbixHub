@@ -11,6 +11,10 @@ import '../domain/cashier_repository.dart';
 class FakeCashierRepository implements CashierRepository {
   CashierConfig _config = const CashierConfig();
   CashSession? _open;
+
+  /// Sessões já fechadas, mais recente primeiro (o backend ordena por
+  /// `opened_at desc`). Alimenta o histórico e a sugestão de abertura.
+  final List<CashSession> _closed = [];
   final List<CashEntry> _entries = [];
   int _seq = 0;
 
@@ -105,13 +109,23 @@ class FakeCashierRepository implements CashierRepository {
       difference: (countedAmount - expected).toStringAsFixed(2),
       byMethod: s.byMethod,
     );
+    // Guarda no topo (mais recente primeiro, como o backend ordena) — é o que
+    // alimenta o histórico e a sugestão de abertura da sessão seguinte.
+    _closed.insert(0, closed);
     _open = null;
     return closed;
   }
 
   @override
   Future<SessionPage> listSessions({int page = 1}) async =>
-      const SessionPage(items: []);
+      SessionPage(items: _closed);
+
+  @override
+  Future<double?> lastClosingAmount() async {
+    if (_closed.isEmpty) return null;
+    final contado = _closed.first.closingAmountCounted;
+    return contado == null ? null : moneyToDouble(contado);
+  }
 
   @override
   Future<CashEntry> createEntry(EntryDraft draft) async {
@@ -144,8 +158,46 @@ class FakeCashierRepository implements CashierRepository {
   }
 
   @override
+  Future<CashEntry> updateEntry(
+    String id, {
+    String? description,
+    String? category,
+  }) async {
+    final idx = _entries.indexWhere((e) => e.id == id);
+    final editado = _entries[idx].copyWith(
+      description: description ?? _entries[idx].description,
+      category: category ?? _entries[idx].category,
+    );
+    _entries[idx] = editado;
+    return editado;
+  }
+
+  @override
+  Future<CashEntry> correctEntry(
+    String id, {
+    required String reason,
+    double? amount,
+    String? method,
+    String? category,
+    String? description,
+  }) async {
+    // Espelha o servidor: estorna o original e cria um NOVO (nunca sobrescreve).
+    final original = _entries.firstWhere((e) => e.id == id);
+    await reverseEntry(id, reason);
+    return createEntry(EntryDraft(
+      amount: amount ?? double.parse(original.amount),
+      method: method ?? original.method,
+      category: category ?? original.category,
+      saleKind: original.saleKind,
+      saleId: original.saleId,
+      description: description ?? original.description,
+    ));
+  }
+
+  @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,

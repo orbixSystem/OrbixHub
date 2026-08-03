@@ -15,6 +15,8 @@ abstract class Sale with _$Sale {
     @JsonKey(name: 'customer_name') String? customerName,
     @Default('active') String status, // 'active' | 'canceled'
     @Default('0') String total,
+    /// Desconto concedido (registro). `total` já vem líquido.
+    @Default('0') String discount,
     @JsonKey(name: 'fiscal_status') String? fiscalStatus,
     // 'a_receber' | 'parcial' | 'pago' | 'cancelada' (flat, espelha payment.status)
     @JsonKey(name: 'payment_status') @Default('a_receber') String paymentStatus,
@@ -84,14 +86,18 @@ class SaleItemDraft {
 
 /// Rascunho da venda (cliente opcional + itens).
 class SaleDraft {
-  const SaleDraft({this.customerId, required this.items});
+  const SaleDraft({this.customerId, required this.items, this.discount});
 
   final String? customerId;
   final List<SaleItemDraft> items;
 
+  /// Desconto em valor sobre o total. O backend clampa ao bruto.
+  final double? discount;
+
   Map<String, dynamic> toJson() => {
         if (customerId != null) 'customerId': customerId,
         'items': items.map((i) => i.toJson()).toList(),
+        if (discount != null && discount! > 0) 'discount': discount,
       };
 }
 

@@ -45,7 +45,7 @@ export class CashierModule implements OnModuleInit {
       fields: [
         {
           key: 'requireOpenSession',
-          label: 'Exigir caixa aberto para lançar',
+          label: 'Exigir caixa aberto para lançar (conferência de gaveta)',
           type: 'bool',
         },
         {

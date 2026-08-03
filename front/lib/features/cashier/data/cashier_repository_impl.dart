@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../domain/cashier_repository.dart';
 
@@ -111,6 +112,27 @@ class CashierRepositoryImpl implements CashierRepository {
       });
 
   @override
+  Future<double?> lastClosingAmount() => _guard(() async {
+        final deviceId = await _deviceIdOrNull();
+        // Filtra por PONTO de caixa: o troco na gaveta é daquele terminal, não
+        // do caixa do vizinho. `status: closed` + ordenação desc no backend ⇒
+        // a primeira linha é o último fechamento.
+        final res = await _dio.get<Object?>(
+          '/cashier/sessions',
+          queryParameters: {
+            'page': 1,
+            'pageSize': 1,
+            'status': 'closed',
+            'deviceId': ?deviceId,
+          },
+        );
+        final page = SessionPage.fromJson(_asMap(res.data));
+        if (page.items.isEmpty) return null;
+        final contado = page.items.first.closingAmountCounted;
+        return contado == null ? null : moneyToDouble(contado);
+      });
+
+  @override
   Future<CashEntry> createEntry(EntryDraft draft) => _guard(() async {
         final deviceId = await _deviceIdOrNull();
         final res = await _dio.post<Object?>('/cashier/entries', data: {
@@ -130,8 +152,47 @@ class CashierRepositoryImpl implements CashierRepository {
       });
 
   @override
+  Future<CashEntry> updateEntry(
+    String id, {
+    String? description,
+    String? category,
+  }) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>(
+          '/cashier/entries/$id',
+          data: {'description': ?description, 'category': ?category},
+        );
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashEntry> correctEntry(
+    String id, {
+    required String reason,
+    double? amount,
+    String? method,
+    String? category,
+    String? description,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/cashier/entries/$id/correct',
+          data: {
+            'reason': reason,
+            'amount': ?amount,
+            'method': ?method,
+            'category': ?category,
+            'description': ?description,
+          },
+        );
+        // Devolve o lançamento NOVO (o original fica estornado no histórico).
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -144,6 +205,7 @@ class CashierRepositoryImpl implements CashierRepository {
       _guard(() async {
         final res = await _dio.get<Object?>('/cashier/entries', queryParameters: {
           'sessionId': ?sessionId,
+          'q': ?q,
           'direction': ?direction,
           'method': ?method,
           'category': ?category,
