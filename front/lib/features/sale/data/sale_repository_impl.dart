@@ -55,11 +55,20 @@ class SaleRepositoryImpl implements SaleRepository {
       });
 
   @override
-  Future<Sale> updateSale(String id, {String? customerId}) => _guard(() async {
-        // `customerId: null` DESVINCULA — por isso a chave vai sempre, sem o
-        // `?` de omissão condicional.
-        final res = await _dio.patch<Object?>('/sales/$id',
-            data: {'customerId': customerId});
+  Future<Sale> updateSale(
+    String id, {
+    String? customerId,
+    List<SaleItemDraft>? items,
+    double? discount,
+  }) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>('/sales/$id', data: {
+          // `customerId: null` DESVINCULA, então a chave só é OMITIDA quando o
+          // chamador não quer tocar no cliente.
+          'customerId': ?customerId,
+          'items': ?items?.map((i) => i.toJson()).toList(),
+          'discount': ?discount,
+        });
         return Sale.fromJson(_asMap(res.data));
       });
 

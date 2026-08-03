@@ -21,13 +21,15 @@ import 'sale_providers.dart';
 /// + cliente opcional → forma de pagamento (receber agora / a receber) →
 /// confirmar. Num só fluxo cria a `sale` (baixa de estoque), registra o
 /// recebimento no caixa (se pago) e, se marcado, emite a nota. Devolve a [Sale].
-/// [refazerDe] pré-preenche as linhas a partir dos itens de uma venda anterior
-/// — é o "refazer" do cancelar-e-refazer: como uma venda registrada não se edita
-/// (o dinheiro já passou pelo caixa), corrigir é cancelar a errada e lançar a
-/// nova sem redigitar tudo.
+/// [refazerDe] pré-preenche as linhas a partir dos itens de uma venda anterior —
+/// é o "refazer" do cancelar-e-refazer, para os casos em que editar não é
+/// permitido (nota já emitida, ou total abaixo do que o cliente pagou).
+/// [editando] abre esta MESMA tela sobre uma venda existente: salva com PATCH e
+/// esconde o recebimento, porque o dinheiro dela já passou pelo caixa.
 Future<Sale?> showSaleCreateDialog(
   BuildContext context, {
   List<SaleItem>? refazerDe,
+  Sale? editando,
 }) {
   return showDialog<Sale?>(
     context: context,
@@ -37,10 +39,16 @@ Future<Sale?> showSaleCreateDialog(
     // (`media.width - 24`) — e o cabeçalho estourava 33px.
     builder: (_) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      child: _SaleCreateDialog(refazerDe: refazerDe),
+      child: _SaleCreateDialog(refazerDe: refazerDe, editando: editando),
     ),
   );
 }
+
+/// Abre a venda existente para **editar os itens** (mesma tela da criação, já
+/// preenchida). O recebimento não aparece: o dinheiro dessa venda já passou pelo
+/// caixa e se ajusta pelos próprios lançamentos, não por aqui.
+Future<Sale?> showSaleEditDialog(BuildContext context, Sale venda) =>
+    showSaleCreateDialog(context, editando: venda);
 
 /// Abre o mini-picker de cliente (busca por nome). Devolve `(id, name)` ou
 /// `null` se o usuário desistiu. Público porque o detalhe da venda também precisa
@@ -73,10 +81,15 @@ class _DraftLine {
 }
 
 class _SaleCreateDialog extends ConsumerStatefulWidget {
-  const _SaleCreateDialog({this.refazerDe});
+  const _SaleCreateDialog({this.refazerDe, this.editando});
 
   /// Itens de uma venda cancelada, para relançar sem redigitar.
   final List<SaleItem>? refazerDe;
+
+  /// Venda EXISTENTE sendo editada (`null` = criando uma nova). Muda o destino do
+  /// salvar (PATCH em vez de POST) e esconde o recebimento: o dinheiro dessa
+  /// venda já passou pelo caixa e se ajusta pelos lançamentos, não por aqui.
+  final Sale? editando;
 
   @override
   ConsumerState<_SaleCreateDialog> createState() => _SaleCreateDialogState();
@@ -148,9 +161,17 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   @override
   void initState() {
     super.initState();
-    // Refazer: copia os itens da venda cancelada. Preço e quantidade seguem
-    // editáveis — normalmente é justamente um deles que estava errado.
-    final origem = widget.refazerDe;
+    final emEdicao = widget.editando;
+    if (emEdicao != null) {
+      _customerId = emEdicao.customerId;
+      _customerName = emEdicao.customerName;
+      if (moneyToDouble(emEdicao.discount) > 0) {
+        _descontoCtrl.text = formatAmountForInput(moneyToDouble(emEdicao.discount));
+      }
+    }
+    // Refazer OU editar: copia os itens. Preço e quantidade seguem editáveis —
+    // normalmente é justamente um deles que estava errado.
+    final origem = widget.refazerDe ?? emEdicao?.items;
     if (origem != null) {
       for (final i in origem) {
         _lines.add(_DraftLine(
@@ -269,6 +290,51 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     }
     // Valida nome/quantidade/preço de cada linha (positiveNumber etc.).
     if (!(_formKey.currentState?.validate() ?? true)) return;
+    // Editando: só atualiza a venda. Não há recebimento aqui — o dinheiro dessa
+    // venda já passou pelo caixa e se corrige pelos próprios lançamentos.
+    final emEdicao = widget.editando;
+    if (emEdicao != null) {
+      setState(() => _submitting = true);
+      try {
+        final atualizada =
+            await ref.read(saleRepositoryProvider).updateSale(
+                  emEdicao.id,
+                  items: [
+                    for (final l in valid)
+                      SaleItemDraft(
+                        inventoryItemId: l.inventoryItemId,
+                        name: l.isFree ? l.name.trim() : null,
+                        kind: l.kind,
+                        quantity: l.quantity,
+                        unitPrice: l.unitPrice,
+                      ),
+                  ],
+                  discount: _desconto,
+                );
+        ref.invalidate(cashierControllerProvider);
+        if (mounted) {
+          Navigator.of(context).pop(atualizada);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Venda ${atualizada.number} atualizada '
+                '(${formatMoney(atualizada.total)}).',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _submitting = false);
+          // O servidor recusa quando a edição quebraria nota emitida ou o já
+          // pago — a mensagem dele explica o quê e é o que mostramos.
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$e')));
+        }
+      }
+      return;
+    }
+
     // Recebeu menos que o total ⇒ o resto é fiado. Confirmar explicitamente,
     // porque a consequência (dívida de um cliente) não é óbvia ao digitar um
     // número menor — e sem cliente identificado a cobrança fica difícil.
@@ -392,7 +458,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 // título cede espaço em vez de empurrar o botão fora da tela.
                 Expanded(
                   child: Text(
-                    'Venda avulsa',
+                    widget.editando == null
+                        ? 'Venda avulsa'
+                        : 'Editar venda ${widget.editando!.number}',
                     style: Theme.of(context).textTheme.titleLarge,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -500,6 +568,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 16),
+            // Recebimento só na CRIAÇÃO: editar uma venda registrada não recebe
+            // dinheiro de novo — o pagamento dela se ajusta pelos lançamentos do
+            // caixa (receber o que falta, ou estornar o que sobrou).
+            if (widget.editando == null)
             _PaymentSection(
               isNarrow: isNarrow,
               method: _method,
@@ -526,7 +598,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             _SubmitBar(
               isNarrow: isNarrow,
               total: _total,
-              falta: _falta,
+              // Na edição não há fiado a decidir aqui: o rótulo é "Salvar".
+              falta: widget.editando == null ? _falta : 0,
+              editando: widget.editando != null,
               submitting: _submitting,
               onSubmit: _submitting ? null : _submit,
             ),
@@ -855,7 +929,11 @@ class _SubmitBar extends StatelessWidget {
     required this.falta,
     required this.submitting,
     required this.onSubmit,
+    this.editando = false,
   });
+
+  /// Editando uma venda existente: o botão salva, não vende.
+  final bool editando;
   final bool isNarrow;
   final double total;
 
@@ -879,7 +957,9 @@ class _SubmitBar extends StatelessWidget {
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.check),
-      label: Text(falta > 0 ? 'Vender (fiado)' : 'Vender e receber'),
+      label: Text(editando
+          ? 'Salvar venda'
+          : (falta > 0 ? 'Vender (fiado)' : 'Vender e receber')),
       style: FilledButton.styleFrom(
         minimumSize: isNarrow ? const Size(0, 48) : const Size(190, 44),
       ),

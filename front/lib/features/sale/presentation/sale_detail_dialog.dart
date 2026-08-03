@@ -19,11 +19,14 @@ import 'sale_providers.dart';
 /// R$ 150"), sem dizer o que foi vendido nem permitir agir. Este diálogo é o
 /// destino do toque naquela linha.
 ///
-/// EDITAR uma venda registrada não existe por decisão de produto: o dinheiro já
-/// passou pelo caixa e reescrever a venda apagaria o rastro de quanto entrou.
-/// Corrigir é CANCELAR e REFAZER — o cancelamento é auditado, estorna o estoque
-/// e a nova venda abre já preenchida com os mesmos itens. "Excluir" também é
-/// cancelar: o projeto não faz hard delete em nenhum módulo.
+/// EDITAR altera itens, quantidade e desconto: o total é recalculado no servidor
+/// e o estoque reconciliado (devolve o que as linhas antigas consumiram, consome
+/// o que as novas pedem). Duas coisas a edição não pode fazer, e o servidor
+/// recusa: mexer no valor depois de EMITIR A NOTA (a NF passaria a divergir) ou
+/// baixar o total abaixo do que o cliente já PAGOU (ficaríamos devendo troco).
+/// Nesses casos o caminho é CANCELAR e REFAZER — auditado, estorna o estoque e
+/// abre a nova já preenchida. "Excluir" também é cancelar: o projeto não faz hard
+/// delete em nenhum módulo.
 Future<void> showSaleDetailDialog(
   BuildContext context, {
   required String saleId,
@@ -270,18 +273,24 @@ class _Corpo extends ConsumerWidget {
                 onPressed: () => _trocarCliente(context, ref),
               ),
               NeuButton(
-                label: 'Corrigir (refazer)',
+                label: 'Editar itens',
                 icon: Icons.edit_outlined,
+                onPressed: () => _editarItens(context, ref),
+              ),
+              NeuButton(
+                label: 'Cancelar e refazer',
+                kind: NeuButtonKind.secondary,
+                icon: Icons.restart_alt_rounded,
                 onPressed: () => _cancelar(context, ref, refazer: true),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'O VALOR de uma venda registrada não se edita: o dinheiro já passou '
-            'pelo caixa. Corrigir cancela esta (com motivo, estornando o '
-            'estoque) e abre uma nova já preenchida com os mesmos itens. O '
-            'cliente, por não mexer em dinheiro, pode ser trocado direto.',
+            'Editar altera itens, quantidade e desconto — o total é recalculado '
+            'e o estoque reconciliado. Não é possível editar depois de emitir a '
+            'nota, nem baixar o total abaixo do que o cliente já pagou; nesses '
+            'casos, cancele e refaça.',
             style: TextStyle(color: neu.inkFaint, fontSize: 11, height: 1.35),
           ),
         ],
@@ -313,6 +322,17 @@ class _Corpo extends ConsumerWidget {
             .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
+  }
+
+  /// Abre a venda para editar os itens (mesma tela da criação, já preenchida).
+  /// O servidor recalcula o total, reconcilia o estoque e recusa o que quebraria
+  /// nota emitida ou pagamento já feito.
+  Future<void> _editarItens(BuildContext context, WidgetRef ref) async {
+    final atualizada = await showSaleEditDialog(context, sale);
+    if (atualizada == null || !context.mounted) return;
+    // O total mudou: o detalhe, o caixa e a carteira de fiado precisam refletir.
+    ref.invalidate(_saleDetailProvider(sale.id));
+    ref.invalidate(cashierControllerProvider);
   }
 
   /// Cancela com motivo obrigatório e, quando [refazer], abre a nova venda já

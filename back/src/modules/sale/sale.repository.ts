@@ -165,6 +165,31 @@ export class SaleRepository {
     });
   }
 
+  /** Linhas atuais da venda (para reconciliar estoque antes de substituí-las). */
+  listItems(saleId: string) {
+    const db = this.tenant.getClient();
+    return db.sale_item.findMany({ where: { sale_id: saleId } });
+  }
+
+  /**
+   * Apaga as linhas da venda. Linha de item é parte MUTÁVEL do documento, não
+   * entidade com histórico — a OS faz o mesmo (`deleteItem`). O que nunca é
+   * apagado é a venda (cancelamento é lógico).
+   */
+  deleteItems(saleId: string) {
+    const db = this.tenant.getClient();
+    return db.sale_item.deleteMany({ where: { sale_id: saleId } });
+  }
+
+  /** Total/desconto recalculados no servidor após editar as linhas. */
+  setTotals(id: string, data: { total: DecimalIn; discount: DecimalIn }) {
+    const db = this.tenant.getClient();
+    return db.sale.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
+    });
+  }
+
   /**
    * Vendas de um cliente, mais recente primeiro — alimenta o histórico da ficha
    * dele. Inclui canceladas: o histórico mostra o que aconteceu, e a tela marca

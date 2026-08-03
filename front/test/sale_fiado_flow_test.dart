@@ -11,6 +11,7 @@ import 'package:orbixhub_front/features/customers/data/fake_customers_repository
 import 'package:orbixhub_front/features/inventory/data/fake_inventory_repository.dart';
 import 'package:orbixhub_front/features/inventory/presentation/inventory_providers.dart';
 import 'package:orbixhub_front/features/sale/data/fake_sale_repository.dart';
+import 'package:orbixhub_front/features/sale/domain/sale_models.dart';
 import 'package:orbixhub_front/features/sale/presentation/sale_create_dialog.dart';
 import 'package:orbixhub_front/features/sale/presentation/sale_providers.dart';
 
@@ -204,5 +205,76 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Sem cliente identificado'), findsOneWidget);
+  });
+  group('editar venda existente', () {
+    testWidgets('abre preenchida, sem recebimento, e salva os itens novos',
+        (tester) async {
+      tester.view.physicalSize = const Size(1500, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      // Uma venda já registrada, com dois itens.
+      final existente = Sale(
+        id: 's-9',
+        number: 'VND-0009',
+        total: '100.00',
+        items: const [
+          SaleItem(id: 'i1', name: 'Palheta', quantity: '2',
+              unitPrice: '25.00', subtotal: '50.00'),
+          SaleItem(id: 'i2', name: 'Óleo', quantity: '1',
+              unitPrice: '50.00', subtotal: '50.00'),
+        ],
+      );
+      caixa = _SpyCashier();
+      vendas = FakeSaleRepository(sales: [existente]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cashierRepositoryProvider.overrideWithValue(caixa),
+          saleRepositoryProvider.overrideWithValue(vendas),
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+          customersRepositoryProvider
+              .overrideWithValue(FakeCustomersRepository()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => showSaleEditDialog(ctx, existente),
+                child: const Text('editar'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('editar'));
+      await tester.pumpAndSettle();
+
+      // Abre já preenchida com os itens da venda...
+      expect(find.text('Editar venda VND-0009'), findsOneWidget);
+      expect(find.text('Palheta'), findsOneWidget);
+      expect(find.text('Óleo'), findsOneWidget);
+      // ...e SEM recebimento: o dinheiro dessa venda já passou pelo caixa.
+      expect(campoRecebido, findsNothing);
+      expect(find.text('Salvar venda'), findsOneWidget);
+
+      // Muda a quantidade da 1ª linha de 2 → 3 e salva.
+      final steppers = find.descendant(
+        of: find.byType(NeuStepperField),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(steppers.first, '3');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar venda'));
+      await tester.pumpAndSettle();
+
+      // O total foi recalculado (3×25 + 1×50) e NADA foi lançado no caixa.
+      final salva = await vendas.getSale('s-9');
+      expect(salva.total, '125.00');
+      expect(caixa.lancados, isEmpty,
+          reason: 'editar não recebe dinheiro de novo');
+    });
   });
 }
