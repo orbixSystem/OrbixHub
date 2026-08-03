@@ -289,11 +289,18 @@ export class CashierServiceImpl extends CashierService {
     });
   }
 
-  async listSessions(_user: AuthUser, page = 1, pageSize = DEFAULT_PAGE_SIZE) {
+  async listSessions(
+    _user: AuthUser,
+    page = 1,
+    pageSize = DEFAULT_PAGE_SIZE,
+    filtros: { deviceId?: string | null; status?: 'open' | 'closed' } = {},
+  ) {
     const { items, total } = await this.tenant.withTenantTx(() =>
       this.repo.listSessions({
         skip: (page - 1) * pageSize,
         take: pageSize,
+        deviceId: filtros.deviceId,
+        status: filtros.status,
       }),
     );
     return { items, total, page, pageSize };

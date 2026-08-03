@@ -17,6 +17,11 @@ abstract interface class CashierRepository {
   Future<CashSession> closeSession({required double countedAmount, String? notes});
   Future<SessionPage> listSessions({int page});
 
+  /// Valor contado no ÚLTIMO fechamento deste ponto de caixa — o troco que ficou
+  /// na gaveta, usado para sugerir a abertura. `null` quando não há fechamento
+  /// anterior (primeiro uso do terminal).
+  Future<double?> lastClosingAmount();
+
   Future<CashEntry> createEntry(EntryDraft draft);
 
   /// Estorno lógico (auditado) — não apaga, marca `reversedAt`.

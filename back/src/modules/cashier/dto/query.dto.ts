@@ -30,8 +30,14 @@ export class SummaryQueryDto {
   @IsOptional() @IsDateString() to?: string;
 }
 
-/** Paginação do histórico de sessões. */
+/**
+ * Paginação do histórico de sessões. `deviceId` restringe ao PONTO de caixa —
+ * necessário para sugerir a abertura com o valor contado no último fechamento
+ * DAQUELE terminal (o troco que ficou na gaveta), sem pegar a sessão de outro.
+ */
 export class SessionQueryDto {
+  @IsOptional() @IsUUID() deviceId?: string;
+  @IsOptional() @IsIn(['open', 'closed']) status?: 'open' | 'closed';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }

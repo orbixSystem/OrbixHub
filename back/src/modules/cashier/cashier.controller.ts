@@ -73,10 +73,15 @@ export class CashierController {
     return this.cashier.getCurrentSession(user, query.deviceId);
   }
 
+  // `deviceId`/`status` opcionais: a tela sugere a abertura com o valor contado
+  // no último fechamento DAQUELE ponto de caixa (o troco que ficou na gaveta).
   @Get('sessions')
   @Permissions('cashier.read')
   listSessions(@CurrentUser() user: AuthUser, @Query() query: SessionQueryDto) {
-    return this.cashier.listSessions(user, query.page ?? 1, query.pageSize ?? 20);
+    return this.cashier.listSessions(user, query.page ?? 1, query.pageSize ?? 20, {
+      deviceId: query.deviceId,
+      status: query.status,
+    });
   }
 
   // --- lançamentos (extrato) ---

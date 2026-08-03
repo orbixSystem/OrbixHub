@@ -313,6 +313,22 @@ class LocalFirstCashierRepository extends LocalFirstBase
     );
   }
 
+  /// Último fechamento DESTE ponto de caixa. Online delega (o backend filtra por
+  /// `deviceId`+`status`); offline lê o espelho local, que `listSessions` já
+  /// mantém filtrado por device.
+  @override
+  Future<double?> lastClosingAmount() async {
+    if (isOnline()) return inner.lastClosingAmount();
+    final device = await deviceId();
+    final fechadas = (await rows(_sessions))
+        .where((r) => r['device_id'] == device && r['status'] == 'closed')
+        .toList()
+      ..sort((a, b) => _openedAt(b).compareTo(_openedAt(a)));
+    if (fechadas.isEmpty) return null;
+    final contado = fechadas.first['closing_amount_counted'];
+    return contado == null ? null : moneyToDouble(contado);
+  }
+
   // ========================== lançamentos ===============================
 
   @override

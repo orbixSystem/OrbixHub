@@ -75,3 +75,22 @@ String formatMoney(Object? v) {
   }
   return '${negative ? '-' : ''}R\$ $buf,${parts[1]}';
 }
+
+/// Valor para PREENCHER um campo de entrada: só dígitos e vírgula, sem "R$" nem
+/// separador de milhar — o que o `DecimalInputFormatter` aceita e o parse do
+/// caixa entende (`1234,56`).
+String formatAmountForInput(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+
+/// Conferência do fechamento: diferença entre o contado e o esperado.
+/// Positiva = sobra, negativa = falta, zero = fechou certinho.
+double cashDifference({required double counted, required double expected}) =>
+    double.parse((counted - expected).toStringAsFixed(2));
+
+/// Rótulo da conferência do caixa — a mesma frase usada durante a digitação e no
+/// resultado do fechamento, para não haver duas linguagens para o mesmo fato.
+String cashDifferenceLabel(double difference) {
+  if (difference == 0) return 'Caixa fechado certinho (sem diferença).';
+  return difference > 0
+      ? 'Caixa fechado com SOBRA de ${formatMoney(difference)}.'
+      : 'Caixa fechado com FALTA de ${formatMoney(difference.abs())}.';
+}

@@ -113,15 +113,31 @@ export class CashierRepository {
     });
   }
 
-  async listSessions(p: { skip: number; take: number }) {
+  /**
+   * Histórico de sessões, opcionalmente restrito a um PONTO de caixa e/ou
+   * status. `deviceId` ausente ⇒ sem restrição de ponto (todo o tenant); para
+   * alcançar o ponto legado (device_id NULL) o caller passa `deviceId: null`
+   * explicitamente — por isso a distinção entre `undefined` e `null` importa.
+   */
+  async listSessions(p: {
+    skip: number;
+    take: number;
+    deviceId?: string | null;
+    status?: 'open' | 'closed';
+  }) {
     const db = this.tenant.getClient();
+    const where = {
+      ...(p.deviceId !== undefined ? { device_id: p.deviceId } : {}),
+      ...(p.status ? { status: p.status } : {}),
+    };
     const [items, total] = await Promise.all([
       db.cash_session.findMany({
+        where,
         orderBy: [{ opened_at: 'desc' }, { id: 'desc' }],
         skip: p.skip,
         take: p.take,
       }),
-      db.cash_session.count(),
+      db.cash_session.count({ where }),
     ]);
     return { items, total };
   }

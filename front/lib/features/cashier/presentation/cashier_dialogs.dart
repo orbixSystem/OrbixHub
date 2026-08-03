@@ -86,7 +86,19 @@ class _FieldShell extends StatelessWidget {
 
 /// Abrir o caixa (valor inicial em gaveta).
 Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
-  final amountCtrl = TextEditingController(text: '0');
+  // Sugere o troco que ficou na gaveta no último fechamento DESTE ponto de
+  // caixa, em vez de começar em zero e obrigar a redigitar todo dia. Falha na
+  // leitura não bloqueia a abertura: cai no comportamento antigo ('0').
+  double? sugerido;
+  try {
+    sugerido = await ref.read(cashierRepositoryProvider).lastClosingAmount();
+  } catch (_) {
+    sugerido = null;
+  }
+  if (!context.mounted) return;
+  final amountCtrl = TextEditingController(
+    text: sugerido == null ? '0' : formatAmountForInput(sugerido),
+  );
   final notesCtrl = TextEditingController();
   final ok = await showNeuDialog<bool>(
     context,
@@ -147,6 +159,142 @@ Future<void> showOpenSessionDialog(BuildContext context, WidgetRef ref) async {
   }
 }
 
+/// Painel de conferência do fechamento: o que o sistema espera na gaveta e como
+/// esse número se compõe por forma de pagamento. Só o dinheiro é contado
+/// fisicamente quando `countCashOnly` está ligado — dizer isso evita o operador
+/// tentar "achar" na gaveta um valor que entrou por Pix.
+class _ConferenciaCaixa extends StatelessWidget {
+  const _ConferenciaCaixa({
+    required this.esperado,
+    required this.soDinheiro,
+    required this.byMethod,
+  });
+
+  final double esperado;
+  final bool soDinheiro;
+  final List<MethodTotal> byMethod;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    // Formas com movimento no período (entrada ou saída).
+    final comMovimento = byMethod
+        .where((m) => m.inAmount != 0 || m.outAmount != 0)
+        .toList();
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  soDinheiro ? 'Esperado em dinheiro' : 'Esperado no caixa',
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                formatMoney(esperado),
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          if (comMovimento.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Divider(height: 1, color: neu.line),
+            const SizedBox(height: 10),
+            for (final m in comMovimento)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        methodLabel(m.method),
+                        style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      formatMoney(m.inAmount - m.outAmount),
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (soDinheiro)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Só o dinheiro é contado na gaveta — as outras formas entram '
+                  'no relatório, não na conferência.',
+                  style: TextStyle(
+                    color: neu.inkFaint,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Diferença (sobra/falta) recalculada durante a digitação — a conferência
+/// acontece ANTES de confirmar o fechamento.
+class _DiferencaCaixa extends StatelessWidget {
+  const _DiferencaCaixa({required this.diferenca});
+
+  final double diferenca;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final certo = diferenca == 0;
+    final cor = certo ? neu.success : neu.danger;
+    return Row(
+      children: [
+        Icon(
+          certo ? Icons.check_circle_outline : Icons.error_outline,
+          size: 16,
+          color: cor,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            certo
+                ? 'Confere com o esperado.'
+                : diferenca > 0
+                    ? 'Sobra de ${formatMoney(diferenca)}'
+                    : 'Falta de ${formatMoney(diferenca.abs())}',
+            style: TextStyle(
+              color: cor,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Fechar o caixa: informa contado → mostra esperado e diferença.
 Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
   final countedCtrl = TextEditingController();
@@ -172,36 +320,59 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
           ),
         ),
       ],
+      // O esperado e a quebra por forma JÁ chegam em `currentSession` — antes
+      // eram ignorados e o operador digitava às cegas, apesar do texto prometer
+      // "calculamos o esperado". Agora aparecem antes, e a diferença é
+      // recalculada a cada dígito (StatefulBuilder), para a conferência
+      // acontecer ANTES de confirmar, não depois.
       child: Builder(
         builder: (ctx) {
-          final neu = ctx.neu;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Conte o dinheiro em gaveta e informe o valor. '
-                'Calculamos o esperado e a diferença.',
-                style: TextStyle(
-                    color: neu.inkMuted, fontSize: 13.5, height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              NeuTextField(
-                label: 'Valor contado *',
-                controller: countedCtrl,
-                hint: '0,00',
-                prefixIcon: Icons.attach_money_rounded,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: const [DecimalInputFormatter()],
-              ),
-              const SizedBox(height: 14),
-              NeuTextField(
-                label: 'Observação (opcional)',
-                controller: notesCtrl,
-                maxLength: 500,
-              ),
-            ],
+          final estado = ref.read(cashierControllerProvider).value;
+          final sessao = estado?.session;
+          // `totals.expected` chega como `num` (é computado, não coluna).
+          final esperado = (sessao?.totals?.expected ?? 0).toDouble();
+          final soDinheiro = estado?.config.countCashOnly ?? true;
+          return StatefulBuilder(
+            builder: (ctx, setState) {
+              final contado = _parseAmount(countedCtrl.text);
+              final diferenca = contado == null
+                  ? null
+                  : cashDifference(counted: contado, expected: esperado);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ConferenciaCaixa(
+                    esperado: esperado,
+                    soDinheiro: soDinheiro,
+                    byMethod: sessao?.byMethod ?? const [],
+                  ),
+                  const SizedBox(height: 14),
+                  NeuTextField(
+                    label: soDinheiro
+                        ? 'Valor contado na gaveta *'
+                        : 'Valor contado *',
+                    controller: countedCtrl,
+                    hint: '0,00',
+                    prefixIcon: Icons.attach_money_rounded,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: const [DecimalInputFormatter()],
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (diferenca != null) ...[
+                    const SizedBox(height: 10),
+                    _DiferencaCaixa(diferenca: diferenca),
+                  ],
+                  const SizedBox(height: 14),
+                  NeuTextField(
+                    label: 'Observação (opcional)',
+                    controller: notesCtrl,
+                    maxLength: 500,
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -220,11 +391,7 @@ Future<void> showCloseSessionDialog(BuildContext context, WidgetRef ref) async {
         );
     if (!context.mounted) return;
     final diff = moneyToDouble(closed.difference);
-    final label = diff == 0
-        ? 'Caixa fechado certinho (sem diferença).'
-        : diff > 0
-            ? 'Caixa fechado com SOBRA de ${formatMoney(diff)}.'
-            : 'Caixa fechado com FALTA de ${formatMoney(diff.abs())}.';
+    final label = cashDifferenceLabel(diff);
     // Cadeado trancando + o resultado da conferência no próprio card.
     await showCashierLockTransition(context, opening: false, message: label);
     // Diferença é alerta: mantém também no snackbar, que fica depois que o

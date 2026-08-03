@@ -11,6 +11,10 @@ import '../domain/cashier_repository.dart';
 class FakeCashierRepository implements CashierRepository {
   CashierConfig _config = const CashierConfig();
   CashSession? _open;
+
+  /// Sessões já fechadas, mais recente primeiro (o backend ordena por
+  /// `opened_at desc`). Alimenta o histórico e a sugestão de abertura.
+  final List<CashSession> _closed = [];
   final List<CashEntry> _entries = [];
   int _seq = 0;
 
@@ -105,13 +109,23 @@ class FakeCashierRepository implements CashierRepository {
       difference: (countedAmount - expected).toStringAsFixed(2),
       byMethod: s.byMethod,
     );
+    // Guarda no topo (mais recente primeiro, como o backend ordena) — é o que
+    // alimenta o histórico e a sugestão de abertura da sessão seguinte.
+    _closed.insert(0, closed);
     _open = null;
     return closed;
   }
 
   @override
   Future<SessionPage> listSessions({int page = 1}) async =>
-      const SessionPage(items: []);
+      SessionPage(items: _closed);
+
+  @override
+  Future<double?> lastClosingAmount() async {
+    if (_closed.isEmpty) return null;
+    final contado = _closed.first.closingAmountCounted;
+    return contado == null ? null : moneyToDouble(contado);
+  }
 
   @override
   Future<CashEntry> createEntry(EntryDraft draft) async {
