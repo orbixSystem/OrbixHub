@@ -30,6 +30,10 @@ abstract class SettingsSection with _$SettingsSection {
     /// Valores efetivos da seção (retornados pelo backend via getValues callback).
     /// Para a seção `company` este mapa estará ausente/vazio.
     @Default(<String, dynamic>{}) Map<String, dynamic> values,
+    /// A seção aceita PATCH? O backend responde isto conforme o módulo dono ter
+    /// registrado um `setValues`. Sem o flag a tela teria de adivinhar — e um
+    /// toggle que não salva é pior que um toggle ausente.
+    @Default(false) bool editable,
   }) = _SettingsSection;
   factory SettingsSection.fromJson(Map<String, dynamic> j) => _$SettingsSectionFromJson(j);
 }

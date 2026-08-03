@@ -68,10 +68,12 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     final canFiado = _canReadReceivables();
     // Abas montadas conforme o papel: o atendente vê Caixa do dia (+ Fiado, que
     // precisa para cobrar); o Histórico é relatório de gestão.
+    // Ordem = frequência de uso: opera-se o dia, depois consulta-se o período,
+    // e o fiado é a cobrança (importante, mas não o caminho diário).
     final segments = <int, String>{
       0: 'Caixa do dia',
-      if (canFiado) 1: 'Fiado',
       if (canManage) 2: 'Histórico',
+      if (canFiado) 1: 'Fiado',
     };
     return Scaffold(
       backgroundColor: Colors.transparent,

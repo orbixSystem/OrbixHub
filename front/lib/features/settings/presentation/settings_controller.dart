@@ -68,6 +68,20 @@ class SettingsController extends AsyncNotifier<SettingsBundle> {
   }
 
   /// Faz upload de logo e atualiza o bundle em memória.
+  /// Salva um patch numa seção de config de MÓDULO e reflete o retorno no estado
+  /// (os valores efetivos vêm do módulo dono, que pode normalizá-los).
+  Future<void> saveSection(String key, Map<String, dynamic> patch) async {
+    final valores = await _repo.updateSection(key, patch);
+    state = state.whenData(
+      (b) => b.copyWith(
+        sections: [
+          for (final s in b.sections)
+            if (s.key == key) s.copyWith(values: valores) else s,
+        ],
+      ),
+    );
+  }
+
   Future<void> uploadLogo(
     Uint8List bytes,
     String filename,

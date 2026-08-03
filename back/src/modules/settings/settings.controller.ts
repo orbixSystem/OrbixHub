@@ -1,10 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Permissions, CurrentUser } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { SettingsService } from './settings.service';
-import { UpdateAppearanceDto, UpdateCompanyDto } from './dto/settings.dto';
+import {
+  UpdateAppearanceDto,
+  UpdateCompanyDto,
+  UpdateSectionDto,
+} from './dto/settings.dto';
 import { UploadedImage } from './settings.types';
 
 @Controller('settings')
@@ -32,6 +36,21 @@ export class SettingsController {
   @HttpCode(200)
   updateCompany(@CurrentUser() user: AuthUser, @Body() dto: UpdateCompanyDto) {
     return this.settings.updateCompany(user, dto);
+  }
+
+  /**
+   * Aplica um patch nos valores de uma SEÇÃO de módulo (ex.: `cashier`). O host
+   * só encaminha para o módulo dono, que valida e persiste — ver `setValues`.
+   */
+  @Patch('section/:key')
+  @Permissions('settings.manage')
+  @HttpCode(200)
+  updateSection(
+    @CurrentUser() user: AuthUser,
+    @Param('key') key: string,
+    @Body() dto: UpdateSectionDto,
+  ) {
+    return this.settings.updateSection(user, key, dto.values);
   }
 
   @Post('company/logo')

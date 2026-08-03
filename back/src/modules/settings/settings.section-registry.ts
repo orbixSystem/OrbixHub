@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { AuthUser } from '../../common/auth/auth.types';
 
 export type SettingsFieldType =
   | 'text' | 'email' | 'tel' | 'url' | 'color' | 'bool' | 'select' | 'image';
@@ -25,6 +26,19 @@ export interface SettingsSection {
    * como `values` na seção. Módulos declaram aqui sem depender do schema de outro.
    */
   getValues?: (tenantId: string) => Promise<Record<string, unknown>>;
+  /**
+   * Contraparte de escrita do [getValues]: aplica um patch parcial dos valores
+   * da seção, chamando o service do MÓDULO DONO (que valida e persiste no
+   * `tenant_module.settings` dele). O host `settings` nunca escreve config de
+   * outro módulo — só encaminha ("aponta, não invade").
+   *
+   * Seção SEM `setValues` é somente-leitura: o `PATCH /settings/:key` recusa,
+   * em vez de aceitar calado um patch que ninguém aplicaria.
+   */
+  setValues?: (
+    user: AuthUser,
+    patch: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>;
 }
 
 @Injectable()
@@ -35,6 +49,11 @@ export class SettingsSectionRegistry {
   }
   moduleSections(): SettingsSection[] {
     return [...this.sections.values()].filter((s) => s.moduleKey !== null);
+  }
+
+  /** Seção por chave (`null` se não registrada). */
+  section(key: string): SettingsSection | null {
+    return this.sections.get(key) ?? null;
   }
 }
 
