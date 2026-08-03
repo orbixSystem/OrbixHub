@@ -331,3 +331,34 @@ Map<String, dynamic> _$PlateInfoToJson(_PlateInfo instance) =>
       'cached': instance.cached,
       'usage': instance.usage?.toJson(),
     };
+
+_CnpjEmpresa _$CnpjEmpresaFromJson(Map<String, dynamic> json) => _CnpjEmpresa(
+  cnpj: json['cnpj'] as String? ?? '',
+  razaoSocial: json['razaoSocial'] as String? ?? '',
+  nomeFantasia: json['nomeFantasia'] as String?,
+  situacao: json['situacao'] as String?,
+  telefone: json['telefone'] as String?,
+  email: json['email'] as String?,
+  logradouro: json['logradouro'] as String?,
+  numero: json['numero'] as String?,
+  bairro: json['bairro'] as String?,
+  municipio: json['municipio'] as String?,
+  uf: json['uf'] as String?,
+  cep: json['cep'] as String?,
+);
+
+Map<String, dynamic> _$CnpjEmpresaToJson(_CnpjEmpresa instance) =>
+    <String, dynamic>{
+      'cnpj': instance.cnpj,
+      'razaoSocial': instance.razaoSocial,
+      'nomeFantasia': instance.nomeFantasia,
+      'situacao': instance.situacao,
+      'telefone': instance.telefone,
+      'email': instance.email,
+      'logradouro': instance.logradouro,
+      'numero': instance.numero,
+      'bairro': instance.bairro,
+      'municipio': instance.municipio,
+      'uf': instance.uf,
+      'cep': instance.cep,
+    };

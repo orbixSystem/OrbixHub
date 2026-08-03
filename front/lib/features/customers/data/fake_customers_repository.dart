@@ -343,4 +343,18 @@ class FakeCustomersRepository implements CustomersRepository {
         remaining: 1000 - _plateLookups,
         enabled: true,
       );
+
+  @override
+  Future<CnpjEmpresa> lookupCnpj(String cnpj) async => const CnpjEmpresa(
+        cnpj: '19.131.243/0001-97',
+        razaoSocial: 'OPEN KNOWLEDGE BRASIL',
+        nomeFantasia: 'REDE PELO CONHECIMENTO LIVRE',
+        situacao: 'ATIVA',
+        telefone: '1123851939',
+        // `email` nulo de propósito: é o caso comum na base da Receita.
+        logradouro: 'PAULISTA 37',
+        bairro: 'BELA VISTA',
+        municipio: 'SAO PAULO',
+        uf: 'SP',
+      );
 }

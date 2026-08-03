@@ -218,4 +218,12 @@ class CustomersRepositoryImpl implements CustomersRepository {
         final res = await _dio.get<Object?>('/customers/plates/usage');
         return PlateQuota.fromJson(_asMap(res.data));
       });
+
+  @override
+  Future<CnpjEmpresa> lookupCnpj(String cnpj) => _guard(() async {
+        // Só dígitos na URL: a máscara do campo é da UI, o backend valida.
+        final digits = cnpj.replaceAll(RegExp(r'\D'), '');
+        final res = await _dio.get<Object?>('/customers/cnpj/$digits');
+        return CnpjEmpresa.fromJson((res.data as Map).cast<String, dynamic>());
+      });
 }

@@ -474,4 +474,11 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     if (!isOnline()) requiresConnection('consultar o uso de placas');
     return inner.plateUsage();
   }
+
+  /// Consulta na Receita: vive no servidor, não há o que servir offline.
+  @override
+  Future<CnpjEmpresa> lookupCnpj(String cnpj) async {
+    if (!isOnline()) requiresConnection('consultar o CNPJ');
+    return inner.lookupCnpj(cnpj);
+  }
 }

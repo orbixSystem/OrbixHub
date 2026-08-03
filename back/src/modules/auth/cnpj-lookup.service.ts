@@ -1,10 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { CnpjGateway } from '../../common/cnpj/cnpj.gateway';
 import { AuthRepository } from './auth.repository';
 import { isValidCnpj, normalizeCnpj, formatCnpj } from './cnpj';
 
@@ -20,28 +15,12 @@ export interface CnpjLookupResult {
   alreadyRegistered: boolean;
 }
 
-// Fonte pública (grátis, sem token). Trocar a fonte = trocar este endpoint/parser.
-const BRASILAPI_BASE = 'https://brasilapi.com.br/api/cnpj/v1';
-const TIMEOUT_MS = 8000;
-
-interface BrasilApiCnpj {
-  razao_social?: string;
-  nome_fantasia?: string;
-  descricao_situacao_cadastral?: string;
-  municipio?: string;
-  uf?: string;
-}
-
-/**
- * Consulta dados públicos de empresa a partir do CNPJ (Receita Federal via
- * BrasilAPI). Service fino com a fonte isolada — chamada externa NUNCA dentro de
- * transação de banco; este fluxo é público (pré-cadastro), sem JWT.
- */
 @Injectable()
 export class CnpjLookupService {
-  private readonly logger = new Logger(CnpjLookupService.name);
-
-  constructor(private readonly repo: AuthRepository) {}
+  constructor(
+    private readonly repo: AuthRepository,
+    private readonly gateway: CnpjGateway,
+  ) {}
 
   async lookup(rawCnpj: string): Promise<CnpjLookupResult> {
     const cnpj = normalizeCnpj(rawCnpj);
@@ -49,52 +28,19 @@ export class CnpjLookupService {
       throw new BadRequestException('CNPJ inválido.');
     }
 
-    const data = await this.fetchFromSource(cnpj);
-    const razaoSocial = (data.razao_social ?? '').trim();
-    if (!razaoSocial) {
-      throw new NotFoundException('CNPJ não encontrado na Receita.');
-    }
-
+    // A fonte externa fica no gateway (common/cnpj); aqui só se acrescenta o que
+    // é do CADASTRO: se já existe tenant com este CNPJ.
+    const empresa = await this.gateway.fetch(cnpj);
     const existing = await this.repo.findTenantByCnpj(cnpj);
 
     return {
       cnpj: formatCnpj(cnpj),
-      razaoSocial,
-      nomeFantasia: data.nome_fantasia?.trim() || null,
-      situacao: data.descricao_situacao_cadastral?.trim() || null,
-      municipio: data.municipio?.trim() || null,
-      uf: data.uf?.trim() || null,
+      razaoSocial: empresa.razaoSocial,
+      nomeFantasia: empresa.nomeFantasia,
+      situacao: empresa.situacao,
+      municipio: empresa.municipio,
+      uf: empresa.uf,
       alreadyRegistered: existing !== null,
     };
-  }
-
-  private async fetchFromSource(cnpj: string): Promise<BrasilApiCnpj> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const res = await fetch(`${BRASILAPI_BASE}/${cnpj}`, {
-        signal: controller.signal,
-        // BrasilAPI (edge na Vercel) bloqueia com 403 o User-Agent padrão do
-        // undici/Node — qualquer UA explícito passa. Sem isto o fetch falha.
-        headers: { accept: 'application/json', 'user-agent': 'OrbixHub/1.0' },
-      });
-      if (res.status === 404) {
-        throw new NotFoundException('CNPJ não encontrado na Receita.');
-      }
-      if (!res.ok) {
-        throw new ServiceUnavailableException(
-          'Não foi possível consultar o CNPJ agora. Tente novamente.',
-        );
-      }
-      return (await res.json()) as BrasilApiCnpj;
-    } catch (e) {
-      if (e instanceof NotFoundException) throw e;
-      this.logger.warn(`Falha ao consultar CNPJ na fonte: ${String(e)}`);
-      throw new ServiceUnavailableException(
-        'Não foi possível consultar o CNPJ agora. Tente novamente.',
-      );
-    } finally {
-      clearTimeout(timer);
-    }
   }
 }
