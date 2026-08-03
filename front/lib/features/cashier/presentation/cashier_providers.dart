@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../sale/domain/sale_models.dart';
+import '../../sale/domain/sale_repository.dart';
 import '../../sale/presentation/sale_providers.dart';
 import '../domain/cashier_models.dart';
 import '../domain/cashier_timeline.dart';
@@ -37,10 +38,31 @@ class CashierState {
 /// Carrega e orquestra o Caixa do dia. Mutações re-buscam o estado do backend
 /// (a verdade), mantendo a UI consistente.
 class CashierController extends AsyncNotifier<CashierState> {
-  CashierRepository get _repo => ref.read(cashierRepositoryProvider);
+  /// Dependências capturadas UMA VEZ, no `build`, antes de qualquer `await`.
+  ///
+  /// Não são getters com `ref.read` por dentro: o provider é `autoDispose`, e
+  /// tocar `ref` depois de um `await` — quando o notifier já pode ter sido
+  /// descartado (sair da tela, invalidar após uma venda) — lança
+  /// "Cannot use ref after the notifier was disposed". Ler tudo antes das
+  /// chamadas de rede elimina a classe inteira desse erro.
+  late final CashierRepository _repo;
+
+  /// `null` quando o módulo `sale` não está disponível para este tenant/cargo —
+  /// o provider lança por padrão, e o Caixa funciona sem vendas (o extrato só
+  /// deixa de mostrar o cliente da venda). Ler aqui, protegido, mantém as duas
+  /// garantias: nada de `ref` após `await`, e degradar em vez de derrubar a tela.
+  SaleRepository? _sales;
 
   @override
-  Future<CashierState> build() => _load();
+  Future<CashierState> build() {
+    _repo = ref.read(cashierRepositoryProvider);
+    try {
+      _sales = ref.read(saleRepositoryProvider);
+    } catch (_) {
+      _sales = null;
+    }
+    return _load();
+  }
 
   /// Janela do dia de HOJE em hora LOCAL, convertida para UTC (o backend recorta
   /// `created_at`, que é timestamptz).
@@ -80,14 +102,15 @@ class CashierController extends AsyncNotifier<CashierState> {
     // Vendas de hoje, para o extrato mostrar o cliente. `sale` é contratável:
     // sem o módulo (ou sem permissão) o backend recusa e o caixa segue normal.
     List<Sale> sales = const [];
-    try {
-      final page = await ref.read(saleRepositoryProvider).listSales(
-            from: dia.from,
-            to: dia.to,
-          );
-      sales = page.items;
-    } catch (_) {
-      sales = const [];
+    final sale = _sales;
+    if (sale != null) {
+      try {
+        final page = await sale.listSales(from: dia.from, to: dia.to);
+        sales = page.items;
+      } catch (_) {
+        // Sem o módulo/permissão o backend recusa — o caixa segue normal.
+        sales = const [];
+      }
     }
     return CashierState(
       session: session,
