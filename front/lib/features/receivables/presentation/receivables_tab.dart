@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ui/ui.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/presentation/cashier_providers.dart';
+import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/receivables_models.dart';
 import 'receive_title_dialog.dart';
 import 'receivables_providers.dart';
@@ -360,16 +361,38 @@ class _TitleCard extends ConsumerWidget {
               ),
               const SizedBox(width: 7),
               Expanded(
-                child: Text(
-                  title.origin == 'os'
-                      ? title.number
-                      : 'Venda ${title.number}',
-                  style: TextStyle(
-                    color: neu.ink,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                child: title.origin == 'sale'
+                    // Venda tem detalhe próprio (itens, recebimentos, cancelar
+                    // e refazer); OS é alcançada pela lista de OS.
+                    ? InkWell(
+                        onTap: () => showSaleDetailDialog(
+                          context,
+                          saleId: title.id,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Venda ${title.number}',
+                              style: TextStyle(
+                                color: neu.navy,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Icon(Icons.open_in_new_rounded,
+                                size: 13, color: neu.navy),
+                          ],
+                        ),
+                      )
+                    : Text(
+                        title.number,
+                        style: TextStyle(
+                          color: neu.ink,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
               if (parcial)
                 NeuStatusChip(

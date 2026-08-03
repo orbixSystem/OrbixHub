@@ -9,13 +9,17 @@ import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
+import '../../sale/presentation/sale_detail_dialog.dart';
 import 'cashier_dialogs.dart';
 import 'cashier_providers.dart';
 
-/// Módulo Caixa: duas abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
-/// fechar) e "Histórico" (movimentos por período — o relatório do caixa). Corpo
-/// apenas — a moldura é do shell. UI só fala com o repository (via controller).
-/// Visual 100% no design system neumórfico (`core/ui`), responsivo.
+/// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
+/// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
+/// (movimentos por período — o relatório do caixa). Quais aparecem depende do
+/// papel: Fiado exige `cashier.read`, Histórico é de gestão.
+///
+/// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
+/// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
 class CashierScreen extends ConsumerStatefulWidget {
   const CashierScreen({super.key});
 
@@ -806,10 +810,21 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-/// Linha do extrato histórico (read-only): data + categoria + método/origem + valor.
+/// Linha do extrato histórico: data + categoria + método/origem + valor.
+///
+/// Quando o lançamento aponta para uma VENDA (`saleKind == 'sale'`), a linha
+/// abre o detalhe: o histórico mostrava só "Venda avulsa · R$ 150", sem dizer o
+/// que foi vendido nem permitir agir. Lançamentos de OS não abrem aqui — a OS
+/// tem tela própria, alcançada pela lista de OS.
 class _HistoryEntryTile extends StatelessWidget {
   const _HistoryEntryTile({required this.entry});
   final CashEntry entry;
+
+  /// Só venda: `saleId` presente e origem 'sale'.
+  String? get _saleId =>
+      entry.saleKind == 'sale' && (entry.saleId?.isNotEmpty ?? false)
+          ? entry.saleId
+          : null;
 
   String _fmtDate(String? iso) {
     if (iso == null) return '';
@@ -843,14 +858,27 @@ class _HistoryEntryTile extends StatelessWidget {
         ),
       ),
       subtitle: Text(sub),
-      trailing: Text(
-        '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-          color: color,
-          decoration: reversed ? TextDecoration.lineThrough : null,
-        ),
+      onTap: _saleId == null
+          ? null
+          : () => showSaleDetailDialog(context, saleId: _saleId!),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+              color: color,
+              decoration: reversed ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          // Affordance: só quem abre detalhe mostra a seta.
+          if (_saleId != null) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
+          ],
+        ],
       ),
     );
   }

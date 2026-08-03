@@ -19,11 +19,18 @@ import 'sale_providers.dart';
 /// + cliente opcional → forma de pagamento (receber agora / a receber) →
 /// confirmar. Num só fluxo cria a `sale` (baixa de estoque), registra o
 /// recebimento no caixa (se pago) e, se marcado, emite a nota. Devolve a [Sale].
-Future<Sale?> showSaleCreateDialog(BuildContext context) {
+/// [refazerDe] pré-preenche as linhas a partir dos itens de uma venda anterior
+/// — é o "refazer" do cancelar-e-refazer: como uma venda registrada não se edita
+/// (o dinheiro já passou pelo caixa), corrigir é cancelar a errada e lançar a
+/// nova sem redigitar tudo.
+Future<Sale?> showSaleCreateDialog(
+  BuildContext context, {
+  List<SaleItem>? refazerDe,
+}) {
   return showDialog<Sale?>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const Dialog(child: _SaleCreateDialog()),
+    builder: (_) => Dialog(child: _SaleCreateDialog(refazerDe: refazerDe)),
   );
 }
 
@@ -48,7 +55,10 @@ class _DraftLine {
 }
 
 class _SaleCreateDialog extends ConsumerStatefulWidget {
-  const _SaleCreateDialog();
+  const _SaleCreateDialog({this.refazerDe});
+
+  /// Itens de uma venda cancelada, para relançar sem redigitar.
+  final List<SaleItem>? refazerDe;
 
   @override
   ConsumerState<_SaleCreateDialog> createState() => _SaleCreateDialogState();
@@ -57,6 +67,7 @@ class _SaleCreateDialog extends ConsumerStatefulWidget {
 class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   final _formKey = GlobalKey<FormState>();
   final List<_DraftLine> _lines = [];
+
   bool _submitting = false;
 
   // cliente opcional
@@ -87,6 +98,25 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   bool get _insufficientCash {
     if (!_showChange || _total <= 0) return false;
     return _receivedCtrl.text.trim().isEmpty;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Refazer: copia os itens da venda cancelada. Preço e quantidade seguem
+    // editáveis — normalmente é justamente um deles que estava errado.
+    final origem = widget.refazerDe;
+    if (origem != null) {
+      for (final i in origem) {
+        _lines.add(_DraftLine(
+          inventoryItemId: i.inventoryItemId,
+          name: i.name,
+          kind: i.kind,
+          quantity: double.tryParse(i.quantity.replaceAll(',', '.')) ?? 1,
+          unitPrice: double.tryParse(i.unitPrice.replaceAll(',', '.')) ?? 0,
+        ));
+      }
+    }
   }
 
   @override

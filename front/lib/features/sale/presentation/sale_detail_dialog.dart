@@ -1,0 +1,506 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/ui/ui.dart';
+import '../../../di.dart';
+import '../../auth/presentation/session_state.dart';
+import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/presentation/cashier_providers.dart';
+import '../../os/presentation/payment_status.dart';
+import '../domain/sale_models.dart';
+import 'sale_create_dialog.dart';
+import 'sale_providers.dart';
+
+/// Detalhe de uma venda de balcão: tudo que foi vendido, o que já foi recebido e
+/// as ações possíveis.
+///
+/// O histórico do caixa mostrava só o lançamento de dinheiro ("Venda avulsa ·
+/// R$ 150"), sem dizer o que foi vendido nem permitir agir. Este diálogo é o
+/// destino do toque naquela linha.
+///
+/// EDITAR uma venda registrada não existe por decisão de produto: o dinheiro já
+/// passou pelo caixa e reescrever a venda apagaria o rastro de quanto entrou.
+/// Corrigir é CANCELAR e REFAZER — o cancelamento é auditado, estorna o estoque
+/// e a nova venda abre já preenchida com os mesmos itens. "Excluir" também é
+/// cancelar: o projeto não faz hard delete em nenhum módulo.
+Future<void> showSaleDetailDialog(
+  BuildContext context, {
+  required String saleId,
+}) {
+  return showNeuDialog<void>(
+    context,
+    dialog: NeuDialog(
+      title: 'Venda',
+      maxWidth: 560,
+      child: _SaleDetail(saleId: saleId),
+    ),
+  );
+}
+
+/// Venda + resumo de pagamento, buscados juntos.
+final _saleDetailProvider =
+    FutureProvider.autoDispose.family<({Sale sale, PaymentDetail? payment}), String>(
+        (ref, saleId) async {
+  final sale = await ref.read(saleRepositoryProvider).getSale(saleId);
+  PaymentDetail? payment;
+  try {
+    // O caixa não conhece o total da venda — quem sabe é a venda (regra
+    // "aponta, não invade"), então passamos o total daqui.
+    payment = await ref.read(cashierRepositoryProvider).paymentSummary(
+          saleKind: 'sale',
+          saleId: saleId,
+          total: moneyToDouble(sale.total),
+        );
+  } catch (_) {
+    // Sem o resumo (caixa indisponível) o detalhe ainda vale: mostra os itens.
+  }
+  return (sale: sale, payment: payment);
+});
+
+class _SaleDetail extends ConsumerWidget {
+  const _SaleDetail({required this.saleId});
+
+  final String saleId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final async = ref.watch(_saleDetailProvider(saleId));
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: neu.danger, size: 28),
+            const SizedBox(height: 10),
+            Text('$e',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+            const SizedBox(height: 12),
+            NeuButton(
+              label: 'Tentar de novo',
+              kind: NeuButtonKind.secondary,
+              onPressed: () => ref.invalidate(_saleDetailProvider(saleId)),
+            ),
+          ],
+        ),
+      ),
+      data: (d) => _Corpo(sale: d.sale, payment: d.payment),
+    );
+  }
+}
+
+class _Corpo extends ConsumerWidget {
+  const _Corpo({required this.sale, required this.payment});
+
+  final Sale sale;
+  final PaymentDetail? payment;
+
+  bool _canWriteSale(WidgetRef ref) {
+    final me = ref.read(sessionControllerProvider).meOrNull;
+    return me?.hasPermission('sale.write') ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final cancelada = sale.status == 'canceled';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Cabeçalho: número, data, cliente e situação.
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sale.number.isEmpty ? 'Venda' : 'Venda ${sale.number}',
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      ?_fmtData(sale.createdAt),
+                      sale.customerName ?? 'Sem cliente',
+                    ].join(' · '),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            if (cancelada)
+              NeuStatusChip(
+                label: 'Cancelada',
+                color: neu.danger,
+                tint: neu.dangerTint,
+                icon: Icons.block,
+              )
+            else
+              PaymentTag(status: sale.paymentStatus, dense: true),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // O que foi vendido — o "expandir" que faltava no histórico.
+        Text(
+          'Itens',
+          style: TextStyle(
+            color: neu.inkMuted,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              for (final i in sale.items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Row(
+                    children: [
+                      Icon(
+                        i.kind == 'service'
+                            ? Icons.handyman_outlined
+                            : Icons.inventory_2_outlined,
+                        size: 14,
+                        color: neu.inkFaint,
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          i.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: neu.ink, fontSize: 12.5),
+                        ),
+                      ),
+                      Text(
+                        '${_qtd(i.quantity)} × ${formatMoney(i.unitPrice)}',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 11.5),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 78,
+                        child: Text(
+                          formatMoney(i.subtotal),
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: neu.ink,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Divider(height: 14, color: neu.line),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Total',
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatMoney(sale.total),
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Recebimentos: quanto entrou, quando e por qual forma.
+        if (payment != null) ...[
+          const SizedBox(height: 16),
+          _Pagamentos(payment: payment!, cancelada: cancelada),
+        ],
+
+        // Ações. Venda cancelada não se cancela de novo.
+        if (!cancelada && _canWriteSale(ref)) ...[
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.end,
+            children: [
+              NeuButton(
+                label: 'Cancelar venda',
+                kind: NeuButtonKind.danger,
+                icon: Icons.block,
+                onPressed: () => _cancelar(context, ref, refazer: false),
+              ),
+              NeuButton(
+                label: 'Corrigir (refazer)',
+                icon: Icons.edit_outlined,
+                onPressed: () => _cancelar(context, ref, refazer: true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Venda registrada não se edita: o dinheiro já passou pelo caixa. '
+            'Corrigir cancela esta (com motivo, estornando o estoque) e abre '
+            'uma nova já preenchida com os mesmos itens.',
+            style: TextStyle(color: neu.inkFaint, fontSize: 11, height: 1.35),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Cancela com motivo obrigatório e, quando [refazer], abre a nova venda já
+  /// preenchida com os itens desta.
+  Future<void> _cancelar(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool refazer,
+  }) async {
+    final motivo = await _pedirMotivo(context, refazer: refazer);
+    if (motivo == null || !context.mounted) return;
+    try {
+      await ref.read(saleRepositoryProvider).cancelSale(sale.id, reason: motivo);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: context.neu.danger),
+        );
+      }
+      return;
+    }
+    // O caixa e a carteira de fiado mudaram (estorno do recebimento/saldo).
+    ref.invalidate(cashierControllerProvider);
+    ref.invalidate(_saleDetailProvider(sale.id));
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    if (!refazer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Venda ${sale.number} cancelada.'),
+          backgroundColor: context.neu.success,
+        ),
+      );
+      return;
+    }
+    await showSaleCreateDialog(context, refazerDe: sale.items);
+  }
+
+  Future<String?> _pedirMotivo(
+    BuildContext context, {
+    required bool refazer,
+  }) async {
+    final ctrl = TextEditingController(
+      text: refazer ? 'Correção de lançamento' : '',
+    );
+    final ok = await showNeuDialog<bool>(
+      context,
+      dialog: NeuDialog(
+        title: refazer ? 'Corrigir venda' : 'Cancelar venda',
+        maxWidth: 420,
+        actions: [
+          Builder(
+            builder: (ctx) => NeuButton(
+              label: 'Voltar',
+              kind: NeuButtonKind.secondary,
+              onPressed: () => Navigator.of(ctx).pop(false),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => NeuButton(
+              label: refazer ? 'Cancelar e refazer' : 'Cancelar venda',
+              kind: NeuButtonKind.danger,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (ctx) {
+            final neu = ctx.neu;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  refazer
+                      ? 'A venda ${sale.number} será cancelada (estoque '
+                          'estornado) e uma nova abrirá com os mesmos itens.'
+                      : 'A venda ${sale.number} será cancelada e o estoque '
+                          'estornado. O registro permanece no histórico.',
+                  style: TextStyle(
+                      color: neu.inkMuted, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                NeuTextField(
+                  label: 'Motivo *',
+                  controller: ctrl,
+                  hint: 'Por que está cancelando?',
+                  maxLength: 200,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    final motivo = ctrl.text.trim();
+    // O backend exige no mínimo 3 caracteres; evita ida perdida ao servidor.
+    if (motivo.length < 3) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Descreva o motivo (mínimo 3 letras).'),
+            backgroundColor: context.neu.danger,
+          ),
+        );
+      }
+      return null;
+    }
+    return motivo;
+  }
+}
+
+/// Recebimentos da venda: total, pago, saldo e cada lançamento do caixa.
+class _Pagamentos extends StatelessWidget {
+  const _Pagamentos({required this.payment, required this.cancelada});
+
+  final PaymentDetail payment;
+  final bool cancelada;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Recebimentos',
+          style: TextStyle(
+            color: neu.inkMuted,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _stat(neu, 'Pago', payment.paid, neu.success),
+                  _stat(
+                    neu,
+                    cancelada ? 'Saldo' : 'A receber',
+                    payment.balance,
+                    payment.balance > 0 ? neu.warning : neu.inkMuted,
+                  ),
+                ],
+              ),
+              if (payment.entries.isNotEmpty) ...[
+                Divider(height: 16, color: neu.line),
+                for (final e in payment.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            [
+                              ?_fmtData(e.createdAt),
+                              methodLabel(e.method),
+                            ].join(' · '),
+                            style:
+                                TextStyle(color: neu.inkMuted, fontSize: 11.5),
+                          ),
+                        ),
+                        Text(
+                          formatMoney(e.amount),
+                          style: TextStyle(
+                            color: e.reversedAt != null
+                                ? neu.inkFaint
+                                : neu.success,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            decoration: e.reversedAt != null
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stat(NeuTokens neu, String label, num value, Color color) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 10.5)),
+          const SizedBox(height: 2),
+          Text(
+            formatMoney(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "03/08 14:32" (local), ou null quando não há data.
+String? _fmtData(String? iso) {
+  if (iso == null) return null;
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return null;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Quantidade sem casas decimais inúteis ("4" em vez de "4,000").
+String _qtd(String raw) {
+  final v = double.tryParse(raw.replaceAll(',', '.'));
+  if (v == null) return raw;
+  return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+}
