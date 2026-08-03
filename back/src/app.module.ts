@@ -18,6 +18,7 @@ import { PermissionsGuard } from './common/auth/permissions.guard';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { HealthController } from './common/observability/health.controller';
+import { CnpjModule } from './common/cnpj/cnpj.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
@@ -52,6 +53,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     AuditModule,
     JobsModule,
     StorageModule,
+    CnpjModule,
     AuthModule,
     IamModule,
     TenancyModule,

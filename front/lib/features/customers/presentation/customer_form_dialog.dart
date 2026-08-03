@@ -63,6 +63,59 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
     _type = c?.type ?? 'PF';
   }
 
+  bool _buscandoCnpj = false;
+
+  /// CNPJ com os 14 dígitos — antes disso a consulta só gastaria requisição.
+  bool get _cnpjCompleto =>
+      _document.text.replaceAll(RegExp(r'\D'), '').length == 14;
+
+  /// Busca a empresa na Receita e preenche o que estiver VAZIO.
+  ///
+  /// Não sobrescreve o que o usuário já digitou: se ele escreveu um nome
+  /// comercial ou um telefone de contato específico, a consulta não deve apagar.
+  /// `email` quase sempre vem vazio da base pública — é esperado, e o campo
+  /// simplesmente fica em branco.
+  Future<void> _buscarCnpj() async {
+    setState(() => _buscandoCnpj = true);
+    try {
+      final empresa = await ref
+          .read(customersRepositoryProvider)
+          .lookupCnpj(_document.text);
+      if (!mounted) return;
+      setState(() {
+        if (_name.text.trim().isEmpty) {
+          // Nome fantasia é como o cliente é conhecido; razão social é o formal.
+          _name.text = (empresa.nomeFantasia?.trim().isNotEmpty ?? false)
+              ? empresa.nomeFantasia!
+              : empresa.razaoSocial;
+        }
+        if (_phone.text.trim().isEmpty && empresa.telefone != null) {
+          _phone.text = formatPhone(empresa.telefone!);
+        }
+        if (_email.text.trim().isEmpty && empresa.email != null) {
+          _email.text = empresa.email!;
+        }
+        if (_address.text.trim().isEmpty) {
+          final linha = empresa.enderecoLinha;
+          if (linha.isNotEmpty) _address.text = linha;
+        }
+      });
+      if (empresa.situacao != null && empresa.situacao != 'ATIVA') {
+        // Situação irregular não impede cadastrar, mas o usuário merece saber.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Atenção: situação na Receita — ${empresa.situacao}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _buscandoCnpj = false);
+    }
+  }
+
   @override
   void dispose() {
     for (final c in [_name, _document, _phone, _email, _address, _notes]) {
@@ -205,12 +258,45 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
                         hint: _type == 'PJ'
                             ? '00.000.000/0000-00'
                             : '000.000.000-00',
+                        onChanged: (_) => setState(() {}),
                         validator: Validators.combine([
                           if (widget.documentRequired) Validators.required('Documento'),
                           Validators.document(_type),
                         ]),
                       ),
                     ),
+                    // Consulta na Receita: só faz sentido em PJ e com CNPJ
+                    // completo. Preenche razão social, telefone e endereço —
+                    // digitar o que a Receita já sabe é trabalho inútil.
+                    if (_type == 'PJ') ...[
+                      const SizedBox(width: 8),
+                      Padding(
+                        // Alinha com o campo (que tem rótulo acima).
+                        padding: const EdgeInsets.only(top: 20),
+                        // Só o ícone, como na busca de placa: um botão com texto
+                        // roubaria largura do documento numa linha já cheia.
+                        child: _buscandoCnpj
+                            ? const SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2.5),
+                                  ),
+                                ),
+                              )
+                            : NeuIconButton(
+                                icon: Icons.manage_search_rounded,
+                                tooltip: 'Buscar dados da empresa pelo CNPJ',
+                                size: 48,
+                                onPressed:
+                                    _cnpjCompleto ? _buscarCnpj : null,
+                              ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),

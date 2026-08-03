@@ -328,3 +328,41 @@ abstract class PlateInfo with _$PlateInfo {
   factory PlateInfo.fromJson(Map<String, dynamic> json) =>
       _$PlateInfoFromJson(json);
 }
+
+/// Dados públicos de uma empresa (consulta por CNPJ na Receita, via backend).
+///
+/// `email` costuma vir vazio — a base pública raramente o traz. Isso é normal:
+/// o formulário só deixa o campo em branco, sem tratar como erro.
+@freezed
+abstract class CnpjEmpresa with _$CnpjEmpresa {
+  const factory CnpjEmpresa({
+    @Default('') String cnpj,
+    @Default('') String razaoSocial,
+    String? nomeFantasia,
+    String? situacao,
+    String? telefone,
+    String? email,
+    String? logradouro,
+    String? numero,
+    String? bairro,
+    String? municipio,
+    String? uf,
+    String? cep,
+  }) = _CnpjEmpresa;
+
+  factory CnpjEmpresa.fromJson(Map<String, dynamic> json) =>
+      _$CnpjEmpresaFromJson(json);
+}
+
+/// Helpers de leitura. Em extension (não na classe) porque freezed 3 exige
+/// construtor privado para membros de instância — e não vale adicionar cerimônia
+/// à classe por causa de um getter.
+extension CnpjEmpresaX on CnpjEmpresa {
+  /// Endereço numa linha, no formato que o formulário de cliente guarda.
+  String get enderecoLinha => [
+        if (logradouro != null && logradouro!.isNotEmpty) logradouro!,
+        if (bairro != null && bairro!.isNotEmpty) bairro!,
+        if (municipio != null && municipio!.isNotEmpty)
+          [municipio!, if (uf != null && uf!.isNotEmpty) uf!].join('/'),
+      ].join(', ');
+}

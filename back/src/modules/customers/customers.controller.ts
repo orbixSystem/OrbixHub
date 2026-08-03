@@ -91,6 +91,19 @@ export class CustomersController {
     return this.plates.lookup(user, plate);
   }
 
+  /**
+   * Dados públicos de uma empresa pelo CNPJ, para preencher um cliente PJ.
+   *
+   * Rota do módulo `customers` (não a de cadastro em `/auth/cnpj-lookup`, que é
+   * pública, throttled e devolve `alreadyRegistered` — informação de outro
+   * tenant, irrelevante aqui). Ambas usam o MESMO gateway em `common/cnpj`.
+   */
+  @Get('cnpj/:cnpj')
+  @Permissions('customer.write')
+  cnpjLookup(@Param('cnpj') cnpj: string) {
+    return this.customers.lookupCnpj(cnpj);
+  }
+
   // --- customers ---
   @Post()
   @Permissions('customer.write')
