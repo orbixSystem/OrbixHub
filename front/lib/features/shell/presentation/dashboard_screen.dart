@@ -53,6 +53,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             text:
                 'Mensagens trocadas pelo link de acompanhamento da OS aparecem aqui.',
           ),
+        // Passos SEM alvo: valem igual em desktop e mobile (não dependem de um
+        // elemento que só existe num dos dois) e explicam o que a tela não
+        // mostra sozinha.
+        const CoachStep(
+          title: 'O botão "+" cria de qualquer tela',
+          text: 'Ordem de serviço, venda, despesa, cliente e produto saem dali '
+              'sem navegar até o módulo. O que aparece depende dos módulos do '
+              'seu plano e das suas permissões.',
+        ),
+        const CoachStep(
+          title: 'Funciona sem internet',
+          text: 'Se a conexão cair, você continua lançando: fica guardado no '
+              'aparelho e sobe sozinho quando a rede voltar. Uma faixa avisa '
+              'quando você está offline.',
+        ),
       ];
 
   @override

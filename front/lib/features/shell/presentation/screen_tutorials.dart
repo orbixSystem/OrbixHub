@@ -1,0 +1,367 @@
+import '../../../core/ui/ui.dart';
+
+/// Tutoriais por tela — o CONTEÚDO, separado da mecânica (`CoachMark`).
+///
+/// Por que num registro central e não espalhado nas telas:
+///  - o shell conhece a rota atual, então um único ponto de disparo cobre todas
+///    as telas (nada de repetir `addPostFrameCallback` em cada uma);
+///  - os passos não dependem de `GlobalKey`, e por isso valem IGUAL em desktop e
+///    mobile. Amarrar cada passo a um elemento faria o tutorial sumir pela metade
+///    no celular, onde a sidebar é drawer e colunas de tabela não existem;
+///  - o texto fica todo junto, o que é o que permite revisá-lo como se revisa
+///    documentação — e não caçar strings em dez arquivos.
+///
+/// O que faz um tutorial VÁLIDO aqui: explicar a DECISÃO que a tela pede e o que
+/// o sistema faz por baixo, não narrar botões. "Clique em Novo para criar" não
+/// ensina nada; "o valor recebido decide se a venda é fiado" ensina.
+///
+/// `id` é a chave do "já visto" (SharedPreferences). NÃO mude um id sem querer
+/// remostrar o tutorial a quem já o viu.
+class ScreenTutorial {
+  const ScreenTutorial({
+    required this.id,
+    required this.titulo,
+    required this.steps,
+  });
+
+  final String id;
+
+  /// Nome da tela, para o botão "rever tutorial".
+  final String titulo;
+  final List<CoachStep> steps;
+}
+
+/// Tutorial da rota, ou `null` se ela não tem um.
+///
+/// Casa pelo PREFIXO do caminho, então rotas de detalhe (`/m/os/123`) herdam o
+/// tutorial da sua área — o mais específico primeiro.
+ScreenTutorial? tutorialForRoute(String location) {
+  for (final entry in _porPrefixo.entries) {
+    if (location == entry.key || location.startsWith('${entry.key}/')) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+/// Todos os tutoriais (para uma futura tela de "central de ajuda").
+List<ScreenTutorial> get todosOsTutoriais => _porPrefixo.values.toList();
+
+// Ordem importa: prefixos mais específicos vêm antes.
+final Map<String, ScreenTutorial> _porPrefixo = {
+  // Módulos contratáveis vivem em `/m/<chave>` (ver `gatedNavItems`); as telas
+  // de núcleo têm caminho próprio em PT-BR. Chaves conferidas contra o menu real
+  // — o teste `screen_tutorials_test` falha se alguma tela ficar sem tutorial.
+  '/m/cashier': _caixa,
+  '/m/os': _os,
+  '/m/customers': _clientes,
+  '/m/inventory': _estoque,
+  '/m/report': _relatorios,
+  '/m/invoice': _fiscal,
+  '/agenda': _agenda,
+  '/mensagens': _mensagens,
+  '/equipe': _equipe,
+  '/planos': _planos,
+  '/configuracoes': _config,
+  // `/` (o painel) NÃO entra aqui: o dashboard é dono do próprio tutorial, com
+  // holofote nos cartões reais (`id: 'dashboard'`) e o seu próprio botão de
+  // rever. Registrar aqui também faria a tela abrir dois tutoriais.
+};
+
+const _fiscal = ScreenTutorial(
+  id: 'tut_fiscal_v1',
+  titulo: 'Nota fiscal',
+  steps: [
+    CoachStep(
+      title: 'A nota nasce de uma venda ou OS',
+      text: 'Você não digita uma nota do zero: emite a partir do que já foi '
+          'registrado, e os itens e valores vêm de lá. Isso é o que impede a nota '
+          'de divergir do que foi cobrado.',
+    ),
+    CoachStep(
+      title: 'Emitir exige conexão',
+      text: 'A emissão fala com o órgão emissor na hora, então não funciona '
+          'offline. O resto do sistema continua funcionando — só a nota espera a '
+          'internet voltar.',
+    ),
+    CoachStep(
+      title: 'Depois de emitida, o valor não muda',
+      text: 'Com nota emitida o app recusa alterar itens ou total: a nota '
+          'declarada passaria a divergir. Para corrigir, cancele e refaça.',
+    ),
+  ],
+);
+
+const _caixa = ScreenTutorial(
+  id: 'tut_caixa_v1',
+  titulo: 'Caixa',
+  steps: [
+    CoachStep(
+      title: 'Três abas, três perguntas',
+      text: '"Caixa do dia" é onde você opera — vender, receber, lançar despesa. '
+          '"Histórico" responde o que aconteceu num período. "Fiado" mostra quem '
+          'está devendo e quanto.',
+    ),
+    CoachStep(
+      title: 'O valor recebido decide tudo',
+      text: 'Na venda, você digita quanto o cliente entregou. Igual ao total = '
+          'paga. Menos que o total = o resto vira FIADO, e o app confirma antes. '
+          'Mais que o total, em dinheiro = troco, e o caixa registra só o total.',
+    ),
+    CoachStep(
+      title: 'Fiado não é um cadastro à parte',
+      text: 'Toda venda ou OS com saldo aberto aparece sozinha na aba Fiado, '
+          'agrupada por cliente. Para receber depois, é só lançar o valor ali — '
+          'aceita pagamento parcial quantas vezes precisar.',
+    ),
+    CoachStep(
+      title: 'Corrigir sem apagar',
+      text: 'Um livro caixa não reescreve dinheiro. Descrição e categoria você '
+          'edita direto; mudar o VALOR estorna o lançamento errado e cria o '
+          'certo, e os dois ficam no histórico. É assim que o caixa fecha.',
+    ),
+    CoachStep(
+      title: 'Abrir e fechar caixa é opcional',
+      text: 'Essa cerimônia serve para conferir dinheiro na GAVETA. Se você '
+          'recebe por Pix e cartão, ou opera sozinho, deixe desligada em '
+          'Configurações › Caixa — e o dia passa a virar por data, sozinho.',
+    ),
+  ],
+);
+
+const _os = ScreenTutorial(
+  id: 'tut_os_v1',
+  titulo: 'Ordens de serviço',
+  steps: [
+    CoachStep(
+      title: 'A OS é o registro do trabalho',
+      text: 'Ela guarda o que foi feito, por quem, em qual veículo e quanto '
+          'custou. Cliente e veículo são opcionais no começo: dá para abrir a OS '
+          'primeiro e completar depois, sem travar o atendimento.',
+    ),
+    CoachStep(
+      title: 'Itens são o orçamento',
+      text: 'Peça do estoque puxa nome e preço do cadastro e dá baixa quando a '
+          'OS avança; serviço é digitado. O total é sempre recalculado no '
+          'servidor — não há como o valor da tela discordar do que foi cobrado.',
+    ),
+    CoachStep(
+      title: 'O status conta a história',
+      text: 'Cada mudança de status entra na linha do tempo com autor e hora. É '
+          'isso que responde "desde quando esse carro está aqui?" sem ninguém '
+          'precisar lembrar.',
+    ),
+    CoachStep(
+      title: 'O cliente acompanha por link',
+      text: 'Cada OS tem um link público que mostra o andamento sem exigir '
+          'login nem revelar seus dados internos. Copie e mande para o cliente '
+          'em vez de responder "e o meu carro?" no telefone.',
+    ),
+    CoachStep(
+      title: 'Receber é no Caixa',
+      text: 'A OS não guarda o valor pago: quem sabe disso é o caixa. Use '
+          '"Receber OS" e o pagamento aparece na OS automaticamente, inclusive '
+          'parcial — o que faltar vai para o Fiado.',
+    ),
+  ],
+);
+
+const _clientes = ScreenTutorial(
+  id: 'tut_clientes_v1',
+  titulo: 'Clientes',
+  steps: [
+    CoachStep(
+      title: 'Cliente e veículo são coisas diferentes',
+      text: 'O cliente é a pessoa ou empresa; o veículo pertence a ele. Um '
+          'cliente pode ter vários, e o histórico de cada carro fica separado — '
+          'útil quando a família traz dois no mesmo mês.',
+    ),
+    CoachStep(
+      title: 'CNPJ preenche sozinho',
+      text: 'Escolha "Pessoa jurídica" e toque na lupa ao lado do documento: o '
+          'app busca razão social, telefone e endereço na Receita. O que você já '
+          'digitou não é sobrescrito. E-mail quase nunca vem — é normal.',
+    ),
+    CoachStep(
+      title: 'A placa também busca',
+      text: 'No cadastro do veículo, a lupa ao lado da placa traz marca, modelo '
+          'e ano. Essa consulta tem cota mensal, então ela só dispara quando '
+          'você pede — nunca a cada tecla.',
+    ),
+    CoachStep(
+      title: 'O histórico mostra tudo do cliente',
+      text: 'Ordens de serviço E vendas de balcão, em ordem cronológica. Filtrar '
+          'por veículo mostra só as OS daquele carro, porque venda de balcão não '
+          'pertence a um veículo.',
+    ),
+    CoachStep(
+      title: 'Nada é apagado',
+      text: 'Cliente sai da lista por arquivamento, não por exclusão: o '
+          'histórico dele continua válido nas OS e vendas antigas. É o que '
+          'permite consultar um serviço de dois anos atrás.',
+    ),
+  ],
+);
+
+const _estoque = ScreenTutorial(
+  id: 'tut_estoque_v1',
+  titulo: 'Estoque',
+  steps: [
+    CoachStep(
+      title: 'Produto tem saldo; serviço não',
+      text: 'Só produto controla quantidade. Serviço (mão de obra) entra em OS e '
+          'venda pelo preço, sem estoque — por isso ele nunca aparece como '
+          '"acabando".',
+    ),
+    CoachStep(
+      title: 'A baixa é automática',
+      text: 'Peça usada em OS ou vendida no balcão sai do saldo sozinha, e '
+          'volta se a OS for cancelada ou a venda estornada. Você não precisa '
+          'dar baixa na mão — e não deve, para não descontar duas vezes.',
+    ),
+    CoachStep(
+      title: 'Todo movimento fica registrado',
+      text: 'Entrada, saída e ajuste ficam no diário do item, com origem. É por '
+          'ele que se descobre por que o saldo não fecha, em vez de adivinhar.',
+    ),
+    CoachStep(
+      title: 'Estoque mínimo avisa antes de faltar',
+      text: 'Defina o mínimo e o item aparece em "acabando" quando cruzar a '
+          'linha. Serve para comprar antes do cliente ficar esperando peça.',
+    ),
+    CoachStep(
+      title: 'Código de barras acelera o cadastro',
+      text: 'Informe o EAN e o app tenta trazer o nome do produto de um catálogo '
+          'compartilhado. Cadastrar cem peças digitando tudo é o que faz o '
+          'estoque nunca sair do papel.',
+    ),
+  ],
+);
+
+const _relatorios = ScreenTutorial(
+  id: 'tut_relatorios_v1',
+  titulo: 'Relatórios',
+  steps: [
+    CoachStep(
+      title: 'Escolha o período primeiro',
+      text: 'Todo número aqui é de um intervalo. Trocar o período muda tudo — se '
+          'um valor parecer errado, confira a data antes de desconfiar do dado.',
+    ),
+    CoachStep(
+      title: 'Faturamento não é dinheiro em caixa',
+      text: 'Faturamento é o que foi vendido; caixa é o que entrou. Venda em '
+          'fiado soma no faturamento e não no caixa — e é justamente essa '
+          'diferença que mostra quanto você tem na rua.',
+    ),
+    CoachStep(
+      title: 'Exportar para levar adiante',
+      text: 'Qualquer relatório sai em CSV (para planilha) ou PDF (para '
+          'imprimir/enviar ao contador), com o mesmo recorte que está na tela.',
+    ),
+  ],
+);
+
+const _agenda = ScreenTutorial(
+  id: 'tut_agenda_v1',
+  titulo: 'Agenda',
+  steps: [
+    CoachStep(
+      title: 'A agenda é a capacidade do dia',
+      text: 'Ela mostra o que está marcado e quanto ainda cabe, para você não '
+          'prometer um horário que a oficina não tem.',
+    ),
+    CoachStep(
+      title: 'Atribuir define quem faz',
+      text: 'Cada item pode ir para um mecânico. Sem responsável, o serviço '
+          'aparece como não atribuído — é a fila que ninguém pegou ainda.',
+    ),
+    CoachStep(
+      title: 'Horário de funcionamento manda',
+      text: 'A agenda respeita os horários configurados. Se um dia parece '
+          'fechado sem motivo, o ajuste está em Configurações.',
+    ),
+  ],
+);
+
+const _mensagens = ScreenTutorial(
+  id: 'tut_mensagens_v1',
+  titulo: 'Mensagens',
+  steps: [
+    CoachStep(
+      title: 'Conversa por ordem de serviço',
+      text: 'Cada OS tem seu próprio fio, então a dúvida sobre um carro não se '
+          'mistura com a de outro. O cliente responde pelo link público, sem '
+          'instalar nada.',
+    ),
+    CoachStep(
+      title: 'Chega na hora',
+      text: 'As mensagens aparecem em tempo real e o sino avisa. O histórico '
+          'também fica disponível offline para leitura — enviar, porém, precisa '
+          'de conexão.',
+    ),
+  ],
+);
+
+const _equipe = ScreenTutorial(
+  id: 'tut_equipe_v1',
+  titulo: 'Equipe',
+  steps: [
+    CoachStep(
+      title: 'O cargo define o que a pessoa vê',
+      text: 'Mecânico não vê caixa nem relatório; atendente lança recebimento '
+          'mas não despesa; gerente e dono veem gestão. Menos permissão é menos '
+          'chance de erro caro.',
+    ),
+    CoachStep(
+      title: 'Convite em vez de senha compartilhada',
+      text: 'Você convida por e-mail e a pessoa cria a própria senha. Assim cada '
+          'ação no sistema tem autor de verdade — e é isso que faz o histórico '
+          'valer algo.',
+    ),
+    CoachStep(
+      title: 'Desligar é imediato',
+      text: 'Ao remover alguém, o acesso cai na hora, mesmo se ela estiver com o '
+          'app aberto. O que ela já registrou continua no histórico.',
+    ),
+  ],
+);
+
+const _planos = ScreenTutorial(
+  id: 'tut_planos_v1',
+  titulo: 'Planos',
+  steps: [
+    CoachStep(
+      title: 'O plano liga os módulos',
+      text: 'Cada plano habilita um conjunto de módulos. Trocar de plano muda o '
+          'que aparece no menu na hora — nada de reinstalar ou pedir liberação.',
+    ),
+    CoachStep(
+      title: 'Atraso não apaga nada',
+      text: 'Com pagamento em atraso o sistema passa a somente leitura: você '
+          'continua consultando tudo, só não registra. Nenhum dado é perdido, e '
+          'volta ao normal quando regularizar.',
+    ),
+  ],
+);
+
+const _config = ScreenTutorial(
+  id: 'tut_config_v1',
+  titulo: 'Configurações',
+  steps: [
+    CoachStep(
+      title: 'Dados da empresa saem nos documentos',
+      text: 'Nome, CNPJ, endereço e logo aparecem na OS impressa e nos '
+          'relatórios. Preencher aqui é o que faz o documento parecer seu.',
+    ),
+    CoachStep(
+      title: 'Cada módulo traz suas preferências',
+      text: 'As seções abaixo mudam conforme os módulos do seu plano. Em Caixa, '
+          'por exemplo, é onde se liga a conferência de gaveta (abrir/fechar).',
+    ),
+    CoachStep(
+      title: 'Aparência é por empresa',
+      text: 'A paleta escolhida vale para todos os usuários da oficina, não só '
+          'para você — é a identidade do sistema para a equipe.',
+    ),
+  ],
+);

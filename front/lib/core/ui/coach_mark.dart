@@ -8,15 +8,21 @@ import 'neu_tokens.dart';
 /// Um passo do tutorial: destaca o widget de [targetKey] e mostra [title]/[text].
 class CoachStep {
   const CoachStep({
-    required this.targetKey,
     required this.title,
     required this.text,
+    this.targetKey,
     this.radius = 16,
     this.padding = 8,
   });
 
-  /// GlobalKey do widget a destacar (deve estar montado e visível).
-  final GlobalKey targetKey;
+  /// GlobalKey do widget a destacar. **Opcional**: sem ela o passo é um cartão
+  /// centralizado, sem holofote.
+  ///
+  /// Isso existe porque tutorial tem de funcionar em desktop E mobile, e muitos
+  /// elementos só existem num dos dois (sidebar fixa × drawer, colunas de tabela
+  /// que somem no celular). Amarrar todo passo a um alvo faria o tutorial sumir
+  /// pela metade no celular — pior que não ter holofote.
+  final GlobalKey? targetKey;
   final String title;
   final String text;
 
@@ -58,10 +64,12 @@ abstract final class CoachMark {
     required String id,
     required List<CoachStep> steps,
   }) async {
-    // Só passos cujo alvo está montado e com tamanho.
+    // Passos sem alvo sempre entram; com alvo, só se ele estiver montado e com
+    // tamanho (um holofote sobre nada seria um buraco no lugar errado).
     final live = steps.where((s) {
-      final ctx = s.targetKey.currentContext;
-      final box = ctx?.findRenderObject();
+      final key = s.targetKey;
+      if (key == null) return true;
+      final box = key.currentContext?.findRenderObject();
       return box is RenderBox && box.hasSize;
     }).toList();
     if (live.isEmpty) return;
@@ -99,7 +107,9 @@ class _CoachViewState extends State<_CoachView> {
 
   /// Retângulo global do alvo do passo atual (ou null se sumiu).
   Rect? _targetRect() {
-    final box = _step.targetKey.currentContext?.findRenderObject();
+    final key = _step.targetKey;
+    if (key == null) return null; // passo explicativo: cartão centralizado
+    final box = key.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return null;
     final origin = box.localToGlobal(Offset.zero);
     return origin & box.size;

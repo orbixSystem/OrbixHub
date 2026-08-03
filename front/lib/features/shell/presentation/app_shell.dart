@@ -23,6 +23,7 @@ import '../../update/domain/update_models.dart';
 import '../../update/presentation/update_banner.dart';
 import '../../update/presentation/update_controller.dart';
 import 'nav_items.dart';
+import 'screen_tutorials.dart';
 import 'sidebar.dart';
 
 /// App chrome adaptativo (spec 2026-07-04):
@@ -39,6 +40,21 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  /// Rota cujo tutorial já foi disparado nesta sessão — sem isto, cada rebuild
+  /// do shell (e há muitos) tentaria abrir o tutorial de novo.
+  String? _tutorialDisparado;
+
+  /// Abre o tutorial da rota, se houver e se o usuário nunca o viu.
+  void _talvezTutorial(String location) {
+    final tut = tutorialForRoute(location);
+    if (tut == null || _tutorialDisparado == tut.id) return;
+    _tutorialDisparado = tut.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CoachMark.maybeStart(context, id: tut.id, steps: tut.steps);
+    });
+  }
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// Evita reentrância enquanto o modal de "sem conexão" está aberto / o
@@ -99,6 +115,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         (_) => _guardOfflineRoute(me),
       );
     }
+    // Tutorial da tela: um ponto de disparo para TODAS, porque o shell é quem
+    // conhece a rota. Só na primeira visita (o `maybeStart` guarda "já visto") e
+    // depois do 1º frame, para não competir com a montagem da tela.
+    _talvezTutorial(location);
+
     final selected = selectedNavIndex(items, location);
     final size = context.screenSize;
 
@@ -262,6 +283,11 @@ class _ContentHeader extends StatelessWidget {
                         if (context.isMobile)
                           const Flexible(child: ConnectionChip(dense: true)),
                         const Spacer(),
+                        // Rever o tutorial da tela atual. No cabeçalho porque ele
+                        // existe em desktop E mobile — a sidebar não (no celular
+                        // é drawer), e ajuda escondida atrás de um menu não é
+                        // ajuda. Só aparece onde há tutorial.
+                        const _BotaoTutorial(),
                         // Sino + toggle de tema vivem no overlay global (GlobalControls).
                       ],
                     );
@@ -718,6 +744,27 @@ List<QuickAction> quickActionsFor(Me me) {
         'Novo produto ou serviço',
       ),
   ];
+}
+
+/// Botão "rever tutorial" do cabeçalho.
+///
+/// Reabre o tutorial da tela ignorando o "já visto" — quem esqueceu como o fiado
+/// funciona precisa poder revisitar sem limpar dados do app.
+class _BotaoTutorial extends StatelessWidget {
+  const _BotaoTutorial();
+
+  @override
+  Widget build(BuildContext context) {
+    // Lê a rota daqui: o cabeçalho é outro widget e não recebe `location`, e
+    // estamos sob a subárvore do router.
+    final tut = tutorialForRoute(GoRouterState.of(context).matchedLocation);
+    if (tut == null) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: 'Como funciona: ${tut.titulo}',
+      icon: const Icon(Icons.help_outline_rounded, size: 20),
+      onPressed: () => CoachMark.start(context, id: tut.id, steps: tut.steps),
+    );
+  }
 }
 
 /// Especificação de uma ação de criação rápida do menu "+".
