@@ -166,6 +166,19 @@ export class SaleRepository {
   }
 
   /**
+   * Vendas de um cliente, mais recente primeiro — alimenta o histórico da ficha
+   * dele. Inclui canceladas: o histórico mostra o que aconteceu, e a tela marca
+   * o status.
+   */
+  listSalesByCustomer(customerId: string) {
+    const db = this.tenant.getClient();
+    return db.sale.findMany({
+      where: { customer_id: customerId },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
    * Reatribui a venda a outro cliente (ponteiro + snapshot do nome). Só isto: o
    * dinheiro da venda nunca é editado aqui.
    */

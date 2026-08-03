@@ -402,13 +402,33 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       return inner.customerHistory(customerId, subjectId: subjectId);
     }
     final orders = await rows('service_order');
-    return _historyFrom(
+    final doCliente = _historyFrom(
       orders.where(
         (o) =>
             o['customer_id'] == customerId &&
             (subjectId == null || o['subject_id'] == subjectId),
       ),
     );
+    // Filtrando por VEÍCULO só entram OS: venda de balcão não é "do carro" e
+    // apareceria repetida em todos eles (mesma regra do compositor no servidor).
+    if (subjectId != null) return doCliente;
+
+    // Vendas de balcão do cliente, do espelho de `sale` — o histórico dele não é
+    // só OS: quem compra uma palheta no balcão gerou histórico igual.
+    final vendas = [
+      for (final v in await rows('sale'))
+        if (v['customer_id'] == customerId)
+          SubjectHistoryEntry(
+            id: v['id'] as String,
+            kind: 'sale',
+            title: 'Venda ${v['number'] ?? ''}'.trim(),
+            status: (v['status'] ?? 'active') as String,
+            occurredAt:
+                (v['created_at'] ?? v['updated_at'] ?? nowIso()) as String,
+          ),
+    ];
+    return [...doCliente, ...vendas]
+      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
   }
 
   List<SubjectHistoryEntry> _historyFrom(Iterable<Map<String, dynamic>> orders) {

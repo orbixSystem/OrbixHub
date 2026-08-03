@@ -12,6 +12,8 @@ import '../domain/customers_models.dart';
 import 'brand_logo.dart';
 import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
+import '../../cashier/domain/cashier_format.dart';
+import '../../sale/presentation/sale_detail_dialog.dart';
 import 'os_report_dialog.dart';
 import 'subject_form_dialog.dart';
 
@@ -987,6 +989,14 @@ class _FieldTile extends StatelessWidget {
   }
 }
 
+/// Tipo do fato em PT-BR. Antes a timeline mostrava a chave crua ("os"), que não
+/// diz nada ao usuário — e agora há mais de um tipo para distinguir.
+String _rotuloDoTipo(String kind) => switch (kind) {
+      'os' => 'Ordem de serviço',
+      'sale' => 'Venda de balcão',
+      _ => kind,
+    };
+
 // ===================== Histórico tab (timeline do cliente) =====================
 
 class _CustomerHistoryTab extends ConsumerStatefulWidget {
@@ -1082,8 +1092,11 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Entradas de OS são clicáveis e abrem o relatório detalhado da OS.
+    // OS abre o relatório da OS; venda de balcão abre o detalhe da venda. As
+    // duas são clicáveis: o histórico serve para chegar ao documento.
     final isOs = entry.kind == 'os';
+    final isVenda = entry.kind == 'sale';
+    final clicavel = isOs || isVenda;
 
     final cardInner = Padding(
       padding: const EdgeInsets.all(16),
@@ -1102,20 +1115,23 @@ class _TimelineItem extends StatelessWidget {
                   [
                     if (entry.subjectLabel?.isNotEmpty == true)
                       entry.subjectLabel!,
-                    entry.kind,
-                    entry.occurredAt,
+                    _rotuloDoTipo(entry.kind),
+                    ?fmtDataHora(entry.occurredAt),
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       color: scheme.onSurfaceVariant, fontSize: 13),
                 ),
-                if (isOs) ...[
+                if (clicavel) ...[
                   const SizedBox(height: 8),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.description_outlined,
+                      Icon(
+                          isVenda
+                              ? Icons.shopping_bag_outlined
+                              : Icons.description_outlined,
                           size: 15, color: scheme.primary),
                       const SizedBox(width: 4),
                       Text(
@@ -1133,7 +1149,7 @@ class _TimelineItem extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _Pill(icon: Icons.flag_outlined, text: entry.status),
-          if (isOs) ...[
+          if (clicavel) ...[
             const SizedBox(width: 4),
             Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
           ],
@@ -1147,12 +1163,14 @@ class _TimelineItem extends StatelessWidget {
       border: Border.all(color: scheme.outlineVariant),
     );
 
-    final Widget card = isOs
+    final Widget card = clicavel
         ? Material(
             type: MaterialType.transparency,
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () => showOsReportDialog(context, entry.id),
+              onTap: () => isVenda
+                  ? showSaleDetailDialog(context, saleId: entry.id)
+                  : showOsReportDialog(context, entry.id),
               child: Ink(decoration: decoration, child: cardInner),
             ),
           )

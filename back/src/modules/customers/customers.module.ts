@@ -2,6 +2,9 @@ import { forwardRef, Module, OnModuleInit } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { OsModule } from '../os/os.module';
 import { OsSubjectHistoryProvider } from '../os/os-subject-history.provider';
+import { SaleModule } from '../sale/sale.module';
+import { SaleSubjectHistoryProvider } from '../sale/sale-subject-history.provider';
+import { CompositeSubjectHistoryProvider } from './composite-subject-history.provider';
 import { SettingsModule } from '../settings/settings.module';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { CustomersController } from './customers.controller';
@@ -28,15 +31,29 @@ import { PlateFipeMatcher } from './plates/plate-fipe-matcher.service';
  * e SettingsModule (registra a própria seção de config no host).
  */
 @Module({
-  imports: [BillingModule, SettingsModule, forwardRef(() => OsModule)],
+  imports: [
+    BillingModule,
+    SettingsModule,
+    forwardRef(() => OsModule),
+    forwardRef(() => SaleModule),
+  ],
   controllers: [CustomersController, SubjectsController],
   providers: [
     CustomersService,
     CustomersMetricsService,
     CustomersRepository,
-    // Histórico do veículo/cliente vem da OS (módulo `os` implementa o seam).
-    // forwardRef p/ a dependência mútua OsModule ↔ CustomersModule.
-    { provide: SubjectHistoryProvider, useExisting: OsSubjectHistoryProvider },
+    // Histórico do cliente = OS ∪ vendas de balcão. Cada módulo dono implementa
+    // sua fonte e o compositor as une em ordem cronológica — `customers` nunca
+    // toca as tabelas deles. forwardRef p/ as dependências mútuas
+    // (OsModule/SaleModule ↔ CustomersModule).
+    {
+      provide: SubjectHistoryProvider,
+      useFactory: (
+        os: OsSubjectHistoryProvider,
+        vendas: SaleSubjectHistoryProvider,
+      ) => new CompositeSubjectHistoryProvider([os, vendas]),
+      inject: [OsSubjectHistoryProvider, SaleSubjectHistoryProvider],
+    },
     SubjectLookupService,
     { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },
     // Consulta de placa (API Placas): cache global + cota mensal + provider real

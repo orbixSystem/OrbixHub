@@ -32,7 +32,13 @@ Future<Sale?> showSaleCreateDialog(
   return showDialog<Sale?>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => Dialog(child: _SaleCreateDialog(refazerDe: refazerDe)),
+    // `insetPadding` explícito: o padrão do Material é 40px por lado, que no
+    // celular deixava o conteúdo com menos largura do que o diálogo calcula
+    // (`media.width - 24`) — e o cabeçalho estourava 33px.
+    builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      child: _SaleCreateDialog(refazerDe: refazerDe),
+    ),
   );
 }
 
@@ -382,9 +388,15 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 const Icon(Icons.shopping_cart_checkout_outlined,
                     color: AppColors.brandDeep),
                 const SizedBox(width: 8),
-                Text('Venda avulsa',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const Spacer(),
+                // `Expanded` (não `Spacer` depois de um Text rígido): assim o
+                // título cede espaço em vez de empurrar o botão fora da tela.
+                Expanded(
+                  child: Text(
+                    'Venda avulsa',
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close),
@@ -984,7 +996,7 @@ class _ItemsHeader extends StatelessWidget {
         color: AppColors.inkMuted, fontSize: 11, fontWeight: FontWeight.w700);
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
-      // Mesmas proporções do `_LineTile` (5/3/3 + 36) — colunas em flex, não em
+      // Mesmas proporções do `_LineTile` (5/3/4 + 36) — colunas em flex, não em
       // largura fixa: com os steppers, largura fixa estourava a linha no
       // diálogo de 560px.
       child: Row(
@@ -993,7 +1005,7 @@ class _ItemsHeader extends StatelessWidget {
           SizedBox(width: 6),
           Expanded(flex: 3, child: Text('QTD', style: style, textAlign: TextAlign.center)),
           SizedBox(width: 6),
-          Expanded(flex: 3, child: Text('PREÇO (R\$)', style: style, textAlign: TextAlign.right)),
+          Expanded(flex: 4, child: Text('PREÇO (R\$)', style: style, textAlign: TextAlign.center)),
           SizedBox(width: 36),
         ],
       ),
@@ -1034,11 +1046,14 @@ class _LineTile extends StatelessWidget {
           )
         : Text(line.name, overflow: TextOverflow.ellipsis);
 
-    // Quantidade: passo 1 no toque, mas o campo aceita fração (0,5 h de mão de
-    // obra) — por isso 3 casas na digitação.
+    // Quantidade: passo 1 no toque, e o campo aceita fração (0,5 h de mão de
+    // obra) — daí as 3 casas na digitação. Mas EXIBE "4", não "4,000": ninguém
+    // escreve "4,000 palhetas", e o zero à direita só ocupava espaço e cortava
+    // o número.
     final quantidade = NeuStepperField(
       value: line.quantity,
       decimals: 3,
+      trimTrailingZeros: true,
       semanticLabel: 'Quantidade',
       validator: Validators.positiveNumber(field: 'Quantidade'),
       onChanged: (v) {
@@ -1049,7 +1064,6 @@ class _LineTile extends StatelessWidget {
     final preco = NeuStepperField(
       value: line.unitPrice,
       decimals: 2,
-      textAlign: TextAlign.right,
       semanticLabel: 'Preço unitário',
       validator: Validators.positiveNumber(field: 'Preço'),
       onChanged: (v) {
@@ -1088,11 +1102,14 @@ class _LineTile extends StatelessWidget {
             )
           : Row(
               children: [
+                // 5/3/4: o preço precisa de mais espaço que a quantidade
+                // ("1.234,56" contra "4"), e tudo em flex para a linha nunca
+                // estourar nem cortar o número.
                 Expanded(flex: 5, child: nome),
                 const SizedBox(width: 6),
                 Expanded(flex: 3, child: quantidade),
                 const SizedBox(width: 6),
-                Expanded(flex: 3, child: preco),
+                Expanded(flex: 4, child: preco),
                 SizedBox(width: 36, child: remover),
               ],
             ),
