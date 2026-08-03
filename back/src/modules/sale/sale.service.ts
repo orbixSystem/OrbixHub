@@ -159,8 +159,12 @@ export class SaleService {
       user.tenantId,
       active.map((s) => ({ id: s.id, total: toNum(s.total) })),
     );
+    // Expõe o resumo COMPLETO (total/pago/saldo), não só a tag: o controle de
+    // fiado precisa do saldo em aberto e o batch já o calculou. Simétrico ao
+    // detalhe (`getSaleOrThrow`), que sempre devolveu `payment`.
     const enriched = items.map((s) => ({
       ...s,
+      payment: summaries.get(s.id) ?? null,
       payment_status: (summaries.get(s.id)?.status ?? 'a_receber') as string,
     }));
     return { items: enriched, total, page, pageSize };

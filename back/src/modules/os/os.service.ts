@@ -298,8 +298,12 @@ export class OsService {
       user.tenantId,
       items.map((o) => ({ id: o.id, total: toNum(o.total) })),
     );
+    // Expõe o resumo COMPLETO (total/pago/saldo), não só a tag: o controle de
+    // fiado precisa do saldo em aberto e o batch já o calculou. Simétrico ao
+    // detalhe (`getOrderOrThrow`), que sempre devolveu `payment`.
     const enriched = items.map((o) => ({
       ...o,
+      payment: summaries.get(o.id) ?? null,
       payment_status: (summaries.get(o.id)?.status ?? 'a_receber') as string,
     }));
     return { items: enriched, total, page, pageSize };
