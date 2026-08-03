@@ -120,7 +120,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         onRetry: () => ref.invalidate(cashierControllerProvider),
       ),
       data: (state) {
-        if (state.isOpen) {
+        // Ordem importa: com a exigência DESLIGADA a sessão é detalhe interno
+        // (o backend cria uma implícita no primeiro lançamento). Mostrar
+        // "Aberto desde HH:MM" e "Fechar caixa" nesse caso reintroduz a
+        // cerimônia que a config justamente dispensou.
+        if (state.isOpen && state.config.requireOpenSession) {
           return _OpenBody(
             state: state,
             canWrite: _canWrite(),
@@ -302,18 +306,29 @@ class _FreeBody extends ConsumerWidget {
             Text('Caixa de hoje',
                 style: Theme.of(context).textTheme.titleLarge),
             if (canManage)
+              // Quem já está conferindo precisa saber como encerrar; quem não
+              // está, como começar. Nunca os dois ao mesmo tempo.
               NeuButton(
-                label: 'Conferir gaveta',
+                label: state.isOpen
+                    ? 'Encerrar conferência'
+                    : 'Conferir gaveta',
                 kind: NeuButtonKind.secondary,
-                icon: Icons.lock_open_outlined,
-                onPressed: () => showOpenSessionDialog(context, ref),
+                icon: state.isOpen
+                    ? Icons.lock_outline
+                    : Icons.lock_open_outlined,
+                onPressed: () => state.isOpen
+                    ? showCloseSessionDialog(context, ref)
+                    : showOpenSessionDialog(context, ref),
               ),
           ],
         ),
         const SizedBox(height: 6),
         Text(
-          'Os lançamentos são registrados direto. Use "Conferir gaveta" se '
-          'quiser abrir uma sessão e conferir o dinheiro no fim do dia.',
+          state.isOpen
+              ? 'Conferência em andamento — ao encerrar, o sistema compara o '
+                  'esperado com o que você contou na gaveta.'
+              : 'Os lançamentos são registrados direto. Use "Conferir gaveta" '
+                  'se quiser conferir o dinheiro no fim do dia.',
           style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
         ),
         const SizedBox(height: 16),
@@ -782,6 +797,8 @@ class _CashierHistory extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final preset = ref.watch(cashierHistoryPresetProvider);
+    final filtro = ref.watch(cashierHistoryFilterProvider);
+    final busca = ref.watch(cashierHistoryBuscaProvider);
     final async = ref.watch(cashierHistoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -840,21 +857,51 @@ class _CashierHistory extends ConsumerWidget {
                   const SizedBox(height: 24),
                   Text('O que aconteceu',
                       style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Vendas, recebimentos e despesas em ordem — inclusive as '
-                    'vendas em fiado, que não movimentam o caixa.',
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                  const SizedBox(height: 10),
+                  _HistoricoFiltros(
+                    filtro: filtro,
+                    busca: busca,
+                    onFiltro: (f) =>
+                        ref.read(cashierHistoryFilterProvider.notifier).set(f),
+                    onBusca: (b) =>
+                        ref.read(cashierHistoryBuscaProvider.notifier).set(b),
                   ),
                   const SizedBox(height: 12),
                   // Uma lista só, cada linha detalhada. Antes havia duas lentes
                   // (Movimentos | Vendas) e o usuário tinha de escolher — mas o
                   // dia é um só, e alternar escondia metade do que aconteceu.
-                  CashierTimelineList(
-                    events: buildCashierTimeline(
-                      entries: data.entries,
-                      sales: data.sales,
-                    ),
+                  Builder(
+                    builder: (_) {
+                      final todos = buildCashierTimeline(
+                        entries: data.entries,
+                        sales: data.sales,
+                      );
+                      // Servidor já recortou; aqui fica só a coerência entre as
+                      // duas fontes (venda em fiado não é entrada de caixa).
+                      final visiveis = filterCashierTimeline(
+                        todos,
+                        filtro: filtro,
+                        busca: busca,
+                      );
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (todos.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                visiveis.length == todos.length
+                                    ? '${todos.length} '
+                                        '${todos.length == 1 ? "registro" : "registros"}'
+                                    : '${visiveis.length} de ${todos.length}',
+                                style: TextStyle(
+                                    color: neu.inkFaint, fontSize: 11.5),
+                              ),
+                            ),
+                          CashierTimelineList(events: visiveis),
+                        ],
+                      );
+                    },
                   ),
                 ],
               );

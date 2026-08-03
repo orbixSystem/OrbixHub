@@ -8,6 +8,7 @@ import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/cashier/data/fake_cashier_repository.dart';
+import 'package:orbixhub_front/features/cashier/domain/cashier_models.dart';
 import 'package:orbixhub_front/features/cashier/presentation/cashier_providers.dart';
 import 'package:orbixhub_front/features/cashier/presentation/cashier_screen.dart';
 import 'package:orbixhub_front/features/sale/data/fake_sale_repository.dart';
@@ -117,6 +118,78 @@ void main() {
     testWidgets('mostra os lançamentos do dia', (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
       expect(find.text('Lançamentos de hoje'), findsOneWidget);
+    });
+  });
+
+  group('sessão implícita não reintroduz a cerimônia', () {
+    testWidgets('após lançar, NÃO aparece "Fechar caixa" nem "Aberto desde"',
+        (tester) async {
+      // Com a exigência desligada o backend cria uma sessão implícita no
+      // primeiro lançamento. Se a tela reagir a isso mostrando o fluxo de
+      // sessão, o ritual volta pela porta dos fundos.
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final repo = FakeCashierRepository();
+      await repo.updateConfig(requireOpenSession: false);
+      // Lança algo: o fake abre a sessão implícita, como o backend faz.
+      await repo.createEntry(const EntryDraft(
+        amount: 50,
+        method: 'dinheiro',
+        category: 'venda_avulsa',
+      ));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            connectivityControllerProvider.overrideWith(_OnlineConn.new),
+            sessionControllerProvider.overrideWith(_Dono.new),
+            cashierRepositoryProvider.overrideWithValue(repo),
+            saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const CashierScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fechar caixa'), findsNothing);
+      expect(find.textContaining('Aberto desde'), findsNothing);
+      // Segue no modo livre, e oferece encerrar a conferência.
+      expect(find.text('Caixa de hoje'), findsOneWidget);
+      expect(find.text('Encerrar conferência'), findsOneWidget);
+    });
+
+    testWidgets('com exigência LIGADA o fluxo de sessão continua', (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final repo = FakeCashierRepository();
+      await repo.updateConfig(requireOpenSession: true);
+      await repo.openSession(openingAmount: 100);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            connectivityControllerProvider.overrideWith(_OnlineConn.new),
+            sessionControllerProvider.overrideWith(_Dono.new),
+            cashierRepositoryProvider.overrideWithValue(repo),
+            saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const CashierScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fechar caixa'), findsOneWidget);
+      expect(find.text('Caixa do dia'), findsWidgets);
     });
   });
 }
