@@ -98,21 +98,14 @@ void main() {
       expect(find.text('Despesa / sangria'), findsOneWidget);
     });
 
-    testWidgets('conferir gaveta segue disponível como opção', (tester) async {
+    testWidgets('NÃO oferece conferência de gaveta', (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
 
-      // Não é pré-requisito, mas quem quer conferência de gaveta pode abrir.
-      expect(find.text('Conferir gaveta'), findsOneWidget);
-    });
-
-    testWidgets('explica ao usuário o que mudou', (tester) async {
-      await _abrirTela(tester, exigeAbertura: false);
-
-      expect(
-        find.textContaining('registrados direto'),
-        findsOneWidget,
-        reason: 'a ausência do ritual precisa ser explicada, não silenciosa',
-      );
+      // A config decide, sem meio-caminho: desligada = livro de lançamentos,
+      // sem nada de contar gaveta. Quem quer conferência liga a exigência.
+      expect(find.text('Conferir gaveta'), findsNothing);
+      expect(find.text('Encerrar conferência'), findsNothing);
+      expect(find.text('Fechar caixa'), findsNothing);
     });
 
     testWidgets('mostra os lançamentos do dia', (tester) async {
@@ -158,9 +151,9 @@ void main() {
 
       expect(find.text('Fechar caixa'), findsNothing);
       expect(find.textContaining('Aberto desde'), findsNothing);
-      // Segue no modo livre, e oferece encerrar a conferência.
+      // Segue no modo livre, sem cerimônia de nenhum tipo.
       expect(find.text('Caixa de hoje'), findsOneWidget);
-      expect(find.text('Encerrar conferência'), findsOneWidget);
+      expect(find.text('Encerrar conferência'), findsNothing);
     });
 
     testWidgets('com exigência LIGADA o fluxo de sessão continua', (tester) async {

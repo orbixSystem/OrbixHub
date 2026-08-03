@@ -293,7 +293,6 @@ class _FreeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,31 +304,8 @@ class _FreeBody extends ConsumerWidget {
           children: [
             Text('Caixa de hoje',
                 style: Theme.of(context).textTheme.titleLarge),
-            if (canManage)
-              // Quem já está conferindo precisa saber como encerrar; quem não
-              // está, como começar. Nunca os dois ao mesmo tempo.
-              NeuButton(
-                label: state.isOpen
-                    ? 'Encerrar conferência'
-                    : 'Conferir gaveta',
-                kind: NeuButtonKind.secondary,
-                icon: state.isOpen
-                    ? Icons.lock_outline
-                    : Icons.lock_open_outlined,
-                onPressed: () => state.isOpen
-                    ? showCloseSessionDialog(context, ref)
-                    : showOpenSessionDialog(context, ref),
-              ),
+
           ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          state.isOpen
-              ? 'Conferência em andamento — ao encerrar, o sistema compara o '
-                  'esperado com o que você contou na gaveta.'
-              : 'Os lançamentos são registrados direto. Use "Conferir gaveta" '
-                  'se quiser conferir o dinheiro no fim do dia.',
-          style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
         ),
         const SizedBox(height: 16),
         if (canWrite || canSale || canManage)
