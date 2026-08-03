@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,14 +9,22 @@ import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
+import '../../receivables/presentation/receivables_tab.dart';
+import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import 'cashier_dialogs.dart';
+import 'entry_edit_dialogs.dart';
 import 'cashier_providers.dart';
+import '../domain/cashier_timeline.dart';
+import 'cashier_timeline_list.dart';
 
-/// Módulo Caixa: duas abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
-/// fechar) e "Histórico" (movimentos por período — o relatório do caixa). Corpo
-/// apenas — a moldura é do shell. UI só fala com o repository (via controller).
-/// Visual 100% no design system neumórfico (`core/ui`), responsivo.
+/// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
+/// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
+/// (movimentos por período — o relatório do caixa). Quais aparecem depende do
+/// papel: Fiado exige `cashier.read`, Histórico é de gestão.
+///
+/// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
+/// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
 class CashierScreen extends ConsumerStatefulWidget {
   const CashierScreen({super.key});
 
@@ -23,7 +33,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa do dia · 1 = Histórico
+  int _tab = 0; // 0 = Caixa do dia · 1 = Fiado · 2 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
@@ -43,11 +53,25 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     return me != null && me.hasModule('sale') && me.hasPermission('sale.write');
   }
 
+  /// Ler a carteira de fiado exige as mesmas permissões do extrato
+  /// (`cashier.read`) — quem opera o caixa precisa saber quem deve.
+  bool _canReadReceivables() {
+    final s = ref.read(sessionControllerProvider);
+    return s.meOrNull?.hasPermission('cashier.read') ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final showHistory = canManage && _tab == 1;
+    final canFiado = _canReadReceivables();
+    // Abas montadas conforme o papel: o atendente vê Caixa do dia (+ Fiado, que
+    // precisa para cobrar); o Histórico é relatório de gestão.
+    final segments = <int, String>{
+      0: 'Caixa do dia',
+      if (canFiado) 1: 'Fiado',
+      if (canManage) 2: 'Histórico',
+    };
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
@@ -62,20 +86,30 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   'aparelho e só serão efetivados no sistema quando a conexão '
                   'voltar.',
             ),
-            // A aba "Histórico" (relatório do caixa) é só para gestão (dono/gerente).
-            if (canManage) ...[
+            // Com uma única aba disponível não há o que segmentar.
+            if (segments.length > 1) ...[
               NeuSegmented<int>(
-                segments: const {0: 'Caixa do dia', 1: 'Histórico'},
-                selected: _tab,
+                segments: segments,
+                selected: segments.containsKey(_tab) ? _tab : 0,
                 onChanged: (v) => setState(() => _tab = v),
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: showHistory ? const _CashierHistory() : _dayBody()),
+            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
           ],
         ),
       ),
     );
+  }
+
+  /// Corpo da aba selecionada. Cai no Caixa do dia quando a aba guardada não
+  /// está mais disponível (troca de papel/empresa sem recriar a tela).
+  Widget _body({required bool canFiado, required bool canManage}) {
+    if (_tab == 1 && canFiado) {
+      return ReceivablesTab(canWrite: _canWrite());
+    }
+    if (_tab == 2 && canManage) return const _CashierHistory();
+    return _dayBody();
   }
 
   Widget _dayBody() {
@@ -86,14 +120,37 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         message: '$e',
         onRetry: () => ref.invalidate(cashierControllerProvider),
       ),
-      data: (state) => state.isOpen
-          ? _OpenBody(
-              state: state,
-              canWrite: _canWrite(),
-              canManage: _canManage(),
-              canSale: _canSale())
-          : _ClosedBody(
-              canManage: _canManage(), canSale: _canSale()),
+      data: (state) {
+        // Ordem importa: com a exigência DESLIGADA a sessão é detalhe interno
+        // (o backend cria uma implícita no primeiro lançamento). Mostrar
+        // "Aberto desde HH:MM" e "Fechar caixa" nesse caso reintroduz a
+        // cerimônia que a config justamente dispensou.
+        if (state.isOpen && state.config.requireOpenSession) {
+          return _OpenBody(
+            state: state,
+            canWrite: _canWrite(),
+            canManage: _canManage(),
+            canSale: _canSale(),
+          );
+        }
+        // A cerimônia de abrir/fechar existe para CONFERIR GAVETA de dinheiro.
+        // Quem recebe só por Pix/cartão (ou opera sozinho) não tem gaveta para
+        // conferir, e para esse caso o backend já aceita lançar sem sessão
+        // (`requireOpenSession=false` cria uma sessão implícita). A tela ignorava
+        // essa config e bloqueava com "Caixa fechado" — agora respeita.
+        if (!state.config.requireOpenSession) {
+          return _FreeBody(
+            state: state,
+            canWrite: _canWrite(),
+            canManage: _canManage(),
+            canSale: _canSale(),
+          );
+        }
+        return _ClosedBody(
+          canManage: _canManage(),
+          canSale: _canSale(),
+        );
+      },
     );
   }
 }
@@ -143,10 +200,10 @@ class _Metric extends StatelessWidget {
 
 /// Glyph de direção do movimento: círculo tintado com seta (entrada/saída).
 class _DirectionGlyph extends StatelessWidget {
-  const _DirectionGlyph({required this.color, required this.isIn, this.size = 40});
+  const _DirectionGlyph({required this.color, required this.isIn});
+  static const size = 40.0;
   final Color color;
   final bool isIn;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +265,96 @@ class _ClosedBody extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Caixa SEM cerimônia de abertura (`requireOpenSession = false`).
+///
+/// A sessão de caixa existe para conferir GAVETA de dinheiro: contar no fim do
+/// dia e achar falta/sobra. Quem recebe só por Pix/cartão, ou opera sozinho, não
+/// tem gaveta para conferir — para essa oficina, exigir "abrir o caixa" antes de
+/// registrar qualquer coisa é atrito puro.
+///
+/// Aqui o caixa é um livro de lançamentos do dia: registra e pronto. A abertura
+/// segue disponível como AÇÃO (quem quiser conferência de gaveta abre quando
+/// quiser), só não é mais pré-requisito.
+class _FreeBody extends ConsumerWidget {
+  const _FreeBody({
+    required this.state,
+    required this.canWrite,
+    required this.canManage,
+    required this.canSale,
+  });
+
+  final CashierState state;
+  final bool canWrite;
+  final bool canManage;
+  final bool canSale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            Text('Caixa de hoje',
+                style: Theme.of(context).textTheme.titleLarge),
+
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (canWrite || canSale || canManage)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (canSale)
+                RequiresConnection(
+                  reason: 'a venda avulsa é registrada no servidor',
+                  child: NeuButton(
+                    label: 'Venda avulsa',
+                    icon: Icons.shopping_cart_checkout_outlined,
+                    onPressed: () => _startSale(context, ref),
+                  ),
+                ),
+              if (canWrite)
+                NeuButton(
+                  label: 'Receber OS',
+                  icon: Icons.payments_outlined,
+                  onPressed: () => showEntryDialog(context, ref, state.config,
+                      presetCategory: 'os_payment'),
+                ),
+              // Sem controle de gaveta (o padrão), "suprimento" não tem o que
+              // conferir — aporte só significa algo contra um valor de abertura.
+              // A categoria continua no diálogo para quem precisar dela.
+              if (canManage)
+                NeuButton(
+                  label: 'Despesa / sangria',
+                  kind: NeuButtonKind.secondary,
+                  icon: Icons.remove,
+                  onPressed: () => showEntryDialog(context, ref, state.config,
+                      presetCategory: 'despesa'),
+                ),
+            ],
+          ),
+        const SizedBox(height: 24),
+        Text('Lançamentos de hoje',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        Expanded(
+          child: _ExtractList(
+            entries: state.entries,
+            canManage: canManage,
+            salesById: state.salesById,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -330,7 +477,13 @@ class _OpenBody extends ConsumerWidget {
         const SizedBox(height: 24),
         Text('Extrato', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
-        Expanded(child: _ExtractList(entries: state.entries, canManage: canManage)),
+        Expanded(
+          child: _ExtractList(
+            entries: state.entries,
+            canManage: canManage,
+            salesById: state.salesById,
+          ),
+        ),
       ],
     );
   }
@@ -399,9 +552,14 @@ class _MethodPill extends StatelessWidget {
 }
 
 class _ExtractList extends ConsumerWidget {
-  const _ExtractList({required this.entries, required this.canManage});
+  const _ExtractList({
+    required this.entries,
+    required this.canManage,
+    this.salesById = const {},
+  });
   final List<CashEntry> entries;
   final bool canManage; // estorno = gestão (dono/gerente)
+  final Map<String, Sale> salesById;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -417,15 +575,22 @@ class _ExtractList extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 8),
       itemCount: entries.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _EntryTile(entry: entries[i], canManage: canManage),
+      itemBuilder: (_, i) => _EntryTile(
+        entry: entries[i],
+        canManage: canManage,
+        sale: entries[i].saleId == null ? null : salesById[entries[i].saleId],
+      ),
     );
   }
 }
 
 class _EntryTile extends ConsumerWidget {
-  const _EntryTile({required this.entry, required this.canManage});
+  const _EntryTile({required this.entry, required this.canManage, this.sale});
   final CashEntry entry;
   final bool canManage;
+
+  /// Venda de origem, quando houver — é o que permite dizer PARA QUEM.
+  final Sale? sale;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -445,9 +610,13 @@ class _EntryTile extends ConsumerWidget {
     final pending = (ref.watch(pendingIdsProvider('cash_entry')).value ??
             const <String>{})
         .contains(entry.id);
+    // Cliente antes da descrição (que já traz o número): "para quem" era a
+    // informação que faltava na linha do extrato.
+    final cliente = sale?.customerName;
     final subtitleParts = <String>[
       if (hora.isNotEmpty) hora,
       methodLabel(entry.method),
+      if (cliente != null && cliente.isNotEmpty) cliente,
       if (hasDesc)
         entry.description!
       else if (entry.saleKind == 'os')
@@ -487,14 +656,11 @@ class _EntryTile extends ConsumerWidget {
               decoration: reversed ? TextDecoration.lineThrough : null,
             ),
           ),
+          // Editar / Corrigir / Estornar num menu só: três ícones na linha não
+          // caberiam no celular, e as ações são raras (não merecem o espaço).
           if (canManage && !reversed) ...[
-            const SizedBox(width: 10),
-            NeuIconButton(
-              icon: Icons.undo_rounded,
-              tooltip: 'Estornar',
-              size: 38,
-              onPressed: () => _confirmReverse(context, ref),
-            ),
+            const SizedBox(width: 6),
+            EntryActionsMenu(entry: entry),
           ],
           if (reversed) ...[
             const SizedBox(width: 8),
@@ -509,53 +675,6 @@ class _EntryTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmReverse(BuildContext context, WidgetRef ref) async {
-    final reasonCtrl = TextEditingController();
-    final ok = await showNeuDialog<bool>(
-      context,
-      dialog: NeuDialog(
-        title: 'Estornar lançamento',
-        maxWidth: 420,
-        actions: [
-          Builder(
-            builder: (ctx) => NeuButton(
-              label: 'Cancelar',
-              kind: NeuButtonKind.secondary,
-              onPressed: () => Navigator.of(ctx).pop(false),
-            ),
-          ),
-          Builder(
-            builder: (ctx) => NeuButton(
-              label: 'Estornar',
-              kind: NeuButtonKind.danger,
-              onPressed: () => Navigator.of(ctx).pop(true),
-            ),
-          ),
-        ],
-        child: NeuTextField(
-          label: 'Motivo do estorno',
-          controller: reasonCtrl,
-          hint: 'Ex.: valor lançado errado',
-          maxLength: 500,
-        ),
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    final reason = reasonCtrl.text.trim();
-    if (reason.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe um motivo (mín. 3 caracteres).')),
-      );
-      return;
-    }
-    try {
-      await ref.read(cashierControllerProvider.notifier).reverse(entry.id, reason);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-  }
 }
 
 class _ErrorBox extends StatelessWidget {
@@ -600,6 +719,8 @@ class _CashierHistory extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final preset = ref.watch(cashierHistoryPresetProvider);
+    final filtro = ref.watch(cashierHistoryFilterProvider);
+    final busca = ref.watch(cashierHistoryBuscaProvider);
     final async = ref.watch(cashierHistoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,87 +776,165 @@ class _CashierHistory extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (s.byMethod.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text('Por forma (entrou · saiu · saldo)',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 10),
-                    NeuCard(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      radius: NeuTokens.rField,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < s.byMethod.length; i++) ...[
-                            if (i > 0)
-                              Container(height: 1, color: neu.line),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                        methodLabel(s.byMethod[i].method),
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: neu.ink)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        '+ ${formatMoney(s.byMethod[i].inAmount)}',
-                                        textAlign: TextAlign.right,
-                                        style:
-                                            TextStyle(color: neu.success)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        '− ${formatMoney(s.byMethod[i].outAmount)}',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(color: neu.danger)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                        formatMoney(s.byMethod[i].inAmount -
-                                            s.byMethod[i].outAmount),
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: neu.ink)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 24),
-                  Text('Movimentos',
+                  Text('O que aconteceu',
                       style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 10),
-                  if (data.entries.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: NeuEmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Nenhum movimento no período',
-                        message:
-                            'Troque o período acima para ver outros dias do caixa.',
-                      ),
-                    )
-                  else
-                    for (final e in data.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _HistoryEntryTile(entry: e),
-                      ),
+                  _HistoricoFiltros(
+                    filtro: filtro,
+                    busca: busca,
+                    onFiltro: (f) =>
+                        ref.read(cashierHistoryFilterProvider.notifier).set(f),
+                    onBusca: (b) =>
+                        ref.read(cashierHistoryBuscaProvider.notifier).set(b),
+                  ),
+                  const SizedBox(height: 12),
+                  // Uma lista só, cada linha detalhada. Antes havia duas lentes
+                  // (Movimentos | Vendas) e o usuário tinha de escolher — mas o
+                  // dia é um só, e alternar escondia metade do que aconteceu.
+                  Builder(
+                    builder: (_) {
+                      final todos = buildCashierTimeline(
+                        entries: data.entries,
+                        sales: data.sales,
+                      );
+                      // Servidor já recortou; aqui fica só a coerência entre as
+                      // duas fontes (venda em fiado não é entrada de caixa).
+                      final visiveis = filterCashierTimeline(
+                        todos,
+                        filtro: filtro,
+                        busca: busca,
+                      );
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (todos.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                visiveis.length == todos.length
+                                    ? '${todos.length} '
+                                        '${todos.length == 1 ? "registro" : "registros"}'
+                                    : '${visiveis.length} de ${todos.length}',
+                                style: TextStyle(
+                                    color: neu.inkFaint, fontSize: 11.5),
+                              ),
+                            ),
+                          // O Histórico é aba de gestão (só aparece com
+                          // `cashier.manage`), então corrigir dali é permitido.
+                          CashierTimelineList(
+                            events: visiveis,
+                            canManage: true,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
               );
             },
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Filtros do histórico: tipo + busca.
+///
+/// Ambos são aplicados no SERVIDOR (e no espelho SQLite quando offline), não na
+/// página já carregada — filtrar em memória quebraria a paginação e daria
+/// resultado diferente conforme a conexão.
+class _HistoricoFiltros extends StatefulWidget {
+  const _HistoricoFiltros({
+    required this.filtro,
+    required this.busca,
+    required this.onFiltro,
+    required this.onBusca,
+  });
+
+  final CashierFilter filtro;
+  final String busca;
+  final ValueChanged<CashierFilter> onFiltro;
+  final ValueChanged<String> onBusca;
+
+  @override
+  State<_HistoricoFiltros> createState() => _HistoricoFiltrosState();
+}
+
+class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
+  late final _ctrl = TextEditingController(text: widget.busca);
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  /// Espera o usuário parar de digitar antes de ir ao servidor — sem isso cada
+  /// letra dispararia uma consulta.
+  void _buscar(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      () => widget.onBusca(v),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        NeuTextField(
+          label: 'Buscar',
+          controller: _ctrl,
+          hint: 'Cliente, OS, venda ou descrição',
+          prefixIcon: Icons.search_rounded,
+          onChanged: _buscar,
+          suffix: _ctrl.text.isEmpty
+              ? null
+              : NeuIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: 'Limpar busca',
+                  size: 34,
+                  onPressed: () {
+                    _ctrl.clear();
+                    _debounce?.cancel();
+                    widget.onBusca('');
+                    setState(() {});
+                  },
+                ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final f in CashierFilter.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _ChoicePill(
+                    label: cashierFilterLabel(f),
+                    selected: widget.filtro == f,
+                    onTap: () => widget.onFiltro(f),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        if (widget.filtro == CashierFilter.entradas)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Venda em fiado não conta como entrada — nada entrou no caixa.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 11),
+            ),
+          ),
       ],
     );
   }
@@ -781,52 +980,3 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-/// Linha do extrato histórico (read-only): data + categoria + método/origem + valor.
-class _HistoryEntryTile extends StatelessWidget {
-  const _HistoryEntryTile({required this.entry});
-  final CashEntry entry;
-
-  String _fmtDate(String? iso) {
-    if (iso == null) return '';
-    final d = DateTime.tryParse(iso)?.toLocal();
-    if (d == null) return '';
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final isIn = entry.direction == 'in';
-    final reversed = entry.reversedAt != null;
-    final color =
-        reversed ? neu.inkMuted : (isIn ? neu.success : neu.danger);
-    final hasDesc = entry.description != null && entry.description!.isNotEmpty;
-    final sub = <String>[
-      _fmtDate(entry.createdAt),
-      methodLabel(entry.method),
-      if (hasDesc) entry.description!,
-    ].where((s) => s.isNotEmpty).join(' · ');
-    return NeuListTile(
-      dense: true,
-      leading: _DirectionGlyph(color: color, isIn: isIn, size: 36),
-      title: Text(
-        categoryLabel(entry.category),
-        style: TextStyle(
-          decoration: reversed ? TextDecoration.lineThrough : null,
-          color: reversed ? neu.inkMuted : neu.ink,
-        ),
-      ),
-      subtitle: Text(sub),
-      trailing: Text(
-        '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-          color: color,
-          decoration: reversed ? TextDecoration.lineThrough : null,
-        ),
-      ),
-    );
-  }
-}

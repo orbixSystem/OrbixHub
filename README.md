@@ -42,14 +42,24 @@ npm install            # run at repo root (npm workspaces)
 ### 3. Apply the baseline schema (roles + tables + RLS + functions + seeds)
 
 The single source of truth is `back/sql/auth-multitenant-schema.sql` (also copied to the
-Prisma baseline migration). Apply it as the table owner via the setup script — it is
-idempotent (creates `app_user` / `app_migrator`, all tables, RLS policies, functions, seeds):
+Prisma baseline migration). Apply it as the table owner via the setup script — it creates
+`app_user` / `app_migrator`, all tables, RLS policies, functions and seeds:
 
 ```bash
 cd back
 ADMIN_DATABASE_URL=postgresql://app_owner:owner_pw@localhost:55432/orbixhub \
   npx ts-node scripts/ci-db-setup.ts
 ```
+
+**Run this again whenever you pull a new module.** The script is idempotent and safe on a
+database that already has data: every DDL is guarded (`IF NOT EXISTS`, `OR REPLACE`,
+`DROP ... IF EXISTS`) and the whole file runs in one implicit transaction, so a failure
+applies nothing.
+
+Re-running is how a database created earlier picks up the *backfills* of newer modules —
+each module seeds `tenant_module` for existing tenants. Skipping this is why a module can
+silently fail to appear in the menu: the navigation is gated by `me.modules`, so a tenant
+without the `tenant_module` row simply doesn't see the screen, with no error anywhere.
 
 Then generate the Prisma client:
 

@@ -75,3 +75,39 @@ String formatMoney(Object? v) {
   }
   return '${negative ? '-' : ''}R\$ $buf,${parts[1]}';
 }
+
+/// Valor para PREENCHER um campo de entrada: só dígitos e vírgula, sem "R$" nem
+/// separador de milhar — o que o `DecimalInputFormatter` aceita e o parse do
+/// caixa entende (`1234,56`).
+String formatAmountForInput(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+
+/// Conferência do fechamento: diferença entre o contado e o esperado.
+/// Positiva = sobra, negativa = falta, zero = fechou certinho.
+double cashDifference({required double counted, required double expected}) =>
+    double.parse((counted - expected).toStringAsFixed(2));
+
+/// Rótulo da conferência do caixa — a mesma frase usada durante a digitação e no
+/// resultado do fechamento, para não haver duas linguagens para o mesmo fato.
+String cashDifferenceLabel(double difference) {
+  if (difference == 0) return 'Caixa fechado certinho (sem diferença).';
+  return difference > 0
+      ? 'Caixa fechado com SOBRA de ${formatMoney(difference)}.'
+      : 'Caixa fechado com FALTA de ${formatMoney(difference.abs())}.';
+}
+
+/// "03/08 14:32" (hora local), ou null quando não há data — a linha simplesmente
+/// omite em vez de mostrar um placeholder.
+String? fmtDataHora(String? iso) {
+  if (iso == null) return null;
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return null;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Quantidade sem casas decimais inúteis ("4" em vez de "4,000").
+String fmtQuantidade(String raw) {
+  final v = double.tryParse(raw.replaceAll(',', '.'));
+  if (v == null) return raw;
+  return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+}

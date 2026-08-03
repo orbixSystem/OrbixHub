@@ -404,6 +404,29 @@ class MemberOption {
   final String name;
 }
 
+/// Responsável SUGERIDO ao criar uma OS: o usuário logado, quando ele é membro
+/// elegível da equipe.
+///
+/// O campo é obrigatório e nascia vazio, obrigando a escolher sem nenhuma pista
+/// — quem abre a OS quase sempre é quem responde por ela. `assigned_to` guarda o
+/// userId (não o membershipId), então o id da sessão casa direto com
+/// [MemberOption.id].
+///
+/// Função pura para ser testável sem dirigir o wizard de criação:
+/// - preserva [jaEscolhido] (a lista de membros carrega de forma assíncrona e
+///   pode chegar depois de o usuário já ter escolhido);
+/// - devolve `null` quando não há sessão ou quando o logado não está na equipe
+///   (ex.: dono que não é mecânico) — nunca inventa um responsável.
+String? responsavelSugerido({
+  required String? meuUserId,
+  required List<MemberOption> membros,
+  String? jaEscolhido,
+}) {
+  if (jaEscolhido != null) return jaEscolhido;
+  if (meuUserId == null || meuUserId.isEmpty) return null;
+  return membros.any((m) => m.id == meuUserId) ? meuUserId : null;
+}
+
 /// Opção de item do estoque para o picker (produto/serviço a adicionar à OS).
 @freezed
 abstract class InventoryOption with _$InventoryOption {

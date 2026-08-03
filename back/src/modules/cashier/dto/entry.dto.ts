@@ -38,3 +38,39 @@ export class CreateEntryDto {
 export class ReverseEntryDto {
   @IsString() @MinLength(3) @MaxLength(500) reason!: string;
 }
+
+/**
+ * Edição de campos **não-financeiros** de um lançamento: o que ele diz, não
+ * quanto ele vale. Corrigir R$ 50 → R$ 45 NÃO passa aqui — passa por
+ * [CorrectEntryDto], que estorna e relança, preservando a trilha.
+ *
+ * `category` é aceita só quando não muda a DIREÇÃO do lançamento (despesa ⇄
+ * sangria, ambas saída). Trocar despesa por suprimento inverteria entrada/saída
+ * e alteraria o saldo do caixa sem nenhum registro — isso é mudança financeira.
+ */
+export class UpdateEntryDto {
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @IsOptional()
+  @IsIn(ENTRY_CATEGORIES as unknown as string[])
+  category?: EntryCategory;
+}
+
+/**
+ * Correção de um lançamento errado: estorna o original (com motivo) e cria um
+ * novo com os valores certos, numa única operação. É o "editar" do dinheiro —
+ * o livro caixa não apaga um movimento, ele registra a correção.
+ *
+ * Campos ausentes herdam do lançamento original (corrigir só o valor é o caso
+ * comum). O motivo é obrigatório: é ele que explica o estorno no histórico.
+ */
+export class CorrectEntryDto {
+  @IsString() @MinLength(3) @MaxLength(500) reason!: string;
+  @IsOptional() @IsNumber() @Min(0.01) amount?: number;
+  @IsOptional() @IsIn(PAYMENT_METHODS as unknown as string[]) method?: PaymentMethod;
+  @IsOptional()
+  @IsIn(ENTRY_CATEGORIES as unknown as string[])
+  category?: EntryCategory;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  /** Uuid do lançamento NOVO, gerado no cliente (replay offline). */
+  @IsOptional() @IsUUID() newId?: string;
+}

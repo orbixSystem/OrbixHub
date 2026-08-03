@@ -180,7 +180,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (kDevTools)
             GoRoute(
               path: '/design',
-              builder: (_, _) => const DesignSystemScreen(),
+              pageBuilder: (_, s) => neuPage(s, const DesignSystemScreen()),
             ),
           GoRoute(
             path: '/billing',
@@ -199,11 +199,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Agenda — gated por os.read (verificação na nav_items + backend).
           GoRoute(
             path: '/agenda',
-            builder: (_, _) => const AgendaScreen(),
+            pageBuilder: (_, s) => neuPage(s, const AgendaScreen()),
           ),
           GoRoute(
             path: '/agenda/horarios',
-            builder: (_, _) => const BusinessHoursScreen(),
+            pageBuilder: (_, s) => neuPage(s, const BusinessHoursScreen()),
           ),
           GoRoute(
             path: '/mensagens',
@@ -288,7 +288,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Caixa — literal antes do placeholder genérico; gated sob /m/cashier.
           GoRoute(
             path: '/m/cashier',
-            builder: (_, _) => const CashierScreen(),
+            pageBuilder: (_, s) => neuPage(s, const CashierScreen()),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.

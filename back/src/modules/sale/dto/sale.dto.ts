@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -33,7 +34,15 @@ export class CreateSaleItemDto {
  * Pelo menos 1 item. Pagamento e nota são passos posteriores (caixa/fiscal).
  */
 export class CreateSaleDto {
+  /**
+   * Uuid gerado no cliente, preservado no replay (venda criada offline). Mesmo
+   * padrão do `CreateOrderDto`: sem ele o aparelho ficaria com uma venda local
+   * que nunca casa com a do servidor.
+   */
+  @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsUUID() customerId?: string;
+  /** Desconto em valor sobre o total da venda (≥ 0). O service clampa ao bruto. */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -46,10 +55,33 @@ export class CancelSaleDto {
   @IsOptional() @IsString() @MinLength(3) @MaxLength(500) reason?: string;
 }
 
-/** Filtros + paginação da lista de vendas. */
+/**
+ * Edição do que a venda **não** tem de dinheiro: hoje, a quem ela pertence.
+ *
+ * Itens, quantidade e desconto NÃO passam por aqui — o dinheiro já entrou no
+ * caixa e a nota pode ter sido emitida; mudar o total por baixo desfaria a
+ * conciliação. Para isso existe cancelar-e-refazer.
+ *
+ * Trocar o cliente é a correção que aparece de verdade no balcão: vendeu fiado e
+ * esqueceu de identificar quem levou. Sem isto a dívida fica presa no balde "sem
+ * cliente" e ninguém consegue cobrar. `customerId: null` desvincula.
+ */
+export class UpdateSaleDto {
+  @IsOptional() @IsUUID() customerId?: string | null;
+}
+
+/**
+ * Filtros + paginação da lista de vendas. `from`/`to` recortam por
+ * `created_at` — sem eles não há como responder "o que vendi neste período",
+ * que é a pergunta do histórico de vendas. `q` busca por número da venda ou
+ * nome do cliente (o snapshot gravado na venda).
+ */
 export class ListSalesQueryDto {
   @IsOptional() @IsIn(['active', 'canceled']) status?: 'active' | 'canceled';
   @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsString() @MaxLength(120) q?: string;
+  @IsOptional() @IsDateString() from?: string;
+  @IsOptional() @IsDateString() to?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }

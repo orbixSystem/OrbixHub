@@ -227,7 +227,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
     }
     final row = await rowById(_entity, id);
     if (row == null) notFoundLocally('Produto');
-    await enqueue(_entity, 'update', {'id': id, ...draft.toJson()});
+    await enqueue(_entity, 'update', {'id': id, ...draft.toUpdateJson()});
     final merged = _rowFromDraft(row, draft);
     await putRow(_entity, merged);
     return InventoryItem.fromJson(merged);

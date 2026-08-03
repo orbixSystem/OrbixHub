@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { plainToInstance } from 'class-transformer';
 import {
   PULL_ROUTES,
   SYNC_OPS,
@@ -36,6 +37,13 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     'cash_session.close': 'cashier.manage',
     'cash_entry.create': 'cashier.write',
     'cash_entry.reverse': 'cashier.manage',
+    // Editar/corrigir lançamento é gestão, como o estorno: reescrever ou
+    // relançar um movimento de dinheiro é tão sensível quanto estorná-lo.
+    'cash_entry.update': 'cashier.manage',
+    'cash_entry.correct': 'cashier.manage',
+    'sale.create': 'sale.write',
+    'sale.cancel': 'sale.write',
+    'sale.update': 'sale.write',
   };
 
   it('expõe exatamente a whitelist de ops esperada (nada a mais, nada a menos)', () => {
@@ -65,6 +73,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(withLww).toEqual([
       'customer.update',
       'inventory_item.update',
+      'sale.update',
       'service_order.update',
       'subject.update',
     ]);
@@ -80,6 +89,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       'cash_session.open',
       'customer.create',
       'inventory_item.create',
+      'sale.create',
       'service_order.create',
       'subject.create',
     ]);
@@ -87,6 +97,29 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
 
   it('addItem endereça a OS-pai por `orderId` (NUNCA `id`: CreateItemDto declara `id`)', () => {
     expect(SYNC_OPS['service_order.addItem'].structuralKeys).toEqual(['orderId']);
+  });
+
+  it('venda: create preserva o uuid pelo DTO (sem chave estrutural) e cancel endereça por id', () => {
+    // `CreateSaleDto` DECLARA `id` (uuid gerado offline). Declarar `id` também
+    // como chave estrutural seria a colisão de `addItem`: o roteamento apagaria
+    // o campo do DTO. Aqui o id chega pelo próprio payload validado.
+    expect(SYNC_OPS['sale.create'].structuralKeys).toBeUndefined();
+    expect(SYNC_OPS['sale.create'].create).toBe(true);
+    expect(SYNC_OPS['sale.cancel'].structuralKeys).toEqual(['id']);
+    // Cancelar não é LWW: a reentrância é regra do service (não cancela 2×).
+    expect(SYNC_OPS['sale.cancel'].lww).toBeUndefined();
+  });
+
+  it('correção de lançamento: `id` roteia o original, `newId` vai no DTO', () => {
+    // O uuid do lançamento NOVO não pode ser chave estrutural: `id` já é (aponta
+    // o original), e duas chaves de id no mesmo payload se confundiriam. Por isso
+    // o DTO declara `newId`.
+    expect(SYNC_OPS['cash_entry.correct'].structuralKeys).toEqual(['id']);
+    const declarados = Object.keys(
+      plainToInstance(SYNC_OPS['cash_entry.correct'].dto, {}),
+    );
+    expect(declarados).toContain('newId');
+    expect(declarados).not.toContain('id');
   });
 
   it('nenhuma chave estrutural colide com um campo declarado do DTO da op', () => {
@@ -102,10 +135,10 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(SYNC_OPS['subject.create'].structuralKeys).toEqual(['customerId']);
   });
 
-  it('PULL_ROUTES cobre as 13 entidades dos 5 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
+  it('PULL_ROUTES cobre as 15 entidades dos 6 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
     // Permissões dos GETs reais: customers → customer.read; subjects →
     // subject.read; inventory → inventory.read; os → os.read; cashier →
-    // cashier.read; mensagens (conversation/message) → os.read. O pull nunca
+    // cashier.read; sale → sale.read; mensagens (conversation/message) → os.read. O pull nunca
     // pode ser mais permissivo que o online (ex.: mechanic sem cashier.read não
     // pode puxar o extrato do caixa).
     const expected: Record<
@@ -123,6 +156,8 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
       cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
       cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+      sale: { service: 'sale', module: 'sale', permission: 'sale.read' },
+      sale_item: { service: 'sale', module: 'sale', permission: 'sale.read' },
       conversation: { service: 'messages', module: 'os', permission: 'os.read' },
       message: { service: 'messages', module: 'os', permission: 'os.read' },
     };
@@ -137,6 +172,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       service_order: 'os',
       cash_session: 'cashier',
       cash_entry: 'cashier',
+      sale: 'sale',
     };
     for (const [key, def] of Object.entries(SYNC_OPS)) {
       expect(def.module).toBe(moduleOf[key.split('.')[0]]);

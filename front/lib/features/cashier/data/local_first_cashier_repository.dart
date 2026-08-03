@@ -313,6 +313,22 @@ class LocalFirstCashierRepository extends LocalFirstBase
     );
   }
 
+  /// Último fechamento DESTE ponto de caixa. Online delega (o backend filtra por
+  /// `deviceId`+`status`); offline lê o espelho local, que `listSessions` já
+  /// mantém filtrado por device.
+  @override
+  Future<double?> lastClosingAmount() async {
+    if (isOnline()) return inner.lastClosingAmount();
+    final device = await deviceId();
+    final fechadas = (await rows(_sessions))
+        .where((r) => r['device_id'] == device && r['status'] == 'closed')
+        .toList()
+      ..sort((a, b) => _openedAt(b).compareTo(_openedAt(a)));
+    if (fechadas.isEmpty) return null;
+    final contado = fechadas.first['closing_amount_counted'];
+    return contado == null ? null : moneyToDouble(contado);
+  }
+
   // ========================== lançamentos ===============================
 
   @override
@@ -376,8 +392,137 @@ class LocalFirstCashierRepository extends LocalFirstBase
   }
 
   @override
+  Future<CashEntry> updateEntry(
+    String id, {
+    String? description,
+    String? category,
+  }) async {
+    if (!await useLocal(_entries, id)) {
+      final entry =
+          await inner.updateEntry(id, description: description, category: category);
+      await putRow(_entries, entry.toJson());
+      return entry;
+    }
+    final row = await rowById(_entries, id);
+    if (row == null) notFoundLocally('Lançamento');
+    if (row['reversed_at'] != null) {
+      // Mesma regra (e mesmo 409) do servidor: estornado é histórico fechado.
+      throw const AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Lançamento estornado não pode ser editado.',
+      );
+    }
+    // Trocar a direção é mudança financeira: recusa aqui, como o servidor, em
+    // vez de enfileirar algo que o replay vai rejeitar depois.
+    if (category != null &&
+        _direction(category) != _direction(row['category'] as String)) {
+      throw const AppException(
+        statusCode: 400,
+        error: 'BadRequest',
+        message: 'Esta troca de categoria inverte entrada/saída. Use a '
+            'correção do lançamento.',
+      );
+    }
+    await enqueue(_entries, 'update', {
+      'id': id,
+      'description': ?description,
+      'category': ?category,
+    });
+    final editado = {
+      ...row,
+      'description': ?description,
+      'category': ?category,
+      'updated_at': nowIso(),
+    };
+    await putRow(_entries, editado);
+    return CashEntry.fromJson(editado);
+  }
+
+  @override
+  Future<CashEntry> correctEntry(
+    String id, {
+    required String reason,
+    double? amount,
+    String? method,
+    String? category,
+    String? description,
+  }) async {
+    if (!await useLocal(_entries, id)) {
+      final novo = await inner.correctEntry(
+        id,
+        reason: reason,
+        amount: amount,
+        method: method,
+        category: category,
+        description: description,
+      );
+      await putRow(_entries, novo.toJson());
+      // O servidor estornou o original nesta mesma chamada. Refletir isso no
+      // espelho evita a lista mostrar o valor antigo como válido até o próximo
+      // pull (o que faria o total do dia parecer dobrado).
+      final antigo = await rowById(_entries, id);
+      if (antigo != null) {
+        await putRow(_entries, {
+          ...antigo,
+          'reversed_at': nowIso(),
+          'reversal_reason': reason,
+        });
+      }
+      return novo;
+    }
+
+    final row = await rowById(_entries, id);
+    if (row == null) notFoundLocally('Lançamento');
+    if (row['reversed_at'] != null) {
+      throw const AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Lançamento já estornado.',
+      );
+    }
+
+    // UMA op no outbox (`correct`), não duas: se fossem `reverse` + `create`
+    // separadas, uma falha entre elas deixaria o caixa com dinheiro duplicado
+    // ou estorno sem contrapartida. O servidor faz as duas pontas no replay.
+    final novoId = newId();
+    await enqueue(_entries, 'correct', {
+      'id': id,
+      'reason': reason,
+      'newId': novoId,
+      'amount': ?amount,
+      'method': ?method,
+      'category': ?category,
+      'description': ?description,
+    });
+
+    // Espelho otimista: o original estornado + o novo lançamento.
+    await putRow(_entries, {
+      ...row,
+      'reversed_at': nowIso(),
+      'reversal_reason': reason,
+    });
+    final novaCategoria = category ?? row['category'] as String;
+    final novo = {
+      ...row,
+      'id': novoId,
+      'direction': _direction(novaCategoria),
+      'amount': dec(amount ?? toNum(row['amount'])),
+      'method': method ?? row['method'],
+      'category': novaCategoria,
+      'description': description ?? row['description'],
+      'reversed_at': null,
+      'reversal_reason': null,
+      'created_at': nowIso(),
+    };
+    await putRow(_entries, novo);
+    return CashEntry.fromJson(novo);
+  }
+
+  @override
   Future<EntryPage> listEntries({
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -390,6 +535,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
     if (isOnline()) {
       final res = await inner.listEntries(
         sessionId: sessionId,
+        q: q,
         direction: direction,
         method: method,
         category: category,
@@ -408,6 +554,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
         keepExtra: (row) => _matchesEntryFilter(
           row,
           sessionId: sessionId,
+          q: q,
           direction: direction,
           method: method,
           category: category,
@@ -426,6 +573,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
         .where((row) => _matchesEntryFilter(
               row,
               sessionId: sessionId,
+              q: q,
               direction: direction,
               method: method,
               category: category,
@@ -453,6 +601,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
   bool _matchesEntryFilter(
     Map<String, dynamic> row, {
     String? sessionId,
+    String? q,
     String? direction,
     String? method,
     String? category,
@@ -462,6 +611,14 @@ class LocalFirstCashierRepository extends LocalFirstBase
     String? to,
   }) {
     if (sessionId != null && row['cash_session_id'] != sessionId) return false;
+    // Mesma semântica do backend (`description contains`, sem caixa): o filtro
+    // vale igual online e offline, senão a busca mudaria de resultado conforme a
+    // conexão.
+    if (q != null && q.trim().isNotEmpty) {
+      final termo = q.trim().toLowerCase();
+      final desc = (row['description'] ?? '').toString().toLowerCase();
+      if (!desc.contains(termo)) return false;
+    }
     if (direction != null && row['direction'] != direction) return false;
     if (method != null && row['method'] != method) return false;
     if (category != null && row['category'] != category) return false;

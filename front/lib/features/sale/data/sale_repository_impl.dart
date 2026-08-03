@@ -22,11 +22,21 @@ class SaleRepositoryImpl implements SaleRepository {
       (data as Map).cast<String, dynamic>();
 
   @override
-  Future<SalePage> listSales({String? status, String? customerId, int page = 1}) =>
+  Future<SalePage> listSales({
+    String? status,
+    String? customerId,
+    String? q,
+    String? from,
+    String? to,
+    int page = 1,
+  }) =>
       _guard(() async {
         final res = await _dio.get<Object?>('/sales', queryParameters: {
           'status': ?status,
           'customerId': ?customerId,
+          'q': ?q,
+          'from': ?from,
+          'to': ?to,
           'page': page,
         });
         return SalePage.fromJson(_asMap(res.data));
@@ -41,6 +51,15 @@ class SaleRepositoryImpl implements SaleRepository {
   @override
   Future<Sale> createSale(SaleDraft draft) => _guard(() async {
         final res = await _dio.post<Object?>('/sales', data: draft.toJson());
+        return Sale.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Sale> updateSale(String id, {String? customerId}) => _guard(() async {
+        // `customerId: null` DESVINCULA — por isso a chave vai sempre, sem o
+        // `?` de omissão condicional.
+        final res = await _dio.patch<Object?>('/sales/$id',
+            data: {'customerId': customerId});
         return Sale.fromJson(_asMap(res.data));
       });
 

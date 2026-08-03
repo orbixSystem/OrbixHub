@@ -74,7 +74,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       _guard(() async {
         final res = await _dio.patch<Object?>(
           '/inventory/items/$id',
-          data: draft.toJson(),
+          data: draft.toUpdateJson(),
         );
         return InventoryItem.fromJson(_asMap(res.data));
       });
