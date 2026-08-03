@@ -132,9 +132,22 @@ void main() {
       expect(find.text('Fechar caixa'), findsNothing);
     });
 
-    testWidgets('mostra os lançamentos do dia', (tester) async {
+    testWidgets('mostra os ÚLTIMOS lançamentos (confirmação, não extrato)',
+        (tester) async {
+      // O extrato completo é o Histórico. Aqui a lista serve para o operador
+      // confirmar que o que ele acabou de lançar entrou.
       await _abrirTela(tester, exigeAbertura: false);
-      expect(find.text('Lançamentos de hoje'), findsOneWidget);
+      expect(find.text('Últimos lançamentos'), findsOneWidget);
+      expect(find.text('Lançamentos de hoje'), findsNothing);
+    });
+
+    testWidgets('as ações vêm em grid, com alvo de toque grande',
+        (tester) async {
+      await _abrirTela(tester, exigeAbertura: false);
+      // As três ações do caixa (dono vê todas).
+      expect(find.text('Venda avulsa'), findsOneWidget);
+      expect(find.text('Receber OS'), findsOneWidget);
+      expect(find.text('Despesa / sangria'), findsOneWidget);
     });
   });
 
@@ -240,6 +253,48 @@ void main() {
       await _montar(tester, caixa);
 
       expect(caixa.pedidoPorSessao, isTrue);
+    });
+  });
+
+  group('lista curta do dia', () {
+    testWidgets('mostra no máximo 5 lançamentos e oferece "Ver tudo"',
+        (tester) async {
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+        lancamentos: [
+          for (var i = 0; i < 9; i++)
+            CashEntry(
+              id: 'e$i',
+              direction: 'out',
+              amount: '10.00',
+              method: 'pix',
+              category: 'despesa',
+              description: 'Despesa $i',
+              createdAt: '2026-08-03T12:00:00Z',
+            ),
+        ],
+      );
+      await _montar(tester, caixa);
+
+      // 9 lançamentos, 5 na tela: o resto está no Histórico.
+      expect(find.textContaining('Despesa 0'), findsOneWidget);
+      expect(find.textContaining('Despesa 4'), findsOneWidget);
+      expect(find.textContaining('Despesa 5'), findsNothing);
+      expect(find.text('Ver tudo'), findsOneWidget);
+    });
+
+    testWidgets('"Ver tudo" leva para a aba Histórico', (tester) async {
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+      );
+      await _montar(tester, caixa);
+
+      await tester.tap(find.text('Ver tudo'));
+      await tester.pumpAndSettle();
+      // O Histórico tem o seu próprio recorte por período.
+      expect(find.text('Últimos lançamentos'), findsNothing);
     });
   });
 

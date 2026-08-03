@@ -145,6 +145,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
             canWrite: _canWrite(),
             canManage: _canManage(),
             canSale: _canSale(),
+            onVerHistorico: () => setState(() => _tab = 2),
           );
         }
         return _ClosedBody(
@@ -286,6 +287,7 @@ class _FreeBody extends ConsumerWidget {
     required this.canWrite,
     required this.canManage,
     required this.canSale,
+    this.onVerHistorico,
   });
 
   final CashierState state;
@@ -293,70 +295,183 @@ class _FreeBody extends ConsumerWidget {
   final bool canManage;
   final bool canSale;
 
+  /// Atalho para a aba Histórico (só existe para quem tem gestão).
+  final VoidCallback? onVerHistorico;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 10,
-          children: [
-            Text('Caixa de hoje',
-                style: Theme.of(context).textTheme.titleLarge),
-
-          ],
-        ),
+        Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
+        // AÇÕES em grid: são o que se vem fazer nesta tela, então merecem o
+        // espaço e um alvo de toque grande — não uma fileira de botões finos.
         if (canWrite || canSale || canManage)
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
+          _AcoesGrid(
+            acoes: [
               if (canSale)
-                RequiresConnection(
-                  reason: 'a venda avulsa é registrada no servidor',
-                  child: NeuButton(
-                    label: 'Venda avulsa',
-                    icon: Icons.shopping_cart_checkout_outlined,
-                    onPressed: () => _startSale(context, ref),
-                  ),
+                _Acao(
+                  label: 'Venda avulsa',
+                  icon: Icons.shopping_cart_checkout_outlined,
+                  cor: neu.navy,
+                  exigeConexao: 'a venda avulsa é registrada no servidor',
+                  onTap: () => _startSale(context, ref),
                 ),
               if (canWrite)
-                NeuButton(
+                _Acao(
                   label: 'Receber OS',
                   icon: Icons.payments_outlined,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
+                  cor: neu.success,
+                  onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
               // Sem controle de gaveta (o padrão), "suprimento" não tem o que
               // conferir — aporte só significa algo contra um valor de abertura.
               // A categoria continua no diálogo para quem precisar dela.
               if (canManage)
-                NeuButton(
+                _Acao(
                   label: 'Despesa / sangria',
-                  kind: NeuButtonKind.secondary,
-                  icon: Icons.remove,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
+                  icon: Icons.remove_circle_outline,
+                  cor: neu.danger,
+                  onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'despesa'),
                 ),
             ],
           ),
         const SizedBox(height: 24),
-        Text('Lançamentos de hoje',
-            style: Theme.of(context).textTheme.titleMedium),
+        // Lista CURTA, de confirmação: "o que acabei de lançar entrou?". O
+        // extrato completo do período é o Histórico — duas listas cheias da
+        // mesma coisa era a redundância. Quem tem gestão chega lá pelo atalho;
+        // o atendente (que não vê o Histórico) continua com a confirmação.
+        Row(
+          children: [
+            Expanded(
+              child: Text('Últimos lançamentos',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            if (canManage && onVerHistorico != null)
+              TextButton.icon(
+                onPressed: onVerHistorico,
+                icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                iconAlignment: IconAlignment.end,
+                label: const Text('Ver tudo'),
+              ),
+          ],
+        ),
         const SizedBox(height: 10),
         Expanded(
           child: _ExtractList(
             entries: state.entries,
             canManage: canManage,
             salesById: state.salesById,
+            limite: 5,
           ),
         ),
       ],
     );
+  }
+}
+
+/// Grid das ações do caixa. Cartões grandes, 2 por linha no celular — o que se
+/// vem fazer aqui não deveria caber num botão de 36px.
+class _AcoesGrid extends StatelessWidget {
+  const _AcoesGrid({required this.acoes});
+
+  final List<_Acao> acoes;
+
+  @override
+  Widget build(BuildContext context) {
+    if (acoes.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Alvo de ~200px por cartão; nunca menos de 2 colunas (nem 1 cartão
+        // gigante sozinho numa tela larga).
+        final colunas = (c.maxWidth / 200).floor().clamp(1, 3);
+        final largura =
+            colunas == 1 ? c.maxWidth : (c.maxWidth - (colunas - 1) * 10) / colunas;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final a in acoes) SizedBox(width: largura, child: _AcaoCard(acao: a)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Uma ação do grid.
+class _Acao {
+  const _Acao({
+    required this.label,
+    required this.icon,
+    required this.cor,
+    required this.onTap,
+    this.exigeConexao,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color cor;
+  final VoidCallback onTap;
+
+  /// Motivo, quando a ação só funciona online (embrulha em RequiresConnection).
+  final String? exigeConexao;
+}
+
+class _AcaoCard extends StatelessWidget {
+  const _AcaoCard({required this.acao});
+
+  final _Acao acao;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final card = NeuSurface(
+      elevation: NeuElevation.raised,
+      radius: NeuTokens.rCard,
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        onTap: acao.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: acao.cor.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(NeuTokens.rChip),
+                ),
+                child: Center(child: Icon(acao.icon, size: 18, color: acao.cor)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  acao.label,
+                  maxLines: 2,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final motivo = acao.exigeConexao;
+    return motivo == null
+        ? card
+        : RequiresConnection(reason: motivo, child: card);
   }
 }
 
@@ -557,10 +672,15 @@ class _ExtractList extends ConsumerWidget {
     required this.entries,
     required this.canManage,
     this.salesById = const {},
+    this.limite,
   });
   final List<CashEntry> entries;
   final bool canManage; // estorno = gestão (dono/gerente)
   final Map<String, Sale> salesById;
+
+  /// Máximo de linhas exibidas (`null` = todas). O Caixa do dia mostra poucas,
+  /// como confirmação; o extrato completo é o Histórico.
+  final int? limite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -572,14 +692,17 @@ class _ExtractList extends ConsumerWidget {
             'Os recebimentos e lançamentos do dia aparecem aqui assim que forem registrados.',
       );
     }
+    final visiveis = limite == null || entries.length <= limite!
+        ? entries
+        : entries.sublist(0, limite!);
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 8),
-      itemCount: entries.length,
+      itemCount: visiveis.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (_, i) => _EntryTile(
-        entry: entries[i],
+        entry: visiveis[i],
         canManage: canManage,
-        sale: entries[i].saleId == null ? null : salesById[entries[i].saleId],
+        sale: visiveis[i].saleId == null ? null : salesById[visiveis[i].saleId],
       ),
     );
   }
