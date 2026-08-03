@@ -28,7 +28,7 @@ $$;
 -- ============================================================
 
 -- ---- tenant ----
-CREATE TABLE tenant (
+CREATE TABLE IF NOT EXISTS tenant (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name        text NOT NULL,
   slug        text NOT NULL UNIQUE,
@@ -36,7 +36,7 @@ CREATE TABLE tenant (
 );
 
 -- ---- users (global identity; a user may belong to many tenants) ----
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email_normalized    text NOT NULL UNIQUE,  -- lower(trim(email)); case-insensitive identity
   full_name           text NOT NULL,
@@ -55,28 +55,28 @@ CREATE TABLE users (
 -- introspection clean — no Unsupported types).
 
 -- ---- role (global catalog) ----
-CREATE TABLE role (
+CREATE TABLE IF NOT EXISTS role (
   id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key   text NOT NULL UNIQUE,   -- 'owner' | 'mechanic'
   name  text NOT NULL
 );
 
 -- ---- permission (global catalog) ----
-CREATE TABLE permission (
+CREATE TABLE IF NOT EXISTS permission (
   id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key   text NOT NULL UNIQUE,   -- e.g. 'os.write'
   name  text NOT NULL
 );
 
 -- ---- role_permission ----
-CREATE TABLE role_permission (
+CREATE TABLE IF NOT EXISTS role_permission (
   role_id        uuid NOT NULL REFERENCES role(id) ON DELETE CASCADE,
   permission_id  uuid NOT NULL REFERENCES permission(id) ON DELETE CASCADE,
   PRIMARY KEY (role_id, permission_id)
 );
 
 -- ---- refresh_token (opaque, hashed, rotating) ----
-CREATE TABLE refresh_token (
+CREATE TABLE IF NOT EXISTS refresh_token (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
@@ -87,11 +87,11 @@ CREATE TABLE refresh_token (
   expires_at  timestamptz NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_refresh_token_family ON refresh_token(family_id);
-CREATE INDEX idx_refresh_token_user ON refresh_token(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_token_family ON refresh_token(family_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_token_user ON refresh_token(user_id);
 
 -- ---- one_time_token (email verify / password reset / invite accept) ----
-CREATE TABLE one_time_token (
+CREATE TABLE IF NOT EXISTS one_time_token (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
   purpose     text NOT NULL,                -- 'email_verify' | 'password_reset'
@@ -100,10 +100,10 @@ CREATE TABLE one_time_token (
   expires_at  timestamptz NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_ott_user_purpose ON one_time_token(user_id, purpose);
+CREATE INDEX IF NOT EXISTS idx_ott_user_purpose ON one_time_token(user_id, purpose);
 
 -- ---- login_attempt (audit/forensics for lockout) ----
-CREATE TABLE login_attempt (
+CREATE TABLE IF NOT EXISTS login_attempt (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email_normalized text NOT NULL,
   user_id      uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -111,21 +111,21 @@ CREATE TABLE login_attempt (
   success      boolean NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_login_attempt_email_time ON login_attempt(email_normalized, created_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempt_email_time ON login_attempt(email_normalized, created_at);
 
 -- ---- billing catalog (global) ----
-CREATE TABLE module (
+CREATE TABLE IF NOT EXISTS module (
   id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key   text NOT NULL UNIQUE,   -- 'os' | 'inventory' | ...
   name  text NOT NULL
 );
-CREATE TABLE plan (
+CREATE TABLE IF NOT EXISTS plan (
   id     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key    text NOT NULL UNIQUE,  -- 'trial' | 'pro' | ...
   name   text NOT NULL,
   price_cents int NOT NULL DEFAULT 0
 );
-CREATE TABLE plan_module (
+CREATE TABLE IF NOT EXISTS plan_module (
   plan_id   uuid NOT NULL REFERENCES plan(id) ON DELETE CASCADE,
   module_id uuid NOT NULL REFERENCES module(id) ON DELETE CASCADE,
   PRIMARY KEY (plan_id, module_id)
@@ -136,7 +136,7 @@ CREATE TABLE plan_module (
 -- ============================================================
 
 -- ---- membership (user <-> tenant <-> role) ----
-CREATE TABLE membership (
+CREATE TABLE IF NOT EXISTS membership (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -144,10 +144,10 @@ CREATE TABLE membership (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, user_id)
 );
-CREATE INDEX idx_membership_user ON membership(user_id);
+CREATE INDEX IF NOT EXISTS idx_membership_user ON membership(user_id);
 
 -- ---- invite ----
-CREATE TABLE invite (
+CREATE TABLE IF NOT EXISTS invite (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   email_normalized text NOT NULL,
@@ -158,10 +158,10 @@ CREATE TABLE invite (
   expires_at  timestamptz NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_invite_tenant ON invite(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invite_tenant ON invite(tenant_id);
 
 -- ---- subscription (one per tenant) ----
-CREATE TABLE subscription (
+CREATE TABLE IF NOT EXISTS subscription (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   plan_id     uuid NOT NULL REFERENCES plan(id),
@@ -174,7 +174,7 @@ CREATE TABLE subscription (
 );
 
 -- ---- tenant_module (enabled modules per tenant) ----
-CREATE TABLE tenant_module (
+CREATE TABLE IF NOT EXISTS tenant_module (
   tenant_id  uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   module_id  uuid NOT NULL REFERENCES module(id) ON DELETE CASCADE,
   enabled    boolean NOT NULL DEFAULT true,
@@ -182,7 +182,7 @@ CREATE TABLE tenant_module (
 );
 
 -- ---- audit_log ----
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -191,7 +191,7 @@ CREATE TABLE audit_log (
   metadata    jsonb,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_audit_tenant_time ON audit_log(tenant_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_tenant_time ON audit_log(tenant_id, created_at);
 
 -- ============================================================
 -- Enable RLS + FORCE + policy on the five tenant tables
@@ -203,11 +203,15 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
-    EXECUTE format($f$
-      CREATE POLICY tenant_isolation ON %I
-      USING (tenant_id = current_tenant_id())
-      WITH CHECK (tenant_id = current_tenant_id());
-    $f$, t);
+    -- Guarda de reaplicação: CREATE POLICY não aceita IF NOT EXISTS. Mesmo
+    -- padrão usado pelas seções seguintes do arquivo.
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = 'tenant_isolation') THEN
+      EXECUTE format($f$
+        CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+      $f$, t);
+    END IF;
   END LOOP;
 END $$;
 
@@ -287,6 +291,13 @@ ON CONFLICT DO NOTHING;
 -- This SECURITY DEFINER lookup (runs as the function owner, app_owner) lets the
 -- app resolve the invite by its unguessable token hash; the membership write
 -- then runs under runWithTenant(tenant_id, ...). Mirrors auth_find_user_memberships.
+--
+-- DROP antes do CREATE porque a seção 0004 REDEFINE esta função com outra
+-- assinatura (acrescenta `canceled_at` ao RETURNS TABLE). Numa reaplicação o
+-- banco já tem a versão do 0004, e `CREATE OR REPLACE` não muda tipo de retorno
+-- ("cannot change return type of existing function"). Dropando aqui, a ordem
+-- natural do arquivo se repete: cria esta, o 0004 dropa e recria a final.
+DROP FUNCTION IF EXISTS auth_find_invite_by_hash(text);
 CREATE OR REPLACE FUNCTION auth_find_invite_by_hash(p_token_hash text)
 RETURNS TABLE (invite_id uuid, tenant_id uuid, email_normalized text,
                role_id uuid, expires_at timestamptz, accepted_at timestamptz)
@@ -416,7 +427,7 @@ ALTER TABLE invite ALTER COLUMN expires_at DROP NOT NULL;  -- NULL = sem expira�
 -- The lookup function must now expose canceled_at (and expires_at may be NULL).
 -- RETURNS TABLE signature changes → DROP + CREATE (idempotent via IF EXISTS).
 DROP FUNCTION IF EXISTS auth_find_invite_by_hash(text);
-CREATE FUNCTION auth_find_invite_by_hash(p_hash text)
+CREATE OR REPLACE FUNCTION auth_find_invite_by_hash(p_hash text)
 RETURNS TABLE (invite_id uuid, tenant_id uuid, email_normalized text,
                role_id uuid, expires_at timestamptz, accepted_at timestamptz,
                canceled_at timestamptz)

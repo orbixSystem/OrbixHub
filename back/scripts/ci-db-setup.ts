@@ -19,8 +19,15 @@ try {
   // No .env file — rely on environment variables already set (CI).
 }
 
-// Applies the baseline schema AS app_owner (table owner). Creates roles too
-// (the SQL is idempotent). Use ADMIN_DATABASE_URL = the app_owner connection.
+// Applies the baseline schema AS app_owner (table owner). Creates roles too.
+// Use ADMIN_DATABASE_URL = the app_owner connection.
+//
+// SAFE TO RE-RUN on a database that already has data — and re-running is the
+// intended way for an existing database to pick up the backfills of newer
+// modules (each module seeds `tenant_module` for existing tenants). Every DDL in
+// the SQL is guarded (IF NOT EXISTS / OR REPLACE / DROP ... IF EXISTS), and
+// because `client.query` sends the whole file as one simple query it runs in a
+// single implicit transaction: if anything fails, nothing is applied.
 async function main() {
   const url = process.env.ADMIN_DATABASE_URL;
   if (!url) throw new Error('ADMIN_DATABASE_URL is required');
