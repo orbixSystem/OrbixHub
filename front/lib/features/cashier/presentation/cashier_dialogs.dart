@@ -421,8 +421,10 @@ class EntryDialog extends ConsumerStatefulWidget {
 
 class _EntryDialogState extends ConsumerState<EntryDialog> {
   final _formKey = GlobalKey<FormState>();
+  // Sem preset, cai na operação mais comum de gestão (despesa) — nunca em
+  // `suprimento`, que é aporte de gaveta e o lançamento mais raro de todos.
   late String _category =
-      widget.presetCategory ?? (widget.presetSaleId != null ? 'os_payment' : 'suprimento');
+      widget.presetCategory ?? (widget.presetSaleId != null ? 'os_payment' : 'despesa');
   late String _method = widget.config.paymentMethods.first;
   final _amountCtrl = TextEditingController();
   // OS escolhida no picker (recebimento de OS aponta pra ela).
@@ -457,8 +459,10 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
 
   // Venda avulsa NÃO entra aqui (é o fluxo próprio do botão "Venda avulsa", que
   // cria a `sale` com itens). Atendente só vê "Recebimento OS"; gestão vê tudo.
+  // Ordem = frequência de uso: `suprimento` fica por último porque só faz
+  // sentido para quem confere gaveta (continua disponível para quem precisa).
   List<String> get _categories => _canManage
-      ? const ['os_payment', 'suprimento', 'despesa', 'sangria']
+      ? const ['os_payment', 'despesa', 'sangria', 'suprimento']
       : const ['os_payment'];
 
   /// Suprimento (botar dinheiro na gaveta) e sangria (tirar dinheiro da gaveta)

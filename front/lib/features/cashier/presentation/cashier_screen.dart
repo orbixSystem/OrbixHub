@@ -329,7 +329,10 @@ class _FreeBody extends ConsumerWidget {
                   onPressed: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              if (canManage) ...[
+              // Sem controle de gaveta (o padrão), "suprimento" não tem o que
+              // conferir — aporte só significa algo contra um valor de abertura.
+              // A categoria continua no diálogo para quem precisar dela.
+              if (canManage)
                 NeuButton(
                   label: 'Despesa / sangria',
                   kind: NeuButtonKind.secondary,
@@ -337,14 +340,6 @@ class _FreeBody extends ConsumerWidget {
                   onPressed: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'despesa'),
                 ),
-                NeuButton(
-                  label: 'Suprimento',
-                  kind: NeuButtonKind.secondary,
-                  icon: Icons.add,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'suprimento'),
-                ),
-              ],
             ],
           ),
         const SizedBox(height: 24),

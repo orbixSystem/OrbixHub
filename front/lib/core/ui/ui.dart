@@ -13,6 +13,7 @@ export 'neu_field.dart';
 export 'neu_list.dart';
 export 'neu_misc.dart';
 export 'neu_network_image.dart';
+export 'neu_stepper_field.dart';
 export 'neu_surface.dart';
 export 'neu_tokens.dart';
 export 'neu_transitions.dart';
