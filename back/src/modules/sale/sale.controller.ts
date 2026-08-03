@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -13,7 +14,12 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { SaleService } from './sale.service';
-import { CancelSaleDto, CreateSaleDto, ListSalesQueryDto } from './dto/sale.dto';
+import {
+  CancelSaleDto,
+  CreateSaleDto,
+  ListSalesQueryDto,
+  UpdateSaleDto,
+} from './dto/sale.dto';
 
 /**
  * Vendas de balcão. Contratável (gated por @RequiresModule('sale') +
@@ -43,6 +49,18 @@ export class SaleController {
   @Permissions('sale.read')
   getOne(@CurrentUser() _user: AuthUser, @Param('id') id: string) {
     return this.sales.getSaleOrThrow(id);
+  }
+
+  // Editar a venda = reatribuir o cliente (o dinheiro não se edita: para isso é
+  // cancelar-e-refazer). Resolve o fiado lançado sem identificar quem levou.
+  @Patch(':id')
+  @Permissions('sale.write')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateSaleDto,
+  ) {
+    return this.sales.updateSale(user, id, dto);
   }
 
   @Post(':id/cancel')

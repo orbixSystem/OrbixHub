@@ -15,7 +15,12 @@ import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { CashierServiceImpl } from './cashier.service.impl';
 import { OpenSessionDto, CloseSessionDto } from './dto/session.dto';
-import { CreateEntryDto, ReverseEntryDto } from './dto/entry.dto';
+import {
+  CorrectEntryDto,
+  CreateEntryDto,
+  ReverseEntryDto,
+  UpdateEntryDto,
+} from './dto/entry.dto';
 import {
   CurrentSessionQueryDto,
   EntryQueryDto,
@@ -101,6 +106,32 @@ export class CashierController {
     @Body() dto: ReverseEntryDto,
   ) {
     return this.cashier.reverseEntry(user, id, dto);
+  }
+
+  // Editar o que o lançamento DIZ (descrição, categoria de mesma direção) —
+  // nunca o quanto vale. É gestão, como o estorno: reescrever o texto de um
+  // movimento de dinheiro é tão sensível quanto estorná-lo.
+  @Patch('entries/:id')
+  @Permissions('cashier.manage')
+  updateEntry(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateEntryDto,
+  ) {
+    return this.cashier.updateEntry(user, id, dto);
+  }
+
+  // Corrigir o VALOR/forma: estorna e relança numa operação (o livro caixa não
+  // sobrescreve movimento).
+  @Post('entries/:id/correct')
+  @Permissions('cashier.manage')
+  @HttpCode(200)
+  correctEntry(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CorrectEntryDto,
+  ) {
+    return this.cashier.correctEntry(user, id, dto);
   }
 
   @Get('entries')

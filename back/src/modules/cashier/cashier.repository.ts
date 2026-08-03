@@ -157,6 +157,21 @@ export class CashierRepository {
     return db.cash_entry.findUnique({ where: { id } });
   }
 
+  /**
+   * Atualiza campos NÃO-financeiros do lançamento (o que ele diz). Valor, forma
+   * e direção nunca passam por aqui — ver `correctEntry` no service.
+   */
+  updateEntry(
+    id: string,
+    data: { description?: string | null; category?: string },
+  ) {
+    const db = this.tenant.getClient();
+    return db.cash_entry.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
+    });
+  }
+
   markReversed(
     id: string,
     data: { reversed_by: string; reversal_reason: string },

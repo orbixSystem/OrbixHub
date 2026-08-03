@@ -26,8 +26,17 @@ import {
 import { CreateItemDto, UpdateItemDto } from '../os/dto/item.dto';
 import { CreateNoteDto } from '../os/dto/note.dto';
 import { OpenSessionDto, CloseSessionDto } from '../cashier/dto/session.dto';
-import { CreateEntryDto, ReverseEntryDto } from '../cashier/dto/entry.dto';
-import { CancelSaleDto, CreateSaleDto } from '../sale/dto/sale.dto';
+import {
+  CorrectEntryDto,
+  CreateEntryDto,
+  ReverseEntryDto,
+  UpdateEntryDto,
+} from '../cashier/dto/entry.dto';
+import {
+  CancelSaleDto,
+  CreateSaleDto,
+  UpdateSaleDto,
+} from '../sale/dto/sale.dto';
 import { EmptyPayloadDto } from './dto/push.dto';
 
 /**
@@ -386,8 +395,22 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     create: true,
     apply: (s, u, p) => s.sale.createSale(u, asDto(p)),
   },
-  // Cancelar é o único "editar" da venda (sem LWW: quem cancelou, cancelou — a
-  // regra de reentrância vive no service, que rejeita cancelar duas vezes).
+  // Reatribuir o cliente da venda (o dinheiro não se edita — ver UpdateSaleDto).
+  'sale.update': {
+    dto: UpdateSaleDto,
+    module: 'sale',
+    permission: 'sale.write',
+    structuralKeys: ['id'],
+    lww: {
+      // `getSaleWithItems` devolve a LINHA crua (com `updated_at`); o
+      // `getSaleOrThrow` devolve o modelo de leitura enriquecido, sem ela.
+      getUpdatedAt: (s, _u, p) =>
+        s.sale.getSaleWithItems(str(p.id)).then((v) => v.updated_at ?? null),
+    },
+    apply: (s, u, p) => s.sale.updateSale(u, str(p.id), asDto(p)),
+  },
+  // Cancelar é o único "editar" do dinheiro da venda (sem LWW: quem cancelou,
+  // cancelou — a regra de reentrância vive no service, que rejeita cancelar 2×).
   'sale.cancel': {
     dto: CancelSaleDto,
     module: 'sale',
@@ -402,6 +425,25 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     permission: 'cashier.manage',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.cashier.reverseEntry(u, str(p.id), asDto(p)),
+  },
+  // Editar o TEXTO do lançamento (descrição/categoria de mesma direção). Sem
+  // LWW: o alvo é campo livre e a última edição do operador é a que vale.
+  'cash_entry.update': {
+    dto: UpdateEntryDto,
+    module: 'cashier',
+    permission: 'cashier.manage',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.cashier.updateEntry(u, str(p.id), asDto(p)),
+  },
+  // Corrigir o VALOR: estorna e relança. `newId` (uuid do lançamento novo, gerado
+  // offline) viaja NO DTO — não é chave estrutural, e por isso não colide com o
+  // `id` do original, que é.
+  'cash_entry.correct': {
+    dto: CorrectEntryDto,
+    module: 'cashier',
+    permission: 'cashier.manage',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.cashier.correctEntry(u, str(p.id), asDto(p)),
   },
 };
 

@@ -86,6 +86,18 @@ class FakeSaleRepository implements SaleRepository {
   }
 
   @override
+  Future<Sale> updateSale(String id, {String? customerId}) async {
+    final idx = _sales.indexWhere((s) => s.id == id);
+    // O fake não tem base de clientes: guarda o ponteiro e rotula o snapshot.
+    final atualizada = _sales[idx].copyWith(
+      customerId: customerId,
+      customerName: customerId == null ? null : 'Cliente $customerId',
+    );
+    _sales[idx] = atualizada;
+    return atualizada;
+  }
+
+  @override
   Future<Sale> cancelSale(String id, {String? reason}) async {
     final idx = _sales.indexWhere((s) => s.id == id);
     final canceled =

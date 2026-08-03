@@ -7,6 +7,7 @@ import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/cashier_format.dart';
 import '../domain/sale_summary.dart';
 import '../domain/cashier_timeline.dart';
+import 'entry_edit_dialogs.dart';
 
 /// Histórico do caixa: UMA lista com tudo que aconteceu, cada linha detalhada.
 ///
@@ -15,9 +16,16 @@ import '../domain/cashier_timeline.dart';
 /// aconteceu. Venda em fiado aparece aqui mesmo não tendo movido o caixa: era
 /// justamente o que um extrato de lançamentos escondia.
 class CashierTimelineList extends ConsumerWidget {
-  const CashierTimelineList({super.key, required this.events});
+  const CashierTimelineList({
+    super.key,
+    required this.events,
+    this.canManage = false,
+  });
 
   final List<CashierEvent> events;
+
+  /// `cashier.manage` — libera editar/corrigir/estornar o lançamento na linha.
+  final bool canManage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,7 +46,7 @@ class CashierTimelineList extends ConsumerWidget {
         for (final ev in events)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: _EventCard(event: ev),
+            child: _EventCard(event: ev, canManage: canManage),
           ),
       ],
     );
@@ -46,9 +54,10 @@ class CashierTimelineList extends ConsumerWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event});
+  const _EventCard({required this.event, this.canManage = false});
 
   final CashierEvent event;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +215,11 @@ class _EventCard extends StatelessWidget {
                         decoration: risco,
                       ),
                     ),
+                    // Despesa lançada errada é o caso mais comum de correção —
+                    // e antes o histórico era só leitura, obrigando a voltar ao
+                    // extrato do dia (que só mostra hoje).
+                    if (canManage && !estornado)
+                      EntryActionsMenu(entry: e),
                   ],
                 ),
                 const SizedBox(height: 3),

@@ -187,6 +187,36 @@ class LocalFirstSaleRepository extends LocalFirstBase
   }
 
   @override
+  Future<Sale> updateSale(String id, {String? customerId}) async {
+    if (!await useLocal(_sales, id)) {
+      final sale = await inner.updateSale(id, customerId: customerId);
+      await _mirrorSale(sale);
+      return sale;
+    }
+    final row = await rowById(_sales, id);
+    if (row == null) notFoundLocally('Venda');
+    if (row['status'] == 'canceled') {
+      throw const AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Venda cancelada não pode ser editada.',
+      );
+    }
+    await enqueue(_sales, 'update', {'id': id, 'customerId': customerId});
+    // Offline não há como resolver o NOME do cliente pelo id (isso é snapshot
+    // via service do módulo de clientes, no servidor). Guarda o ponteiro e
+    // limpa o nome: o replay preenche e o pull corrige.
+    final atualizada = {
+      ...row,
+      'customer_id': customerId,
+      'customer_name': null,
+      'updated_at': nowIso(),
+    };
+    await putRow(_sales, atualizada);
+    return _assemble(atualizada, await rows(_items), const {});
+  }
+
+  @override
   Future<Sale> cancelSale(String id, {String? reason}) async {
     if (!await useLocal(_sales, id)) {
       final sale = await inner.cancelSale(id, reason: reason);

@@ -258,6 +258,17 @@ class _Corpo extends ConsumerWidget {
                 icon: Icons.block,
                 onPressed: () => _cancelar(context, ref, refazer: false),
               ),
+              // Trocar o cliente é a única edição que NÃO mexe em dinheiro — e
+              // é a que resolve o fiado lançado sem identificar quem levou, que
+              // de outro modo fica preso em "Sem cliente" e ninguém cobra.
+              NeuButton(
+                label: sale.customerId == null
+                    ? 'Identificar cliente'
+                    : 'Trocar cliente',
+                kind: NeuButtonKind.secondary,
+                icon: Icons.person_outline,
+                onPressed: () => _trocarCliente(context, ref),
+              ),
               NeuButton(
                 label: 'Corrigir (refazer)',
                 icon: Icons.edit_outlined,
@@ -267,14 +278,41 @@ class _Corpo extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Venda registrada não se edita: o dinheiro já passou pelo caixa. '
-            'Corrigir cancela esta (com motivo, estornando o estoque) e abre '
-            'uma nova já preenchida com os mesmos itens.',
+            'O VALOR de uma venda registrada não se edita: o dinheiro já passou '
+            'pelo caixa. Corrigir cancela esta (com motivo, estornando o '
+            'estoque) e abre uma nova já preenchida com os mesmos itens. O '
+            'cliente, por não mexer em dinheiro, pode ser trocado direto.',
             style: TextStyle(color: neu.inkFaint, fontSize: 11, height: 1.35),
           ),
         ],
       ],
     );
+  }
+
+  /// Reatribui a venda a outro cliente. Não mexe em dinheiro — por isso é uma
+  /// edição direta, e não cancelar-e-refazer.
+  Future<void> _trocarCliente(BuildContext context, WidgetRef ref) async {
+    final escolhido = await showCustomerPicker(context);
+    if (escolhido == null || !context.mounted) return;
+    try {
+      await ref
+          .read(saleRepositoryProvider)
+          .updateSale(sale.id, customerId: escolhido.id);
+      // O fiado é agrupado por cliente: sem invalidar, a carteira continuaria
+      // mostrando a dívida no balde antigo.
+      ref.invalidate(_saleDetailProvider(sale.id));
+      ref.invalidate(cashierControllerProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Venda atribuída a ${escolhido.name}.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
   }
 
   /// Cancela com motivo obrigatório e, quando [refazer], abre a nova venda já

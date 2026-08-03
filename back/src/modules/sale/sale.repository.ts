@@ -165,6 +165,21 @@ export class SaleRepository {
     });
   }
 
+  /**
+   * Reatribui a venda a outro cliente (ponteiro + snapshot do nome). Só isto: o
+   * dinheiro da venda nunca é editado aqui.
+   */
+  setCustomer(
+    id: string,
+    data: { customer_id: string | null; customer_name: string | null },
+  ) {
+    const db = this.tenant.getClient();
+    return db.sale.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
+    });
+  }
+
   /** Snapshot do status fiscal devolvido pelo Fiscal (só p/ exibir; Fiscal é dono). */
   setFiscalSnapshot(id: string, fields: FiscalSnapshotFields) {
     const db = this.tenant.getClient();

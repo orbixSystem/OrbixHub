@@ -36,6 +36,16 @@ Future<Sale?> showSaleCreateDialog(
   );
 }
 
+/// Abre o mini-picker de cliente (busca por nome). Devolve `(id, name)` ou
+/// `null` se o usuário desistiu. Público porque o detalhe da venda também precisa
+/// dele, para reatribuir a venda a um cliente.
+Future<({String id, String name})?> showCustomerPicker(BuildContext context) {
+  return showDialog<({String id, String name})?>(
+    context: context,
+    builder: (_) => const _CustomerPickerDialog(),
+  );
+}
+
 /// Linha em edição (antes de enviar). Item do estoque tem `inventoryItemId` e
 /// nome fixo; item avulso tem nome editável. Qtd e preço sempre editáveis.
 class _DraftLine {
@@ -182,10 +192,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   }
 
   Future<void> _pickCustomer() async {
-    final picked = await showDialog<({String id, String name})?>(
-      context: context,
-      builder: (_) => const _CustomerPickerDialog(),
-    );
+    final picked = await showCustomerPicker(context);
     if (picked != null) {
       setState(() {
         _customerId = picked.id;

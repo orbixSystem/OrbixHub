@@ -158,6 +158,43 @@ class FakeCashierRepository implements CashierRepository {
   }
 
   @override
+  Future<CashEntry> updateEntry(
+    String id, {
+    String? description,
+    String? category,
+  }) async {
+    final idx = _entries.indexWhere((e) => e.id == id);
+    final editado = _entries[idx].copyWith(
+      description: description ?? _entries[idx].description,
+      category: category ?? _entries[idx].category,
+    );
+    _entries[idx] = editado;
+    return editado;
+  }
+
+  @override
+  Future<CashEntry> correctEntry(
+    String id, {
+    required String reason,
+    double? amount,
+    String? method,
+    String? category,
+    String? description,
+  }) async {
+    // Espelha o servidor: estorna o original e cria um NOVO (nunca sobrescreve).
+    final original = _entries.firstWhere((e) => e.id == id);
+    await reverseEntry(id, reason);
+    return createEntry(EntryDraft(
+      amount: amount ?? double.parse(original.amount),
+      method: method ?? original.method,
+      category: category ?? original.category,
+      saleKind: original.saleKind,
+      saleId: original.saleId,
+      description: description ?? original.description,
+    ));
+  }
+
+  @override
   Future<EntryPage> listEntries({
     String? sessionId,
     String? q,

@@ -56,6 +56,21 @@ export class CancelSaleDto {
 }
 
 /**
+ * Edição do que a venda **não** tem de dinheiro: hoje, a quem ela pertence.
+ *
+ * Itens, quantidade e desconto NÃO passam por aqui — o dinheiro já entrou no
+ * caixa e a nota pode ter sido emitida; mudar o total por baixo desfaria a
+ * conciliação. Para isso existe cancelar-e-refazer.
+ *
+ * Trocar o cliente é a correção que aparece de verdade no balcão: vendeu fiado e
+ * esqueceu de identificar quem levou. Sem isto a dívida fica presa no balde "sem
+ * cliente" e ninguém consegue cobrar. `customerId: null` desvincula.
+ */
+export class UpdateSaleDto {
+  @IsOptional() @IsUUID() customerId?: string | null;
+}
+
+/**
  * Filtros + paginação da lista de vendas. `from`/`to` recortam por
  * `created_at` — sem eles não há como responder "o que vendi neste período",
  * que é a pergunta do histórico de vendas. `q` busca por número da venda ou

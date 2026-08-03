@@ -152,6 +152,44 @@ class CashierRepositoryImpl implements CashierRepository {
       });
 
   @override
+  Future<CashEntry> updateEntry(
+    String id, {
+    String? description,
+    String? category,
+  }) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>(
+          '/cashier/entries/$id',
+          data: {'description': ?description, 'category': ?category},
+        );
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<CashEntry> correctEntry(
+    String id, {
+    required String reason,
+    double? amount,
+    String? method,
+    String? category,
+    String? description,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/cashier/entries/$id/correct',
+          data: {
+            'reason': reason,
+            'amount': ?amount,
+            'method': ?method,
+            'category': ?category,
+            'description': ?description,
+          },
+        );
+        // Devolve o lançamento NOVO (o original fica estornado no histórico).
+        return CashEntry.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<EntryPage> listEntries({
     String? sessionId,
     String? q,

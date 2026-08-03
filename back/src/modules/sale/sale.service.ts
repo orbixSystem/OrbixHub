@@ -24,7 +24,12 @@ import {
   computeSubtotal,
   formatSaleNumber,
 } from './sale.config';
-import { CancelSaleDto, CreateSaleDto, ListSalesQueryDto } from './dto/sale.dto';
+import {
+  CancelSaleDto,
+  CreateSaleDto,
+  ListSalesQueryDto,
+  UpdateSaleDto,
+} from './dto/sale.dto';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -206,6 +211,43 @@ export class SaleService {
     });
     const tid = tenantId ?? sale.tenant_id;
     return this.enrichOne(sale, tid);
+  }
+
+  /**
+   * Reatribui a venda a outro cliente. É a única edição possível numa venda
+   * registrada: o total já passou pelo caixa (e talvez pela nota), então mudar
+   * dinheiro exige cancelar-e-refazer.
+   *
+   * O caso real é o fiado sem cliente: sem esta correção a dívida fica no balde
+   * "sem cliente" e ninguém consegue cobrar. Cliente vem por id + snapshot do
+   * nome via service público ("aponta, não invade").
+   */
+  async updateSale(user: AuthUser, id: string, dto: UpdateSaleDto) {
+    let customerId: string | null = null;
+    let customerName: string | null = null;
+    if (dto.customerId) {
+      // FORA da tx: getCustomer abre a própria (aninhar esgota o pool).
+      const customer = await this.customers.getCustomer(user, dto.customerId);
+      customerId = customer.id;
+      customerName = customer.name;
+    }
+
+    const sale = await this.tenant.withTenantTx(async () => {
+      const found = await this.repo.findSaleById(id);
+      if (!found) throw new NotFoundException('Venda não encontrada.');
+      // Cancelada é registro histórico fechado — reatribuir reescreveria o passado.
+      if (found.status === 'canceled')
+        throw new ConflictException('Venda cancelada não pode ser editada.');
+      await this.repo.setCustomer(id, {
+        customer_id: customerId,
+        customer_name: customerName,
+      });
+      return this.repo.findSaleById(id);
+    });
+    await this.audit.log(user.tenantId, user.userId, 'sale_update', id, {
+      customerId,
+    });
+    return this.enrichOne(sale!, user.tenantId);
   }
 
   // ===================== Cancelamento (estorno lógico) =====================

@@ -13,6 +13,7 @@ import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import 'cashier_dialogs.dart';
+import 'entry_edit_dialogs.dart';
 import 'cashier_providers.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_timeline_list.dart';
@@ -655,14 +656,11 @@ class _EntryTile extends ConsumerWidget {
               decoration: reversed ? TextDecoration.lineThrough : null,
             ),
           ),
+          // Editar / Corrigir / Estornar num menu só: três ícones na linha não
+          // caberiam no celular, e as ações são raras (não merecem o espaço).
           if (canManage && !reversed) ...[
-            const SizedBox(width: 10),
-            NeuIconButton(
-              icon: Icons.undo_rounded,
-              tooltip: 'Estornar',
-              size: 38,
-              onPressed: () => _confirmReverse(context, ref),
-            ),
+            const SizedBox(width: 6),
+            EntryActionsMenu(entry: entry),
           ],
           if (reversed) ...[
             const SizedBox(width: 8),
@@ -677,53 +675,6 @@ class _EntryTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmReverse(BuildContext context, WidgetRef ref) async {
-    final reasonCtrl = TextEditingController();
-    final ok = await showNeuDialog<bool>(
-      context,
-      dialog: NeuDialog(
-        title: 'Estornar lançamento',
-        maxWidth: 420,
-        actions: [
-          Builder(
-            builder: (ctx) => NeuButton(
-              label: 'Cancelar',
-              kind: NeuButtonKind.secondary,
-              onPressed: () => Navigator.of(ctx).pop(false),
-            ),
-          ),
-          Builder(
-            builder: (ctx) => NeuButton(
-              label: 'Estornar',
-              kind: NeuButtonKind.danger,
-              onPressed: () => Navigator.of(ctx).pop(true),
-            ),
-          ),
-        ],
-        child: NeuTextField(
-          label: 'Motivo do estorno',
-          controller: reasonCtrl,
-          hint: 'Ex.: valor lançado errado',
-          maxLength: 500,
-        ),
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    final reason = reasonCtrl.text.trim();
-    if (reason.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe um motivo (mín. 3 caracteres).')),
-      );
-      return;
-    }
-    try {
-      await ref.read(cashierControllerProvider.notifier).reverse(entry.id, reason);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-  }
 }
 
 class _ErrorBox extends StatelessWidget {
@@ -869,7 +820,12 @@ class _CashierHistory extends ConsumerWidget {
                                     color: neu.inkFaint, fontSize: 11.5),
                               ),
                             ),
-                          CashierTimelineList(events: visiveis),
+                          // O Histórico é aba de gestão (só aparece com
+                          // `cashier.manage`), então corrigir dali é permitido.
+                          CashierTimelineList(
+                            events: visiveis,
+                            canManage: true,
+                          ),
                         ],
                       );
                     },

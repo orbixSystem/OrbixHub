@@ -55,6 +55,15 @@ class SaleRepositoryImpl implements SaleRepository {
       });
 
   @override
+  Future<Sale> updateSale(String id, {String? customerId}) => _guard(() async {
+        // `customerId: null` DESVINCULA — por isso a chave vai sempre, sem o
+        // `?` de omissão condicional.
+        final res = await _dio.patch<Object?>('/sales/$id',
+            data: {'customerId': customerId});
+        return Sale.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<Sale> cancelSale(String id, {String? reason}) => _guard(() async {
         final res = await _dio.post<Object?>('/sales/$id/cancel', data: {
           if (reason != null && reason.isNotEmpty) 'reason': reason,

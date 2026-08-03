@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { plainToInstance } from 'class-transformer';
 import {
   PULL_ROUTES,
   SYNC_OPS,
@@ -36,8 +37,13 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     'cash_session.close': 'cashier.manage',
     'cash_entry.create': 'cashier.write',
     'cash_entry.reverse': 'cashier.manage',
+    // Editar/corrigir lançamento é gestão, como o estorno: reescrever ou
+    // relançar um movimento de dinheiro é tão sensível quanto estorná-lo.
+    'cash_entry.update': 'cashier.manage',
+    'cash_entry.correct': 'cashier.manage',
     'sale.create': 'sale.write',
     'sale.cancel': 'sale.write',
+    'sale.update': 'sale.write',
   };
 
   it('expõe exatamente a whitelist de ops esperada (nada a mais, nada a menos)', () => {
@@ -67,6 +73,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(withLww).toEqual([
       'customer.update',
       'inventory_item.update',
+      'sale.update',
       'service_order.update',
       'subject.update',
     ]);
@@ -101,6 +108,18 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(SYNC_OPS['sale.cancel'].structuralKeys).toEqual(['id']);
     // Cancelar não é LWW: a reentrância é regra do service (não cancela 2×).
     expect(SYNC_OPS['sale.cancel'].lww).toBeUndefined();
+  });
+
+  it('correção de lançamento: `id` roteia o original, `newId` vai no DTO', () => {
+    // O uuid do lançamento NOVO não pode ser chave estrutural: `id` já é (aponta
+    // o original), e duas chaves de id no mesmo payload se confundiriam. Por isso
+    // o DTO declara `newId`.
+    expect(SYNC_OPS['cash_entry.correct'].structuralKeys).toEqual(['id']);
+    const declarados = Object.keys(
+      plainToInstance(SYNC_OPS['cash_entry.correct'].dto, {}),
+    );
+    expect(declarados).toContain('newId');
+    expect(declarados).not.toContain('id');
   });
 
   it('nenhuma chave estrutural colide com um campo declarado do DTO da op', () => {
