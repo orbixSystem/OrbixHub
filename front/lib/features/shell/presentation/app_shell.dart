@@ -15,6 +15,9 @@ import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
+import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/presentation/cashier_dialogs.dart';
+import '../../cashier/presentation/cashier_providers.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
 import '../../update/presentation/update_banner.dart';
@@ -523,7 +526,7 @@ class _QuickCreateFab extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final me = session.meOrNull;
     if (me == null) return const SizedBox.shrink();
-    final actions = _quickActions(me);
+    final actions = quickActionsFor(me);
     if (actions.isEmpty) return const SizedBox.shrink();
     final neu = context.neu;
     return Tooltip(
@@ -557,7 +560,7 @@ class _QuickCreateFab extends ConsumerWidget {
   void _openMenu(
     BuildContext context,
     WidgetRef ref,
-    List<_QuickAction> actions,
+    List<QuickAction> actions,
   ) {
     final neu = context.neu;
     showModalBottomSheet<void>(
@@ -633,29 +636,52 @@ class _QuickCreateFab extends ConsumerWidget {
       case 'sale':
         // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).
         await showSaleCreateDialog(context);
+      case 'expense':
+        // Despesa é lançamento do caixa, e o diálogo precisa da config (formas
+        // de pagamento). Busca na hora: é uma ação pontual, e montar o
+        // controller inteiro do Caixa só para abrir um diálogo seria desperdício.
+        // Falha na config não pode bloquear o lançamento — cai nos defaults.
+        CashierConfig cfg;
+        try {
+          cfg = await ref.read(cashierRepositoryProvider).fetchConfig();
+        } catch (_) {
+          cfg = const CashierConfig();
+        }
+        if (!context.mounted) return;
+        await showEntryDialog(context, ref, cfg, presetCategory: 'despesa');
     }
   }
 
-  List<_QuickAction> _quickActions(Me me) {
-    return [
-      if (me.hasModule('os') && me.hasPermission('os.write'))
-        const _QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
-      if (me.hasModule('sale') && me.hasPermission('sale.write'))
-        const _QuickAction(
-            'sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
-      if (me.hasModule('customers') && me.hasPermission('customer.write'))
-        const _QuickAction(
-            'customer', Icons.person_add_alt_1_rounded, 3, 'Novo cliente'),
-      if (me.hasModule('inventory') && me.hasPermission('inventory.write'))
-        const _QuickAction('product', Icons.inventory_2_rounded, 5,
-            'Novo produto ou serviço'),
-    ];
-  }
 }
 
-/// Especificação de uma ação de criação rápida do [_QuickCreateFab].
-class _QuickAction {
-  const _QuickAction(this.key, this.icon, this.glyph, this.label);
+/// Ações do menu "+" para este usuário — MÓDULO + PERMISSÃO, função pura.
+///
+/// Pública e sem contexto de propósito: o gating de menu é testado por fora da
+/// árvore de widgets neste projeto (mesmo padrão de `gatedNavItems`), porque o
+/// `AppShell` exige GoRouter e montá-lo só para conferir uma lista é frágil.
+List<QuickAction> quickActionsFor(Me me) {
+  return [
+    if (me.hasModule('os') && me.hasPermission('os.write'))
+      const QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
+    if (me.hasModule('sale') && me.hasPermission('sale.write'))
+      const QuickAction('sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
+    // Despesa é gestão do caixa (`cashier.manage`): o backend recusa despesa
+    // para quem só tem `cashier.write`, então oferecer aqui daria erro.
+    if (me.hasModule('cashier') && me.hasPermission('cashier.manage'))
+      const QuickAction(
+          'expense', Icons.remove_circle_outline, 4, 'Nova despesa'),
+    if (me.hasModule('customers') && me.hasPermission('customer.write'))
+      const QuickAction(
+          'customer', Icons.person_add_alt_1_rounded, 3, 'Novo cliente'),
+    if (me.hasModule('inventory') && me.hasPermission('inventory.write'))
+      const QuickAction(
+          'product', Icons.inventory_2_rounded, 5, 'Novo produto ou serviço'),
+  ];
+}
+
+/// Especificação de uma ação de criação rápida do menu "+".
+class QuickAction {
+  const QuickAction(this.key, this.icon, this.glyph, this.label);
   final String key;
   final IconData icon;
   final int glyph;
