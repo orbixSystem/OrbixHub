@@ -44,7 +44,18 @@ class CashierController extends AsyncNotifier<CashierState> {
   Future<CashierState> _load() async {
     final config = await _repo.fetchConfig();
     final session = await _repo.currentSession();
-    final page = await _repo.listEntries(sessionId: session?.id);
+    // Com sessão: o extrato dela. Sem sessão (caixa sem cerimônia de abertura):
+    // os lançamentos de HOJE — sem recorte, `listEntries` traria o histórico
+    // inteiro paginado, que não é "o caixa de hoje".
+    final hoje = DateTime.now();
+    final page = session != null
+        ? await _repo.listEntries(sessionId: session.id)
+        : await _repo.listEntries(
+            from: DateTime(hoje.year, hoje.month, hoje.day)
+                .toUtc()
+                .toIso8601String(),
+            to: hoje.toUtc().toIso8601String(),
+          );
     // Vendas de hoje, para o extrato mostrar o cliente. `sale` é contratável:
     // sem o módulo (ou sem permissão) o backend recusa e o caixa segue normal.
     List<Sale> sales = const [];

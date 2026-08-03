@@ -117,14 +117,33 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         message: '$e',
         onRetry: () => ref.invalidate(cashierControllerProvider),
       ),
-      data: (state) => state.isOpen
-          ? _OpenBody(
-              state: state,
-              canWrite: _canWrite(),
-              canManage: _canManage(),
-              canSale: _canSale())
-          : _ClosedBody(
-              canManage: _canManage(), canSale: _canSale()),
+      data: (state) {
+        if (state.isOpen) {
+          return _OpenBody(
+            state: state,
+            canWrite: _canWrite(),
+            canManage: _canManage(),
+            canSale: _canSale(),
+          );
+        }
+        // A cerimônia de abrir/fechar existe para CONFERIR GAVETA de dinheiro.
+        // Quem recebe só por Pix/cartão (ou opera sozinho) não tem gaveta para
+        // conferir, e para esse caso o backend já aceita lançar sem sessão
+        // (`requireOpenSession=false` cria uma sessão implícita). A tela ignorava
+        // essa config e bloqueava com "Caixa fechado" — agora respeita.
+        if (!state.config.requireOpenSession) {
+          return _FreeBody(
+            state: state,
+            canWrite: _canWrite(),
+            canManage: _canManage(),
+            canSale: _canSale(),
+          );
+        }
+        return _ClosedBody(
+          canManage: _canManage(),
+          canSale: _canSale(),
+        );
+      },
     );
   }
 }
@@ -239,6 +258,114 @@ class _ClosedBody extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Caixa SEM cerimônia de abertura (`requireOpenSession = false`).
+///
+/// A sessão de caixa existe para conferir GAVETA de dinheiro: contar no fim do
+/// dia e achar falta/sobra. Quem recebe só por Pix/cartão, ou opera sozinho, não
+/// tem gaveta para conferir — para essa oficina, exigir "abrir o caixa" antes de
+/// registrar qualquer coisa é atrito puro.
+///
+/// Aqui o caixa é um livro de lançamentos do dia: registra e pronto. A abertura
+/// segue disponível como AÇÃO (quem quiser conferência de gaveta abre quando
+/// quiser), só não é mais pré-requisito.
+class _FreeBody extends ConsumerWidget {
+  const _FreeBody({
+    required this.state,
+    required this.canWrite,
+    required this.canManage,
+    required this.canSale,
+  });
+
+  final CashierState state;
+  final bool canWrite;
+  final bool canManage;
+  final bool canSale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            Text('Caixa de hoje',
+                style: Theme.of(context).textTheme.titleLarge),
+            if (canManage)
+              NeuButton(
+                label: 'Conferir gaveta',
+                kind: NeuButtonKind.secondary,
+                icon: Icons.lock_open_outlined,
+                onPressed: () => showOpenSessionDialog(context, ref),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Os lançamentos são registrados direto. Use "Conferir gaveta" se '
+          'quiser abrir uma sessão e conferir o dinheiro no fim do dia.',
+          style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
+        ),
+        const SizedBox(height: 16),
+        if (canWrite || canSale || canManage)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (canSale)
+                RequiresConnection(
+                  reason: 'a venda avulsa é registrada no servidor',
+                  child: NeuButton(
+                    label: 'Venda avulsa',
+                    icon: Icons.shopping_cart_checkout_outlined,
+                    onPressed: () => _startSale(context, ref),
+                  ),
+                ),
+              if (canWrite)
+                NeuButton(
+                  label: 'Receber OS',
+                  icon: Icons.payments_outlined,
+                  onPressed: () => showEntryDialog(context, ref, state.config,
+                      presetCategory: 'os_payment'),
+                ),
+              if (canManage) ...[
+                NeuButton(
+                  label: 'Despesa / sangria',
+                  kind: NeuButtonKind.secondary,
+                  icon: Icons.remove,
+                  onPressed: () => showEntryDialog(context, ref, state.config,
+                      presetCategory: 'despesa'),
+                ),
+                NeuButton(
+                  label: 'Suprimento',
+                  kind: NeuButtonKind.secondary,
+                  icon: Icons.add,
+                  onPressed: () => showEntryDialog(context, ref, state.config,
+                      presetCategory: 'suprimento'),
+                ),
+              ],
+            ],
+          ),
+        const SizedBox(height: 24),
+        Text('Lançamentos de hoje',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        Expanded(
+          child: _ExtractList(
+            entries: state.entries,
+            canManage: canManage,
+            salesById: state.salesById,
+          ),
+        ),
+      ],
     );
   }
 }
