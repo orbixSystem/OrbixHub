@@ -1,6 +1,31 @@
 # Revamp do Caixa + Controle de Fiado — design
 
-**Data:** 2026-08-03 · **Status:** aprovado, em implementação
+**Data:** 2026-08-03 · **Status:** IMPLEMENTADO
+
+| Entrega | Commit |
+|---|---|
+| `kind` no update, validação de valores, responsável padrão | `c4467d5` |
+| Abertura sugerida + conferência de fechamento ao vivo | `958e62e` |
+| Módulo backend `receivables` | `69376f0` |
+| Aba Fiado | `af84c71` |
+| Detalhe da venda + cancelar-e-refazer | `9e9dc75` |
+
+Verificação final: **452 testes no front**, **314 no back**, `flutter analyze`
+e ESLint sem nenhum aviso.
+
+**Achado extra durante a implementação:** o `EntryDialog` tinha `saleKind: 'os'`
+fixo — o caixa nunca soube receber uma VENDA de balcão em fiado, só OS. Não
+estava no relato original e quebraria o fiado de venda avulsa. Coberto pelo
+novo diálogo de recebimento, que aceita as duas origens e barra valor acima do
+saldo (viraria dinheiro fantasma no caixa).
+
+**Três incidentes de ambiente, todos dado local desatualizado e não código:**
+caixa ausente no menu (tenant antigo sem `tenant_module` do `cashier`, backfill
+nunca aplicado); `past_due forbids this operation` (trial do tenant de demo
+vencido em 01/08, job diário marcou past_due — o guard funcionando como
+projetado); e o `ci-db-setup.ts` que **não é reaplicável** num banco existente
+(falha com `relation "tenant" already exists`), o que explica por que backfills
+de módulos novos não chegam a bancos locais já criados.
 
 ## Problema
 
