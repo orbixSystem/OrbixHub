@@ -7,6 +7,7 @@ import '../../auth/presentation/session_state.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
+import '../../cashier/presentation/entry_edit_dialogs.dart';
 import '../../os/presentation/payment_status.dart';
 import '../domain/sale_models.dart';
 import 'sale_create_dialog.dart';
@@ -108,6 +109,12 @@ class _Corpo extends ConsumerWidget {
   bool _canWriteSale(WidgetRef ref) {
     final me = ref.read(sessionControllerProvider).meOrNull;
     return me?.hasPermission('sale.write') ?? false;
+  }
+
+  /// Corrigir/estornar recebimento é gestão do caixa, não permissão de venda.
+  bool _canManageCashier(WidgetRef ref) {
+    final me = ref.read(sessionControllerProvider).meOrNull;
+    return me?.hasPermission('cashier.manage') ?? false;
   }
 
   @override
@@ -244,7 +251,11 @@ class _Corpo extends ConsumerWidget {
         // Recebimentos: quanto entrou, quando e por qual forma.
         if (payment != null) ...[
           const SizedBox(height: 16),
-          _Pagamentos(payment: payment!, cancelada: cancelada),
+          _Pagamentos(
+            payment: payment!,
+            cancelada: cancelada,
+            canManage: _canManageCashier(ref),
+          ),
         ],
 
         // Ações. Venda cancelada não se cancela de novo.
@@ -446,12 +457,25 @@ class _Corpo extends ConsumerWidget {
   }
 }
 
-/// Recebimentos da venda: total, pago, saldo e cada lançamento do caixa.
+/// Recebimentos da venda: total, pago, saldo e cada lançamento do caixa —
+/// com as ações de cada um.
+///
+/// As ações vivem AQUI (e não mais nos três pontinhos da linha do extrato)
+/// porque é aqui que o recebimento tem contexto: ao lado do total da venda e do
+/// que falta. No Caixa do dia a linha da venda abre este diálogo; no Histórico o
+/// recebimento é deduplicado no cartão da venda, que também abre aqui.
 class _Pagamentos extends StatelessWidget {
-  const _Pagamentos({required this.payment, required this.cancelada});
+  const _Pagamentos({
+    required this.payment,
+    required this.cancelada,
+    this.canManage = false,
+  });
 
   final PaymentDetail payment;
   final bool cancelada;
+
+  /// `cashier.manage` — libera corrigir/estornar o recebimento.
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -515,6 +539,11 @@ class _Pagamentos extends StatelessWidget {
                                 : null,
                           ),
                         ),
+                        // Recebeu o valor errado? Corrigir estorna e relança —
+                        // sem isto, tirar o menu da linha do extrato deixaria a
+                        // correção do recebimento sem porta nenhuma.
+                        if (canManage && e.reversedAt == null)
+                          EntryActionsMenu(entry: e),
                       ],
                     ),
                   ),

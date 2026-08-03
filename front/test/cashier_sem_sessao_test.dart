@@ -242,14 +242,69 @@ void main() {
       expect(caixa.pedidoPorSessao, isTrue);
     });
   });
+
+  group('linha de venda no extrato do dia', () {
+    testWidgets('não tem menu de 3 pontinhos — a linha abre a venda',
+        (tester) async {
+      // O menu era um segundo caminho para agir sobre a venda, escondido atrás
+      // de três pontinhos. A linha inteira abre o detalhe, que é onde tudo mora.
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+        lancamentos: const [
+          CashEntry(
+            id: 'e-venda',
+            direction: 'in',
+            amount: '150.00',
+            method: 'dinheiro',
+            category: 'venda_avulsa',
+            saleKind: 'sale',
+            saleId: 's1',
+            createdAt: '2026-08-03T12:00:00Z',
+          ),
+        ],
+      );
+      await _montar(tester, caixa);
+
+      expect(find.byIcon(Icons.more_vert_rounded), findsNothing);
+      // A afordância de que a linha leva a algum lugar continua.
+      expect(find.byIcon(Icons.chevron_right_rounded), findsWidgets);
+    });
+
+    testWidgets('despesa MANTÉM o menu (não há detalhe para abrir)',
+        (tester) async {
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+        lancamentos: const [
+          CashEntry(
+            id: 'e-despesa',
+            direction: 'out',
+            amount: '50.00',
+            method: 'pix',
+            category: 'despesa',
+            createdAt: '2026-08-03T12:00:00Z',
+          ),
+        ],
+      );
+      await _montar(tester, caixa);
+
+      expect(find.byIcon(Icons.more_vert_rounded), findsOneWidget);
+    });
+  });
 }
 
 /// Caixa fake que expõe COMO o extrato do dia foi pedido.
 class _EspiaCaixa extends FakeCashierRepository {
-  _EspiaCaixa({required this.requireOpenSession, required this.comSessaoAberta});
+  _EspiaCaixa({
+    required this.requireOpenSession,
+    required this.comSessaoAberta,
+    this.lancamentos = const [],
+  });
 
   final bool requireOpenSession;
   final bool comSessaoAberta;
+  final List<CashEntry> lancamentos;
 
   bool pedidoPorSessao = false;
   String? ultimoFrom;
@@ -285,6 +340,6 @@ class _EspiaCaixa extends FakeCashierRepository {
   }) async {
     if (sessionId != null) pedidoPorSessao = true;
     ultimoFrom = from;
-    return const EntryPage();
+    return EntryPage(items: lancamentos, total: lancamentos.length);
   }
 }

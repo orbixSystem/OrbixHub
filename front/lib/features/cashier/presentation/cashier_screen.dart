@@ -666,7 +666,12 @@ class _EntryTile extends ConsumerWidget {
           ),
           // Editar / Corrigir / Estornar num menu só: três ícones na linha não
           // caberiam no celular, e as ações são raras (não merecem o espaço).
-          if (canManage && !reversed) ...[
+          //
+          // Nas linhas de VENDA o menu não aparece: a linha abre o detalhe da
+          // venda, que é onde se age sobre ela (itens, cliente, cancelar) E
+          // sobre o recebimento. Dois caminhos para a mesma coisa, um deles
+          // escondido atrás de três pontinhos, só confunde.
+          if (canManage && !reversed && !daVenda) ...[
             const SizedBox(width: 6),
             EntryActionsMenu(entry: entry),
           ],
