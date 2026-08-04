@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/devtools/dev_inbox_overlay.dart';
+import 'core/error/error_surface.dart';
 import 'core/offline/db/db_bootstrap.dart';
 import 'core/router/app_router.dart';
 import 'core/router/navigator_key.dart';
@@ -14,6 +15,9 @@ import 'di.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Antes de qualquer build: troca o quadrado vermelho de exceção do Flutter por
+  // um aviso discreto (o erro segue no console).
+  installFriendlyErrorSurface();
   await initializeDateFormatting('pt_BR', null);
   // Offline (B5): prepara a plataforma p/ o banco local cifrado. No-op na web
   // (online-only); no nativo cobre o Android antigo. Seguro em qualquer alvo.

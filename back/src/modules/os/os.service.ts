@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AuditService } from '../../common/audit/audit.service';
 import {
   STORAGE_PROVIDER,
@@ -38,6 +39,11 @@ import {
   UpdateTemplateDto,
 } from './dto/template.dto';
 import type { CreateTemplateItemData, OsSyncEntity } from './os.repository';
+import {
+  OS_CHANGED_EVENT,
+  type OsChangedEvent,
+  type OsChangeKind,
+} from './os.events';
 import {
   isIdUniqueViolation,
   isUniqueViolation,
@@ -128,7 +134,22 @@ export class OsService {
     // service público por id; a OS nunca lê/escreve as tabelas do caixa.
     private readonly cashier: CashierService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /**
+   * Avisa que a OS mudou (push em tempo real). Chamar SEMPRE fora de transação —
+   * o listener do realtime não pode segurar o pool. best-effort: falha de
+   * emissão nunca quebra a operação que já foi persistida.
+   */
+  private emitOsChanged(tenantId: string, orderId: string, kind: OsChangeKind) {
+    try {
+      const evt: OsChangedEvent = { tenantId, orderId, kind };
+      this.events.emit(OS_CHANGED_EVENT, evt);
+    } catch (e) {
+      this.logger.warn(`Falha ao emitir ${OS_CHANGED_EVENT}: ${(e as Error).message}`);
+    }
+  }
 
   /** Limite de tamanho do upload de foto (~8 MB). */
   private static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -427,6 +448,7 @@ export class OsService {
       return this.repo.findOrderById(id);
     });
     await this.audit.log(user.tenantId, user.userId, 'os_update', id);
+    this.emitOsChanged(user.tenantId, id, 'fields');
     return order;
   }
 
@@ -459,6 +481,8 @@ export class OsService {
         createdBy: user.userId,
       });
     });
+    // Push em tempo real: itens/observação mudam o que a tela mostra.
+    this.emitOsChanged(user.tenantId, orderId, 'note');
     return event;
   }
 
@@ -518,6 +542,7 @@ export class OsService {
       });
       return created;
     });
+    this.emitOsChanged(user.tenantId, orderId, 'photos');
     await this.audit.log(user.tenantId, user.userId, 'os_photo_add', orderId, {
       photoId: photo.id,
     });
@@ -549,6 +574,7 @@ export class OsService {
     }
 
     await this.tenant.withTenantTx(() => this.repo.deletePhoto(photoId));
+    this.emitOsChanged(user.tenantId, orderId, 'photos');
     await this.audit.log(user.tenantId, user.userId, 'os_photo_delete', orderId, {
       photoId,
     });
@@ -665,6 +691,7 @@ export class OsService {
       from,
       to,
     });
+    this.emitOsChanged(user.tenantId, id, 'status');
 
     // Baixa/estorno de estoque conforme o novo status (idempotente). Substitui o
     // antigo applyStock/stock_applied. FORA de withTenantTx (reconcile abre a
@@ -809,6 +836,8 @@ export class OsService {
           items: [created],
         });
     }
+    // Push em tempo real: itens/observação mudam o que a tela mostra.
+    this.emitOsChanged(user.tenantId, orderId, 'items');
     return result;
   }
 
@@ -852,6 +881,8 @@ export class OsService {
           items: [changed],
         });
     }
+    // Push em tempo real: itens/observação mudam o que a tela mostra.
+    this.emitOsChanged(user.tenantId, orderId, 'items');
     return item;
   }
 
@@ -891,6 +922,8 @@ export class OsService {
         );
       }
     }
+    // Push em tempo real: itens/observação mudam o que a tela mostra.
+    this.emitOsChanged(user.tenantId, orderId, 'items');
     return { id: itemId, deleted: true };
   }
 

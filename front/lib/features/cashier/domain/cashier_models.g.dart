@@ -222,3 +222,23 @@ Map<String, dynamic> _$CashierConfigToJson(_CashierConfig instance) =>
       'requireOpenSession': instance.requireOpenSession,
       'countCashOnly': instance.countCashOnly,
     };
+
+_ExpenseTemplate _$ExpenseTemplateFromJson(Map<String, dynamic> json) =>
+    _ExpenseTemplate(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      amount: json['amount'] as String? ?? '0',
+      category: json['category'] as String? ?? 'despesa',
+      method: json['method'] as String?,
+      status: json['status'] as String? ?? 'active',
+    );
+
+Map<String, dynamic> _$ExpenseTemplateToJson(_ExpenseTemplate instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'amount': instance.amount,
+      'category': instance.category,
+      'method': instance.method,
+      'status': instance.status,
+    };

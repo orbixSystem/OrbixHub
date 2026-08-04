@@ -30,10 +30,14 @@ class NeuTextField extends StatelessWidget {
     this.maxLength,
     this.textCapitalization = TextCapitalization.none,
     this.autofocus = false,
+    this.focusNode,
   });
 
   final String label;
   final TextEditingController? controller;
+  /// Foco externo — permite a uma tela mandar o cursor para este campo (ex.: o
+  /// atalho de despesa fixa sem valor fechado).
+  final FocusNode? focusNode;
   final String? hint;
   final String? helper;
   final String? errorText;
@@ -83,6 +87,7 @@ class NeuTextField extends StatelessWidget {
           radius: NeuTokens.rField,
           child: TextFormField(
             controller: controller,
+            focusNode: focusNode,
             obscureText: obscureText,
             keyboardType: keyboardType,
             autofillHints: autofillHints,

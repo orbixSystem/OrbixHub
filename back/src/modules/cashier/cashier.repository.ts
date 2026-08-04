@@ -16,7 +16,30 @@ import type {
 type DecimalIn = Prisma.Decimal | number;
 
 /** Entidades do módulo cashier expostas ao pull de sync offline. */
-export type CashierSyncEntity = 'cash_session' | 'cash_entry';
+export type CashierSyncEntity =
+  | 'cash_session'
+  | 'cash_entry'
+  | 'cash_expense_template';
+
+/** Modelo de despesa fixa a inserir. `amount: 0` = "o valor varia". */
+export interface NewTemplateData {
+  /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro. */
+  id?: string;
+  name: string;
+  amount: DecimalIn;
+  category: 'despesa' | 'sangria';
+  method: PaymentMethod | null;
+  created_by: string;
+}
+
+/** Campos editáveis de um modelo (inclui `status` para desativar). */
+export interface TemplatePatch {
+  name?: string;
+  amount?: DecimalIn;
+  category?: 'despesa' | 'sangria';
+  method?: PaymentMethod | null;
+  status?: 'active' | 'disabled';
+}
 
 export interface NewEntryData {
   /** Uuid vindo do cliente (replay offline) — opcional; INSERT puro (S9: sem upsert). */
@@ -333,6 +356,50 @@ export class CashierRepository {
       by: ['sale_kind', 'direction'],
       where: this.periodWhere(p),
       _sum: { amount: true },
+    });
+  }
+
+  // ============ Despesas fixas (modelos de lançamento) ============
+  /**
+   * Modelos ATIVOS, mais usados primeiro não — por nome, que é o que o operador
+   * procura visualmente numa fileira curta de atalhos.
+   */
+  listTemplates(p: { includeDisabled?: boolean } = {}) {
+    const db = this.tenant.getClient();
+    return db.cash_expense_template.findMany({
+      where: p.includeDisabled ? {} : { status: 'active' },
+      orderBy: [{ status: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  findTemplate(id: string) {
+    const db = this.tenant.getClient();
+    return db.cash_expense_template.findUnique({ where: { id } });
+  }
+
+  /** Busca por nome entre os ATIVOS (mesma regra do unique parcial). */
+  findActiveTemplateByName(name: string) {
+    const db = this.tenant.getClient();
+    return db.cash_expense_template.findFirst({
+      where: {
+        status: 'active',
+        name: { equals: name.trim(), mode: 'insensitive' },
+      },
+    });
+  }
+
+  createTemplate(tenantId: string, data: NewTemplateData) {
+    const db = this.tenant.getClient();
+    return db.cash_expense_template.create({
+      data: { tenant_id: tenantId, ...data },
+    });
+  }
+
+  updateTemplate(id: string, data: TemplatePatch) {
+    const db = this.tenant.getClient();
+    return db.cash_expense_template.update({
+      where: { id },
+      data: { ...data, updated_at: new Date() },
     });
   }
 

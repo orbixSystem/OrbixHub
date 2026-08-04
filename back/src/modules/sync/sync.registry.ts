@@ -33,6 +33,10 @@ import {
   UpdateEntryDto,
 } from '../cashier/dto/entry.dto';
 import {
+  CreateExpenseTemplateDto,
+  UpdateExpenseTemplateDto,
+} from '../cashier/dto/expense-template.dto';
+import {
   CancelSaleDto,
   CreateSaleDto,
   UpdateSaleDto,
@@ -148,6 +152,11 @@ export const PULL_ROUTES: Record<string, PullRouteDef> = {
   service_order_template: { service: 'os', module: 'os', permission: 'os.read' },
   cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
   cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
+  cash_expense_template: {
+    service: 'cashier',
+    module: 'cashier',
+    permission: 'cashier.read',
+  },
   sale: { service: 'sale', module: 'sale', permission: 'sale.read' },
   sale_item: { service: 'sale', module: 'sale', permission: 'sale.read' },
   // Mensagens são gated pelo módulo `os` e usam `os.read` (como no messages.controller) —
@@ -444,6 +453,25 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     permission: 'cashier.manage',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.cashier.correctEntry(u, str(p.id), asDto(p)),
+  },
+  // ---------------- despesas fixas (modelos) ----------------
+  // Cadastrar o atalho offline importa: quem está sem rede é quem mais precisa
+  // lançar rápido, e o modelo é só um preset — nada de dinheiro viaja aqui.
+  // `id` está DENTRO do DTO (não é chave estrutural) para o replay preservar o
+  // uuid gerado no cliente, como em `cash_entry.create`.
+  'cash_expense_template.create': {
+    dto: CreateExpenseTemplateDto,
+    module: 'cashier',
+    permission: 'cashier.manage',
+    create: true,
+    apply: (s, u, p) => s.cashier.createExpenseTemplate(u, asDto(p)),
+  },
+  'cash_expense_template.update': {
+    dto: UpdateExpenseTemplateDto,
+    module: 'cashier',
+    permission: 'cashier.manage',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.cashier.updateExpenseTemplate(u, str(p.id), asDto(p)),
   },
 };
 

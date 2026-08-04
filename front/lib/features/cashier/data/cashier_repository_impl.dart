@@ -242,4 +242,51 @@ class CashierRepositoryImpl implements CashierRepository {
         });
         return PaymentDetail.fromJson(_asMap(res.data));
       });
+
+  // --- despesas fixas ---
+  @override
+  Future<List<ExpenseTemplate>> listExpenseTemplates({
+    bool includeDisabled = false,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/cashier/expense-templates',
+          queryParameters: {if (includeDisabled) 'includeDisabled': true},
+        );
+        final data = res.data;
+        if (data is! List) return const <ExpenseTemplate>[];
+        return data
+            .map((e) => ExpenseTemplate.fromJson(_asMap(e)))
+            .toList(growable: false);
+      });
+
+  @override
+  Future<ExpenseTemplate> createExpenseTemplate(ExpenseTemplateDraft draft) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/cashier/expense-templates',
+          data: draft.toJson(),
+        );
+        return ExpenseTemplate.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<ExpenseTemplate> updateExpenseTemplate(
+    String id,
+    ExpenseTemplateDraft draft,
+  ) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>(
+          '/cashier/expense-templates/$id',
+          data: draft.toJson(),
+        );
+        return ExpenseTemplate.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<ExpenseTemplate> disableExpenseTemplate(String id) =>
+      _guard(() async {
+        final res = await _dio.delete<Object?>('/cashier/expense-templates/$id');
+        return ExpenseTemplate.fromJson(_asMap(res.data));
+      });
 }

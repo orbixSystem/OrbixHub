@@ -177,7 +177,6 @@ class _EventCard extends StatelessWidget {
     final estornado = e.reversedAt != null;
     final cor = estornado ? neu.inkMuted : (entrada ? neu.success : neu.danger);
     final risco = estornado ? TextDecoration.lineThrough : null;
-    final descricao = e.description?.trim() ?? '';
     return NeuCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -226,9 +225,14 @@ class _EventCard extends StatelessWidget {
                 Text(
                   [
                     ?fmtDataHora(e.createdAt),
+                    // A CATEGORIA entra aqui porque o título agora é o nome do
+                    // lançamento. Sem isto, promover o nome apagava da linha a
+                    // informação de que aquilo é despesa, sangria ou suprimento.
+                    categoryLabel(e.category),
                     methodLabel(e.method),
-                    if (descricao.isNotEmpty) descricao,
-                  ].join(' · '),
+                    // A descrição NÃO se repete aqui: quando existe, ela já é
+                    // o título da linha.
+                  ].where((t) => t.isNotEmpty).join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.3),

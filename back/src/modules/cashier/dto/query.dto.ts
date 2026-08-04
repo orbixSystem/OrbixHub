@@ -9,7 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ENTRY_CATEGORIES, PAYMENT_METHODS } from '../cashier.config';
 
 /** Filtros + paginação do extrato (livro caixa). */
@@ -30,6 +30,16 @@ export class EntryQueryDto {
   @IsOptional() @IsDateString() to?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
+}
+
+/**
+ * Listagem de despesas fixas. Por padrão só as ATIVAS (é o que vira atalho);
+ * a tela de gerenciamento pede as desativadas para poder reativá-las.
+ */
+export class ExpenseTemplateQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  includeDisabled?: boolean;
 }
 
 /** Período do resumo (totais por método/categoria/origem). */

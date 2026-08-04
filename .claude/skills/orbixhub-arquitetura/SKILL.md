@@ -152,11 +152,16 @@ Permissões genéricas (`customer.*`, `subject.*`, `os.*`…), nunca por vertica
 `public/track` + `realtime` (websocket) + tela `tracking/public_tracking_screen` no front,
 **porém `tracking` ainda NÃO é um `module` semeado/gated** — é recurso da OS, não módulo comercial separado.
 
-**DB — 35 tabelas.** RLS+FORCE (policy `tenant_id = current_tenant_id()`) nas de tenant:
-`membership`, `invite`, `subscription`, `tenant_module`, `audit_log`, `customer`, `subject`,
-`inventory_item`, `stock_movement`, `service_order`, `service_order_item`, `service_order_event`,
-`service_order_photo`, `service_order_template(_item)`, `conversation`, `message`, `notification`,
-`invoice`, `invoice_line`, `invoice_event`.
+**DB — 45 tabelas** (conferido no banco em 2026-08-03; a contagem anterior de "35" estava
+defasada). As **29 com RLS+FORCE** (policy `tenant_id = current_tenant_id()`):
+`audit_log`, `business_hours`, `cash_entry`, `cash_expense_template`, `cash_session`,
+`conversation`, `customer`, `inventory_item`, `invite`, `invoice`, `invoice_event`,
+`invoice_line`, `membership`, `message`, `notification`, `sale`, `sale_item`, `service_order`,
+`service_order_event`, `service_order_item`, `service_order_photo`,
+`service_order_photo_comment`, `service_order_template`, `service_order_template_item`,
+`stock_movement`, `subject`, `subscription`, `sync_mutation`, `tenant_module`.
+`cash_expense_template` = despesas fixas (modelos de lançamento do caixa): **preset, não
+agendador** — `amount = 0` significa "o valor varia".
 Globais sem RLS: `tenant`, `users`, `role`, `permission`, `role_permission`, `refresh_token`,
 `one_time_token`, `login_attempt`, `module`, `plan`, `plan_module`, `billing_webhook_event`,
 `invoice_webhook_event`, `catalog_product` (cache EAN global 60d). Roles PG: `app_owner` (dono/DDL),
