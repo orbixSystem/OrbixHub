@@ -54,6 +54,8 @@ import 'features/messages/data/messages_repository_impl.dart';
 import 'features/messages/presentation/messages_providers.dart';
 import 'features/notifications/data/notifications_repository_impl.dart';
 import 'features/notifications/presentation/notifications_providers.dart';
+import 'features/expenses/data/expenses_repository_impl.dart';
+import 'features/expenses/presentation/expenses_providers.dart';
 import 'features/os/data/local_first_os_repository.dart';
 import 'features/os/data/os_repository_impl.dart';
 import 'features/os/presentation/os_providers.dart';
@@ -320,6 +322,11 @@ final diOverrides = [
       currentUserId: deps.currentUserId,
     );
   }),
+  // Despesas (contas a pagar) — API real. O fake que serviu para desenhar a tela
+  // continua em `data/fake_expenses_repository.dart` para os testes; a tela não
+  // mudou uma linha na troca, porque só conhece a interface do domain.
+  expensesRepositoryProvider
+      .overrideWith((ref) => ExpensesRepositoryImpl(ref.read(dioProvider))),
 ];
 
 /// Reset total do app no logout/expire (reload na web, no-op fora).
