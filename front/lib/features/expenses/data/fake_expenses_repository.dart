@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../../../core/error/app_exception.dart';
 import '../domain/expense_models.dart';
 import '../domain/expense_status.dart';
 import '../domain/expenses_repository.dart';
@@ -22,7 +23,9 @@ class FakeExpensesRepository implements ExpensesRepository {
   final _uuid = const Uuid();
   final List<Expense> _contas = [];
 
-  static const _categorias = <ExpenseCategory>[
+  // Instância (não `static const`): criar categoria muda a lista, e um fake que
+  // não reflete a própria escrita mentiria para o teste.
+  List<ExpenseCategory> _categorias = const <ExpenseCategory>[
     ExpenseCategory(id: 'cat-aluguel', name: 'Aluguel', icon: 'aluguel', color: '#F97316'),
     ExpenseCategory(id: 'cat-energia', name: 'Energia', icon: 'energia', color: '#EAB308'),
     ExpenseCategory(id: 'cat-agua', name: 'Água', icon: 'agua', color: '#38BDF8'),
@@ -121,6 +124,34 @@ class FakeExpensesRepository implements ExpensesRepository {
 
   @override
   Future<List<ExpenseCategory>> categorias() async => _categorias;
+
+  @override
+  Future<ExpenseCategory> criarCategoria({
+    required String name,
+    String? icon,
+    String? color,
+  }) async {
+    final nome = name.trim();
+    // Espelha o unique do backend (nome entre as ATIVAS): sem isso o fake
+    // aceitaria duplicata e o teste passaria onde a API recusa.
+    if (_categorias.any(
+      (c) => c.status == 'active' && c.name.toLowerCase() == nome.toLowerCase(),
+    )) {
+      throw AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Já existe uma categoria "$nome".',
+      );
+    }
+    final nova = ExpenseCategory(
+      id: _uuid.v4(),
+      name: nome,
+      icon: icon ?? 'outros',
+      color: color ?? '#6B7280',
+    );
+    _categorias = [..._categorias, nova];
+    return nova;
+  }
 
   @override
   Future<Expense> criar(ExpenseDraft draft) async {

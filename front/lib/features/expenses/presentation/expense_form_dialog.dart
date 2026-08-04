@@ -5,6 +5,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../domain/expense_models.dart';
+import 'category_form_dialog.dart';
 import 'expense_visuals.dart';
 import 'expenses_providers.dart';
 
@@ -288,7 +289,9 @@ class _SeletorCategoria extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    if (categorias.isEmpty) return const SizedBox.shrink();
+    // NÃO retorna vazio quando não há categoria: era o pior caso possível —
+    // tenant sem categoria nenhuma não via o seletor e portanto não tinha por
+    // onde criar a primeira. Agora o "+ Nova" aparece sempre.
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,6 +321,10 @@ class _SeletorCategoria extends StatelessWidget {
                     ? null
                     : () => onMudar!(c.id == selecionada ? null : c.id),
               ),
+            // Criar sem sair do formulário: descobrir que falta a categoria
+            // acontece justamente aqui, ao lançar a conta. Mandar o usuário para
+            // outra tela e voltar custaria o que ele já digitou.
+            if (onMudar != null) _ChipNovaCategoria(onCriada: onMudar!),
           ],
         ),
       ],
@@ -365,6 +372,51 @@ class _ChipCategoria extends StatelessWidget {
                 color: selecionada ? neu.ink : neu.inkMuted,
                 fontSize: 13,
                 fontWeight: selecionada ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Chip "+ Nova" que abre o formulário de categoria e JÁ SELECIONA a criada.
+///
+/// Selecionar sozinho é o ponto: quem cria a categoria no meio do lançamento
+/// quer usá-la naquela conta — obrigar um segundo toque para escolher o que
+/// acabou de nascer seria trabalho à toa.
+class _ChipNovaCategoria extends StatelessWidget {
+  const _ChipNovaCategoria({required this.onCriada});
+
+  final ValueChanged<String?> onCriada;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return InkWell(
+      onTap: () async {
+        final criada = await showCategoryFormDialog(context);
+        if (criada != null) onCriada(criada.id);
+      },
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: neu.line),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, size: 15, color: neu.inkMuted),
+            const SizedBox(width: 5),
+            Text(
+              'Nova',
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

@@ -42,6 +42,20 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
       });
 
   @override
+  Future<ExpenseCategory> criarCategoria({
+    required String name,
+    String? icon,
+    String? color,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/expenses/categories',
+          data: _semNulos({'name': name, 'icon': icon, 'color': color}),
+        );
+        return ExpenseCategory.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<List<ExpenseCategory>> categorias() => _guard(() async {
         final res = await _dio.get<Object?>('/expenses/categories');
         final lista = (res.data as List).cast<Object?>();
