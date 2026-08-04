@@ -113,6 +113,27 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
+  Future<ExpensesReport> expensesReport({required ReportRange range}) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/expenses',
+          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+        );
+        return ExpensesReport.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Uint8List> expensesCsv({required ReportRange range}) =>
+      _guard(() async {
+        final res = await _dio.get<List<int>>(
+          '/report/expenses.csv',
+          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const []);
+      });
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) =>
       _guard(() async {
         final res = await _dio.get<Object?>(

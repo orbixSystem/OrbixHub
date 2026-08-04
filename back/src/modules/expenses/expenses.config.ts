@@ -131,6 +131,53 @@ export function round2(n: number): number {
 }
 
 /**
+ * Teto de parcelas. 48 = 4 anos, generoso para financiamento de equipamento
+ * (elevador, compressor) sem virar campo aberto. Espelha o CHECK da 0040.
+ */
+export const MAX_PARCELAS = 48;
+
+/**
+ * Rateia um total em [n] parcelas, em centavos, sem perder nem inventar dinheiro.
+ *
+ * Os centavos de resto vão na PRIMEIRA parcela (convenção brasileira: as
+ * seguintes ficam redondas). R$ 100 em 3x = 33,34 + 33,33 + 33,33.
+ *
+ * Trabalha em centavos inteiros de propósito: dividir em ponto flutuante e
+ * arredondar cada parcela faz a soma fechar em 99,99 ou 100,01 — e a soma das
+ * parcelas TEM de ser o total, senão a dívida cadastrada não é a dívida real.
+ */
+export function ratearParcelas(total: number, n: number): number[] {
+  const centavos = Math.round(round2(total) * 100);
+  const base = Math.floor(centavos / n);
+  const resto = centavos - base * n;
+  return Array.from({ length: n }, (_, i) =>
+    round2((base + (i === 0 ? resto : 0)) / 100),
+  );
+}
+
+/**
+ * Vencimentos de um parcelamento: o primeiro é o informado, os demais de mês em
+ * mês.
+ *
+ * Usa [dataDaOcorrencia], então mês curto ENCURTA o dia (1ª em 31/01 → 2ª em
+ * 28/02 → 3ª em 31/03). Transbordar para 03/03 jogaria a parcela de fevereiro no
+ * mês de março, onde a cliente não a procura.
+ */
+export function datasDasParcelas(primeiro: Date, n: number): Date[] {
+  const diaPedido = primeiro.getUTCDate();
+  const anoBase = primeiro.getUTCFullYear();
+  const mesBase = primeiro.getUTCMonth() + 1;
+  return Array.from({ length: n }, (_, i) => {
+    const total = mesBase + i - 1;
+    return dataDaOcorrencia(
+      anoBase + Math.floor(total / 12),
+      (total % 12) + 1,
+      diaPedido,
+    );
+  });
+}
+
+/**
  * Recorte de um mês: [primeiro dia, primeiro dia do mês seguinte).
  * Intervalo semiaberto para não depender de "23:59:59.999".
  */

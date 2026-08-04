@@ -26,6 +26,10 @@ enum ReportKind {
   /// Estoque (posição). Point-in-time.
   inventoryPosition,
 
+  /// Despesas por categoria ("para onde vai o dinheiro"). Filtro: período.
+  /// Recorta pelo VENCIMENTO: conta de agosto paga em setembro é custo de agosto.
+  expenses,
+
   /// Clientes (novos + ativos). Filtro: período.
   customers,
 }
@@ -95,6 +99,14 @@ const List<ReportSpec> _allReports = [
     moduleKey: 'cashier',
     group: 'Caixa',
     label: 'Recebido por forma',
+  ),
+  // Lente "Despesas": para onde vai o dinheiro no período. Gated pelo módulo
+  // `expenses` — quem não contratou contas a pagar não vê o relatório delas.
+  ReportSpec(
+    kind: ReportKind.expenses,
+    moduleKey: 'expenses',
+    group: 'Despesas',
+    label: 'Por categoria',
   ),
   ReportSpec(
     kind: ReportKind.inventoryPosition,

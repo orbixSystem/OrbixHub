@@ -322,3 +322,70 @@ Map<String, dynamic> _$CustomersReportToJson(_CustomersReport instance) =>
       'pageSize': instance.pageSize,
       'series': instance.series.map((e) => e.toJson()).toList(),
     };
+
+_ExpenseCategoryReportRow _$ExpenseCategoryReportRowFromJson(
+  Map<String, dynamic> json,
+) => _ExpenseCategoryReportRow(
+  categoryId: json['categoryId'] as String?,
+  categoryName: json['categoryName'] as String? ?? '',
+  categoryColor: json['categoryColor'] as String?,
+  count: (json['count'] as num?)?.toInt() ?? 0,
+  previsto: json['previsto'] as num? ?? 0,
+  pago: json['pago'] as num? ?? 0,
+  emAberto: json['emAberto'] as num? ?? 0,
+  vencido: json['vencido'] as num? ?? 0,
+);
+
+Map<String, dynamic> _$ExpenseCategoryReportRowToJson(
+  _ExpenseCategoryReportRow instance,
+) => <String, dynamic>{
+  'categoryId': instance.categoryId,
+  'categoryName': instance.categoryName,
+  'categoryColor': instance.categoryColor,
+  'count': instance.count,
+  'previsto': instance.previsto,
+  'pago': instance.pago,
+  'emAberto': instance.emAberto,
+  'vencido': instance.vencido,
+};
+
+_ExpensesReportTotals _$ExpensesReportTotalsFromJson(
+  Map<String, dynamic> json,
+) => _ExpensesReportTotals(
+  count: (json['count'] as num?)?.toInt() ?? 0,
+  previsto: json['previsto'] as num? ?? 0,
+  pago: json['pago'] as num? ?? 0,
+  emAberto: json['emAberto'] as num? ?? 0,
+  vencido: json['vencido'] as num? ?? 0,
+);
+
+Map<String, dynamic> _$ExpensesReportTotalsToJson(
+  _ExpensesReportTotals instance,
+) => <String, dynamic>{
+  'count': instance.count,
+  'previsto': instance.previsto,
+  'pago': instance.pago,
+  'emAberto': instance.emAberto,
+  'vencido': instance.vencido,
+};
+
+_ExpensesReport _$ExpensesReportFromJson(
+  Map<String, dynamic> json,
+) => _ExpensesReport(
+  rows:
+      (json['rows'] as List<dynamic>?)
+          ?.map(
+            (e) => ExpenseCategoryReportRow.fromJson(e as Map<String, dynamic>),
+          )
+          .toList() ??
+      const <ExpenseCategoryReportRow>[],
+  totals: json['totals'] == null
+      ? const ExpensesReportTotals()
+      : ExpensesReportTotals.fromJson(json['totals'] as Map<String, dynamic>),
+);
+
+Map<String, dynamic> _$ExpensesReportToJson(_ExpensesReport instance) =>
+    <String, dynamic>{
+      'rows': instance.rows.map((e) => e.toJson()).toList(),
+      'totals': instance.totals.toJson(),
+    };

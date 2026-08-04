@@ -58,11 +58,16 @@ function montar(over: Partial<Linha> = {}) {
   };
   const audit = { log: jest.fn(() => Promise.resolve()) };
 
+  // Gateway de CNPJ: este unit não consulta nada fora, e passar `never` deixaria
+  // claro no stack se algum caminho aqui tentasse consultar.
+  const cnpj = { fetch: jest.fn() };
+
   const service = new ExpensesService(
     tenant as never,
     repo as never,
     audit as never,
     cashier as never,
+    cnpj as never,
   );
   return { service, repo, cashier, audit, chamadas, linha };
 }
@@ -168,6 +173,18 @@ describe('expenses — baixa espelhada no caixa', () => {
     const { service } = montar({ status: 'canceled' });
     await expect(service.pay(user, 'e1', {})).rejects.toBeInstanceOf(
       ConflictException,
+    );
+  });
+
+  it('marca a ORIGEM no lançamento (é o que faz o caminho de volta existir)', async () => {
+    // Antes ia nulo e o vínculo era de um sentido só: o extrato mostrava
+    // "Aluguel" sem como chegar na conta a pagar. `originId` é o id DESTA
+    // despesa, que o caixa guarda como tag opaca em (sale_kind, sale_id).
+    const { service, cashier } = montar();
+    await service.pay(user, 'e1', {});
+    expect(cashier.registrarSaidaDeDespesa).toHaveBeenCalledWith(
+      user,
+      expect.objectContaining({ originId: 'e1' }),
     );
   });
 });

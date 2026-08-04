@@ -46,11 +46,17 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     required String name,
     String? icon,
     String? color,
+    bool tracksSupplier = false,
   }) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
           '/expenses/categories',
-          data: _semNulos({'name': name, 'icon': icon, 'color': color}),
+          data: _semNulos({
+            'name': name,
+            'icon': icon,
+            'color': color,
+            'tracksSupplier': tracksSupplier,
+          }),
         );
         return ExpenseCategory.fromJson(_asMap(res.data));
       });
@@ -73,6 +79,14 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
             'amount': draft.amount,
             'categoryId': draft.categoryId,
             'notes': draft.notes,
+            'supplierName': draft.supplierName,
+            'supplierDoc': draft.supplierDoc,
+            // Parcelamento: `amount` acima é o TOTAL, e o servidor rateia.
+            'parcelas': draft.parcelas,
+            // Ids só no caminho offline (o decorator os gera); online o banco
+            // resolve.
+            'installmentIds': draft.installmentIds,
+            'installmentGroupId': draft.installmentGroupId,
             if (r != null)
               'recorrencia': _semNulos({
                 'frequency': r.frequency,
@@ -86,6 +100,18 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
       });
 
   @override
+  Future<ExpenseDetail> detalhe(String id) => _guard(() async {
+        final res = await _dio.get<Object?>('/expenses/$id');
+        return ExpenseDetail.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<ExpenseSupplierLookup> consultarCnpj(String cnpj) => _guard(() async {
+        final res = await _dio.get<Object?>('/expenses/cnpj/$cnpj');
+        return ExpenseSupplierLookup.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<Expense> editar(String id, ExpenseDraft draft) => _guard(() async {
         final body = _semNulos({
           'description': draft.description,
@@ -94,9 +120,14 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
           'categoryId': draft.categoryId,
           'notes': draft.notes,
         });
+        body.addAll(_semNulos({
+          'supplierName': draft.supplierName,
+          'supplierDoc': draft.supplierDoc,
+        }));
         // Só viaja quando é verdade: `limparCategoria: false` é ruído, e o
         // backend já trata ausência como "não mexe".
         if (draft.limparCategoria) body['limparCategoria'] = true;
+        if (draft.limparFornecedor) body['limparFornecedor'] = true;
         final res = await _dio.patch<Object?>('/expenses/$id', data: body);
         return Expense.fromJson(_asMap(res.data));
       });

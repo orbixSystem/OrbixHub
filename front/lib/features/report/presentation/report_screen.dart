@@ -159,31 +159,43 @@ class _ReportPicker extends ConsumerWidget {
     final neu = context.neu;
     return NeuCard(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final entry in groups.entries) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
-              child: Text(
-                entry.key.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                  color: neu.inkFaint,
+      // ROLA de verdade. O rail recebe a altura inteira da área de conteúdo
+      // (`CrossAxisAlignment.stretch` na Row de fora), e a `Column` sozinha
+      // estoura quando a lista de relatórios passa da tela — foi o que aconteceu
+      // ao entrar o grupo "Despesas": faltavam 6 pixels e apareceu a faixa de
+      // overflow. O comentário na tela já PROMETIA esse scroll ("rola
+      // internamente só se houver muitos relatórios"); o widget é que não tinha.
+      //
+      // `shrinkWrap` para o card não esticar quando há poucos relatórios: sem
+      // ele, tenant com dois relatórios veria um rail vazio até o pé da tela.
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in groups.entries) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
+                child: Text(
+                  entry.key.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: neu.inkFaint,
+                  ),
                 ),
               ),
-            ),
-            for (final r in entry.value)
-              _PickerItem(
-                label: r.label,
-                selected: r.kind == selected,
-                onTap: () =>
-                    ref.read(selectedReportProvider.notifier).select(r.kind),
-              ),
+              for (final r in entry.value)
+                _PickerItem(
+                  label: r.label,
+                  selected: r.kind == selected,
+                  onTap: () =>
+                      ref.read(selectedReportProvider.notifier).select(r.kind),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -638,6 +650,27 @@ class _ReportBody extends ConsumerWidget {
         // do relatório COMPLETO) é gerado no servidor. Caso dedicado (não o
         // genérico, que monta tudo em memória).
         return _InventoryReport(company: _company());
+      case ReportKind.expenses:
+        // Sem gráfico, como o relatório de Caixa: a pergunta ("para onde vai o
+        // dinheiro") é respondida pela ORDEM da tabela, que já vem do servidor
+        // com o maior gasto primeiro. O resumo em cima dá o fechamento do período.
+        return _AsyncReport(
+          async: ref.watch(expensesReportProvider),
+          retry: () => ref.invalidate(expensesReportProvider),
+          tableOf: expensesTable,
+          isEmpty: (r) => r.rows.isEmpty,
+          summaryOf: (r) => [
+            ('Previsto no período', formatMoney(r.totals.previsto)),
+            ('Já pago', formatMoney(r.totals.pago)),
+            ('Em aberto', formatMoney(r.totals.emAberto)),
+            // Vencido só aparece quando existe: um "R$ 0,00" fixo em vermelho
+            // treinaria o olho a ignorar o vermelho.
+            if (r.totals.vencido > 0)
+              ('Vencido', formatMoney(r.totals.vencido)),
+          ],
+          company: _company(),
+          period: _periodLabel(ref),
+        );
       case ReportKind.cashFlow:
         return _CashFlowReport(company: _company(), period: _periodLabel(ref));
       case ReportKind.customers:

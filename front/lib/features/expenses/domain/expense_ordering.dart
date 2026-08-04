@@ -75,6 +75,34 @@ List<Expense> filtrarPorTexto(
   }).toList(growable: false);
 }
 
+/// As contas a pagar **desta semana** — o filtro que o dono pediu.
+///
+/// "Semana" aqui é *hoje + os próximos 7 dias*, e não segunda-a-domingo: quem
+/// pergunta "o que tenho pra pagar esta semana" na quinta-feira quer saber até a
+/// quinta seguinte, não perder de vista o que vence no sábado por causa de uma
+/// fronteira de calendário.
+///
+/// As **vencidas entram**, sempre: nada é mais "para pagar esta semana" que uma
+/// conta que já passou do prazo. Pagas ficam fora — é fila de trabalho, não
+/// histórico.
+List<Expense> contasDaSemana(
+  List<Expense> contas, {
+  required DateTime hoje,
+  int dias = 7,
+}) {
+  final limite = DateTime(hoje.year, hoje.month, hoje.day)
+      .add(Duration(days: dias));
+  return contas.where((e) {
+    if (e.pago) return false;
+    final v = DateTime.tryParse(e.dueDate);
+    if (v == null) return false;
+    // Comparação por dia CIVIL em UTC: `due_date` chega como meia-noite UTC, e
+    // converter para local jogaria o dia 1º para o mês anterior em fuso a oeste.
+    final dia = DateTime(v.toUtc().year, v.toUtc().month, v.toUtc().day);
+    return !dia.isAfter(limite);
+  }).toList(growable: false);
+}
+
 /// Quantas contas pedem atenção HOJE (vencidas + vencendo hoje).
 ///
 /// É o número que vale um destaque no topo: "3 contas vencendo" é acionável;

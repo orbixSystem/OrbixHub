@@ -21,6 +21,15 @@ ExpensesMonth totaisDoMes({
   required List<Expense> contas,
   required List<ExpenseCategory> categorias,
   required DateTime hoje,
+
+  /// As regras das contas recorrentes — repassadas como vieram. A tela precisa
+  /// delas para dizer "próxima em 10/09"; os totais não as usam.
+  List<ExpenseRecurrence> regras = const [],
+
+  /// TODAS as contas do espelho local (não só as do mês) — insumo do resumo dos
+  /// grupos de parcelamento. Online o servidor calcula; offline é aqui, porque o
+  /// total de uma compra em 6x envolve parcelas de outros meses.
+  List<Expense> todasAsContas = const [],
 }) {
   num previsto = 0;
   num pago = 0;
@@ -48,6 +57,14 @@ ExpensesMonth totaisDoMes({
   return ExpensesMonth(
     items: contas,
     categories: categorias,
+    recurrences: regras,
+    installmentGroups: resumoDosGrupos(
+      todasAsContas,
+      grupos: contas
+          .map((e) => e.installmentGroupId)
+          .whereType<String>()
+          .toSet(),
+    ),
     totalPrevisto: previsto,
     totalPago: pago,
     totalEmAberto: emAberto,
@@ -74,3 +91,26 @@ List<Expense> contasDoMes(
       final civil = d.toUtc();
       return civil.year == ano && civil.month == mes;
     }).toList(growable: false);
+
+/// Resumo dos grupos de parcelamento citados no mês, derivado localmente.
+///
+/// Precisa de TODAS as contas (não só as do mês): o total de uma compra em 6x soma
+/// parcelas de seis meses diferentes. Online quem faz esta conta é o servidor.
+List<InstallmentGroupSummary> resumoDosGrupos(
+  List<Expense> todas, {
+  required Set<String> grupos,
+}) {
+  if (grupos.isEmpty) return const [];
+  final por = <String, InstallmentGroupSummary>{};
+  for (final e in todas) {
+    final g = e.installmentGroupId;
+    if (g == null || !grupos.contains(g)) continue;
+    final atual = por[g] ?? InstallmentGroupSummary(groupId: g);
+    por[g] = atual.copyWith(
+      total: atual.total + e.amount,
+      count: atual.count + 1,
+      paidCount: atual.paidCount + (e.pago ? 1 : 0),
+    );
+  }
+  return por.values.toList(growable: false);
+}

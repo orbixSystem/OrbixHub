@@ -16,7 +16,13 @@ T _$identity<T>(T value) => value;
 mixin _$ExpenseCategory {
 
  String get id; String get name; String get icon;/// Hex `#RRGGBB` vindo do servidor.
- String get color; String get status;
+ String get color;/// Esta categoria tem FORNECEDOR do outro lado?
+///
+/// Peças e manutenção têm; aluguel, energia e salário não. É o que decide se
+/// o cadastro de despesa oferece o campo — mostrá-lo em toda conta era ruído
+/// em quase todas. Vem do banco e não de uma lista fixa aqui porque a cliente
+/// cria as próprias categorias, e uma whitelist no app erraria todas elas.
+@JsonKey(name: 'tracks_supplier') bool get tracksSupplier; String get status;
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +35,16 @@ $ExpenseCategoryCopyWith<ExpenseCategory> get copyWith => _$ExpenseCategoryCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.tracksSupplier, tracksSupplier) || other.tracksSupplier == tracksSupplier)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,icon,color,status);
+int get hashCode => Object.hash(runtimeType,id,name,icon,color,tracksSupplier,status);
 
 @override
 String toString() {
-  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, status: $status)';
+  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, tracksSupplier: $tracksSupplier, status: $status)';
 }
 
 
@@ -49,7 +55,7 @@ abstract mixin class $ExpenseCategoryCopyWith<$Res>  {
   factory $ExpenseCategoryCopyWith(ExpenseCategory value, $Res Function(ExpenseCategory) _then) = _$ExpenseCategoryCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String icon, String color, String status
+ String id, String name, String icon, String color,@JsonKey(name: 'tracks_supplier') bool tracksSupplier, String status
 });
 
 
@@ -66,13 +72,14 @@ class _$ExpenseCategoryCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? tracksSupplier = null,Object? status = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
 as String,color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
-as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tracksSupplier: null == tracksSupplier ? _self.tracksSupplier : tracksSupplier // ignore: cast_nullable_to_non_nullable
+as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -158,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExpenseCategory() when $default != null:
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   return orElse();
 
 }
@@ -179,10 +186,10 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color,  String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseCategory():
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +206,10 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String icon,  String color,  String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)?  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseCategory() when $default != null:
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   return null;
 
 }
@@ -214,7 +221,7 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 @JsonSerializable()
 
 class _ExpenseCategory implements ExpenseCategory {
-  const _ExpenseCategory({required this.id, this.name = '', this.icon = 'outros', this.color = '#6B7280', this.status = 'active'});
+  const _ExpenseCategory({required this.id, this.name = '', this.icon = 'outros', this.color = '#6B7280', @JsonKey(name: 'tracks_supplier') this.tracksSupplier = false, this.status = 'active'});
   factory _ExpenseCategory.fromJson(Map<String, dynamic> json) => _$ExpenseCategoryFromJson(json);
 
 @override final  String id;
@@ -222,6 +229,13 @@ class _ExpenseCategory implements ExpenseCategory {
 @override@JsonKey() final  String icon;
 /// Hex `#RRGGBB` vindo do servidor.
 @override@JsonKey() final  String color;
+/// Esta categoria tem FORNECEDOR do outro lado?
+///
+/// Peças e manutenção têm; aluguel, energia e salário não. É o que decide se
+/// o cadastro de despesa oferece o campo — mostrá-lo em toda conta era ruído
+/// em quase todas. Vem do banco e não de uma lista fixa aqui porque a cliente
+/// cria as próprias categorias, e uma whitelist no app erraria todas elas.
+@override@JsonKey(name: 'tracks_supplier') final  bool tracksSupplier;
 @override@JsonKey() final  String status;
 
 /// Create a copy of ExpenseCategory
@@ -237,16 +251,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.tracksSupplier, tracksSupplier) || other.tracksSupplier == tracksSupplier)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,icon,color,status);
+int get hashCode => Object.hash(runtimeType,id,name,icon,color,tracksSupplier,status);
 
 @override
 String toString() {
-  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, status: $status)';
+  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, tracksSupplier: $tracksSupplier, status: $status)';
 }
 
 
@@ -257,7 +271,7 @@ abstract mixin class _$ExpenseCategoryCopyWith<$Res> implements $ExpenseCategory
   factory _$ExpenseCategoryCopyWith(_ExpenseCategory value, $Res Function(_ExpenseCategory) _then) = __$ExpenseCategoryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String icon, String color, String status
+ String id, String name, String icon, String color,@JsonKey(name: 'tracks_supplier') bool tracksSupplier, String status
 });
 
 
@@ -274,13 +288,14 @@ class __$ExpenseCategoryCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? tracksSupplier = null,Object? status = null,}) {
   return _then(_ExpenseCategory(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
 as String,color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
-as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tracksSupplier: null == tracksSupplier ? _self.tracksSupplier : tracksSupplier // ignore: cast_nullable_to_non_nullable
+as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -300,7 +315,11 @@ mixin _$Expense {
 @JsonKey(name: 'paid_at') String? get paidAt;/// Pode divergir de [amount] (juros, desconto): o que saiu é o que saiu.
 @_DecimalOrNull()@JsonKey(name: 'paid_amount') num? get paidAmount;@JsonKey(name: 'paid_method') String? get paidMethod;/// Id do lançamento no Caixa gerado pela baixa. Só o ID (regra 1): este
 /// módulo nunca lê a tabela do caixa.
-@JsonKey(name: 'cash_entry_id') String? get cashEntryId; String? get notes; String get status;
+@JsonKey(name: 'cash_entry_id') String? get cashEntryId; String? get notes;/// Parcelamento: qual parcela esta conta é, de quantas, e o grupo que junta
+/// as irmãs. As três andam juntas (CHECK no banco) ou são todas nulas.
+@JsonKey(name: 'installment_no') int? get installmentNo;@JsonKey(name: 'installment_total') int? get installmentTotal;@JsonKey(name: 'installment_group_id') String? get installmentGroupId;/// Fornecedor — retrato de quem cobrou, não FK para cadastro.
+@JsonKey(name: 'supplier_name') String? get supplierName;/// Só dígitos (14 = CNPJ, 11 = CPF). Quem formata é a tela.
+@JsonKey(name: 'supplier_doc') String? get supplierDoc; String get status;
 /// Create a copy of Expense
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -313,16 +332,16 @@ $ExpenseCopyWith<Expense> get copyWith => _$ExpenseCopyWithImpl<Expense>(this as
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Expense&&(identical(other.id, id) || other.id == id)&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.recurrenceId, recurrenceId) || other.recurrenceId == recurrenceId)&&(identical(other.paidAt, paidAt) || other.paidAt == paidAt)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.paidMethod, paidMethod) || other.paidMethod == paidMethod)&&(identical(other.cashEntryId, cashEntryId) || other.cashEntryId == cashEntryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Expense&&(identical(other.id, id) || other.id == id)&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.recurrenceId, recurrenceId) || other.recurrenceId == recurrenceId)&&(identical(other.paidAt, paidAt) || other.paidAt == paidAt)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.paidMethod, paidMethod) || other.paidMethod == paidMethod)&&(identical(other.cashEntryId, cashEntryId) || other.cashEntryId == cashEntryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.installmentNo, installmentNo) || other.installmentNo == installmentNo)&&(identical(other.installmentTotal, installmentTotal) || other.installmentTotal == installmentTotal)&&(identical(other.installmentGroupId, installmentGroupId) || other.installmentGroupId == installmentGroupId)&&(identical(other.supplierName, supplierName) || other.supplierName == supplierName)&&(identical(other.supplierDoc, supplierDoc) || other.supplierDoc == supplierDoc)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,description,amount,dueDate,categoryId,recurrenceId,paidAt,paidAmount,paidMethod,cashEntryId,notes,status);
+int get hashCode => Object.hash(runtimeType,id,description,amount,dueDate,categoryId,recurrenceId,paidAt,paidAmount,paidMethod,cashEntryId,notes,installmentNo,installmentTotal,installmentGroupId,supplierName,supplierDoc,status);
 
 @override
 String toString() {
-  return 'Expense(id: $id, description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, recurrenceId: $recurrenceId, paidAt: $paidAt, paidAmount: $paidAmount, paidMethod: $paidMethod, cashEntryId: $cashEntryId, notes: $notes, status: $status)';
+  return 'Expense(id: $id, description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, recurrenceId: $recurrenceId, paidAt: $paidAt, paidAmount: $paidAmount, paidMethod: $paidMethod, cashEntryId: $cashEntryId, notes: $notes, installmentNo: $installmentNo, installmentTotal: $installmentTotal, installmentGroupId: $installmentGroupId, supplierName: $supplierName, supplierDoc: $supplierDoc, status: $status)';
 }
 
 
@@ -333,7 +352,7 @@ abstract mixin class $ExpenseCopyWith<$Res>  {
   factory $ExpenseCopyWith(Expense value, $Res Function(Expense) _then) = _$ExpenseCopyWithImpl;
 @useResult
 $Res call({
- String id, String description,@_Decimal() num amount,@JsonKey(name: 'due_date') String dueDate,@JsonKey(name: 'category_id') String? categoryId,@JsonKey(name: 'recurrence_id') String? recurrenceId,@JsonKey(name: 'paid_at') String? paidAt,@_DecimalOrNull()@JsonKey(name: 'paid_amount') num? paidAmount,@JsonKey(name: 'paid_method') String? paidMethod,@JsonKey(name: 'cash_entry_id') String? cashEntryId, String? notes, String status
+ String id, String description,@_Decimal() num amount,@JsonKey(name: 'due_date') String dueDate,@JsonKey(name: 'category_id') String? categoryId,@JsonKey(name: 'recurrence_id') String? recurrenceId,@JsonKey(name: 'paid_at') String? paidAt,@_DecimalOrNull()@JsonKey(name: 'paid_amount') num? paidAmount,@JsonKey(name: 'paid_method') String? paidMethod,@JsonKey(name: 'cash_entry_id') String? cashEntryId, String? notes,@JsonKey(name: 'installment_no') int? installmentNo,@JsonKey(name: 'installment_total') int? installmentTotal,@JsonKey(name: 'installment_group_id') String? installmentGroupId,@JsonKey(name: 'supplier_name') String? supplierName,@JsonKey(name: 'supplier_doc') String? supplierDoc, String status
 });
 
 
@@ -350,7 +369,7 @@ class _$ExpenseCopyWithImpl<$Res>
 
 /// Create a copy of Expense
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? description = null,Object? amount = null,Object? dueDate = null,Object? categoryId = freezed,Object? recurrenceId = freezed,Object? paidAt = freezed,Object? paidAmount = freezed,Object? paidMethod = freezed,Object? cashEntryId = freezed,Object? notes = freezed,Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? description = null,Object? amount = null,Object? dueDate = null,Object? categoryId = freezed,Object? recurrenceId = freezed,Object? paidAt = freezed,Object? paidAmount = freezed,Object? paidMethod = freezed,Object? cashEntryId = freezed,Object? notes = freezed,Object? installmentNo = freezed,Object? installmentTotal = freezed,Object? installmentGroupId = freezed,Object? supplierName = freezed,Object? supplierDoc = freezed,Object? status = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
@@ -363,6 +382,11 @@ as String?,paidAmount: freezed == paidAmount ? _self.paidAmount : paidAmount // 
 as num?,paidMethod: freezed == paidMethod ? _self.paidMethod : paidMethod // ignore: cast_nullable_to_non_nullable
 as String?,cashEntryId: freezed == cashEntryId ? _self.cashEntryId : cashEntryId // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,installmentNo: freezed == installmentNo ? _self.installmentNo : installmentNo // ignore: cast_nullable_to_non_nullable
+as int?,installmentTotal: freezed == installmentTotal ? _self.installmentTotal : installmentTotal // ignore: cast_nullable_to_non_nullable
+as int?,installmentGroupId: freezed == installmentGroupId ? _self.installmentGroupId : installmentGroupId // ignore: cast_nullable_to_non_nullable
+as String?,supplierName: freezed == supplierName ? _self.supplierName : supplierName // ignore: cast_nullable_to_non_nullable
+as String?,supplierDoc: freezed == supplierDoc ? _self.supplierDoc : supplierDoc // ignore: cast_nullable_to_non_nullable
 as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
@@ -449,10 +473,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes, @JsonKey(name: 'installment_no')  int? installmentNo, @JsonKey(name: 'installment_total')  int? installmentTotal, @JsonKey(name: 'installment_group_id')  String? installmentGroupId, @JsonKey(name: 'supplier_name')  String? supplierName, @JsonKey(name: 'supplier_doc')  String? supplierDoc,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Expense() when $default != null:
-return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.status);case _:
+return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.installmentNo,_that.installmentTotal,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.status);case _:
   return orElse();
 
 }
@@ -470,10 +494,10 @@ return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.cate
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes,  String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes, @JsonKey(name: 'installment_no')  int? installmentNo, @JsonKey(name: 'installment_total')  int? installmentTotal, @JsonKey(name: 'installment_group_id')  String? installmentGroupId, @JsonKey(name: 'supplier_name')  String? supplierName, @JsonKey(name: 'supplier_doc')  String? supplierDoc,  String status)  $default,) {final _that = this;
 switch (_that) {
 case _Expense():
-return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.status);case _:
+return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.installmentNo,_that.installmentTotal,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.status);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -490,10 +514,10 @@ return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.cate
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes,  String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String description, @_Decimal()  num amount, @JsonKey(name: 'due_date')  String dueDate, @JsonKey(name: 'category_id')  String? categoryId, @JsonKey(name: 'recurrence_id')  String? recurrenceId, @JsonKey(name: 'paid_at')  String? paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount')  num? paidAmount, @JsonKey(name: 'paid_method')  String? paidMethod, @JsonKey(name: 'cash_entry_id')  String? cashEntryId,  String? notes, @JsonKey(name: 'installment_no')  int? installmentNo, @JsonKey(name: 'installment_total')  int? installmentTotal, @JsonKey(name: 'installment_group_id')  String? installmentGroupId, @JsonKey(name: 'supplier_name')  String? supplierName, @JsonKey(name: 'supplier_doc')  String? supplierDoc,  String status)?  $default,) {final _that = this;
 switch (_that) {
 case _Expense() when $default != null:
-return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.status);case _:
+return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.recurrenceId,_that.paidAt,_that.paidAmount,_that.paidMethod,_that.cashEntryId,_that.notes,_that.installmentNo,_that.installmentTotal,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.status);case _:
   return null;
 
 }
@@ -505,7 +529,7 @@ return $default(_that.id,_that.description,_that.amount,_that.dueDate,_that.cate
 @JsonSerializable()
 
 class _Expense extends Expense {
-  const _Expense({required this.id, this.description = '', @_Decimal() this.amount = 0, @JsonKey(name: 'due_date') required this.dueDate, @JsonKey(name: 'category_id') this.categoryId, @JsonKey(name: 'recurrence_id') this.recurrenceId, @JsonKey(name: 'paid_at') this.paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount') this.paidAmount, @JsonKey(name: 'paid_method') this.paidMethod, @JsonKey(name: 'cash_entry_id') this.cashEntryId, this.notes, this.status = 'active'}): super._();
+  const _Expense({required this.id, this.description = '', @_Decimal() this.amount = 0, @JsonKey(name: 'due_date') required this.dueDate, @JsonKey(name: 'category_id') this.categoryId, @JsonKey(name: 'recurrence_id') this.recurrenceId, @JsonKey(name: 'paid_at') this.paidAt, @_DecimalOrNull()@JsonKey(name: 'paid_amount') this.paidAmount, @JsonKey(name: 'paid_method') this.paidMethod, @JsonKey(name: 'cash_entry_id') this.cashEntryId, this.notes, @JsonKey(name: 'installment_no') this.installmentNo, @JsonKey(name: 'installment_total') this.installmentTotal, @JsonKey(name: 'installment_group_id') this.installmentGroupId, @JsonKey(name: 'supplier_name') this.supplierName, @JsonKey(name: 'supplier_doc') this.supplierDoc, this.status = 'active'}): super._();
   factory _Expense.fromJson(Map<String, dynamic> json) => _$ExpenseFromJson(json);
 
 @override final  String id;
@@ -527,6 +551,15 @@ class _Expense extends Expense {
 /// módulo nunca lê a tabela do caixa.
 @override@JsonKey(name: 'cash_entry_id') final  String? cashEntryId;
 @override final  String? notes;
+/// Parcelamento: qual parcela esta conta é, de quantas, e o grupo que junta
+/// as irmãs. As três andam juntas (CHECK no banco) ou são todas nulas.
+@override@JsonKey(name: 'installment_no') final  int? installmentNo;
+@override@JsonKey(name: 'installment_total') final  int? installmentTotal;
+@override@JsonKey(name: 'installment_group_id') final  String? installmentGroupId;
+/// Fornecedor — retrato de quem cobrou, não FK para cadastro.
+@override@JsonKey(name: 'supplier_name') final  String? supplierName;
+/// Só dígitos (14 = CNPJ, 11 = CPF). Quem formata é a tela.
+@override@JsonKey(name: 'supplier_doc') final  String? supplierDoc;
 @override@JsonKey() final  String status;
 
 /// Create a copy of Expense
@@ -542,16 +575,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Expense&&(identical(other.id, id) || other.id == id)&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.recurrenceId, recurrenceId) || other.recurrenceId == recurrenceId)&&(identical(other.paidAt, paidAt) || other.paidAt == paidAt)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.paidMethod, paidMethod) || other.paidMethod == paidMethod)&&(identical(other.cashEntryId, cashEntryId) || other.cashEntryId == cashEntryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Expense&&(identical(other.id, id) || other.id == id)&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.recurrenceId, recurrenceId) || other.recurrenceId == recurrenceId)&&(identical(other.paidAt, paidAt) || other.paidAt == paidAt)&&(identical(other.paidAmount, paidAmount) || other.paidAmount == paidAmount)&&(identical(other.paidMethod, paidMethod) || other.paidMethod == paidMethod)&&(identical(other.cashEntryId, cashEntryId) || other.cashEntryId == cashEntryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.installmentNo, installmentNo) || other.installmentNo == installmentNo)&&(identical(other.installmentTotal, installmentTotal) || other.installmentTotal == installmentTotal)&&(identical(other.installmentGroupId, installmentGroupId) || other.installmentGroupId == installmentGroupId)&&(identical(other.supplierName, supplierName) || other.supplierName == supplierName)&&(identical(other.supplierDoc, supplierDoc) || other.supplierDoc == supplierDoc)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,description,amount,dueDate,categoryId,recurrenceId,paidAt,paidAmount,paidMethod,cashEntryId,notes,status);
+int get hashCode => Object.hash(runtimeType,id,description,amount,dueDate,categoryId,recurrenceId,paidAt,paidAmount,paidMethod,cashEntryId,notes,installmentNo,installmentTotal,installmentGroupId,supplierName,supplierDoc,status);
 
 @override
 String toString() {
-  return 'Expense(id: $id, description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, recurrenceId: $recurrenceId, paidAt: $paidAt, paidAmount: $paidAmount, paidMethod: $paidMethod, cashEntryId: $cashEntryId, notes: $notes, status: $status)';
+  return 'Expense(id: $id, description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, recurrenceId: $recurrenceId, paidAt: $paidAt, paidAmount: $paidAmount, paidMethod: $paidMethod, cashEntryId: $cashEntryId, notes: $notes, installmentNo: $installmentNo, installmentTotal: $installmentTotal, installmentGroupId: $installmentGroupId, supplierName: $supplierName, supplierDoc: $supplierDoc, status: $status)';
 }
 
 
@@ -562,7 +595,7 @@ abstract mixin class _$ExpenseCopyWith<$Res> implements $ExpenseCopyWith<$Res> {
   factory _$ExpenseCopyWith(_Expense value, $Res Function(_Expense) _then) = __$ExpenseCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String description,@_Decimal() num amount,@JsonKey(name: 'due_date') String dueDate,@JsonKey(name: 'category_id') String? categoryId,@JsonKey(name: 'recurrence_id') String? recurrenceId,@JsonKey(name: 'paid_at') String? paidAt,@_DecimalOrNull()@JsonKey(name: 'paid_amount') num? paidAmount,@JsonKey(name: 'paid_method') String? paidMethod,@JsonKey(name: 'cash_entry_id') String? cashEntryId, String? notes, String status
+ String id, String description,@_Decimal() num amount,@JsonKey(name: 'due_date') String dueDate,@JsonKey(name: 'category_id') String? categoryId,@JsonKey(name: 'recurrence_id') String? recurrenceId,@JsonKey(name: 'paid_at') String? paidAt,@_DecimalOrNull()@JsonKey(name: 'paid_amount') num? paidAmount,@JsonKey(name: 'paid_method') String? paidMethod,@JsonKey(name: 'cash_entry_id') String? cashEntryId, String? notes,@JsonKey(name: 'installment_no') int? installmentNo,@JsonKey(name: 'installment_total') int? installmentTotal,@JsonKey(name: 'installment_group_id') String? installmentGroupId,@JsonKey(name: 'supplier_name') String? supplierName,@JsonKey(name: 'supplier_doc') String? supplierDoc, String status
 });
 
 
@@ -579,7 +612,7 @@ class __$ExpenseCopyWithImpl<$Res>
 
 /// Create a copy of Expense
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? description = null,Object? amount = null,Object? dueDate = null,Object? categoryId = freezed,Object? recurrenceId = freezed,Object? paidAt = freezed,Object? paidAmount = freezed,Object? paidMethod = freezed,Object? cashEntryId = freezed,Object? notes = freezed,Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? description = null,Object? amount = null,Object? dueDate = null,Object? categoryId = freezed,Object? recurrenceId = freezed,Object? paidAt = freezed,Object? paidAmount = freezed,Object? paidMethod = freezed,Object? cashEntryId = freezed,Object? notes = freezed,Object? installmentNo = freezed,Object? installmentTotal = freezed,Object? installmentGroupId = freezed,Object? supplierName = freezed,Object? supplierDoc = freezed,Object? status = null,}) {
   return _then(_Expense(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
@@ -592,6 +625,11 @@ as String?,paidAmount: freezed == paidAmount ? _self.paidAmount : paidAmount // 
 as num?,paidMethod: freezed == paidMethod ? _self.paidMethod : paidMethod // ignore: cast_nullable_to_non_nullable
 as String?,cashEntryId: freezed == cashEntryId ? _self.cashEntryId : cashEntryId // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,installmentNo: freezed == installmentNo ? _self.installmentNo : installmentNo // ignore: cast_nullable_to_non_nullable
+as int?,installmentTotal: freezed == installmentTotal ? _self.installmentTotal : installmentTotal // ignore: cast_nullable_to_non_nullable
+as int?,installmentGroupId: freezed == installmentGroupId ? _self.installmentGroupId : installmentGroupId // ignore: cast_nullable_to_non_nullable
+as String?,supplierName: freezed == supplierName ? _self.supplierName : supplierName // ignore: cast_nullable_to_non_nullable
+as String?,supplierDoc: freezed == supplierDoc ? _self.supplierDoc : supplierDoc // ignore: cast_nullable_to_non_nullable
 as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
@@ -900,9 +938,15 @@ as String,
 mixin _$ExpenseDraft {
 
  String? get description; num? get amount; String? get dueDate; String? get categoryId; String? get notes;/// Recorrência pedida na criação; `null` = conta avulsa (uma vez só).
- ExpenseRecurrenceDraft? get recorrencia;/// Edição: limpar a categoria exige dizer explicitamente (ausência = "não
+ ExpenseRecurrenceDraft? get recorrencia;/// Parcelamento pedido na criação. `amount` é o **TOTAL** — quem rateia é o
+/// servidor. Excludente com [recorrencia].
+ int? get parcelas;/// Uuids das parcelas, na ordem — só no caminho OFFLINE, para o replay não
+/// criar um segundo conjunto de linhas. Ver [ExpensesRepository.criar].
+ List<String>? get installmentIds; String? get installmentGroupId; String? get supplierName;/// Só dígitos; o servidor recusa tamanho diferente de 11 ou 14.
+ String? get supplierDoc;/// Edição: limpar a categoria exige dizer explicitamente (ausência = "não
 /// mexe", senão nunca daria para tirar uma categoria já gravada).
- bool get limparCategoria;
+ bool get limparCategoria;/// Idem para o fornecedor.
+ bool get limparFornecedor;
 /// Create a copy of ExpenseDraft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -915,16 +959,16 @@ $ExpenseDraftCopyWith<ExpenseDraft> get copyWith => _$ExpenseDraftCopyWithImpl<E
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseDraft&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.recorrencia, recorrencia) || other.recorrencia == recorrencia)&&(identical(other.limparCategoria, limparCategoria) || other.limparCategoria == limparCategoria));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseDraft&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.recorrencia, recorrencia) || other.recorrencia == recorrencia)&&(identical(other.parcelas, parcelas) || other.parcelas == parcelas)&&const DeepCollectionEquality().equals(other.installmentIds, installmentIds)&&(identical(other.installmentGroupId, installmentGroupId) || other.installmentGroupId == installmentGroupId)&&(identical(other.supplierName, supplierName) || other.supplierName == supplierName)&&(identical(other.supplierDoc, supplierDoc) || other.supplierDoc == supplierDoc)&&(identical(other.limparCategoria, limparCategoria) || other.limparCategoria == limparCategoria)&&(identical(other.limparFornecedor, limparFornecedor) || other.limparFornecedor == limparFornecedor));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,description,amount,dueDate,categoryId,notes,recorrencia,limparCategoria);
+int get hashCode => Object.hash(runtimeType,description,amount,dueDate,categoryId,notes,recorrencia,parcelas,const DeepCollectionEquality().hash(installmentIds),installmentGroupId,supplierName,supplierDoc,limparCategoria,limparFornecedor);
 
 @override
 String toString() {
-  return 'ExpenseDraft(description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, notes: $notes, recorrencia: $recorrencia, limparCategoria: $limparCategoria)';
+  return 'ExpenseDraft(description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, notes: $notes, recorrencia: $recorrencia, parcelas: $parcelas, installmentIds: $installmentIds, installmentGroupId: $installmentGroupId, supplierName: $supplierName, supplierDoc: $supplierDoc, limparCategoria: $limparCategoria, limparFornecedor: $limparFornecedor)';
 }
 
 
@@ -935,7 +979,7 @@ abstract mixin class $ExpenseDraftCopyWith<$Res>  {
   factory $ExpenseDraftCopyWith(ExpenseDraft value, $Res Function(ExpenseDraft) _then) = _$ExpenseDraftCopyWithImpl;
 @useResult
 $Res call({
- String? description, num? amount, String? dueDate, String? categoryId, String? notes, ExpenseRecurrenceDraft? recorrencia, bool limparCategoria
+ String? description, num? amount, String? dueDate, String? categoryId, String? notes, ExpenseRecurrenceDraft? recorrencia, int? parcelas, List<String>? installmentIds, String? installmentGroupId, String? supplierName, String? supplierDoc, bool limparCategoria, bool limparFornecedor
 });
 
 
@@ -952,7 +996,7 @@ class _$ExpenseDraftCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseDraft
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? description = freezed,Object? amount = freezed,Object? dueDate = freezed,Object? categoryId = freezed,Object? notes = freezed,Object? recorrencia = freezed,Object? limparCategoria = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? description = freezed,Object? amount = freezed,Object? dueDate = freezed,Object? categoryId = freezed,Object? notes = freezed,Object? recorrencia = freezed,Object? parcelas = freezed,Object? installmentIds = freezed,Object? installmentGroupId = freezed,Object? supplierName = freezed,Object? supplierDoc = freezed,Object? limparCategoria = null,Object? limparFornecedor = null,}) {
   return _then(_self.copyWith(
 description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,amount: freezed == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
@@ -960,7 +1004,13 @@ as num?,dueDate: freezed == dueDate ? _self.dueDate : dueDate // ignore: cast_nu
 as String?,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,recorrencia: freezed == recorrencia ? _self.recorrencia : recorrencia // ignore: cast_nullable_to_non_nullable
-as ExpenseRecurrenceDraft?,limparCategoria: null == limparCategoria ? _self.limparCategoria : limparCategoria // ignore: cast_nullable_to_non_nullable
+as ExpenseRecurrenceDraft?,parcelas: freezed == parcelas ? _self.parcelas : parcelas // ignore: cast_nullable_to_non_nullable
+as int?,installmentIds: freezed == installmentIds ? _self.installmentIds : installmentIds // ignore: cast_nullable_to_non_nullable
+as List<String>?,installmentGroupId: freezed == installmentGroupId ? _self.installmentGroupId : installmentGroupId // ignore: cast_nullable_to_non_nullable
+as String?,supplierName: freezed == supplierName ? _self.supplierName : supplierName // ignore: cast_nullable_to_non_nullable
+as String?,supplierDoc: freezed == supplierDoc ? _self.supplierDoc : supplierDoc // ignore: cast_nullable_to_non_nullable
+as String?,limparCategoria: null == limparCategoria ? _self.limparCategoria : limparCategoria // ignore: cast_nullable_to_non_nullable
+as bool,limparFornecedor: null == limparFornecedor ? _self.limparFornecedor : limparFornecedor // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -1058,10 +1108,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  bool limparCategoria)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  int? parcelas,  List<String>? installmentIds,  String? installmentGroupId,  String? supplierName,  String? supplierDoc,  bool limparCategoria,  bool limparFornecedor)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExpenseDraft() when $default != null:
-return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.limparCategoria);case _:
+return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.parcelas,_that.installmentIds,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.limparCategoria,_that.limparFornecedor);case _:
   return orElse();
 
 }
@@ -1079,10 +1129,10 @@ return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  bool limparCategoria)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  int? parcelas,  List<String>? installmentIds,  String? installmentGroupId,  String? supplierName,  String? supplierDoc,  bool limparCategoria,  bool limparFornecedor)  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseDraft():
-return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.limparCategoria);case _:
+return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.parcelas,_that.installmentIds,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.limparCategoria,_that.limparFornecedor);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1099,10 +1149,10 @@ return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  bool limparCategoria)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? description,  num? amount,  String? dueDate,  String? categoryId,  String? notes,  ExpenseRecurrenceDraft? recorrencia,  int? parcelas,  List<String>? installmentIds,  String? installmentGroupId,  String? supplierName,  String? supplierDoc,  bool limparCategoria,  bool limparFornecedor)?  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseDraft() when $default != null:
-return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.limparCategoria);case _:
+return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_that.notes,_that.recorrencia,_that.parcelas,_that.installmentIds,_that.installmentGroupId,_that.supplierName,_that.supplierDoc,_that.limparCategoria,_that.limparFornecedor);case _:
   return null;
 
 }
@@ -1114,7 +1164,7 @@ return $default(_that.description,_that.amount,_that.dueDate,_that.categoryId,_t
 @JsonSerializable()
 
 class _ExpenseDraft implements ExpenseDraft {
-  const _ExpenseDraft({this.description, this.amount, this.dueDate, this.categoryId, this.notes, this.recorrencia, this.limparCategoria = false});
+  const _ExpenseDraft({this.description, this.amount, this.dueDate, this.categoryId, this.notes, this.recorrencia, this.parcelas, final  List<String>? installmentIds, this.installmentGroupId, this.supplierName, this.supplierDoc, this.limparCategoria = false, this.limparFornecedor = false}): _installmentIds = installmentIds;
   factory _ExpenseDraft.fromJson(Map<String, dynamic> json) => _$ExpenseDraftFromJson(json);
 
 @override final  String? description;
@@ -1124,9 +1174,31 @@ class _ExpenseDraft implements ExpenseDraft {
 @override final  String? notes;
 /// Recorrência pedida na criação; `null` = conta avulsa (uma vez só).
 @override final  ExpenseRecurrenceDraft? recorrencia;
+/// Parcelamento pedido na criação. `amount` é o **TOTAL** — quem rateia é o
+/// servidor. Excludente com [recorrencia].
+@override final  int? parcelas;
+/// Uuids das parcelas, na ordem — só no caminho OFFLINE, para o replay não
+/// criar um segundo conjunto de linhas. Ver [ExpensesRepository.criar].
+ final  List<String>? _installmentIds;
+/// Uuids das parcelas, na ordem — só no caminho OFFLINE, para o replay não
+/// criar um segundo conjunto de linhas. Ver [ExpensesRepository.criar].
+@override List<String>? get installmentIds {
+  final value = _installmentIds;
+  if (value == null) return null;
+  if (_installmentIds is EqualUnmodifiableListView) return _installmentIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+@override final  String? installmentGroupId;
+@override final  String? supplierName;
+/// Só dígitos; o servidor recusa tamanho diferente de 11 ou 14.
+@override final  String? supplierDoc;
 /// Edição: limpar a categoria exige dizer explicitamente (ausência = "não
 /// mexe", senão nunca daria para tirar uma categoria já gravada).
 @override@JsonKey() final  bool limparCategoria;
+/// Idem para o fornecedor.
+@override@JsonKey() final  bool limparFornecedor;
 
 /// Create a copy of ExpenseDraft
 /// with the given fields replaced by the non-null parameter values.
@@ -1141,16 +1213,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseDraft&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.recorrencia, recorrencia) || other.recorrencia == recorrencia)&&(identical(other.limparCategoria, limparCategoria) || other.limparCategoria == limparCategoria));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseDraft&&(identical(other.description, description) || other.description == description)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.dueDate, dueDate) || other.dueDate == dueDate)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.recorrencia, recorrencia) || other.recorrencia == recorrencia)&&(identical(other.parcelas, parcelas) || other.parcelas == parcelas)&&const DeepCollectionEquality().equals(other._installmentIds, _installmentIds)&&(identical(other.installmentGroupId, installmentGroupId) || other.installmentGroupId == installmentGroupId)&&(identical(other.supplierName, supplierName) || other.supplierName == supplierName)&&(identical(other.supplierDoc, supplierDoc) || other.supplierDoc == supplierDoc)&&(identical(other.limparCategoria, limparCategoria) || other.limparCategoria == limparCategoria)&&(identical(other.limparFornecedor, limparFornecedor) || other.limparFornecedor == limparFornecedor));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,description,amount,dueDate,categoryId,notes,recorrencia,limparCategoria);
+int get hashCode => Object.hash(runtimeType,description,amount,dueDate,categoryId,notes,recorrencia,parcelas,const DeepCollectionEquality().hash(_installmentIds),installmentGroupId,supplierName,supplierDoc,limparCategoria,limparFornecedor);
 
 @override
 String toString() {
-  return 'ExpenseDraft(description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, notes: $notes, recorrencia: $recorrencia, limparCategoria: $limparCategoria)';
+  return 'ExpenseDraft(description: $description, amount: $amount, dueDate: $dueDate, categoryId: $categoryId, notes: $notes, recorrencia: $recorrencia, parcelas: $parcelas, installmentIds: $installmentIds, installmentGroupId: $installmentGroupId, supplierName: $supplierName, supplierDoc: $supplierDoc, limparCategoria: $limparCategoria, limparFornecedor: $limparFornecedor)';
 }
 
 
@@ -1161,7 +1233,7 @@ abstract mixin class _$ExpenseDraftCopyWith<$Res> implements $ExpenseDraftCopyWi
   factory _$ExpenseDraftCopyWith(_ExpenseDraft value, $Res Function(_ExpenseDraft) _then) = __$ExpenseDraftCopyWithImpl;
 @override @useResult
 $Res call({
- String? description, num? amount, String? dueDate, String? categoryId, String? notes, ExpenseRecurrenceDraft? recorrencia, bool limparCategoria
+ String? description, num? amount, String? dueDate, String? categoryId, String? notes, ExpenseRecurrenceDraft? recorrencia, int? parcelas, List<String>? installmentIds, String? installmentGroupId, String? supplierName, String? supplierDoc, bool limparCategoria, bool limparFornecedor
 });
 
 
@@ -1178,7 +1250,7 @@ class __$ExpenseDraftCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseDraft
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? description = freezed,Object? amount = freezed,Object? dueDate = freezed,Object? categoryId = freezed,Object? notes = freezed,Object? recorrencia = freezed,Object? limparCategoria = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? description = freezed,Object? amount = freezed,Object? dueDate = freezed,Object? categoryId = freezed,Object? notes = freezed,Object? recorrencia = freezed,Object? parcelas = freezed,Object? installmentIds = freezed,Object? installmentGroupId = freezed,Object? supplierName = freezed,Object? supplierDoc = freezed,Object? limparCategoria = null,Object? limparFornecedor = null,}) {
   return _then(_ExpenseDraft(
 description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,amount: freezed == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
@@ -1186,7 +1258,13 @@ as num?,dueDate: freezed == dueDate ? _self.dueDate : dueDate // ignore: cast_nu
 as String?,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
 as String?,recorrencia: freezed == recorrencia ? _self.recorrencia : recorrencia // ignore: cast_nullable_to_non_nullable
-as ExpenseRecurrenceDraft?,limparCategoria: null == limparCategoria ? _self.limparCategoria : limparCategoria // ignore: cast_nullable_to_non_nullable
+as ExpenseRecurrenceDraft?,parcelas: freezed == parcelas ? _self.parcelas : parcelas // ignore: cast_nullable_to_non_nullable
+as int?,installmentIds: freezed == installmentIds ? _self._installmentIds : installmentIds // ignore: cast_nullable_to_non_nullable
+as List<String>?,installmentGroupId: freezed == installmentGroupId ? _self.installmentGroupId : installmentGroupId // ignore: cast_nullable_to_non_nullable
+as String?,supplierName: freezed == supplierName ? _self.supplierName : supplierName // ignore: cast_nullable_to_non_nullable
+as String?,supplierDoc: freezed == supplierDoc ? _self.supplierDoc : supplierDoc // ignore: cast_nullable_to_non_nullable
+as String?,limparCategoria: null == limparCategoria ? _self.limparCategoria : limparCategoria // ignore: cast_nullable_to_non_nullable
+as bool,limparFornecedor: null == limparFornecedor ? _self.limparFornecedor : limparFornecedor // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -1482,7 +1560,16 @@ as String?,
 /// @nodoc
 mixin _$ExpensesMonth {
 
- List<Expense> get items; List<ExpenseCategory> get categories;/// Somas vêm do servidor: ele enxerga o mês inteiro mesmo se a lista for
+ List<Expense> get items; List<ExpenseCategory> get categories;/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> get installmentGroups;/// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
+/// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
+/// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
+ List<ExpenseRecurrence> get recurrences;/// Somas vêm do servidor: ele enxerga o mês inteiro mesmo se a lista for
 /// paginada, e a conta de "quanto ainda devo" não pode depender do que
 /// coube na tela.
 @JsonKey(name: 'totalPrevisto') num get totalPrevisto;@JsonKey(name: 'totalPago') num get totalPago;@JsonKey(name: 'totalEmAberto') num get totalEmAberto;@JsonKey(name: 'totalVencido') num get totalVencido;
@@ -1498,16 +1585,16 @@ $ExpensesMonthCopyWith<ExpensesMonth> get copyWith => _$ExpensesMonthCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpensesMonth&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.categories, categories)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpensesMonth&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.categories, categories)&&const DeepCollectionEquality().equals(other.installmentGroups, installmentGroups)&&const DeepCollectionEquality().equals(other.recurrences, recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(categories),totalPrevisto,totalPago,totalEmAberto,totalVencido);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(categories),const DeepCollectionEquality().hash(installmentGroups),const DeepCollectionEquality().hash(recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
 
 @override
 String toString() {
-  return 'ExpensesMonth(items: $items, categories: $categories, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
+  return 'ExpensesMonth(items: $items, categories: $categories, installmentGroups: $installmentGroups, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
 }
 
 
@@ -1518,7 +1605,7 @@ abstract mixin class $ExpensesMonthCopyWith<$Res>  {
   factory $ExpensesMonthCopyWith(ExpensesMonth value, $Res Function(ExpensesMonth) _then) = _$ExpensesMonthCopyWithImpl;
 @useResult
 $Res call({
- List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
+ List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> installmentGroups, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
 });
 
 
@@ -1535,11 +1622,13 @@ class _$ExpensesMonthCopyWithImpl<$Res>
 
 /// Create a copy of ExpensesMonth
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? categories = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? categories = null,Object? installmentGroups = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<Expense>,categories: null == categories ? _self.categories : categories // ignore: cast_nullable_to_non_nullable
-as List<ExpenseCategory>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
+as List<ExpenseCategory>,installmentGroups: null == installmentGroups ? _self.installmentGroups : installmentGroups // ignore: cast_nullable_to_non_nullable
+as List<InstallmentGroupSummary>,recurrences: null == recurrences ? _self.recurrences : recurrences // ignore: cast_nullable_to_non_nullable
+as List<ExpenseRecurrence>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
 as num,totalPago: null == totalPago ? _self.totalPago : totalPago // ignore: cast_nullable_to_non_nullable
 as num,totalEmAberto: null == totalEmAberto ? _self.totalEmAberto : totalEmAberto // ignore: cast_nullable_to_non_nullable
 as num,totalVencido: null == totalVencido ? _self.totalVencido : totalVencido // ignore: cast_nullable_to_non_nullable
@@ -1628,10 +1717,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExpensesMonth() when $default != null:
-return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   return orElse();
 
 }
@@ -1649,10 +1738,10 @@ return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)  $default,) {final _that = this;
 switch (_that) {
 case _ExpensesMonth():
-return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1669,10 +1758,10 @@ return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,) {final _that = this;
 switch (_that) {
 case _ExpensesMonth() when $default != null:
-return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   return null;
 
 }
@@ -1684,7 +1773,7 @@ return $default(_that.items,_that.categories,_that.totalPrevisto,_that.totalPago
 @JsonSerializable()
 
 class _ExpensesMonth implements ExpensesMonth {
-  const _ExpensesMonth({final  List<Expense> items = const <Expense>[], final  List<ExpenseCategory> categories = const <ExpenseCategory>[], @JsonKey(name: 'totalPrevisto') this.totalPrevisto = 0, @JsonKey(name: 'totalPago') this.totalPago = 0, @JsonKey(name: 'totalEmAberto') this.totalEmAberto = 0, @JsonKey(name: 'totalVencido') this.totalVencido = 0}): _items = items,_categories = categories;
+  const _ExpensesMonth({final  List<Expense> items = const <Expense>[], final  List<ExpenseCategory> categories = const <ExpenseCategory>[], @JsonKey(name: 'installmentGroups') final  List<InstallmentGroupSummary> installmentGroups = const <InstallmentGroupSummary>[], final  List<ExpenseRecurrence> recurrences = const <ExpenseRecurrence>[], @JsonKey(name: 'totalPrevisto') this.totalPrevisto = 0, @JsonKey(name: 'totalPago') this.totalPago = 0, @JsonKey(name: 'totalEmAberto') this.totalEmAberto = 0, @JsonKey(name: 'totalVencido') this.totalVencido = 0}): _items = items,_categories = categories,_installmentGroups = installmentGroups,_recurrences = recurrences;
   factory _ExpensesMonth.fromJson(Map<String, dynamic> json) => _$ExpensesMonthFromJson(json);
 
  final  List<Expense> _items;
@@ -1699,6 +1788,38 @@ class _ExpensesMonth implements ExpensesMonth {
   if (_categories is EqualUnmodifiableListView) return _categories;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_categories);
+}
+
+/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+ final  List<InstallmentGroupSummary> _installmentGroups;
+/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+@override@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> get installmentGroups {
+  if (_installmentGroups is EqualUnmodifiableListView) return _installmentGroups;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_installmentGroups);
+}
+
+/// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
+/// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
+/// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
+ final  List<ExpenseRecurrence> _recurrences;
+/// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
+/// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
+/// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
+@override@JsonKey() List<ExpenseRecurrence> get recurrences {
+  if (_recurrences is EqualUnmodifiableListView) return _recurrences;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_recurrences);
 }
 
 /// Somas vêm do servidor: ele enxerga o mês inteiro mesmo se a lista for
@@ -1722,16 +1843,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpensesMonth&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._categories, _categories)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpensesMonth&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._categories, _categories)&&const DeepCollectionEquality().equals(other._installmentGroups, _installmentGroups)&&const DeepCollectionEquality().equals(other._recurrences, _recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_categories),totalPrevisto,totalPago,totalEmAberto,totalVencido);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_categories),const DeepCollectionEquality().hash(_installmentGroups),const DeepCollectionEquality().hash(_recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
 
 @override
 String toString() {
-  return 'ExpensesMonth(items: $items, categories: $categories, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
+  return 'ExpensesMonth(items: $items, categories: $categories, installmentGroups: $installmentGroups, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
 }
 
 
@@ -1742,7 +1863,7 @@ abstract mixin class _$ExpensesMonthCopyWith<$Res> implements $ExpensesMonthCopy
   factory _$ExpensesMonthCopyWith(_ExpensesMonth value, $Res Function(_ExpensesMonth) _then) = __$ExpensesMonthCopyWithImpl;
 @override @useResult
 $Res call({
- List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
+ List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> installmentGroups, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
 });
 
 
@@ -1759,11 +1880,13 @@ class __$ExpensesMonthCopyWithImpl<$Res>
 
 /// Create a copy of ExpensesMonth
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? categories = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? categories = null,Object? installmentGroups = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
   return _then(_ExpensesMonth(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
 as List<Expense>,categories: null == categories ? _self._categories : categories // ignore: cast_nullable_to_non_nullable
-as List<ExpenseCategory>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
+as List<ExpenseCategory>,installmentGroups: null == installmentGroups ? _self._installmentGroups : installmentGroups // ignore: cast_nullable_to_non_nullable
+as List<InstallmentGroupSummary>,recurrences: null == recurrences ? _self._recurrences : recurrences // ignore: cast_nullable_to_non_nullable
+as List<ExpenseRecurrence>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
 as num,totalPago: null == totalPago ? _self.totalPago : totalPago // ignore: cast_nullable_to_non_nullable
 as num,totalEmAberto: null == totalEmAberto ? _self.totalEmAberto : totalEmAberto // ignore: cast_nullable_to_non_nullable
 as num,totalVencido: null == totalVencido ? _self.totalVencido : totalVencido // ignore: cast_nullable_to_non_nullable
@@ -1772,6 +1895,878 @@ as num,
 }
 
 
+}
+
+
+/// @nodoc
+mixin _$InstallmentGroupSummary {
+
+@JsonKey(name: 'groupId') String get groupId; num get total; int get count;@JsonKey(name: 'paidCount') int get paidCount;
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$InstallmentGroupSummaryCopyWith<InstallmentGroupSummary> get copyWith => _$InstallmentGroupSummaryCopyWithImpl<InstallmentGroupSummary>(this as InstallmentGroupSummary, _$identity);
+
+  /// Serializes this InstallmentGroupSummary to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InstallmentGroupSummary&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.total, total) || other.total == total)&&(identical(other.count, count) || other.count == count)&&(identical(other.paidCount, paidCount) || other.paidCount == paidCount));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupId,total,count,paidCount);
+
+@override
+String toString() {
+  return 'InstallmentGroupSummary(groupId: $groupId, total: $total, count: $count, paidCount: $paidCount)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $InstallmentGroupSummaryCopyWith<$Res>  {
+  factory $InstallmentGroupSummaryCopyWith(InstallmentGroupSummary value, $Res Function(InstallmentGroupSummary) _then) = _$InstallmentGroupSummaryCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'groupId') String groupId, num total, int count,@JsonKey(name: 'paidCount') int paidCount
+});
+
+
+
+
+}
+/// @nodoc
+class _$InstallmentGroupSummaryCopyWithImpl<$Res>
+    implements $InstallmentGroupSummaryCopyWith<$Res> {
+  _$InstallmentGroupSummaryCopyWithImpl(this._self, this._then);
+
+  final InstallmentGroupSummary _self;
+  final $Res Function(InstallmentGroupSummary) _then;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? groupId = null,Object? total = null,Object? count = null,Object? paidCount = null,}) {
+  return _then(_self.copyWith(
+groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,paidCount: null == paidCount ? _self.paidCount : paidCount // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [InstallmentGroupSummary].
+extension InstallmentGroupSummaryPatterns on InstallmentGroupSummary {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _InstallmentGroupSummary value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _InstallmentGroupSummary value)  $default,){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _InstallmentGroupSummary value)?  $default,){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)  $default,) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary():
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)?  $default,) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _InstallmentGroupSummary implements InstallmentGroupSummary {
+  const _InstallmentGroupSummary({@JsonKey(name: 'groupId') this.groupId = '', this.total = 0, this.count = 0, @JsonKey(name: 'paidCount') this.paidCount = 0});
+  factory _InstallmentGroupSummary.fromJson(Map<String, dynamic> json) => _$InstallmentGroupSummaryFromJson(json);
+
+@override@JsonKey(name: 'groupId') final  String groupId;
+@override@JsonKey() final  num total;
+@override@JsonKey() final  int count;
+@override@JsonKey(name: 'paidCount') final  int paidCount;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$InstallmentGroupSummaryCopyWith<_InstallmentGroupSummary> get copyWith => __$InstallmentGroupSummaryCopyWithImpl<_InstallmentGroupSummary>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$InstallmentGroupSummaryToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InstallmentGroupSummary&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.total, total) || other.total == total)&&(identical(other.count, count) || other.count == count)&&(identical(other.paidCount, paidCount) || other.paidCount == paidCount));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupId,total,count,paidCount);
+
+@override
+String toString() {
+  return 'InstallmentGroupSummary(groupId: $groupId, total: $total, count: $count, paidCount: $paidCount)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$InstallmentGroupSummaryCopyWith<$Res> implements $InstallmentGroupSummaryCopyWith<$Res> {
+  factory _$InstallmentGroupSummaryCopyWith(_InstallmentGroupSummary value, $Res Function(_InstallmentGroupSummary) _then) = __$InstallmentGroupSummaryCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'groupId') String groupId, num total, int count,@JsonKey(name: 'paidCount') int paidCount
+});
+
+
+
+
+}
+/// @nodoc
+class __$InstallmentGroupSummaryCopyWithImpl<$Res>
+    implements _$InstallmentGroupSummaryCopyWith<$Res> {
+  __$InstallmentGroupSummaryCopyWithImpl(this._self, this._then);
+
+  final _InstallmentGroupSummary _self;
+  final $Res Function(_InstallmentGroupSummary) _then;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? groupId = null,Object? total = null,Object? count = null,Object? paidCount = null,}) {
+  return _then(_InstallmentGroupSummary(
+groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,paidCount: null == paidCount ? _self.paidCount : paidCount // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$ExpenseSupplierLookup {
+
+/// Documento só com dígitos, como vai para o banco.
+ String get doc;@JsonKey(name: 'razaoSocial') String get razaoSocial;@JsonKey(name: 'nomeFantasia') String? get nomeFantasia;/// "ATIVA", "BAIXADA"… A tela avisa quando não está ativa: pagar boleto de
+/// empresa baixada é sinal de golpe.
+ String? get situacao;
+/// Create a copy of ExpenseSupplierLookup
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ExpenseSupplierLookupCopyWith<ExpenseSupplierLookup> get copyWith => _$ExpenseSupplierLookupCopyWithImpl<ExpenseSupplierLookup>(this as ExpenseSupplierLookup, _$identity);
+
+  /// Serializes this ExpenseSupplierLookup to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseSupplierLookup&&(identical(other.doc, doc) || other.doc == doc)&&(identical(other.razaoSocial, razaoSocial) || other.razaoSocial == razaoSocial)&&(identical(other.nomeFantasia, nomeFantasia) || other.nomeFantasia == nomeFantasia)&&(identical(other.situacao, situacao) || other.situacao == situacao));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,doc,razaoSocial,nomeFantasia,situacao);
+
+@override
+String toString() {
+  return 'ExpenseSupplierLookup(doc: $doc, razaoSocial: $razaoSocial, nomeFantasia: $nomeFantasia, situacao: $situacao)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ExpenseSupplierLookupCopyWith<$Res>  {
+  factory $ExpenseSupplierLookupCopyWith(ExpenseSupplierLookup value, $Res Function(ExpenseSupplierLookup) _then) = _$ExpenseSupplierLookupCopyWithImpl;
+@useResult
+$Res call({
+ String doc,@JsonKey(name: 'razaoSocial') String razaoSocial,@JsonKey(name: 'nomeFantasia') String? nomeFantasia, String? situacao
+});
+
+
+
+
+}
+/// @nodoc
+class _$ExpenseSupplierLookupCopyWithImpl<$Res>
+    implements $ExpenseSupplierLookupCopyWith<$Res> {
+  _$ExpenseSupplierLookupCopyWithImpl(this._self, this._then);
+
+  final ExpenseSupplierLookup _self;
+  final $Res Function(ExpenseSupplierLookup) _then;
+
+/// Create a copy of ExpenseSupplierLookup
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? doc = null,Object? razaoSocial = null,Object? nomeFantasia = freezed,Object? situacao = freezed,}) {
+  return _then(_self.copyWith(
+doc: null == doc ? _self.doc : doc // ignore: cast_nullable_to_non_nullable
+as String,razaoSocial: null == razaoSocial ? _self.razaoSocial : razaoSocial // ignore: cast_nullable_to_non_nullable
+as String,nomeFantasia: freezed == nomeFantasia ? _self.nomeFantasia : nomeFantasia // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [ExpenseSupplierLookup].
+extension ExpenseSupplierLookupPatterns on ExpenseSupplierLookup {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ExpenseSupplierLookup value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ExpenseSupplierLookup value)  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ExpenseSupplierLookup value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String doc, @JsonKey(name: 'razaoSocial')  String razaoSocial, @JsonKey(name: 'nomeFantasia')  String? nomeFantasia,  String? situacao)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup() when $default != null:
+return $default(_that.doc,_that.razaoSocial,_that.nomeFantasia,_that.situacao);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String doc, @JsonKey(name: 'razaoSocial')  String razaoSocial, @JsonKey(name: 'nomeFantasia')  String? nomeFantasia,  String? situacao)  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup():
+return $default(_that.doc,_that.razaoSocial,_that.nomeFantasia,_that.situacao);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String doc, @JsonKey(name: 'razaoSocial')  String razaoSocial, @JsonKey(name: 'nomeFantasia')  String? nomeFantasia,  String? situacao)?  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseSupplierLookup() when $default != null:
+return $default(_that.doc,_that.razaoSocial,_that.nomeFantasia,_that.situacao);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ExpenseSupplierLookup extends ExpenseSupplierLookup {
+  const _ExpenseSupplierLookup({this.doc = '', @JsonKey(name: 'razaoSocial') this.razaoSocial = '', @JsonKey(name: 'nomeFantasia') this.nomeFantasia, this.situacao}): super._();
+  factory _ExpenseSupplierLookup.fromJson(Map<String, dynamic> json) => _$ExpenseSupplierLookupFromJson(json);
+
+/// Documento só com dígitos, como vai para o banco.
+@override@JsonKey() final  String doc;
+@override@JsonKey(name: 'razaoSocial') final  String razaoSocial;
+@override@JsonKey(name: 'nomeFantasia') final  String? nomeFantasia;
+/// "ATIVA", "BAIXADA"… A tela avisa quando não está ativa: pagar boleto de
+/// empresa baixada é sinal de golpe.
+@override final  String? situacao;
+
+/// Create a copy of ExpenseSupplierLookup
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ExpenseSupplierLookupCopyWith<_ExpenseSupplierLookup> get copyWith => __$ExpenseSupplierLookupCopyWithImpl<_ExpenseSupplierLookup>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ExpenseSupplierLookupToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseSupplierLookup&&(identical(other.doc, doc) || other.doc == doc)&&(identical(other.razaoSocial, razaoSocial) || other.razaoSocial == razaoSocial)&&(identical(other.nomeFantasia, nomeFantasia) || other.nomeFantasia == nomeFantasia)&&(identical(other.situacao, situacao) || other.situacao == situacao));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,doc,razaoSocial,nomeFantasia,situacao);
+
+@override
+String toString() {
+  return 'ExpenseSupplierLookup(doc: $doc, razaoSocial: $razaoSocial, nomeFantasia: $nomeFantasia, situacao: $situacao)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ExpenseSupplierLookupCopyWith<$Res> implements $ExpenseSupplierLookupCopyWith<$Res> {
+  factory _$ExpenseSupplierLookupCopyWith(_ExpenseSupplierLookup value, $Res Function(_ExpenseSupplierLookup) _then) = __$ExpenseSupplierLookupCopyWithImpl;
+@override @useResult
+$Res call({
+ String doc,@JsonKey(name: 'razaoSocial') String razaoSocial,@JsonKey(name: 'nomeFantasia') String? nomeFantasia, String? situacao
+});
+
+
+
+
+}
+/// @nodoc
+class __$ExpenseSupplierLookupCopyWithImpl<$Res>
+    implements _$ExpenseSupplierLookupCopyWith<$Res> {
+  __$ExpenseSupplierLookupCopyWithImpl(this._self, this._then);
+
+  final _ExpenseSupplierLookup _self;
+  final $Res Function(_ExpenseSupplierLookup) _then;
+
+/// Create a copy of ExpenseSupplierLookup
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? doc = null,Object? razaoSocial = null,Object? nomeFantasia = freezed,Object? situacao = freezed,}) {
+  return _then(_ExpenseSupplierLookup(
+doc: null == doc ? _self.doc : doc // ignore: cast_nullable_to_non_nullable
+as String,razaoSocial: null == razaoSocial ? _self.razaoSocial : razaoSocial // ignore: cast_nullable_to_non_nullable
+as String,nomeFantasia: freezed == nomeFantasia ? _self.nomeFantasia : nomeFantasia // ignore: cast_nullable_to_non_nullable
+as String?,situacao: freezed == situacao ? _self.situacao : situacao // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$ExpenseDetail {
+
+ Expense get expense;/// A regra que gerou a conta (`null` quando avulsa ou parcelada).
+ ExpenseRecurrence? get recurrence;/// As irmãs do parcelamento, em ordem. Vazio quando não é parcelada.
+ List<Expense> get parcelas;
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ExpenseDetailCopyWith<ExpenseDetail> get copyWith => _$ExpenseDetailCopyWithImpl<ExpenseDetail>(this as ExpenseDetail, _$identity);
+
+  /// Serializes this ExpenseDetail to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseDetail&&(identical(other.expense, expense) || other.expense == expense)&&(identical(other.recurrence, recurrence) || other.recurrence == recurrence)&&const DeepCollectionEquality().equals(other.parcelas, parcelas));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,expense,recurrence,const DeepCollectionEquality().hash(parcelas));
+
+@override
+String toString() {
+  return 'ExpenseDetail(expense: $expense, recurrence: $recurrence, parcelas: $parcelas)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ExpenseDetailCopyWith<$Res>  {
+  factory $ExpenseDetailCopyWith(ExpenseDetail value, $Res Function(ExpenseDetail) _then) = _$ExpenseDetailCopyWithImpl;
+@useResult
+$Res call({
+ Expense expense, ExpenseRecurrence? recurrence, List<Expense> parcelas
+});
+
+
+$ExpenseCopyWith<$Res> get expense;$ExpenseRecurrenceCopyWith<$Res>? get recurrence;
+
+}
+/// @nodoc
+class _$ExpenseDetailCopyWithImpl<$Res>
+    implements $ExpenseDetailCopyWith<$Res> {
+  _$ExpenseDetailCopyWithImpl(this._self, this._then);
+
+  final ExpenseDetail _self;
+  final $Res Function(ExpenseDetail) _then;
+
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? expense = null,Object? recurrence = freezed,Object? parcelas = null,}) {
+  return _then(_self.copyWith(
+expense: null == expense ? _self.expense : expense // ignore: cast_nullable_to_non_nullable
+as Expense,recurrence: freezed == recurrence ? _self.recurrence : recurrence // ignore: cast_nullable_to_non_nullable
+as ExpenseRecurrence?,parcelas: null == parcelas ? _self.parcelas : parcelas // ignore: cast_nullable_to_non_nullable
+as List<Expense>,
+  ));
+}
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ExpenseCopyWith<$Res> get expense {
+  
+  return $ExpenseCopyWith<$Res>(_self.expense, (value) {
+    return _then(_self.copyWith(expense: value));
+  });
+}/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ExpenseRecurrenceCopyWith<$Res>? get recurrence {
+    if (_self.recurrence == null) {
+    return null;
+  }
+
+  return $ExpenseRecurrenceCopyWith<$Res>(_self.recurrence!, (value) {
+    return _then(_self.copyWith(recurrence: value));
+  });
+}
+}
+
+
+/// Adds pattern-matching-related methods to [ExpenseDetail].
+extension ExpenseDetailPatterns on ExpenseDetail {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ExpenseDetail value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ExpenseDetail() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ExpenseDetail value)  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseDetail():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ExpenseDetail value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseDetail() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Expense expense,  ExpenseRecurrence? recurrence,  List<Expense> parcelas)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ExpenseDetail() when $default != null:
+return $default(_that.expense,_that.recurrence,_that.parcelas);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Expense expense,  ExpenseRecurrence? recurrence,  List<Expense> parcelas)  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseDetail():
+return $default(_that.expense,_that.recurrence,_that.parcelas);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Expense expense,  ExpenseRecurrence? recurrence,  List<Expense> parcelas)?  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseDetail() when $default != null:
+return $default(_that.expense,_that.recurrence,_that.parcelas);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ExpenseDetail extends ExpenseDetail {
+  const _ExpenseDetail({required this.expense, this.recurrence, final  List<Expense> parcelas = const <Expense>[]}): _parcelas = parcelas,super._();
+  factory _ExpenseDetail.fromJson(Map<String, dynamic> json) => _$ExpenseDetailFromJson(json);
+
+@override final  Expense expense;
+/// A regra que gerou a conta (`null` quando avulsa ou parcelada).
+@override final  ExpenseRecurrence? recurrence;
+/// As irmãs do parcelamento, em ordem. Vazio quando não é parcelada.
+ final  List<Expense> _parcelas;
+/// As irmãs do parcelamento, em ordem. Vazio quando não é parcelada.
+@override@JsonKey() List<Expense> get parcelas {
+  if (_parcelas is EqualUnmodifiableListView) return _parcelas;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_parcelas);
+}
+
+
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ExpenseDetailCopyWith<_ExpenseDetail> get copyWith => __$ExpenseDetailCopyWithImpl<_ExpenseDetail>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ExpenseDetailToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseDetail&&(identical(other.expense, expense) || other.expense == expense)&&(identical(other.recurrence, recurrence) || other.recurrence == recurrence)&&const DeepCollectionEquality().equals(other._parcelas, _parcelas));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,expense,recurrence,const DeepCollectionEquality().hash(_parcelas));
+
+@override
+String toString() {
+  return 'ExpenseDetail(expense: $expense, recurrence: $recurrence, parcelas: $parcelas)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ExpenseDetailCopyWith<$Res> implements $ExpenseDetailCopyWith<$Res> {
+  factory _$ExpenseDetailCopyWith(_ExpenseDetail value, $Res Function(_ExpenseDetail) _then) = __$ExpenseDetailCopyWithImpl;
+@override @useResult
+$Res call({
+ Expense expense, ExpenseRecurrence? recurrence, List<Expense> parcelas
+});
+
+
+@override $ExpenseCopyWith<$Res> get expense;@override $ExpenseRecurrenceCopyWith<$Res>? get recurrence;
+
+}
+/// @nodoc
+class __$ExpenseDetailCopyWithImpl<$Res>
+    implements _$ExpenseDetailCopyWith<$Res> {
+  __$ExpenseDetailCopyWithImpl(this._self, this._then);
+
+  final _ExpenseDetail _self;
+  final $Res Function(_ExpenseDetail) _then;
+
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? expense = null,Object? recurrence = freezed,Object? parcelas = null,}) {
+  return _then(_ExpenseDetail(
+expense: null == expense ? _self.expense : expense // ignore: cast_nullable_to_non_nullable
+as Expense,recurrence: freezed == recurrence ? _self.recurrence : recurrence // ignore: cast_nullable_to_non_nullable
+as ExpenseRecurrence?,parcelas: null == parcelas ? _self._parcelas : parcelas // ignore: cast_nullable_to_non_nullable
+as List<Expense>,
+  ));
+}
+
+/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ExpenseCopyWith<$Res> get expense {
+  
+  return $ExpenseCopyWith<$Res>(_self.expense, (value) {
+    return _then(_self.copyWith(expense: value));
+  });
+}/// Create a copy of ExpenseDetail
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ExpenseRecurrenceCopyWith<$Res>? get recurrence {
+    if (_self.recurrence == null) {
+    return null;
+  }
+
+  return $ExpenseRecurrenceCopyWith<$Res>(_self.recurrence!, (value) {
+    return _then(_self.copyWith(recurrence: value));
+  });
+}
 }
 
 // dart format on

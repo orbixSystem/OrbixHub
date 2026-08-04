@@ -37,6 +37,33 @@ import {
 export class ReportController {
   constructor(private readonly report: ReportService) {}
 
+  /**
+   * Despesas por categoria no período — "para onde vai o dinheiro".
+   *
+   * Gated pelo módulo `expenses` dentro do service: quem não contratou despesas
+   * recebe 404, e não uma tabela vazia que pareceria "não gastei nada".
+   */
+  @Get('expenses')
+  expenses(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportRangeQueryDto,
+  ) {
+    const { from, to } = resolveRange(query.from, query.to);
+    return this.report.expensesReport(user.tenantId, { from, to });
+  }
+
+  @Get('expenses.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="despesas.csv"')
+  async expensesCsv(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportRangeQueryDto,
+  ): Promise<StreamableFile> {
+    const { from, to } = resolveRange(query.from, query.to);
+    const buf = await this.report.expensesCsv(user.tenantId, { from, to });
+    return new StreamableFile(buf);
+  }
+
   /** OS operacional: linhas PAGINADAS (scroll infinito) + busca + ordenação. */
   @Get('os')
   os(@CurrentUser() user: AuthUser, @Query() query: ReportOsQueryDto) {

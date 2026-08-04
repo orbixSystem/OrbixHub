@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -14,7 +16,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { FREQUENCIES, PAYMENT_METHODS } from '../expenses.config';
+import { FREQUENCIES, MAX_PARCELAS, PAYMENT_METHODS } from '../expenses.config';
 
 /**
  * Recorrência pedida na CRIAÇÃO de uma conta.
@@ -64,6 +66,41 @@ export class CreateExpenseDto {
   @ValidateNested()
   @Type(() => RecurrenceInputDto)
   recorrencia?: RecurrenceInputDto;
+
+  /**
+   * Parcelamento: quantas parcelas gerar. Ausente ou 1 = conta única.
+   *
+   * `amount` continua sendo o **TOTAL da dívida** — o servidor rateia. Pedir o
+   * valor da parcela em vez do total obrigaria a cliente a fazer a divisão de
+   * cabeça, e o resto em centavos se perderia.
+   *
+   * Excludente com `recorrencia`: parcela é fatia de um total conhecido,
+   * recorrência repete a mesma conta sem fim. O CHECK do banco também barra.
+   */
+  @IsOptional() @IsInt() @Min(2) @Max(MAX_PARCELAS) parcelas?: number;
+
+  /**
+   * Uuids que as parcelas devem receber, na ordem — usado pelo **replay offline**.
+   *
+   * Sem isto, o cliente sem rede criaria 6 linhas locais com ids próprios e o
+   * servidor, no replay, geraria 6 OUTROS ids: o pull seguinte traria 12 parcelas.
+   * Quando ausente (caminho online), o banco gera os ids. Precisa ter exatamente
+   * `parcelas` itens; o rateio do dinheiro é sempre do servidor.
+   */
+  @IsOptional() @IsArray() @ArrayMaxSize(MAX_PARCELAS) @IsUUID(undefined, { each: true })
+  installmentIds?: string[];
+
+  /** Idem: o grupo gerado no cliente, para o espelho local casar com o servidor. */
+  @IsOptional() @IsUUID() installmentGroupId?: string;
+
+  /** Razão social / nome de quem cobrou (snapshot, não FK). */
+  @IsOptional() @IsString() @MaxLength(160) supplierName?: string;
+
+  /**
+   * CNPJ (14) ou CPF (11) do fornecedor, **só dígitos** — o service normaliza o
+   * que vier com máscara antes de gravar.
+   */
+  @IsOptional() @IsString() @MaxLength(20) supplierDoc?: string;
 }
 
 /** Edição de UMA conta (não toca na regra que a gerou). */
@@ -79,6 +116,18 @@ export class UpdateExpenseDto {
    * senão nunca haveria como voltar para "sem categoria".
    */
   @IsOptional() @IsBoolean() limparCategoria?: boolean;
+
+  @IsOptional() @IsString() @MaxLength(160) supplierName?: string;
+  @IsOptional() @IsString() @MaxLength(20) supplierDoc?: string;
+
+  /** Mesma lógica de `limparCategoria`, para o fornecedor. */
+  @IsOptional() @IsBoolean() limparFornecedor?: boolean;
+
+  /**
+   * Repare no que NÃO está aqui: `parcelas`. Reparcelar uma conta já lançada
+   * significaria apagar as irmãs e recriar outras — operação destrutiva disfarçada
+   * de edição. Quem errou o número de parcelas exclui o grupo e cadastra de novo.
+   */
 }
 
 /**

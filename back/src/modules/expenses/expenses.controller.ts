@@ -75,6 +75,19 @@ export class ExpensesController {
     return this.expenses.updateCategory(user, id, dto);
   }
 
+  /**
+   * Empresa pelo CNPJ, para preencher o fornecedor da conta.
+   *
+   * Rota literal ANTES de `:id` (senão `cnpj` viraria um id). Não reusa
+   * `/customers/cnpj/:cnpj` porque `expenses` não pode exigir que o módulo de
+   * clientes esteja no plano — o gateway consultado é o mesmo.
+   */
+  @Get('cnpj/:cnpj')
+  @Permissions('finance.read')
+  cnpjLookup(@Param('cnpj') cnpj: string) {
+    return this.expenses.lookupCnpj(cnpj);
+  }
+
   // --- contas ---
   @Get()
   @Permissions('finance.read')
@@ -89,6 +102,17 @@ export class ExpensesController {
   @Permissions('finance.write')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateExpenseDto) {
     return this.expenses.create(user, dto);
+  }
+
+  /**
+   * Uma conta com o contexto do detalhe: a regra que a gerou e as irmãs de
+   * parcelamento. É também a porta do caminho **caixa → despesa** (o lançamento
+   * guarda o id desta conta em `sale_id`).
+   */
+  @Get(':id')
+  @Permissions('finance.read')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.expenses.findOne(id);
   }
 
   @Patch(':id')

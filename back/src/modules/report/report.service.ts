@@ -6,6 +6,7 @@ import { CustomersMetricsService } from '../customers/customers-metrics.service'
 import { EmployeesService } from '../iam/employees.service';
 import { SaleService } from '../sale/sale.service';
 import { CashierService } from '../cashier/cashier.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import type {
   RevenueSeries,
   TeamPerformance,
@@ -21,6 +22,7 @@ import {
   type ExportCompany,
 } from './export/inventory-export';
 import { buildOsCsv, buildOsPdf } from './export/os-export';
+import { buildExpensesCsv } from './export/expenses-export';
 import {
   buildCustomersCsv,
   buildCustomersPdf,
@@ -72,6 +74,7 @@ export class ReportService {
     private readonly employees: EmployeesService,
     private readonly sales: SaleService,
     private readonly cashier: CashierService,
+    private readonly expenses: ExpensesService,
   ) {}
 
   /**
@@ -105,6 +108,24 @@ export class ReportService {
         `Relatório indisponível: módulo '${moduleKey}' não habilitado`,
       );
     }
+  }
+
+  /**
+   * Despesas do período por categoria — "para onde vai o dinheiro".
+   *
+   * COMPÕE chamando o service público do módulo dono (regra 1): o `report` não
+   * conhece as tabelas `expense*`. Gated pelo módulo `expenses`, não por
+   * `report`: quem não contratou despesas não tem o relatório delas.
+   */
+  async expensesReport(tenantId: string, range: Range) {
+    await this.assertModuleEnabled(tenantId, 'expenses');
+    return this.expenses.summaryByCategory(range);
+  }
+
+  /** CSV do relatório de despesas (é o que vai para o contador). */
+  async expensesCsv(tenantId: string, range: Range): Promise<Buffer> {
+    const report = await this.expensesReport(tenantId, range);
+    return buildExpensesCsv(report);
   }
 
   /** OS operacional PAGINADA (scroll infinito na tela): linhas da página + total. */

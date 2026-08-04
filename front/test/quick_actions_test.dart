@@ -6,9 +6,10 @@ import 'package:orbixhub_front/features/shell/presentation/app_shell.dart';
 /// `gatedNavItems`, testado por fora da árvore de widgets (o `AppShell` exige
 /// GoRouter, e montá-lo só para conferir uma lista é frágil).
 ///
-/// "Nova despesa" exige `cashier.manage`, não `cashier.write`: o backend recusa
-/// despesa a quem só pode lançar recebimento, então oferecer a ação a esse cargo
-/// seria convidar o usuário a um erro.
+/// "Nova despesa" mudou de dono: era lançamento do Caixa (`cashier.manage` +
+/// diálogo de saída) e passou a ser cadastro de **conta a pagar** do módulo
+/// `expenses` (`finance.write`). O gasto continua caindo no caixa — pela baixa da
+/// conta —, mas agora com vencimento, categoria e fornecedor.
 
 Me _me({required List<String> permissoes, required List<String> modulos}) => Me(
       user: const User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
@@ -21,28 +22,38 @@ Me _me({required List<String> permissoes, required List<String> modulos}) => Me(
 Iterable<String> _labels(Me me) => quickActionsFor(me).map((a) => a.label);
 
 void main() {
-  test('com cashier.manage, Nova despesa entra ao lado de Nova venda', () {
+  test('com o módulo expenses e finance.write, Nova despesa aparece', () {
     final labels = _labels(_me(
-      permissoes: ['cashier.manage', 'cashier.write', 'sale.write'],
-      modulos: ['cashier', 'sale'],
+      permissoes: ['finance.write', 'sale.write'],
+      modulos: ['expenses', 'sale'],
     ));
     expect(labels, contains('Nova venda'));
     expect(labels, contains('Nova despesa'));
   });
 
-  test('só com cashier.write NÃO oferece despesa (o backend recusaria)', () {
+  test('cashier.manage já NÃO basta: despesa não é mais ação do caixa', () {
+    // Regressão que este teste guarda: se alguém reapontar a ação para o
+    // diálogo do caixa, o gating volta e este caso falha.
     final labels = _labels(_me(
-      permissoes: ['cashier.write', 'sale.write'],
+      permissoes: ['cashier.manage', 'cashier.write', 'sale.write'],
       modulos: ['cashier', 'sale'],
     ));
     expect(labels, contains('Nova venda'));
     expect(labels, isNot(contains('Nova despesa')));
   });
 
-  test('sem o módulo cashier, não oferece despesa', () {
+  test('sem o módulo expenses, não oferece despesa', () {
     final labels = _labels(_me(
-      permissoes: ['cashier.manage', 'sale.write'],
+      permissoes: ['finance.write', 'sale.write'],
       modulos: ['sale'],
+    ));
+    expect(labels, isNot(contains('Nova despesa')));
+  });
+
+  test('só leitura de financeiro não oferece despesa', () {
+    final labels = _labels(_me(
+      permissoes: ['finance.read'],
+      modulos: ['expenses'],
     ));
     expect(labels, isNot(contains('Nova despesa')));
   });
@@ -56,24 +67,21 @@ void main() {
       permissoes: [
         'os.write',
         'sale.write',
-        'cashier.manage',
+        'finance.write',
         'customer.write',
         'inventory.write',
       ],
-      modulos: ['os', 'sale', 'cashier', 'customers', 'inventory'],
+      modulos: ['os', 'sale', 'expenses', 'customers', 'inventory'],
     ));
     final chaves = acoes.map((a) => a.key).toList();
     expect(chaves.toSet().length, chaves.length);
     expect(chaves, contains('expense'));
   });
+
   test('a ação de despesa existe no switch de execução', () {
-    // Guarda-chuva contra a regressão que apareceu: a ação era oferecida no menu
-    // mas quebrava ao executar fora da tela do Caixa, porque o
-    // `cashierControllerProvider` é `autoDispose` e não tinha observador — o
-    // handler agora mantém uma assinatura viva enquanto o diálogo existe.
     final acoes = quickActionsFor(_me(
-      permissoes: ['cashier.manage'],
-      modulos: ['cashier'],
+      permissoes: ['finance.write'],
+      modulos: ['expenses'],
     ));
     expect(acoes.single.key, 'expense');
   });

@@ -20,6 +20,7 @@ const Map<String, IconData> _icones = {
   'telefone': Icons.phone_in_talk_outlined,
   'impostos': Icons.account_balance_outlined,
   'fornecedor': Icons.local_shipping_outlined,
+  'produto': Icons.inventory_2_outlined,
   'salarios': Icons.badge_outlined,
   'manutencao': Icons.handyman_outlined,
   'outros': Icons.receipt_long_outlined,

@@ -115,6 +115,15 @@ export abstract class CashierService {
       deviceId?: string | null;
       /** Uuid do lançamento gerado no cliente (replay offline preserva o id). */
       entryId?: string;
+      /**
+       * Id da despesa que originou o pagamento. Gravado como origem
+       * (`sale_kind='expense'`) para o clique no extrato abrir a conta a pagar.
+       *
+       * O caixa continua sem conhecer o módulo de despesas: guarda uma TAG e um
+       * id opacos, exatamente como já faz com `'os'`. Ler a tabela alheia é que
+       * seria violar a regra 1 — e ele não lê.
+       */
+      originId?: string;
     },
   ): Promise<{ id: string }>;
 
