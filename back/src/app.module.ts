@@ -27,6 +27,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CashierModule } from './modules/cashier/cashier.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { SaleModule } from './modules/sale/sale.module';
 import { ReceivablesModule } from './modules/receivables/receivables.module';
 import { OsModule } from './modules/os/os.module';
@@ -62,6 +63,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     CustomersModule,
     InventoryModule,
     CashierModule,
+    ExpensesModule,
     SaleModule,
     ReceivablesModule,
     NotificationsModule,

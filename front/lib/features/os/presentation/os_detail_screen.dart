@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
@@ -25,6 +25,9 @@ import '../../../di.dart';
 import '../domain/os_models.dart';
 import 'item_picker_dialog.dart';
 import 'order_edit_dialog.dart';
+import '../../../core/export/file_download.dart';
+import '../../../core/pdf/company_document_provider.dart';
+import '../../../core/pdf/document_company.dart';
 import 'os_pdf.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
@@ -92,16 +95,27 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
     return s.meOrNull?.hasModule(key) ?? false;
   }
 
-  /// Identificação da empresa (tenant ativo) p/ exibir e imprimir na OS.
-  OsCompany? _company(WidgetRef ref) {
-    final s = ref.read(sessionControllerProvider);
-    final t = s.meOrNull?.activeTenant;
+  /// Empresa para exibir NA TELA — síncrona, do tenant ativo, que o `/me` já
+  /// trouxe. A tela não pode esperar rede para mostrar um cabeçalho.
+  DocumentCompany? _companyParaTela(WidgetRef ref) {
+    final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
     if (t == null) return null;
-    return OsCompany(
+    return DocumentCompany(
       name: t.name,
       legalName: t.legalName,
       cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty) ? formatCnpj(t.cnpj) : null,
     );
+  }
+
+  /// Empresa para o PDF — Configurações › Empresa, com logo, IE, endereço e
+  /// contato. Falha de leitura cai para a versão da tela: o documento sai com
+  /// menos dados no topo em vez de não sair.
+  Future<DocumentCompany?> _companyParaPdf(WidgetRef ref) async {
+    try {
+      return await ref.read(companyForDocumentsProvider.future);
+    } on Object {
+      return _companyParaTela(ref);
+    }
   }
 
   @override
@@ -118,7 +132,7 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
         kInvoiceEnabled &&
         _hasModule(ref, 'invoice') &&
         _has(ref, 'invoice.issue');
-    final company = _company(ref);
+    final company = _companyParaTela(ref);
     // Logo do tenant para exibir no cabeçalho da OS.
     final logoUrl = ref
         .watch(settingsControllerProvider)
@@ -196,7 +210,7 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
                 canRead: canRead,
                 onEdit: () => _edit(context, ref, order),
                 onApplyTemplate: () => _applyTemplate(context, ref, order),
-                onPrint: () => _printOrder(context, order, company),
+                onPrint: () => _exportOrder(context, ref, order),
                 // Emitir/ver NF fala com o servidor fiscal — offline a ação
                 // fica inerte com tooltip "Requer conexão".
                 invoiceAction: canIssueInvoice
@@ -356,16 +370,30 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
     }
   }
 
-  Future<void> _printOrder(
+  /// Exporta a OS em PDF DIRETO para arquivo — sem passar pelo diálogo de
+  /// impressão. Quem quer papel imprime o arquivo; quem quer mandar no WhatsApp
+  /// (o caso comum) não deveria ter de cancelar uma janela de impressora antes.
+  Future<void> _exportOrder(
     BuildContext context,
+    WidgetRef ref,
     ServiceOrder order,
-    OsCompany? company,
   ) async {
     try {
-      await Printing.layoutPdf(
-        onLayout: (format) => buildOsPdf(order, format, company: company),
+      final company = await _companyParaPdf(ref);
+      final bytes = await buildOsPdf(
+        order,
+        PdfPageFormat.a4,
+        company: company,
       );
-    } on Exception {
+      final nome = 'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}'
+          '.pdf';
+      await downloadBytes(bytes, nome, 'application/pdf');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF exportado: $nome')),
+        );
+      }
+    } on Object {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível gerar o PDF.')),
@@ -435,7 +463,7 @@ class _Header extends StatelessWidget {
   });
 
   final ServiceOrder order;
-  final OsCompany? company;
+  final DocumentCompany? company;
   final String? logoUrl;
   final bool canEdit;
   final bool canRead;
@@ -588,8 +616,8 @@ class _Header extends StatelessWidget {
                   ),
                 if (canRead)
                   NeuIconButton(
-                    tooltip: 'Imprimir',
-                    icon: Icons.print_outlined,
+                    tooltip: 'Exportar PDF',
+                    icon: Icons.picture_as_pdf_outlined,
                     size: 42,
                     onPressed: onPrint,
                   ),

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { SettingsSectionRegistry } from '../settings/settings.section-registry';
@@ -10,7 +10,7 @@ import type { AuthUser } from '../../common/auth/auth.types';
 const DAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 @Injectable()
-export class ScheduleService implements OnModuleInit {
+export class ScheduleService {
   constructor(
     private readonly tenant: TenantContext,
     private readonly repo: ScheduleRepository,
@@ -19,35 +19,10 @@ export class ScheduleService implements OnModuleInit {
     private readonly registry: SettingsSectionRegistry,
   ) {}
 
-  onModuleInit() {
-    this.registry.register({
-      key: 'schedule',
-      title: 'Agenda & Horários de funcionamento',
-      moduleKey: 'os',
-      fields: [
-        { key: 'diasAbertos', label: 'Dias de funcionamento', type: 'text' },
-        { key: 'horario', label: 'Horário padrão', type: 'text' },
-      ],
-      getValues: async (tenantId: string) => {
-        const rows = await this.tenant.runWithTenant(tenantId, () =>
-          this.repo.getBusinessHours(tenantId),
-        );
-        const open = rows.filter((r) => r.is_open);
-        const diasAbertos = open.length === 0
-          ? 'Nenhum dia configurado'
-          : open.map((r) => DAY_LABELS[r.day_of_week].slice(0, 3)).join(', ');
-
-        // Horário representativo: intervalo mais comum entre os dias abertos
-        const horarios = open
-          .filter((r) => r.open_time && r.close_time)
-          .map((r) => `${r.open_time} às ${r.close_time}`);
-        const unique = [...new Set(horarios)];
-        const horario = unique.length === 0 ? '—' : unique.length === 1 ? unique[0] : unique.join(' / ');
-
-        return { diasAbertos, horario };
-      },
-    });
-  }
+  // Seção de Configurações REMOVIDA (era "Agenda & Horários de funcionamento").
+  // Os horários continuam editáveis na TELA de horários, que é onde se mexe neles
+  // de verdade — a seção só espelhava o resumo, e cartão que ninguém abre é ruído.
+  // Para trazer de volta, re-registre a seção aqui (o repo já expõe o necessário).
 
   async getBusinessHours(user: AuthUser) {
     const rows = await this.tenant.withTenantTx(() =>

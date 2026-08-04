@@ -41,11 +41,10 @@ describe('mergeCashierConfig', () => {
   });
   it('aplica patch parcial preservando o resto', () => {
     const merged = mergeCashierConfig(
-      { requireOpenSession: true, countCashOnly: true },
+      { countCashOnly: true },
       { countCashOnly: false },
     );
     expect(merged.countCashOnly).toBe(false);
-    expect(merged.requireOpenSession).toBe(true);
   });
   it('filtra métodos inválidos e cai no default se a lista ficar vazia', () => {
     expect(
@@ -58,19 +57,37 @@ describe('mergeCashierConfig', () => {
     ).toEqual([...PAYMENT_METHODS]);
   });
 
-  // Decisão de produto: a cerimônia de abrir/fechar serve para conferir gaveta de
-  // dinheiro. A maioria das oficinas recebe por Pix/cartão ou tem o dono no
-  // caixa — para elas o ritual é atrito sem contrapartida, e o backend já sabia
-  // operar sem sessão. Quem tem funcionário liga a exigência.
-  it('por padrão NÃO exige caixa aberto', () => {
+  // Decisão de produto: a cerimônia de abrir/fechar caixa foi REMOVIDA. Ela
+  // servia para conferir gaveta de dinheiro, mas na prática só produzia telas de
+  // "abra o caixa" bloqueando o lançamento. O campo permanece no tipo (e no jsonb
+  // de tenants antigos) para não quebrar contrato — mas é NORMALIZADO.
+  it('nunca exige caixa aberto — nem por default', () => {
     expect(DEFAULT_CASHIER_CONFIG.requireOpenSession).toBe(false);
     expect(mergeCashierConfig(undefined).requireOpenSession).toBe(false);
   });
 
-  it('quem precisa de conferência de gaveta pode exigir', () => {
+  it('IGNORA `true` gravado no tenant (não fica preso na cerimônia)', () => {
+    // Tenant antigo, anterior à remoção, com `true` no jsonb: sem esta
+    // normalização ele continuaria pedindo abertura de uma tela que não existe.
+    expect(
+      mergeCashierConfig({ requireOpenSession: true }).requireOpenSession,
+    ).toBe(false);
+  });
+
+  it('IGNORA `true` vindo por API (ninguém religa a cerimônia)', () => {
     expect(
       mergeCashierConfig(undefined, { requireOpenSession: true })
           .requireOpenSession,
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('normalizar requireOpenSession não afeta as outras chaves', () => {
+    const m = mergeCashierConfig(
+      { requireOpenSession: true, countCashOnly: false },
+      { paymentMethods: ['pix'] },
+    );
+    expect(m.requireOpenSession).toBe(false);
+    expect(m.countCashOnly).toBe(false);
+    expect(m.paymentMethods).toEqual(['pix']);
   });
 });

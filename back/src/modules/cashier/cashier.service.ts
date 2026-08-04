@@ -8,6 +8,7 @@
  * O status de pagamento de uma venda é DERIVADO do caixa — a venda não guarda
  * valor pago próprio, ela pergunta aqui.
  */
+import type { AuthUser } from '../../common/auth/auth.types';
 import type { ChangedSincePage } from '../../common/database/changed-since';
 
 export type PaymentStatus = 'a_receber' | 'parcial' | 'pago';
@@ -79,4 +80,54 @@ export abstract class CashierService {
     cursor: { ts: string; id: string } | null,
     limit: number,
   ): Promise<ChangedSincePage>;
+
+  /**
+   * Registra no livro caixa a SAÍDA de uma despesa que acabou de ser paga.
+   *
+   * Porta do módulo `expenses` ("aponta, não invade"): ele manda o valor, a
+   * forma e uma descrição, e recebe de volta só o **id** do lançamento — que
+   * guarda em `expense.cash_entry_id`. Nenhum dos dois lados lê a tabela do
+   * outro, e o caixa não sabe o que é uma "despesa a pagar".
+   *
+   * Por que existe em vez de o `expenses` chamar `createEntry`:
+   * - `createEntry` exige `cashier.manage` para a categoria `despesa`, porque lá
+   *   é um lançamento MANUAL de quem opera a gaveta. Aqui o lançamento é
+   *   CONSEQUÊNCIA de uma baixa já autorizada por `finance.write` — reexigir a
+   *   permissão do caixa bloquearia quem tem todo o direito de pagar a conta.
+   * - Uma porta estreita e nomeada documenta o acoplamento; injetar o Impl
+   *   inteiro (como o `sync` faz, por precisar de replay genérico) daria ao
+   *   módulo de despesas acesso a abrir/fechar caixa, que ele não deve ter.
+   *
+   * Recusa quando o tenant exige caixa aberto e não há sessão — a baixa NÃO deve
+   * ser gravada sem o lançamento, senão a conferência de fechamento passa a não
+   * bater sem que ninguém saiba por quê.
+   */
+  abstract registrarSaidaDeDespesa(
+    user: AuthUser,
+    input: {
+      /** Valor efetivamente pago (pode divergir do previsto: juros/desconto). */
+      amount: number;
+      /** Forma de pagamento; o caixa valida contra as suas próprias. */
+      method: string;
+      /** Texto que identifica a despesa no extrato ("Aluguel do galpão"). */
+      description: string;
+      /** Ponto de caixa, quando houver mais de um. */
+      deviceId?: string | null;
+      /** Uuid do lançamento gerado no cliente (replay offline preserva o id). */
+      entryId?: string;
+    },
+  ): Promise<{ id: string }>;
+
+  /**
+   * Estorna o lançamento de uma despesa cujo pagamento foi desfeito.
+   *
+   * Estorno, nunca delete (regra 6): apagar reescreveria um mês que a cliente
+   * talvez já tenha conferido. Idempotente do ponto de vista do chamador —
+   * lançamento já estornado não é erro, porque desfazer duas vezes (offline +
+   * replay) não pode derrubar a operação.
+   */
+  abstract estornarSaidaDeDespesa(
+    user: AuthUser,
+    entryId: string,
+  ): Promise<void>;
 }

@@ -45,22 +45,53 @@ class CashierController extends AsyncNotifier<CashierState> {
   /// descartado (sair da tela, invalidar após uma venda) — lança
   /// "Cannot use ref after the notifier was disposed". Ler tudo antes das
   /// chamadas de rede elimina a classe inteira desse erro.
-  late final CashierRepository _repo;
+  CashierRepository? _repoCache;
+
+  /// Getter com cache em vez de `late final` atribuído no `build`.
+  ///
+  /// Era `late final`: se qualquer método rodasse antes do `build` concluir (uma
+  /// venda avulsa disparando `addEntry` num provider `autoDispose` recém-criado,
+  /// por exemplo), a leitura estourava `LateInitializationError` e derrubava o
+  /// fluxo no meio — com a venda já criada. Inicializar na primeira leitura
+  /// resolve, e o cache preserva a proteção original: depois de lido uma vez,
+  /// nunca mais se toca `ref` (que pode ter sido descartado após um `await`).
+  CashierRepository get _repo {
+    final cache = _repoCache;
+    if (cache != null) return cache;
+    final repo = ref.read(cashierRepositoryProvider);
+    _repoCache = repo;
+    return repo;
+  }
 
   /// `null` quando o módulo `sale` não está disponível para este tenant/cargo —
   /// o provider lança por padrão, e o Caixa funciona sem vendas (o extrato só
   /// deixa de mostrar o cliente da venda). Ler aqui, protegido, mantém as duas
   /// garantias: nada de `ref` após `await`, e degradar em vez de derrubar a tela.
-  SaleRepository? _sales;
+  SaleRepository? _salesCache;
+  bool _salesLido = false;
+
+  /// Mesmo padrão do [_repo], com a diferença de que a AUSÊNCIA é um estado
+  /// válido (módulo `sale` não contratado) — daí o flag separado, para não
+  /// reconsultar o provider que lança a cada leitura.
+  SaleRepository? get _sales {
+    if (!_salesLido) {
+      _salesLido = true;
+      try {
+        _salesCache = ref.read(saleRepositoryProvider);
+      } on Object {
+        _salesCache = null;
+      }
+    }
+    return _salesCache;
+  }
 
   @override
   Future<CashierState> build() {
-    _repo = ref.read(cashierRepositoryProvider);
-    try {
-      _sales = ref.read(saleRepositoryProvider);
-    } catch (_) {
-      _sales = null;
-    }
+    // Toca os dois ANTES de qualquer await: mantém a garantia original de nunca
+    // usar `ref` depois de uma chamada de rede. Os getters cuidam do caso em que
+    // um método chega primeiro.
+    _repo;
+    _sales;
     return _load();
   }
 
@@ -279,26 +310,10 @@ final cashierHistoryProvider =
   );
 });
 
-/// Modelos de despesa fixa (atalhos do lançamento). `autoDispose` porque só
-/// interessa enquanto um diálogo de lançamento/gerenciamento está aberto.
-///
-/// Erro NÃO propaga: um atalho é conveniência. Se a listagem falhar, o diálogo
-/// de despesa continua funcionando sem a fileira de chips — o contrário
-/// (bloquear o lançamento) seria trocar um problema pequeno por um grande.
-final expenseTemplatesProvider =
-    FutureProvider.autoDispose<List<ExpenseTemplate>>((ref) async {
-  try {
-    return await ref.read(cashierRepositoryProvider).listExpenseTemplates();
-  } on Object {
-    return const <ExpenseTemplate>[];
-  }
-});
-
-/// Idem, incluindo os desativados — a tela de gerenciamento precisa vê-los para
-/// poder reativar. Aqui o erro PROPAGA: gerenciar sem saber o que existe levaria
-/// o usuário a recadastrar em cima de algo que ele não está vendo.
-final expenseTemplatesAllProvider =
-    FutureProvider.autoDispose<List<ExpenseTemplate>>((ref) =>
-        ref.read(cashierRepositoryProvider).listExpenseTemplates(
-              includeDisabled: true,
-            ));
+// Os providers de "despesa fixa" saíram com a UI que os consumia: o que se
+// repete todo mês virou uma RECORRÊNCIA no módulo `Despesas`, que tem
+// vencimento e baixa — não um preset de valor para digitar no caixa.
+//
+// Os métodos correspondentes seguem no `CashierRepository`: as rotas
+// `/cashier/expense-templates` e as ops de sync ainda existem no backend, e
+// removê-las é uma limpeza própria (migration não apaga tabela).

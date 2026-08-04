@@ -15,6 +15,7 @@ import { OsService } from '../os/os.service';
 import { MessagesService } from '../messages/messages.service';
 import { CashierServiceImpl } from '../cashier/cashier.service.impl';
 import { SaleService } from '../sale/sale.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import { BillingService } from '../billing/billing.service';
 import {
   PULL_ROUTES,
@@ -64,8 +65,17 @@ export class SyncService {
     cashier: CashierServiceImpl,
     messages: MessagesService,
     sale: SaleService,
+    expenses: ExpensesService,
   ) {
-    this.services = { customers, inventory, os, cashier, messages, sale };
+    this.services = {
+      customers,
+      inventory,
+      os,
+      cashier,
+      messages,
+      sale,
+      expenses,
+    };
   }
 
   // ===================== Pull (GET /sync/changes) =====================

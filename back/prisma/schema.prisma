@@ -193,6 +193,78 @@ model cash_expense_template {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model expense_category {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String               @db.Uuid
+  name               String
+  icon               String               @default("outros")
+  color              String               @default("#6B7280")
+  status             String               @default("active")
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  tenant             tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  expense            expense[]
+  expense_recurrence expense_recurrence[]
+
+  @@index([tenant_id, updated_at], map: "idx_expense_category_tenant_updated")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model expense_recurrence {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String            @db.Uuid
+  description       String
+  amount            Decimal           @default(0) @db.Decimal(14, 2)
+  category_id       String?           @db.Uuid
+  frequency         String            @default("monthly")
+  day_of_month      Int               @default(1) @db.SmallInt
+  month_of_year     Int?              @db.SmallInt
+  method            String?
+  notes             String?
+  starts_on         DateTime          @default(dbgenerated("CURRENT_DATE")) @db.Date
+  ends_on           DateTime?         @db.Date
+  generated_through DateTime?         @db.Date
+  status            String            @default("active")
+  created_by        String            @db.Uuid
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  tenant            tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  category          expense_category? @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  expense           expense[]
+
+  @@index([tenant_id, status], map: "idx_expense_recurrence_tenant_status")
+  @@index([tenant_id, updated_at], map: "idx_expense_recurrence_tenant_updated")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model expense {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String              @db.Uuid
+  description   String
+  amount        Decimal             @default(0) @db.Decimal(14, 2)
+  due_date      DateTime            @db.Date
+  category_id   String?             @db.Uuid
+  recurrence_id String?             @db.Uuid
+  occurrence_on DateTime?           @db.Date
+  paid_at       DateTime?           @db.Timestamptz(6)
+  paid_amount   Decimal?            @db.Decimal(14, 2)
+  paid_method   String?
+  cash_entry_id String?             @db.Uuid
+  notes         String?
+  status        String              @default("active")
+  created_by    String              @db.Uuid
+  created_at    DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime            @default(now()) @db.Timestamptz(6)
+  tenant        tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  category      expense_category?   @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  recurrence    expense_recurrence? @relation(fields: [recurrence_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([tenant_id, due_date], map: "idx_expense_tenant_due")
+  @@index([tenant_id, category_id], map: "idx_expense_tenant_category")
+  @@index([tenant_id, updated_at], map: "idx_expense_tenant_updated")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale {
   id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id          String      @db.Uuid
@@ -657,6 +729,9 @@ model tenant {
   cash_session          cash_session[]
   conversation       conversation[]
   customer           customer[]
+  expense               expense[]
+  expense_category      expense_category[]
+  expense_recurrence    expense_recurrence[]
   inventory_item     inventory_item[]
   invite             invite[]
   membership         membership[]

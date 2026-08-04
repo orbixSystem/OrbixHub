@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
@@ -177,9 +178,11 @@ class _EventCard extends StatelessWidget {
     final estornado = e.reversedAt != null;
     final cor = estornado ? neu.inkMuted : (entrada ? neu.success : neu.danger);
     final risco = estornado ? TextDecoration.lineThrough : null;
-    return NeuCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
+    // Recebimento de OS abre a ORDEM. Sem isto o card era um beco sem saída:
+    // dizia "OS" e não levava a lugar nenhum, e conferir o que foi feito exigia
+    // procurar a ordem à mão. A venda já abria pelo card de venda logo acima.
+    final daOs = e.saleKind == 'os' && e.saleId != null;
+    final corpo = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _glifo(
@@ -250,6 +253,22 @@ class _EventCard extends StatelessWidget {
             ),
           ),
         ],
+    );
+    if (!daOs) {
+      return NeuCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: corpo,
+      );
+    }
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        onTap: () => context.push('/m/os/${e.saleId}'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: corpo,
+        ),
       ),
     );
   }

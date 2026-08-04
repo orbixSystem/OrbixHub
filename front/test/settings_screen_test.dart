@@ -40,7 +40,11 @@ class _FakeSessionNoAccess extends SessionController {
       );
 }
 
-/// Repositório que expõe uma seção de módulo (Caixa) e registra o que foi salvo.
+/// Repositório que expõe uma seção de módulo genérica e registra o que foi salvo.
+///
+/// A seção de exemplo NÃO é a do Caixa (que deixou de existir quando a cerimônia
+/// de abrir/fechar saiu do produto) — é um módulo fictício, para o teste medir o
+/// MECANISMO de seções dinâmicas sem se amarrar a um módulo real.
 class _SpySettings extends FakeSettingsRepository {
   _SpySettings({required this.editable});
 
@@ -52,9 +56,9 @@ class _SpySettings extends FakeSettingsRepository {
         company: const {},
         sections: [
           SettingsSection(
-            key: 'cashier',
-            title: 'Caixa',
-            moduleKey: 'cashier',
+            key: 'modulo_x',
+            title: 'Módulo X',
+            moduleKey: 'modulo_x',
             editable: editable,
             fields: const [
               SettingsField(
@@ -158,7 +162,7 @@ void main() {
       await tester.pumpWidget(_app(repo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Caixa'));
+      await tester.tap(find.text('Módulo X'));
       await tester.pumpAndSettle();
 
       final sw = find.byType(Switch).first;
@@ -169,7 +173,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repo.salvos, hasLength(1));
-      expect(repo.salvos.single.key, 'cashier');
+      expect(repo.salvos.single.key, 'modulo_x');
       expect(repo.salvos.single.values['requireOpenSession'], isTrue);
     });
 
@@ -182,7 +186,7 @@ void main() {
       final repo = _SpySettings(editable: false);
       await tester.pumpWidget(_app(repo));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Caixa'));
+      await tester.tap(find.text('Módulo X'));
       await tester.pumpAndSettle();
 
       expect(tester.widget<Switch>(find.byType(Switch).first).onChanged, isNull);

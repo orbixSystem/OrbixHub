@@ -2572,7 +2572,12 @@ as List<CashEntry>,
 /// @nodoc
 mixin _$CashierConfig {
 
- List<String> get paymentMethods; bool get requireOpenSession; bool get countCashOnly;
+ List<String> get paymentMethods;/// **Sempre `false`.** A cerimônia de abrir/fechar caixa saiu do produto e o
+/// servidor normaliza este campo. O default aqui era `true`, e essa
+/// divergência era um bug de verdade: quando a config não carregava, o app
+/// achava que precisava de caixa aberto, exigia abertura e a venda criava
+/// mas o recebimento falhava com "Abra o caixa antes de lançar".
+ bool get requireOpenSession; bool get countCashOnly;
 /// Create a copy of CashierConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2768,7 +2773,7 @@ return $default(_that.paymentMethods,_that.requireOpenSession,_that.countCashOnl
 @JsonSerializable()
 
 class _CashierConfig implements CashierConfig {
-  const _CashierConfig({final  List<String> paymentMethods = const <String>['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'outro'], this.requireOpenSession = true, this.countCashOnly = true}): _paymentMethods = paymentMethods;
+  const _CashierConfig({final  List<String> paymentMethods = const <String>['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'outro'], this.requireOpenSession = false, this.countCashOnly = true}): _paymentMethods = paymentMethods;
   factory _CashierConfig.fromJson(Map<String, dynamic> json) => _$CashierConfigFromJson(json);
 
  final  List<String> _paymentMethods;
@@ -2778,6 +2783,11 @@ class _CashierConfig implements CashierConfig {
   return EqualUnmodifiableListView(_paymentMethods);
 }
 
+/// **Sempre `false`.** A cerimônia de abrir/fechar caixa saiu do produto e o
+/// servidor normaliza este campo. O default aqui era `true`, e essa
+/// divergência era um bug de verdade: quando a config não carregava, o app
+/// achava que precisava de caixa aberto, exigia abertura e a venda criava
+/// mas o recebimento falhava com "Abra o caixa antes de lançar".
 @override@JsonKey() final  bool requireOpenSession;
 @override@JsonKey() final  bool countCashOnly;
 

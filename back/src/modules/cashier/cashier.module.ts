@@ -1,12 +1,9 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
-import { SettingsModule } from '../settings/settings.module';
-import { SettingsSectionRegistry } from '../settings/settings.section-registry';
 import { CashierController } from './cashier.controller';
 import { CashierService } from './cashier.service';
 import { CashierServiceImpl } from './cashier.service.impl';
 import { CashierRepository } from './cashier.repository';
-import { CASHIER_CONFIG_KEY } from './cashier.config';
 
 /**
  * Módulo Caixa (Caixa do dia + extrato/livro caixa). Registrador de dinheiro e
@@ -19,7 +16,7 @@ import { CASHIER_CONFIG_KEY } from './cashier.config';
  * (que precisa das operações completas) e a OS (que só vê o contrato).
  */
 @Module({
-  imports: [BillingModule, SettingsModule],
+  imports: [BillingModule],
   controllers: [CashierController],
   providers: [
     CashierRepository,
@@ -33,51 +30,12 @@ import { CASHIER_CONFIG_KEY } from './cashier.config';
   // toca as tabelas do caixa.
   exports: [CashierService, CashierServiceImpl],
 })
-export class CashierModule implements OnModuleInit {
-  constructor(
-    private readonly registry: SettingsSectionRegistry,
-    private readonly cashier: CashierServiceImpl,
-  ) {}
-
-  onModuleInit(): void {
-    // Seção aparece em GET /settings só se o módulo `cashier` estiver habilitado.
-    this.registry.register({
-      key: CASHIER_CONFIG_KEY,
-      title: 'Caixa',
-      moduleKey: 'cashier',
-      fields: [
-        {
-          key: 'requireOpenSession',
-          label: 'Exigir caixa aberto para lançar (conferência de gaveta)',
-          type: 'bool',
-        },
-        {
-          key: 'countCashOnly',
-          label: 'Conferir só dinheiro no fechamento',
-          type: 'bool',
-        },
-      ],
-      // Sem `getValues` a seção era exibida com os valores VAZIOS: o toggle
-      // aparecia desligado mesmo com a exigência ligada no tenant.
-      getValues: async (tenantId) => {
-        const cfg = await this.cashier.getConfig(tenantId);
-        return {
-          requireOpenSession: cfg.requireOpenSession,
-          countCashOnly: cfg.countCashOnly,
-        };
-      },
-      // Contraparte de escrita: o host encaminha o patch e QUEM valida/persiste é
-      // o caixa (o `settings` não conhece a config dele).
-      setValues: async (user, patch) => {
-        const cfg = await this.cashier.updateConfig(user, {
-          requireOpenSession: patch.requireOpenSession as boolean | undefined,
-          countCashOnly: patch.countCashOnly as boolean | undefined,
-        });
-        return {
-          requireOpenSession: cfg.requireOpenSession,
-          countCashOnly: cfg.countCashOnly,
-        };
-      },
-    });
-  }
-}
+/// O módulo NÃO registra seção em Configurações.
+///
+/// Ele tinha uma ("Caixa", com "Exigir caixa aberto" e "Conferir só dinheiro no
+/// fechamento"), mas os dois campos descreviam a cerimônia de abrir/fechar, que
+/// foi REMOVIDA do produto. Sem campos, a seção virava um cartão vazio na tela —
+/// pior que não existir. As chaves seguem na config interna do módulo
+/// (`cashier.config.ts`, lida por `GET /cashier/config`); elas apenas deixaram de
+/// ser administráveis pelo usuário.
+export class CashierModule {}

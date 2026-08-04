@@ -41,6 +41,9 @@ String describeMutation(String entity, String op) {
     'cash_session': 'Caixa',
     'cash_entry': 'Lançamento do caixa',
     'cash_expense_template': 'Despesa fixa',
+    'expense': 'Despesa',
+    'expense_category': 'Categoria de despesa',
+    'expense_recurrence': 'Despesa recorrente',
   };
   const ops = <String, String>{
     'create': 'criação',

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Libera HTTP puro (cleartext) SOMENTE no build de debug.
+
+  Por que existe: desde o Android 9 (API 28) o sistema bloqueia cleartext por
+  padrão, e o `targetSdk` do projeto vem do Flutter (bem acima de 28). Sem isto,
+  toda chamada a `http://10.0.2.2:4400/api` é cortada pela plataforma ANTES de
+  virar request — o app mostra "sem conexão com o servidor" mesmo com o backend
+  no ar e a rede respondendo ping.
+
+  Por que em `src/debug/` e não no manifest principal: este arquivo não entra no
+  APK de release. Produção continua exigindo HTTPS, que é o comportamento certo —
+  ligar `usesCleartextTraffic` no manifest principal resolveria o dev e abriria
+  um buraco permanente no app publicado.
+
+  `base-config` (e não uma lista de domínios) para valer tanto no emulador
+  (10.0.2.2) quanto em celular físico apontando para o IP da máquina na LAN, sem
+  ter que editar XML a cada troca de rede.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

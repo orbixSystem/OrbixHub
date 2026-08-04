@@ -152,7 +152,12 @@ abstract class CashierConfig with _$CashierConfig {
   const factory CashierConfig({
     @Default(<String>['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'outro'])
     List<String> paymentMethods,
-    @Default(true) bool requireOpenSession,
+    /// **Sempre `false`.** A cerimônia de abrir/fechar caixa saiu do produto e o
+    /// servidor normaliza este campo. O default aqui era `true`, e essa
+    /// divergência era um bug de verdade: quando a config não carregava, o app
+    /// achava que precisava de caixa aberto, exigia abertura e a venda criava
+    /// mas o recebimento falhava com "Abra o caixa antes de lançar".
+    @Default(false) bool requireOpenSession,
     @Default(true) bool countCashOnly,
   }) = _CashierConfig;
 
@@ -160,7 +165,6 @@ abstract class CashierConfig with _$CashierConfig {
       _$CashierConfigFromJson(json);
 }
 
-/// Rascunho de um lançamento (a direção é derivada da categoria no backend).
 /// Despesa fixa: modelo (nome + valor) para lançar em um toque.
 ///
 /// `amount` vem como String (Decimal do Postgres, como no resto do módulo).
@@ -226,6 +230,7 @@ class ExpenseTemplateDraft {
       };
 }
 
+/// Rascunho de um lançamento (a direção é derivada da categoria no backend).
 class EntryDraft {
   const EntryDraft({
     required this.amount,

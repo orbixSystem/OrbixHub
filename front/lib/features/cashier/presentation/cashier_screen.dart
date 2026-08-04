@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -127,35 +128,17 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         onRetry: () => ref.invalidate(cashierControllerProvider),
       ),
       data: (state) {
-        // Ordem importa: com a exigência DESLIGADA a sessão é detalhe interno
-        // (o backend cria uma implícita no primeiro lançamento). Mostrar
-        // "Aberto desde HH:MM" e "Fechar caixa" nesse caso reintroduz a
-        // cerimônia que a config justamente dispensou.
-        if (state.isOpen && state.config.requireOpenSession) {
-          return _OpenBody(
-            state: state,
-            canWrite: _canWrite(),
-            canManage: _canManage(),
-            canSale: _canSale(),
-          );
-        }
-        // A cerimônia de abrir/fechar existe para CONFERIR GAVETA de dinheiro.
-        // Quem recebe só por Pix/cartão (ou opera sozinho) não tem gaveta para
-        // conferir, e para esse caso o backend já aceita lançar sem sessão
-        // (`requireOpenSession=false` cria uma sessão implícita). A tela ignorava
-        // essa config e bloqueava com "Caixa fechado" — agora respeita.
-        if (!state.config.requireOpenSession) {
-          return _FreeBody(
-            state: state,
-            canWrite: _canWrite(),
-            canManage: _canManage(),
-            canSale: _canSale(),
-            onVerHistorico: () => setState(() => _tab = 2),
-          );
-        }
-        return _ClosedBody(
+        // Caminho ÚNICO. A cerimônia de abrir/fechar caixa foi removida do
+        // produto: ela existia para conferir gaveta de dinheiro e, na prática,
+        // só produzia telas de "Caixa fechado" bloqueando o lançamento. A
+        // `cash_session` continua no banco como balde interno (criado sozinho no
+        // primeiro lançamento), mas deixou de ser algo que o usuário vê.
+        return _FreeBody(
+          state: state,
+          canWrite: _canWrite(),
           canManage: _canManage(),
           canSale: _canSale(),
+          onVerHistorico: () => setState(() => _tab = 2),
         );
       },
     );
@@ -231,51 +214,6 @@ class _DirectionGlyph extends StatelessWidget {
   }
 }
 
-class _ClosedBody extends ConsumerWidget {
-  const _ClosedBody({required this.canManage, required this.canSale});
-  final bool canManage; // abrir caixa = gestão (dono/gerente)
-  final bool canSale;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            NeuEmptyState(
-              icon: Icons.point_of_sale_outlined,
-              title: 'Caixa fechado',
-              message: canManage
-                  ? 'Abra o caixa para registrar entradas e saídas do dia.'
-                  : 'Aguarde o dono/gerente abrir o caixa para começar a operar.',
-            ),
-            if (canManage)
-              NeuButton(
-                label: 'Abrir caixa',
-                icon: Icons.lock_open_outlined,
-                onPressed: () => showOpenSessionDialog(context, ref),
-              ),
-            if (canSale) ...[
-              const SizedBox(height: 12),
-              // Venda avulsa (módulo `sale`) não tem camada offline.
-              RequiresConnection(
-                reason: 'a venda avulsa é registrada no servidor',
-                child: NeuButton(
-                  label: 'Venda avulsa',
-                  kind: NeuButtonKind.secondary,
-                  icon: Icons.shopping_cart_checkout_outlined,
-                  onPressed: () => _startSale(context, ref),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Caixa SEM cerimônia de abertura (`requireOpenSession = false`).
 ///
 /// A sessão de caixa existe para conferir GAVETA de dinheiro: contar no fim do
@@ -334,17 +272,15 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              // Sem controle de gaveta (o padrão), "suprimento" não tem o que
-              // conferir — aporte só significa algo contra um valor de abertura.
-              // A categoria continua no diálogo para quem precisar dela.
-              if (canManage)
-                _Acao(
-                  label: 'Despesa / sangria',
-                  icon: Icons.remove_circle_outline,
-                  cor: neu.danger,
-                  onTap: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'despesa'),
-                ),
+              // Despesa saiu daqui: contas a pagar viraram o módulo `Despesas`, e
+              // o lançamento no caixa passou a ser CONSEQUÊNCIA da baixa lá (o
+              // módulo chama o service público do caixa). Digitar despesa solta
+              // aqui criaria uma segunda porta para o mesmo dinheiro, sem a conta
+              // correspondente do outro lado.
+              //
+              // Sangria (retirada da gaveta) continua só no diálogo de
+              // lançamento: com a cerimônia de abrir/fechar removida, não há
+              // grade de gaveta onde ela caberia como atalho.
               ],
             ),
           ),
@@ -486,198 +422,6 @@ class _AcaoCard extends StatelessWidget {
   }
 }
 
-class _OpenBody extends ConsumerWidget {
-  const _OpenBody({
-    required this.state,
-    required this.canWrite,
-    required this.canManage,
-    required this.canSale,
-  });
-  final CashierState state;
-  final bool canWrite;
-  final bool canManage;
-  final bool canSale;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final neu = context.neu;
-    final session = state.session!;
-    final totals = session.totals;
-    final abertoHora = _fmtHora(session.openedAt);
-    // Cabeçalho responsivo: título + "Aberto desde HH:MM" à esquerda, botão
-    // Fechar à direita; em telas estreitas quebra pra baixo (Wrap).
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 10,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Caixa do dia',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(width: 12),
-                NeuStatusChip(
-                  label: abertoHora.isEmpty
-                      ? 'Aberto'
-                      : 'Aberto desde $abertoHora',
-                  color: neu.success,
-                  tint: neu.successTint,
-                  icon: Icons.lock_open_outlined,
-                ),
-              ],
-            ),
-            if (canManage)
-              NeuButton(
-                label: 'Fechar caixa',
-                kind: NeuButtonKind.secondary,
-                icon: Icons.lock_outline,
-                onPressed: () => showCloseSessionDialog(context, ref),
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _SummaryCard(session: session),
-        const SizedBox(height: 16),
-        if (canWrite || canSale || canManage)
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              if (canSale)
-                RequiresConnection(
-                  reason: 'a venda avulsa é registrada no servidor',
-                  child: NeuButton(
-                    label: 'Venda avulsa',
-                    icon: Icons.shopping_cart_checkout_outlined,
-                    onPressed: () => _startSale(context, ref),
-                  ),
-                ),
-              // Receber OS = operação do atendente (cashier.write).
-              if (canWrite)
-                NeuButton(
-                  label: 'Receber OS',
-                  icon: Icons.payments_outlined,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'os_payment'),
-                ),
-              // Ajustes da gaveta = gestão (dono/gerente).
-              if (canManage) ...[
-                NeuButton(
-                  label: 'Despesa / sangria',
-                  kind: NeuButtonKind.secondary,
-                  icon: Icons.remove,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'despesa'),
-                ),
-                NeuButton(
-                  label: 'Suprimento',
-                  kind: NeuButtonKind.secondary,
-                  icon: Icons.add,
-                  onPressed: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'suprimento'),
-                ),
-              ],
-            ],
-          ),
-        if (totals != null && session.byMethod.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Text('Totais por método',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in session.byMethod)
-                _MethodPill(
-                  label:
-                      '${methodLabel(m.method)}: ${formatMoney(m.inAmount - m.outAmount)}',
-                ),
-            ],
-          ),
-        ],
-        const SizedBox(height: 24),
-        Text('Extrato', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
-        Expanded(
-          child: _ExtractList(
-            entries: state.entries,
-            canManage: canManage,
-            salesById: state.salesById,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Resumo do caixa aberto — cartão de métricas no padrão do dashboard.
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.session});
-  final CashSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final t = session.totals;
-    return NeuCard(
-      padding: const EdgeInsets.all(20),
-      child: Wrap(
-        spacing: 28,
-        runSpacing: 16,
-        children: [
-          _Metric(label: 'Abertura', value: formatMoney(session.openingAmount)),
-          _Metric(
-              label: 'Entradas',
-              value: formatMoney(t?.inTotal ?? 0),
-              color: neu.success),
-          _Metric(
-              label: 'Saídas',
-              value: formatMoney(t?.outTotal ?? 0),
-              color: neu.danger),
-          _Metric(
-              label: 'Esperado em caixa',
-              value: formatMoney(t?.expected ?? 0),
-              color: neu.navy),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pílula informativa (total por forma de pagamento) — mesmo desenho dos chips
-/// de filtro do app, sem interação.
-class _MethodPill extends StatelessWidget {
-  const _MethodPill({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: neu.surface,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: neu.raised(),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: neu.ink,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class _ExtractList extends ConsumerWidget {
   const _ExtractList({
     required this.entries,
@@ -759,14 +503,21 @@ class _EntryTile extends ConsumerWidget {
       else if (entry.saleKind == 'sale')
         'Venda',
     ];
-    // Lançamento que aponta para uma VENDA abre o detalhe dela — é de lá que se
-    // edita os itens. Antes só o Histórico levava à venda, então corrigir o que
-    // foi vendido obrigava a sair do Caixa do dia.
+    // Lançamento que aponta para uma venda ou OS abre a ORIGEM dele.
+    //
+    // Venda abre em diálogo (dá para editar itens e exportar sem sair do caixa);
+    // OS NAVEGA para a tela dela, que é grande demais para caber num diálogo e
+    // tem o próprio fluxo (itens, fotos, timeline, exportar PDF). Antes o
+    // recebimento de OS era um beco sem saída: mostrava "OS" e não levava a lugar
+    // nenhum, obrigando a procurar a ordem à mão.
     final daVenda = entry.saleKind == 'sale' && entry.saleId != null;
+    final daOs = entry.saleKind == 'os' && entry.saleId != null;
     return NeuListTile(
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
-          : null,
+          : daOs
+              ? () => context.push('/m/os/${entry.saleId}')
+              : null,
       leading: _DirectionGlyph(color: color, isIn: isIn),
       title: Text(
         categoryLabel(entry.category),

@@ -48,6 +48,7 @@ class _Dono extends SessionController {
 Future<void> _abrirTela(
   WidgetTester tester, {
   required bool exigeAbertura,
+  bool comSessaoAberta = false,
 }) async {
   tester.view.physicalSize = const Size(1200, 1000);
   tester.view.devicePixelRatio = 1;
@@ -55,6 +56,8 @@ Future<void> _abrirTela(
 
   final repo = FakeCashierRepository();
   await repo.updateConfig(requireOpenSession: exigeAbertura);
+  // Simula o tenant que já tinha sessão aberta antes da remoção da cerimônia.
+  if (comSessaoAberta) await repo.openSession(openingAmount: 100);
 
   await tester.pumpWidget(
     ProviderScope(
@@ -98,14 +101,31 @@ Future<void> _montar(WidgetTester tester, FakeCashierRepository repo) async {
 }
 
 void main() {
-  group('exigindo abertura (padrão, oficina com gaveta)', () {
-    testWidgets('bloqueia e pede para abrir o caixa', (tester) async {
+  // A cerimônia de abrir/fechar caixa foi REMOVIDA do produto. O servidor
+  // normaliza `requireOpenSession` para false, mas o app não pode DEPENDER disso:
+  // config em cache, servidor antigo ou jsonb legado ainda podem trazer `true`.
+  // Estes testes provam que a tela não bloqueia em nenhum caso.
+  group('cerimônia removida — a tela nunca bloqueia', () {
+    testWidgets('config LEGADA com exigência ligada não pede abertura',
+        (tester) async {
       await _abrirTela(tester, exigeAbertura: true);
 
-      expect(find.text('Caixa fechado'), findsOneWidget);
-      expect(find.text('Abrir caixa'), findsOneWidget);
-      // Sem sessão não há o que lançar.
-      expect(find.text('Receber OS'), findsNothing);
+      expect(find.text('Caixa fechado'), findsNothing);
+      expect(find.text('Abrir caixa'), findsNothing);
+      expect(find.text('Fechar caixa'), findsNothing);
+      // E o operador consegue trabalhar de imediato.
+      expect(find.text('Receber OS'), findsOneWidget);
+    });
+
+    testWidgets('nem com sessão aberta reaparece "Fechar caixa"',
+        (tester) async {
+      // Tenant que tinha sessão aberta antes da remoção: a sessão continua no
+      // banco (é balde interno), mas não volta a ser um conceito de tela.
+      await _abrirTela(tester, exigeAbertura: true, comSessaoAberta: true);
+
+      expect(find.text('Fechar caixa'), findsNothing);
+      expect(find.textContaining('Aberto desde'), findsNothing);
+      expect(find.text('Caixa de hoje'), findsOneWidget);
     });
   });
 
@@ -119,7 +139,10 @@ void main() {
       expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Venda avulsa'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      // Despesa NÃO é mais ação do caixa: conta a pagar virou o módulo
+      // `Despesas`, e o lançamento aqui nasce da baixa lá. Duas portas para o
+      // mesmo dinheiro deixariam saída no livro sem conta do outro lado.
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
 
     testWidgets('NÃO oferece conferência de gaveta', (tester) async {
@@ -144,10 +167,12 @@ void main() {
     testWidgets('as ações vêm em grid, com alvo de toque grande',
         (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
-      // As três ações do caixa (dono vê todas).
+      // As DUAS ações do caixa (dono vê todas). Eram três até a despesa sair
+      // para o módulo `Despesas`; sangria/suprimento ficaram só no diálogo de
+      // lançamento, já que a cerimônia de gaveta foi removida do produto.
       expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
   });
 
@@ -193,35 +218,8 @@ void main() {
       expect(find.text('Encerrar conferência'), findsNothing);
     });
 
-    testWidgets('com exigência LIGADA o fluxo de sessão continua', (tester) async {
-      tester.view.physicalSize = const Size(1200, 1000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-
-      final repo = FakeCashierRepository();
-      await repo.updateConfig(requireOpenSession: true);
-      await repo.openSession(openingAmount: 100);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            connectivityControllerProvider.overrideWith(_OnlineConn.new),
-            sessionControllerProvider.overrideWith(_Dono.new),
-            cashierRepositoryProvider.overrideWithValue(repo),
-            saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const CashierScreen(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Fechar caixa'), findsOneWidget);
-      expect(find.text('Caixa do dia'), findsWidgets);
-    });
   });
+
   group('recorte do "Caixa do dia"', () {
     /// Caixa que registra COMO o extrato foi pedido (por sessão ou por data).
     testWidgets('sem cerimônia, recorta por DATA mesmo com sessão implícita',
@@ -298,12 +296,14 @@ void main() {
     });
   });
 
-  group('config mudou enquanto o app estava aberto', () {
-    testWidgets('desligar a exigência e voltar NÃO manda abrir o caixa',
+  group('sair da tela e voltar', () {
+    testWidgets('remontar com config LEGADA continua sem pedir abertura',
         (tester) async {
-      // Fluxo relatado: fecha o caixa, desliga "exigir caixa aberto" em
-      // Configurações, volta à tela — e ela pedia para abrir. O provider não era
-      // autoDispose, então guardava a config do primeiro mount.
+      // O cenário original deste teste (desligar "exigir caixa aberto" em
+      // Configurações e voltar) não existe mais — o toggle saiu. O que continua
+      // valendo é a proteção do remount: o provider é `autoDispose`, então ao
+      // voltar ele relê a config, e um `true` legado não pode ressuscitar a
+      // cerimônia removida.
       tester.view.physicalSize = const Size(1200, 1000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -311,8 +311,6 @@ void main() {
       final repo = FakeCashierRepository();
       await repo.updateConfig(requireOpenSession: true);
 
-      // Um switch externo controla se a tela do caixa está montada, para simular
-      // sair para Configurações e voltar.
       final mostrando = ValueNotifier<bool>(true);
       addTearDown(mostrando.dispose);
 
@@ -335,20 +333,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      // Caixa fechado + exigência ligada: pede para abrir (correto aqui).
-      expect(find.textContaining('Abrir caixa'), findsWidgets);
+      expect(find.textContaining('Abrir caixa'), findsNothing);
 
-      // Sai da tela (vai para Configurações) e desliga a exigência.
+      // Sai da tela e volta.
       mostrando.value = false;
       await tester.pumpAndSettle();
-      await repo.updateConfig(requireOpenSession: false);
-
-      // Volta.
       mostrando.value = true;
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Abrir caixa'), findsNothing,
-          reason: 'com a exigência desligada não se pede abertura');
+      expect(find.textContaining('Abrir caixa'), findsNothing);
+      expect(find.textContaining('Fechar caixa'), findsNothing);
       expect(find.text('Últimos lançamentos'), findsOneWidget);
     });
   });

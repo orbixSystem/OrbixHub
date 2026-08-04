@@ -57,6 +57,16 @@ export type AuditAction =
   | 'cashier_template_create'
   | 'cashier_template_update'
   | 'sale_emit_invoice'
+  // Despesas (contas a pagar). `expense_pay`/`expense_unpay` são as auditadas de
+  // verdade: são as que mexem dinheiro e espelham lançamento no caixa — o
+  // `cashEntryId` no metadata é o que amarra as duas pontas numa investigação.
+  | 'expense_create'
+  | 'expense_update'
+  | 'expense_pay'
+  | 'expense_unpay'
+  | 'expense_cancel'
+  | 'expense_category_create'
+  | 'expense_category_update'
   | 'sync_overwrite'
   | 'plate_lookup';
 
