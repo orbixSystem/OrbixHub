@@ -81,8 +81,9 @@ class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
-              constraints:
-                  BoxConstraints(maxWidth: isMobile ? double.infinity : 420),
+              constraints: BoxConstraints(
+                maxWidth: isMobile ? double.infinity : 420,
+              ),
               child: NeuSearchBar(
                 hint: 'Buscar conversa',
                 controller: _search,
@@ -92,54 +93,61 @@ class _MessagesInboxScreenState extends ConsumerState<MessagesInboxScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(e is AppException
-                        ? e.message
-                        : 'Erro ao carregar conversas.'),
-                    const SizedBox(height: 12),
-                    NeuButton(
-                      label: 'Tentar de novo',
-                      kind: NeuButtonKind.secondary,
-                      icon: Icons.refresh,
-                      onPressed: () => ref.invalidate(conversationsProvider),
-                    ),
-                  ],
-                ),
-              ),
-              data: (page) {
-                if (page.items.isEmpty) {
-                  return const NeuEmptyState(
-                    icon: Icons.forum_outlined,
-                    title: 'Nenhuma conversa ainda',
-                    message:
-                        'Quando um cliente mandar mensagem pelo link de acompanhamento da OS, a conversa aparece aqui.',
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(conversationsProvider),
-                  // +1 slot para o rodapé (loader do próximo lote / fim).
-                  child: ListView.separated(
-                    controller: _scroll,
-                    itemCount: page.items.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) {
-                      if (i >= page.items.length) {
-                        return NeuListFooter(
-                          loading: page.loadingMore,
-                          hasMore: page.hasMore,
-                          total: page.total,
-                        );
-                      }
-                      return _ConversationTile(conversation: page.items[i]);
-                    },
+            // Layout único (Column) — alvo válido nos dois tamanhos.
+            child: CoachTarget(
+              'mensagens.lista',
+              child: async.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        e is AppException
+                            ? e.message
+                            : 'Erro ao carregar conversas.',
+                      ),
+                      const SizedBox(height: 12),
+                      NeuButton(
+                        label: 'Tentar de novo',
+                        kind: NeuButtonKind.secondary,
+                        icon: Icons.refresh,
+                        onPressed: () => ref.invalidate(conversationsProvider),
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+                data: (page) {
+                  if (page.items.isEmpty) {
+                    return const NeuEmptyState(
+                      icon: Icons.forum_outlined,
+                      title: 'Nenhuma conversa ainda',
+                      message:
+                          'Quando um cliente mandar mensagem pelo link de acompanhamento da OS, a conversa aparece aqui.',
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(conversationsProvider),
+                    // +1 slot para o rodapé (loader do próximo lote / fim).
+                    child: ListView.separated(
+                      controller: _scroll,
+                      itemCount: page.items.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) {
+                        if (i >= page.items.length) {
+                          return NeuListFooter(
+                            loading: page.loadingMore,
+                            hasMore: page.hasMore,
+                            total: page.total,
+                          );
+                        }
+                        return _ConversationTile(conversation: page.items[i]);
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -240,8 +248,9 @@ class _ConversationTile extends StatelessWidget {
                       style: TextStyle(
                         color: neu.inkMuted,
                         fontSize: 13,
-                        fontWeight:
-                            unread > 0 ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: unread > 0
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ),

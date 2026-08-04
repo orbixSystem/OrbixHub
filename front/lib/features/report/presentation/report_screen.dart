@@ -67,8 +67,16 @@ class ReportScreen extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 900;
-        final picker = _ReportPicker(reports: reports, selected: spec.kind);
-        final content = _ReportContent(me: me, spec: spec);
+        // Alvos na DEFINIÇÃO: as duas variáveis são usadas tanto no layout wide
+        // quanto no estreito, então um alvo aqui vale em desktop e mobile.
+        final picker = CoachTarget(
+          'relatorios.picker',
+          child: _ReportPicker(reports: reports, selected: spec.kind),
+        );
+        final content = CoachTarget(
+          'relatorios.conteudo',
+          child: _ReportContent(me: me, spec: spec),
+        );
 
         final header = Column(
           crossAxisAlignment: CrossAxisAlignment.start,

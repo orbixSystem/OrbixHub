@@ -7,6 +7,7 @@ import '../../di.dart';
 import '../../features/auth/presentation/session_state.dart';
 import '../../features/notifications/presentation/notifications_bell.dart';
 import '../ui/ui.dart';
+import '../../features/shell/presentation/screen_tutorials.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
 
@@ -42,9 +43,14 @@ class GlobalControls extends ConsumerWidget {
         // acima da barreira do modal.
         return ValueListenableBuilder<int>(
           valueListenable: modalRouteObserver.depth,
-          builder: (context, modals, _) => modals > 0
-              ? const SizedBox.shrink()
-              : _buildControls(context, ref),
+          builder: (context, modals, _) => ValueListenableBuilder<bool>(
+            // Tutorial ativo esconde este chrome pelo MESMO motivo que um modal:
+            // ele vive acima de tudo e cobriria o cartão do tutorial.
+            valueListenable: CoachMark.ativo,
+            builder: (context, tutorial, _) => modals > 0 || tutorial
+                ? const SizedBox.shrink()
+                : _buildControls(context, ref),
+          ),
         );
       },
     );
@@ -71,6 +77,10 @@ class GlobalControls extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (authed) ...[
+                // "?" do tutorial À ESQUERDA do sino: ajuda mora sempre no mesmo
+                // canto, em todas as telas, em vez de um botão diferente por
+                // tela. Some sozinho onde a rota não tem tutorial.
+                const _BotaoTutorial(),
                 const NotificationsBell(),
                 const SizedBox(width: 8),
                 // Sair só aparece no CELULAR: lá não há sidebar nem drawer
@@ -202,6 +212,44 @@ class _CircleButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// "?" que reabre o tutorial da tela atual, ignorando o "já visto" — quem
+/// esqueceu como o fiado funciona não deveria ter de limpar dados do app.
+///
+/// Vive no chrome global (e não em cada tela) para a ajuda ficar sempre no mesmo
+/// lugar, em desktop e mobile.
+class _BotaoTutorial extends ConsumerWidget {
+  const _BotaoTutorial();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final delegate = ref.read(routerProvider).routerDelegate;
+    // `ListenableBuilder` no delegate: sem ele o botão guardava o tutorial da
+    // PRIMEIRA rota em que foi construído. Como o widget é `const`, o rebuild do
+    // pai não o alcançava — então numa tela sem tutorial ele continuava
+    // oferecendo o tutorial anterior, e navegar não trocava o conteúdo.
+    return ListenableBuilder(
+      listenable: delegate,
+      builder: (context, _) {
+        final tut = tutorialForRoute(delegate.currentConfiguration.uri.path);
+        // Tela sem tutorial: o botão SOME (não mostra o de outra tela).
+        if (tut == null) return const SizedBox.shrink();
+        final scheme = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: _CircleButton(
+            icon: Icons.help_outline_rounded,
+            label: 'Como funciona: ${tut.titulo}',
+            bg: scheme.surfaceContainerHighest,
+            fg: scheme.onSurface,
+            onTap: () => CoachMark.start(context, id: tut.id, steps: tut.steps),
+          ),
+        );
+      },
     );
   }
 }

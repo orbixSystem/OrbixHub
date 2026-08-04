@@ -23,6 +23,7 @@ import '../../update/domain/update_models.dart';
 import '../../update/presentation/update_banner.dart';
 import '../../update/presentation/update_controller.dart';
 import 'nav_items.dart';
+import 'screen_tutorials.dart';
 import 'sidebar.dart';
 
 /// App chrome adaptativo (spec 2026-07-04):
@@ -39,6 +40,21 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  /// Rota cujo tutorial já foi disparado nesta sessão — sem isto, cada rebuild
+  /// do shell (e há muitos) tentaria abrir o tutorial de novo.
+  String? _tutorialDisparado;
+
+  /// Abre o tutorial da rota, se houver e se o usuário nunca o viu.
+  void _talvezTutorial(String location) {
+    final tut = tutorialForRoute(location);
+    if (tut == null || _tutorialDisparado == tut.id) return;
+    _tutorialDisparado = tut.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CoachMark.maybeStart(context, id: tut.id, steps: tut.steps);
+    });
+  }
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   /// Evita reentrância enquanto o modal de "sem conexão" está aberto / o
@@ -99,6 +115,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         (_) => _guardOfflineRoute(me),
       );
     }
+    // Tutorial da tela: um ponto de disparo para TODAS, porque o shell é quem
+    // conhece a rota. Só na primeira visita (o `maybeStart` guarda "já visto") e
+    // depois do 1º frame, para não competir com a montagem da tela.
+    _talvezTutorial(location);
+
     final selected = selectedNavIndex(items, location);
     final size = context.screenSize;
 
@@ -175,7 +196,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                         top: MediaQuery.of(context).padding.top + 68 - 46,
                         left: 0,
                         right: 0,
-                        child: const Center(child: _QuickCreateFab()),
+                        // Alvo de tutorial presente em TODAS as telas: o "+" é o
+                        // atalho de criação universal, e todo tutorial pode
+                        // apontá-lo sem depender da tela.
+                        child: const Center(
+                          child: CoachTarget(
+                            'shell.criar',
+                            child: _QuickCreateFab(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -262,7 +291,8 @@ class _ContentHeader extends StatelessWidget {
                         if (context.isMobile)
                           const Flexible(child: ConnectionChip(dense: true)),
                         const Spacer(),
-                        // Sino + toggle de tema vivem no overlay global (GlobalControls).
+                        // Sino, "?" do tutorial e toggle de tema vivem no overlay
+                        // global (GlobalControls), lado a lado no topo-direita.
                       ],
                     );
                   },

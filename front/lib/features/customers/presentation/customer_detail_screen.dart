@@ -60,7 +60,9 @@ class CustomerDetailScreen extends ConsumerWidget {
     return customerAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
-        child: Text(e is AppException ? e.message : 'Erro ao carregar cliente.'),
+        child: Text(
+          e is AppException ? e.message : 'Erro ao carregar cliente.',
+        ),
       ),
       data: (customer) {
         final config = configAsync.value ?? const CustomersConfig();
@@ -95,7 +97,9 @@ class CustomerDetailScreen extends ConsumerWidget {
                         existing: customer,
                         documentRequired: config.documentRequired,
                       );
-                      if (ok == true) ref.invalidate(customerProvider(customerId));
+                      if (ok == true) {
+                        ref.invalidate(customerProvider(customerId));
+                      }
                     },
                     onArchiveToggle: () async {
                       final repo = ref.read(customersRepositoryProvider);
@@ -117,28 +121,37 @@ class CustomerDetailScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: TabBar(
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          tabs: [
-                            if (usaSubjects)
-                              Tab(
-                                icon: const Icon(Icons.directions_car_outlined,
-                                    size: 18),
-                                text: config.subjectLabel.plural,
+                        // Abas e conteúdo são os mesmos widgets em desktop e
+                        // mobile (este cabeçalho é compartilhado), então um alvo
+                        // só vale nos dois tamanhos.
+                        child: CoachTarget(
+                          'cliente.abas',
+                          child: TabBar(
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.start,
+                            tabs: [
+                              if (usaSubjects)
+                                Tab(
+                                  icon: const Icon(
+                                    Icons.directions_car_outlined,
+                                    size: 18,
+                                  ),
+                                  text: config.subjectLabel.plural,
+                                ),
+                              const Tab(
+                                icon: Icon(Icons.history, size: 18),
+                                text: 'Histórico',
                               ),
-                            const Tab(
-                              icon: Icon(Icons.history, size: 18),
-                              text: 'Histórico',
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       if (usaSubjects && _has(ref, 'subject.write')) ...[
                         const SizedBox(width: 12),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 40)),
+                            minimumSize: const Size(0, 40),
+                          ),
                           onPressed: () async {
                             final ok = await SubjectFormDialog.show(
                               context,
@@ -161,16 +174,22 @@ class CustomerDetailScreen extends ConsumerWidget {
               ),
               const Divider(height: 1),
               Expanded(
-                child: TabBarView(
-                  children: [
-                    if (usaSubjects)
-                      _VehiclesTab(
+                child: CoachTarget(
+                  'cliente.conteudo',
+                  child: TabBarView(
+                    children: [
+                      if (usaSubjects)
+                        _VehiclesTab(
+                          customerId: customerId,
+                          config: config,
+                          canWrite: _has(ref, 'subject.write'),
+                        ),
+                      _CustomerHistoryTab(
                         customerId: customerId,
                         config: config,
-                        canWrite: _has(ref, 'subject.write'),
                       ),
-                    _CustomerHistoryTab(customerId: customerId, config: config),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -207,11 +226,11 @@ class _Bounded extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-          child: child,
-        ),
-      );
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+      child: child,
+    ),
+  );
 }
 
 class _CustomerHeader extends StatelessWidget {
@@ -281,10 +300,11 @@ class _CustomerHeader extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
-              if (archived) const _Pill(
-                icon: Icons.inventory_2_outlined,
-                text: 'Arquivado',
-              ),
+              if (archived)
+                const _Pill(
+                  icon: Icons.inventory_2_outlined,
+                  text: 'Arquivado',
+                ),
               if (canWrite) ...[
                 const SizedBox(width: 8),
                 IconButton(
@@ -294,9 +314,11 @@ class _CustomerHeader extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: archived ? 'Desarquivar' : 'Arquivar',
-                  icon: Icon(archived
-                      ? Icons.unarchive_outlined
-                      : Icons.archive_outlined),
+                  icon: Icon(
+                    archived
+                        ? Icons.unarchive_outlined
+                        : Icons.archive_outlined,
+                  ),
                   onPressed: onArchiveToggle,
                 ),
                 IconButton(
@@ -341,18 +363,23 @@ class _InlineFact extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15)),
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15),
+            ),
           ],
         ),
       ),
@@ -381,9 +408,11 @@ class _VehiclesTab extends ConsumerWidget {
     return subjectsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
-        child: Text(e is AppException
-            ? e.message
-            : 'Erro ao carregar ${config.subjectLabel.plural}.'),
+        child: Text(
+          e is AppException
+              ? e.message
+              : 'Erro ao carregar ${config.subjectLabel.plural}.',
+        ),
       ),
       data: (page) => _Bounded(
         child: ListView(
@@ -454,7 +483,9 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
     final ext = (file.extension ?? 'jpeg').toLowerCase();
     setState(() => _photoBusy = true);
     try {
-      await ref.read(customersRepositoryProvider).setSubjectPhoto(
+      await ref
+          .read(customersRepositoryProvider)
+          .setSubjectPhoto(
             _s.id,
             bytes: bytes,
             filename: file.name,
@@ -463,8 +494,9 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
       _invalidate();
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
@@ -485,8 +517,9 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
       _invalidate();
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _photoBusy = false);
@@ -495,9 +528,8 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
 
   /// Abre a tela do veículo: dados do cadastro, informações adicionais da
   /// consulta por placa (persistidas) e as ordens de serviço, com impressão.
-  void _open() => context.go(
-        '/m/customers/${widget.customerId}/veiculo/${_s.id}',
-      );
+  void _open() =>
+      context.go('/m/customers/${widget.customerId}/veiculo/${_s.id}');
 
   Future<void> _edit() async {
     final ok = await SubjectFormDialog.show(
@@ -560,15 +592,21 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          _title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         if (_s.identifier?.isNotEmpty == true) ...[
                           const SizedBox(height: 2),
-                          Text(_s.identifier!,
-                              style: TextStyle(
-                                  color: scheme.onSurfaceVariant, fontSize: 13)),
+                          Text(
+                            _s.identifier!,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -577,13 +615,17 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
                       child: _Pill(
-                          icon: Icons.inventory_2_outlined, text: 'Arquivado'),
+                        icon: Icons.inventory_2_outlined,
+                        text: 'Arquivado',
+                      ),
                     ),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
-                    child: Icon(Icons.keyboard_arrow_down,
-                        color: scheme.onSurfaceVariant),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -626,12 +668,7 @@ class _SubjectThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (photoUrl != null && photoUrl!.trim().isNotEmpty) {
-      return NeuNetworkImage(
-        url: photoUrl,
-        width: 48,
-        height: 48,
-        radius: 12,
-      );
+      return NeuNetworkImage(url: photoUrl, width: 48, height: 48, radius: 12);
     }
     return _BrandAvatar(name: brand);
   }
@@ -647,8 +684,11 @@ class _BrandAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = brandLogoUrl(name);
-    const fallback = Icon(Icons.directions_car_outlined,
-        color: AppColors.brandDeep, size: 22);
+    const fallback = Icon(
+      Icons.directions_car_outlined,
+      color: AppColors.brandDeep,
+      size: 22,
+    );
     return Container(
       width: 48,
       height: 48,
@@ -753,7 +793,9 @@ class _SubjectPhotoBlock extends StatelessWidget {
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2.5, color: Colors.white),
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -842,7 +884,8 @@ class _VehicleBody extends StatelessWidget {
     );
 
     // Foto aparece quando existe OU quando o usuário pode adicioná-la.
-    final showPhoto = (subject.photoUrl?.trim().isNotEmpty ?? false) || canWrite;
+    final showPhoto =
+        (subject.photoUrl?.trim().isNotEmpty ?? false) || canWrite;
     final photoBlock = showPhoto
         ? _SubjectPhotoBlock(
             photoUrl: subject.photoUrl,
@@ -869,11 +912,7 @@ class _VehicleBody extends StatelessWidget {
     } else {
       content = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          photoBlock,
-          const SizedBox(height: 16),
-          fieldsWrap,
-        ],
+        children: [photoBlock, const SizedBox(height: 16), fieldsWrap],
       );
     }
 
@@ -894,39 +933,45 @@ class _VehicleBody extends StatelessWidget {
                 // Abre a tela do veículo (dados, informações da consulta por
                 // placa e ordens de serviço). Leitura — fora do guard canWrite.
                 OutlinedButton.icon(
-                  style:
-                      OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                  ),
                   onPressed: onOpen,
                   icon: const Icon(Icons.open_in_new_rounded, size: 18),
                   label: const Text('Abrir'),
                 ),
                 if (canWrite) ...[
-                OutlinedButton.icon(
-                  // Pin a finite min width (global theme uses infinite width).
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Editar'),
-                ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
-                  onPressed: onArchive,
-                  icon: Icon(
+                  OutlinedButton.icon(
+                    // Pin a finite min width (global theme uses infinite width).
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                    ),
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Editar'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                    ),
+                    onPressed: onArchive,
+                    icon: Icon(
                       archived
                           ? Icons.unarchive_outlined
                           : Icons.archive_outlined,
-                      size: 18),
-                  label: Text(archived ? 'Desarquivar' : 'Arquivar'),
-                ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 40),
-                    foregroundColor: scheme.error,
+                      size: 18,
+                    ),
+                    label: Text(archived ? 'Desarquivar' : 'Arquivar'),
                   ),
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Excluir'),
-                ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      foregroundColor: scheme.error,
+                    ),
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Excluir'),
+                  ),
                 ],
               ],
             ),
@@ -964,11 +1009,14 @@ class _FieldTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 3),
                 Text(
                   filled ? value! : '—',
@@ -992,10 +1040,10 @@ class _FieldTile extends StatelessWidget {
 /// Tipo do fato em PT-BR. Antes a timeline mostrava a chave crua ("os"), que não
 /// diz nada ao usuário — e agora há mais de um tipo para distinguir.
 String _rotuloDoTipo(String kind) => switch (kind) {
-      'os' => 'Ordem de serviço',
-      'sale' => 'Venda de balcão',
-      _ => kind,
-    };
+  'os' => 'Ordem de serviço',
+  'sale' => 'Venda de balcão',
+  _ => kind,
+};
 
 // ===================== Histórico tab (timeline do cliente) =====================
 
@@ -1015,12 +1063,18 @@ class _CustomerHistoryTabState extends ConsumerState<_CustomerHistoryTab> {
 
   @override
   Widget build(BuildContext context) {
-    final entriesAsync = ref.watch(customerHistoryProvider(
-      (customerId: widget.customerId, subjectId: _subjectId),
-    ));
+    final entriesAsync = ref.watch(
+      customerHistoryProvider((
+        customerId: widget.customerId,
+        subjectId: _subjectId,
+      )),
+    );
     final subjects =
-        ref.watch(subjectsForCustomerProvider(widget.customerId)).value?.items ??
-            const <Subject>[];
+        ref
+            .watch(subjectsForCustomerProvider(widget.customerId))
+            .value
+            ?.items ??
+        const <Subject>[];
 
     return _Bounded(
       child: Column(
@@ -1040,9 +1094,12 @@ class _CustomerHistoryTabState extends ConsumerState<_CustomerHistoryTab> {
                   ),
                   for (final s in subjects)
                     ChoiceChip(
-                      label: Text(s.label?.isNotEmpty == true
-                          ? s.label!
-                          : (s.identifier ?? widget.config.subjectLabel.singular)),
+                      label: Text(
+                        s.label?.isNotEmpty == true
+                            ? s.label!
+                            : (s.identifier ??
+                                  widget.config.subjectLabel.singular),
+                      ),
                       selected: _subjectId == s.id,
                       onSelected: (_) => setState(() => _subjectId = s.id),
                     ),
@@ -1053,9 +1110,9 @@ class _CustomerHistoryTabState extends ConsumerState<_CustomerHistoryTab> {
             child: entriesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                child: Text(e is AppException
-                    ? e.message
-                    : 'Erro ao carregar histórico.'),
+                child: Text(
+                  e is AppException ? e.message : 'Erro ao carregar histórico.',
+                ),
               ),
               data: (entries) {
                 if (entries.isEmpty) return const _HistoryEmpty();
@@ -1106,10 +1163,12 @@ class _TimelineItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  entry.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   [
@@ -1121,7 +1180,9 @@ class _TimelineItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: scheme.onSurfaceVariant, fontSize: 13),
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
                 if (clicavel) ...[
                   const SizedBox(height: 8),
@@ -1129,17 +1190,20 @@ class _TimelineItem extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                          isVenda
-                              ? Icons.shopping_bag_outlined
-                              : Icons.description_outlined,
-                          size: 15, color: scheme.primary),
+                        isVenda
+                            ? Icons.shopping_bag_outlined
+                            : Icons.description_outlined,
+                        size: 15,
+                        color: scheme.primary,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Ver detalhes',
                         style: TextStyle(
-                            color: scheme.primary,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700),
+                          color: scheme.primary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -1239,12 +1303,17 @@ class _HistoryEmpty extends StatelessWidget {
                 color: AppColors.brandTint,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.history_toggle_off,
-                  color: AppColors.brandDeep, size: 40),
+              child: const Icon(
+                Icons.history_toggle_off,
+                color: AppColors.brandDeep,
+                size: 40,
+              ),
             ),
             const SizedBox(height: 20),
-            Text('Sem histórico ainda',
-                style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Sem histórico ainda',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               'As ordens de serviço deste cliente vão aparecer aqui em uma '
@@ -1307,9 +1376,14 @@ class _Pill extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: fgc),
           const SizedBox(width: 6),
-          Text(text,
-              style: TextStyle(
-                  color: fgc, fontWeight: FontWeight.w700, fontSize: 12)),
+          Text(
+            text,
+            style: TextStyle(
+              color: fgc,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );

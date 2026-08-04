@@ -182,7 +182,10 @@ class _Body extends ConsumerWidget {
           const _Bounded(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
-              child: TabBar(
+              // Mesmo cabeçalho em desktop e mobile — um alvo serve aos dois.
+              child: CoachTarget(
+                'veiculo.abas',
+                child: TabBar(
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 tabs: [
@@ -199,12 +202,15 @@ class _Body extends ConsumerWidget {
                     text: 'Ordens de serviço',
                   ),
                 ],
+                ),
               ),
             ),
           ),
           const Divider(height: 1),
           Expanded(
-            child: TabBarView(
+            child: CoachTarget(
+              'veiculo.conteudo',
+              child: TabBarView(
               children: [
                 _DadosTab(subject: subject, config: config),
                 _PlacaTab(
@@ -214,7 +220,8 @@ class _Body extends ConsumerWidget {
                   canWrite: canWrite,
                 ),
                 _OrdensTab(customerId: customerId, subject: subject),
-              ],
+                ],
+              ),
             ),
           ),
         ],
