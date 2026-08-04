@@ -28,6 +28,25 @@ export const envSchema = z.object({
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
   APP_PUBLIC_URL: z.string().default('http://localhost:8090'),
+  // --- E-mail ---
+  // 'dev' = DevMailer (dev-inbox/besouro, nada sai da máquina); 'smtp' = envio real.
+  // Default 'dev' de propósito: esquecer a variável nunca dispara e-mail sem querer.
+  MAIL_TRANSPORT: z.enum(['dev', 'smtp']).default('dev'),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  // 587 = STARTTLS (secure=false); 465 = TLS direto (secure=true).
+  // NB: z.coerce.boolean() treats "false" as TRUE. Parse explicitly.
+  SMTP_SECURE: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
+  SMTP_USER: z.string().default(''),
+  // Senha de app do Workspace (secret — nunca enviada ao front, nunca logada).
+  SMTP_PASS: z.string().default(''),
+  // Remetente visível. Precisa ser SMTP_USER ou um alias verificado, senão o
+  // Gmail reescreve o From para a conta autenticada.
+  MAIL_FROM_ADDRESS: z.string().default(''),
+  MAIL_FROM_NAME: z.string().default('OrbixHub'),
   // --- Nota Fiscal (módulo invoice) ---
   // Gateway fiscal. 'noop' = autoriza sintético em dev (sem chamada externa);
   // 'govbr' = API NFS-e Nacional (gov.br), gratuita — impl real.
