@@ -45,17 +45,13 @@ export class CashierModule implements OnModuleInit {
       key: CASHIER_CONFIG_KEY,
       title: 'Caixa',
       moduleKey: 'cashier',
+      // Seção sem campos: os dois toggles que existiam aqui ("Exigir caixa
+      // aberto" e "Conferir só dinheiro no fechamento") descreviam a cerimônia de
+      // abrir/fechar, que foi REMOVIDA do produto. Um toggle que o backend
+      // normaliza, ou que fala de um fechamento que o usuário nunca vê, é pior
+      // que nenhum. As chaves seguem na config interna (o cálculo do esperado usa
+      // `countCashOnly`), só deixaram de ser administráveis.
       fields: [
-        {
-          key: 'requireOpenSession',
-          label: 'Exigir caixa aberto para lançar (conferência de gaveta)',
-          type: 'bool',
-        },
-        {
-          key: 'countCashOnly',
-          label: 'Conferir só dinheiro no fechamento',
-          type: 'bool',
-        },
       ],
       // Sem `getValues` a seção era exibida com os valores VAZIOS: o toggle
       // aparecia desligado mesmo com a exigência ligada no tenant.

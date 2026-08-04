@@ -50,11 +50,19 @@ export interface CashierConfig {
   /**
    * Exige uma sessão aberta para lançar no caixa.
    *
-   * Default **false**: a cerimônia de abrir/fechar serve para conferir GAVETA de
-   * dinheiro, e a maioria das oficinas recebe por Pix/cartão ou opera com o
-   * próprio dono no caixa — para elas o ritual é atrito sem contrapartida. Quem
-   * tem funcionário mexendo em dinheiro liga a exigência e passa a ter a
-   * conferência (esperado × contado × diferença) como controle.
+   * **SEMPRE `false`.** A cerimônia de abrir/fechar caixa foi REMOVIDA do
+   * produto: ela serve para conferir gaveta de dinheiro, e na prática virou
+   * atrito sem contrapartida — a oficina recebe por Pix/cartão ou opera com o
+   * próprio dono no caixa, e o ritual só produzia telas de "abra o caixa"
+   * bloqueando o lançamento.
+   *
+   * O campo continua no tipo (e no jsonb dos tenants antigos) para não quebrar
+   * contrato nem exigir limpeza de dados, mas `mergeCashierConfig` o normaliza
+   * para `false` — ler daqui nunca devolve `true`, mesmo que esteja gravado.
+   *
+   * A `cash_session` NÃO desapareceu do banco: `cash_entry.cash_session_id` é
+   * NOT NULL, então a sessão segue como balde interno, criado sozinho. Ela
+   * apenas deixou de ser um conceito que o usuário vê ou administra.
    */
   requireOpenSession: boolean;
   /** Conferência de fechamento considera só dinheiro (default true). */
@@ -82,7 +90,11 @@ export function mergeCashierConfig(
   return {
     // Lista vazia (ou só inválidos) ⇒ cai no default — nunca deixa o tenant sem forma.
     paymentMethods: filtered.length ? filtered : [...PAYMENT_METHODS],
-    requireOpenSession: patch.requireOpenSession ?? base.requireOpenSession,
+    // Normaliza: ignora o que veio no patch E o que está gravado. Tenant antigo
+    // com `true` no jsonb passa a operar sem cerimônia, e ninguém consegue
+    // religá-la por API — a alternativa (confiar no valor salvo) deixaria a
+    // oficina presa numa tela de "abra o caixa" que não existe mais.
+    requireOpenSession: false,
     countCashOnly: patch.countCashOnly ?? base.countCashOnly,
   };
 }
