@@ -93,7 +93,12 @@ class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
             const SizedBox(height: 16),
             const _StatusFilterBar(),
             const SizedBox(height: 16),
-            Expanded(child: _Body(scroll: _scroll)),
+            Expanded(
+              child: CoachTarget(
+                'fiscal.lista',
+                child: _Body(scroll: _scroll),
+              ),
+            ),
           ],
         ),
       ),

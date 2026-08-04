@@ -55,11 +55,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// explicação.
   Future<void> _salvarSecao(String key, Map<String, dynamic> patch) async {
     try {
-      await ref.read(settingsControllerProvider.notifier).saveSection(key, patch);
+      await ref
+          .read(settingsControllerProvider.notifier)
+          .saveSection(key, patch);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -92,12 +95,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               Icon(Icons.error_outline, size: 48, color: neu.danger),
               const SizedBox(height: 16),
-              Text('Erro ao carregar configurações',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Erro ao carregar configurações',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
-              Text(err.toString(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: neu.inkMuted)),
+              Text(
+                err.toString(),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: neu.inkMuted),
+              ),
               const SizedBox(height: 16),
               NeuButton(
                 label: 'Tentar novamente',
@@ -110,13 +117,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
       data: (bundle) {
-        final moduleSections =
-            bundle.sections
-                .where((s) => s.moduleKey != null)
-                // NF desligada no front (kInvoiceEnabled=false): esconde a seção
-                // de config fiscal do módulo `invoice`.
-                .where((s) => kInvoiceEnabled || s.moduleKey != 'invoice')
-                .toList();
+        final moduleSections = bundle.sections
+            .where((s) => s.moduleKey != null)
+            // NF desligada no front (kInvoiceEnabled=false): esconde a seção
+            // de config fiscal do módulo `invoice`.
+            .where((s) => kInvoiceEnabled || s.moduleKey != 'invoice')
+            .toList();
 
         // Paleta de glyph por categoria (cores do DS, ciclo p/ os módulos).
         const glyphs = [0, 1, 3, 5, 2, 4];
@@ -220,10 +226,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 SizedBox(
                   width: 300,
-                  child: _NavRail(
-                    categories: categories,
-                    selected: selected,
-                    onSelect: (i) => setState(() => _selected = i),
+                  // MESMO nome de alvo nos dois layouts: só um está montado por
+                  // vez, então a GlobalKey nunca aparece duas vezes na árvore —
+                  // e o tutorial destaca "as seções" em desktop e no celular.
+                  child: CoachTarget(
+                    'config.secoes',
+                    child: _NavRail(
+                      categories: categories,
+                      selected: selected,
+                      onSelect: (i) => setState(() => _selected = i),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 24),
@@ -277,8 +289,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: () => setState(() => _mobileOpen = null),
                 ),
                 const SizedBox(width: 12),
-                NeuIconChip.glyph(context,
-                    icon: cat.icon, index: cat.glyphIndex, size: 38),
+                NeuIconChip.glyph(
+                  context,
+                  icon: cat.icon,
+                  index: cat.glyphIndex,
+                  size: 38,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -309,22 +325,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     // Lista de categorias (nível raiz).
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        _PageHeader(canManage: canManage),
-        const SizedBox(height: 18),
-        for (var i = 0; i < categories.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _CategoryTile(
-              category: categories[i],
-              selected: false,
-              showChevron: true,
-              onTap: () => setState(() => _mobileOpen = i),
+    // Mesmo nome do rail do desktop — ver o comentário lá.
+    return CoachTarget(
+      'config.secoes',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          _PageHeader(canManage: canManage),
+          const SizedBox(height: 18),
+          for (var i = 0; i < categories.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CategoryTile(
+                category: categories[i],
+                selected: false,
+                showChevron: true,
+                onTap: () => setState(() => _mobileOpen = i),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -371,8 +391,12 @@ class _SectionHeader extends StatelessWidget {
     final neu = context.neu;
     return Row(
       children: [
-        NeuIconChip.glyph(context,
-            icon: category.icon, index: category.glyphIndex, size: 46),
+        NeuIconChip.glyph(
+          context,
+          icon: category.icon,
+          index: category.glyphIndex,
+          size: 46,
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -462,8 +486,12 @@ class _CategoryTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          NeuIconChip.glyph(context,
-              icon: category.icon, index: category.glyphIndex, size: 40),
+          NeuIconChip.glyph(
+            context,
+            icon: category.icon,
+            index: category.glyphIndex,
+            size: 40,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

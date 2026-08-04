@@ -109,6 +109,11 @@ void main() {
         'veiculo.',
         'equipe.',
         'planos.',
+        'agenda.',
+        'horarios.',
+        'mensagens.',
+        'fiscal.',
+        'config.',
       };
       for (final t in todosOsTutoriais) {
         for (final s in t.steps) {

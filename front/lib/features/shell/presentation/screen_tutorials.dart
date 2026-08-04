@@ -145,10 +145,11 @@ const _inicio = ScreenTutorial(
 );
 
 const _fiscal = ScreenTutorial(
-  id: 'tut_fiscal_v1',
+  id: 'tut_fiscal_v2',
   titulo: 'Nota fiscal',
   steps: [
     CoachStep(
+      targetName: 'fiscal.lista',
       title: 'A nota nasce de uma venda ou OS',
       text: 'Você não digita uma nota do zero: emite a partir do que já foi '
           'registrado, e os itens e valores vêm de lá. Isso é o que impede a nota '
@@ -339,10 +340,11 @@ const _fiscalConfig = ScreenTutorial(
 );
 
 const _horarios = ScreenTutorial(
-  id: 'tut_horarios_v1',
+  id: 'tut_horarios_v2',
   titulo: 'Horários',
   steps: [
     CoachStep(
+      targetName: 'horarios.dias',
       title: 'Isto define a capacidade da agenda',
       text: 'Os horários daqui são o que a Agenda considera aberto. Se um dia '
           'aparece fechado sem motivo, o ajuste é nesta tela.',
@@ -616,10 +618,17 @@ const _relatorios = ScreenTutorial(
 );
 
 const _agenda = ScreenTutorial(
-  id: 'tut_agenda_v1',
+  id: 'tut_agenda_v2',
   titulo: 'Agenda',
   steps: [
     CoachStep(
+      targetName: 'agenda.calendario',
+      title: 'O mês, com os dias marcados',
+      text: 'Os pontinhos indicam dias que já têm serviço. No desktop o '
+          'calendário fica à esquerda; no celular, acima da lista.',
+    ),
+    CoachStep(
+      targetName: 'agenda.eventos',
       title: 'A agenda é a capacidade do dia',
       text: 'Ela mostra o que está marcado e quanto ainda cabe, para você não '
           'prometer um horário que a oficina não tem.',
@@ -638,10 +647,11 @@ const _agenda = ScreenTutorial(
 );
 
 const _mensagens = ScreenTutorial(
-  id: 'tut_mensagens_v1',
+  id: 'tut_mensagens_v2',
   titulo: 'Mensagens',
   steps: [
     CoachStep(
+      targetName: 'mensagens.lista',
       title: 'Conversa por ordem de serviço',
       text: 'Cada OS tem seu próprio fio, então a dúvida sobre um carro não se '
           'mistura com a de outro. O cliente responde pelo link público, sem '
@@ -713,7 +723,7 @@ const _planos = ScreenTutorial(
 );
 
 const _config = ScreenTutorial(
-  id: 'tut_config_v1',
+  id: 'tut_config_v2',
   titulo: 'Configurações',
   steps: [
     CoachStep(
@@ -722,6 +732,7 @@ const _config = ScreenTutorial(
           'relatórios. Preencher aqui é o que faz o documento parecer seu.',
     ),
     CoachStep(
+      targetName: 'config.secoes',
       title: 'Cada módulo traz suas preferências',
       text: 'As seções abaixo mudam conforme os módulos do seu plano. Em Caixa, '
           'por exemplo, é onde se liga a conferência de gaveta (abrir/fechar).',
