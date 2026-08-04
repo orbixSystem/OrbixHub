@@ -3,25 +3,20 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/pdf/document_company.dart';
+import '../../../core/pdf/pdf_theme.dart';
 import '../domain/os_models.dart';
 import 'os_status.dart';
-
-/// Identificação da empresa (tenant) impressa no topo da OS.
-class OsCompany {
-  const OsCompany({required this.name, this.legalName, this.cnpj});
-  final String name;
-  final String? legalName;
-  final String? cnpj;
-}
 
 /// Gera o PDF de impressão de uma OS: cabeçalho da empresa (nome + CNPJ),
 /// nº + status, cliente/veículo, datas relevantes, tabela de itens e total.
 /// Mantido simples e on-brand-ish (cinza grafite + tangerina Orbix). Não acessa
-/// rede — usa o que já está em `order`/`company`. Usado por `Printing.layoutPdf`.
+/// rede — usa o que já está em `order`/`company` (o logo chega em bytes dentro
+/// de [company], baixado por `companyForDocumentsProvider`).
 Future<Uint8List> buildOsPdf(
   ServiceOrder order,
   PdfPageFormat format, {
-  OsCompany? company,
+  DocumentCompany? company,
 }) async {
   const brand = PdfColor.fromInt(0xFFEC5E12);
   const graphite = PdfColor.fromInt(0xFF15171C);
@@ -53,27 +48,10 @@ Future<Uint8List> buildOsPdf(
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Cabeçalho da empresa (tenant)
+            // Cabeçalho da empresa — MESMO bloco de todos os documentos
+            // (logo + CNPJ/IE + endereço + contato), de `core/pdf`.
             if (company != null) ...[
-              pw.Text(
-                company.name,
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: graphite,
-                ),
-              ),
-              if ((company.legalName ?? '').isNotEmpty &&
-                  company.legalName != company.name)
-                pw.Text(
-                  company.legalName!,
-                  style: pw.TextStyle(fontSize: 10, color: muted),
-                ),
-              if ((company.cnpj ?? '').isNotEmpty)
-                pw.Text(
-                  'CNPJ: ${company.cnpj}',
-                  style: pw.TextStyle(fontSize: 10, color: muted),
-                ),
+              pdfCompanyHeader(company),
               pw.SizedBox(height: 12),
             ],
             // Cabeçalho

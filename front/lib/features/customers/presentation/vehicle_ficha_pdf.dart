@@ -3,16 +3,12 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/pdf/document_company.dart';
+import '../../../core/pdf/pdf_theme.dart';
 import '../domain/customers_models.dart';
 import 'plate_labels.dart';
 
 /// Identificação da empresa (tenant) impressa no topo da ficha.
-class FichaCompany {
-  const FichaCompany({required this.name, this.legalName, this.cnpj});
-  final String name;
-  final String? legalName;
-  final String? cnpj;
-}
 
 /// Gera a "Ficha do Veículo" em PDF a partir da consulta por placa
 /// ([PlateInfo]) + dados do cadastro (apelido/cliente/km). Mesma direção
@@ -21,7 +17,7 @@ class FichaCompany {
 Future<Uint8List> buildVehicleFichaPdf(
   PlateInfo info,
   PdfPageFormat format, {
-  FichaCompany? company,
+  DocumentCompany? company,
   String? apelido,
   String? customerName,
   String? km,
@@ -124,28 +120,10 @@ Future<Uint8List> buildVehicleFichaPdf(
           children: [
             // Cabeçalho da empresa (tenant)
             if (company != null) ...[
-              pw.Text(
-                company.name,
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: graphite,
-                ),
-              ),
-              if ((company.legalName ?? '').isNotEmpty &&
-                  company.legalName != company.name)
-                pw.Text(
-                  company.legalName!,
-                  style: pw.TextStyle(fontSize: 10, color: muted),
-                ),
-              if ((company.cnpj ?? '').isNotEmpty)
-                pw.Text(
-                  'CNPJ: ${company.cnpj}',
-                  style: pw.TextStyle(fontSize: 10, color: muted),
-                ),
-              pw.SizedBox(height: 12),
-            ],
-            // Título + placa em destaque
+              // Mesmo cabeçalho dos outros documentos (logo + CNPJ/IE +
+              // endereço + contato) — de `core/pdf`.
+              pdfCompanyHeader(company),
+            ],            // Título + placa em destaque
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -318,7 +296,7 @@ Future<Uint8List> buildVehicleFichaPdf(
 Future<Uint8List> buildVehicleFichaCompletaPdf(
   PlateInfo info,
   PdfPageFormat format, {
-  FichaCompany? company,
+  DocumentCompany? company,
   String? apelido,
   String? customerName,
   String? km,

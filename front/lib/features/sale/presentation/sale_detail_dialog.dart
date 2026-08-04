@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
@@ -9,7 +10,12 @@ import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/entry_edit_dialogs.dart';
 import '../../os/presentation/payment_status.dart';
+import '../../../core/export/file_download.dart';
+import '../../../core/pdf/company_document_provider.dart';
+import '../../customers/domain/customers_models.dart';
+import '../../customers/presentation/customers_providers.dart';
 import '../domain/sale_models.dart';
+import 'sale_pdf.dart';
 import 'sale_create_dialog.dart';
 import 'sale_providers.dart';
 
@@ -257,6 +263,14 @@ class _Corpo extends ConsumerWidget {
             canManage: _canManageCashier(ref),
           ),
         ],
+
+        // Exportar vale SEMPRE: é leitura, e o comprovante de uma venda
+        // cancelada também precisa poder ser reimpresso.
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _BotaoExportar(sale: sale, payment: payment),
+        ),
 
         // Ações. Venda cancelada não se cancela de novo.
         if (!cancelada && _canWriteSale(ref)) ...[
@@ -590,4 +604,85 @@ String _qtd(String raw) {
   final v = double.tryParse(raw.replaceAll(',', '.'));
   if (v == null) return raw;
   return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+}
+
+
+/// Botão de exportar o comprovante da venda em PDF.
+///
+/// Widget próprio porque tem estado (o "gerando…") e porque monta o documento
+/// com dados de TRÊS fontes: a venda, a ficha do cliente (CNPJ/endereço, que a
+/// venda não guarda) e os recebimentos do caixa (forma de pagamento).
+class _BotaoExportar extends ConsumerStatefulWidget {
+  const _BotaoExportar({required this.sale, required this.payment});
+
+  final Sale sale;
+  final PaymentDetail? payment;
+
+  @override
+  ConsumerState<_BotaoExportar> createState() => _BotaoExportarState();
+}
+
+class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
+  bool _gerando = false;
+
+  Future<void> _exportar() async {
+    setState(() => _gerando = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final sale = widget.sale;
+      final company = await ref.read(companyForDocumentsProvider.future);
+
+      // Ficha do cliente: é dela que vêm CNPJ, telefone e endereço do bloco
+      // "Dados do cliente". Best-effort — venda sem cliente (consumidor não
+      // identificado) é caso normal, e falha aqui não impede o comprovante.
+      Customer? cliente;
+      final id = sale.customerId;
+      if (id != null && id.isNotEmpty) {
+        try {
+          cliente = await ref.read(customerProvider(id).future);
+        } on Object {
+          cliente = null;
+        }
+      }
+
+      // Formas de pagamento = recebimentos do caixa apontando para esta venda.
+      // Estornados ficam de fora: não entraram no caixa.
+      final entradas = (widget.payment?.entries ?? const <CashEntry>[])
+          .where((e) => e.direction == 'in' && e.reversedAt == null);
+      final pagamentos = [
+        for (final e in entradas)
+          (label: methodLabel(e.method), valor: moneyToDouble(e.amount)),
+      ];
+
+      final bytes = await buildSalePdf(
+        sale,
+        PdfPageFormat.a4,
+        company: company,
+        extras: SaleReceiptExtras(customer: cliente, pagamentos: pagamentos),
+      );
+      final numero = sale.number.isEmpty
+          ? sale.id.substring(0, 8)
+          : sale.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');
+      final nome = 'venda-$numero.pdf';
+      await downloadBytes(bytes, nome, 'application/pdf');
+      messenger.showSnackBar(SnackBar(content: Text('PDF exportado: $nome')));
+    } on Object {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Não foi possível gerar o PDF.')),
+      );
+    } finally {
+      if (mounted) setState(() => _gerando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NeuButton(
+      label: 'Exportar PDF',
+      icon: Icons.picture_as_pdf_outlined,
+      kind: NeuButtonKind.secondary,
+      loading: _gerando,
+      onPressed: _gerando ? null : _exportar,
+    );
+  }
 }

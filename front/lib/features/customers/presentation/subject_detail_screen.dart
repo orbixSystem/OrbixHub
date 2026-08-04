@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
@@ -9,6 +9,9 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../../core/export/file_download.dart';
+import '../../../core/pdf/company_document_provider.dart';
+import '../../../core/pdf/document_company.dart';
 import '../../os/presentation/os_pdf.dart';
 import '../../os/presentation/os_providers.dart';
 import '../../os/presentation/os_status.dart';
@@ -18,7 +21,6 @@ import 'os_report_dialog.dart';
 import 'plate_labels.dart';
 import 'subject_form_dialog.dart';
 import 'vehicle_ficha_dialog.dart';
-import 'vehicle_ficha_pdf.dart';
 
 const _maxContentWidth = 940.0;
 
@@ -304,14 +306,21 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  FichaCompany? _company() {
-    final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
-    if (t == null) return null;
-    return FichaCompany(
-      name: t.name,
-      legalName: t.legalName,
-      cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty) ? formatCnpj(t.cnpj) : null,
-    );
+  /// Empresa do cabeçalho da ficha. Assíncrona porque o LOGO precisa ser
+  /// baixado; falha cai para os dados do tenant (que o `/me` já trouxe), então a
+  /// ficha nunca deixa de sair por causa da imagem.
+  Future<DocumentCompany?> _company() async {
+    try {
+      return await ref.read(companyForDocumentsProvider.future);
+    } on Object {
+      final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
+      if (t == null) return null;
+      return DocumentCompany(
+        name: t.name,
+        legalName: t.legalName,
+        cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty) ? formatCnpj(t.cnpj) : null,
+      );
+    }
   }
 
   /// Consulta a placa de novo e SALVA no veículo (renova o carimbo de data).
@@ -400,16 +409,20 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
                 label: 'Ficha / imprimir',
                 icon: Icons.picture_as_pdf_outlined,
                 kind: NeuButtonKind.secondary,
-                onPressed: () => showVehicleFichaDialog(
-                  context,
-                  info: info,
-                  company: _company(),
-                  apelido: _s.label,
-                  customerName: widget.customerName,
-                  km: _s.attributes['km']?.toString(),
-                  // Foto do cadastro entra impressa na ficha.
-                  photoUrl: _s.photoUrl,
-                ),
+                onPressed: () async {
+                  final company = await _company();
+                  if (!context.mounted) return;
+                  await showVehicleFichaDialog(
+                    context,
+                    info: info,
+                    company: company,
+                    apelido: _s.label,
+                    customerName: widget.customerName,
+                    km: _s.attributes['km']?.toString(),
+                    // Foto do cadastro entra impressa na ficha.
+                    photoUrl: _s.photoUrl,
+                  );
+                },
               ),
               if (podeConsultar)
                 RequiresConnection(
@@ -546,7 +559,10 @@ class _OrdemTile extends ConsumerStatefulWidget {
 class _OrdemTileState extends ConsumerState<_OrdemTile> {
   bool _printing = false;
 
-  /// Busca a OS completa (o histórico é um resumo) e manda para a impressão.
+  /// Busca a OS completa (o histórico é um resumo) e EXPORTA em PDF.
+  ///
+  /// Direto para arquivo, como na tela da OS — o diálogo de impressão era um
+  /// passo a mais para quem só quer mandar o documento para o cliente.
   Future<void> _print() async {
     setState(() => _printing = true);
     try {
@@ -554,19 +570,37 @@ class _OrdemTileState extends ConsumerState<_OrdemTile> {
             widget.entry.id,
           );
       if (!mounted) return;
-      final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
-      final company = t == null
-          ? null
-          : OsCompany(
-              name: t.name,
-              legalName: t.legalName,
-              cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty)
-                  ? formatCnpj(t.cnpj)
-                  : null,
-            );
-      await Printing.layoutPdf(
-        onLayout: (format) => buildOsPdf(order, format, company: company),
+      // Empresa com logo/IE/endereço (Configurações › Empresa); se falhar, cai
+      // para o tenant, que o `/me` já trouxe.
+      DocumentCompany? company;
+      try {
+        company = await ref.read(companyForDocumentsProvider.future);
+      } on Object {
+        final t = ref.read(sessionControllerProvider).meOrNull?.activeTenant;
+        company = t == null
+            ? null
+            : DocumentCompany(
+                name: t.name,
+                legalName: t.legalName,
+                cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty)
+                    ? formatCnpj(t.cnpj)
+                    : null,
+              );
+      }
+      if (!mounted) return;
+      final bytes = await buildOsPdf(
+        order,
+        PdfPageFormat.a4,
+        company: company,
       );
+      final nome =
+          'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';
+      await downloadBytes(bytes, nome, 'application/pdf');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF exportado: $nome')),
+        );
+      }
     } on AppException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
