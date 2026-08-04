@@ -15,8 +15,24 @@ abstract interface class ExpensesRepository {
   Future<ExpensesMonth> listarMes({required int ano, required int mes});
 
   /// Cria uma conta. Com [ExpenseDraft.recorrencia] preenchido, o servidor cria
-  /// a regra e materializa as ocorrências.
+  /// a regra e materializa as ocorrências; com [ExpenseDraft.parcelas], cria as N
+  /// parcelas (e `amount` é lido como TOTAL da dívida, rateado pelo servidor).
+  ///
+  /// Devolve sempre a PRIMEIRA linha criada — é a que a tela acabou de cadastrar.
   Future<Expense> criar(ExpenseDraft draft);
+
+  /// Uma conta com o contexto do detalhe: a regra que a gerou e as irmãs de
+  /// parcelamento.
+  ///
+  /// É também a porta do caminho **caixa → despesa**: o lançamento do caixa
+  /// guarda o id desta conta, então o clique no extrato chega aqui.
+  Future<ExpenseDetail> detalhe(String id);
+
+  /// Dados públicos da empresa pelo CNPJ, para preencher o fornecedor.
+  ///
+  /// Consulta externa: exige rede e pode falhar por indisponibilidade da fonte —
+  /// o formulário trata como opcional, nunca bloqueia o cadastro.
+  Future<ExpenseSupplierLookup> consultarCnpj(String cnpj);
 
   /// Edita uma conta já existente (só ela — não mexe na regra que a gerou).
   Future<Expense> editar(String id, ExpenseDraft draft);
@@ -49,5 +65,9 @@ abstract interface class ExpensesRepository {
     required String name,
     String? icon,
     String? color,
+
+    /// Esta categoria tem fornecedor do outro lado (peças, manutenção) ou não
+    /// (aluguel, imposto, salário)? Decide se o cadastro de despesa pede o campo.
+    bool tracksSupplier = false,
   });
 }

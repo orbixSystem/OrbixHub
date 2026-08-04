@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -22,6 +23,7 @@ export const ICON_KEYS = [
   'telefone',
   'impostos',
   'fornecedor',
+  'produto',
   'salarios',
   'manutencao',
   'outros',
@@ -35,12 +37,23 @@ export class CreateExpenseCategoryDto {
   @IsString() @MinLength(2) @MaxLength(40) name!: string;
   @IsOptional() @IsIn(ICON_KEYS as unknown as string[]) icon?: string;
   @IsOptional() @Matches(HEX, { message: 'Cor deve ser #RRGGBB.' }) color?: string;
+
+  /**
+   * Esta categoria tem FORNECEDOR do outro lado?
+   *
+   * Peças e manutenção têm; aluguel, imposto e salário não. É o que decide se o
+   * cadastro de despesa oferece o campo de fornecedor — mostrá-lo em toda conta
+   * era ruído em quase todas. Default `false`: quem cria uma categoria nova só
+   * liga o switch quando faz sentido.
+   */
+  @IsOptional() @IsBoolean() tracksSupplier?: boolean;
 }
 
 export class UpdateExpenseCategoryDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(40) name?: string;
   @IsOptional() @IsIn(ICON_KEYS as unknown as string[]) icon?: string;
   @IsOptional() @Matches(HEX, { message: 'Cor deve ser #RRGGBB.' }) color?: string;
+  @IsOptional() @IsBoolean() tracksSupplier?: boolean;
   /** Desativar/reativar. Sem hard delete (regra 6). */
   @IsOptional() @IsIn(['active', 'disabled']) status?: 'active' | 'disabled';
 }

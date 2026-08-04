@@ -145,6 +145,60 @@ void main() {
     });
   });
 
+  group('contasDaSemana', () {
+    test('pega hoje + os próximos 7 dias', () {
+      final l = contasDaSemana([
+        conta('hoje', '2026-08-15'),
+        conta('em-7', '2026-08-22'),
+        conta('em-8', '2026-08-23'),
+      ], hoje: hoje);
+      expect(nomes(l), ['hoje', 'em-7']);
+    });
+
+    test('VENCIDAS entram — nada é mais "desta semana" que uma atrasada', () {
+      final l = contasDaSemana([
+        conta('atrasada', '2026-07-02'),
+        conta('adiante', '2026-09-10'),
+      ], hoje: hoje);
+      expect(nomes(l), ['atrasada']);
+    });
+
+    test('pagas ficam fora: é fila de trabalho, não histórico', () {
+      final l = contasDaSemana([
+        conta('paga', '2026-08-16', pagoEm: '2026-08-14'),
+        conta('aberta', '2026-08-16'),
+      ], hoje: hoje);
+      expect(nomes(l), ['aberta']);
+    });
+
+    test('não usa fronteira de segunda-a-domingo', () {
+      // 15/08/2026 é um sábado. Se "semana" fosse o calendário, o dia 17
+      // (segunda) cairia na semana SEGUINTE e desapareceria da lista de quem
+      // perguntou no sábado o que tem para pagar.
+      expect(hoje.weekday, DateTime.saturday);
+      final l = contasDaSemana([conta('segunda', '2026-08-17')], hoje: hoje);
+      expect(nomes(l), ['segunda']);
+    });
+
+    test('dia 1º do mês não escapa por conversão de fuso', () {
+      // `due_date` chega como meia-noite UTC; converter para local em fuso a
+      // oeste jogaria o dia 1º para o último dia do mês anterior.
+      final l = contasDaSemana(
+        [conta('primeiro', '2026-09-01')],
+        hoje: DateTime(2026, 8, 28),
+      );
+      expect(nomes(l), ['primeiro']);
+    });
+
+    test('data podre é descartada em vez de derrubar o filtro', () {
+      final l = contasDaSemana([
+        const Expense(id: 'x', description: 'podre', dueDate: 'nao-e-data'),
+        conta('ok', '2026-08-16'),
+      ], hoje: hoje);
+      expect(nomes(l), ['ok']);
+    });
+  });
+
   group('coerência com a derivação de status', () {
     test('vencido é o único estado com peso máximo de urgência', () {
       // Guarda contra alguém mexer na janela de "em breve" e inverter a fila.

@@ -20,6 +20,7 @@ void main() {
       'telefone',
       'impostos',
       'fornecedor',
+      'produto',
       'salarios',
       'manutencao',
       'outros',

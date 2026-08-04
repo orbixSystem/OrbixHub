@@ -199,6 +199,10 @@ model expense_category {
   name               String
   icon               String               @default("outros")
   color              String               @default("#6B7280")
+  /// 0041: categoria tem FORNECEDOR do outro lado? Decide se o cadastro
+  /// de despesa oferece o campo.
+  tracks_supplier Boolean @default(false)
+
   status             String               @default("active")
   created_at         DateTime             @default(now()) @db.Timestamptz(6)
   updated_at         DateTime             @default(now()) @db.Timestamptz(6)
@@ -251,6 +255,19 @@ model expense {
   paid_method   String?
   cash_entry_id String?             @db.Uuid
   notes         String?
+
+  /// Parcelamento (0040): uma dívida, N vencimentos. As três andam juntas (CHECK)
+  /// e são mutuamente exclusivas com `recurrence_id` — parcela é FATIA de um
+  /// total conhecido; recorrência repete a mesma conta sem fim previsto.
+  installment_no       Int?    @db.SmallInt
+  installment_total    Int?    @db.SmallInt
+  installment_group_id String? @db.Uuid
+
+  /// Fornecedor (0040): snapshot de quem cobrou, não FK. `supplier_doc` só com
+  /// dígitos (14 = CNPJ, 11 = CPF de autônomo).
+  supplier_name String?
+  supplier_doc  String?
+
   status        String              @default("active")
   created_by    String              @db.Uuid
   created_at    DateTime            @default(now()) @db.Timestamptz(6)
@@ -262,6 +279,8 @@ model expense {
   @@index([tenant_id, due_date], map: "idx_expense_tenant_due")
   @@index([tenant_id, category_id], map: "idx_expense_tenant_category")
   @@index([tenant_id, updated_at], map: "idx_expense_tenant_updated")
+  @@index([tenant_id, installment_group_id], map: "idx_expense_tenant_installment_group")
+  @@index([tenant_id, supplier_doc], map: "idx_expense_tenant_supplier")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

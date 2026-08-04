@@ -121,6 +121,120 @@ Dois detalhes ainda a confirmar no backend (leitura, provavelmente já ok):
 
 ---
 
+## §1.5 Parcelas, fornecedor e cadastro em etapas — pedido em 2026-08-04
+
+Pedido do dono, depois do §1: (a) ao dar baixa, mostrar **quando é a próxima
+cobrança**; (b) datas **com ano**; (c) cards "muito vazios" → mais informação;
+(d) **sistema de parcelas**; (e) **buscar CNPJ de fornecedor**; (f) cadastro com
+**separação clara**, não "tudo num modal numa mossoroca"; (g) filtro de
+**a pagar da semana**.
+
+### Decisões de modelagem (tomadas, com o porquê)
+
+**Parcelas = 3 colunas em `expense`, NÃO tabela nova.**
+`installment_no`, `installment_total`, `installment_group_id`.
+- Tabela de "plano de parcelamento" não teria dado próprio: o total é a soma das
+  irmãs, e descrição/fornecedor se repetem. Custaria RLS nova, entidade de sync
+  nova e rota de pull nova — sem ganho.
+- Como `expense` **já é entidade replicada**, parcelas vão de graça para o offline.
+- **Não é recorrência.** A regra é aberta ("todo dia 10, sem fim"); parcelamento é
+  finito e tem total conhecido. Modelar 3x como recorrência com `ends_on` mentiria
+  sobre a natureza (cada ocorrência não é "a mesma conta de novo", é uma FATIA de
+  uma dívida) e impediria o rótulo "parcela 2/3".
+- Rateio: total ÷ N, e os **centavos de resto vão na PRIMEIRA** parcela (convenção
+  brasileira: as seguintes ficam redondas). 100 em 3x = 33,34 + 33,33 + 33,33.
+- **Mutuamente exclusivo** com recorrência, por CHECK: uma conta é avulsa XOR fixa
+  XOR parcelada. É exatamente a distinção que o dono pediu ver no cadastro.
+
+**Fornecedor = `supplier_name` + `supplier_doc` em `expense` (snapshot).**
+Não é cadastro de fornecedores — esse é módulo próprio (está no backlog do
+estoque). O pedido é identificar o fornecedor NA CONTA e autopreencher pelo CNPJ,
+e snapshot é o padrão da regra 2 (a OS guarda o retrato). `supplier_doc` guarda
+só dígitos (11 = CPF de autônomo, 14 = CNPJ); quem formata é a UI.
+
+**CNPJ: reusar `CnpjGateway` de `common/cnpj/`** (BrasilAPI, sem token) — já
+consumido por `auth` e `customers`. Rota nova `GET /expenses/cnpj/:cnpj` no módulo
+de despesas, porque `expenses` não pode depender do módulo `customers` estar
+habilitado (regra 1). No front há `core/util/cnpj.dart` (validação + máscara).
+
+**Caixa → despesa: gravar `sale_kind='expense'` + `sale_id`.**
+Isto **reverte deliberadamente** o comentário em `cashier.service.impl.ts:664`
+("despesa não aponta venda"). Razões:
+- `sale_kind` já carrega `'os'`, que é de OUTRO módulo — o caixa já guarda TAG de
+  origem alheia; guardar tag nunca foi ler tabela alheia (regra 1 intacta);
+- o índice `(tenant_id, sale_kind, sale_id)` **já existe**;
+- e, decisivo: funciona **offline**, porque o espelho local do `cash_entry` traz
+  `sale_kind`. A alternativa (buscar a despesa por `cash_entry_id`) exigiria ida à
+  rede justo no clique, e morreria sem sinal.
+Exige **alargar** o CHECK `cash_entry_sale_kind_chk` para incluir `'expense'` —
+relaxar constraint não invalida linha existente, então é aditivo de fato.
+
+**Próxima cobrança:** `listMonth` passa a devolver também as `recurrences` das
+contas do mês, e uma função PURA `proximaOcorrencia(regra, depoisDe)` calcula a
+data. Funciona offline porque `expense_recurrence` já é entidade espelhada. Para
+parcelada, "próxima" é a irmã seguinte (mesmo grupo, `no + 1`).
+
+### Ordem de execução
+
+- **A (backend):** migration 0040 nos 3 lugares · DTO com `parcelas` + fornecedor
+  · service cria N linhas no mesmo tx · `pay` grava a origem no caixa ·
+  `listMonth` devolve `recurrences` · `GET /expenses/cnpj/:cnpj` · testes.
+- **B (front):** modelos + `proximaOcorrencia` + formulário em ETAPAS (tipo →
+  dados), com seção de fornecedor e consulta de CNPJ.
+- **C (front):** cards ricos (parcela, fornecedor, ano, forma) · filtro "Esta
+  semana" · destaque de vence-hoje · **§2 detalhe + PDF** · clique caixa→despesa ·
+  "Nova despesa" do botão mestre.
+- **D:** §3 relatórios.
+
+### O que FICOU PRONTO em 2026-08-04 (commits 59cb9dc, e629c2d, 466a876)
+
+Backend: migration 0040 (parcelas + fornecedor + CHECK do caixa), 0041
+(`expense_category.tracks_supplier`), 0042 (backfill da origem nos lançamentos
+antigos) · `parcelas`/`installmentIds`/`installmentGroupId`/fornecedor no DTO ·
+`ratearParcelas`/`datasDasParcelas` · `GET /expenses/:id` · `GET /expenses/cnpj/:cnpj`
+· `recurrences` no `listMonth` · origem `sale_kind='expense'` na baixa.
+
+Front: cadastro em 2 etapas (tipo → dados) · prévia do rateio · fornecedor por
+categoria (switch no cadastro da categoria) · cards com parcela/fornecedor/forma/
+próxima/ano + faixa de urgência · detalhe com PDF · clique caixa→despesa nas duas
+listas · filtro "Esta semana" · botão mestre apontando para o módulo · parcelamento
+offline (N linhas locais, 1 op na fila) · `kInvoiceEnabled` respeitado no fim da OS.
+
+### O QUE AINDA FALTA (pedido, não entregue)
+
+1. **Pagar parcelas em bloco** — pedido em 2026-08-04, ao fim da sessão. Hoje a
+   baixa é por LINHA (cada parcela é uma conta, com seu valor), o que já está
+   certo; o que falta é **pagar N parcelas de uma vez** ("antecipar 2") e
+   **quitar o restante**. Desenho sugerido:
+   - backend: `POST /expenses/:id/pay-installments { quantidade? | todas: true }`
+     no módulo `expenses`, iterando o `pay` atual por parcela em ordem de
+     vencimento. **Um lançamento de caixa por parcela** (não um só somado): o
+     livro caixa precisa espelhar cada baixa, e estornar uma parcela depois
+     exige o lançamento dela. Idempotência: aceitar a lista de `cashEntryId`
+     como o `pay` já faz, para o replay offline não duplicar;
+   - front: no detalhe, botões "Pagar esta", "Pagar N próximas" e "Quitar
+     restante (R$ X)"; no card, um menu em vez do toque único que hoje paga a
+     parcela do mês.
+2. **Total da compra visível no mês** — o card mostra o valor da PARCELA (certo),
+   mas o total da dívida não é derivável do payload do mês (só vêm as parcelas
+   que vencem nele). Precisa o servidor mandar, ex.: `installmentGroups: [{groupId,
+   total, count, paidCount}]` no `listMonth`. Sem isso o card não pode dizer
+   "2/6 de R$ 900,00" sem mentir.
+3. **§3 Relatórios** — não começou. Ver a seção §3 abaixo; a decisão de produto
+   (qual relatório) segue de pé, com a recomendação de "por categoria" primeiro.
+   Regra 1: método público no `ExpensesService`, o `report` não lê tabela alheia.
+
+### Sobre "OS paga no caixa" (verificado, NÃO é bug)
+
+Reclamação de 2026-08-04. Conferido no banco: os recebimentos de OS **estão** no
+caixa (`sale_kind='os'`, `category='os_payment'`, direção `in`) e o clique já
+navega para a OS. O que existia de verdade era o efeito colateral corrigido pela
+0042: as despesas pagas ANTES da 0040 ficaram sem tag de origem. Os 19 lançamentos
+que seguem "sem origem" são do antigo diálogo de despesa do caixa e **nunca**
+tiveram conta a pagar atrás — não há o que apontar.
+
+---
+
 ## §2 Detalhe da despesa (+ volta do caixa)
 
 ### O que a tela de detalhe mostra

@@ -45,6 +45,13 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
   final _nameCtrl = TextEditingController();
   String _icone = 'outros';
   String _cor = '#6B7280';
+
+  /// Esta categoria tem fornecedor do outro lado?
+  ///
+  /// Começa DESLIGADO: a maioria das despesas de oficina (aluguel, luz, imposto,
+  /// salário) não tem fornecedor, e o campo aparecia em todas — era ruído em
+  /// quase todo lançamento.
+  bool _temFornecedor = false;
   bool _salvando = false;
 
   @override
@@ -62,6 +69,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
             name: _nameCtrl.text.trim(),
             icon: _icone,
             color: _cor,
+            tracksSupplier: _temFornecedor,
           );
       // Invalida a listagem do mês: ela é quem carrega as categorias que viram
       // chips no formulário de despesa.
@@ -149,7 +157,32 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
                   ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
+            // O switch que decide se o cadastro de despesa vai pedir fornecedor
+            // nesta categoria. Fica aqui, junto do nome, porque é característica
+            // da categoria — e não uma regra escondida no código do formulário.
+            SwitchListTile.adaptive(
+              value: _temFornecedor,
+              onChanged: _salvando
+                  ? null
+                  : (v) => setState(() => _temFornecedor = v),
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Tem fornecedor',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                _temFornecedor
+                    ? 'O cadastro vai pedir CNPJ e nome do fornecedor.'
+                    : 'Para contas sem fornecedor (aluguel, imposto, salário).',
+                style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(height: 8),
             // Prévia: mostra o chip exatamente como ele vai aparecer na lista de
             // despesas, para a escolha de ícone+cor não ser às cegas.
             Row(

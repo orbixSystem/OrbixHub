@@ -99,6 +99,43 @@ ReportTable revenueTable(RevenueReport r) => ReportTable(
       ],
     );
 
+/// Despesas por categoria. As quatro colunas de dinheiro contam a mesma história
+/// por ângulos diferentes: `previsto` é o custo do período, `pago` o que já saiu,
+/// `em aberto` o que falta e `vencido` o pedaço do em aberto que passou do prazo.
+ReportTable expensesTable(ExpensesReport r) => ReportTable(
+      title: 'Despesas por categoria',
+      headers: const [
+        'Categoria',
+        'Contas',
+        'Previsto',
+        'Pago',
+        'Em aberto',
+        'Vencido',
+      ],
+      rows: [
+        for (final l in r.rows)
+          [
+            l.categoryName,
+            '${l.count}',
+            formatMoney(l.previsto),
+            formatMoney(l.pago),
+            formatMoney(l.emAberto),
+            // Zero em branco: uma coluna cheia de "R$ 0,00" treina o olho a
+            // ignorá-la, e é justamente a que precisa chamar atenção quando tem
+            // valor.
+            l.vencido > 0 ? formatMoney(l.vencido) : '',
+          ],
+        [
+          'TOTAL',
+          '${r.totals.count}',
+          formatMoney(r.totals.previsto),
+          formatMoney(r.totals.pago),
+          formatMoney(r.totals.emAberto),
+          r.totals.vencido > 0 ? formatMoney(r.totals.vencido) : '',
+        ],
+      ],
+    );
+
 ReportTable teamTable(TeamReport r, [Map<String, String>? names]) =>
     ReportTable(
       title: 'Rendimento da equipe',

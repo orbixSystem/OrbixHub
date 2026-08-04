@@ -12,12 +12,11 @@ import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
 import '../../customers/presentation/customers_providers.dart';
+import '../../expenses/presentation/expense_form_dialog.dart';
+import '../../expenses/presentation/expenses_providers.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
-import '../../cashier/domain/cashier_models.dart';
-import '../../cashier/presentation/cashier_dialogs.dart';
-import '../../cashier/presentation/cashier_providers.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
 import '../../update/presentation/update_banner.dart';
@@ -694,29 +693,14 @@ class _QuickCreateFab extends ConsumerWidget {
         // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).
         await showSaleCreateDialog(context);
       case 'expense':
-        // Despesa é lançamento do caixa, e o diálogo precisa da config (formas
-        // de pagamento). Busca na hora: é uma ação pontual, e montar o
-        // controller inteiro do Caixa só para abrir um diálogo seria desperdício.
-        // Falha na config não pode bloquear o lançamento — cai nos defaults.
-        CashierConfig cfg;
-        try {
-          cfg = await ref.read(cashierRepositoryProvider).fetchConfig();
-        } catch (_) {
-          cfg = const CashierConfig();
-        }
-        if (!context.mounted) return;
-        // O diálogo salva via `cashierControllerProvider`, que é `autoDispose`:
-        // FORA da tela do Caixa ninguém o observa, então ele nasceria no
-        // `read(.notifier)` e morreria no mesmo instante — e o uso seguinte
-        // estourava "Cannot use ref after dispose". Uma assinatura manual o
-        // mantém vivo enquanto o diálogo estiver aberto.
-        final manterVivo =
-            ref.listenManual(cashierControllerProvider, (_, _) {});
-        try {
-          await showEntryDialog(context, ref, cfg, presetCategory: 'despesa');
-        } finally {
-          manterVivo.close();
-        }
+        // Cadastro de conta a pagar (módulo `expenses`), não mais o lançamento
+        // cru do caixa: o formulário pergunta o tipo (uma vez / todo mês /
+        // parcelada), vencimento, categoria e fornecedor — e é o mesmo caminho
+        // da tela de Despesas, para os dois lugares não divergirem.
+        final criou = await showExpenseFormDialog(context, ref);
+        // Invalida mesmo fora da tela de Despesas: se ela estiver montada atrás
+        // (ou for aberta em seguida sem recarregar), a conta nova precisa estar lá.
+        if (criou) ref.invalidate(despesasDoMesProvider);
     }
   }
 }
@@ -732,12 +716,16 @@ List<QuickAction> quickActionsFor(Me me) {
       const QuickAction('os', Icons.build_rounded, 0, 'Nova ordem de serviço'),
     if (me.hasModule('sale') && me.hasPermission('sale.write'))
       const QuickAction('sale', Icons.point_of_sale_rounded, 2, 'Nova venda'),
-    // Despesa é gestão do caixa (`cashier.manage`): o backend recusa despesa
-    // para quem só tem `cashier.write`, então oferecer aqui daria erro.
-    if (me.hasModule('cashier') && me.hasPermission('cashier.manage'))
+    // Despesa é do módulo `expenses` (contas a pagar), não do caixa.
+    //
+    // Era `cashier.manage` + diálogo de lançamento do caixa: um gasto sem
+    // vencimento, sem categoria própria e sem lugar para voltar. Agora abre o
+    // cadastro de conta a pagar — que dá baixa NO caixa quando paga, então o
+    // lançamento continua acontecendo, com contexto.
+    if (me.hasModule('expenses') && me.hasPermission('finance.write'))
       const QuickAction(
         'expense',
-        Icons.remove_circle_outline,
+        Icons.receipt_long_outlined,
         4,
         'Nova despesa',
       ),

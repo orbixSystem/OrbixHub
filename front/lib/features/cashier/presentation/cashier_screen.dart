@@ -10,6 +10,7 @@ import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
+import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
@@ -501,7 +502,9 @@ class _EntryTile extends ConsumerWidget {
       else if (entry.saleKind == 'os')
         'OS'
       else if (entry.saleKind == 'sale')
-        'Venda',
+        'Venda'
+      else if (entry.saleKind == 'expense')
+        'Despesa',
     ];
     // Lançamento que aponta para uma venda ou OS abre a ORIGEM dele.
     //
@@ -512,12 +515,20 @@ class _EntryTile extends ConsumerWidget {
     // nenhum, obrigando a procurar a ordem à mão.
     final daVenda = entry.saleKind == 'sale' && entry.saleId != null;
     final daOs = entry.saleKind == 'os' && entry.saleId != null;
+    // Saída de conta a pagar: abre a DESPESA em diálogo, como a venda. Antes a
+    // baixa gravava origem nula e a linha do extrato dizia "Despesa · Aluguel"
+    // sem levar a lugar nenhum — para achar a conta era preciso lembrar o mês e
+    // procurar à mão. A ida (despesa → lançamento) já existia; faltava a volta.
+    final daDespesa = entry.saleKind == 'expense' && entry.saleId != null;
     return NeuListTile(
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
           : daOs
               ? () => context.push('/m/os/${entry.saleId}')
-              : null,
+              : daDespesa
+                  ? () => showExpenseDetailDialog(context, ref,
+                      id: entry.saleId!)
+                  : null,
       leading: _DirectionGlyph(color: color, isIn: isIn),
       title: Text(
         categoryLabel(entry.category),

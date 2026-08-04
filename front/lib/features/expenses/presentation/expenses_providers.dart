@@ -47,7 +47,10 @@ final despesasDoMesProvider =
 
 /// Filtro da tela. `todas` é o default: a cliente abre para ver o mês, não para
 /// caçar um estado específico.
-enum FiltroDespesa { todas, emAberto, vencidas, pagas }
+///
+/// `semana` é hoje + 7 dias (incluindo as vencidas) — a pergunta prática "o que
+/// tenho pra pagar esta semana". Ver `contasDaSemana`.
+enum FiltroDespesa { todas, semana, emAberto, vencidas, pagas }
 
 class FiltroDespesaNotifier extends Notifier<FiltroDespesa> {
   @override

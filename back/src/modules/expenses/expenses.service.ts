@@ -4,11 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenantContext } from '../../common/database/tenant-context';
 import { CashierService } from '../cashier/cashier.service';
+import { CnpjGateway } from '../../common/cnpj/cnpj.gateway';
+import { formatCnpj, isValidCnpj, normalizeCnpj } from '../auth/cnpj';
 import {
   ChangedSincePage,
   clampChangedSinceLimit,
@@ -32,24 +35,35 @@ import {
   Frequency,
   MESES_DE_ESTEIRA,
   PaymentMethod,
+  datasDasParcelas,
   limitesDoMes,
   primeiraOcorrencia,
   proximasOcorrencias,
+  ratearParcelas,
   round2,
 } from './expenses.config';
 
-/** Categorias que todo tenant ganha no primeiro acesso ao módulo. */
+/**
+ * Categorias que todo tenant ganha no primeiro acesso ao módulo.
+ *
+ * `tracks_supplier` marca as que TÊM fornecedor do outro lado (peças, manutenção).
+ * Aluguel, imposto e salário não têm — e é isso que tira o campo "fornecedor" do
+ * caminho de quem está lançando a conta de luz.
+ */
 const CATEGORIAS_PADRAO = [
-  { name: 'Aluguel', icon: 'aluguel', color: '#F97316' },
-  { name: 'Energia', icon: 'energia', color: '#EAB308' },
-  { name: 'Água', icon: 'agua', color: '#38BDF8' },
-  { name: 'Internet', icon: 'internet', color: '#8B5CF6' },
-  { name: 'Telefone', icon: 'telefone', color: '#06B6D4' },
-  { name: 'Impostos', icon: 'impostos', color: '#EF4444' },
-  { name: 'Fornecedor', icon: 'fornecedor', color: '#10B981' },
-  { name: 'Salários', icon: 'salarios', color: '#3B82F6' },
-  { name: 'Manutenção', icon: 'manutencao', color: '#A16207' },
-  { name: 'Outros', icon: 'outros', color: '#6B7280' },
+  { name: 'Aluguel', icon: 'aluguel', color: '#F97316', tracks_supplier: false },
+  { name: 'Energia', icon: 'energia', color: '#EAB308', tracks_supplier: false },
+  { name: 'Água', icon: 'agua', color: '#38BDF8', tracks_supplier: false },
+  { name: 'Internet', icon: 'internet', color: '#8B5CF6', tracks_supplier: false },
+  { name: 'Telefone', icon: 'telefone', color: '#06B6D4', tracks_supplier: false },
+  { name: 'Impostos', icon: 'impostos', color: '#EF4444', tracks_supplier: false },
+  { name: 'Fornecedor', icon: 'fornecedor', color: '#10B981', tracks_supplier: true },
+  // Compra de mercadoria (peça, óleo, material de consumo) — semanal em oficina.
+  // Separada de "Fornecedor", que é sobre QUEM cobra, não sobre o que foi comprado.
+  { name: 'Produto', icon: 'produto', color: '#0EA5E9', tracks_supplier: true },
+  { name: 'Salários', icon: 'salarios', color: '#3B82F6', tracks_supplier: false },
+  { name: 'Manutenção', icon: 'manutencao', color: '#A16207', tracks_supplier: true },
+  { name: 'Outros', icon: 'outros', color: '#6B7280', tracks_supplier: false },
 ];
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
@@ -81,6 +95,7 @@ export class ExpensesService {
     private readonly repo: ExpensesRepository,
     private readonly audit: AuditService,
     private readonly cashier: CashierService,
+    private readonly cnpj: CnpjGateway,
   ) {}
 
   // ===================== Leitura =====================
@@ -132,14 +147,93 @@ export class ExpensesService {
       }
     });
 
+    // As REGRAS citadas pelas contas do mês. Sem elas a tela não tem como dizer
+    // "próxima em 10/09" ao dar baixa numa conta fixa: a próxima ocorrência é uma
+    // linha de OUTRO mês, que não veio nesta listagem.
+    const regrasCitadas = [
+      ...new Set(visiveis.map((e) => e.recurrence_id).filter((v): v is string => !!v)),
+    ];
+    const recurrences = await this.tenant.withTenantTx(() =>
+      this.repo.listRecurrencesByIds(regrasCitadas),
+    );
+
+    // Resumo dos GRUPOS de parcelamento citados no mês.
+    //
+    // O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+    // quer saber de quanto é a compra inteira — e isso não é derivável do mês: só
+    // vêm as parcelas que vencem nele. Sem este resumo o card não pode dizer
+    // "2/6 de R$ 900,00" sem inventar o total.
+    const gruposCitados = [
+      ...new Set(
+        visiveis
+          .map((e) => e.installment_group_id)
+          .filter((v): v is string => !!v),
+      ),
+    ];
+    const installmentGroups = await this.tenant.withTenantTx(async () => {
+      const linhas = await this.repo.listByGroups(gruposCitados);
+      const porGrupo = new Map<
+        string,
+        { groupId: string; total: number; count: number; paidCount: number }
+      >();
+      for (const l of linhas) {
+        const g = l.installment_group_id as string;
+        const atual =
+          porGrupo.get(g) ?? { groupId: g, total: 0, count: 0, paidCount: 0 };
+        atual.total = round2(atual.total + toNum(l.amount));
+        atual.count += 1;
+        if (l.paid_at) atual.paidCount += 1;
+        porGrupo.set(g, atual);
+      }
+      return [...porGrupo.values()];
+    });
+
     return {
       items: visiveis,
       categories: categorias,
+      recurrences,
+      installmentGroups,
       totalPrevisto: round2(totalPrevisto),
       totalPago: round2(totalPago),
       totalEmAberto: round2(totalEmAberto),
       totalVencido: round2(totalVencido),
     };
+  }
+
+  /**
+   * Uma conta com o contexto que o detalhe mostra: a regra que a gerou e as
+   * irmãs de parcelamento.
+   *
+   * Serve também o caminho **caixa → despesa**: o lançamento guarda
+   * `sale_kind='expense'` + `sale_id` = o id desta conta, então o clique no
+   * extrato chega aqui direto, sem busca por `cash_entry_id`.
+   */
+  async findOne(id: string) {
+    return this.tenant.withTenantTx(async () => {
+      const conta = await this.repo.findById(id);
+      if (!conta) throw new NotFoundException('Despesa não encontrada.');
+      const recurrence = conta.recurrence_id
+        ? await this.repo.findRecurrence(conta.recurrence_id)
+        : null;
+      const parcelas = conta.installment_group_id
+        ? await this.repo.listInstallmentGroup(conta.installment_group_id)
+        : [];
+      return { expense: conta, recurrence, parcelas };
+    });
+  }
+
+  /**
+   * Dados públicos da empresa pelo CNPJ, para preencher o fornecedor da conta.
+   *
+   * Rota própria do módulo em vez de reusar a de `customers`: `expenses` não pode
+   * depender de o módulo de clientes estar habilitado no plano (regra 1). O
+   * gateway em `common/cnpj` é o mesmo — a integração não é duplicada.
+   */
+  async lookupCnpj(raw: string) {
+    const doc = normalizeCnpj(raw);
+    if (!isValidCnpj(doc)) throw new BadRequestException('CNPJ inválido.');
+    const empresa = await this.cnpj.fetch(doc);
+    return { ...empresa, cnpj: formatCnpj(doc), doc };
   }
 
   /**
@@ -160,6 +254,23 @@ export class ExpensesService {
   async create(user: AuthUser, dto: CreateExpenseDto) {
     const vencimento = parseDia(dto.dueDate);
     const valor = round2(dto.amount ?? 0);
+    const fornecedor = this.normalizarFornecedor(dto);
+
+    if (dto.parcelas && dto.recorrencia) {
+      // O CHECK do banco barra, mas a mensagem dele não explica nada. Os dois
+      // conceitos geram várias contas e por isso se confundem: parcela é fatia de
+      // um total conhecido, recorrência é a mesma conta repetindo sem fim.
+      throw new BadRequestException(
+        'Escolha uma coisa só: parcelar o valor ou repetir todo mês.',
+      );
+    }
+    if (dto.parcelas) {
+      return this.criarParcelado(user, dto, {
+        vencimento,
+        total: valor,
+        fornecedor,
+      });
+    }
 
     const criada = await this.tenant.withTenantTx(async () => {
       await this.validarCategoria(dto.categoryId);
@@ -210,6 +321,8 @@ export class ExpensesService {
           occurrence_on: recurrenceId ? primeiraOcorrencia(vencimento) : null,
           notes: dto.notes?.trim() || null,
           created_by: user.userId,
+          supplier_name: fornecedor.name,
+          supplier_doc: fornecedor.doc,
         });
       } catch (e) {
         if (dto.id && isUniqueViolation(e)) {
@@ -240,6 +353,232 @@ export class ExpensesService {
     return criada;
   }
 
+  /**
+   * Despesas do período agrupadas por CATEGORIA — porta pública consumida pelo
+   * módulo `report`.
+   *
+   * Existe para o `report` NÃO tocar as tabelas `expense*` (regra 1): ele compõe
+   * chamando este método, como já faz com OS, estoque e caixa.
+   *
+   * Recorta pelo VENCIMENTO e não pela data de pagamento: a pergunta que o
+   * relatório responde é "quanto esse mês me custou", e uma conta de agosto paga
+   * com atraso em setembro é custo de agosto. Por isso `pago` e `emAberto` do
+   * mesmo período somam o `previsto` — são as duas partes dele, não recortes
+   * diferentes.
+   */
+  async summaryByCategory(
+    range: { from: Date; to: Date },
+  ): Promise<{
+    range: { from: string; to: string };
+    rows: Array<{
+      categoryId: string | null;
+      categoryName: string;
+      categoryColor: string | null;
+      count: number;
+      previsto: number;
+      pago: number;
+      emAberto: number;
+      vencido: number;
+    }>;
+    totals: {
+      count: number;
+      previsto: number;
+      pago: number;
+      emAberto: number;
+      vencido: number;
+    };
+  }> {
+    const hoje = new Date();
+    const hojeDia = new Date(
+      Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()),
+    );
+
+    const { itens, categorias } = await this.tenant.withTenantTx(async () => ({
+      itens: await this.repo.listByDueRange({ de: range.from, ate: range.to }),
+      categorias: await this.repo.listCategories({ includeDisabled: true }),
+    }));
+
+    const nomes = new Map(categorias.map((c) => [c.id, c]));
+    const porCat = new Map<string, {
+      categoryId: string | null;
+      categoryName: string;
+      categoryColor: string | null;
+      count: number;
+      previsto: number;
+      pago: number;
+      emAberto: number;
+      vencido: number;
+    }>();
+
+    for (const e of itens) {
+      // Chave vazia para as SEM categoria: elas existem (categoria é opcional) e
+      // omiti-las faria a soma das linhas não fechar com o total.
+      const chave = e.category_id ?? '';
+      const cat = e.category_id ? nomes.get(e.category_id) : undefined;
+      const linha =
+        porCat.get(chave) ??
+        {
+          categoryId: e.category_id ?? null,
+          categoryName: cat?.name ?? 'Sem categoria',
+          categoryColor: cat?.color ?? null,
+          count: 0,
+          previsto: 0,
+          pago: 0,
+          emAberto: 0,
+          vencido: 0,
+        };
+      const valor = toNum(e.amount);
+      linha.count += 1;
+      linha.previsto = round2(linha.previsto + valor);
+      if (e.paid_at) {
+        // O que REALMENTE saiu: juros e desconto fazem o pago divergir do
+        // previsto, e o relatório de custo precisa do que saiu.
+        linha.pago = round2(linha.pago + toNum(e.paid_amount ?? e.amount));
+      } else {
+        linha.emAberto = round2(linha.emAberto + valor);
+        if (e.due_date < hojeDia) linha.vencido = round2(linha.vencido + valor);
+      }
+      porCat.set(chave, linha);
+    }
+
+    // Maior gasto primeiro: o relatório responde "para onde vai o dinheiro", e a
+    // resposta é a primeira linha.
+    const rows = [...porCat.values()].sort((a, b) => b.previsto - a.previsto);
+    const totals = rows.reduce(
+      (acc, r) => ({
+        count: acc.count + r.count,
+        previsto: round2(acc.previsto + r.previsto),
+        pago: round2(acc.pago + r.pago),
+        emAberto: round2(acc.emAberto + r.emAberto),
+        vencido: round2(acc.vencido + r.vencido),
+      }),
+      { count: 0, previsto: 0, pago: 0, emAberto: 0, vencido: 0 },
+    );
+
+    return {
+      range: {
+        from: range.from.toISOString(),
+        to: range.to.toISOString(),
+      },
+      rows,
+      totals,
+    };
+  }
+
+  /**
+   * Fornecedor saneado: nome aparado e documento SÓ COM DÍGITOS.
+   *
+   * A máscara é da UI; gravar "12.345.678/0001-95" tornaria impossível agrupar as
+   * contas de um mesmo fornecedor (a mesma empresa digitada duas vezes com
+   * pontuação diferente viraria dois fornecedores). O CHECK do banco exige 11 ou
+   * 14 dígitos, então validamos aqui para devolver mensagem que ajuda.
+   */
+  private normalizarFornecedor(dto: {
+    supplierName?: string;
+    supplierDoc?: string;
+  }): { name: string | null; doc: string | null } {
+    const name = dto.supplierName?.trim() || null;
+    const cru = (dto.supplierDoc ?? '').replace(/\D/g, '');
+    if (!cru) return { name, doc: null };
+    if (cru.length !== 11 && cru.length !== 14) {
+      throw new BadRequestException(
+        'Documento do fornecedor deve ser um CPF (11 dígitos) ou CNPJ (14).',
+      );
+    }
+    return { name, doc: cru };
+  }
+
+  /**
+   * Compra parcelada: UMA dívida, N vencimentos mensais.
+   *
+   * O `amount` recebido é o **total**; quem rateia é aqui (`ratearParcelas`), em
+   * centavos inteiros, com o resto na primeira. Deixar a divisão para o cliente
+   * faria a soma das parcelas fechar diferente do total combinado com o
+   * fornecedor — e a dívida cadastrada deixaria de ser a dívida real.
+   *
+   * Devolve a PRIMEIRA parcela: é a que a cliente acabou de cadastrar e a que a
+   * tela precisa mostrar. As irmãs vêm na listagem dos meses seguintes.
+   */
+  private async criarParcelado(
+    user: AuthUser,
+    dto: CreateExpenseDto,
+    ctx: {
+      vencimento: Date;
+      total: number;
+      fornecedor: { name: string | null; doc: string | null };
+    },
+  ) {
+    const n = dto.parcelas as number;
+    if (ctx.total <= 0) {
+      // Parcelar "valor a confirmar" não tem como: sem total não há o que dividir.
+      throw new BadRequestException(
+        'Informe o valor total para parcelar a despesa.',
+      );
+    }
+    const ids = dto.installmentIds;
+    if (ids && ids.length !== n) {
+      throw new BadRequestException(
+        `Esperava ${n} ids de parcela, recebi ${ids.length}.`,
+      );
+    }
+    if (ids && new Set(ids).size !== ids.length) {
+      throw new BadRequestException('Ids de parcela repetidos.');
+    }
+
+    const valores = ratearParcelas(ctx.total, n);
+    const datas = datasDasParcelas(ctx.vencimento, n);
+
+    const primeira = await this.tenant.withTenantTx(async () => {
+      await this.validarCategoria(dto.categoryId);
+      // Um grupo por parcelamento. Vem do cliente quando ele já criou as linhas
+      // offline, para o espelho local e o servidor apontarem para o mesmo grupo
+      // desde o primeiro instante.
+      const grupo = dto.installmentGroupId ?? randomUUID();
+      const linhas: NewExpenseData[] = valores.map((v, i) => ({
+        id: ids?.[i],
+        description: dto.description.trim(),
+        amount: v,
+        due_date: datas[i],
+        category_id: dto.categoryId ?? null,
+        recurrence_id: null,
+        occurrence_on: null,
+        notes: dto.notes?.trim() || null,
+        created_by: user.userId,
+        installment_no: i + 1,
+        installment_total: n,
+        installment_group_id: grupo,
+        supplier_name: ctx.fornecedor.name,
+        supplier_doc: ctx.fornecedor.doc,
+      }));
+      try {
+        // `createMany` e não N `create`: uma ida ao banco, e o grupo nasce inteiro
+        // ou não nasce — meia compra parcelada seria pior que erro.
+        await this.repo.createMany(user.tenantId, linhas);
+      } catch (e) {
+        if (isUniqueViolation(e)) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+        throw e;
+      }
+      const doGrupo = await this.repo.listInstallmentGroup(grupo);
+      return doGrupo[0];
+    });
+
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'expense_create',
+      primeira.id,
+      {
+        amount: ctx.total,
+        dueDate: dto.dueDate,
+        parcelas: n,
+        installmentGroupId: primeira.installment_group_id,
+      },
+    );
+    return primeira;
+  }
+
   async update(user: AuthUser, id: string, dto: UpdateExpenseDto) {
     const atualizada = await this.tenant.withTenantTx(async () => {
       const atual = await this.repo.findById(id);
@@ -252,12 +591,15 @@ export class ExpensesService {
         );
       }
       await this.validarCategoria(dto.categoryId);
+      const fornecedor = this.normalizarFornecedor(dto);
       return this.repo.update(id, {
         description: dto.description?.trim(),
         amount: dto.amount === undefined ? undefined : round2(dto.amount),
         due_date: dto.dueDate ? parseDia(dto.dueDate) : undefined,
         category_id: dto.limparCategoria ? null : dto.categoryId,
         notes: dto.notes === undefined ? undefined : dto.notes.trim() || null,
+        supplier_name: dto.limparFornecedor ? null : fornecedor.name ?? undefined,
+        supplier_doc: dto.limparFornecedor ? null : fornecedor.doc ?? undefined,
       });
     });
     await this.audit.log(user.tenantId, user.userId, 'expense_update', id, {
@@ -304,6 +646,10 @@ export class ExpensesService {
       description: atual.description,
       deviceId: dto.deviceId ?? null,
       entryId: dto.cashEntryId,
+      // Marca a ORIGEM no lançamento para o clique no extrato abrir esta conta.
+      // Antes ia nulo, e o vínculo existia só neste sentido (despesa → caixa) —
+      // o caixa mostrava "Aluguel" sem caminho de volta.
+      originId: id,
     });
 
     const paga = await this.tenant.withTenantTx(() =>
@@ -448,6 +794,7 @@ export class ExpensesService {
           name: dto.name.trim(),
           icon: dto.icon ?? 'outros',
           color: dto.color ?? '#6B7280',
+          tracks_supplier: dto.tracksSupplier ?? false,
         });
       } catch (e) {
         if (isUniqueViolation(e)) {
@@ -481,6 +828,7 @@ export class ExpensesService {
           name: dto.name?.trim(),
           icon: dto.icon,
           color: dto.color,
+          tracks_supplier: dto.tracksSupplier,
           status: dto.status,
         });
       } catch (e) {

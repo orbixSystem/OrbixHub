@@ -3,10 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
+// Rótulo PT-BR da forma de pagamento — função PURA do caixa, reaproveitada em
+// vez de duplicada. Mesmo caso de `formatMoney` do dashboard, logo acima: não é
+// acesso a dado de outro módulo, é vocabulário compartilhado.
+import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../../dashboard/presentation/widgets/metric_card.dart' show formatMoney;
 import '../domain/expense_models.dart';
+import '../domain/expense_next_due.dart';
 import '../domain/expense_ordering.dart';
 import '../domain/expense_status.dart';
+import 'expense_detail_dialog.dart';
 import 'expense_form_dialog.dart';
 import 'expense_visuals.dart';
 import 'expenses_providers.dart';
@@ -149,15 +155,20 @@ class _Corpo extends ConsumerWidget {
 
     final porId = {for (final c in mes.categories) c.id: c};
 
-    final doFiltro = mes.items.where((e) {
-      final s = e.situacao(hoje);
-      return switch (filtro) {
-        FiltroDespesa.todas => true,
-        FiltroDespesa.emAberto => !e.pago,
-        FiltroDespesa.vencidas => s == ExpenseStatus.vencido,
-        FiltroDespesa.pagas => e.pago,
-      };
-    }).toList(growable: false);
+    final doFiltro = filtro == FiltroDespesa.semana
+        // "Esta semana" tem regra própria (hoje + 7 dias, vencidas incluídas), e
+        // por isso é função pura testada em vez de um `case` aqui.
+        ? contasDaSemana(mes.items, hoje: hoje)
+        : mes.items.where((e) {
+            final s = e.situacao(hoje);
+            return switch (filtro) {
+              FiltroDespesa.todas => true,
+              FiltroDespesa.emAberto => !e.pago,
+              FiltroDespesa.vencidas => s == ExpenseStatus.vencido,
+              FiltroDespesa.pagas => e.pago,
+              FiltroDespesa.semana => true, // tratado acima
+            };
+          }).toList(growable: false);
 
     // Busca ANTES de ordenar (menos itens para ordenar) e ordenação por
     // URGÊNCIA por último — é ela que decide o que o olho vê primeiro.
@@ -206,7 +217,31 @@ class _Corpo extends ConsumerWidget {
           for (final e in visiveis)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: _LinhaDespesa(despesa: e, categoria: porId[e.categoryId], hoje: hoje),
+              child: _LinhaDespesa(
+                despesa: e,
+                categoria: porId[e.categoryId],
+                hoje: hoje,
+                // Resumo do parcelamento: o total da compra NÃO é derivável do
+                // mês (só vêm as parcelas que vencem nele), então o servidor
+                // manda.
+                grupo: e.installmentGroupId == null
+                    ? null
+                    : mes.installmentGroups
+                        .where((g) => g.groupId == e.installmentGroupId)
+                        .firstOrNull,
+                // A próxima cobrança é calculada aqui, onde as regras e as
+                // irmãs do mês estão em mãos — o card não sai buscando nada.
+                proxima: proximaCobranca(
+                  e,
+                  regras: mes.recurrences,
+                  irmas: e.installmentGroupId == null
+                      ? const []
+                      : mes.items
+                          .where((o) =>
+                              o.installmentGroupId == e.installmentGroupId)
+                          .toList(),
+                ),
+              ),
             ),
         const SizedBox(height: 24),
       ],
@@ -313,8 +348,13 @@ class _Filtros extends ConsumerWidget {
     // não tem nada") — dá para ver antes de clicar.
     String rot(String base, int n) => n > 0 ? '$base ($n)' : base;
 
+    final daSemana = contasDaSemana(mes.items, hoje: hoje).length;
+
     final opcoes = <(FiltroDespesa, String)>[
       (FiltroDespesa.todas, rot('Todas', mes.items.length)),
+      // Segundo na fila, não último: "o que pago esta semana" é a pergunta do
+      // dia a dia, e ficaria escondido no fim de uma lista que rola.
+      (FiltroDespesa.semana, rot('Esta semana', daSemana)),
       (FiltroDespesa.emAberto, rot('Em aberto', abertas)),
       (FiltroDespesa.vencidas, rot('Vencidas', vencidas)),
       (FiltroDespesa.pagas, rot('Pagas', pagas)),
@@ -387,11 +427,20 @@ class _LinhaDespesa extends ConsumerStatefulWidget {
     required this.despesa,
     required this.categoria,
     required this.hoje,
+    this.proxima,
+    this.grupo,
   });
 
   final Expense despesa;
   final ExpenseCategory? categoria;
   final DateTime hoje;
+
+  /// Resumo do parcelamento (total da compra e quantas pagas), quando é parcela.
+  final InstallmentGroupSummary? grupo;
+
+  /// Quando a conta vai ser cobrada de novo (fixa ou parcelada). Calculada pela
+  /// lista, que tem as regras e as irmãs em mãos.
+  final DateTime? proxima;
 
   @override
   ConsumerState<_LinhaDespesa> createState() => _LinhaDespesaState();
@@ -486,13 +535,23 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   Future<void> _alternarPago() async {
     setState(() => _ocupado = true);
     final repo = ref.read(expensesRepositoryProvider);
+    final estavaPaga = widget.despesa.pago;
     try {
-      if (widget.despesa.pago) {
+      if (estavaPaga) {
         await repo.desmarcarPaga(widget.despesa.id);
       } else {
         await repo.marcarPaga(widget.despesa.id);
       }
       ref.invalidate(despesasDoMesProvider);
+      // Ao dar baixa numa conta que volta, dizer QUANDO ela volta. Sem isso
+      // pagar parece encerrar o assunto — e o aluguel reaparece no mês que vem
+      // sem aviso. Pedido explícito do dono.
+      final prox = widget.proxima;
+      if (!estavaPaga && prox != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Pago. Próxima cobrança em ${_dataCompleta(prox)}.'),
+        ));
+      }
     } on AppException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -507,6 +566,60 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
     }
   }
 
+  /// "10/09/2026" — com ANO. O card mostrava só dia/mês, e conta parcelada ou
+  /// atrasada de dezembro passado ficava indistinguível da deste ano.
+  static String _dataCompleta(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  /// Terceira linha do card: fornecedor, forma do pagamento e próxima cobrança.
+  ///
+  /// Só aparece quando há o que dizer — linha vazia reservada engordaria toda a
+  /// lista para servir a minoria das contas.
+  List<Widget> _detalhesExtra(NeuTokens neu) {
+    final e = widget.despesa;
+    final g = widget.grupo;
+    final partes = <(IconData, String)>[
+      // "de R$ 900,00 · 2 de 6 pagas": o valor grande do card é o da PARCELA (o
+      // que se deve neste mês); o total da compra é o contexto que faltava.
+      if (g != null && g.total > 0)
+        (
+          Icons.view_week_outlined,
+          'de ${formatMoney(g.total)} · ${g.paidCount} de ${g.count} pagas',
+        ),
+      if ((e.supplierName ?? '').trim().isNotEmpty)
+        (Icons.storefront_outlined, e.supplierName!.trim()),
+      if (e.pago && (e.paidMethod ?? '').isNotEmpty)
+        (Icons.payments_outlined, methodLabel(e.paidMethod!)),
+      if (widget.proxima != null)
+        (Icons.event_repeat_outlined,
+            'Próxima ${_dataCompleta(widget.proxima!)}'),
+    ];
+    if (partes.isEmpty) return const [];
+
+    return [
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          for (final (i, p) in partes.indexed) ...[
+            if (i > 0)
+              Text(' · ', style: TextStyle(color: neu.inkFaint, fontSize: 12)),
+            Icon(p.$1, size: 12, color: neu.inkFaint),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                p.$2,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: neu.inkFaint, fontSize: 12),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
@@ -515,148 +628,227 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
     final corStatus = corDoStatus(neu, s);
     final corCat = corHex(widget.categoria?.color);
     final dias = diasAte(e.vencimento, widget.hoje);
+    // Vencida e vencendo hoje ganham uma FAIXA da cor do status na borda. Cor de
+    // texto sozinha se perde numa lista longa; a faixa deixa o olho achar o
+    // problema sem ler nada. As demais não ganham para a faixa continuar
+    // significando algo.
+    final destacar =
+        s == ExpenseStatus.vencido || s == ExpenseStatus.venceHoje;
 
     return NeuCard(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: EdgeInsets.zero,
+      // O card inteiro abre o detalhe. Antes só os dois botões da direita
+      // respondiam, e ver a conta exigia adivinhar que "editar" era o caminho.
+      onTap: _ocupado ? null : () => _abrirDetalhe(),
       child: Row(
         children: [
-          // Selo da categoria: ícone + cor própria. Identidade visual da
-          // categoria, separada da cor de status (que fica na barra e no chip).
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: corCat.withValues(alpha: .14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              iconeDaCategoria(widget.categoria?.icon),
-              size: 21,
-              color: corCat,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        e.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: neu.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          // Pago fica riscado: reforça "resolvido" sem depender
-                          // só da cor.
-                          decoration: e.pago ? TextDecoration.lineThrough : null,
-                          decorationColor: neu.inkFaint,
-                        ),
-                      ),
-                    ),
-                    if (e.recurrenceId != null) ...[
-                      const SizedBox(width: 6),
-                      Tooltip(
-                        message: 'Repete todo mês',
-                        child: Icon(Icons.autorenew_rounded,
-                            size: 14, color: neu.inkFaint),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(iconeDoStatus(s), size: 13, color: corStatus),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        textoDoPrazo(s, dias),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: corStatus,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (widget.categoria != null) ...[
-                      Text(' · ',
-                          style: TextStyle(color: neu.inkFaint, fontSize: 12.5)),
-                      Flexible(
-                        child: Text(
-                          widget.categoria!.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                // "Valor a confirmar" em vez de R$ 0,00: zero leria como "não
-                // devo nada", que é o oposto do que a linha significa.
-                e.temValor ? formatMoney(e.valorEfetivo) : 'a confirmar',
-                style: TextStyle(
-                  color: e.temValor ? neu.ink : neu.inkMuted,
-                  fontSize: e.temValor ? 15.5 : 13,
-                  fontWeight: FontWeight.w800,
-                  fontStyle: e.temValor ? null : FontStyle.italic,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${e.vencimento.day.toString().padLeft(2, '0')}/'
-                '${e.vencimento.month.toString().padLeft(2, '0')}',
-                style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
-          if (_ocupado)
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          if (destacar)
+            Container(
+              width: 4,
+              // Alto o suficiente para acompanhar o card em qualquer altura de
+              // conteúdo (a Row estica os filhos ao maior deles).
+              constraints: const BoxConstraints(minHeight: 62),
+              decoration: BoxDecoration(
+                color: corStatus,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(NeuTokens.rCard),
                 ),
               ),
             )
           else
-            NeuIconButton(
-              icon: e.pago
-                  ? Icons.undo_rounded
-                  : Icons.check_circle_outline_rounded,
-              tooltip: e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
-              onPressed: _alternarPago,
+            const SizedBox(width: 4),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+              child: Row(
+                children: [
+                  // Selo da categoria: ícone + cor própria. Identidade visual da
+                  // categoria, separada da cor de status (na faixa e no texto).
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: corCat.withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      iconeDaCategoria(widget.categoria?.icon),
+                      size: 21,
+                      color: corCat,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                e.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: neu.ink,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  // Pago fica riscado: reforça "resolvido" sem
+                                  // depender só da cor.
+                                  decoration:
+                                      e.pago ? TextDecoration.lineThrough : null,
+                                  decorationColor: neu.inkFaint,
+                                ),
+                              ),
+                            ),
+                            // "2/6" é a informação que faltava: sem ela duas
+                            // parcelas da mesma compra são duas linhas idênticas.
+                            if (e.parcelada) ...[
+                              const SizedBox(width: 6),
+                              _SeloParcela(rotulo: e.rotuloParcela),
+                            ],
+                            if (e.fixa) ...[
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message: 'Repete todo mês',
+                                child: Icon(Icons.autorenew_rounded,
+                                    size: 14, color: neu.inkFaint),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(iconeDoStatus(s), size: 13, color: corStatus),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                textoDoPrazo(s, dias),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: corStatus,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (widget.categoria != null) ...[
+                              Text(' · ',
+                                  style: TextStyle(
+                                      color: neu.inkFaint, fontSize: 12.5)),
+                              Flexible(
+                                child: Text(
+                                  widget.categoria!.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: neu.inkMuted, fontSize: 12.5),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        ..._detalhesExtra(neu),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        // "Valor a confirmar" em vez de R$ 0,00: zero leria como
+                        // "não devo nada", o oposto do que a linha significa.
+                        e.temValor ? formatMoney(e.valorEfetivo) : 'a confirmar',
+                        style: TextStyle(
+                          color: e.temValor ? neu.ink : neu.inkMuted,
+                          fontSize: e.temValor ? 15.5 : 13,
+                          fontWeight: FontWeight.w800,
+                          fontStyle: e.temValor ? null : FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _dataCompleta(e.vencimento),
+                        style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 4),
+                  if (_ocupado)
+                    const SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else
+                    NeuIconButton(
+                      icon: e.pago
+                          ? Icons.undo_rounded
+                          : Icons.check_circle_outline_rounded,
+                      tooltip:
+                          e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
+                      onPressed: _alternarPago,
+                    ),
+                  // Editar / duplicar / excluir. Botão VISÍVEL, não gesto
+                  // escondido: descobrir a ação por toque longo não é
+                  // descoberta, é sorte.
+                  NeuIconButton(
+                    icon: Icons.more_vert_rounded,
+                    tooltip: 'Mais ações',
+                    onPressed: _ocupado ? null : _abrirAcoes,
+                  ),
+                ],
+              ),
             ),
-          // Editar / duplicar / excluir. Botão VISÍVEL, não gesto escondido:
-          // antes não havia lugar nenhum para editar uma conta lançada, e
-          // descobrir a ação por toque longo não é descoberta, é sorte.
-          NeuIconButton(
-            icon: Icons.more_vert_rounded,
-            tooltip: 'Mais ações',
-            onPressed: _ocupado ? null : _abrirAcoes,
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _abrirDetalhe() async {
+    final mudou = await showExpenseDetailDialog(
+      context,
+      ref,
+      id: widget.despesa.id,
+    );
+    if (mudou) ref.invalidate(despesasDoMesProvider);
+  }
+}
+
+/// Selo "2/6" da parcela.
+class _SeloParcela extends StatelessWidget {
+  const _SeloParcela({required this.rotulo});
+
+  final String rotulo;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: neu.navy.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        rotulo,
+        style: TextStyle(
+          color: neu.inkMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

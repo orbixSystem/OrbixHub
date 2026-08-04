@@ -28,6 +28,12 @@ export interface NewExpenseData {
   occurrence_on: Date | null;
   notes: string | null;
   created_by: string;
+  /** Parcelamento — as três juntas ou nenhuma (CHECK `expense_installment_chk`). */
+  installment_no?: number | null;
+  installment_total?: number | null;
+  installment_group_id?: string | null;
+  supplier_name?: string | null;
+  supplier_doc?: string | null;
 }
 
 export interface ExpensePatch {
@@ -37,6 +43,8 @@ export interface ExpensePatch {
   category_id?: string | null;
   notes?: string | null;
   status?: 'active' | 'canceled';
+  supplier_name?: string | null;
+  supplier_doc?: string | null;
 }
 
 export interface PaymentPatch {
@@ -110,9 +118,66 @@ export class ExpensesRepository {
     });
   }
 
+  /**
+   * Contas cujo VENCIMENTO cai no período — insumo do relatório.
+   *
+   * Sem o arraste de vencidas do [listByMonth]: aqui o período é o recorte pedido
+   * pelo relatório, e trazer conta de fora dele faria a soma não corresponder ao
+   * intervalo escolhido.
+   */
+  listByDueRange(p: { de: Date; ate: Date }) {
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { status: 'active', due_date: { gte: p.de, lte: p.ate } },
+      orderBy: { due_date: 'asc' },
+    });
+  }
+
   findById(id: string) {
     const db = this.tenant.getClient();
     return db.expense.findUnique({ where: { id } });
+  }
+
+  /** A despesa cuja baixa gerou este lançamento do caixa (caminho de volta). */
+  findByCashEntry(cashEntryId: string) {
+    const db = this.tenant.getClient();
+    return db.expense.findFirst({ where: { cash_entry_id: cashEntryId } });
+  }
+
+  /**
+   * As parcelas de um grupo, na ordem. O detalhe mostra "2 de 6" e o total da
+   * dívida, que é a SOMA das irmãs — não há coluna de total, de propósito.
+   */
+  listInstallmentGroup(groupId: string) {
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { installment_group_id: groupId, status: 'active' },
+      orderBy: { installment_no: 'asc' },
+    });
+  }
+
+  /**
+   * Todas as parcelas dos grupos informados — insumo do resumo por grupo.
+   *
+   * Agregação em JS e não `groupBy` no banco de propósito: um grupo tem no máximo
+   * 48 linhas (CHECK), a tela pede poucos grupos por mês, e o mesmo laço já
+   * calcula total, quantidade e quantas foram pagas. Um `groupBy` daria só a soma
+   * e exigiria uma segunda consulta para o resto.
+   */
+  listByGroups(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { installment_group_id: { in: ids }, status: 'active' },
+      orderBy: { installment_no: 'asc' },
+    });
+  }
+
+  /** Regras citadas por um conjunto de contas (para a tela dizer "próxima em…"). */
+  listRecurrencesByIds(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    const db = this.tenant.getClient();
+    return db.expense_recurrence.findMany({ where: { id: { in: ids } } });
   }
 
   create(tenantId: string, data: NewExpenseData) {
@@ -166,7 +231,13 @@ export class ExpensesRepository {
 
   createCategory(
     tenantId: string,
-    data: { id?: string; name: string; icon: string; color: string },
+    data: {
+      id?: string;
+      name: string;
+      icon: string;
+      color: string;
+      tracks_supplier: boolean;
+    },
   ) {
     const db = this.tenant.getClient();
     return db.expense_category.create({ data: { tenant_id: tenantId, ...data } });
@@ -178,6 +249,7 @@ export class ExpensesRepository {
       name?: string;
       icon?: string;
       color?: string;
+      tracks_supplier?: boolean;
       status?: 'active' | 'disabled';
     },
   ) {
@@ -197,7 +269,12 @@ export class ExpensesRepository {
    */
   seedCategories(
     tenantId: string,
-    rows: Array<{ name: string; icon: string; color: string }>,
+    rows: Array<{
+      name: string;
+      icon: string;
+      color: string;
+      tracks_supplier: boolean;
+    }>,
   ) {
     const db = this.tenant.getClient();
     return db.expense_category.createMany({
