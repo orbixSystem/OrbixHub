@@ -2843,4 +2843,286 @@ as bool,
 
 }
 
+
+/// @nodoc
+mixin _$ExpenseTemplate {
+
+ String get id; String get name; String get amount; String get category;// 'despesa' | 'sangria'
+/// Forma sugerida; null = usar o default do caixa (não chutar).
+ String? get method; String get status;
+/// Create a copy of ExpenseTemplate
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ExpenseTemplateCopyWith<ExpenseTemplate> get copyWith => _$ExpenseTemplateCopyWithImpl<ExpenseTemplate>(this as ExpenseTemplate, _$identity);
+
+  /// Serializes this ExpenseTemplate to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.category, category) || other.category == category)&&(identical(other.method, method) || other.method == method)&&(identical(other.status, status) || other.status == status));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,amount,category,method,status);
+
+@override
+String toString() {
+  return 'ExpenseTemplate(id: $id, name: $name, amount: $amount, category: $category, method: $method, status: $status)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ExpenseTemplateCopyWith<$Res>  {
+  factory $ExpenseTemplateCopyWith(ExpenseTemplate value, $Res Function(ExpenseTemplate) _then) = _$ExpenseTemplateCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name, String amount, String category, String? method, String status
+});
+
+
+
+
+}
+/// @nodoc
+class _$ExpenseTemplateCopyWithImpl<$Res>
+    implements $ExpenseTemplateCopyWith<$Res> {
+  _$ExpenseTemplateCopyWithImpl(this._self, this._then);
+
+  final ExpenseTemplate _self;
+  final $Res Function(ExpenseTemplate) _then;
+
+/// Create a copy of ExpenseTemplate
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? amount = null,Object? category = null,Object? method = freezed,Object? status = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
+as String,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String,method: freezed == method ? _self.method : method // ignore: cast_nullable_to_non_nullable
+as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [ExpenseTemplate].
+extension ExpenseTemplatePatterns on ExpenseTemplate {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ExpenseTemplate value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ExpenseTemplate() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ExpenseTemplate value)  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseTemplate():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ExpenseTemplate value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ExpenseTemplate() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String amount,  String category,  String? method,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ExpenseTemplate() when $default != null:
+return $default(_that.id,_that.name,_that.amount,_that.category,_that.method,_that.status);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String amount,  String category,  String? method,  String status)  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseTemplate():
+return $default(_that.id,_that.name,_that.amount,_that.category,_that.method,_that.status);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String amount,  String category,  String? method,  String status)?  $default,) {final _that = this;
+switch (_that) {
+case _ExpenseTemplate() when $default != null:
+return $default(_that.id,_that.name,_that.amount,_that.category,_that.method,_that.status);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ExpenseTemplate implements ExpenseTemplate {
+  const _ExpenseTemplate({required this.id, required this.name, this.amount = '0', this.category = 'despesa', this.method, this.status = 'active'});
+  factory _ExpenseTemplate.fromJson(Map<String, dynamic> json) => _$ExpenseTemplateFromJson(json);
+
+@override final  String id;
+@override final  String name;
+@override@JsonKey() final  String amount;
+@override@JsonKey() final  String category;
+// 'despesa' | 'sangria'
+/// Forma sugerida; null = usar o default do caixa (não chutar).
+@override final  String? method;
+@override@JsonKey() final  String status;
+
+/// Create a copy of ExpenseTemplate
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ExpenseTemplateCopyWith<_ExpenseTemplate> get copyWith => __$ExpenseTemplateCopyWithImpl<_ExpenseTemplate>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ExpenseTemplateToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseTemplate&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.category, category) || other.category == category)&&(identical(other.method, method) || other.method == method)&&(identical(other.status, status) || other.status == status));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,amount,category,method,status);
+
+@override
+String toString() {
+  return 'ExpenseTemplate(id: $id, name: $name, amount: $amount, category: $category, method: $method, status: $status)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ExpenseTemplateCopyWith<$Res> implements $ExpenseTemplateCopyWith<$Res> {
+  factory _$ExpenseTemplateCopyWith(_ExpenseTemplate value, $Res Function(_ExpenseTemplate) _then) = __$ExpenseTemplateCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name, String amount, String category, String? method, String status
+});
+
+
+
+
+}
+/// @nodoc
+class __$ExpenseTemplateCopyWithImpl<$Res>
+    implements _$ExpenseTemplateCopyWith<$Res> {
+  __$ExpenseTemplateCopyWithImpl(this._self, this._then);
+
+  final _ExpenseTemplate _self;
+  final $Res Function(_ExpenseTemplate) _then;
+
+/// Create a copy of ExpenseTemplate
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? amount = null,Object? category = null,Object? method = freezed,Object? status = null,}) {
+  return _then(_ExpenseTemplate(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,amount: null == amount ? _self.amount : amount // ignore: cast_nullable_to_non_nullable
+as String,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String,method: freezed == method ? _self.method : method // ignore: cast_nullable_to_non_nullable
+as String?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
 // dart format on

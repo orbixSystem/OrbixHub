@@ -11,7 +11,9 @@ import '../../os/presentation/os_providers.dart';
 import '../../os/presentation/payment_status.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
+import '../domain/expense_template_fill.dart';
 import 'cashier_providers.dart';
+import 'expense_templates.dart';
 import 'lock_animation.dart';
 
 /// Parse de valor digitado (aceita vírgula) → double >= 0, ou null se inválido.
@@ -447,6 +449,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
   void dispose() {
     _amountCtrl.dispose();
     _descCtrl.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -468,6 +471,33 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
   /// Suprimento (botar dinheiro na gaveta) e sangria (tirar dinheiro da gaveta)
   /// são movimentos da gaveta física → a forma é SEMPRE dinheiro.
   bool get _cashOnly => _category == 'suprimento' || _category == 'sangria';
+
+  /// Atalhos de despesa fixa só nas SAÍDAS (é o que o modelo pode lançar) e só
+  /// para quem gerencia — o atendente não vê o catálogo de gastos da oficina.
+  bool get _aceitaAtalho =>
+      _canManage && (_category == 'despesa' || _category == 'sangria');
+
+  /// Foco do campo de valor — usado quando o modelo não tem valor fechado.
+  final _amountFocus = FocusNode();
+
+  /// Aplica um modelo ao formulário. A decisão de qual forma usar é da função
+  /// pura [fillFromTemplate] (respeita a config e a regra da gaveta).
+  void _aplicarModelo(ExpenseTemplate tpl) {
+    final fill = fillFromTemplate(
+      tpl,
+      paymentMethods: widget.config.paymentMethods,
+      currentMethod: _method,
+    );
+    setState(() {
+      _category = fill.category;
+      _method = fill.method;
+      _descCtrl.text = fill.description;
+      _amountCtrl.text = fill.amountText;
+    });
+    // Valor em aberto ("varia"): manda o cursor para lá em vez de deixar o
+    // operador achar que está pronto e confirmar um lançamento sem valor.
+    if (fill.pedeValor) _amountFocus.requestFocus();
+  }
 
   /// Ao escolher a OS: busca o resumo de pagamento e pré-preenche o valor com o
   /// SALDO a receber (parcial-aware), editável. Sem OS, limpa o contexto.
@@ -623,7 +653,14 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
                       if (_cashOnly) _method = 'dinheiro';
                     }),
           ),
-          // 2) OS (logo após o Tipo, quando for recebimento de OS)
+          // 2) Atalhos de despesa fixa — só nas saídas, e só quando existem.
+          // Ficam logo abaixo do Tipo (antes do Valor) porque tocar um chip
+          // PREENCHE o valor: apareceria depois do campo que ele altera.
+          if (_aceitaAtalho) AtalhosDespesa(
+            categoria: _category,
+            onEscolher: _saving ? null : _aplicarModelo,
+          ),
+          // 3) OS (logo após o Tipo, quando for recebimento de OS)
           if (isOsPayment) ...[
             const SizedBox(height: 14),
             _OsPicker(selected: _selectedOs, onChanged: _onOsSelected),
@@ -643,6 +680,7 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
           NeuTextField(
             label: 'Valor *',
             controller: _amountCtrl,
+            focusNode: _amountFocus,
             hint: '0,00',
             prefixIcon: Icons.attach_money_rounded,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),

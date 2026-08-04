@@ -1,3 +1,4 @@
+import '../../../core/error/app_exception.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../domain/cashier_repository.dart';
@@ -257,4 +258,90 @@ class FakeCashierRepository implements CashierRepository {
       entries: entries,
     );
   }
+
+  // --- despesas fixas ---
+  // Semeadas com os casos reais de oficina: dois com valor fechado (atalho de um
+  // toque) e um com valor 0, que é o "varia" — assim o dev/teste vê os dois
+  // comportamentos sem ter de cadastrar nada.
+  final List<ExpenseTemplate> _templates = [
+    const ExpenseTemplate(
+      id: 'tpl-aluguel',
+      name: 'Aluguel',
+      amount: '1200',
+      method: 'pix',
+    ),
+    const ExpenseTemplate(
+      id: 'tpl-internet',
+      name: 'Internet',
+      amount: '120',
+      method: 'pix',
+    ),
+    const ExpenseTemplate(id: 'tpl-luz', name: 'Conta de luz'),
+  ];
+
+  var _tplSeq = 0;
+
+  @override
+  Future<List<ExpenseTemplate>> listExpenseTemplates({
+    bool includeDisabled = false,
+  }) async =>
+      _templates
+          .where((t) => includeDisabled || t.ativo)
+          .toList(growable: false);
+
+  @override
+  Future<ExpenseTemplate> createExpenseTemplate(
+    ExpenseTemplateDraft draft,
+  ) async {
+    final nome = (draft.name ?? '').trim();
+    if (_templates.any(
+      (t) => t.ativo && t.name.toLowerCase() == nome.toLowerCase(),
+    )) {
+      throw AppException(
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Já existe uma despesa fixa "$nome".',
+      );
+    }
+    final tpl = ExpenseTemplate(
+      id: draft.id ?? 'tpl-fake-${++_tplSeq}',
+      name: nome,
+      amount: (draft.amount ?? 0).toStringAsFixed(2),
+      category: draft.category ?? 'despesa',
+      method: draft.method,
+    );
+    _templates.add(tpl);
+    return tpl;
+  }
+
+  @override
+  Future<ExpenseTemplate> updateExpenseTemplate(
+    String id,
+    ExpenseTemplateDraft draft,
+  ) async {
+    final i = _templates.indexWhere((t) => t.id == id);
+    if (i < 0) {
+      throw const AppException(
+        statusCode: 404,
+        error: 'NotFound',
+        message: 'Despesa fixa não encontrada.',
+      );
+    }
+    final atual = _templates[i];
+    final novo = atual.copyWith(
+      name: draft.name ?? atual.name,
+      amount: draft.amount != null
+          ? draft.amount!.toStringAsFixed(2)
+          : atual.amount,
+      category: draft.category ?? atual.category,
+      method: draft.limparMethod ? null : (draft.method ?? atual.method),
+      status: draft.status ?? atual.status,
+    );
+    _templates[i] = novo;
+    return novo;
+  }
+
+  @override
+  Future<ExpenseTemplate> disableExpenseTemplate(String id) =>
+      updateExpenseTemplate(id, const ExpenseTemplateDraft(status: 'disabled'));
 }

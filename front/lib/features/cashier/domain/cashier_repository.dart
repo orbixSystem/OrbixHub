@@ -70,4 +70,19 @@ abstract interface class CashierRepository {
     required String saleId,
     double? total,
   });
+
+  // --- despesas fixas (atalhos de lançamento) ---
+  /// Modelos para os atalhos. `includeDisabled` só na tela de gerenciamento —
+  /// o lançamento oferece apenas os ativos.
+  Future<List<ExpenseTemplate>> listExpenseTemplates({bool includeDisabled});
+
+  Future<ExpenseTemplate> createExpenseTemplate(ExpenseTemplateDraft draft);
+
+  Future<ExpenseTemplate> updateExpenseTemplate(
+    String id,
+    ExpenseTemplateDraft draft,
+  );
+
+  /// Desativa (sem hard delete): o que já foi lançado com ele continua intacto.
+  Future<ExpenseTemplate> disableExpenseTemplate(String id);
 }

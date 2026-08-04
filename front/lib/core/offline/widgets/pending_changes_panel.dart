@@ -40,6 +40,7 @@ String describeMutation(String entity, String op) {
     'service_order': 'Ordem de serviço',
     'cash_session': 'Caixa',
     'cash_entry': 'Lançamento do caixa',
+    'cash_expense_template': 'Despesa fixa',
   };
   const ops = <String, String>{
     'create': 'criação',

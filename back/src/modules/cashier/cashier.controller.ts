@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -24,11 +25,16 @@ import {
 import {
   CurrentSessionQueryDto,
   EntryQueryDto,
+  ExpenseTemplateQueryDto,
   PaymentSummaryQueryDto,
   SessionQueryDto,
   SummaryQueryDto,
 } from './dto/query.dto';
 import { UpdateCashierConfigDto } from './dto/config.dto';
+import {
+  CreateExpenseTemplateDto,
+  UpdateExpenseTemplateDto,
+} from './dto/expense-template.dto';
 
 @Controller('cashier')
 @UseGuards(ModuleAccessGuard)
@@ -51,6 +57,48 @@ export class CashierController {
     @Body() dto: UpdateCashierConfigDto,
   ) {
     return this.cashier.updateConfig(user, dto);
+  }
+
+  // --- despesas fixas (atalhos de lançamento) ---
+  // Rotas literais antes de `entries/:id` etc. Ler é `cashier.read` (quem lança
+  // precisa ver os atalhos); manter o catálogo é gestão, como qualquer decisão
+  // sobre o que a oficina gasta.
+  @Get('expense-templates')
+  @Permissions('cashier.read')
+  listExpenseTemplates(@Query() query: ExpenseTemplateQueryDto) {
+    return this.cashier.listExpenseTemplates(query.includeDisabled ?? false);
+  }
+
+  @Post('expense-templates')
+  @Permissions('cashier.manage')
+  @HttpCode(201)
+  createExpenseTemplate(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateExpenseTemplateDto,
+  ) {
+    return this.cashier.createExpenseTemplate(user, dto);
+  }
+
+  @Patch('expense-templates/:id')
+  @Permissions('cashier.manage')
+  updateExpenseTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateExpenseTemplateDto,
+  ) {
+    return this.cashier.updateExpenseTemplate(user, id, dto);
+  }
+
+  // DELETE desativa (sem hard delete) — o verbo é o que o operador espera, mas
+  // o modelo continua no banco para o histórico não virar órfão.
+  @Delete('expense-templates/:id')
+  @Permissions('cashier.manage')
+  @HttpCode(200)
+  disableExpenseTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+  ) {
+    return this.cashier.disableExpenseTemplate(user, id);
   }
 
   // --- sessões (caixa do dia) ---

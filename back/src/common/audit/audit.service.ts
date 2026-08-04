@@ -53,6 +53,9 @@ export type AuditAction =
   | 'cashier_entry_update'
   // Correção de valor: estorno + relançamento numa operação.
   | 'cashier_entry_correct'
+  // Modelos de despesa fixa (atalhos de lançamento) — criar/editar/desativar.
+  | 'cashier_template_create'
+  | 'cashier_template_update'
   | 'sale_emit_invoice'
   | 'sync_overwrite'
   | 'plate_lookup';
