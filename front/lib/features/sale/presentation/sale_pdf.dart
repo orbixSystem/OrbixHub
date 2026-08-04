@@ -62,12 +62,36 @@ Future<Uint8List> buildSalePdf(
   doc.addPage(
     pw.MultiPage(
       pageFormat: format,
-      margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 24),
+      margin: const pw.EdgeInsets.fromLTRB(32, 30, 32, 34),
       // MultiPage (e não Page): venda com muitos itens tem de continuar na folha
       // seguinte em vez de estourar ou cortar linhas.
+      //
+      // O cabeçalho da EMPRESA fica só na primeira folha (via `build`), mas a
+      // identificação da venda se repete no topo das seguintes: uma folha 2 solta
+      // sobre a mesa precisa dizer de qual venda ela é.
+      header: (ctx) => ctx.pageNumber == 1
+          ? pw.SizedBox()
+          : pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Text(
+                '${company.name.toUpperCase()}  ·  Venda '
+                '${sale.number.isEmpty ? '' : sale.number}',
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfDocTokens.muted,
+                ),
+              ),
+            ),
+      footer: (ctx) => _rodape(ctx),
       build: (context) => [
         pdfCompanyHeader(company),
+        pw.SizedBox(height: 8),
+        // Régua da marca separa o cabeçalho do corpo — o detalhe que faz o
+        // documento parecer emitido por um sistema, não montado à mão.
+        pw.Container(height: 2, color: PdfDocTokens.brand),
         pw.SizedBox(height: 10),
+        _tituloDocumento(sale),
+        pw.SizedBox(height: 8),
         _faixaIdentificacao(sale, agora, extras.vendedor),
         pw.SizedBox(height: 6),
         pdfSectionBand('Dados do cliente'),
@@ -83,7 +107,9 @@ Future<Uint8List> buildSalePdf(
           children: [
             pw.Spacer(),
             pw.SizedBox(
-              width: 250,
+              // Mesma largura da soma das duas últimas colunas da tabela acima:
+              // a coluna de dinheiro fica alinhada de ponta a ponta do papel.
+              width: 232,
               child: _blocoTotais(
                 qtdTotal: qtdTotal,
                 somaItens: somaItens,
@@ -226,16 +252,18 @@ pw.Widget _tabelaItens(List<SaleItem> itens) {
   return pw.Table(
     border: pw.TableBorder.all(color: PdfDocTokens.line, width: .5),
     columnWidths: const {
-      0: pw.FlexColumnWidth(4.4), // descrição
-      1: pw.FlexColumnWidth(.8), // un.
-      2: pw.FlexColumnWidth(1), // qtde
-      3: pw.FlexColumnWidth(1.5), // valor unitário
-      4: pw.FlexColumnWidth(1.5), // valor total
+      0: pw.FlexColumnWidth(.55), // item (nº)
+      1: pw.FlexColumnWidth(4.4), // descrição
+      2: pw.FlexColumnWidth(.8), // un.
+      3: pw.FlexColumnWidth(1), // qtde
+      4: pw.FlexColumnWidth(1.5), // valor unitário
+      5: pw.FlexColumnWidth(1.5), // valor total
     },
     children: [
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: PdfDocTokens.band),
         children: [
+          th('#', align: pw.Alignment.center),
           th('Descrição do produto/serviço'),
           th('Un.', align: pw.Alignment.center),
           th('Qtde', align: pw.Alignment.centerRight),
@@ -243,9 +271,17 @@ pw.Widget _tabelaItens(List<SaleItem> itens) {
           th('Valor total', align: pw.Alignment.centerRight),
         ],
       ),
-      for (final i in itens)
+      // Numeração sequencial em vez do id do item: um uuid no papel é ruído, e
+      // o número é o que o cliente usa para apontar a linha ("o item 3").
+      for (final (indice, i) in itens.indexed)
         pw.TableRow(
+          // Zebra: em lista longa é o que impede o olho de pular de linha ao
+          // atravessar a folha até a coluna de valor.
+          decoration: indice.isOdd
+              ? const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFAF9F7))
+              : null,
           children: [
+            td('${indice + 1}', align: pw.Alignment.center),
             td(i.name.isEmpty ? '-' : i.name),
             // Serviço não tem unidade de estoque; produto sai como "UN".
             td(i.kind == 'service' ? 'SERV' : 'UN', align: pw.Alignment.center),
@@ -394,3 +430,70 @@ String _dois(int n) => n.toString().padLeft(2, '0');
 String _data(DateTime d) => '${_dois(d.day)}/${_dois(d.month)}/${d.year}';
 String _dataHora(DateTime d) =>
     '${_data(d)} ${_dois(d.hour)}:${_dois(d.minute)}:${_dois(d.second)}';
+
+/// Título do documento. Um comprovante precisa dizer O QUE é antes de dizer os
+/// números — sem isso o papel parece um extrato qualquer.
+pw.Widget _tituloDocumento(Sale sale) {
+  final cancelada = sale.status == 'canceled';
+  return pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.center,
+    children: [
+      pw.Text(
+        'COMPROVANTE DE VENDA',
+        style: pw.TextStyle(
+          fontSize: 12,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfDocTokens.graphite,
+          letterSpacing: .6,
+        ),
+      ),
+      pw.Spacer(),
+      // Venda cancelada tem de gritar isso no documento: é o caso em que um
+      // comprovante antigo circulando causa cobrança errada.
+      if (cancelada)
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfDocTokens.brand, width: 1),
+          ),
+          child: pw.Text(
+            'CANCELADA',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfDocTokens.brand,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+/// Rodapé de toda folha: paginação e o aviso de que isto NÃO é documento fiscal.
+///
+/// O aviso não é decoração — um comprovante com cara de nota, sem dizer que não
+/// é, engana o cliente e expõe a oficina. A nota fiscal sai pelo módulo Fiscal.
+pw.Widget _rodape(pw.Context ctx) {
+  return pw.Container(
+    decoration: const pw.BoxDecoration(
+      border: pw.Border(
+        top: pw.BorderSide(color: PdfDocTokens.line, width: .5),
+      ),
+    ),
+    padding: const pw.EdgeInsets.only(top: 4),
+    child: pw.Row(
+      children: [
+        pw.Text(
+          'Documento nao fiscal - comprovante de venda',
+          style: const pw.TextStyle(fontSize: 7.5, color: PdfDocTokens.muted),
+        ),
+        pw.Spacer(),
+        pw.Text(
+          'Pagina ${ctx.pageNumber} de ${ctx.pagesCount}',
+          style: const pw.TextStyle(fontSize: 7.5, color: PdfDocTokens.muted),
+        ),
+      ],
+    ),
+  );
+}
