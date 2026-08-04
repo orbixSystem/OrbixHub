@@ -71,18 +71,32 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
 
   @override
   Widget build(BuildContext context) {
+    // O watch vem ANTES de qualquer early return: `unreadCountProvider` é
+    // autoDispose, e sair do build sem observá-lo derrubava o provider. Ao
+    // remontar ele recarregava (desconhecido → N) e o sino tocava o alerta de
+    // "chegou algo novo" para notificações que já estavam lá.
+    final unread = ref.watch(unreadCountProvider);
+
+    // Baseline: a primeira contagem CONHECIDA só calibra, nunca alerta. É o que
+    // impede um remount (tutorial abrindo, troca de tela) de virar um falso
+    // aviso de mensagem nova. O preço é silenciar um alerta que chegue no exato
+    // instante do remount — errar para o lado do silêncio é melhor que avisar de
+    // uma mensagem que não existe.
+    final anterior = _lastUnread;
+    if (unread != null) _lastUnread = unread;
+
     // Em mobile, oculta o sino enquanto a página de notificações está aberta
-    // para evitar que o usuário abra várias instâncias empilhadas.
+    // para evitar que o usuário abra várias instâncias empilhadas. O watch acima
+    // já aconteceu, então o provider continua vivo e o baseline não se perde.
     if (!kIsWeb &&
         (Platform.isAndroid || Platform.isIOS) &&
         ref.watch(notificationsPageOpenProvider)) {
       return const SizedBox.shrink();
     }
 
-    final unread = ref.watch(unreadCountProvider);
-
-    // Toast + som só no AUMENTO do não-lido (não-spammy). Agendado fora do build.
-    if (_lastUnread != null && unread > _lastUnread!) {
+    // Toast + som só quando o não-lido SOBE entre duas contagens conhecidas
+    // (não-spammy). Agendado fora do build.
+    if (anterior != null && unread != null && unread > anterior) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _toast();
         unawaited(NotificationSound.play());
@@ -93,9 +107,10 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
         if (mounted) ref.invalidate(conversationsProvider);
       });
     }
-    _lastUnread = unread;
 
-    final hasUnread = unread > 0;
+    // Desconhecido (carregando) esconde o badge, como antes — melhor sem número
+    // do que com um zero que parece "tudo lido".
+    final hasUnread = (unread ?? 0) > 0;
     final color = hasUnread ? AppColors.brand : null;
 
     return CompositedTransformTarget(
@@ -135,7 +150,8 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
                       ),
                     ),
                     child: Text(
-                      unread > 99 ? '99+' : '$unread',
+                      // Só renderiza sob `hasUnread`, que já garante conhecido > 0.
+                      (unread ?? 0) > 99 ? '99+' : '${unread ?? 0}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,

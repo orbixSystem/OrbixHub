@@ -14,7 +14,7 @@ import 'cashier_providers.dart';
 /// "gerenciar" solto atrapalharia quem nunca vai usar o recurso. O botão de
 /// gerenciar aparece junto dos chips (quem já tem modelos é quem quer editá-los)
 /// e também sozinho na primeira vez, como convite discreto.
-class AtalhosDespesa extends ConsumerWidget {
+class AtalhosDespesa extends ConsumerStatefulWidget {
   const AtalhosDespesa({
     super.key,
     required this.categoria,
@@ -27,114 +27,221 @@ class AtalhosDespesa extends ConsumerWidget {
   final ValueChanged<ExpenseTemplate>? onEscolher;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AtalhosDespesa> createState() => _AtalhosDespesaState();
+}
+
+class _AtalhosDespesaState extends ConsumerState<AtalhosDespesa> {
+  TextEditingController? _ctrl;
+  FocusNode? _watchedNode;
+
+  @override
+  void dispose() {
+    _watchedNode?.removeListener(_onFocusMaybeOpen);
+    super.dispose();
+  }
+
+  /// Ao ganhar foco com o campo vazio, "cutuca" o controller para o Autocomplete
+  /// recalcular as opções (ele só recalcula quando o texto muda) — assim a lista
+  /// abre no clique, não só depois de digitar. Mesmo truque do picker da venda.
+  void _onFocusMaybeOpen() {
+    final node = _watchedNode;
+    final c = _ctrl;
+    if (node == null || c == null) return;
+    if (node.hasFocus && c.text.isEmpty) {
+      c.value = const TextEditingValue(text: ' ');
+      c.value = TextEditingValue.empty;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final neu = context.neu;
     final async = ref.watch(expenseTemplatesProvider);
     // Carregando/erro não mostram nada: o provider já degrada para lista vazia,
     // e um spinner acima do campo de valor faria a tela pular.
     final todos = async.value ?? const <ExpenseTemplate>[];
-    final modelos =
-        todos.where((t) => t.category == categoria).toList(growable: false);
+    final modelos = todos
+        .where((t) => t.category == widget.categoria)
+        .toList(growable: false);
 
     return Padding(
       padding: const EdgeInsets.only(top: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
-            children: [
-              Text(
-                modelos.isEmpty ? 'Despesas fixas' : 'Frequentes',
-                style: TextStyle(
-                  color: neu.inkMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .2,
-                ),
-              ),
-              const Spacer(),
-              _BotaoGerenciar(
-                onDone: () => ref.invalidate(expenseTemplatesProvider),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (modelos.isEmpty)
-            Text(
-              'Cadastre o que você paga sempre (aluguel, internet) e lance com um toque.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final t in modelos)
-                  _ChipModelo(
-                    modelo: t,
-                    onTap: onEscolher == null ? null : () => onEscolher!(t),
+          Expanded(
+            child: modelos.isEmpty
+                // Sem modelo cadastrado o seletor não teria o que oferecer —
+                // uma linha de texto ocupa menos que um campo morto.
+                ? Text(
+                    'Cadastre o que você paga sempre e lance com um toque.',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  )
+                : _SeletorModelo(
+                    modelos: modelos,
+                    onEscolher: widget.onEscolher,
+                    registrarCampo: (c, node) {
+                      _ctrl = c;
+                      if (!identical(_watchedNode, node)) {
+                        _watchedNode?.removeListener(_onFocusMaybeOpen);
+                        _watchedNode = node;
+                        node.addListener(_onFocusMaybeOpen);
+                      }
+                    },
+                    limparCampo: () =>
+                        Future.microtask(() => _ctrl?.clear()),
                   ),
-              ],
-            ),
+          ),
+          const SizedBox(width: 8),
+          _BotaoGerenciar(
+            onDone: () => ref.invalidate(expenseTemplatesProvider),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Chip de um modelo: nome + valor. Sem valor fechado mostra "valor varia", para
-/// o operador saber de antemão que ainda vai digitar algo.
-class _ChipModelo extends StatelessWidget {
-  const _ChipModelo({required this.modelo, required this.onTap});
+/// Seletor de despesa fixa: um campo de busca em vez de uma nuvem de chips.
+///
+/// Filtra em MEMÓRIA (a lista já está carregada e é curta) — diferente do picker
+/// de produto da venda, que precisa do servidor porque o catálogo é grande.
+class _SeletorModelo extends StatelessWidget {
+  const _SeletorModelo({
+    required this.modelos,
+    required this.onEscolher,
+    required this.registrarCampo,
+    required this.limparCampo,
+  });
 
-  final ExpenseTemplate modelo;
-  final VoidCallback? onTap;
+  final List<ExpenseTemplate> modelos;
+  final ValueChanged<ExpenseTemplate>? onEscolher;
+  final void Function(TextEditingController, FocusNode) registrarCampo;
+  final VoidCallback limparCampo;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final temValor = modelo.temValor;
-    final legenda = temValor ? formatMoney(modelo.valor) : 'valor varia';
-    return Tooltip(
-      message: temValor
-          ? 'Lançar ${modelo.name} de ${formatMoney(modelo.valor)}'
-          : 'Preencher ${modelo.name} (o valor você digita)',
-      child: NeuSurface(
-        elevation: NeuElevation.raised,
-        radius: NeuTokens.rField,
-        child: InkWell(
-          onTap: onTap,
+    return Autocomplete<ExpenseTemplate>(
+      displayStringForOption: (t) => t.name,
+      optionsBuilder: (value) {
+        final q = value.text.trim().toLowerCase();
+        if (q.isEmpty) return modelos;
+        return modelos.where((t) => t.name.toLowerCase().contains(q));
+      },
+      onSelected: (t) {
+        onEscolher?.call(t);
+        // Limpa o campo: ele é um SELETOR de atalho, não um campo do lançamento
+        // — deixar o nome ali daria a impressão de ser mais um dado do formulário.
+        limparCampo();
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      fieldViewBuilder: (context, controller, focusNode, _) {
+        registrarCampo(controller, focusNode);
+        return _Shell(
+          label: 'Despesa fixa',
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: onEscolher != null,
+            style: TextStyle(color: neu.ink, fontSize: 15),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              filled: false,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              hintText: 'Escolher uma despesa fixa',
+              hintStyle: TextStyle(color: neu.inkFaint, fontSize: 14.5),
+              prefixIcon: Icon(Icons.bolt_rounded, size: 18, color: neu.accent),
+              prefixIconConstraints:
+                  const BoxConstraints(minWidth: 26, minHeight: 0),
+            ),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 4,
           borderRadius: BorderRadius.circular(NeuTokens.rField),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
+          color: neu.surface,
+          child: ConstrainedBox(
+            // Teto de altura: a lista rola por dentro em vez de estourar o
+            // diálogo quando o tenant cadastra muitas despesas fixas.
+            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 360),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: options.length,
+              itemBuilder: (_, i) {
+                final t = options.elementAt(i);
+                return ListTile(
+                  dense: true,
+                  onTap: () => onSelected(t),
                   // Raio = lança direto; lápis = ainda vai digitar o valor.
-                  temValor ? Icons.bolt_rounded : Icons.edit_rounded,
-                  size: 15,
-                  color: temValor ? neu.accent : neu.inkMuted,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  modelo.name,
-                  style: TextStyle(
-                    color: neu.ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                  leading: Icon(
+                    t.temValor ? Icons.bolt_rounded : Icons.edit_rounded,
+                    size: 18,
+                    color: t.temValor ? neu.accent : neu.inkMuted,
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  legenda,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
-                ),
-              ],
+                  title: Text(
+                    t.name,
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  trailing: Text(
+                    t.temValor ? formatMoney(t.valor) : 'valor varia',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  ),
+                );
+              },
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Rótulo em cima + cavidade do design system. Cópia local enxuta do
+/// `_FieldShell` do diálogo de lançamento (privado de lá) — só o que o seletor
+/// precisa, sem arrastar uma refatoração de widget compartilhado para cá.
+class _Shell extends StatelessWidget {
+  const _Shell({required this.label, required this.child, this.padding});
+
+  final String label;
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: neu.inkMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: padding,
+          child: child,
+        ),
+      ],
     );
   }
 }
