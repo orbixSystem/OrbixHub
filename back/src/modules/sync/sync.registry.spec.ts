@@ -48,6 +48,17 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     'sale.create': 'sale.write',
     'sale.cancel': 'sale.write',
     'sale.update': 'sale.write',
+    // Despesas (contas a pagar): tudo `finance.write`, espelhando o
+    // `@Permissions` do ExpensesController. `expense.pay` mexe dinheiro e ainda
+    // espelha um lançamento no caixa — mas a permissão é a do módulo dono, não a
+    // do caixa: quem pode pagar a conta não precisa de papel de operador de gaveta.
+    'expense.create': 'finance.write',
+    'expense.update': 'finance.write',
+    'expense.pay': 'finance.write',
+    'expense.unpay': 'finance.write',
+    'expense.cancel': 'finance.write',
+    'expense_category.create': 'finance.write',
+    'expense_category.update': 'finance.write',
   };
 
   it('expõe exatamente a whitelist de ops esperada (nada a mais, nada a menos)', () => {
@@ -93,6 +104,8 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       'cash_expense_template.create',
       'cash_session.open',
       'customer.create',
+      'expense.create',
+      'expense_category.create',
       'inventory_item.create',
       'sale.create',
       'service_order.create',
@@ -170,6 +183,24 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       sale_item: { service: 'sale', module: 'sale', permission: 'sale.read' },
       conversation: { service: 'messages', module: 'os', permission: 'os.read' },
       message: { service: 'messages', module: 'os', permission: 'os.read' },
+      // Despesas: as 3 tabelas descem juntas porque a tela abre no mês e precisa
+      // dos rótulos (categoria) e da regra — sem elas a lista offline mostraria
+      // contas sem ícone nem nome de categoria.
+      expense: {
+        service: 'expenses',
+        module: 'expenses',
+        permission: 'finance.read',
+      },
+      expense_category: {
+        service: 'expenses',
+        module: 'expenses',
+        permission: 'finance.read',
+      },
+      expense_recurrence: {
+        service: 'expenses',
+        module: 'expenses',
+        permission: 'finance.read',
+      },
     };
     expect(PULL_ROUTES).toEqual(expected);
   });
@@ -184,6 +215,8 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       cash_entry: 'cashier',
       cash_expense_template: 'cashier',
       sale: 'sale',
+      expense: 'expenses',
+      expense_category: 'expenses',
     };
     for (const [key, def] of Object.entries(SYNC_OPS)) {
       expect(def.module).toBe(moduleOf[key.split('.')[0]]);

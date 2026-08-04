@@ -310,26 +310,10 @@ final cashierHistoryProvider =
   );
 });
 
-/// Modelos de despesa fixa (atalhos do lançamento). `autoDispose` porque só
-/// interessa enquanto um diálogo de lançamento/gerenciamento está aberto.
-///
-/// Erro NÃO propaga: um atalho é conveniência. Se a listagem falhar, o diálogo
-/// de despesa continua funcionando sem a fileira de chips — o contrário
-/// (bloquear o lançamento) seria trocar um problema pequeno por um grande.
-final expenseTemplatesProvider =
-    FutureProvider.autoDispose<List<ExpenseTemplate>>((ref) async {
-  try {
-    return await ref.read(cashierRepositoryProvider).listExpenseTemplates();
-  } on Object {
-    return const <ExpenseTemplate>[];
-  }
-});
-
-/// Idem, incluindo os desativados — a tela de gerenciamento precisa vê-los para
-/// poder reativar. Aqui o erro PROPAGA: gerenciar sem saber o que existe levaria
-/// o usuário a recadastrar em cima de algo que ele não está vendo.
-final expenseTemplatesAllProvider =
-    FutureProvider.autoDispose<List<ExpenseTemplate>>((ref) =>
-        ref.read(cashierRepositoryProvider).listExpenseTemplates(
-              includeDisabled: true,
-            ));
+// Os providers de "despesa fixa" saíram com a UI que os consumia: o que se
+// repete todo mês virou uma RECORRÊNCIA no módulo `Despesas`, que tem
+// vencimento e baixa — não um preset de valor para digitar no caixa.
+//
+// Os métodos correspondentes seguem no `CashierRepository`: as rotas
+// `/cashier/expense-templates` e as ops de sync ainda existem no backend, e
+// removê-las é uma limpeza própria (migration não apaga tabela).

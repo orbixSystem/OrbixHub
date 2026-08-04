@@ -607,6 +607,117 @@ export class CashierServiceImpl extends CashierService {
     return entry;
   }
 
+  // ============ Porta do módulo `expenses` (contas a pagar) ============
+  /**
+   * Saída no livro caixa referente a uma despesa paga. Ver o contrato em
+   * `CashierService.registrarSaidaDeDespesa` para o "por que" desta porta.
+   *
+   * Repare no que NÃO está aqui: a checagem de `cashier.manage`. Ela existe no
+   * `createEntry` porque lá o lançamento é digitado por quem opera a gaveta;
+   * aqui ele é consequência de uma baixa que o módulo de despesas já autorizou
+   * com `finance.write`. Duplicar a exigência impediria o dono de pagar a conta
+   * de luz por não ter papel de caixa.
+   */
+  async registrarSaidaDeDespesa(
+    user: AuthUser,
+    input: {
+      amount: number;
+      method: string;
+      description: string;
+      deviceId?: string | null;
+      entryId?: string;
+    },
+  ): Promise<{ id: string }> {
+    const config = await this.getConfig(user.tenantId);
+    const method = input.method as PaymentMethod;
+    if (!config.paymentMethods.includes(method)) {
+      throw new BadRequestException('Forma de pagamento não aceita pelo caixa.');
+    }
+
+    const entry = await this.tenant.withTenantTx(async () => {
+      let open = await this.repo.findOpenSession(input.deviceId ?? undefined);
+      if (!open) {
+        // Sem sessão e com exigência ligada: recusa em vez de gravar torto. Quem
+        // chamou NÃO deve persistir a baixa — senão o fechamento deixa de bater
+        // e não há como descobrir por quê.
+        if (config.requireOpenSession) {
+          throw new BadRequestException(
+            'Não há caixa aberto. Abra o caixa para registrar o pagamento.',
+          );
+        }
+        open = await this.repo.createSession(user.tenantId, {
+          opened_by: user.userId,
+          opening_amount: 0,
+          notes: null,
+          device_id: input.deviceId ?? null,
+        });
+      }
+      try {
+        return await this.repo.createEntry(user.tenantId, {
+          id: input.entryId,
+          cash_session_id: open.id,
+          // Direção derivada da categoria, como todo lançamento — despesa é saída.
+          direction: directionForCategory('despesa'),
+          amount: round2(input.amount),
+          method,
+          category: 'despesa',
+          // Despesa não aponta venda: o vínculo com a conta a pagar vive do
+          // outro lado (`expense.cash_entry_id`), para o caixa não precisar
+          // conhecer o módulo de despesas.
+          sale_kind: null,
+          sale_id: null,
+          description: input.description.trim() || null,
+          created_by: user.userId,
+        });
+      } catch (e) {
+        if (input.entryId && isUniqueViolation(e)) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+        throw e;
+      }
+    });
+
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'cashier_entry_create',
+      entry.id,
+      {
+        category: 'despesa',
+        direction: 'out',
+        amount: toNum(entry.amount),
+        origem: 'expenses',
+      },
+    );
+    return { id: entry.id };
+  }
+
+  /**
+   * Estorna o lançamento de uma despesa cujo pagamento foi desfeito.
+   *
+   * Silencioso quando o lançamento não existe mais ou já foi estornado: desfazer
+   * duas vezes (offline + replay do sync) não pode derrubar a operação, e o
+   * estado final desejado — lançamento sem efeito no caixa — já é o vigente.
+   */
+  async estornarSaidaDeDespesa(user: AuthUser, entryId: string): Promise<void> {
+    const estornado = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findEntryById(entryId);
+      if (!existing || existing.reversed_at) return null;
+      return this.repo.markReversed(entryId, {
+        reversed_by: user.userId,
+        reversal_reason: 'Pagamento da despesa desfeito',
+      });
+    });
+    if (!estornado) return;
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'cashier_entry_reverse',
+      entryId,
+      { reason: 'Pagamento da despesa desfeito', origem: 'expenses' },
+    );
+  }
+
   // ===================== Extrato & resumo =====================
   async listEntries(_user: AuthUser, query: EntryQueryDto) {
     const page = query.page ?? 1;

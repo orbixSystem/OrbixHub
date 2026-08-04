@@ -4,4 +4,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Cleartext liberado só aqui (build de debug) para o app falar com o
+         backend local por HTTP — ver res/xml/network_security_config.xml.
+         O merge do Gradle acrescenta este atributo ao <application> do manifest
+         principal, que não o declara; por isso não precisa de tools:replace. -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>

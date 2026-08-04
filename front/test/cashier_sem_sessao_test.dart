@@ -139,9 +139,9 @@ void main() {
       expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Venda avulsa'), findsOneWidget);
-      // "Despesa / sangria" SAIU do caixa: as despesas ganharam tela própria, e
-      // dois caminhos para a mesma coisa competiam entre si. O Histórico segue
-      // mostrando as despesas — saiu o cadastro, não o registro.
+      // Despesa NÃO é mais ação do caixa: conta a pagar virou o módulo
+      // `Despesas`, e o lançamento aqui nasce da baixa lá. Duas portas para o
+      // mesmo dinheiro deixariam saída no livro sem conta do outro lado.
       expect(find.text('Despesa / sangria'), findsNothing);
     });
 
@@ -167,12 +167,11 @@ void main() {
     testWidgets('as ações vêm em grid, com alvo de toque grande',
         (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
-      // As três ações do caixa (dono vê todas).
+      // As DUAS ações do caixa (dono vê todas). Eram três até a despesa sair
+      // para o módulo `Despesas`; sangria/suprimento ficaram só no diálogo de
+      // lançamento, já que a cerimônia de gaveta foi removida do produto.
       expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
-      // "Despesa / sangria" SAIU do caixa: as despesas ganharam tela própria, e
-      // dois caminhos para a mesma coisa competiam entre si. O Histórico segue
-      // mostrando as despesas — saiu o cadastro, não o registro.
       expect(find.text('Despesa / sangria'), findsNothing);
     });
   });

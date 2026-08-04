@@ -272,10 +272,15 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              // "Despesa / sangria" saiu daqui: as despesas ganharam TELA PRÓPRIA.
-              // Lançar despesa pelo caixa competia com ela e dava dois caminhos
-              // para a mesma coisa. O Histórico continua mostrando as despesas —
-              // o que saiu foi o cadastro, não o registro.
+              // Despesa saiu daqui: contas a pagar viraram o módulo `Despesas`, e
+              // o lançamento no caixa passou a ser CONSEQUÊNCIA da baixa lá (o
+              // módulo chama o service público do caixa). Digitar despesa solta
+              // aqui criaria uma segunda porta para o mesmo dinheiro, sem a conta
+              // correspondente do outro lado.
+              //
+              // Sangria (retirada da gaveta) continua só no diálogo de
+              // lançamento: com a cerimônia de abrir/fechar removida, não há
+              // grade de gaveta onde ela caberia como atalho.
               ],
             ),
           ),
