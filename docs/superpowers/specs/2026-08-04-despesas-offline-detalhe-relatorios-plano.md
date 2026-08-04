@@ -41,7 +41,7 @@ habilitado no tenant de dev. Permissões: `finance.read` / `finance.write`.
 
 ---
 
-## §1 Offline
+## §1 Offline — **CONCLUÍDO** (commit a seguir)
 
 ### Por que é a mais estrutural
 
@@ -100,11 +100,24 @@ Dois detalhes ainda a confirmar no backend (leitura, provavelmente já ok):
 
 4. **`di.dart`**: envolver `ExpensesRepositoryImpl` no decorator, como o cashier.
 
-### Como provar
-- Unit do repo local-first (molde: `test/local_first_cashier_test.dart`).
-- Contra a API: `GET /sync/changes?entity=expense&limit=10` devolvendo linhas, e
-  `POST /sync/push` com `expense.create` → `applied`, e replay do MESMO
-  `clientMutationId` → `applied` sem duplicar.
+### Como foi provado (feito)
+
+- `LocalFirstExpensesRepository` + 9 testes (`test/local_first_expenses_test.dart`);
+- totais derivados: `expense_month_totals.dart` + 11 testes;
+- contra a API rodando: pull das 3 entidades 200; `expense.create` applied e
+  replay idempotente; `expense.pay` applied e replay idempotente; estado final
+  pago com `cash_entry` criado pelo SERVIDOR; e **1 só lançamento no caixa** —
+  o replay não duplicou (era o risco crítico apontado acima).
+
+**Dois bugs meus que só o teste ponta a ponta pegou** — registrar como armadilha:
+1. `draft.toJson()` do freezed emite TODAS as chaves (inclusive nulas) e ainda
+   `limparCategoria`, que é controle de UI. O push revalida contra o DTO com
+   `forbidNonWhitelisted`, então isso = mutação REJEITADA no replay. Solução: montar
+   o corpo à mão, espelhando a impl dio (`_corpo`).
+2. Inventei nomes de campo no `pay` (`valor`/`forma`/`quando`); o DTO usa
+   `amount`/`method`/`paidAt`. Voltava "property valor should not exist" — a
+   mutação seria perdida silenciosamente para o usuário. **Sempre conferir os
+   nomes contra o DTO do backend, não contra o modelo do front.**
 
 ---
 

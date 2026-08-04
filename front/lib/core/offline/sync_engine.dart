@@ -53,7 +53,7 @@ class SyncEngine {
     this.maxPagesPerEntity = 200,
   });
 
-  /// As 16 entidades replicadas (espelha `PULL_ROUTES` do backend). `conversation`
+  /// As 19 entidades replicadas (espelha `PULL_ROUTES` do backend). `conversation`
   /// e `message` são só-leitura (histórico de mensagens offline): o app puxa para
   /// o SQLite local, mas ENVIAR mensagem continua exigindo conexão.
   static const entities = <String>[
@@ -69,6 +69,11 @@ class SyncEngine {
     'cash_session',
     'cash_entry',
     'cash_expense_template',
+    // Despesas (contas a pagar): o backend já expunha as três no pull desde a
+    // migration 0039 — o front é que estava de fora.
+    'expense',
+    'expense_category',
+    'expense_recurrence',
     'sale',
     'sale_item',
     'conversation',
