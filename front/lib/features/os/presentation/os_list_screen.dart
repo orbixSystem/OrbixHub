@@ -84,13 +84,24 @@ class _OsListScreenState extends ConsumerState<OsListScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Toolbar(
-              search: _search,
-              canWrite: canWrite,
-              onCreate: _create,
+            // Alvos marcados na _Toolbar e no _Body inteiros: os dois existem
+            // em desktop E mobile (cada um monta seu layout por dentro), então o
+            // holofote vale nos dois sem duplicar conteúdo de tutorial.
+            CoachTarget(
+              'os.filtros',
+              child: _Toolbar(
+                search: _search,
+                canWrite: canWrite,
+                onCreate: _create,
+              ),
             ),
             const SizedBox(height: 16),
-            Expanded(child: _Body(scroll: _scroll, onCreate: _create)),
+            Expanded(
+              child: CoachTarget(
+                'os.lista',
+                child: _Body(scroll: _scroll, onCreate: _create),
+              ),
+            ),
           ],
         ),
       ),

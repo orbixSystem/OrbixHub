@@ -104,14 +104,18 @@ class _HoursListState extends ConsumerState<_HoursList> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _hours.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (ctx, i) => _DayCard(
-        hours: _hours[i],
-        saving: _saving,
-        onSave: (patch) => _save(i, patch),
+    // Layout único: o mesmo alvo vale em desktop e mobile.
+    return CoachTarget(
+      'horarios.dias',
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _hours.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (ctx, i) => _DayCard(
+          hours: _hours[i],
+          saving: _saving,
+          onSave: (patch) => _save(i, patch),
+        ),
       ),
     );
   }

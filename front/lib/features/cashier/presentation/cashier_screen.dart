@@ -91,10 +91,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
             ),
             // Com uma única aba disponível não há o que segmentar.
             if (segments.length > 1) ...[
-              NeuSegmented<int>(
-                segments: segments,
-                selected: segments.containsKey(_tab) ? _tab : 0,
-                onChanged: (v) => setState(() => _tab = v),
+              CoachTarget(
+                'caixa.abas',
+                child: NeuSegmented<int>(
+                  segments: segments,
+                  selected: segments.containsKey(_tab) ? _tab : 0,
+                  onChanged: (v) => setState(() => _tab = v),
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -311,7 +314,9 @@ class _FreeBody extends ConsumerWidget {
         // AÇÕES em grid: são o que se vem fazer nesta tela, então merecem o
         // espaço e um alvo de toque grande — não uma fileira de botões finos.
         if (canWrite || canSale || canManage)
-          _AcoesGrid(
+          CoachTarget(
+            'caixa.acoes',
+            child: _AcoesGrid(
             acoes: [
               if (canSale)
                 _Acao(
@@ -340,7 +345,8 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'despesa'),
                 ),
-            ],
+              ],
+            ),
           ),
         const SizedBox(height: 24),
         // Lista CURTA, de confirmação: "o que acabei de lançar entrou?". O
@@ -364,11 +370,14 @@ class _FreeBody extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         Expanded(
-          child: _ExtractList(
-            entries: state.entries,
-            canManage: canManage,
-            salesById: state.salesById,
-            limite: 5,
+          child: CoachTarget(
+            'caixa.ultimos',
+            child: _ExtractList(
+              entries: state.entries,
+              canManage: canManage,
+              salesById: state.salesById,
+              limite: 5,
+            ),
           ),
         ),
       ],

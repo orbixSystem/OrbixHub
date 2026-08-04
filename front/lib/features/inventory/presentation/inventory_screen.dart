@@ -95,13 +95,21 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Toolbar(
+            CoachTarget(
+              'estoque.filtros',
+              child: _Toolbar(
               search: _search,
               canWrite: canWrite,
               onCreate: _create,
+              ),
             ),
             const SizedBox(height: 16),
-            Expanded(child: _Body(scroll: _scroll, canWrite: canWrite)),
+            Expanded(
+              child: CoachTarget(
+                'estoque.lista',
+                child: _Body(scroll: _scroll, canWrite: canWrite),
+              ),
+            ),
           ],
         ),
       ),

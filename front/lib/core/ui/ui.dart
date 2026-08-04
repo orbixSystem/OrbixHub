@@ -5,6 +5,7 @@ library;
 export 'adaptive.dart';
 export 'neu_button.dart';
 export 'coach_mark.dart';
+export 'coach_targets.dart';
 export 'neu_card.dart';
 export 'neu_chart.dart';
 export 'neu_chip.dart';

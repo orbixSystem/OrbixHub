@@ -67,7 +67,8 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     // Equipe (membros/convites/papéis) é gestão de acesso: só no servidor.
     if (ref.watch(isOfflineProvider)) {
       return const RequiresConnectionView(
-        message: 'A gestão da equipe (membros, convites e papéis) acontece no '
+        message:
+            'A gestão da equipe (membros, convites e papéis) acontece no '
             'servidor. Conecte-se à internet para ver e alterar o acesso.',
       );
     }
@@ -89,8 +90,10 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Equipe',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    'Equipe',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     'Gerencie funcionários, cargos e convites da sua oficina.',
@@ -112,30 +115,37 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         // Abas: Funcionários · Convites (N).
         Align(
           alignment: Alignment.centerLeft,
-          child: NeuSegmented<int>(
-            segments: {
-              0: 'Funcionários',
-              1: inviteCount > 0 ? 'Convites ($inviteCount)' : 'Convites',
-            },
-            selected: _tab,
-            onChanged: (v) => setState(() => _tab = v),
+          // Layout único (ListView) — o mesmo alvo serve aos dois tamanhos.
+          child: CoachTarget(
+            'equipe.abas',
+            child: NeuSegmented<int>(
+              segments: {
+                0: 'Funcionários',
+                1: inviteCount > 0 ? 'Convites ($inviteCount)' : 'Convites',
+              },
+              selected: _tab,
+              onChanged: (v) => setState(() => _tab = v),
+            ),
           ),
         ),
         const SizedBox(height: 20),
 
         // Conteúdo da aba (troca com fade suave).
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: _tab == 0
-              ? _EmployeesTab(
-                  key: const ValueKey('funcionarios'),
-                  employeesAsync: employeesAsync,
-                  me: me,
-                )
-              : _InvitesTab(
-                  key: const ValueKey('convites'),
-                  invitesAsync: invitesAsync,
-                ),
+        CoachTarget(
+          'equipe.conteudo',
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _tab == 0
+                ? _EmployeesTab(
+                    key: const ValueKey('funcionarios'),
+                    employeesAsync: employeesAsync,
+                    me: me,
+                  )
+                : _InvitesTab(
+                    key: const ValueKey('convites'),
+                    invitesAsync: invitesAsync,
+                  ),
+          ),
         ),
         const SizedBox(height: 24),
       ],
@@ -160,13 +170,13 @@ class _EmployeesTab extends StatelessWidget {
       skipLoadingOnReload: true,
       loading: () => const _LoadingBox(),
       error: (e, _) => _ErrorBox(
-        message:
-            e is AppException ? e.message : 'Erro ao carregar funcionários.',
+        message: e is AppException
+            ? e.message
+            : 'Erro ao carregar funcionários.',
       ),
       data: (employees) {
         final active = employees.where((e) => e.status == 'active').toList();
-        final disabled =
-            employees.where((e) => e.status != 'active').toList();
+        final disabled = employees.where((e) => e.status != 'active').toList();
         return Column(
           children: [
             if (active.isEmpty)
@@ -189,7 +199,10 @@ class _EmployeesTab extends StatelessWidget {
                   children: [
                     for (final emp in disabled)
                       _EmployeeCard(
-                          employee: emp, me: me, employees: employees),
+                        employee: emp,
+                        me: me,
+                        employees: employees,
+                      ),
                   ],
                 ),
               ),
@@ -223,9 +236,7 @@ class _InvitesTab extends StatelessWidget {
                   'Convites que você enviar aparecem aqui até serem aceitos.',
             )
           : Column(
-              children: [
-                for (final inv in invites) _InviteCard(invite: inv),
-              ],
+              children: [for (final inv in invites) _InviteCard(invite: inv)],
             ),
     );
   }
@@ -260,8 +271,9 @@ class _EmployeeCard extends ConsumerWidget {
   bool get _isActive => employee.status == 'active';
   TeamActions get _actions => teamActions(me, employee, employees);
   bool get _isLastActiveOwner {
-    final activeOwners =
-        employees.where((e) => e.role == 'owner' && e.status == 'active').length;
+    final activeOwners = employees
+        .where((e) => e.role == 'owner' && e.status == 'active')
+        .length;
     return employee.role == 'owner' && _isActive && activeOwners <= 1;
   }
 
@@ -292,8 +304,9 @@ class _EmployeeCard extends ConsumerWidget {
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -309,14 +322,15 @@ class _EmployeeCard extends ConsumerWidget {
       );
       ref.invalidate(teamEmployeesProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Funcionário reativado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Funcionário reativado.')));
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -331,23 +345,20 @@ class _EmployeeCard extends ConsumerWidget {
       // No self-role, and last active owner can't be demoted from the menu —
       // the dialog still gates options, but hide the entry only for self.
       if (actions.canChangeRole) {
-        menuEntries.add(const PopupMenuItem(
-          value: 'role',
-          child: Text('Trocar cargo'),
-        ));
+        menuEntries.add(
+          const PopupMenuItem(value: 'role', child: Text('Trocar cargo')),
+        );
       }
       // No self-deactivate; never deactivate the last active owner.
       if (actions.canDeactivate) {
-        menuEntries.add(const PopupMenuItem(
-          value: 'deactivate',
-          child: Text('Desativar'),
-        ));
+        menuEntries.add(
+          const PopupMenuItem(value: 'deactivate', child: Text('Desativar')),
+        );
       }
     } else {
-      menuEntries.add(const PopupMenuItem(
-        value: 'activate',
-        child: Text('Ativar'),
-      ));
+      menuEntries.add(
+        const PopupMenuItem(value: 'activate', child: Text('Ativar')),
+      );
     }
 
     return Container(
@@ -392,7 +403,9 @@ class _EmployeeCard extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: scheme.onSurfaceVariant, fontSize: 13),
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
@@ -417,7 +430,9 @@ class _EmployeeCard extends ConsumerWidget {
                     Text(
                       'último acesso: ${_formatDate(employee.lastAccess)}',
                       style: TextStyle(
-                          color: scheme.onSurfaceVariant, fontSize: 12),
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                     _AccessExpiry(expiresAt: employee.accessExpiresAt),
                   ],
@@ -464,16 +479,19 @@ class _AccessExpiry extends StatelessWidget {
     final color = expired
         ? AppColors.danger
         : soon
-            ? AppColors.warning
-            : scheme.onSurfaceVariant;
+        ? AppColors.warning
+        : scheme.onSurfaceVariant;
     final label = expired
         ? 'acesso expirado em ${_formatDay(at)}'
         : 'acesso expira em ${_formatDay(at)}';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(expired ? Icons.lock_clock_outlined : Icons.schedule,
-            size: 13, color: color),
+        Icon(
+          expired ? Icons.lock_clock_outlined : Icons.schedule,
+          size: 13,
+          color: color,
+        ),
         const SizedBox(width: 4),
         Text(
           label,
@@ -515,14 +533,15 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
       );
       ref.invalidate(pendingInvitesProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Convite reenviado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Convite reenviado.')));
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -552,9 +571,7 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancelar convite'),
-        content: Text(
-          'Cancelar o convite para ${widget.invite.email}?',
-        ),
+        content: Text('Cancelar o convite para ${widget.invite.email}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -575,14 +592,15 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
       await repo.cancelInvite(widget.invite.id);
       ref.invalidate(pendingInvitesProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Convite cancelado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Convite cancelado.')));
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -614,8 +632,11 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
               color: AppColors.warningTint,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.mark_email_unread_outlined,
-                color: AppColors.warning, size: 22),
+            child: const Icon(
+              Icons.mark_email_unread_outlined,
+              color: AppColors.warning,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -647,7 +668,9 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
                     Text(
                       expiry,
                       style: TextStyle(
-                          color: scheme.onSurfaceVariant, fontSize: 12),
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -664,10 +687,7 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
               ),
             )
           else ...[
-            TextButton(
-              onPressed: _resend,
-              child: const Text('Reenviar'),
-            ),
+            TextButton(onPressed: _resend, child: const Text('Reenviar')),
             TextButton(
               onPressed: _cancel,
               style: TextButton.styleFrom(foregroundColor: AppColors.danger),
@@ -701,8 +721,7 @@ class _Avatar extends StatelessWidget {
       height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color:
-            dimmed ? scheme.surfaceContainerHighest : AppColors.brandTint,
+        color: dimmed ? scheme.surfaceContainerHighest : AppColors.brandTint,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -776,12 +795,16 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
                 AnimatedRotation(
                   turns: _expanded ? 0.0 : -0.25,
                   duration: const Duration(milliseconds: 180),
-                  child: Icon(Icons.keyboard_arrow_down,
-                      color: scheme.onSurfaceVariant),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(width: 6),
-                Text(widget.title,
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(width: 10),
                 _Badge(
                   text: '${widget.count}',
@@ -837,9 +860,10 @@ class _ErrorBox extends StatelessWidget {
       child: Text(
         message,
         style: const TextStyle(
-            color: AppColors.danger, fontWeight: FontWeight.w600),
+          color: AppColors.danger,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 }
-

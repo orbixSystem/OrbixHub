@@ -134,6 +134,13 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
       agendaAsync: agendaAsync,
     );
 
+    // Alvos de tutorial embrulhando as variáveis: `calendario` e `eventos` são
+    // usados no layout de desktop (duas colunas) E no de celular (empilhado), então
+    // um alvo aqui vale nos dois sem duplicar conteúdo.
+    final calendarioAlvo =
+        CoachTarget('agenda.calendario', child: calendar);
+    final eventosAlvo = CoachTarget('agenda.eventos', child: events);
+
     final body = context.isMobile
         // Mobile: calendário em cima (altura fixa) + agenda do dia embaixo.
         ? Padding(
@@ -141,9 +148,9 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(height: 372, child: calendar),
+                SizedBox(height: 372, child: calendarioAlvo),
                 const SizedBox(height: 12),
-                Expanded(child: events),
+                Expanded(child: eventosAlvo),
               ],
             ),
           )
@@ -166,9 +173,9 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(flex: 7, child: calendar),
+                          Expanded(flex: 7, child: calendarioAlvo),
                           const SizedBox(width: 16),
-                          Expanded(flex: 3, child: events),
+                          Expanded(flex: 3, child: eventosAlvo),
                         ],
                       ),
                     ),

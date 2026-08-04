@@ -27,41 +27,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // Alvos do tutorial (spotlight).
-  final _metricsKey = GlobalKey();
-  final _ordersKey = GlobalKey();
-  final _messagesKey = GlobalKey();
-
-  List<CoachStep> _coachSteps() => [
-        if (_metricsKey.currentContext != null)
-          CoachStep(
-            targetKey: _metricsKey,
-            title: 'Sua visão geral',
-            text:
-                'Os números da oficina no período escolhido — faturamento, OS, estoque e clientes.',
-          ),
-        if (_ordersKey.currentContext != null)
-          CoachStep(
-            targetKey: _ordersKey,
-            title: 'OS em andamento',
-            text:
-                'Acompanhe as ordens em execução e toque para abrir os detalhes.',
-          ),
-        if (_messagesKey.currentContext != null)
-          CoachStep(
-            targetKey: _messagesKey,
-            title: 'Fale com o cliente',
-            text:
-                'Mensagens trocadas pelo link de acompanhamento da OS aparecem aqui.',
-          ),
-      ];
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      CoachMark.maybeStart(context, id: 'dashboard', steps: _coachSteps());
-    });
   }
 
   @override
@@ -120,13 +88,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ],
               ),
             ),
-            NeuIconButton(
-              icon: Icons.help_outline_rounded,
-              tooltip: 'Rever tutorial',
-              size: 42,
-              onPressed: () =>
-                  CoachMark.start(context, id: 'dashboard', steps: _coachSteps()),
-            ),
           ],
         ),
         const SizedBox(height: 22),
@@ -135,34 +96,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // baixo × mensagens).
           const Align(alignment: Alignment.centerLeft, child: PeriodSelector()),
           const SizedBox(height: 18),
-          KeyedSubtree(key: _metricsKey, child: const ManagementKpiStrip()),
+          KeyedSubtree( child: const ManagementKpiStrip()),
           const SizedBox(height: 16),
           _TwoCol(
             leftFlex: 4,
             rightFlex: 5,
             left: const _StatusCard(),
             right: canSeeActiveOs
-                ? KeyedSubtree(key: _ordersKey, child: const _ActiveOrdersPanel())
+                ? KeyedSubtree( child: const _ActiveOrdersPanel())
                 : const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
           _TwoCol(
             left: canSeeInventory ? const _LowStockPanel() : const SizedBox.shrink(),
             right: canSeeMessages
-                ? KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard())
+                ? KeyedSubtree( child: const _UnreadMessagesCard())
                 : const SizedBox.shrink(),
           ),
         ] else ...[
           // OPERACIONAL (mecânico/caixa): foco em ação.
           KeyedSubtree(
-            key: _metricsKey,
+            
             child: OperationalKpiStrip(userId: me.user.id),
           ),
           const SizedBox(height: 16),
           if (canSeeActiveOs) ...[
             _MyOverdueOrdersCard(assignedTo: me.user.id),
             KeyedSubtree(
-              key: _ordersKey,
+              
               child: _ActiveOrdersPanel(assignedTo: me.user.id),
             ),
           ],
@@ -170,7 +131,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _TwoCol(
             left: canSeeInventory ? const _LowStockPanel() : const SizedBox.shrink(),
             right: canSeeMessages
-                ? KeyedSubtree(key: _messagesKey, child: const _UnreadMessagesCard())
+                ? KeyedSubtree( child: const _UnreadMessagesCard())
                 : const SizedBox.shrink(),
           ),
         ],

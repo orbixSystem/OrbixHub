@@ -83,17 +83,25 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Toolbar(
-              search: _search,
-              canWrite: canWrite,
-              onCreate: _create,
+            // _Toolbar e _Body montam o próprio layout por dentro, então marcar
+            // os dois inteiros dá holofote válido em desktop E mobile.
+            CoachTarget(
+              'clientes.filtros',
+              child: _Toolbar(
+                search: _search,
+                canWrite: canWrite,
+                onCreate: _create,
+              ),
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: _Body(
-                scroll: _scroll,
-                canWrite: canWrite,
-                onCreate: _create,
+              child: CoachTarget(
+                'clientes.lista',
+                child: _Body(
+                  scroll: _scroll,
+                  canWrite: canWrite,
+                  onCreate: _create,
+                ),
               ),
             ),
           ],
