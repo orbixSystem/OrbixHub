@@ -7,7 +7,10 @@ import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import 'auth_scaffold.dart';
 
-/// Redefines the password using the token from `/reset?token=…` (or pasted).
+/// Redefines the password using the token from `/reset?token=…`.
+///
+/// O token é detalhe de implementação: quem chega pelo link do e-mail nunca o
+/// vê. O campo só aparece quando a URL não trouxe token.
 class ResetScreen extends ConsumerStatefulWidget {
   const ResetScreen({super.key});
 
@@ -18,10 +21,18 @@ class ResetScreen extends ConsumerStatefulWidget {
 class _ResetScreenState extends ConsumerState<ResetScreen> {
   final _token = TextEditingController();
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   String? _error;
   bool _prefilled = false;
+  bool _fromLink = false;
+  bool _obscure = true;
+  bool _obscureConfirm = true;
+
+  /// Só aparece para quem abriu /reset sem token na URL — aí é a única saída
+  /// além de pedir outro link. Em dev, navegue para `/reset?token=<besouro>`.
+  bool get _showTokenField => !_fromLink;
 
   @override
   void didChangeDependencies() {
@@ -29,13 +40,17 @@ class _ResetScreenState extends ConsumerState<ResetScreen> {
     if (_prefilled) return;
     _prefilled = true;
     final token = GoRouterState.of(context).uri.queryParameters['token'];
-    if (token != null) _token.text = token;
+    if (token != null && token.isNotEmpty) {
+      _token.text = token;
+      _fromLink = true;
+    }
   }
 
   @override
   void dispose() {
     _token.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -72,21 +87,56 @@ class _ResetScreenState extends ConsumerState<ResetScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_error != null) AuthErrorBanner(message: _error!),
-            TextFormField(
-              controller: _token,
-              decoration: const InputDecoration(labelText: 'Token'),
-              validator: Validators.required('Token'),
-            ),
-            const SizedBox(height: 12),
+            if (_showTokenField) ...[
+              TextFormField(
+                controller: _token,
+                decoration: const InputDecoration(labelText: 'Token'),
+                validator: Validators.required('Token'),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextFormField(
               controller: _password,
-              decoration: const InputDecoration(labelText: 'Nova senha (mín. 8)'),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Nova senha (mín. 8)',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  tooltip: _obscure ? 'Mostrar senha' : 'Ocultar senha',
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+              obscureText: _obscure,
               autofillHints: const [AutofillHints.newPassword],
               validator: Validators.combine([
                 Validators.required('Senha'),
                 Validators.minLength(8, 'Senha'),
               ]),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirm,
+              decoration: InputDecoration(
+                labelText: 'Confirmar nova senha',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirm
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  tooltip: _obscureConfirm ? 'Mostrar senha' : 'Ocultar senha',
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+              ),
+              obscureText: _obscureConfirm,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: (v) => v == _password.text
+                  ? null
+                  : 'As senhas não conferem.',
             ),
             const SizedBox(height: 20),
             FilledButton(

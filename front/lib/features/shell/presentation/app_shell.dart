@@ -245,7 +245,15 @@ class _ContentHeader extends StatelessWidget {
               height: 68,
               child: Padding(
                 padding: EdgeInsets.only(
-                  left: showMenu ? 8 : 28,
+                  // No mobile o canto esquerdo é do "?" do tutorial (overlay,
+                  // espelhando o sino do outro lado do "+"): reservamos a faixa
+                  // dele para o chip de conexão não ficar por baixo. 54 = 8 de
+                  // margem + 38 do botão + respiro.
+                  left: showMenu
+                      ? 8
+                      : context.isMobile
+                          ? 54
+                          : 28,
                   right: 20,
                   bottom: 16,
                 ),

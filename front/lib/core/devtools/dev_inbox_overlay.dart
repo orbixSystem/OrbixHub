@@ -67,7 +67,13 @@ class GlobalControls extends ConsumerWidget {
     // LADO A LADO num Row — antes o toggle (overlay) cobria o sino (header).
     // O "besouro" (dev inbox) fica no canto inferior-direito ([DevBeetleControl]).
     final authed = ref.watch(sessionControllerProvider).isSignedIn;
-    return Positioned(
+    // No CELULAR o grupo da direita já é longo (sino + sair + tema) e crescia por
+    // cima do "+", que é centralizado no berço do header. Lá o "?" do tutorial
+    // muda de lado: fica espelhado, do outro lado do "+", com o mesmo tratamento
+    // do sino. No desktop/tablet sobra espaço e agrupar a ajuda com o sino lê
+    // melhor — então continua junto.
+    final isMobile = context.isMobile;
+    final direita = Positioned(
       top: 0,
       right: 0,
       child: SafeArea(
@@ -80,7 +86,7 @@ class GlobalControls extends ConsumerWidget {
                 // "?" do tutorial À ESQUERDA do sino: ajuda mora sempre no mesmo
                 // canto, em todas as telas, em vez de um botão diferente por
                 // tela. Some sozinho onde a rota não tem tutorial.
-                const _BotaoTutorial(),
+                if (!isMobile) const _BotaoTutorial(),
                 const NotificationsBell(),
                 const SizedBox(width: 8),
                 // Sair só aparece no CELULAR: lá não há sidebar nem drawer
@@ -111,6 +117,24 @@ class GlobalControls extends ConsumerWidget {
           ),
         ),
       ),
+    );
+    if (!isMobile || !authed) return direita;
+    return Stack(
+      children: [
+        direita,
+        // Espelho do sino, do outro lado do "+". O header reserva este canto no
+        // mobile (ver `_ContentHeader`) para o chip de conexão não vir para cá.
+        Positioned(
+          top: 0,
+          left: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8, left: 8),
+              child: const _BotaoTutorial(comFolgaDireita: false),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -223,7 +247,11 @@ class _CircleButton extends StatelessWidget {
 /// Vive no chrome global (e não em cada tela) para a ajuda ficar sempre no mesmo
 /// lugar, em desktop e mobile.
 class _BotaoTutorial extends ConsumerWidget {
-  const _BotaoTutorial();
+  const _BotaoTutorial({this.comFolgaDireita = true});
+
+  /// Folga à direita para separar do vizinho (o sino). Desligada quando o botão
+  /// é o único do seu canto — aí a folga só empurraria o ícone para dentro.
+  final bool comFolgaDireita;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -240,7 +268,7 @@ class _BotaoTutorial extends ConsumerWidget {
         if (tut == null) return const SizedBox.shrink();
         final scheme = Theme.of(context).colorScheme;
         return Padding(
-          padding: const EdgeInsets.only(right: 8),
+          padding: EdgeInsets.only(right: comFolgaDireita ? 8 : 0),
           child: _CircleButton(
             icon: Icons.help_outline_rounded,
             label: 'Como funciona: ${tut.titulo}',
