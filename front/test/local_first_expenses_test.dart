@@ -196,6 +196,58 @@ void main() {
     expect(cats.any((c) => c.name == 'Seguro'), isTrue);
   });
 
+  test('offline: parcelado cria N linhas locais mas UMA op na fila', () async {
+    final r = repo();
+    await r.criar(const ExpenseDraft(
+      description: 'Compressor',
+      amount: 100, // total; o rateio é 33,34 + 33,33 + 33,33
+      dueDate: '2026-08-10T00:00:00.000Z',
+      parcelas: 3,
+    ));
+
+    // Uma op só: o grupo nasce inteiro ou não nasce. Três ops poderiam aplicar
+    // duas e falhar a terceira, deixando meia compra parcelada.
+    final f = await fila();
+    expect(f, hasLength(1));
+    expect(f.single.op, 'create');
+    expect(f.single.payload['parcelas'], 3);
+
+    // Os ids viajam no payload: sem isso o servidor geraria OUTROS 3 no replay e
+    // o pull seguinte mostraria 6 parcelas de uma compra em 3x.
+    final ids = (f.single.payload['installmentIds'] as List).cast<String>();
+    expect(ids, hasLength(3));
+    expect(f.single.payload['installmentGroupId'], isNotNull);
+    // O id da op é o da PRIMEIRA parcela (a linha que a tela acabou de mostrar).
+    expect(f.single.payload['id'], ids.first);
+
+    final mes = await r.listarMes(ano: 2026, mes: 8);
+    expect(mes.items.single.rotuloParcela, '1/3',
+        reason: 'só a 1ª parcela vence em agosto');
+    expect(mes.items.single.amount, 33.34, reason: 'resto na primeira');
+
+    // As outras duas existem no espelho, nos meses seguintes.
+    expect((await r.listarMes(ano: 2026, mes: 9)).items.single.amount, 33.33);
+    expect((await r.listarMes(ano: 2026, mes: 10)).items.single.rotuloParcela,
+        '3/3');
+  });
+
+  test('offline: detalhe monta do espelho (conta + irmãs), sem rede', () async {
+    final r = repo();
+    final primeira = await r.criar(const ExpenseDraft(
+      description: 'Compressor',
+      amount: 900,
+      dueDate: '2026-08-10T00:00:00.000Z',
+      parcelas: 3,
+    ));
+
+    final d = await r.detalhe(primeira.id);
+    expect(d.expense.id, primeira.id);
+    expect(d.parcelas, hasLength(3));
+    // Total é a SOMA das irmãs — não existe coluna de total, de propósito.
+    expect(d.totalParcelado, 900);
+    expect(d.parcelas.map((p) => p.installmentNo), [1, 2, 3]);
+  });
+
   test('mês sem nada offline devolve zeros, não erro', () async {
     final mes = await repo().listarMes(ano: 2026, mes: 12);
     expect(mes.items, isEmpty);

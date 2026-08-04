@@ -21,6 +21,10 @@ ExpensesMonth totaisDoMes({
   required List<Expense> contas,
   required List<ExpenseCategory> categorias,
   required DateTime hoje,
+
+  /// As regras das contas recorrentes — repassadas como vieram. A tela precisa
+  /// delas para dizer "próxima em 10/09"; os totais não as usam.
+  List<ExpenseRecurrence> regras = const [],
 }) {
   num previsto = 0;
   num pago = 0;
@@ -48,6 +52,7 @@ ExpensesMonth totaisDoMes({
   return ExpensesMonth(
     items: contas,
     categories: categorias,
+    recurrences: regras,
     totalPrevisto: previsto,
     totalPago: pago,
     totalEmAberto: emAberto,

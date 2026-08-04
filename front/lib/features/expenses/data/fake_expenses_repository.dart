@@ -22,6 +22,7 @@ class FakeExpensesRepository implements ExpensesRepository {
   final DateTime _hoje;
   final _uuid = const Uuid();
   final List<Expense> _contas = [];
+  final List<ExpenseRecurrence> _regras = [];
 
   // Instância (não `static const`): criar categoria muda a lista, e um fake que
   // não reflete a própria escrita mentiria para o teste.
@@ -54,19 +55,41 @@ class FakeExpensesRepository implements ExpensesRepository {
       String? forma,
       bool recorrente = false,
       String? obs,
+      String? fornecedor,
+      String? doc,
+      int? parcela,
+      int? deParcelas,
+      String? grupo,
     }) {
       final venc = h.add(Duration(days: emDias));
+      final regraId = recorrente ? 'rec-${desc.hashCode}' : null;
+      if (regraId != null && !_regras.any((r) => r.id == regraId)) {
+        // A REGRA como objeto, não só o id: é dela que a tela tira "próxima em
+        // 10/09" ao dar baixa. Um fake sem a regra esconderia essa tela.
+        _regras.add(ExpenseRecurrence(
+          id: regraId,
+          description: desc,
+          amount: valor,
+          categoryId: cat,
+          dayOfMonth: venc.day,
+        ));
+      }
       _contas.add(Expense(
         id: _uuid.v4(),
         description: desc,
         amount: valor,
         dueDate: _iso(venc),
         categoryId: cat,
-        recurrenceId: recorrente ? 'rec-${desc.hashCode}' : null,
+        recurrenceId: regraId,
         paidAt: pago ? venc.toIso8601String() : null,
         paidAmount: pago ? valor : null,
         paidMethod: pago ? (forma ?? 'pix') : null,
         notes: obs,
+        supplierName: fornecedor,
+        supplierDoc: doc,
+        installmentNo: parcela,
+        installmentTotal: deParcelas,
+        installmentGroupId: grupo,
       ));
     }
 
@@ -79,8 +102,42 @@ class FakeExpensesRepository implements ExpensesRepository {
     add(desc: 'Água', valor: 187.40, emDias: 2, cat: 'cat-agua', recorrente: true);
     // A pagar, adiante.
     add(desc: 'Simples Nacional', valor: 1320.55, emDias: 9, cat: 'cat-impostos', recorrente: true);
-    add(desc: 'Fornecedor de peças — NF 8842', valor: 3760, emDias: 14, cat: 'cat-fornecedor');
+    add(
+      desc: 'Fornecedor de peças — NF 8842',
+      valor: 3760,
+      emDias: 14,
+      cat: 'cat-fornecedor',
+      fornecedor: 'Distribuidora Sul Peças',
+      doc: '12345678000195',
+    );
     add(desc: 'Salários', valor: 8400, emDias: 16, cat: 'cat-salarios', recorrente: true);
+    // Compra parcelada: a 2ª de 6 cai neste mês, a 1ª já foi paga. Sem um
+    // parcelamento semeado não daria para revisar o rótulo "2/6" nem o detalhe.
+    const grupoCompressor = 'grp-compressor';
+    add(
+      desc: 'Compressor de ar',
+      valor: 1166.67,
+      emDias: -25,
+      cat: 'cat-manutencao',
+      pago: true,
+      forma: 'cartao_credito',
+      fornecedor: 'Ar Forte Equipamentos',
+      doc: '98765432000110',
+      parcela: 1,
+      deParcelas: 6,
+      grupo: grupoCompressor,
+    );
+    add(
+      desc: 'Compressor de ar',
+      valor: 1166.66,
+      emDias: 5,
+      cat: 'cat-manutencao',
+      fornecedor: 'Ar Forte Equipamentos',
+      doc: '98765432000110',
+      parcela: 2,
+      deParcelas: 6,
+      grupo: grupoCompressor,
+    );
     // Já pagas.
     add(desc: 'Contador', valor: 690, emDias: -12, cat: 'cat-outros', pago: true, recorrente: true);
     add(desc: 'Troca do compressor', valor: 1150, emDias: -9, cat: 'cat-manutencao', pago: true, forma: 'cartao_credito');
@@ -115,6 +172,9 @@ class FakeExpensesRepository implements ExpensesRepository {
     return ExpensesMonth(
       items: itens,
       categories: _categorias,
+      recurrences: _regras
+          .where((r) => itens.any((e) => e.recurrenceId == r.id))
+          .toList(),
       totalPrevisto: previsto,
       totalPago: pago,
       totalEmAberto: aberto,
@@ -155,19 +215,109 @@ class FakeExpensesRepository implements ExpensesRepository {
 
   @override
   Future<Expense> criar(ExpenseDraft draft) async {
+    final regraId = draft.recorrencia == null ? null : _uuid.v4();
     final nova = Expense(
       id: _uuid.v4(),
       description: draft.description ?? '',
       amount: draft.amount ?? 0,
       dueDate: draft.dueDate ?? _iso(_hoje),
       categoryId: draft.categoryId,
-      recurrenceId: draft.recorrencia == null ? null : _uuid.v4(),
+      recurrenceId: regraId,
       notes: draft.notes,
+      supplierName: draft.supplierName,
+      supplierDoc: draft.supplierDoc,
     );
+
+    final n = draft.parcelas;
+    if (n != null && n >= 2) {
+      // Espelha o rateio do servidor (resto na primeira) para o fake mostrar os
+      // mesmos valores que a API mostraria.
+      final grupo = draft.installmentGroupId ?? _uuid.v4();
+      final valores = _ratear(nova.amount, n);
+      final primeira = nova.vencimento;
+      Expense? cabeca;
+      for (var i = 0; i < n; i++) {
+        final ano = primeira.year + ((primeira.month - 1 + i) ~/ 12);
+        final mes = ((primeira.month - 1 + i) % 12) + 1;
+        final ultimo = DateTime(ano, mes + 1, 0).day;
+        final dia = primeira.day > ultimo ? ultimo : primeira.day;
+        final parcela = nova.copyWith(
+          id: draft.installmentIds?.elementAtOrNull(i) ?? _uuid.v4(),
+          amount: valores[i],
+          dueDate: _iso(DateTime(ano, mes, dia)),
+          installmentNo: i + 1,
+          installmentTotal: n,
+          installmentGroupId: grupo,
+        );
+        _contas.add(parcela);
+        cabeca ??= parcela;
+      }
+      return cabeca!;
+    }
+
     _contas.add(nova);
-    // Recorrente: materializa os próximos meses, como a esteira do servidor fará.
-    if (draft.recorrencia != null) _materializar(nova, draft.recorrencia!);
+    if (regraId != null) {
+      _regras.add(ExpenseRecurrence(
+        id: regraId,
+        description: nova.description,
+        amount: nova.amount,
+        categoryId: nova.categoryId,
+        frequency: draft.recorrencia!.frequency,
+        dayOfMonth: draft.recorrencia!.dayOfMonth,
+        monthOfYear: draft.recorrencia!.monthOfYear,
+        endsOn: draft.recorrencia!.endsOn,
+      ));
+      // Recorrente: materializa os próximos meses, como a esteira do servidor.
+      _materializar(nova, draft.recorrencia!);
+    }
     return nova;
+  }
+
+  /// Rateio em centavos, resto na primeira — mesma regra do `ratearParcelas` do
+  /// backend. Duplicado aqui de propósito: o fake precisa ser fiel ao servidor.
+  static List<num> _ratear(num total, int n) {
+    final centavos = (total * 100).round();
+    final base = centavos ~/ n;
+    final resto = centavos - base * n;
+    return [
+      for (var i = 0; i < n; i++) (base + (i == 0 ? resto : 0)) / 100,
+    ];
+  }
+
+  @override
+  Future<ExpenseDetail> detalhe(String id) async {
+    final i = _idx(id);
+    if (i < 0) {
+      throw AppException(
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Despesa não encontrada.',
+      );
+    }
+    final conta = _contas[i];
+    final grupo = conta.installmentGroupId;
+    return ExpenseDetail(
+      expense: conta,
+      recurrence:
+          _regras.where((r) => r.id == conta.recurrenceId).firstOrNull,
+      parcelas: grupo == null
+          ? const []
+          : (_contas.where((e) => e.installmentGroupId == grupo).toList()
+            ..sort((a, b) =>
+                (a.installmentNo ?? 0).compareTo(b.installmentNo ?? 0))),
+    );
+  }
+
+  @override
+  Future<ExpenseSupplierLookup> consultarCnpj(String cnpj) async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    final doc = cnpj.replaceAll(RegExp(r'\D'), '');
+    return ExpenseSupplierLookup(
+      doc: doc,
+      razaoSocial: 'EMPRESA EXEMPLO LTDA',
+      nomeFantasia: 'Exemplo Distribuidora',
+      situacao: 'ATIVA',
+    );
   }
 
   /// Gera as ocorrências futuras de uma regra (12 meses à frente).
@@ -204,6 +354,11 @@ class FakeExpensesRepository implements ExpensesRepository {
       dueDate: draft.dueDate ?? atual.dueDate,
       categoryId: draft.limparCategoria ? null : (draft.categoryId ?? atual.categoryId),
       notes: draft.notes ?? atual.notes,
+      supplierName: draft.limparFornecedor
+          ? null
+          : (draft.supplierName ?? atual.supplierName),
+      supplierDoc:
+          draft.limparFornecedor ? null : (draft.supplierDoc ?? atual.supplierDoc),
     );
     _contas[i] = nova;
     return nova;

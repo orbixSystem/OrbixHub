@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
+import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/cashier_format.dart';
@@ -54,15 +55,18 @@ class CashierTimelineList extends ConsumerWidget {
   }
 }
 
-class _EventCard extends StatelessWidget {
+/// `ConsumerWidget` e não `StatelessWidget`: o card de despesa abre o detalhe da
+/// conta a pagar, e esse diálogo precisa de um `WidgetRef` (fala com o repositório
+/// de despesas).
+class _EventCard extends ConsumerWidget {
   const _EventCard({required this.event, this.canManage = false});
 
   final CashierEvent event;
   final bool canManage;
 
   @override
-  Widget build(BuildContext context) {
-    return event.ehVenda ? _venda(context) : _lancamento(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    return event.ehVenda ? _venda(context) : _lancamento(context, ref);
   }
 
   // ---------------------------------------------------------------- venda
@@ -171,7 +175,7 @@ class _EventCard extends StatelessWidget {
   }
 
   // ----------------------------------------------------------- lançamento
-  Widget _lancamento(BuildContext context) {
+  Widget _lancamento(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final e = event.entry!;
     final entrada = e.direction == 'in';
@@ -182,6 +186,10 @@ class _EventCard extends StatelessWidget {
     // dizia "OS" e não levava a lugar nenhum, e conferir o que foi feito exigia
     // procurar a ordem à mão. A venda já abria pelo card de venda logo acima.
     final daOs = e.saleKind == 'os' && e.saleId != null;
+    // Saída de conta a pagar abre a DESPESA. Sem isto o card dizia
+    // "Despesa · Aluguel" e era um beco sem saída: a ida (despesa -> lançamento)
+    // existia, a volta não.
+    final daDespesa = e.saleKind == 'expense' && e.saleId != null;
     final corpo = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -254,7 +262,7 @@ class _EventCard extends StatelessWidget {
           ),
         ],
     );
-    if (!daOs) {
+    if (!daOs && !daDespesa) {
       return NeuCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: corpo,
@@ -264,7 +272,9 @@ class _EventCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(NeuTokens.rCard),
-        onTap: () => context.push('/m/os/${e.saleId}'),
+        onTap: daOs
+            ? () => context.push('/m/os/${e.saleId}')
+            : () => showExpenseDetailDialog(context, ref, id: e.saleId!),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: corpo,

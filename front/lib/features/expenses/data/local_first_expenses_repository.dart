@@ -1,4 +1,5 @@
 import '../../../core/offline/local_first.dart';
+import '../domain/expense_installments.dart';
 import '../domain/expense_models.dart';
 import '../domain/expense_month_totals.dart';
 import '../domain/expenses_repository.dart';
@@ -31,6 +32,7 @@ class LocalFirstExpensesRepository extends LocalFirstBase
 
   static const _contas = 'expense';
   static const _categorias = 'expense_category';
+  static const _regras = 'expense_recurrence';
 
 
   /// Corpo que o backend aceita, a partir do draft.
@@ -53,6 +55,16 @@ class LocalFirstExpensesRepository extends LocalFirstBase
       else if (draft.categoryId != null)
         'categoryId': draft.categoryId,
       if (draft.notes != null) 'notes': draft.notes,
+      if (draft.supplierName != null) 'supplierName': draft.supplierName,
+      if (draft.supplierDoc != null) 'supplierDoc': draft.supplierDoc,
+      if (!criando && draft.limparFornecedor) 'limparFornecedor': true,
+      // Parcelamento só na criação: reparcelar seria apagar as irmãs e recriar
+      // outras — destrutivo disfarçado de edição, e o DTO de update não aceita.
+      if (criando && draft.parcelas != null) 'parcelas': draft.parcelas,
+      if (criando && draft.installmentIds != null)
+        'installmentIds': draft.installmentIds,
+      if (criando && draft.installmentGroupId != null)
+        'installmentGroupId': draft.installmentGroupId,
       // Recorrência só na criação — é o que o DTO de update aceita.
       if (criando && r != null)
         'recorrencia': <String, dynamic>{
@@ -77,10 +89,66 @@ class LocalFirstExpensesRepository extends LocalFirstBase
         _categorias,
         [for (final c in remoto.categories) c.toJson()],
       );
+      // As regras também: sem elas, offline a tela não sabe dizer quando é a
+      // próxima cobrança de uma conta fixa.
+      await putRows(_regras, [for (final r in remoto.recurrences) r.toJson()]);
       return remoto;
     }
     return _mesLocal(ano: ano, mes: mes);
   }
+
+  @override
+  Future<ExpenseDetail> detalhe(String id) async {
+    // Criada offline e ainda na fila: o servidor não a conhece, daria 404.
+    if (!await useLocal(_contas, id)) {
+      final remoto = await inner.detalhe(id);
+      await putRow(_contas, remoto.expense.toJson());
+      if (remoto.recurrence != null) {
+        await putRow(_regras, remoto.recurrence!.toJson());
+      }
+      await putRows(_contas, [for (final p in remoto.parcelas) p.toJson()]);
+      return remoto;
+    }
+    return _detalheLocal(id);
+  }
+
+  /// Detalhe montado do espelho: a conta, a regra que a gerou e as irmãs do
+  /// grupo de parcelamento. Todas as três já são entidades replicadas, então isto
+  /// não precisa de rede.
+  Future<ExpenseDetail> _detalheLocal(String id) async {
+    final row = await rowById(_contas, id);
+    if (row == null) notFoundLocally('Despesa');
+    final conta = Expense.fromJson(row);
+
+    ExpenseRecurrence? regra;
+    final regraId = conta.recurrenceId;
+    if (regraId != null) {
+      final r = await rowById(_regras, regraId);
+      if (r != null) regra = ExpenseRecurrence.fromJson(r);
+    }
+
+    final grupo = conta.installmentGroupId;
+    final parcelas = <Expense>[];
+    if (grupo != null) {
+      for (final r in await rows(_contas)) {
+        if (r['installment_group_id'] == grupo) parcelas.add(Expense.fromJson(r));
+      }
+      parcelas.sort(
+        (a, b) => (a.installmentNo ?? 0).compareTo(b.installmentNo ?? 0),
+      );
+    }
+    return ExpenseDetail(expense: conta, recurrence: regra, parcelas: parcelas);
+  }
+
+  /// Consulta externa — não tem espelho possível.
+  ///
+  /// Sem rede, falha com a mensagem do `inner` (o interceptor traduz para "sem
+  /// conexão"). O formulário trata como opcional: fornecedor é campo de texto que
+  /// a pessoa pode digitar à mão, e travar o cadastro porque a Receita não
+  /// respondeu seria péssimo.
+  @override
+  Future<ExpenseSupplierLookup> consultarCnpj(String cnpj) =>
+      inner.consultarCnpj(cnpj);
 
   /// Monta o mês a partir do espelho local.
   Future<ExpensesMonth> _mesLocal({
@@ -93,9 +161,13 @@ class LocalFirstExpensesRepository extends LocalFirstBase
     final cats = [
       for (final r in await rows(_categorias)) ExpenseCategory.fromJson(r),
     ];
+    final regras = [
+      for (final r in await rows(_regras)) ExpenseRecurrence.fromJson(r),
+    ];
     return totaisDoMes(
       contas: contasDoMes(todas, ano: ano, mes: mes),
       categorias: cats.where((c) => c.status == 'active').toList(),
+      regras: regras,
       // `clock` (relógio confiável, anti clock-rollback) e não `DateTime.now()`:
       // o que decide "vencido" não pode depender de o usuário mexer no relógio.
       hoje: clock.now,
@@ -122,20 +194,83 @@ class LocalFirstExpensesRepository extends LocalFirstBase
       await putRow(_contas, criada.toJson());
       return criada;
     }
+
+    final n = draft.parcelas;
+    if (n != null && n >= 2) return _criarParceladoLocal(draft, n);
+
     final id = newId();
     await enqueue(_contas, 'create', {..._corpo(draft, criando: true), 'id': id});
-    final row = <String, dynamic>{
-      'id': id,
-      'description': draft.description ?? '',
-      'amount': draft.amount ?? 0,
-      'due_date': draft.dueDate,
-      'category_id': draft.categoryId,
-      'notes': draft.notes,
-      'paid_at': null,
-      'cash_entry_id': null,
-    };
-    await putRow(_contas, row);
-    return Expense.fromJson(row);
+    await putRow(_contas, _linha(draft, id: id));
+    return Expense.fromJson(_linha(draft, id: id));
+  }
+
+  /// Linha local de uma conta nova. `due_date` sempre presente: é obrigatório no
+  /// modelo, e gravar nulo faria o `fromJson` seguinte estourar.
+  Map<String, dynamic> _linha(
+    ExpenseDraft draft, {
+    required String id,
+    num? valor,
+    String? vencimento,
+    int? parcela,
+    int? deParcelas,
+    String? grupo,
+  }) =>
+      <String, dynamic>{
+        'id': id,
+        'description': draft.description ?? '',
+        'amount': valor ?? draft.amount ?? 0,
+        'due_date': vencimento ?? draft.dueDate,
+        'category_id': draft.categoryId,
+        'notes': draft.notes,
+        'supplier_name': draft.supplierName,
+        'supplier_doc': draft.supplierDoc,
+        'installment_no': parcela,
+        'installment_total': deParcelas,
+        'installment_group_id': grupo,
+        'paid_at': null,
+        'cash_entry_id': null,
+      };
+
+  /// Compra parcelada criada SEM REDE.
+  ///
+  /// Os ids das N parcelas e o grupo são gerados aqui e viajam no payload: sem
+  /// isso o servidor geraria OUTROS ids no replay e o pull seguinte mostraria 12
+  /// parcelas de uma compra em 6x. Uma única op na fila cria o grupo inteiro —
+  /// meia compra parcelada seria pior que nenhuma.
+  ///
+  /// O rateio é repetido aqui (o servidor é a autoridade e recalcula no replay)
+  /// porque offline não há quem calcular, e mostrar o total inteiro em cada
+  /// parcela mentiria sobre o que se deve neste mês. Diferença de arredondamento
+  /// se corrige no pull seguinte.
+  Future<Expense> _criarParceladoLocal(ExpenseDraft draft, int n) async {
+    final grupo = newId();
+    final ids = [for (var i = 0; i < n; i++) newId()];
+    final valores = ratearParcelas(draft.amount ?? 0, n);
+    final datas = datasDasParcelas(DateTime.parse(draft.dueDate!), n);
+
+    await enqueue(_contas, 'create', {
+      ..._corpo(
+        draft.copyWith(installmentIds: ids, installmentGroupId: grupo),
+        criando: true,
+      ),
+      'id': ids.first,
+    });
+
+    Map<String, dynamic>? cabeca;
+    for (var i = 0; i < n; i++) {
+      final row = _linha(
+        draft,
+        id: ids[i],
+        valor: valores[i],
+        vencimento: datas[i].toIso8601String(),
+        parcela: i + 1,
+        deParcelas: n,
+        grupo: grupo,
+      );
+      await putRow(_contas, row);
+      cabeca ??= row;
+    }
+    return Expense.fromJson(cabeca!);
   }
 
   @override

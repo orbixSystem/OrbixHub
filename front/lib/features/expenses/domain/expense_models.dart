@@ -97,6 +97,18 @@ abstract class Expense with _$Expense {
     /// módulo nunca lê a tabela do caixa.
     @JsonKey(name: 'cash_entry_id') String? cashEntryId,
     String? notes,
+
+    /// Parcelamento: qual parcela esta conta é, de quantas, e o grupo que junta
+    /// as irmãs. As três andam juntas (CHECK no banco) ou são todas nulas.
+    @JsonKey(name: 'installment_no') int? installmentNo,
+    @JsonKey(name: 'installment_total') int? installmentTotal,
+    @JsonKey(name: 'installment_group_id') String? installmentGroupId,
+
+    /// Fornecedor — retrato de quem cobrou, não FK para cadastro.
+    @JsonKey(name: 'supplier_name') String? supplierName,
+
+    /// Só dígitos (14 = CNPJ, 11 = CPF). Quem formata é a tela.
+    @JsonKey(name: 'supplier_doc') String? supplierDoc,
     @Default('active') String status,
   }) = _Expense;
 
@@ -108,6 +120,16 @@ abstract class Expense with _$Expense {
   DateTime get vencimento => DateTime.parse(dueDate);
   DateTime? get pagoEm => paidAt == null ? null : DateTime.parse(paidAt!);
   bool get pago => paidAt != null;
+
+  /// `true` quando é uma parcela de compra parcelada.
+  bool get parcelada => installmentNo != null && installmentTotal != null;
+
+  /// "2/6" para o card. Vazio quando não é parcelada.
+  String get rotuloParcela =>
+      parcelada ? '$installmentNo/$installmentTotal' : '';
+
+  /// `true` quando nasceu de uma regra ("todo mês").
+  bool get fixa => recurrenceId != null;
 
   /// Vazio = "valor a confirmar"; a tela mostra isso em vez de "R$ 0,00", que
   /// leria como "não devo nada".
@@ -166,9 +188,25 @@ abstract class ExpenseDraft with _$ExpenseDraft {
     /// Recorrência pedida na criação; `null` = conta avulsa (uma vez só).
     ExpenseRecurrenceDraft? recorrencia,
 
+    /// Parcelamento pedido na criação. `amount` é o **TOTAL** — quem rateia é o
+    /// servidor. Excludente com [recorrencia].
+    int? parcelas,
+
+    /// Uuids das parcelas, na ordem — só no caminho OFFLINE, para o replay não
+    /// criar um segundo conjunto de linhas. Ver [ExpensesRepository.criar].
+    List<String>? installmentIds,
+    String? installmentGroupId,
+    String? supplierName,
+
+    /// Só dígitos; o servidor recusa tamanho diferente de 11 ou 14.
+    String? supplierDoc,
+
     /// Edição: limpar a categoria exige dizer explicitamente (ausência = "não
     /// mexe", senão nunca daria para tirar uma categoria já gravada).
     @Default(false) bool limparCategoria,
+
+    /// Idem para o fornecedor.
+    @Default(false) bool limparFornecedor,
   }) = _ExpenseDraft;
 
   factory ExpenseDraft.fromJson(Map<String, dynamic> json) =>
@@ -196,6 +234,11 @@ abstract class ExpensesMonth with _$ExpensesMonth {
     @Default(<Expense>[]) List<Expense> items,
     @Default(<ExpenseCategory>[]) List<ExpenseCategory> categories,
 
+    /// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
+    /// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
+    /// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
+    @Default(<ExpenseRecurrence>[]) List<ExpenseRecurrence> recurrences,
+
     /// Somas vêm do servidor: ele enxerga o mês inteiro mesmo se a lista for
     /// paginada, e a conta de "quanto ainda devo" não pode depender do que
     /// coube na tela.
@@ -207,4 +250,65 @@ abstract class ExpensesMonth with _$ExpensesMonth {
 
   factory ExpensesMonth.fromJson(Map<String, dynamic> json) =>
       _$ExpensesMonthFromJson(json);
+}
+
+/// Retorno da consulta de CNPJ, para preencher o fornecedor da conta.
+///
+/// Só o que o formulário usa. A fonte pública devolve muito mais (endereço,
+/// telefone), mas guardar tudo na despesa seria inventar cadastro de fornecedor —
+/// e esse é outro módulo.
+@freezed
+abstract class ExpenseSupplierLookup with _$ExpenseSupplierLookup {
+  const factory ExpenseSupplierLookup({
+    /// Documento só com dígitos, como vai para o banco.
+    @Default('') String doc,
+    @JsonKey(name: 'razaoSocial') @Default('') String razaoSocial,
+    @JsonKey(name: 'nomeFantasia') String? nomeFantasia,
+
+    /// "ATIVA", "BAIXADA"… A tela avisa quando não está ativa: pagar boleto de
+    /// empresa baixada é sinal de golpe.
+    String? situacao,
+  }) = _ExpenseSupplierLookup;
+
+  const ExpenseSupplierLookup._();
+
+  factory ExpenseSupplierLookup.fromJson(Map<String, dynamic> json) =>
+      _$ExpenseSupplierLookupFromJson(json);
+
+  /// Nome que o campo recebe: o fantasia é como a oficina chama o fornecedor no
+  /// dia a dia; a razão social é a reserva.
+  String get nomeUsual =>
+      (nomeFantasia?.trim().isNotEmpty ?? false) ? nomeFantasia!.trim() : razaoSocial;
+}
+
+/// Uma conta com o contexto que o DETALHE mostra.
+///
+/// Separado de [Expense] de propósito: a lista do mês carrega dezenas de contas e
+/// não deve arrastar regra e irmãs de cada uma. Quem abre uma conta paga o custo
+/// só daquela.
+@freezed
+abstract class ExpenseDetail with _$ExpenseDetail {
+  const factory ExpenseDetail({
+    required Expense expense,
+
+    /// A regra que gerou a conta (`null` quando avulsa ou parcelada).
+    ExpenseRecurrence? recurrence,
+
+    /// As irmãs do parcelamento, em ordem. Vazio quando não é parcelada.
+    @Default(<Expense>[]) List<Expense> parcelas,
+  }) = _ExpenseDetail;
+
+  const ExpenseDetail._();
+
+  factory ExpenseDetail.fromJson(Map<String, dynamic> json) =>
+      _$ExpenseDetailFromJson(json);
+
+  /// Total da dívida parcelada = SOMA das irmãs. Não há coluna de total, de
+  /// propósito: uma parcela corrigida (juros num mês) mudaria o total, e um campo
+  /// gravado ficaria mentindo.
+  num get totalParcelado =>
+      parcelas.fold<num>(0, (soma, p) => soma + p.amount);
+
+  /// Quantas parcelas do grupo já foram pagas — "3 de 6 pagas" no detalhe.
+  int get parcelasPagas => parcelas.where((p) => p.pago).length;
 }
