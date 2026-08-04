@@ -11,9 +11,7 @@ import '../../os/presentation/os_providers.dart';
 import '../../os/presentation/payment_status.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
-import '../domain/expense_template_fill.dart';
 import 'cashier_providers.dart';
-import 'expense_templates.dart';
 import 'lock_animation.dart';
 
 /// Parse de valor digitado (aceita vírgula) → double >= 0, ou null se inválido.
@@ -423,10 +421,11 @@ class EntryDialog extends ConsumerStatefulWidget {
 
 class _EntryDialogState extends ConsumerState<EntryDialog> {
   final _formKey = GlobalKey<FormState>();
-  // Sem preset, cai na operação mais comum de gestão (despesa) — nunca em
-  // `suprimento`, que é aporte de gaveta e o lançamento mais raro de todos.
+  // Sem preset, cai na saída de gaveta mais comum (sangria) — nunca em
+  // `suprimento`, que é aporte e o lançamento mais raro de todos. `despesa`
+  // deixou de ser opção aqui: virou o módulo `Despesas`.
   late String _category =
-      widget.presetCategory ?? (widget.presetSaleId != null ? 'os_payment' : 'despesa');
+      widget.presetCategory ?? (widget.presetSaleId != null ? 'os_payment' : 'sangria');
   late String _method = widget.config.paymentMethods.first;
   final _amountCtrl = TextEditingController();
   // OS escolhida no picker (recebimento de OS aponta pra ela).
@@ -462,42 +461,23 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
 
   // Venda avulsa NÃO entra aqui (é o fluxo próprio do botão "Venda avulsa", que
   // cria a `sale` com itens). Atendente só vê "Recebimento OS"; gestão vê tudo.
-  // Ordem = frequência de uso: `suprimento` fica por último porque só faz
-  // sentido para quem confere gaveta (continua disponível para quem precisa).
+  //
+  // `despesa` saiu da lista: conta a pagar virou o módulo `Despesas`, e o
+  // lançamento no caixa nasce da baixa lá (via o service público). Manter a
+  // opção aqui abriria uma segunda porta para o mesmo dinheiro — a saída
+  // existiria no livro caixa sem a conta correspondente do outro lado.
+  // A CATEGORIA continua válida no banco e no extrato: é ela que o módulo de
+  // despesas grava.
   List<String> get _categories => _canManage
-      ? const ['os_payment', 'despesa', 'sangria', 'suprimento']
+      ? const ['os_payment', 'sangria', 'suprimento']
       : const ['os_payment'];
 
   /// Suprimento (botar dinheiro na gaveta) e sangria (tirar dinheiro da gaveta)
   /// são movimentos da gaveta física → a forma é SEMPRE dinheiro.
   bool get _cashOnly => _category == 'suprimento' || _category == 'sangria';
 
-  /// Atalhos de despesa fixa só nas SAÍDAS (é o que o modelo pode lançar) e só
-  /// para quem gerencia — o atendente não vê o catálogo de gastos da oficina.
-  bool get _aceitaAtalho =>
-      _canManage && (_category == 'despesa' || _category == 'sangria');
-
-  /// Foco do campo de valor — usado quando o modelo não tem valor fechado.
+  /// Foco do campo de valor.
   final _amountFocus = FocusNode();
-
-  /// Aplica um modelo ao formulário. A decisão de qual forma usar é da função
-  /// pura [fillFromTemplate] (respeita a config e a regra da gaveta).
-  void _aplicarModelo(ExpenseTemplate tpl) {
-    final fill = fillFromTemplate(
-      tpl,
-      paymentMethods: widget.config.paymentMethods,
-      currentMethod: _method,
-    );
-    setState(() {
-      _category = fill.category;
-      _method = fill.method;
-      _descCtrl.text = fill.description;
-      _amountCtrl.text = fill.amountText;
-    });
-    // Valor em aberto ("varia"): manda o cursor para lá em vez de deixar o
-    // operador achar que está pronto e confirmar um lançamento sem valor.
-    if (fill.pedeValor) _amountFocus.requestFocus();
-  }
 
   /// Ao escolher a OS: busca o resumo de pagamento e pré-preenche o valor com o
   /// SALDO a receber (parcial-aware), editável. Sem OS, limpa o contexto.
@@ -653,14 +633,10 @@ class _EntryDialogState extends ConsumerState<EntryDialog> {
                       if (_cashOnly) _method = 'dinheiro';
                     }),
           ),
-          // 2) Atalhos de despesa fixa — só nas saídas, e só quando existem.
-          // Ficam logo abaixo do Tipo (antes do Valor) porque tocar um chip
-          // PREENCHE o valor: apareceria depois do campo que ele altera.
-          if (_aceitaAtalho) AtalhosDespesa(
-            categoria: _category,
-            onEscolher: _saving ? null : _aplicarModelo,
-          ),
-          // 3) OS (logo após o Tipo, quando for recebimento de OS)
+          // Os atalhos de "despesa fixa" saíram daqui junto com a categoria
+          // `despesa`: o que se repete todo mês agora é uma recorrência no
+          // módulo `Despesas`, com vencimento e baixa — não um preset de valor.
+          // 2) OS (logo após o Tipo, quando for recebimento de OS)
           if (isOsPayment) ...[
             const SizedBox(height: 14),
             _OsPicker(selected: _selectedOs, onChanged: _onOsSelected),

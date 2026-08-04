@@ -5,6 +5,7 @@ import { OsModule } from '../os/os.module';
 import { MessagesModule } from '../messages/messages.module';
 import { CashierModule } from '../cashier/cashier.module';
 import { SaleModule } from '../sale/sale.module';
+import { ExpensesModule } from '../expenses/expenses.module';
 import { BillingModule } from '../billing/billing.module';
 import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
@@ -28,6 +29,9 @@ import { SyncRepository } from './sync.repository';
     // Só PULL de `conversation`/`message` (leitura offline do histórico) — o
     // MessagesModule exporta o MessagesService.
     MessagesModule,
+    // Despesas: pull das 3 tabelas + push (criar/editar/baixar/estornar) — o
+    // ExpensesModule exporta o ExpensesService.
+    ExpensesModule,
     // Gating comercial por entidade (o /sync não usa @RequiresModule) — via o
     // service público do billing, nunca lendo `tenant_module` aqui.
     BillingModule,

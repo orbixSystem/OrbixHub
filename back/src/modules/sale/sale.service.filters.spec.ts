@@ -30,6 +30,13 @@ class FakeCashier extends CashierService {
   listChangedSince() {
     return Promise.resolve({ rows: [], nextCursor: null, hasMore: false });
   }
+  // Porta do módulo `expenses` — a venda não a usa; stub só para o contrato.
+  registrarSaidaDeDespesa() {
+    return Promise.resolve({ id: 'entry-fake' });
+  }
+  estornarSaidaDeDespesa() {
+    return Promise.resolve();
+  }
 }
 
 const user = {

@@ -17,6 +17,7 @@ import '../../features/messages/presentation/message_thread_screen.dart';
 import '../../features/os/presentation/os_list_screen.dart';
 import '../../features/os/presentation/os_detail_screen.dart';
 import '../../features/os/presentation/templates_screen.dart';
+import '../../features/expenses/presentation/expenses_screen.dart';
 import '../../features/report/presentation/report_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
@@ -295,6 +296,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/report',
             pageBuilder: (_, s) => neuPage(s, const ReportScreen()),
+          ),
+          // Despesas — literal antes do placeholder genérico; gated sob /m/
+          // (módulo `expenses`); o backend exige finance.read/finance.write.
+          GoRoute(
+            path: '/m/expenses',
+            pageBuilder: (_, s) => neuPage(s, const ExpensesScreen()),
           ),
           GoRoute(
             path: '/m/:moduleKey',

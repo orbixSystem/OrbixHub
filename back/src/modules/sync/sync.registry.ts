@@ -42,6 +42,16 @@ import {
   UpdateSaleDto,
 } from '../sale/dto/sale.dto';
 import { EmptyPayloadDto } from './dto/push.dto';
+import { ExpensesService } from '../expenses/expenses.service';
+import {
+  CreateExpenseDto,
+  PayExpenseDto,
+  UpdateExpenseDto,
+} from '../expenses/dto/expense.dto';
+import {
+  CreateExpenseCategoryDto,
+  UpdateExpenseCategoryDto,
+} from '../expenses/dto/category.dto';
 
 /**
  * Serviços públicos dos módulos donos, injetados no `SyncService`. O `sync`
@@ -58,6 +68,7 @@ export interface SyncServices {
   cashier: CashierServiceImpl;
   messages: MessagesService;
   sale: SaleService;
+  expenses: ExpensesService;
 }
 
 /** Payload já validado (chaves estruturais + campos do DTO). */
@@ -163,6 +174,20 @@ export const PULL_ROUTES: Record<string, PullRouteDef> = {
   // só PULL: o histórico é sincronizado ao SQLite p/ leitura offline; enviar continua online.
   conversation: { service: 'messages', module: 'os', permission: 'os.read' },
   message: { service: 'messages', module: 'os', permission: 'os.read' },
+  // Despesas: as três tabelas descem para o espelho local porque a tela abre no
+  // mês e precisa dos rótulos (categoria) e da regra junto — sem elas a lista
+  // offline mostraria contas sem ícone nem nome de categoria.
+  expense: { service: 'expenses', module: 'expenses', permission: 'finance.read' },
+  expense_category: {
+    service: 'expenses',
+    module: 'expenses',
+    permission: 'finance.read',
+  },
+  expense_recurrence: {
+    service: 'expenses',
+    module: 'expenses',
+    permission: 'finance.read',
+  },
 };
 
 /**
@@ -472,6 +497,69 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     permission: 'cashier.manage',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.cashier.updateExpenseTemplate(u, str(p.id), asDto(p)),
+  },
+  // ---------------- despesas (contas a pagar) ----------------
+  // Cadastrar e dar baixa offline importa: a cliente confere as contas do mês
+  // onde estiver, não só com rede.
+  //
+  // `expense.create` leva o `id` DENTRO do DTO (não como chave estrutural) para
+  // o replay preservar o uuid gerado no cliente — mesma razão de
+  // `cash_entry.create`, e é o que impede a conta de duplicar se o push repetir.
+  'expense.create': {
+    dto: CreateExpenseDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    create: true,
+    apply: (s, u, p) => s.expenses.create(u, asDto(p)),
+  },
+  'expense.update': {
+    dto: UpdateExpenseDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.expenses.update(u, str(p.id), asDto(p)),
+  },
+  // A baixa espelha um lançamento no caixa. O `cashEntryId` viaja no payload
+  // justamente para o replay NÃO criar um segundo lançamento: o caixa recebe o
+  // mesmo uuid e rejeita o duplicado.
+  'expense.pay': {
+    dto: PayExpenseDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.expenses.pay(u, str(p.id), asDto(p)),
+  },
+  'expense.unpay': {
+    dto: EmptyPayloadDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.expenses.unpay(u, str(p.id)),
+  },
+  'expense.cancel': {
+    dto: EmptyPayloadDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    structuralKeys: ['id'],
+    apply: async (s, u, p) => {
+      await s.expenses.cancel(u, str(p.id));
+      // `cancel` não devolve linha; o contrato do registry espera `{id?} | null`.
+      return null;
+    },
+  },
+  'expense_category.create': {
+    dto: CreateExpenseCategoryDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    create: true,
+    apply: (s, u, p) => s.expenses.createCategory(u, asDto(p)),
+  },
+  'expense_category.update': {
+    dto: UpdateExpenseCategoryDto,
+    module: 'expenses',
+    permission: 'finance.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.expenses.updateCategory(u, str(p.id), asDto(p)),
   },
 };
 
