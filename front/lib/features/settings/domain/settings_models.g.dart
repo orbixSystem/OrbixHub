@@ -52,6 +52,7 @@ _SettingsSection _$SettingsSectionFromJson(Map<String, dynamic> json) =>
           const <SettingsField>[],
       values:
           json['values'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      editable: json['editable'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$SettingsSectionToJson(_SettingsSection instance) =>
@@ -61,6 +62,7 @@ Map<String, dynamic> _$SettingsSectionToJson(_SettingsSection instance) =>
       'moduleKey': instance.moduleKey,
       'fields': instance.fields.map((e) => e.toJson()).toList(),
       'values': instance.values,
+      'editable': instance.editable,
     };
 
 _SettingsBundle _$SettingsBundleFromJson(Map<String, dynamic> json) =>

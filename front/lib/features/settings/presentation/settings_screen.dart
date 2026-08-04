@@ -50,6 +50,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// Categoria aberta no mobile (drill-down). `null` = mostrando a lista.
   int? _mobileOpen;
 
+  /// Salva um campo de seção de módulo. Erro do servidor (ex.: valor recusado
+  /// pelo módulo dono) aparece na tela — sem isto o toggle voltaria sozinho sem
+  /// explicação.
+  Future<void> _salvarSecao(String key, Map<String, dynamic> patch) async {
+    try {
+      await ref.read(settingsControllerProvider.notifier).saveSection(key, patch);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
@@ -141,6 +155,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   section: section,
                   values: section.values,
                   hideTitle: true,
+                  onToggle: (campo, valor) =>
+                      _salvarSecao(section.key, {campo: valor}),
                 ),
               ),
         ];

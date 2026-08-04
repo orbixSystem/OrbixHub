@@ -91,35 +91,7 @@ export class SaleService {
       customerName = customer.name;
     }
 
-    // Snapshot dos itens via inventory (sequencial, FORA da tx). Item do estoque
-    // re-snapshot de nome/kind/preço; avulso exige nome.
-    const resolved: ResolvedItem[] = [];
-    for (const it of dto.items) {
-      let name = it.name?.trim() || '';
-      let unitPrice = it.unitPrice ?? 0;
-      let kind: 'product' | 'service' = it.kind ?? 'product';
-      let inventoryItemId: string | null = null;
-
-      if (it.inventoryItemId) {
-        const invItem = await this.inventory.getItem(it.inventoryItemId);
-        inventoryItemId = invItem.id;
-        name = invItem.name;
-        kind = (invItem.kind as 'product' | 'service') ?? kind;
-        if (it.unitPrice === undefined) unitPrice = toNum(invItem.sale_price);
-      } else if (!name) {
-        throw new BadRequestException('Nome é obrigatório para item avulso.');
-      }
-
-      const quantity = it.quantity ?? 1;
-      resolved.push({
-        kind,
-        inventory_item_id: inventoryItemId,
-        name,
-        quantity,
-        unit_price: unitPrice,
-        subtotal: computeSubtotal(quantity, unitPrice),
-      });
-    }
+    const resolved = await this.resolveItems(dto.items);
 
     const bruto = computeSaleTotal(
       resolved.map((r) => ({ quantity: r.quantity, unitPrice: r.unit_price })),
@@ -169,6 +141,48 @@ export class SaleService {
     return this.enrichOne(sale!, user.tenantId);
   }
 
+  /**
+   * Resolve as linhas informadas em snapshots prontos para persistir: item do
+   * estoque re-snapshota nome/kind/preço (o cadastro é a verdade), avulso exige
+   * nome. Sequencial e FORA de transação — `inventory.getItem` abre a própria.
+   *
+   * Compartilhado por criar e editar: o snapshot de uma linha tem de nascer igual
+   * nos dois caminhos, senão editar uma venda mudaria silenciosamente o preço
+   * que ela registrou.
+   */
+  private async resolveItems(
+    itens: CreateSaleDto['items'],
+  ): Promise<ResolvedItem[]> {
+    const resolved: ResolvedItem[] = [];
+    for (const it of itens) {
+      let name = it.name?.trim() || '';
+      let unitPrice = it.unitPrice ?? 0;
+      let kind: 'product' | 'service' = it.kind ?? 'product';
+      let inventoryItemId: string | null = null;
+
+      if (it.inventoryItemId) {
+        const invItem = await this.inventory.getItem(it.inventoryItemId);
+        inventoryItemId = invItem.id;
+        name = invItem.name;
+        kind = (invItem.kind as 'product' | 'service') ?? kind;
+        if (it.unitPrice === undefined) unitPrice = toNum(invItem.sale_price);
+      } else if (!name) {
+        throw new BadRequestException('Nome é obrigatório para item avulso.');
+      }
+
+      const quantity = it.quantity ?? 1;
+      resolved.push({
+        kind,
+        inventory_item_id: inventoryItemId,
+        name,
+        quantity,
+        unit_price: unitPrice,
+        subtotal: computeSubtotal(quantity, unitPrice),
+      });
+    }
+    return resolved;
+  }
+
   // ===================== Leitura =====================
   async listSales(user: AuthUser, query: ListSalesQueryDto) {
     const page = query.page ?? 1;
@@ -214,15 +228,24 @@ export class SaleService {
   }
 
   /**
-   * Reatribui a venda a outro cliente. É a única edição possível numa venda
-   * registrada: o total já passou pelo caixa (e talvez pela nota), então mudar
-   * dinheiro exige cancelar-e-refazer.
+   * Edita uma venda registrada: cliente, itens e desconto.
    *
-   * O caso real é o fiado sem cliente: sem esta correção a dívida fica no balde
-   * "sem cliente" e ninguém consegue cobrar. Cliente vem por id + snapshot do
-   * nome via service público ("aponta, não invade").
+   * Duas coisas a venda NÃO pode fazer, e por motivo concreto:
+   *  - **nota emitida**: mudar o total deixaria a NF divergindo do que ela
+   *    declara (problema fiscal, não preferência);
+   *  - **total abaixo do já pago**: ficaríamos devendo troco ao cliente, e não
+   *    existe mecanismo para representar esse crédito.
+   * Nos dois casos o caminho é estornar o pagamento ou cancelar-e-refazer, e a
+   * mensagem diz isso.
+   *
+   * Cliente vem por id + snapshot do nome via service público ("aponta, não
+   * invade"). Itens SUBSTITUEM as linhas atuais e o total é recalculado aqui —
+   * o cliente nunca manda total.
    */
   async updateSale(user: AuthUser, id: string, dto: UpdateSaleDto) {
+    const trocaCliente = dto.customerId !== undefined;
+    const trocaDesconto = dto.discount !== undefined;
+
     let customerId: string | null = null;
     let customerName: string | null = null;
     if (dto.customerId) {
@@ -231,23 +254,133 @@ export class SaleService {
       customerId = customer.id;
       customerName = customer.name;
     }
+    // Snapshots FORA da tx (inventory.getItem abre a própria).
+    const resolved = dto.items ? await this.resolveItems(dto.items) : null;
+
+    // Estado atual + guardas, antes de mexer em qualquer coisa.
+    const atual = await this.tenant.withTenantTx(() => this.repo.findSaleById(id));
+    if (!atual) throw new NotFoundException('Venda não encontrada.');
+    if (atual.status === 'canceled')
+      throw new ConflictException('Venda cancelada não pode ser editada.');
+
+    let total = toNum(atual.total);
+    let discount = toNum(atual.discount);
+    if (resolved || trocaDesconto) {
+      const bruto = resolved
+        ? computeSaleTotal(
+            resolved.map((r) => ({
+              quantity: r.quantity,
+              unitPrice: r.unit_price,
+            })),
+          )
+        : toNum(atual.total) + toNum(atual.discount);
+      const aplicado = applySaleDiscount(
+        bruto,
+        trocaDesconto ? dto.discount! : discount,
+      );
+      total = aplicado.total;
+      discount = aplicado.discount;
+    }
+
+    // Mudou dinheiro? Então as duas guardas valem.
+    if (total !== toNum(atual.total)) {
+      if (atual.fiscal_status && atual.fiscal_status !== 'rejeitada') {
+        throw new ConflictException(
+          'Esta venda já tem nota fiscal. Mudar o valor faria a nota divergir — '
+            + 'cancele a venda e faça uma nova.',
+        );
+      }
+      const pago = await this.cashier.getPaymentSummary(
+        user.tenantId,
+        id,
+        toNum(atual.total),
+      );
+      if (total < pago.paid - 0.005) {
+        throw new ConflictException(
+          `O cliente já pagou ${pago.paid.toFixed(2)} nesta venda e o novo total `
+            + `seria ${total.toFixed(2)}. Estorne o recebimento antes de reduzir `
+            + 'o valor.',
+        );
+      }
+    }
+
+    // Linhas antigas guardadas ANTES de apagar: é por elas (refItemId) que o
+    // estoque sabe o que devolver — reconciliar é keyed pelo id da linha, então
+    // uma linha apagada sem estorno deixaria o produto baixado para sempre.
+    const antigos = resolved
+      ? await this.tenant.withTenantTx(() => this.repo.listItems(id))
+      : [];
 
     const sale = await this.tenant.withTenantTx(async () => {
-      const found = await this.repo.findSaleById(id);
-      if (!found) throw new NotFoundException('Venda não encontrada.');
-      // Cancelada é registro histórico fechado — reatribuir reescreveria o passado.
-      if (found.status === 'canceled')
-        throw new ConflictException('Venda cancelada não pode ser editada.');
-      await this.repo.setCustomer(id, {
-        customer_id: customerId,
-        customer_name: customerName,
-      });
+      if (trocaCliente) {
+        await this.repo.setCustomer(id, {
+          customer_id: customerId,
+          customer_name: customerName,
+        });
+      }
+      if (resolved) {
+        await this.repo.deleteItems(id);
+        for (const r of resolved) {
+          await this.repo.addItem(user.tenantId, id, {
+            kind: r.kind,
+            inventory_item_id: r.inventory_item_id,
+            name: r.name,
+            quantity: r.quantity,
+            unit_price: r.unit_price,
+            subtotal: r.subtotal,
+          });
+        }
+      }
+      if (resolved || trocaDesconto) {
+        await this.repo.setTotals(id, { total, discount });
+      }
       return this.repo.findSaleById(id);
     });
+
     await this.audit.log(user.tenantId, user.userId, 'sale_update', id, {
-      customerId,
+      ...(trocaCliente ? { customerId } : {}),
+      ...(resolved ? { itens: resolved.length, total, discount } : {}),
     });
+
+    // Estoque FORA da tx: devolve o que as linhas antigas consumiram (alvo 0) e
+    // consome o que as novas pedem. As linhas trocam de id, então não há como
+    // "ajustar a mesma linha" — o diário registra devolução + consumo, que é o
+    // que de fato aconteceu.
+    if (resolved) {
+      for (const antigo of antigos) {
+        if (antigo.kind !== 'product' || !antigo.inventory_item_id) continue;
+        await this.reconcile(user, id, antigo.id, antigo.inventory_item_id, 0);
+      }
+      await this.applyStock(user, id, sale!.items, 'consume');
+    }
+
     return this.enrichOne(sale!, user.tenantId);
+  }
+
+  /** Reconcilia UMA linha para a quantidade-alvo, sem derrubar a operação. */
+  private async reconcile(
+    user: AuthUser,
+    saleId: string,
+    refItemId: string,
+    inventoryItemId: string,
+    targetQty: number,
+  ): Promise<void> {
+    try {
+      await this.inventory.reconcileConsumption(user.tenantId, {
+        inventoryItemId,
+        refType: 'sale',
+        refId: saleId,
+        refItemId,
+        targetQty,
+        createdBy: user.userId,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Estoque (reconcile ${targetQty}) falhou (venda ${saleId}, linha ${refItemId}): ${
+          (e as Error).message
+        }`,
+      );
+    }
   }
 
   // ===================== Cancelamento (estorno lógico) =====================

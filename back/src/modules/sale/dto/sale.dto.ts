@@ -56,18 +56,30 @@ export class CancelSaleDto {
 }
 
 /**
- * Edição do que a venda **não** tem de dinheiro: hoje, a quem ela pertence.
+ * Edição de uma venda registrada: cliente, itens e desconto.
  *
- * Itens, quantidade e desconto NÃO passam por aqui — o dinheiro já entrou no
- * caixa e a nota pode ter sido emitida; mudar o total por baixo desfaria a
- * conciliação. Para isso existe cancelar-e-refazer.
+ * `customerId: null` desvincula. Trocar o cliente resolve o fiado lançado sem
+ * identificar quem levou — sem isso a dívida fica presa no balde "sem cliente".
  *
- * Trocar o cliente é a correção que aparece de verdade no balcão: vendeu fiado e
- * esqueceu de identificar quem levou. Sem isto a dívida fica presa no balde "sem
- * cliente" e ninguém consegue cobrar. `customerId: null` desvincula.
+ * `items` SUBSTITUI as linhas da venda (não faz merge): o front manda a lista
+ * inteira, como na criação. O total é recalculado no servidor e o estoque
+ * reconciliado — nunca confiamos no total do cliente.
+ *
+ * O service recusa a edição quando ela quebraria algo que já saiu da venda:
+ * nota fiscal emitida (a NF passaria a divergir) ou total menor do que o cliente
+ * já pagou (ficaríamos devendo troco, e não há mecanismo para isso).
  */
 export class UpdateSaleDto {
   @IsOptional() @IsUUID() customerId?: string | null;
+  /** Desconto em valor sobre o total (≥ 0). O service clampa ao bruto. */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  /** Lista COMPLETA de itens da venda (substitui a atual). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateSaleItemDto)
+  items?: CreateSaleItemDto[];
 }
 
 /**

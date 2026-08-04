@@ -70,4 +70,8 @@ abstract interface class CustomersRepository {
 
   /// Contador da cota mensal (X de N consultas usadas no mês corrente).
   Future<PlateQuota> plateUsage();
+
+  /// Dados públicos da empresa pelo CNPJ, para pré-preencher um cliente PJ.
+  /// Não grava nada — quem decide salvar é o formulário.
+  Future<CnpjEmpresa> lookupCnpj(String cnpj);
 }

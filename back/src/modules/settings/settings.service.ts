@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { SettingsSectionRegistry, COMPANY_SECTION } from './settings.section-registry';
 import { BillingService } from '../billing/billing.service';
@@ -40,15 +45,18 @@ export class SettingsService {
     const sectionsWithValues = await Promise.all(
       moduleSections.map(async (section) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { getValues, ...rest } = section;
-        if (!getValues) return { ...rest, values: {} };
+        const { getValues, setValues, ...rest } = section;
+        // `editable` diz à UI se a seção aceita PATCH — sem isso a tela teria de
+        // adivinhar, e um toggle que não salva é pior que um toggle ausente.
+        const editable = setValues != null;
+        if (!getValues) return { ...rest, editable, values: {} };
         let values: Record<string, unknown> = {};
         try {
           values = await getValues(user.tenantId);
         } catch (err) {
           console.warn(`[settings] getValues para seção '${section.key}' falhou (best-effort):`, err);
         }
-        return { ...rest, values };
+        return { ...rest, editable, values };
       }),
     );
 
@@ -129,5 +137,39 @@ export class SettingsService {
     }
     if (key) { try { await this.storage.remove(key); } catch { /* best-effort */ } }
     return { company: await this.tenancy.getCompanyView(user.tenantId) };
+  }
+  /**
+   * Aplica um patch nos valores de uma seção de módulo. O host NÃO conhece a
+   * config do módulo: encaminha para o `setValues` que ele registrou, que valida
+   * e persiste. Seção sem `setValues` é somente-leitura e recusa explicitamente.
+   */
+  async updateSection(
+    user: AuthUser,
+    key: string,
+    patch: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const section = this.registry.section(key);
+    if (!section) {
+      throw new NotFoundException(`Seção de configuração desconhecida: ${key}`);
+    }
+    if (!section.setValues) {
+      throw new BadRequestException(
+        `A seção '${key}' é somente leitura.`,
+      );
+    }
+    // Só chaves DECLARADAS no schema da seção: um patch com campo inventado é
+    // erro do chamador, não algo a persistir calado.
+    const declaradas = new Set(section.fields.map((f) => f.key));
+    const desconhecidas = Object.keys(patch).filter((k) => !declaradas.has(k));
+    if (desconhecidas.length) {
+      throw new BadRequestException(
+        `Campos não pertencem à seção '${key}': ${desconhecidas.join(', ')}`,
+      );
+    }
+    const values = await section.setValues(user, patch);
+    await this.audit.log(user.tenantId, user.userId, 'settings_change', key, {
+      campos: Object.keys(patch),
+    });
+    return values;
   }
 }

@@ -564,7 +564,10 @@ mixin _$SettingsSection {
 
  String get key; String get title; String? get moduleKey; List<SettingsField> get fields;/// Valores efetivos da seção (retornados pelo backend via getValues callback).
 /// Para a seção `company` este mapa estará ausente/vazio.
- Map<String, dynamic> get values;
+ Map<String, dynamic> get values;/// A seção aceita PATCH? O backend responde isto conforme o módulo dono ter
+/// registrado um `setValues`. Sem o flag a tela teria de adivinhar — e um
+/// toggle que não salva é pior que um toggle ausente.
+ bool get editable;
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -577,16 +580,16 @@ $SettingsSectionCopyWith<SettingsSection> get copyWith => _$SettingsSectionCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other.fields, fields)&&const DeepCollectionEquality().equals(other.values, values));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other.fields, fields)&&const DeepCollectionEquality().equals(other.values, values)&&(identical(other.editable, editable) || other.editable == editable));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(fields),const DeepCollectionEquality().hash(values));
+int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(fields),const DeepCollectionEquality().hash(values),editable);
 
 @override
 String toString() {
-  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values)';
+  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values, editable: $editable)';
 }
 
 
@@ -597,7 +600,7 @@ abstract mixin class $SettingsSectionCopyWith<$Res>  {
   factory $SettingsSectionCopyWith(SettingsSection value, $Res Function(SettingsSection) _then) = _$SettingsSectionCopyWithImpl;
 @useResult
 $Res call({
- String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values
+ String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values, bool editable
 });
 
 
@@ -614,14 +617,15 @@ class _$SettingsSectionCopyWithImpl<$Res>
 
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,Object? editable = null,}) {
   return _then(_self.copyWith(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,moduleKey: freezed == moduleKey ? _self.moduleKey : moduleKey // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self.fields : fields // ignore: cast_nullable_to_non_nullable
 as List<SettingsField>,values: null == values ? _self.values : values // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>,
+as Map<String, dynamic>,editable: null == editable ? _self.editable : editable // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -706,10 +710,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values,  bool editable)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SettingsSection() when $default != null:
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values,_that.editable);case _:
   return orElse();
 
 }
@@ -727,10 +731,10 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values,  bool editable)  $default,) {final _that = this;
 switch (_that) {
 case _SettingsSection():
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values,_that.editable);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -747,10 +751,10 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String title,  String? moduleKey,  List<SettingsField> fields,  Map<String, dynamic> values,  bool editable)?  $default,) {final _that = this;
 switch (_that) {
 case _SettingsSection() when $default != null:
-return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values);case _:
+return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values,_that.editable);case _:
   return null;
 
 }
@@ -762,7 +766,7 @@ return $default(_that.key,_that.title,_that.moduleKey,_that.fields,_that.values)
 @JsonSerializable()
 
 class _SettingsSection implements SettingsSection {
-  const _SettingsSection({required this.key, required this.title, this.moduleKey, final  List<SettingsField> fields = const <SettingsField>[], final  Map<String, dynamic> values = const <String, dynamic>{}}): _fields = fields,_values = values;
+  const _SettingsSection({required this.key, required this.title, this.moduleKey, final  List<SettingsField> fields = const <SettingsField>[], final  Map<String, dynamic> values = const <String, dynamic>{}, this.editable = false}): _fields = fields,_values = values;
   factory _SettingsSection.fromJson(Map<String, dynamic> json) => _$SettingsSectionFromJson(json);
 
 @override final  String key;
@@ -786,6 +790,10 @@ class _SettingsSection implements SettingsSection {
   return EqualUnmodifiableMapView(_values);
 }
 
+/// A seção aceita PATCH? O backend responde isto conforme o módulo dono ter
+/// registrado um `setValues`. Sem o flag a tela teria de adivinhar — e um
+/// toggle que não salva é pior que um toggle ausente.
+@override@JsonKey() final  bool editable;
 
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
@@ -800,16 +808,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other._fields, _fields)&&const DeepCollectionEquality().equals(other._values, _values));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsSection&&(identical(other.key, key) || other.key == key)&&(identical(other.title, title) || other.title == title)&&(identical(other.moduleKey, moduleKey) || other.moduleKey == moduleKey)&&const DeepCollectionEquality().equals(other._fields, _fields)&&const DeepCollectionEquality().equals(other._values, _values)&&(identical(other.editable, editable) || other.editable == editable));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(_fields),const DeepCollectionEquality().hash(_values));
+int get hashCode => Object.hash(runtimeType,key,title,moduleKey,const DeepCollectionEquality().hash(_fields),const DeepCollectionEquality().hash(_values),editable);
 
 @override
 String toString() {
-  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values)';
+  return 'SettingsSection(key: $key, title: $title, moduleKey: $moduleKey, fields: $fields, values: $values, editable: $editable)';
 }
 
 
@@ -820,7 +828,7 @@ abstract mixin class _$SettingsSectionCopyWith<$Res> implements $SettingsSection
   factory _$SettingsSectionCopyWith(_SettingsSection value, $Res Function(_SettingsSection) _then) = __$SettingsSectionCopyWithImpl;
 @override @useResult
 $Res call({
- String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values
+ String key, String title, String? moduleKey, List<SettingsField> fields, Map<String, dynamic> values, bool editable
 });
 
 
@@ -837,14 +845,15 @@ class __$SettingsSectionCopyWithImpl<$Res>
 
 /// Create a copy of SettingsSection
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? title = null,Object? moduleKey = freezed,Object? fields = null,Object? values = null,Object? editable = null,}) {
   return _then(_SettingsSection(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,moduleKey: freezed == moduleKey ? _self.moduleKey : moduleKey // ignore: cast_nullable_to_non_nullable
 as String?,fields: null == fields ? _self._fields : fields // ignore: cast_nullable_to_non_nullable
 as List<SettingsField>,values: null == values ? _self._values : values // ignore: cast_nullable_to_non_nullable
-as Map<String, dynamic>,
+as Map<String, dynamic>,editable: null == editable ? _self.editable : editable // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

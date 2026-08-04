@@ -206,7 +206,23 @@ void main() {
       );
     });
 
-    testWidgets('shows the syncing message while syncing', (tester) async {
+    testWidgets('mostra "Sincronizando" quando há alteração DESTE usuário',
+        (tester) async {
+      final controller = _FakeConnectivityController(
+          const ConnState(status: ConnStatus.syncing, pendingCount: 2));
+      await tester.pumpWidget(
+        _wrap(const ConnectionBanner(isWeb: false), controller),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Sincronizando alterações…'), findsOneWidget);
+    });
+
+    testWidgets('rodada de rotina (nada pendente) NÃO pinta banner',
+        (tester) async {
+      // O engine marca `syncing` a cada 60s, inclusive nas rodadas que só puxam
+      // novidades. Anunciar isso pintava um banner de minuto em minuto com a
+      // internet intacta e nada do usuário esperando.
       final controller = _FakeConnectivityController(
           const ConnState(status: ConnStatus.syncing));
       await tester.pumpWidget(
@@ -214,7 +230,51 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Sincronizando alterações…'), findsOneWidget);
+      expect(find.text('Sincronizando alterações…'), findsNothing);
+    });
+
+    testWidgets('rodada de sync NÃO anuncia "conexão restabelecida"',
+        (tester) async {
+      // Era o bug relatado: `syncing → online` a cada rodada disparava o aviso
+      // verde de reconexão sem a internet nunca ter caído. Só uma queda real
+      // (`offline`) justifica o aviso.
+      final controller =
+          _FakeConnectivityController(const ConnState(status: ConnStatus.online));
+      await tester.pumpWidget(
+        _wrap(const ConnectionBanner(isWeb: false), controller),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Duas rodadas seguidas, como o engine faz de 60 em 60 segundos.
+      for (var i = 0; i < 2; i++) {
+        controller.emit(const ConnState(status: ConnStatus.syncing));
+        await tester.pump(const Duration(milliseconds: 300));
+        controller.emit(const ConnState(status: ConnStatus.online));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      expect(find.textContaining('restabelecida'), findsNothing);
+    });
+
+    testWidgets('queda REAL seguida de sync ainda anuncia a reconexão',
+        (tester) async {
+      // A correção não pode calar o aviso legítimo: caiu, voltou, sincronizou.
+      final controller = _FakeConnectivityController(
+          const ConnState(status: ConnStatus.online));
+      await tester.pumpWidget(
+        _wrap(const ConnectionBanner(isWeb: false), controller),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      controller.emit(const ConnState(status: ConnStatus.offline));
+      await tester.pump(const Duration(milliseconds: 300));
+      // Ao voltar, o engine passa por `syncing` antes de `online`.
+      controller.emit(const ConnState(status: ConnStatus.syncing));
+      await tester.pump(const Duration(milliseconds: 300));
+      controller.emit(const ConnState(status: ConnStatus.online));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.textContaining('restabelecida'), findsOneWidget);
     });
 
     testWidgets(
@@ -257,30 +317,6 @@ void main() {
         find.text('Conexão restabelecida — dados sincronizados'),
         findsNothing,
       );
-    });
-
-    testWidgets('going syncing→online also triggers the reconnect flash',
-        (tester) async {
-      final controller = _FakeConnectivityController(
-          const ConnState(status: ConnStatus.syncing));
-      await tester.pumpWidget(
-        _wrap(const ConnectionBanner(isWeb: false), controller),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-
-      controller.emit(const ConnState(status: ConnStatus.online));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(
-        find.text('Conexão restabelecida — dados sincronizados'),
-        findsOneWidget,
-      );
-
-      // Deixa o Timer de 3s completar antes do teste terminar (senão o
-      // flutter_test acusa "Timer ainda pendente" no teardown).
-      await tester.pump(const Duration(seconds: 3));
-      await tester.pump(const Duration(milliseconds: 300));
     });
 
     testWidgets(

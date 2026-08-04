@@ -26,6 +26,18 @@ class FakeSettingsRepository implements SettingsRepository {
     _company = {..._company, ...filtered};
     return Map.of(_company);
   }
+  /// Valores por seção de módulo (o fake guarda o que foi salvo).
+  final Map<String, Map<String, dynamic>> _secoes = {};
+
+  @override
+  Future<Map<String, dynamic>> updateSection(
+    String key,
+    Map<String, dynamic> values,
+  ) async {
+    _secoes[key] = {...?_secoes[key], ...values};
+    return Map.of(_secoes[key]!);
+  }
+
   @override
   Future<Map<String, dynamic>> uploadLogo(Uint8List b, String f, String c) async {
     _company = {..._company, 'logoUrl': 'https://example/logo.png'};

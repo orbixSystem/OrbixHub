@@ -38,6 +38,11 @@ import {
   ListSubjectsQueryDto,
   UpdateSubjectDto,
 } from './dto/subject.dto';
+import {
+  CnpjGateway,
+  type CnpjEmpresa,
+} from '../../common/cnpj/cnpj.gateway';
+import { formatCnpj, isValidCnpj, normalizeCnpj } from '../auth/cnpj';
 import { UpdateCustomersConfigDto } from './dto/config.dto';
 import {
   isIdUniqueViolation,
@@ -55,10 +60,26 @@ export class CustomersService {
     private readonly audit: AuditService,
     private readonly history: SubjectHistoryProvider,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly cnpj: CnpjGateway,
   ) {}
 
   /** Limite de tamanho do upload da foto do veículo (~8 MB). */
   static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+
+  /**
+   * Consulta a empresa pelo CNPJ para PRÉ-PREENCHER um cliente PJ. Não grava
+   * nada — quem decide salvar é o formulário.
+   *
+   * `email` costuma vir vazio (a base pública da Receita raramente o traz): isso
+   * é normal, não erro, e a UI apenas deixa o campo em branco.
+   */
+  async lookupCnpj(rawCnpj: string): Promise<CnpjEmpresa & { cnpj: string }> {
+    const cnpj = normalizeCnpj(rawCnpj);
+    if (!isValidCnpj(cnpj)) throw new BadRequestException('CNPJ inválido.');
+    // Chamada externa FORA de qualquer transação (regra do projeto).
+    const empresa = await this.cnpj.fetch(cnpj);
+    return { ...empresa, cnpj: formatCnpj(cnpj) };
+  }
 
   // ===================== Config =====================
 
