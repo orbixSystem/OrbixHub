@@ -63,10 +63,44 @@ final Map<String, ScreenTutorial> _porPrefixo = {
   '/equipe': _equipe,
   '/planos': _planos,
   '/configuracoes': _config,
-  // `/` (o painel) NÃO entra aqui: o dashboard é dono do próprio tutorial, com
-  // holofote nos cartões reais (`id: 'dashboard'`) e o seu próprio botão de
-  // rever. Registrar aqui também faria a tela abrir dois tutoriais.
+  '/': _inicio,
 };
+
+/// Início. Antes o dashboard era dono do próprio tutorial, com `GlobalKey`s
+/// locais e um botão de rever só dele. Trazer para cá padroniza: um disparo, um
+/// botão (no chrome global) e o mesmo formato das outras telas.
+const _inicio = ScreenTutorial(
+  // Id novo: o antigo (`dashboard`) já está marcado como visto para quem usou o
+  // app, e este tutorial mudou de conteúdo — vale mostrar de novo.
+  id: 'tut_inicio_v1',
+  titulo: 'Início',
+  steps: [
+    CoachStep(
+      title: 'Este é o seu painel',
+      text: 'Ele mostra o dia da oficina: o que está em andamento, o que entrou '
+          'de dinheiro e o que precisa de atenção. Os números respeitam o seu '
+          'cargo — quem não vê o caixa também não vê faturamento aqui.',
+    ),
+    CoachStep(
+      targetName: 'shell.criar',
+      title: 'O botão "+" cria de qualquer tela',
+      text: 'Ordem de serviço, venda, despesa, cliente e produto saem dali sem '
+          'você precisar navegar até o módulo. O que aparece depende dos módulos '
+          'do seu plano e das suas permissões.',
+    ),
+    CoachStep(
+      title: 'Funciona sem internet',
+      text: 'Se a conexão cair, você continua lançando: fica tudo guardado no '
+          'aparelho e sobe sozinho quando a rede voltar. Uma faixa avisa quando '
+          'você está offline, e o sino de pendências mostra o que falta enviar.',
+    ),
+    CoachStep(
+      title: 'A ajuda fica sempre no mesmo lugar',
+      text: 'O "?" no topo, ao lado do sino, reabre o tutorial da tela em que '
+          'você está — em qualquer tela do sistema.',
+    ),
+  ],
+);
 
 const _fiscal = ScreenTutorial(
   id: 'tut_fiscal_v1',
@@ -97,6 +131,7 @@ const _caixa = ScreenTutorial(
   titulo: 'Caixa',
   steps: [
     CoachStep(
+      targetName: 'caixa.abas',
       title: 'Três abas, três perguntas',
       text: '"Caixa do dia" é onde você opera — vender, receber, lançar despesa. '
           '"Histórico" responde o que aconteceu num período. "Fiado" mostra quem '

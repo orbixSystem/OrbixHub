@@ -196,7 +196,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                         top: MediaQuery.of(context).padding.top + 68 - 46,
                         left: 0,
                         right: 0,
-                        child: const Center(child: _QuickCreateFab()),
+                        // Alvo de tutorial presente em TODAS as telas: o "+" é o
+                        // atalho de criação universal, e todo tutorial pode
+                        // apontá-lo sem depender da tela.
+                        child: const Center(
+                          child: CoachTarget(
+                            'shell.criar',
+                            child: _QuickCreateFab(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -283,12 +291,8 @@ class _ContentHeader extends StatelessWidget {
                         if (context.isMobile)
                           const Flexible(child: ConnectionChip(dense: true)),
                         const Spacer(),
-                        // Rever o tutorial da tela atual. No cabeçalho porque ele
-                        // existe em desktop E mobile — a sidebar não (no celular
-                        // é drawer), e ajuda escondida atrás de um menu não é
-                        // ajuda. Só aparece onde há tutorial.
-                        const _BotaoTutorial(),
-                        // Sino + toggle de tema vivem no overlay global (GlobalControls).
+                        // Sino, "?" do tutorial e toggle de tema vivem no overlay
+                        // global (GlobalControls), lado a lado no topo-direita.
                       ],
                     );
                   },
@@ -744,27 +748,6 @@ List<QuickAction> quickActionsFor(Me me) {
         'Novo produto ou serviço',
       ),
   ];
-}
-
-/// Botão "rever tutorial" do cabeçalho.
-///
-/// Reabre o tutorial da tela ignorando o "já visto" — quem esqueceu como o fiado
-/// funciona precisa poder revisitar sem limpar dados do app.
-class _BotaoTutorial extends StatelessWidget {
-  const _BotaoTutorial();
-
-  @override
-  Widget build(BuildContext context) {
-    // Lê a rota daqui: o cabeçalho é outro widget e não recebe `location`, e
-    // estamos sob a subárvore do router.
-    final tut = tutorialForRoute(GoRouterState.of(context).matchedLocation);
-    if (tut == null) return const SizedBox.shrink();
-    return IconButton(
-      tooltip: 'Como funciona: ${tut.titulo}',
-      icon: const Icon(Icons.help_outline_rounded, size: 20),
-      onPressed: () => CoachMark.start(context, id: tut.id, steps: tut.steps),
-    );
-  }
 }
 
 /// Especificação de uma ação de criação rápida do menu "+".

@@ -91,10 +91,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
             ),
             // Com uma única aba disponível não há o que segmentar.
             if (segments.length > 1) ...[
-              NeuSegmented<int>(
-                segments: segments,
-                selected: segments.containsKey(_tab) ? _tab : 0,
-                onChanged: (v) => setState(() => _tab = v),
+              CoachTarget(
+                'caixa.abas',
+                child: NeuSegmented<int>(
+                  segments: segments,
+                  selected: segments.containsKey(_tab) ? _tab : 0,
+                  onChanged: (v) => setState(() => _tab = v),
+                ),
               ),
               const SizedBox(height: 16),
             ],

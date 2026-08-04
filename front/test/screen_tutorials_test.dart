@@ -28,7 +28,8 @@ void main() {
     );
     final semTutorial = <String>[];
     for (final item in gatedNavItems(tudo)) {
-      if (item.route == '/') continue; // painel: dono do próprio tutorial
+      // Nenhuma exceção: o Início também entra no registro, para o "?" do chrome
+      // global funcionar nele como em qualquer outra tela.
       if (tutorialForRoute(item.route) == null) semTutorial.add(item.route);
     }
     expect(semTutorial, isEmpty,
@@ -41,8 +42,11 @@ void main() {
     expect(tutorialForRoute('/m/customers/xyz')?.id, 'tut_clientes_v1');
   });
 
-  test('o painel NÃO entra no registro (evita dois tutoriais na mesma tela)', () {
-    expect(tutorialForRoute('/'), isNull);
+  test('o Início TAMBÉM está no registro (ajuda padronizada)', () {
+    // Antes o dashboard era dono do próprio tutorial e do próprio botão. Agora o
+    // "?" do chrome global cobre todas as telas, e para isso o Início precisa
+    // estar aqui como as outras.
+    expect(tutorialForRoute('/')?.id, 'tut_inicio_v1');
   });
 
   test('rota desconhecida não tem tutorial', () {
@@ -71,13 +75,28 @@ void main() {
       }
     });
 
-    test('nenhum passo depende de alvo (vale igual em desktop e mobile)', () {
-      // Um passo com `targetKey` é DESCARTADO quando o alvo não está montado —
-      // e no celular vários elementos do desktop não existem. Sem alvo, o
-      // tutorial nunca aparece pela metade.
+    test('nenhum passo usa targetKey direta (só alvo por NOME)', () {
+      // `targetKey` morta DESCARTA o passo; alvo por nome degrada para cartão
+      // centralizado. No celular vários elementos do desktop não existem, então
+      // o registro central só pode usar nome — senão o tutorial apareceria pela
+      // metade justamente no telefone.
       for (final t in todosOsTutoriais) {
         for (final s in t.steps) {
           expect(s.targetKey, isNull, reason: '${t.id}: ${s.title}');
+        }
+      }
+    });
+
+    test('alvo nomeado usa prefixo conhecido (evita nome inventado)', () {
+      // Nome errado não quebra nada em runtime (vira cartão centralizado), e é
+      // exatamente por isso que precisa de teste: o erro seria silencioso.
+      const prefixos = {'shell.', 'caixa.', 'inicio.', 'os.', 'clientes.', 'estoque.'};
+      for (final t in todosOsTutoriais) {
+        for (final s in t.steps) {
+          final nome = s.targetName;
+          if (nome == null) continue;
+          expect(prefixos.any(nome.startsWith), isTrue,
+              reason: '${t.id}: alvo "$nome" fora dos prefixos conhecidos');
         }
       }
     });

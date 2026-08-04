@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'coach_targets.dart';
 import 'neu_button.dart';
 import 'neu_surface.dart';
 import 'neu_tokens.dart';
@@ -11,9 +12,18 @@ class CoachStep {
     required this.title,
     required this.text,
     this.targetKey,
+    this.targetName,
     this.radius = 16,
     this.padding = 8,
   });
+
+  /// Nome do alvo registrado com `CoachTarget` (ver `coach_targets.dart`).
+  ///
+  /// Preferido sobre [targetKey] no conteúdo central: o texto do tutorial não
+  /// pode importar a tela para pegar uma `GlobalKey`. Alvo ausente (elemento que
+  /// não existe naquele tamanho de tela) degrada para cartão centralizado — o
+  /// passo continua aparecendo.
+  final String? targetName;
 
   /// GlobalKey do widget a destacar. **Opcional**: sem ela o passo é um cartão
   /// centralizado, sem holofote.
@@ -44,6 +54,14 @@ class CoachStep {
 /// });
 /// ```
 abstract final class CoachMark {
+  /// `true` enquanto um tutorial está na tela.
+  ///
+  /// O chrome global (sino, tema) vive no TOPO do overlay do root navigator e só
+  /// se esconde durante modais (`modalRouteObserver`). O tutorial é um
+  /// `OverlayEntry`, não uma rota — então aqueles botões continuavam pintando
+  /// SOBRE o cartão. Este sinal é o equivalente do modal para eles.
+  static final ativo = ValueNotifier<bool>(false);
+
   static String _key(String id) => 'coach_seen_$id';
 
   /// Mostra o tutorial [id] só se ainda não foi visto (e houver alvo montado).
@@ -64,8 +82,10 @@ abstract final class CoachMark {
     required String id,
     required List<CoachStep> steps,
   }) async {
-    // Passos sem alvo sempre entram; com alvo, só se ele estiver montado e com
-    // tamanho (um holofote sobre nada seria um buraco no lugar errado).
+    // Todo passo entra: alvo por NOME é resolvido a cada frame (a tela pode nem
+    // ter montado ainda) e, se não existir, o passo vira cartão centralizado em
+    // vez de desaparecer. Só descartamos passo com `targetKey` explícita e morta,
+    // porque aí o autor pediu um holofote que não existe.
     final live = steps.where((s) {
       final key = s.targetKey;
       if (key == null) return true;
@@ -76,11 +96,13 @@ abstract final class CoachMark {
 
     final overlay = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
+    ativo.value = true;
     entry = OverlayEntry(
       builder: (_) => _CoachView(
         steps: live,
         onDone: () async {
           entry.remove();
+          ativo.value = false;
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool(_key(id), true);
         },
@@ -107,8 +129,9 @@ class _CoachViewState extends State<_CoachView> {
 
   /// Retângulo global do alvo do passo atual (ou null se sumiu).
   Rect? _targetRect() {
-    final key = _step.targetKey;
-    if (key == null) return null; // passo explicativo: cartão centralizado
+    final nome = _step.targetName;
+    final key = _step.targetKey ?? (nome == null ? null : CoachTargets.live(nome));
+    if (key == null) return null; // sem alvo vivo: cartão centralizado
     final box = key.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return null;
     final origin = box.localToGlobal(Offset.zero);
