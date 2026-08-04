@@ -186,6 +186,53 @@ parcelada, "próxima" é a irmã seguinte (mesmo grupo, `no + 1`).
   "Nova despesa" do botão mestre.
 - **D:** §3 relatórios.
 
+### O que FICOU PRONTO em 2026-08-04 (commits 59cb9dc, e629c2d, 466a876)
+
+Backend: migration 0040 (parcelas + fornecedor + CHECK do caixa), 0041
+(`expense_category.tracks_supplier`), 0042 (backfill da origem nos lançamentos
+antigos) · `parcelas`/`installmentIds`/`installmentGroupId`/fornecedor no DTO ·
+`ratearParcelas`/`datasDasParcelas` · `GET /expenses/:id` · `GET /expenses/cnpj/:cnpj`
+· `recurrences` no `listMonth` · origem `sale_kind='expense'` na baixa.
+
+Front: cadastro em 2 etapas (tipo → dados) · prévia do rateio · fornecedor por
+categoria (switch no cadastro da categoria) · cards com parcela/fornecedor/forma/
+próxima/ano + faixa de urgência · detalhe com PDF · clique caixa→despesa nas duas
+listas · filtro "Esta semana" · botão mestre apontando para o módulo · parcelamento
+offline (N linhas locais, 1 op na fila) · `kInvoiceEnabled` respeitado no fim da OS.
+
+### O QUE AINDA FALTA (pedido, não entregue)
+
+1. **Pagar parcelas em bloco** — pedido em 2026-08-04, ao fim da sessão. Hoje a
+   baixa é por LINHA (cada parcela é uma conta, com seu valor), o que já está
+   certo; o que falta é **pagar N parcelas de uma vez** ("antecipar 2") e
+   **quitar o restante**. Desenho sugerido:
+   - backend: `POST /expenses/:id/pay-installments { quantidade? | todas: true }`
+     no módulo `expenses`, iterando o `pay` atual por parcela em ordem de
+     vencimento. **Um lançamento de caixa por parcela** (não um só somado): o
+     livro caixa precisa espelhar cada baixa, e estornar uma parcela depois
+     exige o lançamento dela. Idempotência: aceitar a lista de `cashEntryId`
+     como o `pay` já faz, para o replay offline não duplicar;
+   - front: no detalhe, botões "Pagar esta", "Pagar N próximas" e "Quitar
+     restante (R$ X)"; no card, um menu em vez do toque único que hoje paga a
+     parcela do mês.
+2. **Total da compra visível no mês** — o card mostra o valor da PARCELA (certo),
+   mas o total da dívida não é derivável do payload do mês (só vêm as parcelas
+   que vencem nele). Precisa o servidor mandar, ex.: `installmentGroups: [{groupId,
+   total, count, paidCount}]` no `listMonth`. Sem isso o card não pode dizer
+   "2/6 de R$ 900,00" sem mentir.
+3. **§3 Relatórios** — não começou. Ver a seção §3 abaixo; a decisão de produto
+   (qual relatório) segue de pé, com a recomendação de "por categoria" primeiro.
+   Regra 1: método público no `ExpensesService`, o `report` não lê tabela alheia.
+
+### Sobre "OS paga no caixa" (verificado, NÃO é bug)
+
+Reclamação de 2026-08-04. Conferido no banco: os recebimentos de OS **estão** no
+caixa (`sale_kind='os'`, `category='os_payment'`, direção `in`) e o clique já
+navega para a OS. O que existia de verdade era o efeito colateral corrigido pela
+0042: as despesas pagas ANTES da 0040 ficaram sem tag de origem. Os 19 lançamentos
+que seguem "sem origem" são do antigo diálogo de despesa do caixa e **nunca**
+tiveram conta a pagar atrás — não há o que apontar.
+
 ---
 
 ## §2 Detalhe da despesa (+ volta do caixa)

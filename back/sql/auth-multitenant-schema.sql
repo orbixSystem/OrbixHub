@@ -2064,6 +2064,18 @@ ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_sale_kind_chk;
 ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_sale_kind_chk
   CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale','expense'));
 
+-- 0042 — backfill da ORIGEM nos lançamentos de despesa antigos. O vínculo já
+-- existia em `expense.cash_entry_id`, só no sentido oposto; sem isto metade do
+-- extrato seria clicável e a outra não. Só onde a origem está NULA (nunca
+-- sobrescreve 'os'/'sale') e com o tenant conferido.
+UPDATE cash_entry ce
+   SET sale_kind = 'expense', sale_id = e.id
+  FROM expense e
+ WHERE e.cash_entry_id = ce.id
+   AND ce.sale_kind IS NULL
+   AND ce.tenant_id = e.tenant_id;
+
+
 DO $$
 DECLARE t text;
 BEGIN
