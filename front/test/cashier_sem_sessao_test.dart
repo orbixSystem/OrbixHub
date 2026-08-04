@@ -139,7 +139,10 @@ void main() {
       expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Venda avulsa'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      // "Despesa / sangria" SAIU do caixa: as despesas ganharam tela própria, e
+      // dois caminhos para a mesma coisa competiam entre si. O Histórico segue
+      // mostrando as despesas — saiu o cadastro, não o registro.
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
 
     testWidgets('NÃO oferece conferência de gaveta', (tester) async {
@@ -167,7 +170,10 @@ void main() {
       // As três ações do caixa (dono vê todas).
       expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      // "Despesa / sangria" SAIU do caixa: as despesas ganharam tela própria, e
+      // dois caminhos para a mesma coisa competiam entre si. O Histórico segue
+      // mostrando as despesas — saiu o cadastro, não o registro.
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
   });
 

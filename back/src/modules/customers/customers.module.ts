@@ -13,7 +13,6 @@ import { CustomersService } from './customers.service';
 import { CustomersMetricsService } from './customers-metrics.service';
 import { CustomersRepository } from './customers.repository';
 import { SubjectHistoryProvider } from './subject-history.provider';
-import { CUSTOMERS_CONFIG_KEY } from './customers.config';
 import { SubjectLookupService } from './subject-lookup.service';
 import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
 import { ENV } from '../../common/config/config.module';
@@ -82,31 +81,9 @@ export class CustomersModule implements OnModuleInit {
   onModuleInit(): void {
     // Seção aparece em GET /settings apenas se o módulo `customers` estiver
     // habilitado no tenant. Campos ricos (subjectFields) são geridos pelos
-    // endpoints próprios do módulo (GET/PATCH /customers/config).
-    //
-    // getValues: retorna o mapa plano dos valores efetivos (DEFAULT ∪ salvo).
-    // O service.getConfig já aplica mergeCustomersConfig com os defaults.
-    // Achatamos subjectLabel.{singular,plural} para bater com as chaves dos fields.
-    const svc = this.customersService;
-    this.registry.register({
-      key: CUSTOMERS_CONFIG_KEY,
-      title: 'Clientes',
-      moduleKey: 'customers',
-      fields: [
-        { key: 'usaSubjects', label: 'Usa "veículos"?', type: 'bool' },
-        { key: 'subjectLabel.singular', label: 'Rótulo (singular)', type: 'text' },
-        { key: 'subjectLabel.plural', label: 'Rótulo (plural)', type: 'text' },
-        { key: 'documentRequired', label: 'Documento obrigatório?', type: 'bool' },
-      ],
-      getValues: async (tenantId: string): Promise<Record<string, unknown>> => {
-        const cfg = await svc.getConfig(tenantId);
-        return {
-          usaSubjects: cfg.usaSubjects,
-          'subjectLabel.singular': cfg.subjectLabel.singular,
-          'subjectLabel.plural': cfg.subjectLabel.plural,
-          documentRequired: cfg.documentRequired,
-        };
-      },
-    });
+    // Seção de Configurações REMOVIDA (era "Clientes"). Não é config que a
+    // oficina use hoje, e cartão que ninguém abre é ruído na tela. As chaves
+    // seguem na config interna do módulo (GET/PATCH /customers/config) — só
+    // deixaram de ser administráveis pela tela de Configurações.
   }
 }

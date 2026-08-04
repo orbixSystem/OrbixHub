@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -271,17 +272,10 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              // Sem controle de gaveta (o padrão), "suprimento" não tem o que
-              // conferir — aporte só significa algo contra um valor de abertura.
-              // A categoria continua no diálogo para quem precisar dela.
-              if (canManage)
-                _Acao(
-                  label: 'Despesa / sangria',
-                  icon: Icons.remove_circle_outline,
-                  cor: neu.danger,
-                  onTap: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'despesa'),
-                ),
+              // "Despesa / sangria" saiu daqui: as despesas ganharam TELA PRÓPRIA.
+              // Lançar despesa pelo caixa competia com ela e dava dois caminhos
+              // para a mesma coisa. O Histórico continua mostrando as despesas —
+              // o que saiu foi o cadastro, não o registro.
               ],
             ),
           ),
@@ -504,14 +498,21 @@ class _EntryTile extends ConsumerWidget {
       else if (entry.saleKind == 'sale')
         'Venda',
     ];
-    // Lançamento que aponta para uma VENDA abre o detalhe dela — é de lá que se
-    // edita os itens. Antes só o Histórico levava à venda, então corrigir o que
-    // foi vendido obrigava a sair do Caixa do dia.
+    // Lançamento que aponta para uma venda ou OS abre a ORIGEM dele.
+    //
+    // Venda abre em diálogo (dá para editar itens e exportar sem sair do caixa);
+    // OS NAVEGA para a tela dela, que é grande demais para caber num diálogo e
+    // tem o próprio fluxo (itens, fotos, timeline, exportar PDF). Antes o
+    // recebimento de OS era um beco sem saída: mostrava "OS" e não levava a lugar
+    // nenhum, obrigando a procurar a ordem à mão.
     final daVenda = entry.saleKind == 'sale' && entry.saleId != null;
+    final daOs = entry.saleKind == 'os' && entry.saleId != null;
     return NeuListTile(
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
-          : null,
+          : daOs
+              ? () => context.push('/m/os/${entry.saleId}')
+              : null,
       leading: _DirectionGlyph(color: color, isIn: isIn),
       title: Text(
         categoryLabel(entry.category),
