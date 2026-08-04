@@ -5,6 +5,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart' show formatMoney;
 import '../domain/expense_models.dart';
+import '../domain/expense_ordering.dart';
 import '../domain/expense_status.dart';
 import 'expense_form_dialog.dart';
 import 'expense_visuals.dart';
@@ -32,6 +33,12 @@ class ExpensesScreen extends ConsumerWidget {
         const _Cabecalho(),
         Expanded(
           child: async.when(
+            // Mantém a lista ANTERIOR na tela enquanto recarrega. Cada escrita
+            // (cadastrar, dar baixa, revogar) invalida o provider, e sem isto a
+            // lista inteira era substituída por um spinner a cada ação — com
+            // backend lento fica indistinguível de travamento. O spinner só
+            // aparece no primeiro carregamento, quando não há nada para mostrar.
+            skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => _Erro(
               mensagem: e is AppException ? e.message : 'Erro ao carregar as despesas.',
@@ -137,9 +144,12 @@ class _Corpo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filtro = ref.watch(filtroDespesaProvider);
+    final busca = ref.watch(buscaDespesaProvider);
     final hoje = DateTime.now();
 
-    final visiveis = mes.items.where((e) {
+    final porId = {for (final c in mes.categories) c.id: c};
+
+    final doFiltro = mes.items.where((e) {
       final s = e.situacao(hoje);
       return switch (filtro) {
         FiltroDespesa.todas => true,
@@ -149,7 +159,16 @@ class _Corpo extends ConsumerWidget {
       };
     }).toList(growable: false);
 
-    final porId = {for (final c in mes.categories) c.id: c};
+    // Busca ANTES de ordenar (menos itens para ordenar) e ordenação por
+    // URGÊNCIA por último — é ela que decide o que o olho vê primeiro.
+    final visiveis = ordenarPorUrgencia(
+      filtrarPorTexto(
+        doFiltro,
+        busca,
+        nomeDaCategoria: (id) => porId[id]?.name ?? '',
+      ),
+      hoje: hoje,
+    );
 
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: context.isMobile ? 4 : 8),
@@ -157,6 +176,11 @@ class _Corpo extends ConsumerWidget {
         _Totais(mes: mes),
         const SizedBox(height: 14),
         _Filtros(mes: mes, hoje: hoje),
+        const SizedBox(height: 10),
+        NeuSearchBar(
+          hint: 'Buscar por descrição ou categoria',
+          onChanged: ref.read(buscaDespesaProvider.notifier).definir,
+        ),
         const SizedBox(height: 12),
         if (visiveis.isEmpty)
           Padding(
@@ -165,12 +189,17 @@ class _Corpo extends ConsumerWidget {
               icon: Icons.event_available_outlined,
               title: mes.items.isEmpty
                   ? 'Nenhuma despesa neste mês'
-                  : 'Nada neste filtro',
+                  : busca.trim().isNotEmpty
+                      ? 'Nada encontrado'
+                      : 'Nada neste filtro',
               message: mes.items.isEmpty
                   ? 'Cadastre o que você precisa pagar — aluguel, luz, internet, '
                       'impostos — e acompanhe aqui o que vence, o que já foi pago '
                       'e o que passou do prazo.'
-                  : 'Troque o filtro para ver as outras despesas do mês.',
+                  : busca.trim().isNotEmpty
+                      ? 'Nenhuma conta deste mês casa com "${busca.trim()}". '
+                          'A busca olha a descrição e o nome da categoria.'
+                      : 'Troque o filtro para ver as outras despesas do mês.',
             ),
           )
         else
@@ -371,6 +400,89 @@ class _LinhaDespesa extends ConsumerStatefulWidget {
 class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   bool _ocupado = false;
 
+  /// Menu de ações da conta: editar, duplicar e excluir.
+  ///
+  /// Duplicar existe porque conta a pagar se repete de forma irregular (o mesmo
+  /// fornecedor, valor diferente): recadastrar do zero era o caminho mais usado e
+  /// o mais chato. Abre o formulário com tudo preenchido, MENOS a baixa — a
+  /// cópia nasce em aberto, senão a nova conta apareceria paga sem ninguém pagar.
+  Future<void> _abrirAcoes() async {
+    final acao = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Editar'),
+              onTap: () => Navigator.pop(ctx, 'editar'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy_all_outlined),
+              title: const Text('Duplicar'),
+              subtitle: const Text('Cria outra conta com os mesmos dados'),
+              onTap: () => Navigator.pop(ctx, 'duplicar'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: context.neu.danger),
+              title: Text(
+                'Excluir',
+                style: TextStyle(color: context.neu.danger),
+              ),
+              onTap: () => Navigator.pop(ctx, 'excluir'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (acao == null || !mounted) return;
+    switch (acao) {
+      case 'editar':
+        final ok = await showExpenseFormDialog(context, ref,
+            atual: widget.despesa);
+        if (ok) ref.invalidate(despesasDoMesProvider);
+      case 'duplicar':
+        // `atual` sem id de baixa: o formulário trata como NOVA conta com os
+        // campos pré-preenchidos.
+        final base = widget.despesa.copyWith(
+          id: '',
+          paidAt: null,
+          paidAmount: null,
+          paidMethod: null,
+        );
+        final ok = await showExpenseFormDialog(context, ref, atual: base);
+        if (ok) ref.invalidate(despesasDoMesProvider);
+      case 'excluir':
+        await _excluir();
+    }
+  }
+
+  Future<void> _excluir() async {
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Excluir despesa?',
+      message: '"${widget.despesa.description}" sai da lista. '
+          'Se ela já foi paga, o lançamento no caixa NÃO é desfeito — '
+          'revogue o pagamento antes se for o caso.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _ocupado = true);
+    try {
+      await ref.read(expensesRepositoryProvider).cancelar(widget.despesa.id);
+      ref.invalidate(despesasDoMesProvider);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
   Future<void> _alternarPago() async {
     setState(() => _ocupado = true);
     final repo = ref.read(expensesRepositoryProvider);
@@ -383,9 +495,15 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
       ref.invalidate(despesasDoMesProvider);
     } on AppException catch (e) {
       if (!mounted) return;
-      setState(() => _ocupado = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      // `finally`, não só no catch: o reset estava apenas no ramo de ERRO, então
+      // o caminho de SUCESSO deixava `_ocupado = true` para sempre e a linha
+      // ficava com o spinner girando — o "load infinito" ao dar baixa ou
+      // revogar. O invalidate acima recarrega a lista, mas se o Flutter reusar
+      // este State (mesma posição na lista) ele volta com o flag preso.
+      if (mounted) setState(() => _ocupado = false);
     }
   }
 
@@ -530,6 +648,14 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
               tooltip: e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
               onPressed: _alternarPago,
             ),
+          // Editar / duplicar / excluir. Botão VISÍVEL, não gesto escondido:
+          // antes não havia lugar nenhum para editar uma conta lançada, e
+          // descobrir a ação por toque longo não é descoberta, é sorte.
+          NeuIconButton(
+            icon: Icons.more_vert_rounded,
+            tooltip: 'Mais ações',
+            onPressed: _ocupado ? null : _abrirAcoes,
+          ),
         ],
       ),
     );
