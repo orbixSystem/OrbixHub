@@ -91,6 +91,15 @@ final _telas = <String, ({Widget tela, List<String> alvos})>{
     tela: const InventoryScreen(),
     alvos: ['estoque.filtros', 'estoque.lista'],
   ),
+  // FALTAM AQUI: Ficha do cliente e Veículo. Os alvos JÁ ESTÃO marcados no
+  // código (`cliente.abas`/`cliente.conteudo`, `veiculo.abas`/`veiculo.conteudo`),
+  // em cabeçalhos compartilhados pelos dois layouts — mas não estão testados.
+  //
+  // Motivo: essas telas carregam por id e o fake nasce VAZIO, então elas ficam em
+  // estado de carregamento e nenhum alvo monta. Testá-las exige semear o
+  // cliente/veículo no fake e usar o id gerado. Enquanto isso não existir, o
+  // holofote delas está marcado mas NÃO verificado — ao contrário das telas de
+  // lista acima.
 };
 
 Future<void> _abrir(WidgetTester tester, Widget tela, Size size) async {

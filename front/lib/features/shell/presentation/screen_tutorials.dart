@@ -182,12 +182,14 @@ const _clienteDetalhe = ScreenTutorial(
           'responder "quem é essa pessoa e o que já fizemos para ela".',
     ),
     CoachStep(
-      title: 'O histórico soma OS e vendas',
+      targetName: 'cliente.abas',
+      title: 'Veículos e histórico, em abas',
       text: 'Ordem de serviço E venda de balcão, em ordem cronológica. Filtrar '
           'por veículo mostra só as OS daquele carro — venda de balcão não '
           'pertence a um veículo, então ela sai do filtro.',
     ),
     CoachStep(
+      targetName: 'cliente.conteudo',
       title: 'Cada item do histórico abre o documento',
       text: 'Toque numa linha para abrir a OS (com itens e linha do tempo) ou a '
           'venda (com o que foi vendido e o que já foi recebido).',
@@ -212,6 +214,14 @@ const _veiculo = ScreenTutorial(
           'carros na mesma ficha.',
     ),
     CoachStep(
+      targetName: 'veiculo.abas',
+      title: 'Três abas: cadastro, dados da placa e serviços',
+      text: '"Dados" é o que você digitou. "Informações adicionais" traz o que a '
+          'consulta de placa encontrou. "Ordens de serviço" é o histórico DESTE '
+          'carro. As mesmas três no celular.',
+    ),
+    CoachStep(
+      targetName: 'veiculo.conteudo',
       title: 'A placa busca os dados',
       text: 'A lupa ao lado da placa traz marca, modelo e ano. Essa consulta tem '
           'cota mensal, então ela só dispara quando você pede — nunca sozinha a '

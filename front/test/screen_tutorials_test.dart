@@ -96,7 +96,18 @@ void main() {
     test('alvo nomeado usa prefixo conhecido (evita nome inventado)', () {
       // Nome errado não quebra nada em runtime (vira cartão centralizado), e é
       // exatamente por isso que precisa de teste: o erro seria silencioso.
-      const prefixos = {'shell.', 'caixa.', 'inicio.', 'os.', 'clientes.', 'estoque.', 'relatorios.'};
+      const prefixos = {
+        'shell.',
+        'caixa.',
+        'inicio.',
+        'os.',
+        'clientes.',
+        'estoque.',
+        'relatorios.',
+        // sub-telas
+        'cliente.',
+        'veiculo.',
+      };
       for (final t in todosOsTutoriais) {
         for (final s in t.steps) {
           final nome = s.targetName;
@@ -171,6 +182,29 @@ void main() {
       for (final r in ['/login', '/t/token123', '/splash']) {
         expect(tutorialForRoute(r), isNull, reason: r);
       }
+    });
+  });
+
+  group('botão de ajuda: rota sem tutorial não mostra o de outra tela', () {
+    test('rota fora do mapa devolve null (o botão some)', () {
+      // O bug: o botão era `const` e não rebuildava, então guardava o tutorial da
+      // primeira rota — numa tela sem tutorial ele oferecia o anterior. A parte
+      // testável aqui é a resolução: fora do mapa é `null`, e o widget trata
+      // `null` escondendo-se.
+      for (final r in ['/design', '/dev/ui', '/nao-existe']) {
+        expect(tutorialForRoute(r), isNull, reason: r);
+      }
+    });
+
+    test('Configurações TEM tutorial (a tela existe no mapa)', () {
+      expect(tutorialForRoute('/configuracoes')?.titulo, 'Configurações');
+    });
+
+    test('trocar de rota troca o tutorial', () {
+      final a = tutorialForRoute('/m/cashier')!.id;
+      final b = tutorialForRoute('/configuracoes')!.id;
+      final c = tutorialForRoute('/m/customers/abc/veiculo/x')!.id;
+      expect({a, b, c}.length, 3);
     });
   });
 

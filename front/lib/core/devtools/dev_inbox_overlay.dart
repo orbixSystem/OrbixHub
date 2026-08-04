@@ -227,21 +227,29 @@ class _BotaoTutorial extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rota = ref.read(routerProvider).routerDelegate.currentConfiguration
-        .uri
-        .path;
-    final tut = tutorialForRoute(rota);
-    if (tut == null) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: _CircleButton(
-        icon: Icons.help_outline_rounded,
-        label: 'Como funciona: ${tut.titulo}',
-        bg: scheme.surfaceContainerHighest,
-        fg: scheme.onSurface,
-        onTap: () => CoachMark.start(context, id: tut.id, steps: tut.steps),
-      ),
+    final delegate = ref.read(routerProvider).routerDelegate;
+    // `ListenableBuilder` no delegate: sem ele o botão guardava o tutorial da
+    // PRIMEIRA rota em que foi construído. Como o widget é `const`, o rebuild do
+    // pai não o alcançava — então numa tela sem tutorial ele continuava
+    // oferecendo o tutorial anterior, e navegar não trocava o conteúdo.
+    return ListenableBuilder(
+      listenable: delegate,
+      builder: (context, _) {
+        final tut = tutorialForRoute(delegate.currentConfiguration.uri.path);
+        // Tela sem tutorial: o botão SOME (não mostra o de outra tela).
+        if (tut == null) return const SizedBox.shrink();
+        final scheme = Theme.of(context).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: _CircleButton(
+            icon: Icons.help_outline_rounded,
+            label: 'Como funciona: ${tut.titulo}',
+            bg: scheme.surfaceContainerHighest,
+            fg: scheme.onSurface,
+            onTap: () => CoachMark.start(context, id: tut.id, steps: tut.steps),
+          ),
+        );
+      },
     );
   }
 }
