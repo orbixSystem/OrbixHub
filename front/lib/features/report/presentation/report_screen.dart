@@ -159,31 +159,43 @@ class _ReportPicker extends ConsumerWidget {
     final neu = context.neu;
     return NeuCard(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final entry in groups.entries) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
-              child: Text(
-                entry.key.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                  color: neu.inkFaint,
+      // ROLA de verdade. O rail recebe a altura inteira da área de conteúdo
+      // (`CrossAxisAlignment.stretch` na Row de fora), e a `Column` sozinha
+      // estoura quando a lista de relatórios passa da tela — foi o que aconteceu
+      // ao entrar o grupo "Despesas": faltavam 6 pixels e apareceu a faixa de
+      // overflow. O comentário na tela já PROMETIA esse scroll ("rola
+      // internamente só se houver muitos relatórios"); o widget é que não tinha.
+      //
+      // `shrinkWrap` para o card não esticar quando há poucos relatórios: sem
+      // ele, tenant com dois relatórios veria um rail vazio até o pé da tela.
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in groups.entries) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
+                child: Text(
+                  entry.key.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: neu.inkFaint,
+                  ),
                 ),
               ),
-            ),
-            for (final r in entry.value)
-              _PickerItem(
-                label: r.label,
-                selected: r.kind == selected,
-                onTap: () =>
-                    ref.read(selectedReportProvider.notifier).select(r.kind),
-              ),
+              for (final r in entry.value)
+                _PickerItem(
+                  label: r.label,
+                  selected: r.kind == selected,
+                  onTap: () =>
+                      ref.read(selectedReportProvider.notifier).select(r.kind),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
