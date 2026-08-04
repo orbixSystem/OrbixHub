@@ -16,7 +16,13 @@ T _$identity<T>(T value) => value;
 mixin _$ExpenseCategory {
 
  String get id; String get name; String get icon;/// Hex `#RRGGBB` vindo do servidor.
- String get color; String get status;
+ String get color;/// Esta categoria tem FORNECEDOR do outro lado?
+///
+/// Peças e manutenção têm; aluguel, energia e salário não. É o que decide se
+/// o cadastro de despesa oferece o campo — mostrá-lo em toda conta era ruído
+/// em quase todas. Vem do banco e não de uma lista fixa aqui porque a cliente
+/// cria as próprias categorias, e uma whitelist no app erraria todas elas.
+@JsonKey(name: 'tracks_supplier') bool get tracksSupplier; String get status;
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +35,16 @@ $ExpenseCategoryCopyWith<ExpenseCategory> get copyWith => _$ExpenseCategoryCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.tracksSupplier, tracksSupplier) || other.tracksSupplier == tracksSupplier)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,icon,color,status);
+int get hashCode => Object.hash(runtimeType,id,name,icon,color,tracksSupplier,status);
 
 @override
 String toString() {
-  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, status: $status)';
+  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, tracksSupplier: $tracksSupplier, status: $status)';
 }
 
 
@@ -49,7 +55,7 @@ abstract mixin class $ExpenseCategoryCopyWith<$Res>  {
   factory $ExpenseCategoryCopyWith(ExpenseCategory value, $Res Function(ExpenseCategory) _then) = _$ExpenseCategoryCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String icon, String color, String status
+ String id, String name, String icon, String color,@JsonKey(name: 'tracks_supplier') bool tracksSupplier, String status
 });
 
 
@@ -66,13 +72,14 @@ class _$ExpenseCategoryCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? tracksSupplier = null,Object? status = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
 as String,color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
-as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tracksSupplier: null == tracksSupplier ? _self.tracksSupplier : tracksSupplier // ignore: cast_nullable_to_non_nullable
+as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -158,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExpenseCategory() when $default != null:
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   return orElse();
 
 }
@@ -179,10 +186,10 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color,  String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseCategory():
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +206,10 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String icon,  String color,  String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String icon,  String color, @JsonKey(name: 'tracks_supplier')  bool tracksSupplier,  String status)?  $default,) {final _that = this;
 switch (_that) {
 case _ExpenseCategory() when $default != null:
-return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
+return $default(_that.id,_that.name,_that.icon,_that.color,_that.tracksSupplier,_that.status);case _:
   return null;
 
 }
@@ -214,7 +221,7 @@ return $default(_that.id,_that.name,_that.icon,_that.color,_that.status);case _:
 @JsonSerializable()
 
 class _ExpenseCategory implements ExpenseCategory {
-  const _ExpenseCategory({required this.id, this.name = '', this.icon = 'outros', this.color = '#6B7280', this.status = 'active'});
+  const _ExpenseCategory({required this.id, this.name = '', this.icon = 'outros', this.color = '#6B7280', @JsonKey(name: 'tracks_supplier') this.tracksSupplier = false, this.status = 'active'});
   factory _ExpenseCategory.fromJson(Map<String, dynamic> json) => _$ExpenseCategoryFromJson(json);
 
 @override final  String id;
@@ -222,6 +229,13 @@ class _ExpenseCategory implements ExpenseCategory {
 @override@JsonKey() final  String icon;
 /// Hex `#RRGGBB` vindo do servidor.
 @override@JsonKey() final  String color;
+/// Esta categoria tem FORNECEDOR do outro lado?
+///
+/// Peças e manutenção têm; aluguel, energia e salário não. É o que decide se
+/// o cadastro de despesa oferece o campo — mostrá-lo em toda conta era ruído
+/// em quase todas. Vem do banco e não de uma lista fixa aqui porque a cliente
+/// cria as próprias categorias, e uma whitelist no app erraria todas elas.
+@override@JsonKey(name: 'tracks_supplier') final  bool tracksSupplier;
 @override@JsonKey() final  String status;
 
 /// Create a copy of ExpenseCategory
@@ -237,16 +251,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpenseCategory&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.icon, icon) || other.icon == icon)&&(identical(other.color, color) || other.color == color)&&(identical(other.tracksSupplier, tracksSupplier) || other.tracksSupplier == tracksSupplier)&&(identical(other.status, status) || other.status == status));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,icon,color,status);
+int get hashCode => Object.hash(runtimeType,id,name,icon,color,tracksSupplier,status);
 
 @override
 String toString() {
-  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, status: $status)';
+  return 'ExpenseCategory(id: $id, name: $name, icon: $icon, color: $color, tracksSupplier: $tracksSupplier, status: $status)';
 }
 
 
@@ -257,7 +271,7 @@ abstract mixin class _$ExpenseCategoryCopyWith<$Res> implements $ExpenseCategory
   factory _$ExpenseCategoryCopyWith(_ExpenseCategory value, $Res Function(_ExpenseCategory) _then) = __$ExpenseCategoryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String icon, String color, String status
+ String id, String name, String icon, String color,@JsonKey(name: 'tracks_supplier') bool tracksSupplier, String status
 });
 
 
@@ -274,13 +288,14 @@ class __$ExpenseCategoryCopyWithImpl<$Res>
 
 /// Create a copy of ExpenseCategory
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? icon = null,Object? color = null,Object? tracksSupplier = null,Object? status = null,}) {
   return _then(_ExpenseCategory(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
 as String,color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
-as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tracksSupplier: null == tracksSupplier ? _self.tracksSupplier : tracksSupplier // ignore: cast_nullable_to_non_nullable
+as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }

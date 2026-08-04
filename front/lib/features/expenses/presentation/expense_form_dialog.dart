@@ -80,9 +80,11 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
   /// fixa), e mostrar a escolha sugeriria que muda.
   late bool _escolhendoTipo = widget.atual == null;
 
-  /// Fornecedor começa recolhido quando vazio: é opcional, e a maioria das contas
-  /// de oficina (luz, água, aluguel) não precisa dele.
-  late bool _mostrarFornecedor =
+  /// Fornecedor JÁ PREENCHIDO na conta que está sendo editada.
+  ///
+  /// Mantém a seção visível mesmo que a categoria não peça fornecedor — dado
+  /// gravado que a tela esconde é dado que ninguém consegue corrigir nem apagar.
+  late final bool _tinhaFornecedor =
       (widget.atual?.supplierName ?? widget.atual?.supplierDoc) != null;
 
   ExpenseSupplierLookup? _consultado;
@@ -90,6 +92,19 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
   String? _erroConsulta;
 
   bool get _editando => widget.atual != null;
+
+  /// Esta despesa deve pedir fornecedor?
+  ///
+  /// Sim quando a categoria escolhida diz que tem (`tracksSupplier`), ou quando a
+  /// conta em edição já tem um gravado. Sem categoria escolhida, não pede: a
+  /// pergunta ainda não tem contexto.
+  bool _pedeFornecedor(List<ExpenseCategory> categorias) {
+    if (_tinhaFornecedor) return true;
+    final id = _categoriaId;
+    if (id == null) return false;
+    return categorias.where((c) => c.id == id).firstOrNull?.tracksSupplier ??
+        false;
+  }
 
   static _Tipo _tipoDe(Expense? e) {
     if (e == null) return _Tipo.avulsa;
@@ -386,17 +401,22 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
                 ],
               ],
             ),
-            const SizedBox(height: 6),
-            _SecaoFornecedor(
-              aberta: _mostrarFornecedor,
-              onAbrir: () => setState(() => _mostrarFornecedor = true),
+            // Fornecedor SÓ nas categorias que têm um do outro lado (peças,
+            // manutenção). Em Aluguel ou Energia a pergunta não faz sentido, e
+            // antes ela aparecia em toda despesa — ruído em quase todo
+            // lançamento. Quem decide é a categoria (switch no cadastro dela),
+            // não uma lista fixa aqui: a cliente cria as próprias categorias.
+            if (_pedeFornecedor(categorias)) ...[
+              const SizedBox(height: 6),
+              _SecaoFornecedor(
               docCtrl: _docCtrl,
               nomeCtrl: _fornecedorCtrl,
               consultando: _consultando,
               consultado: _consultado,
               erro: _erroConsulta,
               onConsultar: _salvando ? null : _consultarCnpj,
-            ),
+              ),
+            ],
             const SizedBox(height: 6),
             _Secao(
               titulo: 'Observação',
@@ -656,8 +676,6 @@ class _CampoParcelas extends StatelessWidget {
 /// Fornecedor: CNPJ com consulta + nome. Recolhido quando vazio.
 class _SecaoFornecedor extends StatelessWidget {
   const _SecaoFornecedor({
-    required this.aberta,
-    required this.onAbrir,
     required this.docCtrl,
     required this.nomeCtrl,
     required this.consultando,
@@ -666,8 +684,6 @@ class _SecaoFornecedor extends StatelessWidget {
     required this.onConsultar,
   });
 
-  final bool aberta;
-  final VoidCallback onAbrir;
   final TextEditingController docCtrl;
   final TextEditingController nomeCtrl;
   final bool consultando;
@@ -678,21 +694,6 @@ class _SecaoFornecedor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    if (!aberta) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: NeuButton(
-            label: 'Adicionar fornecedor',
-            icon: Icons.storefront_outlined,
-            kind: NeuButtonKind.secondary,
-            onPressed: onAbrir,
-          ),
-        ),
-      );
-    }
-
     final situacao = consultado?.situacao?.toUpperCase();
     // Boleto de empresa BAIXADA é sinal clássico de golpe — avisar aqui é o
     // momento em que a informação serve para algo.

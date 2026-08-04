@@ -46,11 +46,17 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     required String name,
     String? icon,
     String? color,
+    bool tracksSupplier = false,
   }) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
           '/expenses/categories',
-          data: _semNulos({'name': name, 'icon': icon, 'color': color}),
+          data: _semNulos({
+            'name': name,
+            'icon': icon,
+            'color': color,
+            'tracksSupplier': tracksSupplier,
+          }),
         );
         return ExpenseCategory.fromJson(_asMap(res.data));
       });

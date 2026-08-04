@@ -1887,6 +1887,11 @@ CREATE TABLE IF NOT EXISTS expense_category (
   -- Hex #RRGGBB. Cor da CATEGORIA (identidade); não é a cor de STATUS
   -- (pago/a pagar/vencido), que é derivada e vive no tema.
   color      text NOT NULL DEFAULT '#6B7280',
+  -- 0041: esta categoria tem FORNECEDOR do outro lado? Peças e manutenção sim;
+  -- aluguel, imposto e salário não. É o que decide se o cadastro de despesa
+  -- oferece o campo — a cliente cria categorias próprias, então whitelist no app
+  -- erraria todas elas.
+  tracks_supplier boolean NOT NULL DEFAULT false,
   status     text NOT NULL DEFAULT 'active',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -2003,6 +2008,13 @@ CREATE INDEX IF NOT EXISTS idx_expense_tenant_category
   ON expense(tenant_id, category_id);
 CREATE INDEX IF NOT EXISTS idx_expense_tenant_updated
   ON expense(tenant_id, updated_at);
+
+-- 0041 — a categoria diz se tem fornecedor (pega banco já existente).
+ALTER TABLE expense_category
+  ADD COLUMN IF NOT EXISTS tracks_supplier boolean NOT NULL DEFAULT false;
+-- Backfill pela CHAVE DE ÍCONE (o nome é editável pela cliente; a chave não).
+UPDATE expense_category SET tracks_supplier = true
+ WHERE icon IN ('fornecedor','manutencao') AND tracks_supplier = false;
 
 -- 0040 — parcelas + fornecedor. Os ALTER pegam o banco JÁ EXISTENTE (o
 -- CREATE TABLE acima só vale para banco novo, e `IF NOT EXISTS` não adiciona

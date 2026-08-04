@@ -295,11 +295,17 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
 
   /// Ao finalizar a OS, se o módulo fiscal estiver ligado, o usuário puder
   /// emitir e ainda NÃO houver nota ativa, abre um modal oferecendo emitir agora.
+  ///
+  /// Com `kInvoiceEnabled = false` isto NÃO acontece. O flag estava respeitado no
+  /// botão "Emitir NF" da barra, mas faltava aqui: concluir a OS ainda abria
+  /// "Deseja emitir a nota fiscal agora?" — um passo a mais no fluxo mais usado do
+  /// sistema, oferecendo algo que o app inteiro esconde.
   Future<void> _maybeOfferInvoice(
     BuildContext context,
     WidgetRef ref,
     ServiceOrder order,
   ) async {
+    if (!kInvoiceEnabled) return;
     if (!(_hasModule(ref, 'invoice') && _has(ref, 'invoice.issue'))) return;
     try {
       final page = await ref

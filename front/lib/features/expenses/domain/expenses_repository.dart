@@ -65,5 +65,9 @@ abstract interface class ExpensesRepository {
     required String name,
     String? icon,
     String? color,
+
+    /// Esta categoria tem fornecedor do outro lado (peças, manutenção) ou não
+    /// (aluguel, imposto, salário)? Decide se o cadastro de despesa pede o campo.
+    bool tracksSupplier = false,
   });
 }

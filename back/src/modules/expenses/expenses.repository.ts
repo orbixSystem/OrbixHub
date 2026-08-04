@@ -199,7 +199,13 @@ export class ExpensesRepository {
 
   createCategory(
     tenantId: string,
-    data: { id?: string; name: string; icon: string; color: string },
+    data: {
+      id?: string;
+      name: string;
+      icon: string;
+      color: string;
+      tracks_supplier: boolean;
+    },
   ) {
     const db = this.tenant.getClient();
     return db.expense_category.create({ data: { tenant_id: tenantId, ...data } });
@@ -211,6 +217,7 @@ export class ExpensesRepository {
       name?: string;
       icon?: string;
       color?: string;
+      tracks_supplier?: boolean;
       status?: 'active' | 'disabled';
     },
   ) {
@@ -230,7 +237,12 @@ export class ExpensesRepository {
    */
   seedCategories(
     tenantId: string,
-    rows: Array<{ name: string; icon: string; color: string }>,
+    rows: Array<{
+      name: string;
+      icon: string;
+      color: string;
+      tracks_supplier: boolean;
+    }>,
   ) {
     const db = this.tenant.getClient();
     return db.expense_category.createMany({

@@ -12,6 +12,7 @@ _ExpenseCategory _$ExpenseCategoryFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String? ?? '',
       icon: json['icon'] as String? ?? 'outros',
       color: json['color'] as String? ?? '#6B7280',
+      tracksSupplier: json['tracks_supplier'] as bool? ?? false,
       status: json['status'] as String? ?? 'active',
     );
 
@@ -21,6 +22,7 @@ Map<String, dynamic> _$ExpenseCategoryToJson(_ExpenseCategory instance) =>
       'name': instance.name,
       'icon': instance.icon,
       'color': instance.color,
+      'tracks_supplier': instance.tracksSupplier,
       'status': instance.status,
     };
 

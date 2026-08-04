@@ -43,18 +43,24 @@ import {
   round2,
 } from './expenses.config';
 
-/** Categorias que todo tenant ganha no primeiro acesso ao módulo. */
+/**
+ * Categorias que todo tenant ganha no primeiro acesso ao módulo.
+ *
+ * `tracks_supplier` marca as que TÊM fornecedor do outro lado (peças, manutenção).
+ * Aluguel, imposto e salário não têm — e é isso que tira o campo "fornecedor" do
+ * caminho de quem está lançando a conta de luz.
+ */
 const CATEGORIAS_PADRAO = [
-  { name: 'Aluguel', icon: 'aluguel', color: '#F97316' },
-  { name: 'Energia', icon: 'energia', color: '#EAB308' },
-  { name: 'Água', icon: 'agua', color: '#38BDF8' },
-  { name: 'Internet', icon: 'internet', color: '#8B5CF6' },
-  { name: 'Telefone', icon: 'telefone', color: '#06B6D4' },
-  { name: 'Impostos', icon: 'impostos', color: '#EF4444' },
-  { name: 'Fornecedor', icon: 'fornecedor', color: '#10B981' },
-  { name: 'Salários', icon: 'salarios', color: '#3B82F6' },
-  { name: 'Manutenção', icon: 'manutencao', color: '#A16207' },
-  { name: 'Outros', icon: 'outros', color: '#6B7280' },
+  { name: 'Aluguel', icon: 'aluguel', color: '#F97316', tracks_supplier: false },
+  { name: 'Energia', icon: 'energia', color: '#EAB308', tracks_supplier: false },
+  { name: 'Água', icon: 'agua', color: '#38BDF8', tracks_supplier: false },
+  { name: 'Internet', icon: 'internet', color: '#8B5CF6', tracks_supplier: false },
+  { name: 'Telefone', icon: 'telefone', color: '#06B6D4', tracks_supplier: false },
+  { name: 'Impostos', icon: 'impostos', color: '#EF4444', tracks_supplier: false },
+  { name: 'Fornecedor', icon: 'fornecedor', color: '#10B981', tracks_supplier: true },
+  { name: 'Salários', icon: 'salarios', color: '#3B82F6', tracks_supplier: false },
+  { name: 'Manutenção', icon: 'manutencao', color: '#A16207', tracks_supplier: true },
+  { name: 'Outros', icon: 'outros', color: '#6B7280', tracks_supplier: false },
 ];
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
@@ -641,6 +647,7 @@ export class ExpensesService {
           name: dto.name.trim(),
           icon: dto.icon ?? 'outros',
           color: dto.color ?? '#6B7280',
+          tracks_supplier: dto.tracksSupplier ?? false,
         });
       } catch (e) {
         if (isUniqueViolation(e)) {
@@ -674,6 +681,7 @@ export class ExpensesService {
           name: dto.name?.trim(),
           icon: dto.icon,
           color: dto.color,
+          tracks_supplier: dto.tracksSupplier,
           status: dto.status,
         });
       } catch (e) {

@@ -393,12 +393,14 @@ class LocalFirstExpensesRepository extends LocalFirstBase
     required String name,
     String? icon,
     String? color,
+    bool tracksSupplier = false,
   }) async {
     if (isOnline()) {
       final criada = await inner.criarCategoria(
         name: name,
         icon: icon,
         color: color,
+        tracksSupplier: tracksSupplier,
       );
       await putRow(_categorias, criada.toJson());
       return criada;
@@ -409,12 +411,14 @@ class LocalFirstExpensesRepository extends LocalFirstBase
       'name': name.trim(),
       'icon': ?icon,
       'color': ?color,
+      'tracksSupplier': tracksSupplier,
     });
     final row = <String, dynamic>{
       'id': id,
       'name': name.trim(),
       'icon': icon ?? 'outros',
       'color': color ?? '#6B7280',
+      'tracks_supplier': tracksSupplier,
       'status': 'active',
     };
     await putRow(_categorias, row);

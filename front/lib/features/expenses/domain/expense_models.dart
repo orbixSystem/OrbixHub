@@ -62,6 +62,14 @@ abstract class ExpenseCategory with _$ExpenseCategory {
 
     /// Hex `#RRGGBB` vindo do servidor.
     @Default('#6B7280') String color,
+
+    /// Esta categoria tem FORNECEDOR do outro lado?
+    ///
+    /// Peças e manutenção têm; aluguel, energia e salário não. É o que decide se
+    /// o cadastro de despesa oferece o campo — mostrá-lo em toda conta era ruído
+    /// em quase todas. Vem do banco e não de uma lista fixa aqui porque a cliente
+    /// cria as próprias categorias, e uma whitelist no app erraria todas elas.
+    @JsonKey(name: 'tracks_supplier') @Default(false) bool tracksSupplier,
     @Default('active') String status,
   }) = _ExpenseCategory;
 

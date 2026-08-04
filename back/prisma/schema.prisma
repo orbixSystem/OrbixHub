@@ -199,6 +199,10 @@ model expense_category {
   name               String
   icon               String               @default("outros")
   color              String               @default("#6B7280")
+  /// 0041: categoria tem FORNECEDOR do outro lado? Decide se o cadastro
+  /// de despesa oferece o campo.
+  tracks_supplier Boolean @default(false)
+
   status             String               @default("active")
   created_at         DateTime             @default(now()) @db.Timestamptz(6)
   updated_at         DateTime             @default(now()) @db.Timestamptz(6)
