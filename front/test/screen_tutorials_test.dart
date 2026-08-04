@@ -36,13 +36,14 @@ void main() {
         reason: 'telas sem tutorial: ${semTutorial.join(', ')}');
   });
 
-  test('rota de detalhe herda o tutorial da área', () {
-    // Abrir uma OS específica não deve ficar sem ajuda.
-    // Compara o PREFIXO do id, não a versão: subir de `_v1` para `_v2` é
-    // evolução esperada do conteúdo e não deveria quebrar este teste.
-    expect(tutorialForRoute('/m/os/abc-123')?.id, startsWith('tut_os_'));
-    expect(
-        tutorialForRoute('/m/customers/xyz')?.id, startsWith('tut_clientes_'));
+  test('sub-tela tem tutorial próprio (não herda mais o da lista)', () {
+    // Este teste dizia o contrário: que o detalhe HERDAVA o tutorial da área.
+    // Era o comportamento antigo (casamento por prefixo) e virou o alvo da
+    // mudança — detalhe do cliente e detalhe do veículo pedem decisões
+    // diferentes da lista, então cada um tem o seu.
+    expect(tutorialForRoute('/m/os/abc-123')?.titulo, 'Ordem de serviço');
+    expect(tutorialForRoute('/m/customers/xyz')?.titulo, 'Ficha do cliente');
+    expect(tutorialForRoute('/m/customers/xyz/veiculo/v1')?.titulo, 'Veículo');
   });
 
   test('o Início TAMBÉM está no registro (ajuda padronizada)', () {
@@ -106,4 +107,71 @@ void main() {
       }
     });
   });
+  group('cobertura contra as rotas REAIS do router', () {
+    /// Rotas do shell, espelhando `app_router.dart`. Esta lista existe porque o
+    /// teste anterior derivava do MENU — e "Planos" está escondido do menu, então
+    /// o tutorial dele (registrado com o caminho errado, `/planos` em vez de
+    /// `/billing`) nunca disparava e nada acusava.
+    const rotasDoShell = <String>[
+      '/',
+      '/billing',
+      '/equipe',
+      '/configuracoes',
+      '/agenda',
+      '/agenda/horarios',
+      '/mensagens',
+      '/mensagens/abc',
+      '/m/customers',
+      '/m/customers/abc',
+      '/m/customers/abc/veiculo/xyz',
+      '/m/inventory',
+      '/m/os',
+      '/m/os/templates',
+      '/m/os/abc',
+      '/m/invoice',
+      '/m/invoice/config',
+      '/m/invoice/abc',
+      '/m/cashier',
+      '/m/report',
+    ];
+
+    test('toda rota do shell tem tutorial', () {
+      final sem = rotasDoShell.where((r) => tutorialForRoute(r) == null).toList();
+      expect(sem, isEmpty, reason: 'rotas sem tutorial: ${sem.join(', ')}');
+    });
+
+    test('sub-tela tem tutorial PRÓPRIO, não o da lista', () {
+      // O que o usuário pediu: detalhe explica o detalhe. Por prefixo puro os
+      // dois cairiam no mesmo tutorial.
+      expect(tutorialForRoute('/m/customers')!.id,
+          isNot(tutorialForRoute('/m/customers/abc')!.id));
+      expect(tutorialForRoute('/m/customers/abc')!.id,
+          isNot(tutorialForRoute('/m/customers/abc/veiculo/xyz')!.id));
+      expect(tutorialForRoute('/m/os')!.id,
+          isNot(tutorialForRoute('/m/os/abc')!.id));
+      expect(tutorialForRoute('/m/os/abc')!.id,
+          isNot(tutorialForRoute('/m/os/templates')!.id));
+      expect(tutorialForRoute('/m/invoice/abc')!.id,
+          isNot(tutorialForRoute('/m/invoice/config')!.id));
+    });
+
+    test('rota literal vence o padrão :id (templates não é uma OS)', () {
+      expect(tutorialForRoute('/m/os/templates')!.titulo, 'Modelos de OS');
+      expect(tutorialForRoute('/m/invoice/config')!.titulo,
+          'Configuração fiscal');
+      expect(tutorialForRoute('/agenda/horarios')!.titulo, 'Horários');
+    });
+
+    test('sub-rota desconhecida cai no ancestral, não fica sem ajuda', () {
+      expect(tutorialForRoute('/m/os/abc/algo-novo')?.id,
+          tutorialForRoute('/m/os/abc')!.id);
+    });
+
+    test('rota fora do shell não tem tutorial', () {
+      for (final r in ['/login', '/t/token123', '/splash']) {
+        expect(tutorialForRoute(r), isNull, reason: r);
+      }
+    });
+  });
+
 }

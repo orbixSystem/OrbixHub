@@ -33,25 +33,64 @@ class ScreenTutorial {
 
 /// Tutorial da rota, ou `null` se ela não tem um.
 ///
-/// Casa pelo PREFIXO do caminho, então rotas de detalhe (`/m/os/123`) herdam o
-/// tutorial da sua área — o mais específico primeiro.
+/// Casa por PADRÃO de rota (`:id` casa um segmento qualquer), na ordem do mapa —
+/// do mais específico para o mais genérico. Prefixo puro não servia: `/m/customers`
+/// (a lista) e `/m/customers/abc` (o detalhe) precisam de tutoriais DIFERENTES, e
+/// por prefixo os dois cairiam no mesmo.
+///
+/// O padrão sem correspondência exata cai no ancestral: `/m/os/123/qualquer`
+/// ainda recebe o tutorial da OS em vez de ficar sem ajuda.
 ScreenTutorial? tutorialForRoute(String location) {
-  for (final entry in _porPrefixo.entries) {
-    if (location == entry.key || location.startsWith('${entry.key}/')) {
-      return entry.value;
+  final partes = _segmentos(location);
+  for (final entry in _porRota.entries) {
+    if (_casa(_segmentos(entry.key), partes)) return entry.value;
+  }
+  // Nenhum padrão exato: tenta o ancestral mais próximo (sub-rota desconhecida
+  // ainda merece a ajuda da sua área).
+  for (var corte = partes.length - 1; corte > 0; corte--) {
+    final ancestral = '/${partes.take(corte).join('/')}';
+    for (final entry in _porRota.entries) {
+      if (_casa(_segmentos(entry.key), _segmentos(ancestral))) {
+        return entry.value;
+      }
     }
   }
   return null;
 }
 
-/// Todos os tutoriais (para uma futura tela de "central de ajuda").
-List<ScreenTutorial> get todosOsTutoriais => _porPrefixo.values.toList();
+List<String> _segmentos(String path) =>
+    path.split('/').where((p) => p.isNotEmpty).toList();
 
-// Ordem importa: prefixos mais específicos vêm antes.
-final Map<String, ScreenTutorial> _porPrefixo = {
+/// `padrao` casa `alvo`? Segmento `:algo` aceita qualquer valor.
+bool _casa(List<String> padrao, List<String> alvo) {
+  if (padrao.length != alvo.length) return false;
+  for (var i = 0; i < padrao.length; i++) {
+    if (padrao[i].startsWith(':')) continue;
+    if (padrao[i] != alvo[i]) return false;
+  }
+  return true;
+}
+
+/// Todos os tutoriais (para uma futura tela de "central de ajuda").
+List<ScreenTutorial> get todosOsTutoriais => _porRota.values.toSet().toList();
+
+/// Ordem importa: padrões mais ESPECÍFICOS primeiro (o primeiro que casa vence).
+/// As chaves espelham `app_router.dart` — o teste `screen_tutorials_test` compara
+/// com a lista real de rotas do shell.
+final Map<String, ScreenTutorial> _porRota = {
   // Módulos contratáveis vivem em `/m/<chave>` (ver `gatedNavItems`); as telas
   // de núcleo têm caminho próprio em PT-BR. Chaves conferidas contra o menu real
   // — o teste `screen_tutorials_test` falha se alguma tela ficar sem tutorial.
+  // --- sub-telas (antes das listas, senão a lista venceria) ---
+  '/m/customers/:id/veiculo/:subjectId': _veiculo,
+  '/m/customers/:id': _clienteDetalhe,
+  '/m/os/templates': _templates,
+  '/m/os/:id': _osDetalhe,
+  '/m/invoice/config': _fiscalConfig,
+  '/m/invoice/:id': _notaDetalhe,
+  '/agenda/horarios': _horarios,
+  '/mensagens/:id': _conversa,
+  // --- telas de lista / raiz ---
   '/m/cashier': _caixa,
   '/m/os': _os,
   '/m/customers': _clientes,
@@ -61,7 +100,10 @@ final Map<String, ScreenTutorial> _porPrefixo = {
   '/agenda': _agenda,
   '/mensagens': _mensagens,
   '/equipe': _equipe,
-  '/planos': _planos,
+  // A rota é `/billing` — "Planos" só está ESCONDIDO do menu. Registrar como
+  // `/planos` (como eu havia feito) fazia este tutorial nunca disparar, e o teste
+  // derivado do menu não pegava justamente porque o item não está no menu.
+  '/billing': _planos,
   '/configuracoes': _config,
   '/': _inicio,
 };
@@ -122,6 +164,205 @@ const _fiscal = ScreenTutorial(
       title: 'Depois de emitida, o valor não muda',
       text: 'Com nota emitida o app recusa alterar itens ou total: a nota '
           'declarada passaria a divergir. Para corrigir, cancele e refaça.',
+    ),
+  ],
+);
+
+
+// ============================ SUB-TELAS ============================
+// Tutoriais próprios porque cada uma pede uma decisão diferente da sua lista.
+
+const _clienteDetalhe = ScreenTutorial(
+  id: 'tut_cliente_detalhe_v1',
+  titulo: 'Ficha do cliente',
+  steps: [
+    CoachStep(
+      title: 'Tudo sobre este cliente num lugar',
+      text: 'Dados de contato, os veículos dele e o histórico. É a tela para '
+          'responder "quem é essa pessoa e o que já fizemos para ela".',
+    ),
+    CoachStep(
+      title: 'O histórico soma OS e vendas',
+      text: 'Ordem de serviço E venda de balcão, em ordem cronológica. Filtrar '
+          'por veículo mostra só as OS daquele carro — venda de balcão não '
+          'pertence a um veículo, então ela sai do filtro.',
+    ),
+    CoachStep(
+      title: 'Cada item do histórico abre o documento',
+      text: 'Toque numa linha para abrir a OS (com itens e linha do tempo) ou a '
+          'venda (com o que foi vendido e o que já foi recebido).',
+    ),
+    CoachStep(
+      title: 'Arquivar não apaga',
+      text: 'O cliente sai das listas mas continua nas OS e vendas antigas. É o '
+          'que permite consultar um serviço de dois anos atrás sem manter o '
+          'cadastro ativo.',
+    ),
+  ],
+);
+
+const _veiculo = ScreenTutorial(
+  id: 'tut_veiculo_v1',
+  titulo: 'Veículo',
+  steps: [
+    CoachStep(
+      title: 'O histórico é do CARRO, não do dono',
+      text: 'Aqui ficam só as ordens de serviço deste veículo. É o que responde '
+          '"quando trocamos a correia dele?" mesmo que a família tenha três '
+          'carros na mesma ficha.',
+    ),
+    CoachStep(
+      title: 'A placa busca os dados',
+      text: 'A lupa ao lado da placa traz marca, modelo e ano. Essa consulta tem '
+          'cota mensal, então ela só dispara quando você pede — nunca sozinha a '
+          'cada tecla.',
+    ),
+    CoachStep(
+      title: 'Campos extras dependem do seu ramo',
+      text: 'Os campos do veículo são configuráveis em Configurações › Clientes: '
+          'o sistema serve oficina, mas também petshop ou clínica — e cada ramo '
+          'chama esse cadastro de outra coisa.',
+    ),
+    CoachStep(
+      title: 'A foto ajuda na identificação',
+      text: 'Útil para não confundir dois carros iguais no pátio. Enviar foto '
+          'exige conexão; o resto da ficha funciona offline.',
+    ),
+  ],
+);
+
+const _osDetalhe = ScreenTutorial(
+  id: 'tut_os_detalhe_v1',
+  titulo: 'Ordem de serviço',
+  steps: [
+    CoachStep(
+      title: 'Esta é a OS por dentro',
+      text: 'Itens (o orçamento), fotos, linha do tempo e pagamento. Tudo que '
+          'aconteceu com este trabalho está aqui.',
+    ),
+    CoachStep(
+      title: 'Itens mudam o total na hora',
+      text: 'Adicionar ou remover recalcula o total no SERVIDOR — a tela nunca '
+          'inventa valor. Peça do estoque baixa quando a OS avança e volta se '
+          'você cancelar.',
+    ),
+    CoachStep(
+      title: 'A linha do tempo é a prova',
+      text: 'Cada mudança de status e cada observação ficam registradas com '
+          'autor e hora. É o que sustenta a conversa com o cliente quando ele '
+          'pergunta o que foi feito.',
+    ),
+    CoachStep(
+      title: 'Pagamento vem do Caixa',
+      text: 'A tag muda sozinha conforme o caixa recebe, inclusive parcial. O '
+          'que faltar aparece no Fiado no nome do cliente — a OS não guarda '
+          'valor pago.',
+    ),
+    CoachStep(
+      title: 'Link público e PDF',
+      text: 'O link mostra o andamento ao cliente sem login. O PDF é a OS '
+          'impressa, com os dados da sua empresa (preenchidos em Configurações).',
+    ),
+  ],
+);
+
+const _templates = ScreenTutorial(
+  id: 'tut_os_templates_v1',
+  titulo: 'Modelos de OS',
+  steps: [
+    CoachStep(
+      title: 'Modelo é um pacote de itens',
+      text: 'Serviços que você repete — revisão, troca de óleo — viram um modelo '
+          'com os itens já dentro. Aplicar no lugar de digitar tudo de novo.',
+    ),
+    CoachStep(
+      title: 'Aplicar SOMA à OS',
+      text: 'O modelo acrescenta os itens; não substitui o que já está lá. Dá '
+          'para aplicar dois modelos e ajustar quantidades depois.',
+    ),
+    CoachStep(
+      title: 'Preço vem do cadastro na hora de aplicar',
+      text: 'O modelo guarda quais itens, não quanto custam. Assim um reajuste no '
+          'estoque não deixa modelos antigos cobrando preço velho.',
+    ),
+  ],
+);
+
+const _notaDetalhe = ScreenTutorial(
+  id: 'tut_nota_detalhe_v1',
+  titulo: 'Nota fiscal',
+  steps: [
+    CoachStep(
+      title: 'A nota espelha a venda ou OS',
+      text: 'Itens e valores vêm do documento de origem, não são digitados aqui '
+          '— é o que impede a nota de divergir do que foi cobrado.',
+    ),
+    CoachStep(
+      title: 'O status é do órgão emissor',
+      text: 'Processando, autorizada ou rejeitada: quem decide é o órgão, não o '
+          'app. Rejeição mostra o motivo para você corrigir a origem e emitir de '
+          'novo.',
+    ),
+    CoachStep(
+      title: 'Emitida trava o valor',
+      text: 'Depois de autorizada, o app recusa alterar itens ou total da origem: '
+          'a nota declarada passaria a divergir. Para corrigir, cancele e refaça.',
+    ),
+  ],
+);
+
+const _fiscalConfig = ScreenTutorial(
+  id: 'tut_fiscal_config_v1',
+  titulo: 'Configuração fiscal',
+  steps: [
+    CoachStep(
+      title: 'Sem isto a emissão não funciona',
+      text: 'Dados da empresa, regime e série são o que o órgão exige para '
+          'aceitar a nota. Errar aqui aparece como rejeição na emissão.',
+    ),
+    CoachStep(
+      title: 'Certificado é dado sensível',
+      text: 'Ele fica guardado no servidor, nunca no aparelho, e é usado só para '
+          'assinar a nota. Por isso esta tela exige conexão e permissão de gestão.',
+    ),
+  ],
+);
+
+const _horarios = ScreenTutorial(
+  id: 'tut_horarios_v1',
+  titulo: 'Horários',
+  steps: [
+    CoachStep(
+      title: 'Isto define a capacidade da agenda',
+      text: 'Os horários daqui são o que a Agenda considera aberto. Se um dia '
+          'aparece fechado sem motivo, o ajuste é nesta tela.',
+    ),
+    CoachStep(
+      title: 'Dia fechado não recebe agendamento',
+      text: 'Deixe o dia sem intervalo para bloqueá-lo. É assim que domingo e '
+          'feriado saem da agenda sem você precisar recusar um por um.',
+    ),
+  ],
+);
+
+const _conversa = ScreenTutorial(
+  id: 'tut_conversa_v1',
+  titulo: 'Conversa',
+  steps: [
+    CoachStep(
+      title: 'Uma conversa por ordem de serviço',
+      text: 'O fio é da OS, então a dúvida sobre um carro não se mistura com a '
+          'de outro — e quem assumir o atendimento depois lê o contexto inteiro.',
+    ),
+    CoachStep(
+      title: 'O cliente responde pelo link',
+      text: 'Ele usa o link público de acompanhamento, sem instalar nada nem '
+          'criar senha. As mensagens chegam aqui em tempo real.',
+    ),
+    CoachStep(
+      title: 'Ler funciona offline; enviar, não',
+      text: 'O histórico fica no aparelho para consulta sem internet. Enviar '
+          'mensagem precisa de conexão — ela não é enfileirada.',
     ),
   ],
 );
