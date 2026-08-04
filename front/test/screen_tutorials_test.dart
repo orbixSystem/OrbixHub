@@ -38,8 +38,11 @@ void main() {
 
   test('rota de detalhe herda o tutorial da área', () {
     // Abrir uma OS específica não deve ficar sem ajuda.
-    expect(tutorialForRoute('/m/os/abc-123')?.id, 'tut_os_v1');
-    expect(tutorialForRoute('/m/customers/xyz')?.id, 'tut_clientes_v1');
+    // Compara o PREFIXO do id, não a versão: subir de `_v1` para `_v2` é
+    // evolução esperada do conteúdo e não deveria quebrar este teste.
+    expect(tutorialForRoute('/m/os/abc-123')?.id, startsWith('tut_os_'));
+    expect(
+        tutorialForRoute('/m/customers/xyz')?.id, startsWith('tut_clientes_'));
   });
 
   test('o Início TAMBÉM está no registro (ajuda padronizada)', () {
@@ -92,7 +95,7 @@ void main() {
     test('alvo nomeado usa prefixo conhecido (evita nome inventado)', () {
       // Nome errado não quebra nada em runtime (vira cartão centralizado), e é
       // exatamente por isso que precisa de teste: o erro seria silencioso.
-      const prefixos = {'shell.', 'caixa.', 'inicio.', 'os.', 'clientes.', 'estoque.'};
+      const prefixos = {'shell.', 'caixa.', 'inicio.', 'os.', 'clientes.', 'estoque.', 'relatorios.'};
       for (final t in todosOsTutoriais) {
         for (final s in t.steps) {
           final nome = s.targetName;

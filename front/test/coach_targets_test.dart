@@ -11,6 +11,14 @@ import 'package:orbixhub_front/features/cashier/data/fake_cashier_repository.dar
 import 'package:orbixhub_front/features/cashier/presentation/cashier_providers.dart';
 import 'package:orbixhub_front/features/cashier/presentation/cashier_screen.dart';
 import 'package:orbixhub_front/features/sale/data/fake_sale_repository.dart';
+import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
+import 'package:orbixhub_front/features/customers/presentation/customers_screen.dart';
+import 'package:orbixhub_front/features/inventory/data/fake_inventory_repository.dart';
+import 'package:orbixhub_front/features/inventory/presentation/inventory_providers.dart';
+import 'package:orbixhub_front/features/inventory/presentation/inventory_screen.dart';
+import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
+import 'package:orbixhub_front/features/os/presentation/os_list_screen.dart';
+import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
 import 'package:orbixhub_front/features/sale/presentation/sale_providers.dart';
 
 import 'support/online_conn.dart';
@@ -70,6 +78,40 @@ Future<void> _abrirCaixa(WidgetTester tester, Size size) async {
 /// Todo alvo que o tutorial do Caixa aponta.
 const _alvos = ['caixa.abas', 'caixa.acoes', 'caixa.ultimos'];
 
+
+/// Telas que já têm holofote, com seus alvos. Cada uma é montada nos DOIS
+/// tamanhos — é a garantia de que o tutorial não perde o destaque no celular.
+final _telas = <String, ({Widget tela, List<String> alvos})>{
+  'OS': (tela: const OsListScreen(), alvos: ['os.filtros', 'os.lista']),
+  'Clientes': (
+    tela: const CustomersScreen(),
+    alvos: ['clientes.filtros', 'clientes.lista'],
+  ),
+  'Estoque': (
+    tela: const InventoryScreen(),
+    alvos: ['estoque.filtros', 'estoque.lista'],
+  ),
+};
+
+Future<void> _abrir(WidgetTester tester, Widget tela, Size size) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      onlineConnOverride,
+      sessionControllerProvider.overrideWith(_Dono.new),
+      osRepositoryProvider.overrideWithValue(FakeOsRepository()),
+      customersRepositoryProvider.overrideWithValue(FakeCustomersRepository()),
+      inventoryRepositoryProvider.overrideWithValue(FakeInventoryRepository()),
+      saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
+    ],
+    child: MaterialApp(theme: AppTheme.light(), home: tela),
+  ));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('alvos do Caixa existem no DESKTOP', (tester) async {
     await _abrirCaixa(tester, const Size(1400, 1000));
@@ -84,6 +126,21 @@ void main() {
       expect(CoachTargets.live(nome), isNotNull, reason: 'alvo $nome ausente');
     }
   });
+
+  for (final entry in _telas.entries) {
+    for (final caso in const [
+      ('DESKTOP', Size(1400, 1000)),
+      ('CELULAR', Size(390, 844)),
+    ]) {
+      testWidgets('alvos de ${entry.key} existem no ${caso.$1}', (tester) async {
+        await _abrir(tester, entry.value.tela, caso.$2);
+        for (final nome in entry.value.alvos) {
+          expect(CoachTargets.live(nome), isNotNull,
+              reason: '${entry.key}: alvo $nome ausente no ${caso.$1}');
+        }
+      });
+    }
+  }
 
   testWidgets('o alvo aponta um widget com tamanho real (não um ponto)',
       (tester) async {

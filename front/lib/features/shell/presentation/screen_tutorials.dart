@@ -183,46 +183,74 @@ const _caixa = ScreenTutorial(
 );
 
 const _os = ScreenTutorial(
-  id: 'tut_os_v1',
+  id: 'tut_os_v2',
   titulo: 'Ordens de serviço',
   steps: [
     CoachStep(
-      title: 'A OS é o registro do trabalho',
-      text: 'Ela guarda o que foi feito, por quem, em qual veículo e quanto '
-          'custou. Cliente e veículo são opcionais no começo: dá para abrir a OS '
-          'primeiro e completar depois, sem travar o atendimento.',
+      targetName: 'os.filtros',
+      title: 'Achar a OS certa',
+      text: 'A busca aceita número OU nome do cliente. Os chips filtram por '
+          'situação (aberta, em execução, concluída) e a ordenação muda o topo da '
+          'lista. No celular a busca fica em cima e os chips embaixo; no desktop, '
+          'na mesma linha — os mesmos filtros.',
     ),
     CoachStep(
-      title: 'Itens são o orçamento',
-      text: 'Peça do estoque puxa nome e preço do cadastro e dá baixa quando a '
-          'OS avança; serviço é digitado. O total é sempre recalculado no '
-          'servidor — não há como o valor da tela discordar do que foi cobrado.',
+      targetName: 'os.lista',
+      title: 'Cada linha é um trabalho',
+      text: 'Mostra número, cliente, veículo, situação e a tag de pagamento — '
+          'que vem do CAIXA, não da OS (é por isso que ela muda sozinha quando '
+          'você recebe). Toque para abrir e ver itens, fotos e a linha do tempo.',
     ),
     CoachStep(
-      title: 'O status conta a história',
-      text: 'Cada mudança de status entra na linha do tempo com autor e hora. É '
-          'isso que responde "desde quando esse carro está aqui?" sem ninguém '
-          'precisar lembrar.',
+      title: 'Abrir agora, completar depois',
+      text: 'Cliente e veículo são opcionais no começo: dá para registrar o '
+          'serviço com o carro já no elevador e completar o cadastro depois, sem '
+          'travar o atendimento.',
+    ),
+    CoachStep(
+      title: 'Itens do estoque baixam sozinhos',
+      text: 'Peça vinculada ao estoque sai do saldo quando a OS avança, e volta '
+          'se você cancelar. Serviço (mão de obra) entra só pelo preço. Não dê '
+          'baixa manual: seria descontar duas vezes.',
+    ),
+    CoachStep(
+      title: 'O status é o histórico',
+      text: 'Cada mudança entra na linha do tempo com autor e hora. É isso que '
+          'responde "desde quando esse carro está aqui?" sem depender da memória '
+          'de ninguém.',
     ),
     CoachStep(
       title: 'O cliente acompanha por link',
-      text: 'Cada OS tem um link público que mostra o andamento sem exigir '
-          'login nem revelar seus dados internos. Copie e mande para o cliente '
-          'em vez de responder "e o meu carro?" no telefone.',
+      text: 'Cada OS tem um link público que mostra o andamento sem login e sem '
+          'expor seus dados internos. Mandar o link substitui o "e o meu carro?" '
+          'no telefone.',
     ),
     CoachStep(
       title: 'Receber é no Caixa',
-      text: 'A OS não guarda o valor pago: quem sabe disso é o caixa. Use '
-          '"Receber OS" e o pagamento aparece na OS automaticamente, inclusive '
-          'parcial — o que faltar vai para o Fiado.',
+      text: 'A OS não guarda quanto foi pago — quem sabe isso é o caixa. Use '
+          '"Receber OS" lá; aceita valor parcial, e o que faltar aparece no Fiado '
+          'no nome do cliente.',
     ),
   ],
 );
 
 const _clientes = ScreenTutorial(
-  id: 'tut_clientes_v1',
+  id: 'tut_clientes_v2',
   titulo: 'Clientes',
   steps: [
+    CoachStep(
+      targetName: 'clientes.filtros',
+      title: 'Buscar por nome, documento ou telefone',
+      text: 'A busca varre os três — útil quando o cliente liga e você só tem o '
+          'número dele. Também dá para ver os arquivados, que saem da lista mas '
+          'continuam no histórico. No celular a busca fica acima dos filtros.',
+    ),
+    CoachStep(
+      targetName: 'clientes.lista',
+      title: 'Cada linha é um cliente',
+      text: 'Toque para abrir a ficha: dados, veículos e o histórico completo — '
+          'ordens de serviço E vendas de balcão, em ordem cronológica.',
+    ),
     CoachStep(
       title: 'Cliente e veículo são coisas diferentes',
       text: 'O cliente é a pessoa ou empresa; o veículo pertence a ele. Um '
@@ -257,9 +285,23 @@ const _clientes = ScreenTutorial(
 );
 
 const _estoque = ScreenTutorial(
-  id: 'tut_estoque_v1',
+  id: 'tut_estoque_v2',
   titulo: 'Estoque',
   steps: [
+    CoachStep(
+      targetName: 'estoque.filtros',
+      title: 'Buscar e filtrar o catálogo',
+      text: 'A busca aceita nome e código. Os filtros separam produto de serviço '
+          'e mostram o que está ACABANDO (abaixo do estoque mínimo) — é por onde '
+          'se monta a lista de compras.',
+    ),
+    CoachStep(
+      targetName: 'estoque.lista',
+      title: 'Cada linha é um item do catálogo',
+      text: 'Mostra saldo atual e preço de venda. Toque para abrir e ver o '
+          'DIÁRIO do item: cada entrada, saída e ajuste, com a origem. É por ele '
+          'que se descobre por que o saldo não fecha.',
+    ),
     CoachStep(
       title: 'Produto tem saldo; serviço não',
       text: 'Só produto controla quantidade. Serviço (mão de obra) entra em OS e '
