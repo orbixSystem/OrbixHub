@@ -59,7 +59,9 @@ void main() {
       expect(ids.toSet().length, ids.length);
       for (final id in ids) {
         expect(id, startsWith('tut_'));
-        expect(id, endsWith('_v1'));
+        // Versionado: subir de `_v1` para `_v2` é o jeito de REMOSTRAR um
+        // tutorial que mudou de conteúdo a quem já o tinha visto.
+        expect(id, matches(RegExp(r'_v\d+$')), reason: id);
       }
     });
 

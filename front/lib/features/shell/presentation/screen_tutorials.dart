@@ -127,39 +127,57 @@ const _fiscal = ScreenTutorial(
 );
 
 const _caixa = ScreenTutorial(
-  id: 'tut_caixa_v1',
+  id: 'tut_caixa_v2',
   titulo: 'Caixa',
   steps: [
     CoachStep(
       targetName: 'caixa.abas',
       title: 'Três abas, três perguntas',
-      text: '"Caixa do dia" é onde você opera — vender, receber, lançar despesa. '
-          '"Histórico" responde o que aconteceu num período. "Fiado" mostra quem '
-          'está devendo e quanto.',
+      text: '"Caixa do dia" é onde você opera. "Histórico" responde o que '
+          'aconteceu num período, com filtros. "Fiado" mostra quem está devendo. '
+          'No celular elas ficam aqui do mesmo jeito — só mais estreitas.',
     ),
     CoachStep(
-      title: 'O valor recebido decide tudo',
-      text: 'Na venda, você digita quanto o cliente entregou. Igual ao total = '
-          'paga. Menos que o total = o resto vira FIADO, e o app confirma antes. '
-          'Mais que o total, em dinheiro = troco, e o caixa registra só o total.',
+      targetName: 'caixa.acoes',
+      title: 'As três ações do dia',
+      text: '"Venda avulsa" abre o balcão completo (itens, desconto, '
+          'recebimento). "Receber OS" recebe de uma ordem já aberta, inclusive '
+          'parcial. "Despesa / sangria" registra saída. No desktop ficam em até '
+          'três colunas; no celular, duas — os mesmos botões.',
     ),
     CoachStep(
-      title: 'Fiado não é um cadastro à parte',
-      text: 'Toda venda ou OS com saldo aberto aparece sozinha na aba Fiado, '
-          'agrupada por cliente. Para receber depois, é só lançar o valor ali — '
-          'aceita pagamento parcial quantas vezes precisar.',
+      targetName: 'caixa.ultimos',
+      title: 'Últimos lançamentos: confirmação, não extrato',
+      text: 'São as 5 últimas linhas, só para você confirmar que o que acabou de '
+          'lançar entrou. O extrato completo do período é a aba Histórico — '
+          '"Ver tudo" leva até lá. Linha de VENDA abre o detalhe dela (toque nela); '
+          'despesa e sangria abrem o menu de ações nos três pontinhos.',
     ),
     CoachStep(
-      title: 'Corrigir sem apagar',
-      text: 'Um livro caixa não reescreve dinheiro. Descrição e categoria você '
-          'edita direto; mudar o VALOR estorna o lançamento errado e cria o '
-          'certo, e os dois ficam no histórico. É assim que o caixa fecha.',
+      title: 'O valor recebido decide se é fiado',
+      text: 'Na venda avulsa você digita quanto o cliente entregou. Igual ao '
+          'total = paga. MENOS que o total = o resto vira fiado, e o app pede '
+          'confirmação antes. Mais que o total, em dinheiro = troco, e o caixa '
+          'registra só o total (o troco não é receita).',
+    ),
+    CoachStep(
+      title: 'Fiado se resolve na aba Fiado',
+      text: 'Toda venda ou OS com saldo aberto aparece lá sozinha, agrupada por '
+          'cliente, com quanto cada um deve e de quais serviços. Receber é '
+          'lançar o valor ali — aceita parcial quantas vezes precisar.',
+    ),
+    CoachStep(
+      title: 'Corrigir não apaga',
+      text: 'Descrição e categoria você edita direto. Mudar o VALOR estorna o '
+          'lançamento errado e cria o certo: os dois ficam no histórico, o '
+          'estornado riscado. É o que faz o caixa fechar e o que impede alguém '
+          'de reescrever dinheiro sem deixar rastro.',
     ),
     CoachStep(
       title: 'Abrir e fechar caixa é opcional',
       text: 'Essa cerimônia serve para conferir dinheiro na GAVETA. Se você '
           'recebe por Pix e cartão, ou opera sozinho, deixe desligada em '
-          'Configurações › Caixa — e o dia passa a virar por data, sozinho.',
+          'Configurações › Caixa: aí o dia vira por data, à meia-noite, sozinho.',
     ),
   ],
 );

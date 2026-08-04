@@ -314,7 +314,9 @@ class _FreeBody extends ConsumerWidget {
         // AÇÕES em grid: são o que se vem fazer nesta tela, então merecem o
         // espaço e um alvo de toque grande — não uma fileira de botões finos.
         if (canWrite || canSale || canManage)
-          _AcoesGrid(
+          CoachTarget(
+            'caixa.acoes',
+            child: _AcoesGrid(
             acoes: [
               if (canSale)
                 _Acao(
@@ -343,7 +345,8 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'despesa'),
                 ),
-            ],
+              ],
+            ),
           ),
         const SizedBox(height: 24),
         // Lista CURTA, de confirmação: "o que acabei de lançar entrou?". O
@@ -367,11 +370,14 @@ class _FreeBody extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         Expanded(
-          child: _ExtractList(
-            entries: state.entries,
-            canManage: canManage,
-            salesById: state.salesById,
-            limite: 5,
+          child: CoachTarget(
+            'caixa.ultimos',
+            child: _ExtractList(
+              entries: state.entries,
+              canManage: canManage,
+              salesById: state.salesById,
+              limite: 5,
+            ),
           ),
         ),
       ],
