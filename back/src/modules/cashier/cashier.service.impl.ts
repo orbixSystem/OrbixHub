@@ -626,6 +626,7 @@ export class CashierServiceImpl extends CashierService {
       description: string;
       deviceId?: string | null;
       entryId?: string;
+      originId?: string;
     },
   ): Promise<{ id: string }> {
     const config = await this.getConfig(user.tenantId);
@@ -661,11 +662,16 @@ export class CashierServiceImpl extends CashierService {
           amount: round2(input.amount),
           method,
           category: 'despesa',
-          // Despesa não aponta venda: o vínculo com a conta a pagar vive do
-          // outro lado (`expense.cash_entry_id`), para o caixa não precisar
-          // conhecer o módulo de despesas.
-          sale_kind: null,
-          sale_id: null,
+          // Origem = a despesa que gerou a saída. Antes ia NULA, e o vínculo
+          // existia só no sentido despesa → lançamento: o extrato mostrava
+          // "Aluguel" sem caminho de volta para a conta.
+          //
+          // Guardar a tag não fere a regra 1 — `sale_kind` já carrega `'os'`, de
+          // outro módulo, e o caixa segue sem saber o que uma despesa É. E é o que
+          // faz o clique funcionar OFFLINE: o espelho local do lançamento traz
+          // `sale_kind`, enquanto buscar por `cash_entry_id` exigiria rede.
+          sale_kind: input.originId ? 'expense' : null,
+          sale_id: input.originId ?? null,
           description: input.description.trim() || null,
           created_by: user.userId,
         });

@@ -1508,7 +1508,10 @@ CREATE TABLE IF NOT EXISTS cash_entry (
   CONSTRAINT cash_entry_amount_chk    CHECK (amount > 0),
   CONSTRAINT cash_entry_method_chk    CHECK (method IN ('pix','dinheiro','cartao_credito','cartao_debito','outro')),
   CONSTRAINT cash_entry_category_chk  CHECK (category IN ('os_payment','venda_avulsa','despesa','sangria','suprimento')),
-  CONSTRAINT cash_entry_sale_kind_chk CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale'))
+  -- 'expense' entra na 0040: a baixa de uma conta a pagar marca a origem para o
+  -- clique no lançamento abrir a despesa. É TAG de origem (como 'os', que também
+  -- é de outro módulo) — o caixa nunca lê a tabela alheia.
+  CONSTRAINT cash_entry_sale_kind_chk CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale','expense'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_cash_entry_tenant_session  ON cash_entry(tenant_id, cash_session_id);
@@ -1965,6 +1968,16 @@ CREATE TABLE IF NOT EXISTS expense (
   -- NUNCA lê/escreve `cash_entry`; quem lança é o service público do caixa.
   cash_entry_id uuid,
   notes         text,
+  -- Parcelamento (0040): uma dívida, N vencimentos. NÃO é recorrência — a regra é
+  -- aberta e repete a MESMA conta; a parcela é uma FATIA de um total conhecido.
+  installment_no       smallint,
+  installment_total    smallint,
+  installment_group_id uuid,
+  -- Fornecedor (0040): SNAPSHOT de quem cobrou, não FK para cadastro (que é
+  -- módulo próprio, no backlog). Mesmo padrão da OS (regra 2). Só dígitos:
+  -- 14 = CNPJ, 11 = CPF do autônomo.
+  supplier_name text,
+  supplier_doc  text,
   status        text NOT NULL DEFAULT 'active',
   created_by    uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -1990,6 +2003,54 @@ CREATE INDEX IF NOT EXISTS idx_expense_tenant_category
   ON expense(tenant_id, category_id);
 CREATE INDEX IF NOT EXISTS idx_expense_tenant_updated
   ON expense(tenant_id, updated_at);
+
+-- 0040 — parcelas + fornecedor. Os ALTER pegam o banco JÁ EXISTENTE (o
+-- CREATE TABLE acima só vale para banco novo, e `IF NOT EXISTS` não adiciona
+-- coluna a tabela que já está lá).
+ALTER TABLE expense ADD COLUMN IF NOT EXISTS installment_no       smallint;
+ALTER TABLE expense ADD COLUMN IF NOT EXISTS installment_total    smallint;
+ALTER TABLE expense ADD COLUMN IF NOT EXISTS installment_group_id uuid;
+ALTER TABLE expense ADD COLUMN IF NOT EXISTS supplier_name        text;
+ALTER TABLE expense ADD COLUMN IF NOT EXISTS supplier_doc         text;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expense_installment_chk') THEN
+    ALTER TABLE expense ADD CONSTRAINT expense_installment_chk CHECK (
+      (installment_no IS NULL AND installment_total IS NULL AND installment_group_id IS NULL)
+      OR (
+        installment_no IS NOT NULL AND installment_total IS NOT NULL
+        AND installment_group_id IS NOT NULL
+        AND installment_total BETWEEN 2 AND 48
+        AND installment_no BETWEEN 1 AND installment_total
+      )
+    );
+  END IF;
+  -- Avulsa XOR fixa XOR parcelada: deixar a exclusão só na UI permitiria criar
+  -- pelo replay do sync uma conta que é as duas coisas.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expense_kind_chk') THEN
+    ALTER TABLE expense ADD CONSTRAINT expense_kind_chk
+      CHECK (recurrence_id IS NULL OR installment_group_id IS NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expense_supplier_doc_chk') THEN
+    ALTER TABLE expense ADD CONSTRAINT expense_supplier_doc_chk
+      CHECK (supplier_doc IS NULL OR supplier_doc ~ '^[0-9]{11}$|^[0-9]{14}$');
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_expense_tenant_installment_group
+  ON expense(tenant_id, installment_group_id)
+  WHERE installment_group_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_expense_tenant_supplier
+  ON expense(tenant_id, supplier_doc)
+  WHERE supplier_doc IS NOT NULL;
+
+-- Alarga o CHECK do caixa para aceitar a origem 'expense' em banco já existente
+-- (o CREATE TABLE do cash_entry acima já nasce com ela). Relaxar constraint não
+-- invalida linha nenhuma.
+ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_sale_kind_chk;
+ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_sale_kind_chk
+  CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale','expense'));
 
 DO $$
 DECLARE t text;

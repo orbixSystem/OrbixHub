@@ -29,7 +29,14 @@ export const ENTRY_CATEGORIES = [
 export type EntryCategory = (typeof ENTRY_CATEGORIES)[number];
 
 export type EntryDirection = 'in' | 'out';
-export type SaleKind = 'os' | 'sale';
+/**
+ * ORIGEM do lançamento (o nome ficou histórico: nasceu só para venda).
+ *
+ * `'expense'` entra na 0040: a baixa de uma conta a pagar marca a origem para o
+ * clique no extrato abrir a despesa. São TAGS opacas — o caixa não sabe o que uma
+ * OS ou uma despesa é, e nunca lê a tabela desses módulos (regra 1).
+ */
+export type SaleKind = 'os' | 'sale' | 'expense';
 export type SessionStatus = 'open' | 'closed';
 
 /**

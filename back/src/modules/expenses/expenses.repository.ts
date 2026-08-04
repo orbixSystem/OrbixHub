@@ -28,6 +28,12 @@ export interface NewExpenseData {
   occurrence_on: Date | null;
   notes: string | null;
   created_by: string;
+  /** Parcelamento — as três juntas ou nenhuma (CHECK `expense_installment_chk`). */
+  installment_no?: number | null;
+  installment_total?: number | null;
+  installment_group_id?: string | null;
+  supplier_name?: string | null;
+  supplier_doc?: string | null;
 }
 
 export interface ExpensePatch {
@@ -37,6 +43,8 @@ export interface ExpensePatch {
   category_id?: string | null;
   notes?: string | null;
   status?: 'active' | 'canceled';
+  supplier_name?: string | null;
+  supplier_doc?: string | null;
 }
 
 export interface PaymentPatch {
@@ -113,6 +121,31 @@ export class ExpensesRepository {
   findById(id: string) {
     const db = this.tenant.getClient();
     return db.expense.findUnique({ where: { id } });
+  }
+
+  /** A despesa cuja baixa gerou este lançamento do caixa (caminho de volta). */
+  findByCashEntry(cashEntryId: string) {
+    const db = this.tenant.getClient();
+    return db.expense.findFirst({ where: { cash_entry_id: cashEntryId } });
+  }
+
+  /**
+   * As parcelas de um grupo, na ordem. O detalhe mostra "2 de 6" e o total da
+   * dívida, que é a SOMA das irmãs — não há coluna de total, de propósito.
+   */
+  listInstallmentGroup(groupId: string) {
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { installment_group_id: groupId, status: 'active' },
+      orderBy: { installment_no: 'asc' },
+    });
+  }
+
+  /** Regras citadas por um conjunto de contas (para a tela dizer "próxima em…"). */
+  listRecurrencesByIds(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    const db = this.tenant.getClient();
+    return db.expense_recurrence.findMany({ where: { id: { in: ids } } });
   }
 
   create(tenantId: string, data: NewExpenseData) {
