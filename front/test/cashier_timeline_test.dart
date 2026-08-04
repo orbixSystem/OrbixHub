@@ -263,9 +263,12 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      expect(find.text('Despesa'), findsOneWidget);
+      // A despesa se identifica pelo NOME dado no lançamento, não pelo rótulo
+      // genérico da categoria: num histórico com dez despesas, dez linhas
+      // "Despesa" não dizem nada. A categoria segue no subtítulo.
+      expect(find.text('Café e material de limpeza'), findsOneWidget);
       expect(find.text('− R\$ 80,00'), findsOneWidget);
-      expect(find.textContaining('Café e material de limpeza'), findsOneWidget);
+      expect(find.textContaining('Despesa'), findsWidgets);
     });
 
     testWidgets('estornado aparece marcado, não desaparece', (tester) async {
@@ -289,7 +292,8 @@ void main() {
 
       // Sem abas: os dois tipos visíveis ao mesmo tempo.
       expect(find.text('Venda em fiado'), findsOneWidget);
-      expect(find.text('Despesa'), findsOneWidget);
+      // Título da despesa = o nome do lançamento (ver o teste acima).
+      expect(find.textContaining('Despesa'), findsWidgets);
     });
 
     testWidgets('período vazio explica o que apareceria', (tester) async {
