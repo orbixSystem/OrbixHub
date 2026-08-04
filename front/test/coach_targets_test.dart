@@ -91,15 +91,19 @@ final _telas = <String, ({Widget tela, List<String> alvos})>{
     tela: const InventoryScreen(),
     alvos: ['estoque.filtros', 'estoque.lista'],
   ),
-  // FALTAM AQUI: Ficha do cliente e Veículo. Os alvos JÁ ESTÃO marcados no
+  // FALTAM AQUI: Ficha do cliente, Veículo, Relatórios, Equipe e Planos. Os alvos JÁ ESTÃO marcados no
   // código (`cliente.abas`/`cliente.conteudo`, `veiculo.abas`/`veiculo.conteudo`),
   // em cabeçalhos compartilhados pelos dois layouts — mas não estão testados.
   //
-  // Motivo: essas telas carregam por id e o fake nasce VAZIO, então elas ficam em
-  // estado de carregamento e nenhum alvo monta. Testá-las exige semear o
-  // cliente/veículo no fake e usar o id gerado. Enquanto isso não existir, o
-  // holofote delas está marcado mas NÃO verificado — ao contrário das telas de
-  // lista acima.
+  // Motivo: cada uma depende de dados/providers que este teste não monta —
+  // ficha e veículo carregam por id (e o fake nasce vazio); Relatórios, Equipe e
+  // Planos dependem dos providers do próprio módulo. Montá-las exige semear os
+  // fakes e sobrescrever esses providers.
+  //
+  // Até então, o holofote delas está MARCADO no código mas NÃO verificado — ao
+  // contrário das telas de lista acima, onde o teste prova alvo por alvo nos dois
+  // tamanhos. Esta distinção é deliberada: teste que não exercita nada dá falsa
+  // confiança.
 };
 
 Future<void> _abrir(WidgetTester tester, Widget tela, Size size) async {

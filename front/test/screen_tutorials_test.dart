@@ -107,6 +107,8 @@ void main() {
         // sub-telas
         'cliente.',
         'veiculo.',
+        'equipe.',
+        'planos.',
       };
       for (final t in todosOsTutoriais) {
         for (final s in t.steps) {

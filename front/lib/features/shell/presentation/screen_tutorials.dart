@@ -585,10 +585,18 @@ const _estoque = ScreenTutorial(
 );
 
 const _relatorios = ScreenTutorial(
-  id: 'tut_relatorios_v1',
+  id: 'tut_relatorios_v2',
   titulo: 'Relatórios',
   steps: [
     CoachStep(
+      targetName: 'relatorios.picker',
+      title: 'Escolha a lente',
+      text: 'Cada relatório responde uma pergunta diferente: faturamento, OS por '
+          'status, estoque, clientes. No desktop o seletor fica fixo ao lado; no '
+          'celular, acima do conteúdo.',
+    ),
+    CoachStep(
+      targetName: 'relatorios.conteudo',
       title: 'Escolha o período primeiro',
       text: 'Todo número aqui é de um intervalo. Trocar o período muda tudo — se '
           'um valor parecer errado, confira a data antes de desconfiar do dado.',
@@ -649,10 +657,17 @@ const _mensagens = ScreenTutorial(
 );
 
 const _equipe = ScreenTutorial(
-  id: 'tut_equipe_v1',
+  id: 'tut_equipe_v2',
   titulo: 'Equipe',
   steps: [
     CoachStep(
+      targetName: 'equipe.abas',
+      title: 'Funcionários e convites',
+      text: '"Funcionários" são quem já entrou. "Convites" são os pendentes — o '
+          'número ao lado é quantos ainda não aceitaram.',
+    ),
+    CoachStep(
+      targetName: 'equipe.conteudo',
       title: 'O cargo define o que a pessoa vê',
       text: 'Mecânico não vê caixa nem relatório; atendente lança recebimento '
           'mas não despesa; gerente e dono veem gestão. Menos permissão é menos '
@@ -673,10 +688,17 @@ const _equipe = ScreenTutorial(
 );
 
 const _planos = ScreenTutorial(
-  id: 'tut_planos_v1',
+  id: 'tut_planos_v2',
   titulo: 'Planos',
   steps: [
     CoachStep(
+      targetName: 'planos.atual',
+      title: 'Sua assinatura hoje',
+      text: 'Mostra o plano ativo e a situação do pagamento. É aqui que aparece '
+          'se algo está em atraso — e o sistema avisa antes de restringir.',
+    ),
+    CoachStep(
+      targetName: 'planos.grade',
       title: 'O plano liga os módulos',
       text: 'Cada plano habilita um conjunto de módulos. Trocar de plano muda o '
           'que aparece no menu na hora — nada de reinstalar ou pedir liberação.',
