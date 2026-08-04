@@ -21,7 +21,7 @@ import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
 import 'report_csv.dart';
-import 'report_download.dart';
+import '../../../core/export/file_download.dart';
 import 'report_pdf.dart';
 import 'report_xlsx.dart';
 import 'report_providers.dart';

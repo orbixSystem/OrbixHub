@@ -8,7 +8,6 @@ import { InventoryMetricsService } from './inventory-metrics.service';
 import { InventoryRepository } from './inventory.repository';
 import { CatalogProductStore } from './catalog/catalog-product.store';
 import { catalogProviderFactory } from './catalog/catalog.providers';
-import { INVENTORY_CONFIG_KEY } from './inventory.config';
 
 /**
  * Módulo Estoque & Produtos — catálogo de produtos (decimal) + fluxo código-first
@@ -39,11 +38,9 @@ export class InventoryModule implements OnModuleInit {
     // `itemFields` é lista rica, gerida pelos endpoints próprios (GET/PATCH
     // /inventory/config) — mesmo split do customers/subjectFields, então a seção
     // host não tem campos escalares.
-    this.registry.register({
-      key: INVENTORY_CONFIG_KEY,
-      title: 'Estoque & Produtos',
-      moduleKey: 'inventory',
-      fields: [],
-    });
+    // Seção de Configurações REMOVIDA: Estoque & Produtos não é config que a
+    // oficina use hoje, e cartão que ninguém abre é ruído na tela. As chaves
+    // seguem na config interna do módulo — só deixaram de ser administráveis.
+    // Para trazer de volta, basta re-registrar a seção aqui.
   }
 }

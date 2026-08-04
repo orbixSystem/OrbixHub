@@ -212,7 +212,7 @@ _CashierConfig _$CashierConfigFromJson(Map<String, dynamic> json) =>
             'cartao_debito',
             'outro',
           ],
-      requireOpenSession: json['requireOpenSession'] as bool? ?? true,
+      requireOpenSession: json['requireOpenSession'] as bool? ?? false,
       countCashOnly: json['countCashOnly'] as bool? ?? true,
     );
 

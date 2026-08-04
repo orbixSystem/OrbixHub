@@ -45,22 +45,53 @@ class CashierController extends AsyncNotifier<CashierState> {
   /// descartado (sair da tela, invalidar após uma venda) — lança
   /// "Cannot use ref after the notifier was disposed". Ler tudo antes das
   /// chamadas de rede elimina a classe inteira desse erro.
-  late final CashierRepository _repo;
+  CashierRepository? _repoCache;
+
+  /// Getter com cache em vez de `late final` atribuído no `build`.
+  ///
+  /// Era `late final`: se qualquer método rodasse antes do `build` concluir (uma
+  /// venda avulsa disparando `addEntry` num provider `autoDispose` recém-criado,
+  /// por exemplo), a leitura estourava `LateInitializationError` e derrubava o
+  /// fluxo no meio — com a venda já criada. Inicializar na primeira leitura
+  /// resolve, e o cache preserva a proteção original: depois de lido uma vez,
+  /// nunca mais se toca `ref` (que pode ter sido descartado após um `await`).
+  CashierRepository get _repo {
+    final cache = _repoCache;
+    if (cache != null) return cache;
+    final repo = ref.read(cashierRepositoryProvider);
+    _repoCache = repo;
+    return repo;
+  }
 
   /// `null` quando o módulo `sale` não está disponível para este tenant/cargo —
   /// o provider lança por padrão, e o Caixa funciona sem vendas (o extrato só
   /// deixa de mostrar o cliente da venda). Ler aqui, protegido, mantém as duas
   /// garantias: nada de `ref` após `await`, e degradar em vez de derrubar a tela.
-  SaleRepository? _sales;
+  SaleRepository? _salesCache;
+  bool _salesLido = false;
+
+  /// Mesmo padrão do [_repo], com a diferença de que a AUSÊNCIA é um estado
+  /// válido (módulo `sale` não contratado) — daí o flag separado, para não
+  /// reconsultar o provider que lança a cada leitura.
+  SaleRepository? get _sales {
+    if (!_salesLido) {
+      _salesLido = true;
+      try {
+        _salesCache = ref.read(saleRepositoryProvider);
+      } on Object {
+        _salesCache = null;
+      }
+    }
+    return _salesCache;
+  }
 
   @override
   Future<CashierState> build() {
-    _repo = ref.read(cashierRepositoryProvider);
-    try {
-      _sales = ref.read(saleRepositoryProvider);
-    } catch (_) {
-      _sales = null;
-    }
+    // Toca os dois ANTES de qualquer await: mantém a garantia original de nunca
+    // usar `ref` depois de uma chamada de rede. Os getters cuidam do caso em que
+    // um método chega primeiro.
+    _repo;
+    _sales;
     return _load();
   }
 

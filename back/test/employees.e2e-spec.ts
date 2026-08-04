@@ -20,6 +20,11 @@ class CapturingMailer extends MailerService {
   async send(email: VerificationEmail): Promise<void> {
     this.sent.push(email);
   }
+
+  /// `sendMessage` virou abstrato quando o SMTP entrou (merge da `qa`). O e2e não
+  /// testa envio de mensagem — engolir aqui mantém o fake compilando sem inventar
+  /// asserção sobre um canal que estes testes não exercitam.
+  async sendMessage(): Promise<void> {}
   lastTokenFor(kind: VerificationEmail['kind'], to: string): string | undefined {
     const hit = [...this.sent]
       .reverse()

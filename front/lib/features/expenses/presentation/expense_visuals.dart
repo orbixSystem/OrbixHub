@@ -28,6 +28,14 @@ const Map<String, IconData> _icones = {
 IconData iconeDaCategoria(String? chave) =>
     _icones[chave] ?? Icons.label_outline_rounded;
 
+/// Chaves de ícone oferecidas ao criar categoria.
+///
+/// Derivadas do MAPA acima, não de uma lista paralela: o backend valida a chave
+/// contra a whitelist dele (`ICON_KEYS`), e uma segunda lista escrita à mão aqui
+/// divergiria no primeiro ícone novo — o formulário ofereceria uma chave que a
+/// API recusa, ou deixaria de oferecer uma que ela aceita.
+List<String> get chavesDeIcone => _icones.keys.toList(growable: false);
+
 /// Converte `#RRGGBB` do servidor em [Color]. Valor inválido cai no cinza
 /// neutro — cor de categoria é decoração, nunca motivo para a tela quebrar.
 Color corHex(String? hex, {Color fallback = const Color(0xFF6B7280)}) {

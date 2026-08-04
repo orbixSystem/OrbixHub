@@ -39,4 +39,15 @@ abstract interface class ExpensesRepository {
 
   /// Categorias ativas do tenant.
   Future<List<ExpenseCategory>> categorias();
+
+  /// Cria uma categoria de despesa.
+  ///
+  /// `icon` precisa ser uma das chaves conhecidas (ver `chavesDeIcone`) e `color`
+  /// um hex `#RRGGBB` — o backend valida as duas e recusa o resto. Ausentes, ele
+  /// aplica os defaults dele, então a tela não precisa inventar valor.
+  Future<ExpenseCategory> criarCategoria({
+    required String name,
+    String? icon,
+    String? color,
+  });
 }

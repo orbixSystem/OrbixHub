@@ -59,3 +59,17 @@ class FiltroDespesaNotifier extends Notifier<FiltroDespesa> {
 final filtroDespesaProvider =
     NotifierProvider<FiltroDespesaNotifier, FiltroDespesa>(
         FiltroDespesaNotifier.new);
+
+/// Texto da busca da tela de despesas.
+///
+/// Filtra em MEMÓRIA: a listagem já é de um mês (algumas dezenas de contas), e
+/// ida ao servidor por tecla digitada seria latência sem ganho.
+class BuscaDespesaNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void definir(String v) => state = v;
+}
+
+final buscaDespesaProvider =
+    NotifierProvider<BuscaDespesaNotifier, String>(BuscaDespesaNotifier.new);
