@@ -170,6 +170,14 @@ _ExpensesMonth _$ExpensesMonthFromJson(Map<String, dynamic> json) =>
               ?.map((e) => ExpenseCategory.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <ExpenseCategory>[],
+      installmentGroups:
+          (json['installmentGroups'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    InstallmentGroupSummary.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          const <InstallmentGroupSummary>[],
       recurrences:
           (json['recurrences'] as List<dynamic>?)
               ?.map(
@@ -187,12 +195,33 @@ Map<String, dynamic> _$ExpensesMonthToJson(_ExpensesMonth instance) =>
     <String, dynamic>{
       'items': instance.items.map((e) => e.toJson()).toList(),
       'categories': instance.categories.map((e) => e.toJson()).toList(),
+      'installmentGroups': instance.installmentGroups
+          .map((e) => e.toJson())
+          .toList(),
       'recurrences': instance.recurrences.map((e) => e.toJson()).toList(),
       'totalPrevisto': instance.totalPrevisto,
       'totalPago': instance.totalPago,
       'totalEmAberto': instance.totalEmAberto,
       'totalVencido': instance.totalVencido,
     };
+
+_InstallmentGroupSummary _$InstallmentGroupSummaryFromJson(
+  Map<String, dynamic> json,
+) => _InstallmentGroupSummary(
+  groupId: json['groupId'] as String? ?? '',
+  total: json['total'] as num? ?? 0,
+  count: (json['count'] as num?)?.toInt() ?? 0,
+  paidCount: (json['paidCount'] as num?)?.toInt() ?? 0,
+);
+
+Map<String, dynamic> _$InstallmentGroupSummaryToJson(
+  _InstallmentGroupSummary instance,
+) => <String, dynamic>{
+  'groupId': instance.groupId,
+  'total': instance.total,
+  'count': instance.count,
+  'paidCount': instance.paidCount,
+};
 
 _ExpenseSupplierLookup _$ExpenseSupplierLookupFromJson(
   Map<String, dynamic> json,

@@ -256,6 +256,13 @@ final osOperationalReportProvider =
   OsReportListNotifier.new,
 );
 
+/// Despesas por categoria no período selecionado.
+final expensesReportProvider =
+    FutureProvider.autoDispose<ExpensesReport>((ref) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(reportRepositoryProvider).expensesReport(range: range);
+});
+
 final revenueReportProvider =
     FutureProvider.autoDispose<RevenueReport>((ref) {
   final range = ref.watch(reportRangeProvider);

@@ -4,6 +4,7 @@ import { OsModule } from '../os/os.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { CustomersModule } from '../customers/customers.module';
 import { CashierModule } from '../cashier/cashier.module';
+import { ExpensesModule } from '../expenses/expenses.module';
 import { SaleModule } from '../sale/sale.module';
 import { IamModule } from '../iam/iam.module';
 import { ReportController } from './report.controller';
@@ -23,6 +24,7 @@ import { ReportService } from './report.service';
     InventoryModule,
     CustomersModule,
     CashierModule,
+    ExpensesModule,
     SaleModule,
     IamModule,
   ],

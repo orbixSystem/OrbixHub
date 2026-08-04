@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../../dashboard/presentation/widgets/metric_card.dart' show formatMoney;
+import '../domain/expense_installment_payment.dart';
 import '../domain/expense_models.dart';
 import '../domain/expense_next_due.dart';
 import '../domain/expense_status.dart';
@@ -265,20 +266,30 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
           ),
         )
       else ...[
-        NeuButton(
-          label: e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
-          icon: e.pago
-              ? Icons.undo_rounded
-              : Icons.check_circle_outline_rounded,
-          onPressed: () => _comAviso(() async {
-            final repo = ref.read(expensesRepositoryProvider);
-            if (e.pago) {
-              await repo.desmarcarPaga(e.id);
-            } else {
-              await repo.marcarPaga(e.id);
-            }
-          }),
-        ),
+        // Numa PARCELADA em aberto, "pagar" é ambíguo: esta parcela, algumas ou
+        // tudo? Um toque único que resolvesse só a do mês esconderia a opção de
+        // antecipar, e um que quitasse tudo gastaria dinheiro que ninguém mandou.
+        if (!e.pago && e.parcelada && d.parcelas.isNotEmpty)
+          NeuButton(
+            label: 'Pagar…',
+            icon: Icons.check_circle_outline_rounded,
+            onPressed: () => _escolherQuantasPagar(d),
+          )
+        else
+          NeuButton(
+            label: e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
+            icon: e.pago
+                ? Icons.undo_rounded
+                : Icons.check_circle_outline_rounded,
+            onPressed: () => _comAviso(() async {
+              final repo = ref.read(expensesRepositoryProvider);
+              if (e.pago) {
+                await repo.desmarcarPaga(e.id);
+              } else {
+                await repo.marcarPaga(e.id);
+              }
+            }),
+          ),
         NeuButton(
           label: 'Editar',
           kind: NeuButtonKind.secondary,
@@ -295,6 +306,108 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
         onPressed: () => Navigator.pop(context, _mudou),
       ),
     ];
+  }
+
+  /// Pergunta QUANTAS parcelas pagar e executa.
+  ///
+  /// As opções são construídas do que está realmente aberto (`parcelasParaPagar`),
+  /// então nunca oferece "pagar 3" quando só restam 2.
+  Future<void> _escolherQuantasPagar(ExpenseDetail d) async {
+    final abertas = parcelasParaPagar(d.parcelas, aPartirDe: d.expense);
+    if (abertas.isEmpty) return;
+
+    final opcoes = <int>{
+      1,
+      // Atalhos úteis sem virar lista quilométrica; só os que cabem no que resta.
+      if (abertas.length >= 2) 2,
+      if (abertas.length >= 3) 3,
+      if (abertas.length >= 6) 6,
+      abertas.length,
+    }.where((n) => n <= abertas.length).toList()
+      ..sort();
+
+    final escolhida = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+              child: Text(
+                'Quanto você vai pagar agora?',
+                style: TextStyle(
+                  color: ctx.neu.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final n in opcoes)
+              ListTile(
+                leading: Icon(
+                  n == abertas.length
+                      ? Icons.done_all_rounded
+                      : Icons.check_circle_outline_rounded,
+                  color: ctx.neu.accent,
+                ),
+                title: Text(
+                  n == 1
+                      ? 'Só esta parcela'
+                      : n == abertas.length
+                          ? 'Quitar o restante ($n parcelas)'
+                          : 'As próximas $n parcelas',
+                ),
+                // O valor ANTES do toque: confirmar "quitar" sem ver o total é
+                // assinar em branco.
+                subtitle: Text(
+                  formatMoney(totalDasParcelas(abertas.take(n).toList())),
+                ),
+                onTap: () => Navigator.pop(ctx, n),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (escolhida == null || !mounted) return;
+    await _pagarEmBloco(d, escolhida);
+  }
+
+  /// Dá baixa em N parcelas, uma a uma.
+  ///
+  /// Uma chamada por parcela porque cada baixa gera SEU lançamento no caixa —
+  /// somar tudo num só impediria estornar uma parcela depois. Se a 3ª falhar, as
+  /// duas primeiras ficam pagas e a mensagem diz quantas foram: estado visível e
+  /// corrigível, em vez de um "erro" que esconde que metade passou.
+  Future<void> _pagarEmBloco(ExpenseDetail d, int quantidade) async {
+    final alvo = parcelasParaPagar(
+      d.parcelas,
+      aPartirDe: d.expense,
+      quantidade: quantidade,
+    );
+    setState(() => _ocupado = true);
+    final repo = ref.read(expensesRepositoryProvider);
+    var pagas = 0;
+    String? erro;
+    try {
+      for (final p in alvo) {
+        await repo.marcarPaga(p.id);
+        pagas++;
+      }
+    } on AppException catch (e) {
+      erro = e.message;
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+    if (!mounted) return;
+    _recarregar();
+    final msg = erro == null
+        ? (pagas == 1
+            ? 'Parcela paga.'
+            : '$pagas parcelas pagas.')
+        : 'Pagou $pagas de ${alvo.length}. $erro';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   static String _data(DateTime d) =>

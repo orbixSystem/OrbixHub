@@ -1560,7 +1560,13 @@ as String?,
 /// @nodoc
 mixin _$ExpensesMonth {
 
- List<Expense> get items; List<ExpenseCategory> get categories;/// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
+ List<Expense> get items; List<ExpenseCategory> get categories;/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> get installmentGroups;/// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
 /// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
 /// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
  List<ExpenseRecurrence> get recurrences;/// Somas vêm do servidor: ele enxerga o mês inteiro mesmo se a lista for
@@ -1579,16 +1585,16 @@ $ExpensesMonthCopyWith<ExpensesMonth> get copyWith => _$ExpensesMonthCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpensesMonth&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.categories, categories)&&const DeepCollectionEquality().equals(other.recurrences, recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExpensesMonth&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.categories, categories)&&const DeepCollectionEquality().equals(other.installmentGroups, installmentGroups)&&const DeepCollectionEquality().equals(other.recurrences, recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(categories),const DeepCollectionEquality().hash(recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(categories),const DeepCollectionEquality().hash(installmentGroups),const DeepCollectionEquality().hash(recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
 
 @override
 String toString() {
-  return 'ExpensesMonth(items: $items, categories: $categories, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
+  return 'ExpensesMonth(items: $items, categories: $categories, installmentGroups: $installmentGroups, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
 }
 
 
@@ -1599,7 +1605,7 @@ abstract mixin class $ExpensesMonthCopyWith<$Res>  {
   factory $ExpensesMonthCopyWith(ExpensesMonth value, $Res Function(ExpensesMonth) _then) = _$ExpensesMonthCopyWithImpl;
 @useResult
 $Res call({
- List<Expense> items, List<ExpenseCategory> categories, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
+ List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> installmentGroups, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
 });
 
 
@@ -1616,11 +1622,12 @@ class _$ExpensesMonthCopyWithImpl<$Res>
 
 /// Create a copy of ExpensesMonth
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? categories = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? categories = null,Object? installmentGroups = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<Expense>,categories: null == categories ? _self.categories : categories // ignore: cast_nullable_to_non_nullable
-as List<ExpenseCategory>,recurrences: null == recurrences ? _self.recurrences : recurrences // ignore: cast_nullable_to_non_nullable
+as List<ExpenseCategory>,installmentGroups: null == installmentGroups ? _self.installmentGroups : installmentGroups // ignore: cast_nullable_to_non_nullable
+as List<InstallmentGroupSummary>,recurrences: null == recurrences ? _self.recurrences : recurrences // ignore: cast_nullable_to_non_nullable
 as List<ExpenseRecurrence>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
 as num,totalPago: null == totalPago ? _self.totalPago : totalPago // ignore: cast_nullable_to_non_nullable
 as num,totalEmAberto: null == totalEmAberto ? _self.totalEmAberto : totalEmAberto // ignore: cast_nullable_to_non_nullable
@@ -1710,10 +1717,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExpensesMonth() when $default != null:
-return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   return orElse();
 
 }
@@ -1731,10 +1738,10 @@ return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevis
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)  $default,) {final _that = this;
 switch (_that) {
 case _ExpensesMonth():
-return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1751,10 +1758,10 @@ return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevis
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Expense> items,  List<ExpenseCategory> categories,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Expense> items,  List<ExpenseCategory> categories, @JsonKey(name: 'installmentGroups')  List<InstallmentGroupSummary> installmentGroups,  List<ExpenseRecurrence> recurrences, @JsonKey(name: 'totalPrevisto')  num totalPrevisto, @JsonKey(name: 'totalPago')  num totalPago, @JsonKey(name: 'totalEmAberto')  num totalEmAberto, @JsonKey(name: 'totalVencido')  num totalVencido)?  $default,) {final _that = this;
 switch (_that) {
 case _ExpensesMonth() when $default != null:
-return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
+return $default(_that.items,_that.categories,_that.installmentGroups,_that.recurrences,_that.totalPrevisto,_that.totalPago,_that.totalEmAberto,_that.totalVencido);case _:
   return null;
 
 }
@@ -1766,7 +1773,7 @@ return $default(_that.items,_that.categories,_that.recurrences,_that.totalPrevis
 @JsonSerializable()
 
 class _ExpensesMonth implements ExpensesMonth {
-  const _ExpensesMonth({final  List<Expense> items = const <Expense>[], final  List<ExpenseCategory> categories = const <ExpenseCategory>[], final  List<ExpenseRecurrence> recurrences = const <ExpenseRecurrence>[], @JsonKey(name: 'totalPrevisto') this.totalPrevisto = 0, @JsonKey(name: 'totalPago') this.totalPago = 0, @JsonKey(name: 'totalEmAberto') this.totalEmAberto = 0, @JsonKey(name: 'totalVencido') this.totalVencido = 0}): _items = items,_categories = categories,_recurrences = recurrences;
+  const _ExpensesMonth({final  List<Expense> items = const <Expense>[], final  List<ExpenseCategory> categories = const <ExpenseCategory>[], @JsonKey(name: 'installmentGroups') final  List<InstallmentGroupSummary> installmentGroups = const <InstallmentGroupSummary>[], final  List<ExpenseRecurrence> recurrences = const <ExpenseRecurrence>[], @JsonKey(name: 'totalPrevisto') this.totalPrevisto = 0, @JsonKey(name: 'totalPago') this.totalPago = 0, @JsonKey(name: 'totalEmAberto') this.totalEmAberto = 0, @JsonKey(name: 'totalVencido') this.totalVencido = 0}): _items = items,_categories = categories,_installmentGroups = installmentGroups,_recurrences = recurrences;
   factory _ExpensesMonth.fromJson(Map<String, dynamic> json) => _$ExpensesMonthFromJson(json);
 
  final  List<Expense> _items;
@@ -1781,6 +1788,25 @@ class _ExpensesMonth implements ExpensesMonth {
   if (_categories is EqualUnmodifiableListView) return _categories;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_categories);
+}
+
+/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+ final  List<InstallmentGroupSummary> _installmentGroups;
+/// Resumo dos GRUPOS de parcelamento citados no mês.
+///
+/// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+/// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+/// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+/// "2/6 de R$ 900,00" sem inventar o total.
+@override@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> get installmentGroups {
+  if (_installmentGroups is EqualUnmodifiableListView) return _installmentGroups;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_installmentGroups);
 }
 
 /// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
@@ -1817,16 +1843,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpensesMonth&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._categories, _categories)&&const DeepCollectionEquality().equals(other._recurrences, _recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExpensesMonth&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._categories, _categories)&&const DeepCollectionEquality().equals(other._installmentGroups, _installmentGroups)&&const DeepCollectionEquality().equals(other._recurrences, _recurrences)&&(identical(other.totalPrevisto, totalPrevisto) || other.totalPrevisto == totalPrevisto)&&(identical(other.totalPago, totalPago) || other.totalPago == totalPago)&&(identical(other.totalEmAberto, totalEmAberto) || other.totalEmAberto == totalEmAberto)&&(identical(other.totalVencido, totalVencido) || other.totalVencido == totalVencido));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_categories),const DeepCollectionEquality().hash(_recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_categories),const DeepCollectionEquality().hash(_installmentGroups),const DeepCollectionEquality().hash(_recurrences),totalPrevisto,totalPago,totalEmAberto,totalVencido);
 
 @override
 String toString() {
-  return 'ExpensesMonth(items: $items, categories: $categories, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
+  return 'ExpensesMonth(items: $items, categories: $categories, installmentGroups: $installmentGroups, recurrences: $recurrences, totalPrevisto: $totalPrevisto, totalPago: $totalPago, totalEmAberto: $totalEmAberto, totalVencido: $totalVencido)';
 }
 
 
@@ -1837,7 +1863,7 @@ abstract mixin class _$ExpensesMonthCopyWith<$Res> implements $ExpensesMonthCopy
   factory _$ExpensesMonthCopyWith(_ExpensesMonth value, $Res Function(_ExpensesMonth) _then) = __$ExpensesMonthCopyWithImpl;
 @override @useResult
 $Res call({
- List<Expense> items, List<ExpenseCategory> categories, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
+ List<Expense> items, List<ExpenseCategory> categories,@JsonKey(name: 'installmentGroups') List<InstallmentGroupSummary> installmentGroups, List<ExpenseRecurrence> recurrences,@JsonKey(name: 'totalPrevisto') num totalPrevisto,@JsonKey(name: 'totalPago') num totalPago,@JsonKey(name: 'totalEmAberto') num totalEmAberto,@JsonKey(name: 'totalVencido') num totalVencido
 });
 
 
@@ -1854,16 +1880,289 @@ class __$ExpensesMonthCopyWithImpl<$Res>
 
 /// Create a copy of ExpensesMonth
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? categories = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? categories = null,Object? installmentGroups = null,Object? recurrences = null,Object? totalPrevisto = null,Object? totalPago = null,Object? totalEmAberto = null,Object? totalVencido = null,}) {
   return _then(_ExpensesMonth(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
 as List<Expense>,categories: null == categories ? _self._categories : categories // ignore: cast_nullable_to_non_nullable
-as List<ExpenseCategory>,recurrences: null == recurrences ? _self._recurrences : recurrences // ignore: cast_nullable_to_non_nullable
+as List<ExpenseCategory>,installmentGroups: null == installmentGroups ? _self._installmentGroups : installmentGroups // ignore: cast_nullable_to_non_nullable
+as List<InstallmentGroupSummary>,recurrences: null == recurrences ? _self._recurrences : recurrences // ignore: cast_nullable_to_non_nullable
 as List<ExpenseRecurrence>,totalPrevisto: null == totalPrevisto ? _self.totalPrevisto : totalPrevisto // ignore: cast_nullable_to_non_nullable
 as num,totalPago: null == totalPago ? _self.totalPago : totalPago // ignore: cast_nullable_to_non_nullable
 as num,totalEmAberto: null == totalEmAberto ? _self.totalEmAberto : totalEmAberto // ignore: cast_nullable_to_non_nullable
 as num,totalVencido: null == totalVencido ? _self.totalVencido : totalVencido // ignore: cast_nullable_to_non_nullable
 as num,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$InstallmentGroupSummary {
+
+@JsonKey(name: 'groupId') String get groupId; num get total; int get count;@JsonKey(name: 'paidCount') int get paidCount;
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$InstallmentGroupSummaryCopyWith<InstallmentGroupSummary> get copyWith => _$InstallmentGroupSummaryCopyWithImpl<InstallmentGroupSummary>(this as InstallmentGroupSummary, _$identity);
+
+  /// Serializes this InstallmentGroupSummary to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InstallmentGroupSummary&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.total, total) || other.total == total)&&(identical(other.count, count) || other.count == count)&&(identical(other.paidCount, paidCount) || other.paidCount == paidCount));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupId,total,count,paidCount);
+
+@override
+String toString() {
+  return 'InstallmentGroupSummary(groupId: $groupId, total: $total, count: $count, paidCount: $paidCount)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $InstallmentGroupSummaryCopyWith<$Res>  {
+  factory $InstallmentGroupSummaryCopyWith(InstallmentGroupSummary value, $Res Function(InstallmentGroupSummary) _then) = _$InstallmentGroupSummaryCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'groupId') String groupId, num total, int count,@JsonKey(name: 'paidCount') int paidCount
+});
+
+
+
+
+}
+/// @nodoc
+class _$InstallmentGroupSummaryCopyWithImpl<$Res>
+    implements $InstallmentGroupSummaryCopyWith<$Res> {
+  _$InstallmentGroupSummaryCopyWithImpl(this._self, this._then);
+
+  final InstallmentGroupSummary _self;
+  final $Res Function(InstallmentGroupSummary) _then;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? groupId = null,Object? total = null,Object? count = null,Object? paidCount = null,}) {
+  return _then(_self.copyWith(
+groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,paidCount: null == paidCount ? _self.paidCount : paidCount // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [InstallmentGroupSummary].
+extension InstallmentGroupSummaryPatterns on InstallmentGroupSummary {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _InstallmentGroupSummary value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _InstallmentGroupSummary value)  $default,){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _InstallmentGroupSummary value)?  $default,){
+final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)  $default,) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary():
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'groupId')  String groupId,  num total,  int count, @JsonKey(name: 'paidCount')  int paidCount)?  $default,) {final _that = this;
+switch (_that) {
+case _InstallmentGroupSummary() when $default != null:
+return $default(_that.groupId,_that.total,_that.count,_that.paidCount);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _InstallmentGroupSummary implements InstallmentGroupSummary {
+  const _InstallmentGroupSummary({@JsonKey(name: 'groupId') this.groupId = '', this.total = 0, this.count = 0, @JsonKey(name: 'paidCount') this.paidCount = 0});
+  factory _InstallmentGroupSummary.fromJson(Map<String, dynamic> json) => _$InstallmentGroupSummaryFromJson(json);
+
+@override@JsonKey(name: 'groupId') final  String groupId;
+@override@JsonKey() final  num total;
+@override@JsonKey() final  int count;
+@override@JsonKey(name: 'paidCount') final  int paidCount;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$InstallmentGroupSummaryCopyWith<_InstallmentGroupSummary> get copyWith => __$InstallmentGroupSummaryCopyWithImpl<_InstallmentGroupSummary>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$InstallmentGroupSummaryToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InstallmentGroupSummary&&(identical(other.groupId, groupId) || other.groupId == groupId)&&(identical(other.total, total) || other.total == total)&&(identical(other.count, count) || other.count == count)&&(identical(other.paidCount, paidCount) || other.paidCount == paidCount));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupId,total,count,paidCount);
+
+@override
+String toString() {
+  return 'InstallmentGroupSummary(groupId: $groupId, total: $total, count: $count, paidCount: $paidCount)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$InstallmentGroupSummaryCopyWith<$Res> implements $InstallmentGroupSummaryCopyWith<$Res> {
+  factory _$InstallmentGroupSummaryCopyWith(_InstallmentGroupSummary value, $Res Function(_InstallmentGroupSummary) _then) = __$InstallmentGroupSummaryCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'groupId') String groupId, num total, int count,@JsonKey(name: 'paidCount') int paidCount
+});
+
+
+
+
+}
+/// @nodoc
+class __$InstallmentGroupSummaryCopyWithImpl<$Res>
+    implements _$InstallmentGroupSummaryCopyWith<$Res> {
+  __$InstallmentGroupSummaryCopyWithImpl(this._self, this._then);
+
+  final _InstallmentGroupSummary _self;
+  final $Res Function(_InstallmentGroupSummary) _then;
+
+/// Create a copy of InstallmentGroupSummary
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? groupId = null,Object? total = null,Object? count = null,Object? paidCount = null,}) {
+  return _then(_InstallmentGroupSummary(
+groupId: null == groupId ? _self.groupId : groupId // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,paidCount: null == paidCount ? _self.paidCount : paidCount // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

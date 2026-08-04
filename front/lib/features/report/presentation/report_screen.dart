@@ -638,6 +638,27 @@ class _ReportBody extends ConsumerWidget {
         // do relatório COMPLETO) é gerado no servidor. Caso dedicado (não o
         // genérico, que monta tudo em memória).
         return _InventoryReport(company: _company());
+      case ReportKind.expenses:
+        // Sem gráfico, como o relatório de Caixa: a pergunta ("para onde vai o
+        // dinheiro") é respondida pela ORDEM da tabela, que já vem do servidor
+        // com o maior gasto primeiro. O resumo em cima dá o fechamento do período.
+        return _AsyncReport(
+          async: ref.watch(expensesReportProvider),
+          retry: () => ref.invalidate(expensesReportProvider),
+          tableOf: expensesTable,
+          isEmpty: (r) => r.rows.isEmpty,
+          summaryOf: (r) => [
+            ('Previsto no período', formatMoney(r.totals.previsto)),
+            ('Já pago', formatMoney(r.totals.pago)),
+            ('Em aberto', formatMoney(r.totals.emAberto)),
+            // Vencido só aparece quando existe: um "R$ 0,00" fixo em vermelho
+            // treinaria o olho a ignorar o vermelho.
+            if (r.totals.vencido > 0)
+              ('Vencido', formatMoney(r.totals.vencido)),
+          ],
+          company: _company(),
+          period: _periodLabel(ref),
+        );
       case ReportKind.cashFlow:
         return _CashFlowReport(company: _company(), period: _periodLabel(ref));
       case ReportKind.customers:

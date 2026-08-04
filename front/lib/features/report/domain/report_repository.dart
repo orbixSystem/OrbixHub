@@ -47,6 +47,15 @@ abstract class ReportRepository {
     ReportExportCompany? company,
   });
 
+  /// `GET /report/expenses` — despesas do período por categoria ("para onde vai
+  /// o dinheiro"). Gated pelo módulo `expenses` no servidor: quem não contratou
+  /// despesas recebe 404, não uma tabela vazia que pareceria "não gastei nada".
+  Future<ExpensesReport> expensesReport({required ReportRange range});
+
+  /// `GET /report/expenses.csv` — CSV do relatório (gerado no servidor; é o
+  /// arquivo que vai para o contador).
+  Future<Uint8List> expensesCsv({required ReportRange range});
+
   /// `GET /report/revenue` — faturamento: total, ticket, série/dia, por status.
   Future<RevenueReport> revenue({required ReportRange range});
 

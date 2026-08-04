@@ -242,6 +242,16 @@ abstract class ExpensesMonth with _$ExpensesMonth {
     @Default(<Expense>[]) List<Expense> items,
     @Default(<ExpenseCategory>[]) List<ExpenseCategory> categories,
 
+    /// Resumo dos GRUPOS de parcelamento citados no mês.
+    ///
+    /// O card mostra o valor da PARCELA (é o que se deve neste mês), mas quem olha
+    /// quer saber de quanto é a compra inteira — e isso NÃO é derivável do mês: só
+    /// vêm as parcelas que vencem nele. Sem este resumo o card não poderia dizer
+    /// "2/6 de R$ 900,00" sem inventar o total.
+    @JsonKey(name: 'installmentGroups')
+    @Default(<InstallmentGroupSummary>[])
+    List<InstallmentGroupSummary> installmentGroups,
+
     /// As REGRAS citadas pelas contas do mês. Sem elas a tela não teria como
     /// dizer "próxima em 10/09" ao dar baixa numa conta fixa: a próxima
     /// ocorrência é uma linha de OUTRO mês, ausente desta listagem.
@@ -258,6 +268,25 @@ abstract class ExpensesMonth with _$ExpensesMonth {
 
   factory ExpensesMonth.fromJson(Map<String, dynamic> json) =>
       _$ExpensesMonthFromJson(json);
+}
+
+/// Resumo de um grupo de parcelamento: de quanto é a compra inteira e quanto dela
+/// já foi paga.
+///
+/// Não existe coluna de total no banco, de propósito — o total é a SOMA das
+/// parcelas, e uma parcela corrigida (juros num mês) mudaria o total. Este resumo é
+/// calculado na leitura, nunca gravado.
+@freezed
+abstract class InstallmentGroupSummary with _$InstallmentGroupSummary {
+  const factory InstallmentGroupSummary({
+    @JsonKey(name: 'groupId') @Default('') String groupId,
+    @Default(0) num total,
+    @Default(0) int count,
+    @JsonKey(name: 'paidCount') @Default(0) int paidCount,
+  }) = _InstallmentGroupSummary;
+
+  factory InstallmentGroupSummary.fromJson(Map<String, dynamic> json) =>
+      _$InstallmentGroupSummaryFromJson(json);
 }
 
 /// Retorno da consulta de CNPJ, para preencher o fornecedor da conta.

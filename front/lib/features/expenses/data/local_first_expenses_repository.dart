@@ -168,6 +168,9 @@ class LocalFirstExpensesRepository extends LocalFirstBase
       contas: contasDoMes(todas, ano: ano, mes: mes),
       categorias: cats.where((c) => c.status == 'active').toList(),
       regras: regras,
+      // TODAS as contas, não só as do mês: o total de uma compra em 6x soma
+      // parcelas de seis meses diferentes.
+      todasAsContas: todas,
       // `clock` (relógio confiável, anti clock-rollback) e não `DateTime.now()`:
       // o que decide "vencido" não pode depender de o usuário mexer no relógio.
       hoje: clock.now,

@@ -23,6 +23,7 @@ export const ICON_KEYS = [
   'telefone',
   'impostos',
   'fornecedor',
+  'produto',
   'salarios',
   'manutencao',
   'outros',

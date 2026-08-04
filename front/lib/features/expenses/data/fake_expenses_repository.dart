@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../domain/expense_models.dart';
+import '../domain/expense_month_totals.dart';
 import '../domain/expense_status.dart';
 import '../domain/expenses_repository.dart';
 
@@ -34,6 +35,7 @@ class FakeExpensesRepository implements ExpensesRepository {
     ExpenseCategory(id: 'cat-telefone', name: 'Telefone', icon: 'telefone', color: '#06B6D4'),
     ExpenseCategory(id: 'cat-impostos', name: 'Impostos', icon: 'impostos', color: '#EF4444'),
     ExpenseCategory(id: 'cat-fornecedor', name: 'Fornecedor', icon: 'fornecedor', color: '#10B981', tracksSupplier: true),
+    ExpenseCategory(id: 'cat-produto', name: 'Produto', icon: 'produto', color: '#0EA5E9', tracksSupplier: true),
     ExpenseCategory(id: 'cat-salarios', name: 'Salários', icon: 'salarios', color: '#3B82F6'),
     ExpenseCategory(id: 'cat-manutencao', name: 'Manutenção', icon: 'manutencao', color: '#A16207', tracksSupplier: true),
     ExpenseCategory(id: 'cat-outros', name: 'Outros', icon: 'outros', color: '#6B7280'),
@@ -175,6 +177,13 @@ class FakeExpensesRepository implements ExpensesRepository {
       recurrences: _regras
           .where((r) => itens.any((e) => e.recurrenceId == r.id))
           .toList(),
+      installmentGroups: resumoDosGrupos(
+        _contas,
+        grupos: itens
+            .map((e) => e.installmentGroupId)
+            .whereType<String>()
+            .toSet(),
+      ),
       totalPrevisto: previsto,
       totalPago: pago,
       totalEmAberto: aberto,

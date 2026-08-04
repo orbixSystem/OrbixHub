@@ -82,6 +82,50 @@ class FakeReportRepository implements ReportRepository {
       Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
 
   @override
+  Future<ExpensesReport> expensesReport({required ReportRange range}) async =>
+      const ExpensesReport(
+        rows: [
+          ExpenseCategoryReportRow(
+            categoryId: 'c-aluguel',
+            categoryName: 'Aluguel',
+            categoryColor: '#F97316',
+            count: 1,
+            previsto: 2500,
+            pago: 2500,
+          ),
+          ExpenseCategoryReportRow(
+            categoryId: 'c-fornecedor',
+            categoryName: 'Fornecedor',
+            categoryColor: '#10B981',
+            count: 2,
+            previsto: 1180,
+            pago: 400,
+            emAberto: 780,
+            vencido: 380,
+          ),
+          // Sem categoria entra como linha própria: é assim que o servidor
+          // responde, e o rodapé precisa fechar com as linhas.
+          ExpenseCategoryReportRow(
+            categoryName: 'Sem categoria',
+            count: 1,
+            previsto: 90,
+            emAberto: 90,
+          ),
+        ],
+        totals: ExpensesReportTotals(
+          count: 4,
+          previsto: 3770,
+          pago: 2900,
+          emAberto: 870,
+          vencido: 380,
+        ),
+      );
+
+  @override
+  Future<Uint8List> expensesCsv({required ReportRange range}) async =>
+      Uint8List.fromList('Categoria;Previsto\r\nAluguel;R\$ 2.500,00'.codeUnits);
+
+  @override
   Future<RevenueReport> revenue({required ReportRange range}) async =>
       const RevenueReport(
         total: 1730.90,

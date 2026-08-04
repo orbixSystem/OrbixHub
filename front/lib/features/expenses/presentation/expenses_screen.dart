@@ -221,6 +221,14 @@ class _Corpo extends ConsumerWidget {
                 despesa: e,
                 categoria: porId[e.categoryId],
                 hoje: hoje,
+                // Resumo do parcelamento: o total da compra NÃO é derivável do
+                // mês (só vêm as parcelas que vencem nele), então o servidor
+                // manda.
+                grupo: e.installmentGroupId == null
+                    ? null
+                    : mes.installmentGroups
+                        .where((g) => g.groupId == e.installmentGroupId)
+                        .firstOrNull,
                 // A próxima cobrança é calculada aqui, onde as regras e as
                 // irmãs do mês estão em mãos — o card não sai buscando nada.
                 proxima: proximaCobranca(
@@ -420,11 +428,15 @@ class _LinhaDespesa extends ConsumerStatefulWidget {
     required this.categoria,
     required this.hoje,
     this.proxima,
+    this.grupo,
   });
 
   final Expense despesa;
   final ExpenseCategory? categoria;
   final DateTime hoje;
+
+  /// Resumo do parcelamento (total da compra e quantas pagas), quando é parcela.
+  final InstallmentGroupSummary? grupo;
 
   /// Quando a conta vai ser cobrada de novo (fixa ou parcelada). Calculada pela
   /// lista, que tem as regras e as irmãs em mãos.
@@ -566,7 +578,15 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   /// lista para servir a minoria das contas.
   List<Widget> _detalhesExtra(NeuTokens neu) {
     final e = widget.despesa;
+    final g = widget.grupo;
     final partes = <(IconData, String)>[
+      // "de R$ 900,00 · 2 de 6 pagas": o valor grande do card é o da PARCELA (o
+      // que se deve neste mês); o total da compra é o contexto que faltava.
+      if (g != null && g.total > 0)
+        (
+          Icons.view_week_outlined,
+          'de ${formatMoney(g.total)} · ${g.paidCount} de ${g.count} pagas',
+        ),
       if ((e.supplierName ?? '').trim().isNotEmpty)
         (Icons.storefront_outlined, e.supplierName!.trim()),
       if (e.pago && (e.paidMethod ?? '').isNotEmpty)

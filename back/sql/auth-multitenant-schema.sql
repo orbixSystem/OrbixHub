@@ -2064,6 +2064,25 @@ ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_sale_kind_chk;
 ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_sale_kind_chk
   CHECK (sale_kind IS NULL OR sale_kind IN ('os','sale','expense'));
 
+-- 0043 — categoria padrão "Produto" (compra de mercadoria: peça, óleo, material
+-- de consumo). Separada de "Fornecedor", que é sobre QUEM cobra e não sobre o que
+-- foi comprado. `tracks_supplier` ligado: compra de produto sempre tem alguém do
+-- outro lado, e é o caso em que a consulta de CNPJ serve.
+--
+-- Só para tenant que JÁ abriu o módulo (já tem categorias): quem nunca abriu
+-- recebe a lista completa, com Produto, na primeira listagem. O NOT EXISTS por
+-- nome respeita quem já criou a sua à mão.
+INSERT INTO expense_category (tenant_id, name, icon, color, tracks_supplier)
+SELECT t.id, 'Produto', 'produto', '#0EA5E9', true
+  FROM tenant t
+ WHERE NOT EXISTS (
+   SELECT 1 FROM expense_category c
+    WHERE c.tenant_id = t.id
+      AND lower(btrim(c.name)) = 'produto'
+      AND c.status = 'active'
+ )
+   AND EXISTS (SELECT 1 FROM expense_category c2 WHERE c2.tenant_id = t.id);
+
 -- 0042 — backfill da ORIGEM nos lançamentos de despesa antigos. O vínculo já
 -- existia em `expense.cash_entry_id`, só no sentido oposto; sem isto metade do
 -- extrato seria clicável e a outra não. Só onde a origem está NULA (nunca

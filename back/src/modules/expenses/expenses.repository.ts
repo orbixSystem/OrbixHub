@@ -118,6 +118,21 @@ export class ExpensesRepository {
     });
   }
 
+  /**
+   * Contas cujo VENCIMENTO cai no período — insumo do relatório.
+   *
+   * Sem o arraste de vencidas do [listByMonth]: aqui o período é o recorte pedido
+   * pelo relatório, e trazer conta de fora dele faria a soma não corresponder ao
+   * intervalo escolhido.
+   */
+  listByDueRange(p: { de: Date; ate: Date }) {
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { status: 'active', due_date: { gte: p.de, lte: p.ate } },
+      orderBy: { due_date: 'asc' },
+    });
+  }
+
   findById(id: string) {
     const db = this.tenant.getClient();
     return db.expense.findUnique({ where: { id } });
@@ -137,6 +152,23 @@ export class ExpensesRepository {
     const db = this.tenant.getClient();
     return db.expense.findMany({
       where: { installment_group_id: groupId, status: 'active' },
+      orderBy: { installment_no: 'asc' },
+    });
+  }
+
+  /**
+   * Todas as parcelas dos grupos informados — insumo do resumo por grupo.
+   *
+   * Agregação em JS e não `groupBy` no banco de propósito: um grupo tem no máximo
+   * 48 linhas (CHECK), a tela pede poucos grupos por mês, e o mesmo laço já
+   * calcula total, quantidade e quantas foram pagas. Um `groupBy` daria só a soma
+   * e exigiria uma segunda consulta para o resto.
+   */
+  listByGroups(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve([]);
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: { installment_group_id: { in: ids }, status: 'active' },
       orderBy: { installment_no: 'asc' },
     });
   }

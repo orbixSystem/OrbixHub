@@ -297,3 +297,53 @@ class ReportMemberOption {
   final String id;
   final String name;
 }
+
+/// Uma linha do relatório de Despesas por categoria.
+///
+/// `previsto` = o que a categoria custou no período (todas as contas que vencem
+/// nele); `pago` + `emAberto` fecham o previsto, e `vencido` é subconjunto do em
+/// aberto — não uma quarta fatia.
+@freezed
+abstract class ExpenseCategoryReportRow with _$ExpenseCategoryReportRow {
+  const factory ExpenseCategoryReportRow({
+    @JsonKey(name: 'categoryId') String? categoryId,
+    @JsonKey(name: 'categoryName') @Default('') String categoryName,
+    @JsonKey(name: 'categoryColor') String? categoryColor,
+    @Default(0) int count,
+    @Default(0) num previsto,
+    @Default(0) num pago,
+    @JsonKey(name: 'emAberto') @Default(0) num emAberto,
+    @Default(0) num vencido,
+  }) = _ExpenseCategoryReportRow;
+
+  factory ExpenseCategoryReportRow.fromJson(Map<String, dynamic> json) =>
+      _$ExpenseCategoryReportRowFromJson(json);
+}
+
+/// Totais do relatório de despesas — somam as LINHAS mostradas (inclusive a de
+/// "Sem categoria"), para o rodapé fechar com o que está na tela.
+@freezed
+abstract class ExpensesReportTotals with _$ExpensesReportTotals {
+  const factory ExpensesReportTotals({
+    @Default(0) int count,
+    @Default(0) num previsto,
+    @Default(0) num pago,
+    @JsonKey(name: 'emAberto') @Default(0) num emAberto,
+    @Default(0) num vencido,
+  }) = _ExpensesReportTotals;
+
+  factory ExpensesReportTotals.fromJson(Map<String, dynamic> json) =>
+      _$ExpensesReportTotalsFromJson(json);
+}
+
+/// Despesas do período por categoria — "para onde vai o dinheiro".
+@freezed
+abstract class ExpensesReport with _$ExpensesReport {
+  const factory ExpensesReport({
+    @Default(<ExpenseCategoryReportRow>[]) List<ExpenseCategoryReportRow> rows,
+    @Default(ExpensesReportTotals()) ExpensesReportTotals totals,
+  }) = _ExpensesReport;
+
+  factory ExpensesReport.fromJson(Map<String, dynamic> json) =>
+      _$ExpensesReportFromJson(json);
+}
