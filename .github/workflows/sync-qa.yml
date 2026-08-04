@@ -1,0 +1,49 @@
+name: Sync qa
+
+# Depois de um release (push na main), traz a qa de volta pro mesmo commit
+# por fast-forward. Sem isso a qa fica pra tras a cada release e alguem
+# acaba resolvendo isso com force-push.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-qa
+  cancel-in-progress: false
+
+jobs:
+  ff:
+    name: Fast-forward da qa
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Ressincroniza a qa com a main
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --heads origin qa >/dev/null 2>&1; then
+            echo "qa nao existe; criando a partir da main"
+            git push origin "$GITHUB_SHA:refs/heads/qa"
+            exit 0
+          fi
+
+          git fetch origin qa
+          if [ "$(git rev-parse origin/qa)" = "$GITHUB_SHA" ]; then
+            echo "qa ja esta em $GITHUB_SHA; nada a fazer"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor origin/qa "$GITHUB_SHA"; then
+            git push origin "$GITHUB_SHA:refs/heads/qa"
+            echo "qa fast-forward para $GITHUB_SHA"
+          else
+            echo "::error::qa nao e ancestral da main; ressincronize a mao."
+            echo "Causa provavel: o PR qa->main foi mergeado com squash ou rebase"
+            echo "em vez de merge commit. Veja docs/superpowers/specs/2026-08-02-processo-git-qa-design.md"
+            exit 1
+          fi

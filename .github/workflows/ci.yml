@@ -1,7 +1,13 @@
 name: CI
 on:
-  push: { branches: [main] }
+  push: { branches: [main, qa] }
   pull_request:
+
+# Um run por ref: push novo cancela o anterior em vez de empilhar.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   back:
     runs-on: ubuntu-latest

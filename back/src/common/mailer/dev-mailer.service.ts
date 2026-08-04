@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { MailerService, VerificationEmail } from './mailer.service';
+import { MailMessage, MailerService, VerificationEmail } from './mailer.service';
 import { DevInboxService } from '../../modules/devtools/dev-inbox.service';
 import { ENV } from '../config/config.module';
 import { Env } from '../config/env.schema';
@@ -20,5 +20,13 @@ export class DevMailerService extends MailerService {
     } else {
       this.log.log(`[mail] ${email.kind} -> ${email.to}`);
     }
+  }
+
+  /**
+   * Conteúdo livre (ex.: link da OS) não tem token para o besouro guardar —
+   * em dev só registramos que sairia, sem tocar a internet.
+   */
+  async sendMessage(message: MailMessage): Promise<void> {
+    this.log.log(`[mail] "${message.subject}" -> ${message.to}`);
   }
 }
