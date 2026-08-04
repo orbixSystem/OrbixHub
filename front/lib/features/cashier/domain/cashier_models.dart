@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'cashier_format.dart';
+
 part 'cashier_models.freezed.dart';
 part 'cashier_models.g.dart';
 
@@ -159,6 +161,71 @@ abstract class CashierConfig with _$CashierConfig {
 }
 
 /// Rascunho de um lançamento (a direção é derivada da categoria no backend).
+/// Despesa fixa: modelo (nome + valor) para lançar em um toque.
+///
+/// `amount` vem como String (Decimal do Postgres, como no resto do módulo).
+/// **`'0'` significa "o valor varia"** — o atalho preenche só o nome e deixa o
+/// valor para digitar; é o caso da conta de luz.
+@freezed
+abstract class ExpenseTemplate with _$ExpenseTemplate {
+  const factory ExpenseTemplate({
+    required String id,
+    required String name,
+    @Default('0') String amount,
+    @Default('despesa') String category, // 'despesa' | 'sangria'
+    /// Forma sugerida; null = usar o default do caixa (não chutar).
+    String? method,
+    @Default('active') String status, // 'active' | 'disabled'
+  }) = _ExpenseTemplate;
+
+  factory ExpenseTemplate.fromJson(Map<String, dynamic> json) =>
+      _$ExpenseTemplateFromJson(json);
+}
+
+/// Helpers de leitura (freezed 3 exige construtor privado p/ getters de instância).
+extension ExpenseTemplateX on ExpenseTemplate {
+  /// Valor sugerido; 0 = "varia".
+  double get valor => moneyToDouble(amount);
+
+  /// Se o modelo já traz o valor pronto (o atalho fica de um toque só).
+  bool get temValor => valor > 0;
+
+  bool get ativo => status == 'active';
+}
+
+/// Draft de escrita de uma despesa fixa (create/update). Só envia o que mudou —
+/// `method: null` no update é ambíguo por natureza, então quem quer LIMPAR a
+/// forma passa `limparMethod: true`; ausência significa "não mexe".
+class ExpenseTemplateDraft {
+  const ExpenseTemplateDraft({
+    this.id,
+    this.name,
+    this.amount,
+    this.category,
+    this.method,
+    this.limparMethod = false,
+    this.status,
+  });
+
+  /// Uuid gerado no cliente (create offline preserva o id no replay).
+  final String? id;
+  final String? name;
+  final double? amount;
+  final String? category;
+  final String? method;
+  final bool limparMethod;
+  final String? status;
+
+  Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
+        if (name != null) 'name': name,
+        if (amount != null) 'amount': amount,
+        if (category != null) 'category': category,
+        if (limparMethod) 'method': null else if (method != null) 'method': method,
+        if (status != null) 'status': status,
+      };
+}
+
 class EntryDraft {
   const EntryDraft({
     required this.amount,

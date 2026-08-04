@@ -6,7 +6,7 @@ import '../domain/cashier_repository.dart';
 
 /// [CashierRepository] offline-first (B8) — decorator sobre a impl real (dio).
 ///
-/// Entidades espelhadas: `cash_session`, `cash_entry`.
+/// Entidades espelhadas: `cash_session`, `cash_entry`, `cash_expense_template`.
 ///
 /// A sessão é **por ponto de caixa** (`deviceId`, B4): o decorator resolve o
 /// mesmo id do device que a impl real usa e o manda no payload das ops
@@ -35,6 +35,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
 
   static const _sessions = 'cash_session';
   static const _entries = 'cash_entry';
+  static const _templates = 'cash_expense_template';
   static const _pageSize = 20;
 
   /// Saídas são despesa e sangria; o resto é entrada (espelha
@@ -735,4 +736,91 @@ class LocalFirstCashierRepository extends LocalFirstBase
       entries: [for (final e in entries) CashEntry.fromJson(e)],
     );
   }
+
+  // ===================== despesas fixas =====================
+  // Atalhos precisam existir OFFLINE: é justo sem rede que lançar rápido importa
+  // mais. Modelo não é dinheiro — cadastrar/editar offline não move saldo nenhum.
+
+  @override
+  Future<List<ExpenseTemplate>> listExpenseTemplates({
+    bool includeDisabled = false,
+  }) async {
+    if (isOnline()) {
+      try {
+        final remotos =
+            await inner.listExpenseTemplates(includeDisabled: includeDisabled);
+        for (final t in remotos) {
+          await putRow(_templates, t.toJson());
+        }
+        return remotos;
+      } on AppException {
+        // Cai para o espelho local — um atalho é conveniência, não pode
+        // derrubar a tela de lançamento se a rede oscilar no meio.
+      }
+    }
+    final locais = (await rows(_templates))
+        .where((r) => includeDisabled || (r['status'] ?? 'active') == 'active')
+        .toList()
+      ..sort((a, b) => (a['name'] ?? '')
+          .toString()
+          .toLowerCase()
+          .compareTo((b['name'] ?? '').toString().toLowerCase()));
+    return [for (final r in locais) ExpenseTemplate.fromJson(r)];
+  }
+
+  @override
+  Future<ExpenseTemplate> createExpenseTemplate(
+    ExpenseTemplateDraft draft,
+  ) async {
+    if (isOnline()) {
+      final criado = await inner.createExpenseTemplate(draft);
+      await putRow(_templates, criado.toJson());
+      return criado;
+    }
+    final id = draft.id ?? newId();
+    await enqueue(_templates, 'create', {...draft.toJson(), 'id': id});
+    final row = <String, dynamic>{
+      'id': id,
+      'name': draft.name ?? '',
+      'amount': dec(draft.amount ?? 0),
+      'category': draft.category ?? 'despesa',
+      'method': draft.method,
+      'status': 'active',
+    };
+    await putRow(_templates, row);
+    return ExpenseTemplate.fromJson(row);
+  }
+
+  @override
+  Future<ExpenseTemplate> updateExpenseTemplate(
+    String id,
+    ExpenseTemplateDraft draft,
+  ) async {
+    // Criado offline e ainda na fila: editar no servidor daria 404.
+    if (!await useLocal(_templates, id)) {
+      final atualizado = await inner.updateExpenseTemplate(id, draft);
+      await putRow(_templates, atualizado.toJson());
+      return atualizado;
+    }
+    final row = await rowById(_templates, id);
+    if (row == null) notFoundLocally('Despesa fixa');
+    await enqueue(_templates, 'update', {...draft.toJson(), 'id': id});
+    final patch = draft.toJson();
+    final novo = <String, dynamic>{
+      ...row,
+      if (patch.containsKey('name')) 'name': patch['name'],
+      if (patch.containsKey('amount')) 'amount': dec(draft.amount ?? 0),
+      if (patch.containsKey('category')) 'category': patch['category'],
+      if (patch.containsKey('method')) 'method': patch['method'],
+      if (patch.containsKey('status')) 'status': patch['status'],
+    };
+    await putRow(_templates, novo);
+    return ExpenseTemplate.fromJson(novo);
+  }
+
+  @override
+  Future<ExpenseTemplate> disableExpenseTemplate(String id) =>
+      // Desativar é um update de `status` — offline reusa a mesma op de sync, em
+      // vez de precisar de uma op própria só para isso.
+      updateExpenseTemplate(id, const ExpenseTemplateDraft(status: 'disabled'));
 }

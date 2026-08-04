@@ -63,10 +63,17 @@ final notificationsProvider =
     AsyncNotifierProvider.autoDispose<NotificationsNotifier,
         NotificationsResult>(NotificationsNotifier.new);
 
-/// Contagem de não-lidas — 0 enquanto carrega/erro (badge some).
-final unreadCountProvider = Provider.autoDispose<int>((ref) {
+/// Contagem de não-lidas — **`null` enquanto carrega/erro**, não 0.
+///
+/// A distinção não é cosmética. Antes isto devolvia 0 no loading, e o sino, que
+/// toca ao VER o não-lido subir, lia a sequência `0 → 3` de um simples remount
+/// como "chegaram 3 notificações agora" e tocava o alerta de mensagem nova sem
+/// nada ter chegado. O sino é desmontado com frequência (tutorial aberto, página
+/// de notificações no mobile) e o provider é `autoDispose`, então isso acontecia
+/// direto. `null` = "ainda não sei" — e não se compara com o que não se sabe.
+final unreadCountProvider = Provider.autoDispose<int?>((ref) {
   return ref.watch(notificationsProvider).maybeWhen(
         data: (r) => r.unread,
-        orElse: () => 0,
+        orElse: () => null,
       );
 });

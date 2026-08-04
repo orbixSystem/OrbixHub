@@ -83,7 +83,17 @@ String cashierEventTitle(CashierEvent ev) {
       _ => 'Venda em fiado',
     };
   }
-  return categoryLabel(ev.entry!.category);
+  // Despesa/sangria/suprimento: o NOME dado no lançamento identifica a linha
+  // melhor que a categoria. Num histórico com dez despesas, dez linhas
+  // "Despesa" não dizem nada — "Aluguel", "Óleo do fornecedor" dizem. A
+  // categoria continua visível no subtítulo, junto da forma e da hora.
+  final e = ev.entry!;
+  final nome = e.description?.trim() ?? '';
+  if (nome.isEmpty) return categoryLabel(e.category);
+  // Recebimento já traz o número da venda/OS na descrição, e aí o rótulo da
+  // categoria é o que informa — o nome entra como complemento, não como título.
+  final ehRecebimento = e.category == 'os_payment' || e.category == 'venda_avulsa';
+  return ehRecebimento ? '${categoryLabel(e.category)} · $nome' : nome;
 }
 
 /// A linha da venda mostra o VALOR VENDIDO e, à parte, a situação do pagamento

@@ -175,6 +175,24 @@ model cash_entry {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cash_expense_template {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  name       String
+  amount     Decimal  @default(0) @db.Decimal(14, 2)
+  category   String   @default("despesa")
+  method     String?
+  status     String   @default("active")
+  created_by String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, status], map: "idx_cash_expense_template_tenant_status")
+  @@index([tenant_id, updated_at], map: "idx_cash_expense_template_tenant_updated")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sale {
   id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id          String      @db.Uuid
@@ -633,9 +651,10 @@ model tenant {
   trade_name    String?
   settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  audit_log          audit_log[]
-  cash_entry         cash_entry[]
-  cash_session       cash_session[]
+  audit_log             audit_log[]
+  cash_entry            cash_entry[]
+  cash_expense_template cash_expense_template[]
+  cash_session          cash_session[]
   conversation       conversation[]
   customer           customer[]
   inventory_item     inventory_item[]

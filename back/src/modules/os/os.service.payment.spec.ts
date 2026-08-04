@@ -94,8 +94,11 @@ function makeService(over: {
     {} as never, // messages
     {} as never, // iam
     over.cashier ?? new FakeCashierService(),
-    {} as never, // storage
-  );
+    {} as never, // storage,
+      // EventEmitter2 do push em tempo real: o teste não observa socket,
+      // então um emit no-op basta.
+      { emit: () => true } as never,
+    );
   return { svc, repo, audit };
 }
 

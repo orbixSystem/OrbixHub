@@ -59,8 +59,11 @@ function makeService(opts: { usaSubjects?: boolean } = {}) {
     { findByRef: jest.fn().mockResolvedValue(null) } as never, // messages
     {} as never, // iam
     { getPaymentSummary: jest.fn() } as never, // cashier
-    {} as never, // storage
-  );
+    {} as never, // storage,
+      // EventEmitter2 do push em tempo real: o teste não observa socket,
+      // então um emit no-op basta.
+      { emit: () => true } as never,
+    );
   return { svc, customers, repo };
 }
 

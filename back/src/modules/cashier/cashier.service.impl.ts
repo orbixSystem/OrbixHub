@@ -39,6 +39,10 @@ import {
   ReverseEntryDto,
   UpdateEntryDto,
 } from './dto/entry.dto';
+import {
+  CreateExpenseTemplateDto,
+  UpdateExpenseTemplateDto,
+} from './dto/expense-template.dto';
 import { CloseSessionDto, OpenSessionDto } from './dto/session.dto';
 import { EntryQueryDto, SummaryQueryDto } from './dto/query.dto';
 import { UpdateCashierConfigDto } from './dto/config.dto';
@@ -110,6 +114,9 @@ export class CashierServiceImpl extends CashierService {
   private static readonly SYNC_ENTITIES = new Set<CashierSyncEntity>([
     'cash_session',
     'cash_entry',
+    // Modelos de despesa fixa: sem eles no pull, os atalhos ficariam invisíveis
+    // offline — e é justo offline que o operador mais precisa lançar rápido.
+    'cash_expense_template',
   ]);
 
   /**
@@ -133,6 +140,98 @@ export class CashierServiceImpl extends CashierService {
     return this.tenant.withTenantTx(() =>
       this.repo.listChangedSince(entity as CashierSyncEntity, cursor, clamped),
     );
+  }
+
+  // ============ Despesas fixas (modelos de lançamento) ============
+  /**
+   * Modelos disponíveis para o atalho. `includeDisabled` só para a tela de
+   * gerenciamento — os atalhos do lançamento mostram apenas os ativos.
+   */
+  listExpenseTemplates(includeDisabled = false) {
+    return this.tenant.withTenantTx(() =>
+      this.repo.listTemplates({ includeDisabled }),
+    );
+  }
+
+  async createExpenseTemplate(user: AuthUser, dto: CreateExpenseTemplateDto) {
+    const name = dto.name.trim();
+    try {
+      const created = await this.tenant.withTenantTx(() =>
+        this.repo.createTemplate(user.tenantId, {
+          ...(dto.id ? { id: dto.id } : {}),
+          name,
+          // 0 = "o valor varia": o atalho preenche só o nome.
+          amount: dto.amount ?? 0,
+          category: dto.category ?? 'despesa',
+          method: dto.method ?? null,
+          created_by: user.userId,
+        }),
+      );
+      await this.audit.log(
+        user.tenantId,
+        user.userId,
+        'cashier_template_create',
+        created.id,
+      );
+      return created;
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      // Dois uniques possíveis: a PK (replay offline reenviando o mesmo id) e o
+      // nome entre os ativos. Sob RLS o meta.target vem null, então confirmamos
+      // por leitura — tratar um pelo outro daria a mensagem errada ao operador.
+      if (dto.id) {
+        const idTaken =
+          isIdUniqueViolation(e) ||
+          (await this.tenant.withTenantTx(() =>
+            this.repo.findTemplate(dto.id as string),
+          )) != null;
+        if (idTaken) {
+          throw new ConflictException('Registro já existe (id duplicado).');
+        }
+      }
+      throw new ConflictException(`Já existe uma despesa fixa "${name}".`);
+    }
+  }
+
+  async updateExpenseTemplate(
+    user: AuthUser,
+    id: string,
+    dto: UpdateExpenseTemplateDto,
+  ) {
+    const current = await this.tenant.withTenantTx(() =>
+      this.repo.findTemplate(id),
+    );
+    if (!current) throw new NotFoundException('Despesa fixa não encontrada.');
+    const name = dto.name?.trim();
+    try {
+      const updated = await this.tenant.withTenantTx(() =>
+        this.repo.updateTemplate(id, {
+          ...(name ? { name } : {}),
+          ...(dto.amount != null ? { amount: dto.amount } : {}),
+          ...(dto.category ? { category: dto.category } : {}),
+          // `method` distingue ausente (não mexe) de null explícito (limpar).
+          ...(dto.method !== undefined ? { method: dto.method } : {}),
+          ...(dto.status ? { status: dto.status } : {}),
+        }),
+      );
+      await this.audit.log(
+        user.tenantId,
+        user.userId,
+        'cashier_template_update',
+        id,
+      );
+      return updated;
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      throw new ConflictException(
+        `Já existe uma despesa fixa "${name ?? current.name}".`,
+      );
+    }
+  }
+
+  /** Desativar = sem hard delete (regra 6). O que já foi lançado não muda. */
+  disableExpenseTemplate(user: AuthUser, id: string) {
+    return this.updateExpenseTemplate(user, id, { status: 'disabled' });
   }
 
   // ===================== Config =====================
