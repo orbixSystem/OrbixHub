@@ -119,7 +119,10 @@ void main() {
       expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Venda avulsa'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      // Despesa NÃO é mais ação do caixa: conta a pagar virou o módulo
+      // `Despesas`, e o lançamento aqui nasce da baixa lá. Duas portas para o
+      // mesmo dinheiro deixariam saída no livro sem conta do outro lado.
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
 
     testWidgets('NÃO oferece conferência de gaveta', (tester) async {
@@ -144,10 +147,12 @@ void main() {
     testWidgets('as ações vêm em grid, com alvo de toque grande',
         (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
-      // As três ações do caixa (dono vê todas).
+      // As DUAS ações do caixa sem gaveta (dono vê todas). Eram três até a
+      // despesa sair para o módulo `Despesas`; sangria/suprimento só aparecem
+      // quando há controle de gaveta, que é onde operação de gaveta pertence.
       expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
-      expect(find.text('Despesa / sangria'), findsOneWidget);
+      expect(find.text('Despesa / sangria'), findsNothing);
     });
   });
 

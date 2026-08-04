@@ -334,17 +334,16 @@ class _FreeBody extends ConsumerWidget {
                   onTap: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              // Sem controle de gaveta (o padrão), "suprimento" não tem o que
-              // conferir — aporte só significa algo contra um valor de abertura.
-              // A categoria continua no diálogo para quem precisar dela.
-              if (canManage)
-                _Acao(
-                  label: 'Despesa / sangria',
-                  icon: Icons.remove_circle_outline,
-                  cor: neu.danger,
-                  onTap: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'despesa'),
-                ),
+              // Despesa saiu daqui: contas a pagar viraram o módulo `Despesas`,
+              // e o lançamento no caixa passou a ser CONSEQUÊNCIA da baixa lá
+              // (o módulo chama o service público do caixa). Digitar despesa
+              // solta aqui criaria uma segunda porta para o mesmo dinheiro, sem
+              // a conta correspondente do outro lado.
+              //
+              // Sangria continua existindo — é retirada da GAVETA, não conta a
+              // pagar — mas vive junto de abrir/fechar/conferência, que é onde
+              // operação de gaveta pertence. Sem controle de gaveta (o padrão)
+              // ela não aparece nesta grade.
               ],
             ),
           ),
@@ -565,14 +564,16 @@ class _OpenBody extends ConsumerWidget {
                   onPressed: () => showEntryDialog(context, ref, state.config,
                       presetCategory: 'os_payment'),
                 ),
-              // Ajustes da gaveta = gestão (dono/gerente).
+              // Ajustes da GAVETA = gestão (dono/gerente). Só os dois: tirar e
+              // botar dinheiro. Despesa saiu do caixa e virou o módulo
+              // `Despesas` — o lançamento aqui nasce da baixa lá.
               if (canManage) ...[
                 NeuButton(
-                  label: 'Despesa / sangria',
+                  label: 'Sangria',
                   kind: NeuButtonKind.secondary,
                   icon: Icons.remove,
                   onPressed: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'despesa'),
+                      presetCategory: 'sangria'),
                 ),
                 NeuButton(
                   label: 'Suprimento',
