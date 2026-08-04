@@ -10,6 +10,10 @@ import {
 import type { Server, Socket } from 'socket.io';
 import { AccessTokenService } from '../../common/auth/jwt.service';
 import {
+  OS_CHANGED_EVENT,
+  type OsChangedEvent,
+} from '../os/os.events';
+import {
   MESSAGE_CREATED_EVENT,
   MessageCreatedEvent,
   MessagesService,
@@ -89,6 +93,22 @@ export class RealtimeGateway {
       if (belongs) await client.join(convRoom(conversationId));
     }
     return { ok: true };
+  }
+
+  /**
+   * Push: a OS mudou → sala do TENANT (todas as telas de staff abertas).
+   *
+   * Vai só para o tenant, não para a sala pública: o link do cliente é assunto
+   * separado e ainda não assina isto. O payload é mínimo (id + o que mudou) —
+   * quem recebe recarrega pela API, para não existir uma segunda fonte de verdade
+   * viajando pelo socket.
+   */
+  @OnEvent(OS_CHANGED_EVENT)
+  handleOsChanged(evt: OsChangedEvent) {
+    if (!this.server) return;
+    this.server
+        .to(tenantRoom(evt.tenantId))
+        .emit('os', { orderId: evt.orderId, kind: evt.kind });
   }
 
   /** Push: nova mensagem → sala da conversa (cliente/thread) + sala do tenant (inbox). */

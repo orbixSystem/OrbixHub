@@ -35,6 +35,11 @@ class RealtimeChat {
     required String accessToken,
     String? conversationId,
     required void Function(Map<String, dynamic> message) onMessage,
+    /// Mudança numa ORDEM DE SERVIÇO do tenant (`{orderId, kind}`).
+    ///
+    /// Opcional para não obrigar as telas de mensagem a tratar um evento que não
+    /// é delas: a sala do tenant é a mesma, mas cada tela escuta o que lhe importa.
+    void Function(Map<String, dynamic> evt)? onOsChanged,
   }) {
     _connect(
       onMessage,
@@ -42,13 +47,15 @@ class RealtimeChat {
         'accessToken': accessToken,
         'conversationId': ?conversationId,
       }),
+      onOsChanged: onOsChanged,
     );
   }
 
   void _connect(
     void Function(Map<String, dynamic>) onMessage,
-    void Function(io.Socket socket) subscribe,
-  ) {
+    void Function(io.Socket socket) subscribe, {
+    void Function(Map<String, dynamic>)? onOsChanged,
+  }) {
     final socket = io.io(
       _wsBaseUrl(),
       io.OptionBuilder()
@@ -71,6 +78,12 @@ class RealtimeChat {
       if (_disposed) return;
       if (data is Map) onMessage(data.cast<String, dynamic>());
     });
+    if (onOsChanged != null) {
+      socket.on('os', (data) {
+        if (_disposed) return;
+        if (data is Map) onOsChanged(data.cast<String, dynamic>());
+      });
+    }
   }
 
   void dispose() {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/realtime/realtime_chat.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -34,10 +35,52 @@ const _maxContentWidth = 1200.0;
 /// (adicionar via picker do estoque ou avulso, editar, remover) com totais ao
 /// vivo, e botões de status com as transições válidas. Corpo apenas — moldura
 /// é do shell.
-class OsDetailScreen extends ConsumerWidget {
+class OsDetailScreen extends ConsumerStatefulWidget {
   const OsDetailScreen({super.key, required this.orderId});
 
   final String orderId;
+
+  @override
+  ConsumerState<OsDetailScreen> createState() => _OsDetailScreenState();
+}
+
+class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
+  /// Push em tempo real: a OS muda pelas mãos de outra pessoa (outro mecânico
+  /// mudando status, o cliente mandando mensagem) e esta tela precisa refletir
+  /// sem depender de o usuário recarregar.
+  final RealtimeChat _rt = RealtimeChat();
+
+  String get orderId => widget.orderId;
+
+  @override
+  void initState() {
+    super.initState();
+    final accessToken = ref.read(accessTokenStoreProvider).token;
+    if (accessToken == null) return;
+    _rt.connectStaff(
+      accessToken: accessToken,
+      // Mensagem nova numa conversa desta OS: a linha do tempo/contador muda.
+      onMessage: (_) => _recarregar(),
+      onOsChanged: (evt) {
+        // A sala é do TENANT: chega mudança de QUALQUER OS. Só recarrega se for
+        // esta — senão a tela recarregaria a cada movimento da oficina.
+        if (evt['orderId'] == orderId) _recarregar();
+      },
+    );
+  }
+
+  /// Recarrega pela API. O socket avisa QUE mudou; o dado continua vindo de uma
+  /// fonte só — o payload do evento é mínimo de propósito.
+  void _recarregar() {
+    if (!mounted) return;
+    ref.invalidate(orderProvider(orderId));
+  }
+
+  @override
+  void dispose() {
+    _rt.dispose();
+    super.dispose();
+  }
 
   bool _has(WidgetRef ref, String perm) {
     final s = ref.read(sessionControllerProvider);
@@ -62,7 +105,7 @@ class OsDetailScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final orderAsync = ref.watch(orderProvider(orderId));
     final canWrite = _has(ref, 'os.write');
     final canApprove = _has(ref, 'os.approve');
