@@ -9,6 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../domain/inventory_models.dart';
+import 'barcode_scanner_dialog.dart';
 import 'inventory_providers.dart';
 
 /// Converte "12,34" / "12.34" em double. Null quando vazio/ inválido.
@@ -88,6 +89,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
   bool _saving = false;
   bool _lookingUp = false;
   bool _suggestingSku = false;
+  bool _calculatingPrice = false;
   String? _error;
 
   @override
@@ -114,6 +116,34 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     _gtin = TextEditingController(text: it?.gtin ?? '');
     _codigoServico = TextEditingController(text: it?.codigoServico ?? '');
     _aliquotaIss = TextEditingController(text: _fmt(it?.aliquotaIss));
+
+    _salePrice.addListener(_onPriceChanged);
+    _costPrice.addListener(_onPriceChanged);
+    _marginPct.addListener(_onMarginChanged);
+  }
+
+  /// Recalcula margem quando preço de venda ou custo mudam.
+  void _onPriceChanged() {
+    if (_calculatingPrice) return;
+    final sale = _toDouble(_salePrice.text);
+    final cost = _toDouble(_costPrice.text);
+    if (sale == null || cost == null || cost == 0) return;
+    final margin = ((sale - cost) / cost) * 100;
+    _calculatingPrice = true;
+    _marginPct.text = margin.toStringAsFixed(2).replaceAll('.', ',');
+    _calculatingPrice = false;
+  }
+
+  /// Recalcula preço de venda quando margem + custo estão preenchidos.
+  void _onMarginChanged() {
+    if (_calculatingPrice) return;
+    final cost = _toDouble(_costPrice.text);
+    final margin = _toDouble(_marginPct.text);
+    if (cost == null || margin == null) return;
+    final sale = cost * (1 + margin / 100);
+    _calculatingPrice = true;
+    _salePrice.text = sale.toStringAsFixed(2).replaceAll('.', ',');
+    _calculatingPrice = false;
   }
 
   String _fmt(String? decimal) {
@@ -138,6 +168,9 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
 
   @override
   void dispose() {
+    _salePrice.removeListener(_onPriceChanged);
+    _costPrice.removeListener(_onPriceChanged);
+    _marginPct.removeListener(_onMarginChanged);
     for (final c in [
       _manufacturerCode,
       _barcode,
@@ -211,6 +244,17 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
     } finally {
       if (mounted) setState(() => _lookingUp = false);
     }
+  }
+
+  /// Abre a câmera, detecta o código e dispara o lookup automaticamente.
+  Future<void> _scan() async {
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => const BarcodeScannerDialog(),
+    );
+    if (code == null || code.isEmpty) return;
+    _lookupCode.text = code;
+    await _lookup();
   }
 
   /// Botão "Sugerir": pede um SKU ao repository a partir do nome. Ação do
@@ -438,6 +482,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
           loading: _lookingUp,
           offline: offline,
           onSubmit: (_lookingUp || offline) ? null : _lookup,
+          onScan: (_lookingUp || offline) ? null : _scan,
         ),
         const SizedBox(height: 16),
       ],
@@ -781,9 +826,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       hint: hint,
       // Destaque do catálogo: ícone + helper sinalizam (o campo já é inset).
       helper: highlighted ? 'Preenchido pelo catálogo' : helper,
-      suffix: highlighted
-          ? Icon(Icons.auto_awesome, size: 18, color: context.neu.accent)
-          : suffix,
+      suffix: highlighted ? null : suffix,
       prefixIcon: prefixIcon,
       maxLength: maxLength,
       keyboardType: keyboardType,
@@ -919,12 +962,16 @@ class _CodeFirstCard extends StatelessWidget {
     required this.controller,
     required this.loading,
     required this.onSubmit,
+    this.onScan,
     this.offline = false,
   });
 
   final TextEditingController controller;
   final bool loading;
   final VoidCallback? onSubmit;
+
+  /// Abre a câmera para escanear um código de barras.
+  final VoidCallback? onScan;
 
   /// Sem internet: a consulta automática por código de barras (catálogo
   /// externo) não responde — o usuário preenche à mão.
@@ -967,10 +1014,17 @@ class _CodeFirstCard extends StatelessWidget {
           TextField(
             controller: controller,
             enabled: !offline,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               labelText: 'Código de barras ou do fabricante',
-              prefixIcon: Icon(Icons.qr_code_scanner),
+              prefixIcon: const Icon(Icons.qr_code_scanner),
+              suffixIcon: _maybeTooltip(
+                IconButton(
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  tooltip: 'Escanear com câmera',
+                  onPressed: onScan,
+                ),
+              ),
             ),
             onSubmitted: (_) => onSubmit?.call(),
           ),

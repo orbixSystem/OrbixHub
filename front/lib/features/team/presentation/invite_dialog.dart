@@ -74,6 +74,7 @@ class _InviteDialogState extends State<_InviteDialog> {
       firstDate: now,
       lastDate: now.add(const Duration(days: 365 * 5)),
       helpText: 'Acesso válido até',
+      initialEntryMode: DatePickerEntryMode.input,
     );
     if (picked != null) setState(() => _accessExpiresAt = picked);
   }

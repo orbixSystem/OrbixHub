@@ -101,6 +101,7 @@ class _OrderEditDialogState extends ConsumerState<OrderEditDialog> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
       helpText: start ? 'Previsão de início' : 'Previsão de fim',
+      initialEntryMode: DatePickerEntryMode.input,
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(

@@ -145,6 +145,7 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
       helpText: _tipo == _Tipo.parcelada ? '1º vencimento' : 'Vencimento',
       cancelText: 'Cancelar',
       confirmText: 'Escolher',
+      initialEntryMode: DatePickerEntryMode.input,
     );
     if (escolhida != null) setState(() => _vencimento = escolhida);
   }

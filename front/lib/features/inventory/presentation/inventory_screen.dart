@@ -168,7 +168,7 @@ class _Toolbar extends ConsumerWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              'Só estoque baixo',
+              'Estoque baixo',
               style: TextStyle(
                 color: query.lowStock ? Colors.white : neu.inkMuted,
                 fontSize: 13,
