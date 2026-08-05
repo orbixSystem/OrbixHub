@@ -108,8 +108,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        showNeuErrorSnackBar(context, '$e');
       }
     } finally {
       if (mounted) setState(() => _buscandoCnpj = false);

@@ -21,6 +21,8 @@ export class CreateInventoryItemDto {
   @IsOptional() @IsString() @MaxLength(120) category?: string;
   @IsOptional() @IsString() @MaxLength(120) brand?: string;
   @IsOptional() @IsString() @MaxLength(20) unit?: string;
+  /** Observação livre — o cadastro SIMPLIFICADO usa isto como "descrição". */
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsNumber() @Min(0) salePrice?: number;
   @IsOptional() @IsNumber() @Min(0) costPrice?: number;
   @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;
@@ -46,6 +48,7 @@ export class UpdateInventoryItemDto {
   @IsOptional() @IsString() @MaxLength(120) category?: string;
   @IsOptional() @IsString() @MaxLength(120) brand?: string;
   @IsOptional() @IsString() @MaxLength(20) unit?: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsNumber() @Min(0) salePrice?: number;
   @IsOptional() @IsNumber() @Min(0) costPrice?: number;
   @IsOptional() @IsNumber() @Min(0) @Max(100000) marginPct?: number;

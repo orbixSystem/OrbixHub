@@ -615,8 +615,7 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
       ref.invalidate(despesasDoMesProvider);
     } on AppException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
@@ -638,14 +637,11 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
       // sem aviso. Pedido explícito do dono.
       final prox = widget.proxima;
       if (!estavaPaga && prox != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pago. Próxima cobrança em ${_dataCompleta(prox)}.'),
-        ));
+        showNeuSuccessSnackBar(context, 'Pago. Próxima cobrança em ${_dataCompleta(prox)}.');
       }
     } on AppException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     } finally {
       // `finally`, não só no catch: o reset estava apenas no ramo de ERRO, então
       // o caminho de SUCESSO deixava `_ocupado = true` para sempre e a linha

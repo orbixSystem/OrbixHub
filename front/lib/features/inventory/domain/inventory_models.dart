@@ -19,6 +19,8 @@ abstract class InventoryItem with _$InventoryItem {
     String? category,
     String? brand,
     String? unit,
+    /// Observação livre — o cadastro SIMPLIFICADO usa isto como "descrição".
+    String? description,
     @JsonKey(name: 'sale_price') String? salePrice,
     @JsonKey(name: 'cost_price') String? costPrice,
     @JsonKey(name: 'margin_pct') String? marginPct,
@@ -122,6 +124,7 @@ class ItemDraft {
     this.category,
     this.brand,
     this.unit,
+    this.description,
     this.salePrice,
     this.costPrice,
     this.marginPct,
@@ -145,6 +148,7 @@ class ItemDraft {
   final String? category;
   final String? brand;
   final String? unit;
+  final String? description;
   final double? salePrice;
   final double? costPrice;
   final double? marginPct;
@@ -168,6 +172,7 @@ class ItemDraft {
         if (category != null) 'category': category,
         if (brand != null) 'brand': brand,
         if (unit != null) 'unit': unit,
+        if (description != null) 'description': description,
         if (salePrice != null) 'salePrice': salePrice,
         if (costPrice != null) 'costPrice': costPrice,
         if (marginPct != null) 'marginPct': marginPct,

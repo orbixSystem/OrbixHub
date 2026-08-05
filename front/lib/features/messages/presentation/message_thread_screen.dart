@@ -110,7 +110,7 @@ class _MessageThreadScreenState extends ConsumerState<MessageThreadScreen> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   void _startReply(Message message) {

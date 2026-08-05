@@ -252,6 +252,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
       if (draft.category != null) 'category': draft.category,
       if (draft.brand != null) 'brand': draft.brand,
       if (draft.unit != null) 'unit': draft.unit,
+      if (draft.description != null) 'description': draft.description,
       if (draft.salePrice != null) 'sale_price': dec(draft.salePrice),
       if (draft.costPrice != null) 'cost_price': dec(draft.costPrice),
       if (draft.marginPct != null) 'margin_pct': dec(draft.marginPct),

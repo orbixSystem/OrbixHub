@@ -130,6 +130,7 @@ export class InventoryService {
       category: trimOrNull(dto.category),
       brand: trimOrNull(dto.brand),
       unit: trimOrNull(dto.unit),
+      description: trimOrNull(dto.description),
       sale_price: dto.salePrice ?? null,
       cost_price: dto.costPrice ?? null,
       margin_pct: dto.marginPct ?? null,
@@ -240,6 +241,7 @@ export class InventoryService {
         if (dto.category !== undefined) data.category = trimOrNull(dto.category);
         if (dto.brand !== undefined) data.brand = trimOrNull(dto.brand);
         if (dto.unit !== undefined) data.unit = trimOrNull(dto.unit);
+        if (dto.description !== undefined) data.description = trimOrNull(dto.description);
         if (dto.salePrice !== undefined) data.sale_price = dto.salePrice;
         if (dto.costPrice !== undefined) data.cost_price = dto.costPrice;
         if (dto.marginPct !== undefined) data.margin_pct = dto.marginPct;

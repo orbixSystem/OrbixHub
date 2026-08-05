@@ -78,6 +78,8 @@ model inventory_item {
   category          String?
   brand             String?
   unit              String?
+  /// 0044: observação livre — coluna do núcleo, não `attributes`.
+  description       String?
   sale_price        Decimal? @db.Decimal(14, 2)
   cost_price        Decimal? @db.Decimal(14, 2)
   margin_pct        Decimal? @db.Decimal(7, 2)

@@ -303,7 +303,7 @@ class _PlacaTabState extends ConsumerState<_PlacaTab> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   /// Empresa do cabeçalho da ficha. Assíncrona porque o LOGO precisa ser
@@ -603,8 +603,7 @@ class _OrdemTileState extends ConsumerState<_OrdemTile> {
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     } on Exception {
       if (mounted) {

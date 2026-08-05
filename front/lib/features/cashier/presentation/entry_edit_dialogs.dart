@@ -106,8 +106,7 @@ Future<bool> showReverseEntryDialog(
     return true;
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$e')));
+      showNeuErrorSnackBar(context, '$e');
     }
     return false;
   }
@@ -211,8 +210,7 @@ class _EditEntryDialogState extends ConsumerState<_EditEntryDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _salvando = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        showNeuErrorSnackBar(context, '$e');
       }
     }
   }
@@ -325,8 +323,7 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _salvando = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        showNeuErrorSnackBar(context, '$e');
       }
     }
   }

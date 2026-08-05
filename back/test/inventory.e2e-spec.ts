@@ -206,6 +206,38 @@ describe('Inventory — Produtos (e2e)', () => {
       expect(list.status).toBe(200);
       expect(ids(list.body.items as IdRow[])).toContain(id);
     });
+
+    // Cadastro simplificado (nome/marca/descrição/preços/estoque) usa este
+    // MESMO create — sem endpoint próprio. `description` é o único campo novo.
+    it('accepts an optional description and persists/updates it', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, {
+        name: 'Óleo de motor',
+        description: '  5W30 sintético, embalagem de 1L  ',
+      });
+      expect(created.status).toBe(201);
+      expect(created.body.description).toBe('5W30 sintético, embalagem de 1L');
+
+      const id = created.body.id as string;
+      const updated = await patchItem(o.access, id, {
+        description: 'Trocado para 5W40',
+      });
+      expect(updated.status).toBe(200);
+      expect(updated.body.description).toBe('Trocado para 5W40');
+
+      // String vazia (o usuário apagou o campo) vira NULL — mesmo tratamento
+      // que os outros campos de texto opcionais (brand, category, unit).
+      const cleared = await patchItem(o.access, id, { description: '   ' });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body.description).toBeNull();
+    });
+
+    it('description is optional — item without it has null, not empty string', async () => {
+      const o = await registerOwner();
+      const created = await createItem(o.access, { name: 'Sem descrição' });
+      expect(created.status).toBe(201);
+      expect(created.body.description).toBeNull();
+    });
   });
 
   // ---- 2. tenant isolation (RLS) ---------------------------------------

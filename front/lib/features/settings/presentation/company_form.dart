@@ -317,8 +317,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     } catch (_) {
       if (mounted) {
@@ -354,8 +353,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     } catch (_) {
       if (mounted) {
@@ -433,8 +431,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     } catch (_) {
       if (mounted) {

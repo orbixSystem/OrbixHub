@@ -81,7 +81,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
       // que traduzir: ela já diz qual nome colidiu.
       if (!mounted) return;
       setState(() => _salvando = false);
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorOn(messenger, e.message);
     }
   }
 
