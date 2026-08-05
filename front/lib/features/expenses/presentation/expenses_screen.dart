@@ -360,20 +360,110 @@ class _Filtros extends ConsumerWidget {
       (FiltroDespesa.pagas, rot('Pagas', pagas)),
     ];
 
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: opcoes.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final (valor, rotulo) = opcoes[i];
-          return _FiltroChip(
+    return _ChipsComIndicadorDeScroll(
+      children: [
+        for (final (valor, rotulo) in opcoes)
+          _FiltroChip(
             label: rotulo,
             selected: atual == valor,
             onTap: () => ref.read(filtroDespesaProvider.notifier).definir(valor),
-          );
-        },
+          ),
+      ],
+    );
+  }
+}
+
+/// Lista horizontal com uma DICA de que dá para arrastar: uma seta some na
+/// borda direita, esmaece sozinha quando a lista chega ao fim, e reaparece se
+/// o usuário voltar. Sem isso, "Vencidas" e "Pagas" (que ficam fora da tela no
+/// mobile) só existem para quem descobrisse o arrasto por acidente.
+class _ChipsComIndicadorDeScroll extends StatefulWidget {
+  const _ChipsComIndicadorDeScroll({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_ChipsComIndicadorDeScroll> createState() =>
+      _ChipsComIndicadorDeScrollState();
+}
+
+class _ChipsComIndicadorDeScrollState
+    extends State<_ChipsComIndicadorDeScroll> {
+  final _scroll = ScrollController();
+
+  /// `null` enquanto o primeiro layout não rodou — evita a seta piscar (mostra
+  /// e some) antes de sabermos se há conteúdo fora da tela.
+  bool? _temMaisPraVer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_atualizar);
+    // Só depois do 1º frame o `maxScrollExtent` existe.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _atualizar());
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_atualizar);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _atualizar() {
+    if (!_scroll.hasClients) return;
+    // Pequena folga (2px) para não deixar a seta piscando bem no finalzinho
+    // por causa de arredondamento de subpixel.
+    final noFim =
+        _scroll.position.pixels >= _scroll.position.maxScrollExtent - 2;
+    final valor = _scroll.position.maxScrollExtent > 0 && !noFim;
+    if (valor != _temMaisPraVer) setState(() => _temMaisPraVer = valor);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return SizedBox(
+      height: 38,
+      child: Stack(
+        children: [
+          ListView.separated(
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.children.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => widget.children[i],
+          ),
+          if (_temMaisPraVer ?? false)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                // Não intercepta o toque: é só indicação visual, o arrasto
+                // continua funcionando por baixo dela.
+                child: Container(
+                  width: 32,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [neu.base.withValues(alpha: 0), neu.base],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  // Ícone DIFERENTE do "próximo mês" do cabeçalho (mesma
+                  // tela): duplo-chevron é o vocabulário comum de "role para
+                  // ver mais", e não colide com outra seta já presente aqui.
+                  child: Icon(
+                    Icons.keyboard_double_arrow_right_rounded,
+                    size: 16,
+                    color: neu.inkFaint,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -525,8 +615,7 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
       ref.invalidate(despesasDoMesProvider);
     } on AppException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
@@ -548,14 +637,11 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
       // sem aviso. Pedido explícito do dono.
       final prox = widget.proxima;
       if (!estavaPaga && prox != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pago. Próxima cobrança em ${_dataCompleta(prox)}.'),
-        ));
+        showNeuSuccessSnackBar(context, 'Pago. Próxima cobrança em ${_dataCompleta(prox)}.');
       }
     } on AppException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     } finally {
       // `finally`, não só no catch: o reset estava apenas no ramo de ERRO, então
       // o caminho de SUCESSO deixava `_ocupado = true` para sempre e a linha
@@ -599,6 +685,12 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
 
     return [
       const SizedBox(height: 4),
+      // `Row` com CADA texto em `Flexible`: a causa raiz do overflow aqui não
+      // era o número de partes, era a coluna do VALOR sem teto (ver o
+      // `ConstrainedBox` na coluna do preço) comendo quase o card inteiro —
+      // corrigido lá, sobra largura real para negociar aqui. Com 2 ou 3 partes
+      // presentes, cada uma cede espaço para as outras (ellipsis), o que é bem
+      // melhor que estourar a tela: é informação secundária.
       Row(
         children: [
           for (final (i, p) in partes.indexed) ...[
@@ -664,20 +756,24 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                 children: [
                   // Selo da categoria: ícone + cor própria. Identidade visual da
                   // categoria, separada da cor de status (na faixa e no texto).
+                  //
+                  // Menor no mobile: junto com os 2 botões de ação e o valor,
+                  // era o que faltava para o nome/status terem espaço real — não
+                  // adianta só truncar mais texto se dá para devolver largura.
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: context.isMobile ? 32 : 40,
+                    height: context.isMobile ? 32 : 40,
                     decoration: BoxDecoration(
                       color: corCat.withValues(alpha: .14),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       iconeDaCategoria(widget.categoria?.icon),
-                      size: 21,
+                      size: context.isMobile ? 17 : 21,
                       color: corCat,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.isMobile ? 8 : 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,12 +798,6 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                                 ),
                               ),
                             ),
-                            // "2/6" é a informação que faltava: sem ela duas
-                            // parcelas da mesma compra são duas linhas idênticas.
-                            if (e.parcelada) ...[
-                              const SizedBox(width: 6),
-                              _SeloParcela(rotulo: e.rotuloParcela),
-                            ],
                             if (e.fixa) ...[
                               const SizedBox(width: 6),
                               Tooltip(
@@ -719,11 +809,27 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                           ],
                         ),
                         const SizedBox(height: 4),
+                        // A causa raiz do overflow desta linha (e da coluna do
+                        // título) era a coluna do VALOR sem teto de largura (ver
+                        // o `ConstrainedBox` na coluna do preço, mais abaixo) —
+                        // ela sozinha comia quase o card inteiro num celular,
+                        // deixando ~0px para tudo aqui. Corrigido lá, `Row` +
+                        // `Flexible` volta a funcionar normalmente: a categoria
+                        // (secundária) cede espaço para o status (o sinal que
+                        // importa: cor + "vencido"/"hoje").
                         Row(
                           children: [
                             Icon(iconeDoStatus(s), size: 13, color: corStatus),
                             const SizedBox(width: 4),
+                            // `Flexible`, não fixo: mesmo com o valor travado,
+                            // "Vence em 10 dias" (16 caracteres) ainda não cabe
+                            // sozinho num celular de 360px ao lado do ícone da
+                            // categoria e dos 2 botões. `Flexible` NUNCA
+                            // estoura — na pior das hipóteses trunca com "…", o
+                            // que é sempre melhor que um erro de layout. Peso
+                            // maior que a categoria: é o sinal mais importante.
                             Flexible(
+                              flex: 3,
                               child: Text(
                                 textoDoPrazo(s, dias),
                                 maxLines: 1,
@@ -735,20 +841,16 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                                 ),
                               ),
                             ),
-                            if (widget.categoria != null) ...[
-                              Text(' · ',
-                                  style: TextStyle(
-                                      color: neu.inkFaint, fontSize: 12.5)),
+                            if (widget.categoria != null)
                               Flexible(
                                 child: Text(
-                                  widget.categoria!.name,
+                                  ' · ${widget.categoria!.name}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                       color: neu.inkMuted, fontSize: 12.5),
                                 ),
                               ),
-                            ],
                           ],
                         ),
                         ..._detalhesExtra(neu),
@@ -756,56 +858,101 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        // "Valor a confirmar" em vez de R$ 0,00: zero leria como
-                        // "não devo nada", o oposto do que a linha significa.
-                        e.temValor ? formatMoney(e.valorEfetivo) : 'a confirmar',
-                        style: TextStyle(
-                          color: e.temValor ? neu.ink : neu.inkMuted,
-                          fontSize: e.temValor ? 15.5 : 13,
-                          fontWeight: FontWeight.w800,
-                          fontStyle: e.temValor ? null : FontStyle.italic,
+                  // TETO de largura — achado depurando o corte do nome: um
+                  // `Column` que é filho DIRETO de uma `Row` (sem `Expanded`)
+                  // recebe largura NÃO LIMITADA para se medir, e o valor em
+                  // negrito ("R$ 2.500,00", 15.5pt bold) mede ~170px sozinho —
+                  // quase o card inteiro num celular de 360px. Sem este teto, a
+                  // coluna da descrição ficava com 0px (nome INVISÍVEL, não só
+                  // cortado) e a Row ainda estourava por conta própria. Isto NÃO
+                  // era um bug só de parcela: qualquer despesa com valor alto
+                  // sofria, mesmo sem parcelamento.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 96),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // "2/6" na coluna da DIREITA, não mais colado no
+                        // título. No mobile o card já é apertado (ícone +
+                        // texto + valor + 2 botões); um selo de largura fixa
+                        // espremido ENTRE o nome e a borda cortava a descrição
+                        // cedo demais. Aqui ele não disputa espaço com o
+                        // nome — só com o valor, que já tem seu próprio teto.
+                        if (e.parcelada) ...[
+                          _SeloParcela(rotulo: e.rotuloParcela),
+                          const SizedBox(height: 3),
+                        ],
+                        // `FittedBox` encolhe o valor em vez de estourar —
+                        // mesmo padrão já usado em `_CardTotal` para o mesmo
+                        // problema (valor grande, espaço pequeno).
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            // "Valor a confirmar" em vez de R$ 0,00: zero
+                            // leria como "não devo nada", o oposto do que a
+                            // linha significa.
+                            e.temValor
+                                ? formatMoney(e.valorEfetivo)
+                                : 'a confirmar',
+                            style: TextStyle(
+                              color: e.temValor ? neu.ink : neu.inkMuted,
+                              fontSize: e.temValor ? 15.5 : 13,
+                              fontWeight: FontWeight.w800,
+                              fontStyle: e.temValor ? null : FontStyle.italic,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _dataCompleta(e.vencimento),
-                        style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          _dataCompleta(e.vencimento),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  if (_ocupado)
-                    const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                  // Menor no mobile (38, contra o padrão 48): junto com o
+                  // ícone da categoria já reduzido, é o que devolve largura
+                  // real ao nome/status — sem isso, mesmo com texto flexível
+                  // e valor travado, "Vence em 10 dias" continuava sem espaço
+                  // nenhum para existir num celular de 360px.
+                  Builder(builder: (context) {
+                    final tamanho = context.isMobile ? 38.0 : 48.0;
+                    if (_ocupado) {
+                      return SizedBox(
+                        width: tamanho,
+                        height: tamanho,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    NeuIconButton(
+                      );
+                    }
+                    return NeuIconButton(
                       icon: e.pago
                           ? Icons.undo_rounded
                           : Icons.check_circle_outline_rounded,
                       tooltip:
                           e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
+                      size: tamanho,
                       onPressed: _alternarPago,
-                    ),
+                    );
+                  }),
                   // Editar / duplicar / excluir. Botão VISÍVEL, não gesto
                   // escondido: descobrir a ação por toque longo não é
                   // descoberta, é sorte.
                   NeuIconButton(
                     icon: Icons.more_vert_rounded,
                     tooltip: 'Mais ações',
+                    size: context.isMobile ? 38 : 48,
                     onPressed: _ocupado ? null : _abrirAcoes,
                   ),
                 ],

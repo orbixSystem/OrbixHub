@@ -19,7 +19,23 @@ const HEADERS = [
   'Venda',
   'Valor',
   'Abaixo do mín.',
+  'Margem',
 ] as const;
+
+/**
+ * Margem bruta prevista: (venda − custo) / custo. `null` sem os dois preços —
+ * mostrar "0%" mentiria (é falta de dado, não margem zero). Ponto-no-tempo com
+ * os preços ATUAIS, coerente com `stockValue` (mesmo critério já usado ali):
+ * não há snapshot histórico de custo por venda, então isto não pretende
+ * responder "quanto lucrei nas vendas passadas", só "qual a margem hoje".
+ */
+function margemPct(cost: number | null, sale: number | null): number | null {
+  if (cost == null || sale == null || cost <= 0) return null;
+  return ((sale - cost) / cost) * 100;
+}
+
+const pctOrDash = (n: number | null): string =>
+  n == null ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 
 const brl = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -43,6 +59,7 @@ function dataRows(report: InventoryMetricsReport): string[][] {
     moneyOrDash(r.sale_price),
     money(r.stockValue),
     r.belowMin ? 'Sim' : 'Não',
+    pctOrDash(margemPct(r.cost_price, r.sale_price)),
   ]);
 }
 
@@ -62,7 +79,7 @@ export function buildInventoryCsv(report: InventoryMetricsReport): Buffer {
   const lines: string[][] = [
     [...HEADERS],
     ...dataRows(report),
-    ['TOTAL', '', '', '', '', '', money(report.stockValue), ''],
+    ['TOTAL', '', '', '', '', '', money(report.stockValue), '', ''],
   ];
   const body = lines
     .map((row) => row.map(csvField).join(';'))
@@ -77,9 +94,9 @@ const GRAPHITE = '#15171C';
 const MUTED = '#6B7079';
 const LINE = '#E7E4DD';
 
-// Larguras relativas das 8 colunas (somam 1). Numéricas alinhadas à direita.
-const COL_WEIGHTS = [0.26, 0.15, 0.1, 0.1, 0.11, 0.11, 0.12, 0.1];
-const RIGHT_ALIGN = new Set([2, 3, 4, 5, 6]);
+// Larguras relativas das 9 colunas (somam 1). Numéricas alinhadas à direita.
+const COL_WEIGHTS = [0.23, 0.13, 0.09, 0.09, 0.10, 0.10, 0.11, 0.08, 0.07];
+const RIGHT_ALIGN = new Set([2, 3, 4, 5, 6, 8]);
 const ROW_H = 18;
 
 /**
@@ -178,7 +195,7 @@ export function buildInventoryPdf(
   doc.rect(left, y, contentW, ROW_H).fillOpacity(0.12).fill(BRAND);
   doc.fillOpacity(1);
   drawCells(
-    ['TOTAL', '', '', '', '', '', money(report.stockValue), ''],
+    ['TOTAL', '', '', '', '', '', money(report.stockValue), '', ''],
     y,
     true,
   );

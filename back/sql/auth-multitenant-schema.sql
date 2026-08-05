@@ -593,6 +593,9 @@ CREATE TABLE IF NOT EXISTS inventory_item (
   category          text,
   brand             text,
   unit              text,
+  -- 0044: observação livre do produto/serviço. Coluna do núcleo (conceito
+  -- universal), não `attributes` (campo específico de vertical).
+  description       text,
   sale_price        numeric(14,2),
   cost_price        numeric(14,2),
   margin_pct        numeric(7,2),
@@ -609,6 +612,10 @@ CREATE TABLE IF NOT EXISTS inventory_item (
 
 -- soft delete (aditivo): deleted_at NULL = ativo; setado = excluído. Idempotente p/ DBs já criados.
 ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
+-- 0044 — descrição opcional (pega banco já existente; o CREATE TABLE acima já
+-- nasce com ela em banco novo).
+ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS description text;
 
 -- 0013 — tipo produto|serviço (+ duração p/ serviço). Aditivo. Idempotente p/ DBs já criados.
 ALTER TABLE inventory_item ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'product';

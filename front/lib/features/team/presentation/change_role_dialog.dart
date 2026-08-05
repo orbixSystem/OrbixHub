@@ -101,8 +101,7 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
     } on AppException catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     }
   }
 

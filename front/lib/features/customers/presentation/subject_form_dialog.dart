@@ -160,8 +160,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   void _invalidateLists() =>

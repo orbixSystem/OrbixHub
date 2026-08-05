@@ -72,6 +72,7 @@ export interface ItemData {
   category?: string | null;
   brand?: string | null;
   unit?: string | null;
+  description?: string | null;
   sale_price?: DecimalIn | null;
   cost_price?: DecimalIn | null;
   margin_pct?: DecimalIn | null;

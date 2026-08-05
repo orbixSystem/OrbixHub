@@ -8,6 +8,7 @@ import '../../../di.dart';
 import '../domain/inventory_models.dart';
 import 'inventory_providers.dart';
 import 'item_form_dialog.dart';
+import 'simple_item_form_dialog.dart';
 
 /// Formata um preço decimal serializado ("45.90") em "R$ 45,90". Null → "—".
 String money(String? decimal) {
@@ -70,7 +71,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Future<void> _create() async {
-    final ok = await ItemFormDialog.show(context);
+    // Simples por padrão (nome, marca, descrição, preços, estoque) — o
+    // completo (código de barras, fiscal, serviço) fica a um toque, dentro
+    // dele ("Cadastro completo").
+    final ok = await SimpleItemFormDialog.show(context);
     if (ok == true) ref.invalidate(itemListProvider);
   }
 
@@ -413,7 +417,7 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   Future<void> _onMenu(String action) async {

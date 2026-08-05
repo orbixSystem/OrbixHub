@@ -137,13 +137,11 @@ class TemplatesScreen extends ConsumerWidget {
       await ref.read(osRepositoryProvider).createTemplate(draft);
       ref.invalidate(templateListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Template criado.')));
+        showNeuSuccessSnackBar(context, 'Template criado.');
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     }
   }
@@ -159,13 +157,11 @@ class TemplatesScreen extends ConsumerWidget {
       await ref.read(osRepositoryProvider).updateTemplate(template.id, draft);
       ref.invalidate(templateListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Template atualizado.')));
+        showNeuSuccessSnackBar(context, 'Template atualizado.');
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     }
   }
@@ -187,8 +183,7 @@ class TemplatesScreen extends ConsumerWidget {
       ref.invalidate(templateListProvider);
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     }
   }

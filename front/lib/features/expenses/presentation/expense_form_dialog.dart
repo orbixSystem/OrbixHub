@@ -228,8 +228,7 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
     } on AppException catch (e) {
       if (!mounted) return;
       setState(() => _salvando = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     }
   }
 

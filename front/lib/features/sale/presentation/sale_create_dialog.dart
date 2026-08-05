@@ -328,8 +328,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
           setState(() => _submitting = false);
           // O servidor recusa quando a edição quebraria nota emitida ou o já
           // pago — a mensagem dele explica o quê e é o que mostramos.
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('$e')));
+          showNeuErrorSnackBar(context, '$e');
         }
       }
       return;
@@ -416,8 +415,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        showNeuErrorSnackBar(context, '$e');
       }
     }
   }

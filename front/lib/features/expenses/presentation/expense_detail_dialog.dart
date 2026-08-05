@@ -74,8 +74,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
       if (mounted) _recarregar();
     } on AppException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      showNeuErrorSnackBar(context, e.message);
     } finally {
       // Sempre no `finally`: resetar só no `catch` deixava o spinner girando
       // para sempre no caminho de SUCESSO — foi o "load infinito" das despesas.
@@ -407,7 +406,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
             ? 'Parcela paga.'
             : '$pagas parcelas pagas.')
         : 'Pagou $pagas de ${alvo.length}. $erro';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   static String _data(DateTime d) =>
@@ -714,11 +713,9 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
       final nome =
           'despesa-${slug.isEmpty ? widget.detalhe.expense.id.substring(0, 8) : slug}.pdf';
       await downloadBytes(bytes, nome, 'application/pdf');
-      messenger.showSnackBar(SnackBar(content: Text('PDF exportado: $nome')));
+      showNeuSuccessOn(messenger, 'PDF exportado: $nome');
     } on Object {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Não foi possível gerar o PDF.')),
-      );
+      showNeuErrorOn(messenger, 'Não foi possível gerar o PDF.');
     } finally {
       if (mounted) setState(() => _gerando = false);
     }
