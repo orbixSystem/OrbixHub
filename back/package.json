@@ -37,7 +37,7 @@
     "jsonwebtoken": "^9.0.2",
     "minio": "^8.0.7",
     "nestjs-cls": "^4.4.1",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^9.0.4",
     "pdfkit": "^0.19.1",
     "pg": "^8.21.0",
     "prisma": "^5.20.0",

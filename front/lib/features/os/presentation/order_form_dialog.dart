@@ -209,6 +209,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
+      initialEntryMode: DatePickerEntryMode.input,
     );
     if (date == null || !mounted) return;
 

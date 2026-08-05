@@ -19,7 +19,7 @@ Future<DateTimeRange?> pickMetricsRange(
     firstDate: DateTime(2020),
     lastDate: DateTime.now(),
     locale: const Locale('pt', 'BR'),
-    initialEntryMode: DatePickerEntryMode.calendar,
+    initialEntryMode: DatePickerEntryMode.input,
     helpText: 'Selecione o período',
     saveText: 'Aplicar',
     initialDateRange: from != null && to != null

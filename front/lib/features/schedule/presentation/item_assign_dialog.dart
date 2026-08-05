@@ -84,6 +84,7 @@ class _ItemAssignDialogState extends ConsumerState<ItemAssignDialog> {
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      initialEntryMode: DatePickerEntryMode.input,
     );
     if (picked != null) setState(() => _startDate = picked);
   }

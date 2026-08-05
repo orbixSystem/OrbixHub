@@ -116,7 +116,7 @@ export class ExpensesService {
     // Totais no servidor: ele enxerga o mês inteiro, e "quanto ainda devo" não
     // pode depender do que coube na tela.
     const hojeDia = new Date(
-      Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()),
+      Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()),
     );
     let totalPrevisto = 0;
     let totalPago = 0;
@@ -390,7 +390,7 @@ export class ExpensesService {
   }> {
     const hoje = new Date();
     const hojeDia = new Date(
-      Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()),
+      Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()),
     );
 
     const { itens, categorias } = await this.tenant.withTenantTx(async () => ({
