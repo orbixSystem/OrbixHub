@@ -200,7 +200,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   Future<void> _lookup() async {

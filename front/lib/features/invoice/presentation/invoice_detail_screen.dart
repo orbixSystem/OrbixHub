@@ -41,13 +41,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
       ref.invalidate(invoiceProvider(invoiceId));
       ref.invalidate(invoiceListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Nota cancelada.')));
+        showNeuSuccessSnackBar(context, 'Nota cancelada.');
       }
     } on AppException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     }
   }

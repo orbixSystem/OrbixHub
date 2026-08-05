@@ -313,8 +313,7 @@ class _Corpo extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        showNeuErrorSnackBar(context, '$e');
       }
     }
   }
@@ -635,11 +634,9 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
           : sale.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');
       final nome = 'venda-$numero.pdf';
       await downloadBytes(bytes, nome, 'application/pdf');
-      messenger.showSnackBar(SnackBar(content: Text('PDF exportado: $nome')));
+      showNeuSuccessOn(messenger, 'PDF exportado: $nome');
     } on Object {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Não foi possível gerar o PDF.')),
-      );
+      showNeuErrorOn(messenger, 'Não foi possível gerar o PDF.');
     } finally {
       if (mounted) setState(() => _gerando = false);
     }

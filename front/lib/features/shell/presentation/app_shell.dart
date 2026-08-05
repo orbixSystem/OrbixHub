@@ -15,7 +15,7 @@ import '../../customers/presentation/customers_providers.dart';
 import '../../expenses/presentation/expense_form_dialog.dart';
 import '../../expenses/presentation/expenses_providers.dart';
 import '../../inventory/presentation/inventory_providers.dart';
-import '../../inventory/presentation/item_form_dialog.dart';
+import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
@@ -687,7 +687,9 @@ class _QuickCreateFab extends ConsumerWidget {
         );
         if (ok == true) ref.invalidate(customersListProvider);
       case 'product':
-        final ok = await ItemFormDialog.show(context);
+        // Simples por padrão; "Cadastro completo" (dentro do diálogo) cobre
+        // serviço e os campos avançados (código de barras, fiscal…).
+        final ok = await SimpleItemFormDialog.show(context);
         if (ok == true) ref.invalidate(itemListProvider);
       case 'sale':
         // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).

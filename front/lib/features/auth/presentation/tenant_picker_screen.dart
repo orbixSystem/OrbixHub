@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
 import '../../../core/widgets/brand_mark.dart';
 import '../../../di.dart';
 import 'session_state.dart';
@@ -28,8 +29,7 @@ class _TenantPickerScreenState extends ConsumerState<TenantPickerScreen> {
     } on AppException catch (e) {
       if (mounted) {
         setState(() => _switchingTo = null);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showNeuErrorSnackBar(context, e.message);
       }
     }
   }

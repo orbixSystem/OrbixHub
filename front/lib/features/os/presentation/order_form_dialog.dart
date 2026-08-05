@@ -1031,7 +1031,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showNeuErrorSnackBar(context, msg);
   }
 
   /// 'PRATA' → 'Prata' (a base devolve as cores em caixa alta).
