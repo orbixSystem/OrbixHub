@@ -13,3 +13,6 @@ back/.storage/
 
 # Local StorageProvider uploads (dev)
 .storage/
+
+# Skill com dados de acesso ao servidor de produção (chave PEM, IPs, credenciais)
+.claude/skills/orbixhub-prod-access/
