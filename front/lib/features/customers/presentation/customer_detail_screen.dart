@@ -97,7 +97,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                         existing: customer,
                         documentRequired: config.documentRequired,
                       );
-                      if (ok == true) {
+                      if (ok != null) {
                         ref.invalidate(customerProvider(customerId));
                       }
                     },

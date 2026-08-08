@@ -15,21 +15,32 @@ class CustomerFormDialog extends ConsumerStatefulWidget {
     super.key,
     this.existing,
     required this.documentRequired,
+    this.initialName,
   });
 
   final Customer? existing;
   final bool documentRequired;
 
-  static Future<bool?> show(
+  /// Nome já digitado em outro lugar (ex.: a busca de cliente da venda não
+  /// achou ninguém). Chega preenchido para não redigitar o que acabou de ser
+  /// escrito. Ignorado quando está editando — aí o nome vem do cadastro.
+  final String? initialName;
+
+  /// Devolve o cliente **salvo** (criado ou editado), ou `null` se desistiu.
+  /// Devolver a entidade, e não um `bool`, é o que permite a venda já sair com
+  /// o cliente novo selecionado sem uma segunda busca.
+  static Future<Customer?> show(
     BuildContext context, {
     Customer? existing,
     required bool documentRequired,
+    String? initialName,
   }) {
-    return showDialog<bool>(
+    return showDialog<Customer>(
       context: context,
       builder: (_) => CustomerFormDialog(
         existing: existing,
         documentRequired: documentRequired,
+        initialName: initialName,
       ),
     );
   }
@@ -54,7 +65,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
   void initState() {
     super.initState();
     final c = widget.existing;
-    _name = TextEditingController(text: c?.name ?? '');
+    _name = TextEditingController(text: c?.name ?? widget.initialName ?? '');
     _document = TextEditingController(text: c?.document ?? '');
     _phone = TextEditingController(text: c?.phone ?? '');
     _email = TextEditingController(text: c?.email ?? '');
@@ -158,12 +169,10 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
       notes: _opt(_notes.text),
     );
     try {
-      if (widget.existing == null) {
-        await repo.createCustomer(draft);
-      } else {
-        await repo.updateCustomer(widget.existing!.id, draft);
-      }
-      if (mounted) Navigator.of(context).pop(true);
+      final salvo = widget.existing == null
+          ? await repo.createCustomer(draft)
+          : await repo.updateCustomer(widget.existing!.id, draft);
+      if (mounted) Navigator.of(context).pop(salvo);
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } finally {
@@ -181,7 +190,7 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
         NeuButton(
           label: 'Cancelar',
           kind: NeuButtonKind.secondary,
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         NeuButton(
           label: 'Salvar',

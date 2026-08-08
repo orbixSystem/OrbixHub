@@ -685,12 +685,12 @@ class _QuickCreateFab extends ConsumerWidget {
           context,
           documentRequired: cfg?.documentRequired ?? false,
         );
-        if (ok == true) ref.invalidate(customersListProvider);
+        if (ok != null) ref.invalidate(customersListProvider);
       case 'product':
         // Simples por padrão; "Cadastro completo" (dentro do diálogo) cobre
         // serviço e os campos avançados (código de barras, fiscal…).
         final ok = await SimpleItemFormDialog.show(context);
-        if (ok == true) ref.invalidate(itemListProvider);
+        if (ok != null) ref.invalidate(itemListProvider);
       case 'sale':
         // Venda avulsa = fluxo único em dialog (módulo `sale`, ação do Caixa).
         await showSaleCreateDialog(context);
