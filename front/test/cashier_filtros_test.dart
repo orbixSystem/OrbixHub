@@ -19,6 +19,7 @@ Sale _venda({
   String total = '100.00',
   String criada = '2026-08-01T10:00:00Z',
   List<SaleItem> itens = const [],
+  String status = 'active',
 }) =>
     Sale(
       id: id,
@@ -28,6 +29,7 @@ Sale _venda({
       total: total,
       createdAt: criada,
       items: itens,
+      status: status,
     );
 
 CashEntry _lanc({
@@ -88,6 +90,47 @@ void main() {
     test('despesas isola só despesa (sangria não é custo)', () {
       final r = filterCashierTimeline(eventos, filtro: CashierFilter.despesas);
       expect(r.map((e) => e.id), ['entry:despesa']);
+    });
+  });
+
+  /// "O que foi desfeito hoje?" era uma pergunta que só se respondia varrendo a
+  /// lista à procura do texto riscado.
+  group('filtro de canceladas', () {
+    final eventos = buildCashierTimeline(
+      entries: [
+        _lanc(id: 'estornado', direcao: 'out', categoria: 'sangria'),
+      ],
+      sales: [
+        _venda(id: 'ok', pagamento: 'pago'),
+        _venda(id: 'morta', pagamento: 'cancelada', status: 'canceled'),
+      ],
+    );
+
+    test('traz só a venda cancelada', () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.canceladas);
+      expect(r.map((e) => e.id), ['sale:morta']);
+    });
+
+    test('lançamento não entra: desfazer lançamento é estorno, não cancelamento',
+        () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.canceladas);
+      expect(r.every((e) => e.ehVenda), isTrue);
+    });
+
+    test('"Vendas" continua trazendo a cancelada — ela é uma venda', () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.vendas);
+      expect(r.map((e) => e.id), containsAll(['sale:ok', 'sale:morta']));
+    });
+
+    test('venda cancelada não conta como entrada de caixa', () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.entradas);
+      expect(r.map((e) => e.id), isNot(contains('sale:morta')));
+    });
+
+    test('a linha se anuncia como cancelada', () {
+      final cancelada =
+          eventos.firstWhere((e) => e.id == 'sale:morta');
+      expect(cashierEventTitle(cancelada), 'Venda cancelada');
     });
   });
 

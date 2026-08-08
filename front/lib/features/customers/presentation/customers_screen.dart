@@ -59,7 +59,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       context,
       documentRequired: config.documentRequired,
     );
-    if (ok == true) ref.invalidate(customersListProvider);
+    if (ok != null) ref.invalidate(customersListProvider);
   }
 
   @override
