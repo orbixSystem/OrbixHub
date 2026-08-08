@@ -11,6 +11,7 @@ import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
+import '../../os/presentation/payment_status.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
@@ -520,6 +521,27 @@ class _EntryTile extends ConsumerWidget {
     // sem levar a lugar nenhum — para achar a conta era preciso lembrar o mês e
     // procurar à mão. A ida (despesa → lançamento) já existia; faltava a volta.
     final daDespesa = entry.saleKind == 'expense' && entry.saleId != null;
+    // Situação da venda NA LINHA. Antes só dava para saber clicando: uma venda
+    // cancelada tinha a mesma cara de uma normal, porque cancelar a venda NÃO
+    // mexe no lançamento do caixa (o dinheiro continua na gaveta até alguém
+    // estornar). Fiado e pagamento parcial tinham o mesmo problema.
+    final selo = sale == null
+        ? null
+        : sale!.status == 'canceled'
+            // Cancelada manda no rótulo: é a informação que muda o que fazer,
+            // e vem antes de qualquer coisa sobre pagamento.
+            ? NeuStatusChip(
+                label: 'Cancelada',
+                color: neu.danger,
+                tint: neu.danger.withValues(alpha: .14),
+              )
+            : PaymentTag(status: sale!.paymentStatus, dense: true);
+    // Só vira `Wrap` quando há selo/badge: sem eles, o subtítulo continua uma
+    // linha de texto simples, como sempre foi.
+    final extras = <Widget>[
+      ?selo,
+      if (pending) SyncRowBadge(entity: 'cash_entry', id: entry.id, dense: true),
+    ];
     return NeuListTile(
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
@@ -537,17 +559,14 @@ class _EntryTile extends ConsumerWidget {
           color: reversed ? neu.inkMuted : neu.ink,
         ),
       ),
-      subtitle: pending
-          ? Wrap(
+      subtitle: extras.isEmpty
+          ? Text(subtitleParts.join(' · '))
+          : Wrap(
               spacing: 8,
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(subtitleParts.join(' · ')),
-                SyncRowBadge(entity: 'cash_entry', id: entry.id, dense: true),
-              ],
-            )
-          : Text(subtitleParts.join(' · ')),
+              children: [Text(subtitleParts.join(' · ')), ...extras],
+            ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -846,6 +865,18 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               'Venda em fiado não conta como entrada — nada entrou no caixa.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 11),
+            ),
+          ),
+        // Cancelar a venda devolve o estoque, mas NÃO desfaz o recebimento: o
+        // dinheiro segue no caixa até alguém estornar o lançamento. Dizer isso
+        // aqui evita o fechamento fechar torto sem ninguém entender por quê.
+        if (widget.filtro == CashierFilter.canceladas)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Cancelar devolve o estoque, mas o dinheiro já recebido segue no '
+              'caixa até o lançamento ser estornado.',
               style: TextStyle(color: neu.inkFaint, fontSize: 11),
             ),
           ),

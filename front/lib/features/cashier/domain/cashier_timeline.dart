@@ -106,8 +106,10 @@ String cashierEventTitle(CashierEvent ev) {
 bool cashierEventTemMovimento(CashierEvent ev) => !ev.ehVenda;
 
 /// Filtro de tipo do histórico. "Saídas" reúne despesa e sangria (as duas tiram
-/// dinheiro); "Despesas" isola só a despesa, que é a pergunta de custo.
-enum CashierFilter { tudo, vendas, entradas, saidas, despesas }
+/// dinheiro); "Despesas" isola só a despesa, que é a pergunta de custo;
+/// "Canceladas" responde "o que foi desfeito no período?" — pergunta de
+/// conferência, que antes exigia varrer a lista inteira à procura do risco.
+enum CashierFilter { tudo, vendas, entradas, saidas, despesas, canceladas }
 
 String cashierFilterLabel(CashierFilter f) => switch (f) {
       CashierFilter.tudo => 'Tudo',
@@ -115,6 +117,7 @@ String cashierFilterLabel(CashierFilter f) => switch (f) {
       CashierFilter.entradas => 'Entradas',
       CashierFilter.saidas => 'Saídas',
       CashierFilter.despesas => 'Despesas',
+      CashierFilter.canceladas => 'Canceladas',
     };
 
 /// Aplica filtro de tipo + busca textual sobre a linha do tempo.
@@ -151,6 +154,10 @@ bool _passaFiltro(CashierEvent ev, CashierFilter f) {
       return !ev.ehVenda && ev.entry!.direction == 'out';
     case CashierFilter.despesas:
       return !ev.ehVenda && ev.entry!.category == 'despesa';
+    case CashierFilter.canceladas:
+      // Só venda: lançamento desfeito é "estornado", conceito à parte, e
+      // misturar os dois esconderia justamente o que se veio ver aqui.
+      return ev.ehVenda && ev.sale!.status == 'canceled';
   }
 }
 
