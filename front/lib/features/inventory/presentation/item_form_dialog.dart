@@ -35,14 +35,24 @@ int? _toInt(String raw) {
 /// Na edição, barcode e cód. do fabricante ficam travados (identificam o item).
 /// UI fala só com o repository (via providers).
 class ItemFormDialog extends ConsumerStatefulWidget {
-  const ItemFormDialog({super.key, this.existing});
+  const ItemFormDialog({super.key, this.existing, this.initialName});
 
   final InventoryItem? existing;
 
-  static Future<bool?> show(BuildContext context, {InventoryItem? existing}) {
-    return showDialog<bool>(
+  /// Nome já digitado antes de abrir (a busca da venda não achou o produto).
+  /// Ignorado na edição — lá o nome vem do cadastro.
+  final String? initialName;
+
+  /// Devolve o item **salvo**, ou `null` se desistiu — assim quem abriu (a
+  /// venda) já sai com o produto novo em mãos, sem uma segunda busca.
+  static Future<InventoryItem?> show(
+    BuildContext context, {
+    InventoryItem? existing,
+    String? initialName,
+  }) {
+    return showDialog<InventoryItem>(
       context: context,
-      builder: (_) => ItemFormDialog(existing: existing),
+      builder: (_) => ItemFormDialog(existing: existing, initialName: initialName),
     );
   }
 
@@ -101,7 +111,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         TextEditingController(text: it?.durationMinutes?.toString() ?? '');
     _manufacturerCode = TextEditingController(text: it?.manufacturerCode ?? '');
     _barcode = TextEditingController(text: it?.barcode ?? '');
-    _name = TextEditingController(text: it?.name ?? '');
+    _name = TextEditingController(text: it?.name ?? widget.initialName ?? '');
     _sku = TextEditingController(text: it?.sku ?? '');
     _category = TextEditingController(text: it?.category ?? '');
     _brand = TextEditingController(text: it?.brand ?? '');
@@ -386,13 +396,11 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
       aliquotaIss: isService ? _toDouble(_aliquotaIss.text) : null,
     );
     try {
-      if (widget.existing == null) {
-        await repo.createItem(draft);
-      } else {
-        await repo.updateItem(widget.existing!.id, draft);
-      }
+      final salvo = widget.existing == null
+          ? await repo.createItem(draft)
+          : await repo.updateItem(widget.existing!.id, draft);
       ref.invalidate(itemListProvider);
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(salvo);
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } finally {
@@ -415,7 +423,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         NeuButton(
           label: 'Cancelar',
           kind: NeuButtonKind.secondary,
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         NeuButton(
           label: 'Salvar',

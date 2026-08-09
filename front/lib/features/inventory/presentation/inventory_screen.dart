@@ -75,7 +75,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     // completo (código de barras, fiscal, serviço) fica a um toque, dentro
     // dele ("Cadastro completo").
     final ok = await SimpleItemFormDialog.show(context);
-    if (ok == true) ref.invalidate(itemListProvider);
+    if (ok != null) ref.invalidate(itemListProvider);
   }
 
   @override
@@ -424,7 +424,7 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
     switch (action) {
       case 'editar':
         final ok = await ItemFormDialog.show(context, existing: _item);
-        if (ok == true) ref.invalidate(itemListProvider);
+        if (ok != null) ref.invalidate(itemListProvider);
       case 'delete':
         await _delete();
     }

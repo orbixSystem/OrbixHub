@@ -23,12 +23,18 @@ import 'item_form_dialog.dart';
 /// endpoint novo, e por isso já funciona offline: o repositório (via `di.dart`)
 /// já é o decorator `LocalFirstInventoryRepository`, que faz o resto.
 class SimpleItemFormDialog extends ConsumerStatefulWidget {
-  const SimpleItemFormDialog({super.key});
+  const SimpleItemFormDialog({super.key, this.initialName});
 
-  static Future<bool?> show(BuildContext context) {
-    return showDialog<bool>(
+  /// Nome já digitado antes de abrir (a busca da venda não achou o produto) —
+  /// chega preenchido para não redigitar.
+  final String? initialName;
+
+  /// Devolve o item **criado**, ou `null` se desistiu: quem abriu no meio de uma
+  /// venda já sai com o produto em mãos, sem ter de buscá-lo de novo.
+  static Future<InventoryItem?> show(BuildContext context, {String? initialName}) {
+    return showDialog<InventoryItem>(
       context: context,
-      builder: (_) => const SimpleItemFormDialog(),
+      builder: (_) => SimpleItemFormDialog(initialName: initialName),
     );
   }
 
@@ -50,6 +56,7 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
   @override
   void initState() {
     super.initState();
+    _name.text = widget.initialName ?? '';
     // Recalcula a prévia de lucro a cada tecla — é a resposta imediata à
     // pergunta que motivou o campo "preço de compra" existir aqui.
     _salePrice.addListener(() => setState(() {}));
@@ -83,12 +90,18 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
   }
 
   Future<void> _abrirCompleto() async {
-    // Diálogo cheio: SKU, código de barras, fiscal, campos da vertical. Fecha
-    // o simples SEM salvar — ele não tem nada digno de aproveitar ainda (o
-    // completo tem seu próprio fluxo do zero, inclusive código-first).
-    Navigator.pop(context);
-    final ok = await ItemFormDialog.show(context);
-    if (ok == true) ref.invalidate(itemListProvider);
+    // Diálogo cheio: SKU, código de barras, fiscal, campos da vertical. Abre
+    // POR CIMA levando o nome já digitado, e o simples só fecha quando o
+    // completo salva — devolvendo o item dele. Assim quem abriu no meio de uma
+    // venda recebe o produto de volta por qualquer um dos dois caminhos, e
+    // desistir do completo volta para cá em vez de perder o que foi digitado.
+    final salvo = await ItemFormDialog.show(
+      context,
+      initialName: _name.text.trim().isEmpty ? null : _name.text.trim(),
+    );
+    if (!mounted || salvo == null) return;
+    ref.invalidate(itemListProvider);
+    Navigator.pop(context, salvo);
   }
 
   Future<void> _salvar() async {
@@ -104,10 +117,10 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
       currentStock: _num(_currentStock) ?? 0,
     );
     try {
-      await ref.read(inventoryRepositoryProvider).createItem(draft);
+      final salvo = await ref.read(inventoryRepositoryProvider).createItem(draft);
       ref.invalidate(itemListProvider);
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, salvo);
     } on AppException catch (e) {
       if (!mounted) return;
       setState(() => _salvando = false);
@@ -127,7 +140,7 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
         NeuButton(
           label: 'Cancelar',
           kind: NeuButtonKind.secondary,
-          onPressed: _salvando ? null : () => Navigator.pop(context, false),
+          onPressed: _salvando ? null : () => Navigator.pop(context),
         ),
         NeuButton(
           label: 'Salvar',

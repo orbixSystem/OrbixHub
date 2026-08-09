@@ -11,8 +11,11 @@ import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
+import '../../customers/presentation/customer_form_dialog.dart';
+import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/domain/inventory_models.dart';
 import '../../inventory/presentation/inventory_providers.dart';
+import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../domain/sale_models.dart';
 import '../domain/sale_payment_split.dart';
 import 'sale_providers.dart';
@@ -626,10 +629,34 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
   TextEditingController? _ctrl;
   FocusNode? _watchedNode;
 
+  /// Última busca não achou nada — liga o atalho de cadastrar na hora. É o caso
+  /// da peça comprada só para aquele cliente, que ainda não passou pelo estoque.
+  bool _semResultado = false;
+  String _q = '';
+
   @override
   void dispose() {
     _watchedNode?.removeListener(_onFocusMaybeOpen);
     super.dispose();
+  }
+
+  /// Cadastra o produto SEM fechar a venda e já o joga na lista de itens.
+  ///
+  /// O cadastro rápido tem preço de compra e quantidade em estoque — é onde a
+  /// nota do fornecedor vira estoque. Ao voltar, a venda continua exatamente
+  /// onde estava, agora com a linha do produto novo.
+  Future<void> _cadastrar(String nome) async {
+    final novo = await SimpleItemFormDialog.show(
+      context,
+      initialName: nome.trim().isEmpty ? null : nome.trim(),
+    );
+    if (!mounted || novo == null) return;
+    widget.onPick(novo);
+    _ctrl?.clear();
+    setState(() {
+      _semResultado = false;
+      _q = '';
+    });
   }
 
   /// Ao ganhar foco com o campo vazio, "cutuca" o controller para forçar o
@@ -645,9 +672,20 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
     }
   }
 
+  /// Atualiza o "não achei nada" fora do build (o `optionsBuilder` é assíncrono
+  /// e roda fora do frame) — só quando muda, para não rebuildar à toa.
+  void _marcarResultado(String q, bool vazio) {
+    if (!mounted) return;
+    if (_q == q && _semResultado == vazio) return;
+    setState(() {
+      _q = q;
+      _semResultado = vazio;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Autocomplete<InventoryItem>(
+    final busca = Autocomplete<InventoryItem>(
       displayStringForOption: (it) => it.name,
       optionsBuilder: (value) async {
         final q = value.text.trim();
@@ -660,8 +698,10 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
                 sort: 'name_asc',
                 page: 1,
               );
+          _marcarResultado(q, q.isNotEmpty && page.items.isEmpty);
           return page.items; // backend já limita a 20
         } catch (_) {
+          _marcarResultado(q, false);
           return const Iterable<InventoryItem>.empty();
         }
       },
@@ -671,7 +711,7 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
         Future.microtask(() => _ctrl?.clear());
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      fieldViewBuilder: (context, controller, focusNode, _) {
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         _ctrl = controller;
         if (!identical(_watchedNode, focusNode)) {
           _watchedNode?.removeListener(_onFocusMaybeOpen);
@@ -681,13 +721,23 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
         return TextField(
           controller: controller,
           focusNode: focusNode,
+          textInputAction: TextInputAction.search,
           decoration: const InputDecoration(
             labelText: 'Buscar produto/serviço do estoque',
             hintText: 'Toque para ver a lista ou digite o nome',
             prefixIcon: Icon(Icons.search),
             border: OutlineInputBorder(),
           ),
-          onSubmitted: (_) {},
+          // Enter: com lista aberta, escolhe o item em destaque (comportamento
+          // padrão do Autocomplete); sem nenhum resultado, abre o cadastro já
+          // com o nome digitado.
+          onSubmitted: (texto) {
+            if (_semResultado && texto.trim().isNotEmpty) {
+              _cadastrar(texto);
+            } else {
+              onFieldSubmitted();
+            }
+          },
         );
       },
       optionsViewBuilder: (context, onSelected, options) => Align(
@@ -720,6 +770,57 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
           ),
         ),
       ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: busca),
+            const SizedBox(width: 8),
+            // Sempre visível: o produto pode não estar no estoque mesmo antes
+            // de ela terminar de digitar o nome. Botão compacto para caber no
+            // celular sem espremer o campo de busca.
+            Tooltip(
+              message: 'Cadastrar um produto sem sair da venda',
+              child: OutlinedButton.icon(
+                onPressed: () => _cadastrar(_ctrl?.text ?? ''),
+                icon: const Icon(Icons.add_box_outlined, size: 18),
+                label: const Text('Novo'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: const Size(0, 48), // alvo de toque no celular
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Só aparece quando a busca não achou nada: a saída óbvia, no lugar
+        // onde ela acabou de bater na parede.
+        if (_semResultado && _q.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Não achei “$_q” no estoque.',
+                  style: const TextStyle(
+                      fontSize: 12.5, color: AppColors.inkMuted),
+                ),
+                TextButton.icon(
+                  onPressed: () => _cadastrar(_q),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: Text('Cadastrar “$_q”'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1233,6 +1334,37 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
     }
   }
 
+  /// Cadastra o cliente SEM sair da venda e já o devolve selecionado.
+  ///
+  /// É o caminho do balcão: o cliente novo aparece na frente do operador, não
+  /// no cadastro. O nome digitado na busca vai junto — quem não achou "Maria"
+  /// não deve ter de escrever "Maria" de novo.
+  Future<void> _cadastrar() async {
+    final cfg = ref.read(customersConfigProvider).value;
+    final digitado = _ctrl.text.trim();
+    final novo = await CustomerFormDialog.show(
+      context,
+      documentRequired: cfg?.documentRequired ?? false,
+      initialName: digitado.isEmpty ? null : digitado,
+    );
+    if (!mounted || novo == null) return;
+    ref.invalidate(customersListProvider);
+    Navigator.of(context).pop((id: novo.id, name: novo.name));
+  }
+
+  /// Enter: com resultado na tela, escolhe o primeiro (o caso comum — digitou
+  /// o suficiente para sobrar um). Sem nenhum, já abre o cadastro com o nome
+  /// digitado. Nos dois casos a tecla faz a coisa óbvia, e ninguém precisa
+  /// tirar a mão do teclado.
+  void _onSubmit() {
+    if (_loading) return;
+    if (_results.isNotEmpty) {
+      Navigator.of(context).pop(_results.first);
+    } else {
+      _cadastrar();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1241,26 +1373,57 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final digitado = _ctrl.text.trim();
+    final vazio = !_loading && _results.isEmpty;
     return AlertDialog(
       title: const Text('Selecionar cliente'),
       content: SizedBox(
         width: 380,
-        height: 360,
+        height: 400,
         child: Column(
           children: [
             TextField(
               controller: _ctrl,
               autofocus: true,
+              textInputAction: TextInputAction.search,
               decoration: const InputDecoration(
-                  labelText: 'Buscar por nome', prefixIcon: Icon(Icons.search)),
+                labelText: 'Buscar por nome',
+                prefixIcon: Icon(Icons.search),
+                helperText: 'Enter escolhe o primeiro da lista',
+              ),
               onChanged: _search,
+              onSubmitted: (_) => _onSubmit(),
             ),
             const SizedBox(height: 8),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _results.isEmpty
-                      ? const Center(child: Text('Nenhum cliente.'))
+                  : vazio
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  digitado.isEmpty
+                                      ? 'Nenhum cliente cadastrado.'
+                                      : 'Nenhum cliente com “$digitado”.',
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: _cadastrar,
+                                  icon: const Icon(Icons.person_add_alt_1,
+                                      size: 18),
+                                  label: Text(digitado.isEmpty
+                                      ? 'Cadastrar cliente'
+                                      : 'Cadastrar “$digitado”'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                       : ListView(
                           children: [
                             for (final c in _results)
@@ -1279,6 +1442,13 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancelar')),
+        // Sempre disponível — o cliente pode ser novo mesmo com a busca cheia
+        // (homônimo, ou ela só quer cadastrar logo).
+        TextButton.icon(
+          onPressed: _cadastrar,
+          icon: const Icon(Icons.person_add_alt_1, size: 18),
+          label: const Text('Novo cliente'),
+        ),
       ],
     );
   }

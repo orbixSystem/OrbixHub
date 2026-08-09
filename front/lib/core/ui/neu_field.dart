@@ -97,7 +97,15 @@ class NeuTextField extends StatelessWidget {
             enabled: enabled,
             maxLines: maxLines,
             minLines: minLines,
-            textInputAction: textInputAction,
+            // Enter avança para o próximo campo (pedido do balcão: preencher o
+            // formulário sem tirar a mão do teclado). Declarar a ação BASTA: o
+            // próprio `EditableText` chama `nextFocus()` ao receber `next` —
+            // adicionar um `onFieldSubmitted` que também avança faria o foco
+            // pular DOIS campos. No celular, ainda troca a tecla "concluído"
+            // pela seta de avançar. Só em campo de uma linha: num campo de
+            // várias, Enter tem de continuar quebrando linha.
+            textInputAction: textInputAction ??
+                (maxLines == 1 ? TextInputAction.next : null),
             inputFormatters: inputFormatters,
             maxLength: maxLength,
             textCapitalization: textCapitalization,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/inventory/data/fake_inventory_repository.dart';
+import 'package:orbixhub_front/features/inventory/domain/inventory_models.dart';
 import 'package:orbixhub_front/features/inventory/presentation/inventory_providers.dart';
 import 'package:orbixhub_front/features/inventory/presentation/item_form_dialog.dart';
 import 'package:orbixhub_front/features/inventory/presentation/simple_item_form_dialog.dart';
@@ -102,7 +103,7 @@ void main() {
     expect(find.text('Informe o preço.'), findsOneWidget);
   });
 
-  testWidgets('"Cadastro completo" fecha o simples e abre o formulário cheio',
+  testWidgets('"Cadastro completo" abre o formulário cheio POR CIMA do simples',
       (t) async {
     final fake = FakeInventoryRepository(items: const []);
     await abrir(t, fake);
@@ -115,9 +116,99 @@ void main() {
     await t.tap(link);
     await t.pumpAndSettle();
 
-    expect(find.byType(SimpleItemFormDialog), findsNothing);
     expect(find.byType(ItemFormDialog), findsOneWidget);
+    // O simples CONTINUA montado atrás: é ele quem devolve o item a quem o
+    // abriu (a venda). Fechá-lo aqui perderia esse retorno — e desistir do
+    // completo jogaria fora o que já tinha sido digitado.
+    expect(find.byType(SimpleItemFormDialog), findsOneWidget);
     // O completo ainda oferece Produto/Serviço — é ele quem cobre serviço.
     expect(find.text('Serviço'), findsOneWidget);
+  });
+
+  testWidgets('leva o nome já digitado para o cadastro completo', (t) async {
+    final fake = FakeInventoryRepository(items: const []);
+    await abrir(t, fake);
+    await t.enterText(find.byType(TextFormField).first, 'Correia dentada');
+    await t.pumpAndSettle();
+
+    final link = find.textContaining('Cadastro completo');
+    await t.ensureVisible(link);
+    await t.pumpAndSettle();
+    await t.tap(link);
+    await t.pumpAndSettle();
+
+    // O que importa: o completo abriu com o nome já preenchido — ela não
+    // redigita o que acabou de escrever.
+    expect(
+      // `skipOffstage: false` nos três: no viewport de teste (800x600) o campo
+      // fica abaixo da dobra, e o padrão do finder o ignoraria.
+      find.descendant(
+        of: find.byType(ItemFormDialog, skipOffstage: false),
+        matching: find.text('Correia dentada', skipOffstage: false),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('abre já preenchido com o nome vindo de fora (busca da venda)',
+      (t) async {
+    final fake = FakeInventoryRepository(items: const []);
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [inventoryRepositoryProvider.overrideWithValue(fake)],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () =>
+                    SimpleItemFormDialog.show(ctx, initialName: 'Filtro de óleo'),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.tap(find.text('abrir'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Filtro de óleo'), findsOneWidget);
+  });
+
+  testWidgets('devolve o item criado a quem abriu (para a venda usar)',
+      (t) async {
+    final fake = FakeInventoryRepository(items: const []);
+    InventoryItem? devolvido;
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [inventoryRepositoryProvider.overrideWithValue(fake)],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () async =>
+                    devolvido = await SimpleItemFormDialog.show(ctx),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.tap(find.text('abrir'));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextFormField).at(0), 'Pastilha de freio');
+    await t.enterText(find.byType(TextFormField).at(3), '120,00');
+    await t.tap(find.text('Salvar'));
+    await t.pumpAndSettle();
+
+    // Não é `true`: é o item, com id — sem isso a venda teria de buscá-lo de novo.
+    expect(devolvido, isNotNull);
+    expect(devolvido!.name, 'Pastilha de freio');
+    expect(devolvido!.id, isNotEmpty);
   });
 }

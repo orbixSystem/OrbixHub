@@ -12,6 +12,10 @@ String paymentStatusLabel(String status) {
       return 'Paga';
     case 'parcial':
       return 'Parcial';
+    // A venda cancelada tem `payment_status = 'cancelada'`; sem este caso ela
+    // caía no `default` e era rotulada "A receber" — uma cobrança que não existe.
+    case 'cancelada':
+      return 'Cancelada';
     case 'a_receber':
     default:
       return 'A receber';
@@ -25,6 +29,8 @@ Color paymentStatusColor(String status) {
       return AppColors.success;
     case 'parcial':
       return AppColors.warning;
+    case 'cancelada':
+      return AppColors.danger;
     case 'a_receber':
     default:
       return AppColors.inkMuted;
