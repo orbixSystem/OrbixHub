@@ -369,6 +369,21 @@ export class OsService {
         `Falha ao resolver conversa da OS ${id}: ${(e as Error).message}`,
       );
     }
+    // Resolve o nome do responsável via IAM (fora da tx — mesmo padrão do
+    // os-public.service). best-effort: falha não quebra o detalhe da OS.
+    let assignedToName: string | null = null;
+    if (result.order.assigned_to) {
+      try {
+        assignedToName = await this.iam.resolveMemberName(
+          tid,
+          result.order.assigned_to,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Falha ao resolver nome do responsável da OS ${id}: ${(e as Error).message}`,
+        );
+      }
+    }
     return {
       ...result.order,
       events: result.events,
@@ -379,6 +394,9 @@ export class OsService {
       payment_status: payment.status,
       // Atalho staff → thread do chat desta OS (front: botão "Mensagens").
       conversation_id: conversationId,
+      // Nome legível do responsável — o UUID fica em `assigned_to` para edição;
+      // este campo é só para exibição (detalhe e PDF).
+      assigned_to_name: assignedToName,
     };
   }
 

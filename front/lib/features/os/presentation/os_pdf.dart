@@ -30,8 +30,8 @@ Future<Uint8List> buildOsPdf(
       ['Cliente', order.customerName!],
     if ((order.subjectLabel ?? '').isNotEmpty)
       ['Veículo', order.subjectLabel!],
-    if ((order.assignedTo ?? '').isNotEmpty)
-      ['Responsável', order.assignedTo!],
+    if ((order.assignedToName ?? order.assignedTo ?? '').isNotEmpty)
+      ['Responsável', order.assignedToName ?? order.assignedTo!],
     if ((order.scheduledStart ?? '').isNotEmpty)
       ['Previsão início', order.scheduledStart!],
     if ((order.scheduledEnd ?? '').isNotEmpty)
