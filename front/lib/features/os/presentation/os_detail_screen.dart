@@ -495,7 +495,7 @@ class _Header extends StatelessWidget {
     final facts = <(String, String?)>[
       ('Cliente', order.customerName),
       ('Veículo', order.subjectLabel),
-      ('Responsável', order.assignedTo),
+      ('Responsável', order.assignedToName ?? order.assignedTo),
       ('Relato', order.complaint),
       (
         'Previsão início',

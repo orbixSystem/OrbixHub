@@ -194,6 +194,7 @@ abstract class ServiceOrder with _$ServiceOrder {
     @JsonKey(name: 'subject_label') String? subjectLabel,
     @Default('aberta') String status,
     @JsonKey(name: 'assigned_to') String? assignedTo,
+    @JsonKey(name: 'assigned_to_name') String? assignedToName,
     String? complaint,
     String? diagnosis,
     @JsonKey(name: 'scheduled_start') String? scheduledStart,
