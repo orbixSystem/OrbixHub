@@ -17,10 +17,15 @@ import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import 'cashier_dialogs.dart';
-import 'entry_edit_dialogs.dart';
 import 'cashier_providers.dart';
+import 'entry_edit_dialogs.dart';
+import 'fiado_sheet.dart';
+import 'receber_sheet.dart';
+import 'sangria_sheet.dart';
+import 'suprimento_sheet.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_timeline_list.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 
 /// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
 /// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
@@ -37,14 +42,14 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa do dia · 1 = Fiado · 2 = Histórico
+  int _tab = 0; // 0 = Caixa · 1 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
     return s.meOrNull?.hasPermission('cashier.write') ?? false;
   }
 
-  /// Gestão do caixa (abrir/fechar, despesa/sangria/suprimento, estorno, histórico).
+  /// Gestão do caixa (sangria/suprimento, estorno, histórico).
   /// Dono/gerente; o atendente (caixa) NÃO tem.
   bool _canManage() {
     final s = ref.read(sessionControllerProvider);
@@ -57,8 +62,6 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     return me != null && me.hasModule('sale') && me.hasPermission('sale.write');
   }
 
-  /// Ler a carteira de fiado exige as mesmas permissões do extrato
-  /// (`cashier.read`) — quem opera o caixa precisa saber quem deve.
   bool _canReadReceivables() {
     final s = ref.read(sessionControllerProvider);
     return s.meOrNull?.hasPermission('cashier.read') ?? false;
@@ -68,15 +71,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final canFiado = _canReadReceivables();
-    // Abas montadas conforme o papel: o atendente vê Caixa do dia (+ Fiado, que
-    // precisa para cobrar); o Histórico é relatório de gestão.
-    // Ordem = frequência de uso: opera-se o dia, depois consulta-se o período,
-    // e o fiado é a cobrança (importante, mas não o caminho diário).
+    // Segmentado de 2 abas: Caixa (sempre) + Histórico (gestão).
+    // Fiado saiu do segmentado e virou banner clicável na aba Caixa.
     final segments = <int, String>{
-      0: 'Caixa do dia',
-      if (canManage) 2: 'Histórico',
-      if (canFiado) 1: 'Fiado',
+      0: 'Caixa',
+      if (canManage) 1: 'Histórico',
     };
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -85,14 +84,12 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Aviso PERMANENTE offline: o caixa opera no aparelho, mas nada é
-            // efetivado no sistema até a conexão voltar.
+            // Aviso PERMANENTE offline.
             const OfflineScreenNotice(
               message: 'Você está offline. Os lançamentos são guardados neste '
                   'aparelho e só serão efetivados no sistema quando a conexão '
                   'voltar.',
             ),
-            // Com uma única aba disponível não há o que segmentar.
             if (segments.length > 1) ...[
               CoachTarget(
                 'caixa.abas',
@@ -104,20 +101,15 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
+            Expanded(child: _body(canManage: canManage)),
           ],
         ),
       ),
     );
   }
 
-  /// Corpo da aba selecionada. Cai no Caixa do dia quando a aba guardada não
-  /// está mais disponível (troca de papel/empresa sem recriar a tela).
-  Widget _body({required bool canFiado, required bool canManage}) {
-    if (_tab == 1 && canFiado) {
-      return ReceivablesTab(canWrite: _canWrite());
-    }
-    if (_tab == 2 && canManage) return const _CashierHistory();
+  Widget _body({required bool canManage}) {
+    if (_tab == 1 && canManage) return const _CashierHistory();
     return _dayBody();
   }
 
@@ -130,17 +122,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         onRetry: () => ref.invalidate(cashierControllerProvider),
       ),
       data: (state) {
-        // Caminho ÚNICO. A cerimônia de abrir/fechar caixa foi removida do
-        // produto: ela existia para conferir gaveta de dinheiro e, na prática,
-        // só produzia telas de "Caixa fechado" bloqueando o lançamento. A
-        // `cash_session` continua no banco como balde interno (criado sozinho no
-        // primeiro lançamento), mas deixou de ser algo que o usuário vê.
         return _FreeBody(
           state: state,
           canWrite: _canWrite(),
           canManage: _canManage(),
           canSale: _canSale(),
-          onVerHistorico: () => setState(() => _tab = 2),
+          canReadReceivables: _canReadReceivables(),
+          onVerHistorico: () => setState(() => _tab = 1),
         );
       },
     );
@@ -217,21 +205,13 @@ class _DirectionGlyph extends StatelessWidget {
 }
 
 /// Caixa SEM cerimônia de abertura (`requireOpenSession = false`).
-///
-/// A sessão de caixa existe para conferir GAVETA de dinheiro: contar no fim do
-/// dia e achar falta/sobra. Quem recebe só por Pix/cartão, ou opera sozinho, não
-/// tem gaveta para conferir — para essa oficina, exigir "abrir o caixa" antes de
-/// registrar qualquer coisa é atrito puro.
-///
-/// Aqui o caixa é um livro de lançamentos do dia: registra e pronto. A abertura
-/// segue disponível como AÇÃO (quem quiser conferência de gaveta abre quando
-/// quiser), só não é mais pré-requisito.
 class _FreeBody extends ConsumerWidget {
   const _FreeBody({
     required this.state,
     required this.canWrite,
     required this.canManage,
     required this.canSale,
+    required this.canReadReceivables,
     this.onVerHistorico,
   });
 
@@ -239,6 +219,7 @@ class _FreeBody extends ConsumerWidget {
   final bool canWrite;
   final bool canManage;
   final bool canSale;
+  final bool canReadReceivables;
 
   /// Atalho para a aba Histórico (só existe para quem tem gestão).
   final VoidCallback? onVerHistorico;
@@ -250,47 +231,66 @@ class _FreeBody extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 16),
-        // AÇÕES em grid: são o que se vem fazer nesta tela, então merecem o
-        // espaço e um alvo de toque grande — não uma fileira de botões finos.
+        const SizedBox(height: 12),
+        // Banner de fiado — sempre visível para quem lê o caixa.
+        if (canReadReceivables) ...[
+          _FiadoBanner(canWrite: canWrite),
+          const SizedBox(height: 12),
+        ],
+        // AÇÕES em grid: 4 ações claras.
         if (canWrite || canSale || canManage)
           CoachTarget(
             'caixa.acoes',
             child: _AcoesGrid(
-            acoes: [
-              if (canSale)
-                _Acao(
-                  label: 'Venda avulsa',
-                  icon: Icons.shopping_cart_checkout_outlined,
-                  cor: neu.navy,
-                  exigeConexao: 'a venda avulsa é registrada no servidor',
-                  onTap: () => _startSale(context, ref),
-                ),
-              if (canWrite)
-                _Acao(
-                  label: 'Receber OS',
-                  icon: Icons.payments_outlined,
-                  cor: neu.success,
-                  onTap: () => showEntryDialog(context, ref, state.config,
-                      presetCategory: 'os_payment'),
-                ),
-              // Despesa saiu daqui: contas a pagar viraram o módulo `Despesas`, e
-              // o lançamento no caixa passou a ser CONSEQUÊNCIA da baixa lá (o
-              // módulo chama o service público do caixa). Digitar despesa solta
-              // aqui criaria uma segunda porta para o mesmo dinheiro, sem a conta
-              // correspondente do outro lado.
-              //
-              // Sangria (retirada da gaveta) continua só no diálogo de
-              // lançamento: com a cerimônia de abrir/fechar removida, não há
-              // grade de gaveta onde ela caberia como atalho.
+              acoes: [
+                if (canWrite)
+                  _Acao(
+                    label: 'Receber',
+                    icon: Icons.payments_outlined,
+                    cor: neu.success,
+                    onTap: () =>
+                        showReceberSheet(context, ref, state.config),
+                  ),
+                if (canSale)
+                  _Acao(
+                    label: 'Venda avulsa',
+                    icon: Icons.shopping_cart_checkout_outlined,
+                    cor: neu.navy,
+                    exigeConexao: 'a venda avulsa é registrada no servidor',
+                    onTap: () => _startSale(context, ref),
+                  ),
+                if (canWrite || canManage)
+                  _Acao(
+                    label: 'Lançamento',
+                    icon: Icons.add_circle_outline_rounded,
+                    cor: neu.navy,
+                    onTap: () => showEntryDialog(context, ref, state.config),
+                  ),
+                if (canWrite)
+                  _Acao(
+                    label: 'Fiado / A prazo',
+                    icon: Icons.account_balance_wallet_outlined,
+                    cor: const Color(0xFFF59E0B),
+                    onTap: () => showFiadoSheet(context, ref, state.config),
+                  ),
+                if (canManage)
+                  _Acao(
+                    label: 'Sangria',
+                    icon: Icons.arrow_upward_rounded,
+                    cor: neu.danger,
+                    onTap: () => showSangriaSheet(context, ref),
+                  ),
+                if (canManage)
+                  _Acao(
+                    label: 'Suprimento',
+                    icon: Icons.arrow_downward_rounded,
+                    cor: neu.success,
+                    onTap: () => showSuprimentoSheet(context, ref),
+                  ),
               ],
             ),
           ),
         const SizedBox(height: 24),
-        // Lista CURTA, de confirmação: "o que acabei de lançar entrou?". O
-        // extrato completo do período é o Histórico — duas listas cheias da
-        // mesma coisa era a redundância. Quem tem gestão chega lá pelo atalho;
-        // o atendente (que não vê o Histórico) continua com a confirmação.
         Row(
           children: [
             Expanded(
@@ -319,6 +319,113 @@ class _FreeBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Banner de fiado que mostra o total a receber.
+/// Clicável para abrir o fiado em bottom sheet.
+class _FiadoBanner extends ConsumerWidget {
+  const _FiadoBanner({required this.canWrite});
+  final bool canWrite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final async = ref.watch(debtorsProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (page) {
+        final total = page.totalDue;
+        final count = page.items.length;
+        if (total <= 0 && count == 0) {
+          // Sem fiado: linha discreta verde.
+          return NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rCard,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_outline_rounded,
+                    size: 16, color: neu.success),
+                const SizedBox(width: 8),
+                Text(
+                  'Nenhum fiado em aberto',
+                  style: TextStyle(color: neu.success, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }
+        // Há fiado: card âmbar clicável.
+        return InkWell(
+          borderRadius: BorderRadius.circular(NeuTokens.rCard),
+          onTap: () => _abrirFiado(context, ref),
+          child: NeuSurface(
+            elevation: NeuElevation.raised,
+            radius: NeuTokens.rCard,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.account_balance_wallet_outlined,
+                      size: 16, color: Color(0xFFF59E0B)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'A receber: ${formatMoney(total)}',
+                        style: TextStyle(
+                          color: neu.ink,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      Text(
+                        '$count ${count == 1 ? "cliente" : "clientes"} com fiado em aberto',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: neu.inkFaint, size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _abrirFiado(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, _) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: NeuSurface(
+            elevation: NeuElevation.raised,
+            child: ReceivablesTab(canWrite: canWrite),
+          ),
+        ),
+      ),
     );
   }
 }

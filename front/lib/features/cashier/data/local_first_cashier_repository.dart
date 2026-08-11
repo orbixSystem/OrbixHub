@@ -823,4 +823,29 @@ class LocalFirstCashierRepository extends LocalFirstBase
       // Desativar é um update de `status` — offline reusa a mesma op de sync, em
       // vez de precisar de uma op própria só para isso.
       updateExpenseTemplate(id, const ExpenseTemplateDraft(status: 'disabled'));
+
+  // --- parcelas de fiado (delega para o remoto; sem suporte offline por ora) ---
+
+  @override
+  Future<List<Installment>> listInstallments({
+    required String saleKind,
+    required String saleId,
+  }) =>
+      inner.listInstallments(saleKind: saleKind, saleId: saleId);
+
+  @override
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) =>
+      inner.createInstallmentPlan(draft);
+
+  @override
+  Future<Installment> payInstallment({
+    required String installmentId,
+    required String method,
+    String? description,
+  }) =>
+      inner.payInstallment(
+        installmentId: installmentId,
+        method: method,
+        description: description,
+      );
 }

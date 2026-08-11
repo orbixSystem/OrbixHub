@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/validators.dart';
+import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
@@ -30,6 +31,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
 
   // Estoque
   InventoryOption? _picked;
+  String _lastInventoryQuery = '';
 
   // Item avulso
   final _name = TextEditingController();
@@ -235,11 +237,28 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
     );
   }
 
+  Future<void> _criarProduto() async {
+    final item = await SimpleItemFormDialog.show(
+      context,
+      initialName: _lastInventoryQuery.trim(),
+    );
+    if (item != null && mounted) {
+      _pickInventory(InventoryOption(
+        id: item.id,
+        name: item.name,
+        kind: item.kind,
+        salePrice: item.salePrice,
+        currentStock: item.currentStock,
+      ));
+    }
+  }
+
   List<Widget> _inventoryFields() {
     return [
       Autocomplete<InventoryOption>(
         displayStringForOption: (o) => o.name,
         optionsBuilder: (value) async {
+          _lastInventoryQuery = value.text;
           try {
             return await ref
                 .read(osRepositoryProvider)
@@ -253,9 +272,14 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
           return TextField(
             controller: controller,
             focusNode: focusNode,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Produto ou serviço do estoque',
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                tooltip: 'Criar produto/serviço',
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                onPressed: _criarProduto,
+              ),
             ),
           );
         },
@@ -267,7 +291,7 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
               borderRadius: BorderRadius.circular(12),
               child: ConstrainedBox(
                 constraints:
-                    const BoxConstraints(maxHeight: 240, maxWidth: 412),
+                    const BoxConstraints(maxHeight: 280, maxWidth: 412),
                 child: ListView(
                   padding: EdgeInsets.zero,
                   shrinkWrap: true,
@@ -290,6 +314,22 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
                         ),
                         onTap: () => onSelected(o),
                       ),
+                    // Criar novo — sempre visível no final da lista
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.add_circle_outline_rounded,
+                          size: 20),
+                      title: Text(
+                        _lastInventoryQuery.trim().isNotEmpty
+                            ? 'Criar "${_lastInventoryQuery.trim()}"'
+                            : 'Criar produto/serviço',
+                      ),
+                      onTap: () {
+                        // Fecha o overlay antes de abrir o form
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        _criarProduto();
+                      },
+                    ),
                   ],
                 ),
               ),

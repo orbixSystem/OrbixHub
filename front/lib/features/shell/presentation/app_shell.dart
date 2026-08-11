@@ -10,6 +10,8 @@ import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../cashier/presentation/cashier_dialogs.dart';
+import '../../cashier/presentation/cashier_providers.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
 import '../../customers/presentation/customers_providers.dart';
 import '../../expenses/presentation/expense_form_dialog.dart';
@@ -703,6 +705,9 @@ class _QuickCreateFab extends ConsumerWidget {
         // Invalida mesmo fora da tela de Despesas: se ela estiver montada atrás
         // (ou for aberta em seguida sem recarregar), a conta nova precisa estar lá.
         if (criou) ref.invalidate(despesasDoMesProvider);
+      case 'cashier_entry':
+        final config = await ref.read(cashierRepositoryProvider).fetchConfig();
+        if (context.mounted) await showEntryDialog(context, ref, config);
     }
   }
 }
@@ -744,6 +749,13 @@ List<QuickAction> quickActionsFor(Me me) {
         Icons.inventory_2_rounded,
         5,
         'Novo produto ou serviço',
+      ),
+    if (me.hasPermission('cashier.write') || me.hasPermission('cashier.manage'))
+      const QuickAction(
+        'cashier_entry',
+        Icons.add_circle_outline_rounded,
+        6,
+        'Lançamento de caixa',
       ),
   ];
 }
