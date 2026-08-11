@@ -687,7 +687,6 @@ class _CertificatePasswordDialog extends StatefulWidget {
 class _CertificatePasswordDialogState
     extends State<_CertificatePasswordDialog> {
   final _controller = TextEditingController();
-  bool _obscure = true;
 
   @override
   void dispose() {
@@ -706,20 +705,13 @@ class _CertificatePasswordDialogState
           style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
         ),
         const SizedBox(height: 16),
+        // Olhinho por conta do NeuTextField (antes era montado aqui à mão).
         NeuTextField(
           label: 'Senha',
           controller: _controller,
-          obscureText: _obscure,
+          obscureText: true,
           textInputAction: TextInputAction.done,
           onFieldSubmitted: (v) => Navigator.of(context).pop(v),
-          suffix: IconButton(
-            icon: Icon(
-              _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-              size: 20,
-              color: neu.inkMuted,
-            ),
-            onPressed: () => setState(() => _obscure = !_obscure),
-          ),
         ),
         const SizedBox(height: 20),
         Row(
