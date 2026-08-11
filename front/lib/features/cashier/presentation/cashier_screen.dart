@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -10,22 +11,26 @@ import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
-import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
 import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
+import 'cashier_dialogs.dart';
 import 'cashier_providers.dart';
 import 'entry_edit_dialogs.dart';
-import 'receive_picker_dialog.dart';
+import 'fiado_sheet.dart';
+import 'receber_sheet.dart';
+import 'sangria_sheet.dart';
+import 'suprimento_sheet.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_timeline_list.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 
-/// Módulo Caixa: três abas — "Caixa" (entradas do dia + ações rápidas), "Fiado"
-/// (contas a receber, agrupadas por cliente) e "Histórico" (movimentos por
-/// período — o relatório do caixa). Quais aparecem depende do papel: Fiado
-/// exige `cashier.read`, Histórico é de gestão.
+/// Módulo Caixa: três abas — "Caixa do dia" (sessão atual: abrir/extrato/totais/
+/// fechar), "Fiado" (contas a receber, agrupadas por cliente) e "Histórico"
+/// (movimentos por período — o relatório do caixa). Quais aparecem depende do
+/// papel: Fiado exige `cashier.read`, Histórico é de gestão.
 ///
 /// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
 /// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
@@ -37,7 +42,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa · 1 = Fiado · 2 = Histórico
+  int _tab = 0; // 0 = Caixa · 1 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
@@ -66,14 +71,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final canFiado = _canReadReceivables();
-    // Abas montadas conforme o papel: o atendente vê Caixa (+ Fiado, que
-    // precisa para cobrar); o Histórico é relatório de gestão. Ordem =
-    // frequência de uso: opera-se o dia, cobra-se o fiado, consulta-se o período.
+    // Segmentado de 2 abas: Caixa (sempre) + Histórico (gestão).
+    // Fiado saiu do segmentado e virou banner clicável na aba Caixa.
     final segments = <int, String>{
       0: 'Caixa',
-      if (canFiado) 1: 'Fiado',
-      if (canManage) 2: 'Histórico',
+      if (canManage) 1: 'Histórico',
     };
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -99,18 +101,15 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
+            Expanded(child: _body(canManage: canManage)),
           ],
         ),
       ),
     );
   }
 
-  /// Corpo da aba selecionada. Cai no Caixa quando a aba guardada não está
-  /// mais disponível (troca de papel/empresa sem recriar a tela).
-  Widget _body({required bool canFiado, required bool canManage}) {
-    if (_tab == 1 && canFiado) return ReceivablesTab(canWrite: _canWrite());
-    if (_tab == 2 && canManage) return const _CashierHistory();
+  Widget _body({required bool canManage}) {
+    if (_tab == 1 && canManage) return const _CashierHistory();
     return _dayBody();
   }
 
@@ -128,7 +127,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           canWrite: _canWrite(),
           canManage: _canManage(),
           canSale: _canSale(),
-          onVerHistorico: () => setState(() => _tab = 2),
+          canReadReceivables: _canReadReceivables(),
+          onVerHistorico: () => setState(() => _tab = 1),
         );
       },
     );
@@ -211,6 +211,7 @@ class _FreeBody extends ConsumerWidget {
     required this.canWrite,
     required this.canManage,
     required this.canSale,
+    required this.canReadReceivables,
     this.onVerHistorico,
   });
 
@@ -218,40 +219,73 @@ class _FreeBody extends ConsumerWidget {
   final bool canWrite;
   final bool canManage;
   final bool canSale;
+  final bool canReadReceivables;
 
   /// Atalho para a aba Histórico (só existe para quem tem gestão).
   final VoidCallback? onVerHistorico;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 16),
-        // AÇÕES em grid: duas portas claras de entrada de dinheiro. Fiado (ver
-        // quem deve, parcelar, receber parcela) tem aba própria — não é uma
-        // ação de checkout, é gestão de dívida.
-        if (canWrite || canSale)
+        const SizedBox(height: 12),
+        // Banner de fiado — sempre visível para quem lê o caixa.
+        if (canReadReceivables) ...[
+          _FiadoBanner(canWrite: canWrite),
+          const SizedBox(height: 12),
+        ],
+        // AÇÕES em grid: 4 ações claras.
+        if (canWrite || canSale || canManage)
           CoachTarget(
             'caixa.acoes',
             child: _AcoesGrid(
               acoes: [
+                if (canWrite)
+                  _Acao(
+                    label: 'Receber',
+                    icon: Icons.payments_outlined,
+                    cor: neu.success,
+                    onTap: () =>
+                        showReceberSheet(context, ref, state.config),
+                  ),
                 if (canSale)
                   _Acao(
                     label: 'Venda avulsa',
                     icon: Icons.shopping_cart_checkout_outlined,
-                    cor: context.neu.navy,
+                    cor: neu.navy,
                     exigeConexao: 'a venda avulsa é registrada no servidor',
                     onTap: () => _startSale(context, ref),
                   ),
+                if (canWrite || canManage)
+                  _Acao(
+                    label: 'Lançamento',
+                    icon: Icons.add_circle_outline_rounded,
+                    cor: neu.navy,
+                    onTap: () => showEntryDialog(context, ref, state.config),
+                  ),
                 if (canWrite)
                   _Acao(
-                    label: 'Receber OS',
-                    icon: Icons.payments_outlined,
-                    cor: context.neu.success,
-                    onTap: () =>
-                        showReceivePickerDialog(context, ref, state.config),
+                    label: 'Fiado / A prazo',
+                    icon: Icons.account_balance_wallet_outlined,
+                    cor: const Color(0xFFF59E0B),
+                    onTap: () => showFiadoSheet(context, ref, state.config),
+                  ),
+                if (canManage)
+                  _Acao(
+                    label: 'Sangria',
+                    icon: Icons.arrow_upward_rounded,
+                    cor: neu.danger,
+                    onTap: () => showSangriaSheet(context, ref),
+                  ),
+                if (canManage)
+                  _Acao(
+                    label: 'Suprimento',
+                    icon: Icons.arrow_downward_rounded,
+                    cor: neu.success,
+                    onTap: () => showSuprimentoSheet(context, ref),
                   ),
               ],
             ),
@@ -285,6 +319,113 @@ class _FreeBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Banner de fiado que mostra o total a receber.
+/// Clicável para abrir o fiado em bottom sheet.
+class _FiadoBanner extends ConsumerWidget {
+  const _FiadoBanner({required this.canWrite});
+  final bool canWrite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final async = ref.watch(debtorsProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (page) {
+        final total = page.totalDue;
+        final count = page.items.length;
+        if (total <= 0 && count == 0) {
+          // Sem fiado: linha discreta verde.
+          return NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rCard,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_outline_rounded,
+                    size: 16, color: neu.success),
+                const SizedBox(width: 8),
+                Text(
+                  'Nenhum fiado em aberto',
+                  style: TextStyle(color: neu.success, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }
+        // Há fiado: card âmbar clicável.
+        return InkWell(
+          borderRadius: BorderRadius.circular(NeuTokens.rCard),
+          onTap: () => _abrirFiado(context, ref),
+          child: NeuSurface(
+            elevation: NeuElevation.raised,
+            radius: NeuTokens.rCard,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.account_balance_wallet_outlined,
+                      size: 16, color: Color(0xFFF59E0B)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'A receber: ${formatMoney(total)}',
+                        style: TextStyle(
+                          color: neu.ink,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      Text(
+                        '$count ${count == 1 ? "cliente" : "clientes"} com fiado em aberto',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: neu.inkFaint, size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _abrirFiado(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, _) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: NeuSurface(
+            elevation: NeuElevation.raised,
+            child: ReceivablesTab(canWrite: canWrite),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -512,7 +653,7 @@ class _EntryTile extends ConsumerWidget {
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
           : daOs
-              ? () => showOsDetailDialog(context, orderId: entry.saleId!)
+              ? () => context.push('/m/os/${entry.saleId}')
               : daDespesa
                   ? () => showExpenseDetailDialog(context, ref,
                       id: entry.saleId!)
@@ -564,9 +705,8 @@ class _EntryTile extends ConsumerWidget {
               tint: neu.inkMuted.withValues(alpha: .14),
             ),
           ],
-          // Afordância: sem isto nada indica que a linha é clicável (venda, OS
-          // e despesa navegam no toque — só a venda mostrava o chevron).
-          if (daVenda || daOs || daDespesa) ...[
+          // Afordância: sem isto nada indica que a linha da venda é clicável.
+          if (daVenda) ...[
             const SizedBox(width: 2),
             Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
           ],

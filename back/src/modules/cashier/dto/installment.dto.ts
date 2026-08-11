@@ -1,7 +1,4 @@
 import {
-  ArrayMaxSize,
-  ArrayMinSize,
-  IsArray,
   IsDateString,
   IsInt,
   IsNumber,
@@ -24,27 +21,9 @@ export class CreateInstallmentPlanDto {
   /** ISO date, default = próxima ocorrência do `dueDayOfMonth`. */
   @IsOptional() @IsDateString() firstDueDate?: string;
   @IsOptional() @IsString() notes?: string;
-  /**
-   * Uuids das parcelas gerados no cliente (replay offline), um por parcela, na
-   * MESMA ordem — mesmo espírito de `cash_entry.create`'s `id`: o replay usa o
-   * id do cliente em vez de gerar um novo, senão duplicaria o plano a cada
-   * reenvio do push.
-   */
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(60)
-  @IsUUID('4', { each: true })
-  installmentIds?: string[];
 }
 
 export class PayInstallmentDto {
   @IsString() method!: string;
   @IsOptional() @IsString() description?: string;
-  /**
-   * Uuid do lançamento do caixa gerado no cliente (replay offline). Repassado
-   * ao caixa para o replay não duplicar o lançamento — mesmo idioma de
-   * `PayExpenseDto.cashEntryId`.
-   */
-  @IsOptional() @IsUUID() cashEntryId?: string;
 }

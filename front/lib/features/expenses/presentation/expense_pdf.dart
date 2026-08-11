@@ -40,7 +40,7 @@ Future<Uint8List> buildExpensePdf(
       margin: const pw.EdgeInsets.fromLTRB(28, 26, 28, 22),
       header: (ctx) => ctx.pageNumber == 1
           ? pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 12),
+              padding: const pw.EdgeInsets.only(bottom: 8),
               child: pdfCompanyHeader(company),
             )
           : pw.SizedBox(),

@@ -85,7 +85,7 @@ Future<Uint8List> buildSalePdf(
       footer: (ctx) => _rodape(ctx),
       build: (context) => [
         pdfCompanyHeader(company),
-        pw.SizedBox(height: 8),
+        pw.SizedBox(height: 5),
         // Régua da marca separa o cabeçalho do corpo — o detalhe que faz o
         // documento parecer emitido por um sistema, não montado à mão.
         pw.Container(height: 2, color: PdfDocTokens.brand),
