@@ -3,19 +3,12 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/pdf/document_company.dart';
+import '../../../core/pdf/pdf_theme.dart';
 import 'report_csv.dart';
-
-/// Identificação da empresa (tenant) impressa no topo do relatório.
-class ReportCompany {
-  const ReportCompany({required this.name, this.legalName, this.cnpj});
-  final String name;
-  final String? legalName;
-  final String? cnpj;
-}
 
 // --- Paleta do design system (roxo/navy) ---------------------------------
 const _brand = PdfColor.fromInt(0xFF6C72C4); // roxo/navy primária
-const _panel = PdfColor.fromInt(0xFF2B2F44); // painel escuro (selo/rodapé)
 const _ink = PdfColor.fromInt(0xFF23263B); // tinta / texto forte
 const _muted = PdfColor.fromInt(0xFF6B7079); // texto secundário
 const _line = PdfColor.fromInt(0xFFE6E7EE); // linhas/bordas
@@ -32,7 +25,7 @@ const _headerBg = PdfColor.fromInt(0xFFEDEEF7); // navy bem claro (cabeçalho ta
 Future<Uint8List> buildReportPdf(
   ReportTable table,
   PdfPageFormat format, {
-  ReportCompany? company,
+  DocumentCompany? company,
   String? periodLabel,
 }) async {
   final doc = pw.Document();
@@ -62,105 +55,72 @@ Future<Uint8List> buildReportPdf(
 }
 
 // --- Cabeçalho de marca (primeira página) --------------------------------
+/// Mesmo cabeçalho dos demais documentos (`pdfCompanyHeader`) + a faixa que
+/// identifica QUAL relatório é e de que período.
+///
+/// Antes o relatório tinha cabeçalho próprio, com um selo de iniciais no lugar
+/// do logo e sem endereço/contato: dois papéis da mesma oficina saíam com
+/// identidades diferentes, e só este não mostrava a marca do cliente.
 pw.Widget _buildBrandHeader(
   ReportTable table,
-  ReportCompany? company,
+  DocumentCompany? company,
   String? periodLabel,
 ) {
-  final name = company?.name ?? 'OrbixHub';
-  final legalName = company?.legalName ?? '';
-  final cnpj = company?.cnpj ?? '';
-  final showLegal = legalName.isNotEmpty && legalName != name;
-
   return pw.Container(
     margin: const pw.EdgeInsets.only(bottom: 16),
     child: pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // Selo com as iniciais da empresa.
-            _buildSeal(name),
-            pw.SizedBox(width: 12),
-            // Bloco da empresa (esquerda).
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                mainAxisAlignment: pw.MainAxisAlignment.center,
-                children: [
-                  pw.Text(
-                    name,
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                      color: _ink,
-                    ),
-                  ),
-                  if (showLegal)
+        if (company != null) ...[
+          pdfCompanyHeader(company),
+          pw.SizedBox(height: 12),
+        ],
+        pw.Container(
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: _line, width: .8)),
+          ),
+          padding: const pw.EdgeInsets.only(top: 8),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
                     pw.Text(
-                      legalName,
-                      style: const pw.TextStyle(fontSize: 9, color: _muted),
+                      'RELATÓRIO',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _muted,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                  if (cnpj.isNotEmpty)
+                    pw.SizedBox(height: 2),
                     pw.Text(
-                      'CNPJ: $cnpj',
-                      style: const pw.TextStyle(fontSize: 9, color: _muted),
+                      table.title,
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _ink,
+                      ),
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            pw.SizedBox(width: 12),
-            // Bloco do relatório (direita).
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
+              if ((periodLabel ?? '').isNotEmpty)
                 pw.Text(
-                  'RELATÓRIO',
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    letterSpacing: 1.5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _brand,
-                  ),
+                  periodLabel!,
+                  style: const pw.TextStyle(fontSize: 9, color: _muted),
                 ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  table.title,
-                  textAlign: pw.TextAlign.right,
-                  style: pw.TextStyle(
-                    fontSize: 15,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _ink,
-                  ),
-                ),
-                if (periodLabel != null && periodLabel.isNotEmpty) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    'Período: $periodLabel',
-                    textAlign: pw.TextAlign.right,
-                    style: const pw.TextStyle(fontSize: 9, color: _muted),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 12),
-        // Linha divisória sutil com um realce da marca à esquerda.
-        pw.Row(
-          children: [
-            pw.Container(width: 48, height: 2.5, color: _brand),
-            pw.Expanded(child: pw.Container(height: 1, color: _line)),
-          ],
+            ],
+          ),
         ),
       ],
     ),
   );
 }
 
-// --- Cabeçalho reduzido (páginas seguintes) ------------------------------
 pw.Widget _buildRunningHeader(ReportTable table) {
   return pw.Container(
     margin: const pw.EdgeInsets.only(bottom: 12),
@@ -179,28 +139,6 @@ pw.Widget _buildRunningHeader(ReportTable table) {
   );
 }
 
-// --- Selo quadrado com as iniciais da empresa ----------------------------
-pw.Widget _buildSeal(String name) {
-  return pw.Container(
-    width: 44,
-    height: 44,
-    decoration: pw.BoxDecoration(
-      color: _panel,
-      borderRadius: pw.BorderRadius.circular(8),
-    ),
-    alignment: pw.Alignment.center,
-    child: pw.Text(
-      _initials(name),
-      style: pw.TextStyle(
-        fontSize: 16,
-        fontWeight: pw.FontWeight.bold,
-        color: PdfColors.white,
-      ),
-    ),
-  );
-}
-
-// --- Tabela profissional (zebra + total + alinhamento) -------------------
 pw.Widget _buildTable(
   ReportTable table,
   Set<int> numericCols,
@@ -339,20 +277,6 @@ pw.Widget _buildFooter(
 
 // --- Helpers --------------------------------------------------------------
 
-/// Iniciais da empresa para o selo (até 2 letras).
-String _initials(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((p) => p.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return 'OH';
-  if (parts.length == 1) {
-    final w = parts.first;
-    return (w.length >= 2 ? w.substring(0, 2) : w).toUpperCase();
-  }
-  return (parts.first[0] + parts.last[0]).toUpperCase();
-}
 
 /// Data/hora no formato dd/MM/yyyy HH:mm (sem depender de intl).
 String _formatDateTime(DateTime dt) {
