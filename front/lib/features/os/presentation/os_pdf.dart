@@ -50,9 +50,9 @@ Future<Uint8List> buildOsPdf(
       build: (context) => [
         if (company != null) ...[
           pdfCompanyHeader(company),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 5),
           pw.Container(height: 2, color: PdfDocTokens.brand),
-          pw.SizedBox(height: 10),
+          pw.SizedBox(height: 7),
         ],
         _tituloDocumento(order),
         pw.SizedBox(height: 8),

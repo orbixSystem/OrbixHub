@@ -73,7 +73,7 @@ pw.Widget _buildBrandHeader(
       children: [
         if (company != null) ...[
           pdfCompanyHeader(company),
-          pw.SizedBox(height: 12),
+          pw.SizedBox(height: 8),
         ],
         pw.Container(
           decoration: const pw.BoxDecoration(

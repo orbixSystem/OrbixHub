@@ -142,4 +142,32 @@ void main() {
       'PDF da OS com empresa mínima',
     );
   });
+
+  test('cabeçalho não come a página: sobra espaço para o corpo', () async {
+    // Um cabeçalho que ocupa metade da folha é o sintoma que o dono relatou
+    // ("margem absurda"). Não dá para medir altura de widget aqui, mas dá para
+    // medir a CONSEQUÊNCIA: com o cabeçalho enxuto, uma OS de 1 item cabe
+    // folgada em UMA página. Se o topo voltar a inchar, o conteúdo transborda
+    // para a segunda e este teste cai.
+    final bytes = await buildOsPdf(os, PdfPageFormat.a4, company: empresa());
+    final texto = String.fromCharCodes(bytes);
+    // "/Count N" no catálogo de páginas do PDF.
+    final m = RegExp(r'/Count\s+(\d+)').firstMatch(texto);
+    expect(m, isNotNull, reason: 'não achei a contagem de páginas no PDF');
+    expect(
+      int.parse(m!.group(1)!),
+      1,
+      reason: 'a OS de 1 item passou a ocupar mais de uma página — o '
+          'cabeçalho voltou a inchar',
+    );
+  });
+
+  test('logo quadrado não estica o cabeçalho (teto de altura)', () async {
+    // Sem teto, um logo 1:1 esticado até os 200pt da coluna geraria um
+    // cabeçalho de palmo e meio. O PNG do fixture é 1x1 — o pior caso.
+    final bytes = await buildOsPdf(os, PdfPageFormat.a4, company: empresa());
+    final m = RegExp(r'/Count\s+(\d+)')
+        .firstMatch(String.fromCharCodes(bytes));
+    expect(int.parse(m!.group(1)!), 1);
+  });
 }
