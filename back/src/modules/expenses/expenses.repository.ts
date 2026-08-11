@@ -145,13 +145,36 @@ export class ExpensesRepository {
   }
 
   /**
-   * As parcelas de um grupo, na ordem. O detalhe mostra "2 de 6" e o total da
-   * dívida, que é a SOMA das irmãs — não há coluna de total, de propósito.
+   * Contas EXCLUÍDAS (soft delete) com vencimento no mês — a "lixeira".
+   *
+   * Sem o arraste de vencidas do [listByMonth]: lixeira é histórico, não fila de
+   * trabalho, e uma conta excluída não precisa perseguir a cliente pelos meses
+   * seguintes. Recorta pelo vencimento (não pela data da exclusão) para o item
+   * ser encontrado onde ela lembra que ele estava.
    */
-  listInstallmentGroup(groupId: string) {
+  listCanceledByMonth(p: { de: Date; ate: Date }) {
     const db = this.tenant.getClient();
     return db.expense.findMany({
-      where: { installment_group_id: groupId, status: 'active' },
+      where: { status: 'canceled', due_date: { gte: p.de, lt: p.ate } },
+      orderBy: [{ due_date: 'asc' }, { description: 'asc' }],
+    });
+  }
+
+  /**
+   * As parcelas de um grupo, na ordem. O detalhe mostra "2 de 6" e o total da
+   * dívida, que é a SOMA das irmãs — não há coluna de total, de propósito.
+   *
+   * `includeCanceled` serve a lixeira: lá o grupo inteiro está cancelado, e
+   * filtrar por `active` devolveria vazio — a compra apareceria sem parcelas e com
+   * total zero. O default segue só as ativas para não mudar a listagem normal.
+   */
+  listInstallmentGroup(groupId: string, p: { includeCanceled?: boolean } = {}) {
+    const db = this.tenant.getClient();
+    return db.expense.findMany({
+      where: {
+        installment_group_id: groupId,
+        ...(p.includeCanceled ? {} : { status: 'active' }),
+      },
       orderBy: { installment_no: 'asc' },
     });
   }
@@ -164,11 +187,14 @@ export class ExpensesRepository {
    * calcula total, quantidade e quantas foram pagas. Um `groupBy` daria só a soma
    * e exigiria uma segunda consulta para o resto.
    */
-  listByGroups(ids: string[]) {
+  listByGroups(ids: string[], p: { includeCanceled?: boolean } = {}) {
     if (ids.length === 0) return Promise.resolve([]);
     const db = this.tenant.getClient();
     return db.expense.findMany({
-      where: { installment_group_id: { in: ids }, status: 'active' },
+      where: {
+        installment_group_id: { in: ids },
+        ...(p.includeCanceled ? {} : { status: 'active' }),
+      },
       orderBy: { installment_no: 'asc' },
     });
   }
@@ -204,6 +230,35 @@ export class ExpensesRepository {
       where: { id },
       data: { ...data, updated_at: new Date() },
     });
+  }
+
+  /**
+   * Muda o status de VÁRIAS contas de uma vez — usado por excluir/restaurar uma
+   * compra parcelada, onde o alvo é o grupo inteiro.
+   *
+   * `updateMany` e não N `update`: a compra some (ou volta) inteira ou não mexe,
+   * e meia compra excluída seria pior que o erro. RLS continua valendo — o
+   * cliente é tx-scoped e a policy filtra o tenant.
+   */
+  setStatusMany(ids: string[], status: 'active' | 'canceled') {
+    if (ids.length === 0) return Promise.resolve({ count: 0 });
+    const db = this.tenant.getClient();
+    return db.expense.updateMany({
+      where: { id: { in: ids } },
+      data: { status, updated_at: new Date() },
+    });
+  }
+
+  /**
+   * APAGA de verdade — o único hard delete do módulo, e o único do projeto.
+   *
+   * Chamado só pela purga da lixeira, que exige status `canceled` e nenhum
+   * pagamento registrado. A checagem é do service; aqui é a operação crua.
+   */
+  deleteMany(ids: string[]) {
+    if (ids.length === 0) return Promise.resolve({ count: 0 });
+    const db = this.tenant.getClient();
+    return db.expense.deleteMany({ where: { id: { in: ids } } });
   }
 
   /** Grava (ou desfaz) o pagamento. `paid_at: null` = volta para em aberto. */

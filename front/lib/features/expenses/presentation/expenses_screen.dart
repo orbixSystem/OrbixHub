@@ -8,6 +8,7 @@ import '../../../core/ui/ui.dart';
 // acesso a dado de outro módulo, é vocabulário compartilhado.
 import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../../dashboard/presentation/widgets/metric_card.dart' show formatMoney;
+import '../domain/expense_installment_payment.dart';
 import '../domain/expense_models.dart';
 import '../domain/expense_next_due.dart';
 import '../domain/expense_ordering.dart';
@@ -16,6 +17,7 @@ import 'expense_detail_dialog.dart';
 import 'expense_form_dialog.dart';
 import 'expense_visuals.dart';
 import 'expenses_providers.dart';
+import 'month_picker_dialog.dart';
 
 const _meses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -81,15 +83,51 @@ class _Cabecalho extends ConsumerWidget {
         const SizedBox(width: 4),
         // Largura fixa: sem ela o título muda de tamanho entre "Maio" e
         // "Setembro" e as setas dançam a cada troca de mês.
+        //
+        // Tocável: as setas resolvem "mês que vem", mas chegar em dezembro do
+        // ano passado custava treze toques. O rótulo é o alvo óbvio para isso —
+        // é onde a pessoa já está olhando para saber em que mês está.
         SizedBox(
           width: compacto ? 150 : 190,
-          child: Text(
-            '${_meses[mes.month - 1]} ${mes.year}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: neu.ink,
-              fontSize: compacto ? 16 : 18,
-              fontWeight: FontWeight.w800,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(NeuTokens.rField),
+            onTap: () async {
+              final escolhido = await showMonthPickerDialog(
+                context,
+                inicial: mes,
+              );
+              if (escolhido != null) {
+                ref.read(mesEmFocoProvider.notifier).definir(escolhido);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${_meses[mes.month - 1]} ${mes.year}',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: compacto ? 16 : 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // A setinha é o que denuncia que o rótulo abre algo — sem ela,
+                  // texto tocável é descoberta por acidente.
+                  Icon(
+                    Icons.expand_more_rounded,
+                    size: compacto ? 18 : 20,
+                    color: neu.inkFaint,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -155,6 +193,24 @@ class _Corpo extends ConsumerWidget {
 
     final porId = {for (final c in mes.categories) c.id: c};
 
+    // A LIXEIRA vem de outra fonte (o servidor só manda as ativas na listagem
+    // normal), então ela tem o próprio corpo — carregando, erro e vazio
+    // inclusive. Os totais e os filtros continuam no topo para a cliente saber
+    // de que mês é o lixo que está vendo e ter como voltar.
+    if (filtro == FiltroDespesa.excluidas) {
+      return ListView(
+        padding: EdgeInsets.symmetric(horizontal: context.isMobile ? 4 : 8),
+        children: [
+          _Totais(mes: mes),
+          const SizedBox(height: 14),
+          _Filtros(mes: mes, hoje: hoje),
+          const SizedBox(height: 12),
+          _CorpoLixeira(hoje: hoje, categorias: porId),
+          const SizedBox(height: 24),
+        ],
+      );
+    }
+
     final doFiltro = filtro == FiltroDespesa.semana
         // "Esta semana" tem regra própria (hoje + 7 dias, vencidas incluídas), e
         // por isso é função pura testada em vez de um `case` aqui.
@@ -167,6 +223,7 @@ class _Corpo extends ConsumerWidget {
               FiltroDespesa.vencidas => s == ExpenseStatus.vencido,
               FiltroDespesa.pagas => e.pago,
               FiltroDespesa.semana => true, // tratado acima
+              FiltroDespesa.excluidas => true, // tratado acima
             };
           }).toList(growable: false);
 
@@ -229,6 +286,21 @@ class _Corpo extends ConsumerWidget {
                     : mes.installmentGroups
                         .where((g) => g.groupId == e.installmentGroupId)
                         .firstOrNull,
+                // Qual parcela precisa ser paga antes desta, se houver.
+                //
+                // Dá para responder com o que já está na tela: as irmãs
+                // ANTERIORES em aberto sempre aparecem na listagem do mês (conta
+                // vencida e não paga é arrastada para os meses seguintes), e são
+                // exatamente elas que bloqueiam. As posteriores não importam.
+                bloqueadaPor: e.installmentGroupId == null
+                    ? null
+                    : parcelaQueBloqueia(
+                        mes.items
+                            .where((o) =>
+                                o.installmentGroupId == e.installmentGroupId)
+                            .toList(),
+                        alvo: e,
+                      ),
                 // A próxima cobrança é calculada aqui, onde as regras e as
                 // irmãs do mês estão em mãos — o card não sai buscando nada.
                 proxima: proximaCobranca(
@@ -245,6 +317,110 @@ class _Corpo extends ConsumerWidget {
             ),
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+/// A LIXEIRA do mês: contas excluídas, com restaurar e apagar de vez.
+///
+/// Widget próprio porque a fonte é outra ([despesasExcluidasProvider]) e por
+/// isso tem os próprios estados de carregando/erro — enfiar isso no corpo normal
+/// misturaria dois carregamentos independentes numa tela só.
+class _CorpoLixeira extends ConsumerWidget {
+  const _CorpoLixeira({required this.hoje, required this.categorias});
+
+  final DateTime hoje;
+  final Map<String, ExpenseCategory> categorias;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(despesasExcluidasProvider);
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: 40),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.only(top: 32),
+        child: NeuEmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Não foi possível carregar',
+          // A lixeira é online-only (ver LocalFirstExpensesRepository): sem rede
+          // a mensagem do repositório já explica isso, e repeti-la aqui é melhor
+          // que um erro genérico.
+          message: e is AppException
+              ? e.message
+              : 'Tente de novo em instantes.',
+        ),
+      ),
+      data: (lixeira) {
+        if (lixeira.items.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 32),
+            child: NeuEmptyState(
+              icon: Icons.delete_outline_rounded,
+              title: 'Nada excluído neste mês',
+              message: 'O que você excluir aparece aqui e pode voltar para a '
+                  'lista. Nada é apagado de verdade sem você mandar.',
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Aviso do que a tela É. Sem ele, uma lista de contas idêntica à
+            // normal, só que com outros botões, se confunde com a de verdade.
+            _AvisoLixeira(quantas: lixeira.items.length),
+            const SizedBox(height: 10),
+            for (final e in lixeira.items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _LinhaDespesa(
+                  despesa: e,
+                  categoria: categorias[e.categoryId],
+                  hoje: hoje,
+                  naLixeira: true,
+                  grupo: e.installmentGroupId == null
+                      ? null
+                      : lixeira.installmentGroups
+                          .where((g) => g.groupId == e.installmentGroupId)
+                          .firstOrNull,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Faixa que explica a lixeira. Curta: quem chegou aqui já sabe o que procura.
+class _AvisoLixeira extends StatelessWidget {
+  const _AvisoLixeira({required this.quantas});
+
+  final int quantas;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.delete_outline_rounded, size: 18, color: neu.inkFaint),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              quantas == 1
+                  ? '1 despesa excluída. Ela não entra nos totais do mês.'
+                  : '$quantas despesas excluídas. Elas não entram nos totais do mês.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -358,6 +534,11 @@ class _Filtros extends ConsumerWidget {
       (FiltroDespesa.emAberto, rot('Em aberto', abertas)),
       (FiltroDespesa.vencidas, rot('Vencidas', vencidas)),
       (FiltroDespesa.pagas, rot('Pagas', pagas)),
+      // ÚLTIMO, e sem contagem: a lixeira não vem na listagem do mês (é outra
+      // consulta), então não há número para mostrar sem uma ida extra ao
+      // servidor a cada abertura da tela — e ninguém abre despesas para saber
+      // quanto lixo tem.
+      (FiltroDespesa.excluidas, 'Excluídas'),
     ];
 
     return _ChipsComIndicadorDeScroll(
@@ -519,11 +700,22 @@ class _LinhaDespesa extends ConsumerStatefulWidget {
     required this.hoje,
     this.proxima,
     this.grupo,
+    this.naLixeira = false,
+    this.bloqueadaPor,
   });
 
   final Expense despesa;
   final ExpenseCategory? categoria;
   final DateTime hoje;
+
+  /// A parcela que precisa ser paga ANTES desta (parcela se paga na ordem), ou
+  /// `null` quando é a vez desta. Calculada pela lista, que tem as irmãs do mês.
+  final Expense? bloqueadaPor;
+
+  /// `true` quando o card está na LIXEIRA. Muda as ações: dar baixa numa conta
+  /// excluída não significa nada, então o toque rápido some e o menu passa a
+  /// oferecer restaurar e apagar de vez.
+  final bool naLixeira;
 
   /// Resumo do parcelamento (total da compra e quantas pagas), quando é parcela.
   final InstallmentGroupSummary? grupo;
@@ -539,12 +731,122 @@ class _LinhaDespesa extends ConsumerStatefulWidget {
 class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   bool _ocupado = false;
 
-  /// Menu de ações da conta: editar, duplicar e excluir.
+  /// Menu da LIXEIRA: restaurar ou apagar de vez.
   ///
-  /// Duplicar existe porque conta a pagar se repete de forma irregular (o mesmo
-  /// fornecedor, valor diferente): recadastrar do zero era o caminho mais usado e
-  /// o mais chato. Abre o formulário com tudo preenchido, MENOS a baixa — a
-  /// cópia nasce em aberto, senão a nova conta apareceria paga sem ninguém pagar.
+  /// Separado de [_abrirAcoes] porque não é o mesmo menu com itens a mais — é
+  /// outro conjunto de ações. Editar e dar baixa numa conta excluída não
+  /// significam nada, e oferecê-las convidaria a mexer no lixo em vez de
+  /// restaurar primeiro.
+  Future<void> _abrirAcoesLixeira() async {
+    final e = widget.despesa;
+    final acao = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.restore_rounded, color: ctx.neu.success),
+              title: const Text('Restaurar'),
+              subtitle: Text(
+                e.parcelada
+                    ? 'Devolve a compra inteira para a lista'
+                    : 'Devolve esta conta para a lista',
+              ),
+              onTap: () => Navigator.pop(ctx, 'restaurar'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_forever_rounded, color: ctx.neu.danger),
+              title: Text(
+                'Apagar de vez',
+                style: TextStyle(color: ctx.neu.danger),
+              ),
+              subtitle: const Text('Não tem como desfazer'),
+              onTap: () => Navigator.pop(ctx, 'apagar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (acao == null || !mounted) return;
+    switch (acao) {
+      case 'restaurar':
+        await _restaurar();
+      case 'apagar':
+        await _apagarDeVez();
+    }
+  }
+
+  Future<void> _restaurar() async {
+    setState(() => _ocupado = true);
+    try {
+      await ref.read(expensesRepositoryProvider).restaurar(widget.despesa.id);
+      // As DUAS listas mudam: a conta sai da lixeira e volta para o mês.
+      ref.invalidate(despesasExcluidasProvider);
+      ref.invalidate(despesasDoMesProvider);
+      if (mounted) {
+        showNeuSuccessSnackBar(
+          context,
+          widget.despesa.parcelada
+              ? 'Compra restaurada.'
+              : 'Despesa restaurada.',
+        );
+      }
+    } on AppException catch (e) {
+      if (!mounted) return;
+      showNeuErrorSnackBar(context, e.message);
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  /// Hard delete, com a confirmação proporcional ao estrago.
+  ///
+  /// O aviso diz exatamente O QUE some (a compra inteira, quando é parcelada) e
+  /// que não há volta — é a última tela antes da única operação irreversível do
+  /// sistema.
+  Future<void> _apagarDeVez() async {
+    final e = widget.despesa;
+    final quantas = widget.grupo?.count ?? 0;
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Apagar de vez?',
+      message: e.parcelada && quantas > 1
+          ? '"${e.description}" e as $quantas parcelas da compra serão apagadas '
+              'para sempre. Não é possível restaurar depois.'
+          : '"${e.description}" será apagada para sempre. '
+              'Não é possível restaurar depois.',
+      confirmLabel: 'Apagar de vez',
+      danger: true,
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _ocupado = true);
+    try {
+      await ref.read(expensesRepositoryProvider).excluirDeVez(e.id);
+      ref.invalidate(despesasExcluidasProvider);
+      if (mounted) showNeuSuccessSnackBar(context, 'Apagada de vez.');
+    } on AppException catch (erro) {
+      // O caminho comum de recusa: conta com pagamento no caixa. A mensagem do
+      // servidor explica o motivo melhor que qualquer tradução aqui.
+      if (!mounted) return;
+      showNeuErrorSnackBar(context, erro.message);
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  /// Menu de ações da conta: editar e excluir.
+  ///
+  /// **Duplicar está desligado** (comentado abaixo, junto com o `case` que o
+  /// atende) — decisão do dono do produto. O suporte no formulário continua de
+  /// pé e funcionando: `showExpenseFormDialog(modelo: ...)` cria uma conta nova
+  /// usando outra como molde. Para reativar basta descomentar os dois trechos
+  /// marcados com `DUPLICAR`; nada além disso é necessário.
+  ///
+  /// A ideia original: conta a pagar se repete de forma irregular (o mesmo
+  /// fornecedor, valor diferente), e recadastrar do zero era o caminho mais
+  /// usado e o mais chato.
   Future<void> _abrirAcoes() async {
     final acao = await showModalBottomSheet<String>(
       context: context,
@@ -558,12 +860,13 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
               title: const Text('Editar'),
               onTap: () => Navigator.pop(ctx, 'editar'),
             ),
-            ListTile(
-              leading: const Icon(Icons.copy_all_outlined),
-              title: const Text('Duplicar'),
-              subtitle: const Text('Cria outra conta com os mesmos dados'),
-              onTap: () => Navigator.pop(ctx, 'duplicar'),
-            ),
+            // DUPLICAR — desligado a pedido do dono do produto.
+            // ListTile(
+            //   leading: const Icon(Icons.copy_all_outlined),
+            //   title: const Text('Duplicar'),
+            //   subtitle: const Text('Cria outra conta com os mesmos dados'),
+            //   onTap: () => Navigator.pop(ctx, 'duplicar'),
+            // ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: context.neu.danger),
               title: Text(
@@ -579,20 +882,32 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
     if (acao == null || !mounted) return;
     switch (acao) {
       case 'editar':
-        final ok = await showExpenseFormDialog(context, ref,
-            atual: widget.despesa);
-        if (ok) ref.invalidate(despesasDoMesProvider);
-      case 'duplicar':
-        // `atual` sem id de baixa: o formulário trata como NOVA conta com os
-        // campos pré-preenchidos.
-        final base = widget.despesa.copyWith(
-          id: '',
-          paidAt: null,
-          paidAmount: null,
-          paidMethod: null,
+        final g = widget.grupo;
+        final ok = await showExpenseFormDialog(
+          context,
+          ref,
+          atual: widget.despesa,
+          // O resumo do grupo já traz o total da compra e quantas foram pagas —
+          // é o que o formulário precisa para editar o TOTAL em vez do valor
+          // desta parcela.
+          compra: widget.despesa.parcelada && g != null
+              ? (total: g.total, pagas: g.paidCount)
+              : null,
         );
-        final ok = await showExpenseFormDialog(context, ref, atual: base);
         if (ok) ref.invalidate(despesasDoMesProvider);
+      // DUPLICAR — desligado a pedido do dono do produto. Descomente junto com
+      // o ListTile lá em cima.
+      //
+      // `modelo`, não `atual`: o formulário preenche os campos a partir desta
+      // conta mas grava uma NOVA. Passar em `atual` com o id apagado — como era
+      // antes — só fazia o formulário entrar em modo edição e salvar num
+      // `PATCH /expenses/` sem id, que o backend responde com 404. A cópia nasce
+      // em aberto porque a criação sequer manda os campos de baixa.
+      //
+      // case 'duplicar':
+      //   final ok =
+      //       await showExpenseFormDialog(context, ref, modelo: widget.despesa);
+      //   if (ok) ref.invalidate(despesasDoMesProvider);
       case 'excluir':
         await _excluir();
     }
@@ -622,6 +937,19 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   }
 
   Future<void> _alternarPago() async {
+    // Parcela fora de ordem nem chega a virar requisição: o servidor recusaria
+    // com 409, e gastar uma ida à rede para saber o que a tela já sabe deixa o
+    // toque com cara de travado.
+    final bloqueio = widget.bloqueadaPor;
+    if (!widget.despesa.pago && bloqueio != null) {
+      showNeuErrorSnackBar(
+        context,
+        'Pague antes a parcela ${bloqueio.rotuloParcela}, que vence em '
+        '${_dataCompleta(bloqueio.vencimento)}.',
+      );
+      return;
+    }
+
     setState(() => _ocupado = true);
     final repo = ref.read(expensesRepositoryProvider);
     final estavaPaga = widget.despesa.pago;
@@ -936,6 +1264,17 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                         ),
                       );
                     }
+                    // Na lixeira o toque rápido vira RESTAURAR: dar baixa numa
+                    // conta excluída não significa nada, e restaurar é o que
+                    // 9 em 10 visitas à lixeira querem fazer.
+                    if (widget.naLixeira) {
+                      return NeuIconButton(
+                        icon: Icons.restore_rounded,
+                        tooltip: 'Restaurar',
+                        size: tamanho,
+                        onPressed: _restaurar,
+                      );
+                    }
                     return NeuIconButton(
                       icon: e.pago
                           ? Icons.undo_rounded
@@ -946,14 +1285,16 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                       onPressed: _alternarPago,
                     );
                   }),
-                  // Editar / duplicar / excluir. Botão VISÍVEL, não gesto
-                  // escondido: descobrir a ação por toque longo não é
-                  // descoberta, é sorte.
+                  // Editar / excluir (ou restaurar / apagar de vez, na lixeira).
+                  // Botão VISÍVEL, não gesto escondido: descobrir a ação por
+                  // toque longo não é descoberta, é sorte.
                   NeuIconButton(
                     icon: Icons.more_vert_rounded,
                     tooltip: 'Mais ações',
                     size: context.isMobile ? 38 : 48,
-                    onPressed: _ocupado ? null : _abrirAcoes,
+                    onPressed: _ocupado
+                        ? null
+                        : (widget.naLixeira ? _abrirAcoesLixeira : _abrirAcoes),
                   ),
                 ],
               ),

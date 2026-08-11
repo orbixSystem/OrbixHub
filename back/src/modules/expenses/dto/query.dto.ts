@@ -18,9 +18,13 @@ export class ExpensesMonthQueryDto {
   /**
    * Filtro por situação. `vencido`/`aberto` são DERIVADOS (paid_at + due_date),
    * não colunas — ver a nota na migration 0039.
+   *
+   * `excluidas` é a LIXEIRA e não é um recorte das demais: as outras opções olham
+   * só `status='active'`, esta olha só `status='canceled'`. Por isso é o único
+   * valor que muda a consulta, e não apenas o filtro em memória.
    */
-  @IsOptional() @IsIn(['todas', 'aberto', 'vencido', 'pago'])
-  situacao?: 'todas' | 'aberto' | 'vencido' | 'pago';
+  @IsOptional() @IsIn(['todas', 'aberto', 'vencido', 'pago', 'excluidas'])
+  situacao?: 'todas' | 'aberto' | 'vencido' | 'pago' | 'excluidas';
 }
 
 /** Listagem de categorias. Por padrão só as ATIVAS (é o que vira chip na UI). */
