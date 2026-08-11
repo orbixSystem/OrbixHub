@@ -102,6 +102,10 @@ export class ChangeStatusDto {
 export class ListOrdersQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
   @IsOptional() @IsIn(OS_STATUSES) status?: OsStatus;
+  // Grupo de status (ex.: "aberta,aguardando_aprovacao,aprovada,em_execucao"
+  // para o filtro "Em andamento" do front simplificado). Prevalece sobre
+  // `status` quando presente; tokens fora de OS_STATUSES são ignorados.
+  @IsOptional() @IsString() @MaxLength(200) statuses?: string;
   @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;

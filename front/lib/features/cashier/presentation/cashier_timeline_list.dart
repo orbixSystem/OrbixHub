@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
+import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
+import '../../receivables/domain/receivables_models.dart';
+import '../../receivables/presentation/receive_title_dialog.dart';
+import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/cashier_format.dart';
+import '../domain/cashier_models.dart';
 import '../domain/sale_summary.dart';
 import '../domain/cashier_timeline.dart';
+import 'cashier_providers.dart';
 import 'entry_edit_dialogs.dart';
 
 /// Histórico do caixa: UMA lista com tudo que aconteceu, cada linha detalhada.
@@ -66,14 +71,59 @@ class _EventCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return event.ehVenda ? _venda(context) : _lancamento(context, ref);
+    return event.ehVenda ? _venda(context, ref) : _lancamento(context, ref);
+  }
+
+  /// Recebimento: abre o MESMO diálogo que a aba Fiado usa — busca o saldo
+  /// fresco (a `Sale` do histórico só traz `total`+`paymentStatus`, não o
+  /// saldo) e deixa receber parcial ou total, igual em qualquer outra tela.
+  Future<void> _receber(BuildContext context, WidgetRef ref, Sale s) async {
+    // ESPERA a config (o provider é `autoDispose` e pode estar carregando):
+    // ler o valor corrente devolvia `null` e o botão não fazia nada, sem dizer
+    // por quê. Mesmo bug que havia no botão "Receber" da aba Fiado.
+    final CashierConfig config;
+    final PaymentDetail detail;
+    try {
+      config = (await ref.read(cashierControllerProvider.future)).config;
+      detail = await ref.read(cashierRepositoryProvider).paymentSummary(
+            saleKind: 'sale',
+            saleId: s.id,
+            total: moneyToDouble(s.total),
+          );
+    } on Object catch (e) {
+      if (context.mounted) {
+        showNeuErrorSnackBar(context, 'Não foi possível abrir o caixa: $e');
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    await showReceiveTitleDialog(
+      context,
+      ref,
+      config: config,
+      title: ReceivableTitle(
+        id: s.id,
+        origin: 'sale',
+        number: s.number,
+        total: detail.total,
+        paid: detail.paid,
+        balance: detail.balance,
+        status: detail.status,
+      ),
+    );
+    // A linha que chamou isto pode ter sido desmontada enquanto o diálogo
+    // estava aberto (ex.: o histórico recarregou por outro motivo).
+    if (!context.mounted) return;
+    ref.invalidate(cashierHistoryProvider);
   }
 
   // ---------------------------------------------------------------- venda
-  Widget _venda(BuildContext context) {
+  Widget _venda(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final s = event.sale!;
     final cancelada = s.status == 'canceled';
+    final podeReceber =
+        canManage && !cancelada && s.paymentStatus != 'pago';
     final risco = cancelada ? TextDecoration.lineThrough : null;
     return NeuCard(
       padding: EdgeInsets.zero,
@@ -160,7 +210,18 @@ class _EventCard extends ConsumerWidget {
                         else
                           PaymentTag(status: s.paymentStatus, dense: true),
                         const Spacer(),
-                        Icon(Icons.chevron_right_rounded,
+                        // Receber sem precisar ir até a aba Fiado — o dono
+                        // vê a venda parcial rolando o histórico do dia e
+                        // quer resolver ali mesmo.
+                        if (podeReceber)
+                          NeuButton(
+                            label: 'Receber',
+                            icon: Icons.payments_outlined,
+                            kind: NeuButtonKind.secondary,
+                            onPressed: () => _receber(context, ref, s),
+                          )
+                        else
+                          Icon(Icons.chevron_right_rounded,
                             size: 18, color: neu.inkFaint),
                       ],
                     ),
@@ -230,6 +291,13 @@ class _EventCard extends ConsumerWidget {
                     // extrato do dia (que só mostra hoje).
                     if (canManage && !estornado)
                       EntryActionsMenu(entry: e),
+                    // Afordância: sem isto nada indica que a linha de OS/despesa
+                    // é clicável (a de venda já tinha o chevron equivalente).
+                    if (daOs || daDespesa) ...[
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18, color: neu.inkFaint),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -272,8 +340,12 @@ class _EventCard extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        // OS abre em MODAL, como a venda logo acima: o histórico é uma lista
+        // de consulta, e navegar para a tela cheia fazia perder o período, o
+        // filtro e a posição da rolagem só para conferir o que foi feito. O
+        // modal ainda oferece exportar o PDF e ir para a OS completa.
         onTap: daOs
-            ? () => context.push('/m/os/${e.saleId}')
+            ? () => showOsDetailDialog(context, orderId: e.saleId!)
             : () => showExpenseDetailDialog(context, ref, id: e.saleId!),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

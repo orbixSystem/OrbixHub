@@ -623,25 +623,21 @@ const _agenda = ScreenTutorial(
   steps: [
     CoachStep(
       targetName: 'agenda.calendario',
-      title: 'O mês, com os dias marcados',
-      text: 'Os pontinhos indicam dias que já têm serviço. No desktop o '
-          'calendário fica à esquerda; no celular, acima da lista.',
+      title: 'O mês, com quantos carros por dia',
+      text: 'O número no dia é quantas OS estão na oficina naquela data — '
+          'contando a janela inteira, não só o dia de entrada.',
     ),
     CoachStep(
       targetName: 'agenda.eventos',
-      title: 'A agenda é a capacidade do dia',
-      text: 'Ela mostra o que está marcado e quanto ainda cabe, para você não '
-          'prometer um horário que a oficina não tem.',
+      title: 'O dia selecionado',
+      text: 'Mostra os carros previstos para a data, com a janela de serviço '
+          'e o responsável. Prazo vencido aparece marcado como atrasado.',
     ),
     CoachStep(
-      title: 'Atribuir define quem faz',
-      text: 'Cada item pode ir para um mecânico. Sem responsável, o serviço '
-          'aparece como não atribuído — é a fila que ninguém pegou ainda.',
-    ),
-    CoachStep(
-      title: 'Horário de funcionamento manda',
-      text: 'A agenda respeita os horários configurados. Se um dia parece '
-          'fechado sem motivo, o ajuste está em Configurações.',
+      title: 'Agendar e reagendar',
+      text: 'Use "Agendar OS" para marcar a entrada de um carro, ou '
+          '"Reagendar" no card para mudar a janela. O filtro de responsável '
+          'mostra só os carros de um mecânico.',
     ),
   ],
 );

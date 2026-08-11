@@ -85,6 +85,11 @@ class CashierController extends AsyncNotifier<CashierState> {
     return _salesCache;
   }
 
+  /// O notifier já foi descartado (autoDispose)? Marcado por `onDispose` em vez
+  /// de consultado no `ref`: depois do descarte, tocar `ref` é justamente o que
+  /// não se pode fazer.
+  bool _descartado = false;
+
   @override
   Future<CashierState> build() {
     // Toca os dois ANTES de qualquer await: mantém a garantia original de nunca
@@ -92,6 +97,10 @@ class CashierController extends AsyncNotifier<CashierState> {
     // um método chega primeiro.
     _repo;
     _sales;
+    // `build` roda de novo a cada recriação do notifier; o flag acompanha o
+    // ciclo de vida ATUAL.
+    _descartado = false;
+    ref.onDispose(() => _descartado = true);
     return _load();
   }
 
@@ -153,7 +162,22 @@ class CashierController extends AsyncNotifier<CashierState> {
 
   Future<void> _refresh() async {
     // guard mantém os dados anteriores visíveis enquanto recarrega (sem flash).
-    state = await AsyncValue.guard(_load);
+    final novo = await AsyncValue.guard(_load);
+    // NÃO escreve `state` num notifier já descartado.
+    //
+    // O provider é `autoDispose`. Quem recebe pagamento de FORA do Caixa (a
+    // tela da OS, o modal de fiado) só faz `ref.read` — ninguém observa o
+    // controller, então ele é agendado para descarte assim que a leitura
+    // termina. A gravação seguia em frente: `createEntry` (rede) → `_load`
+    // (rede) → `state = …` num notifier morto, que lança. O lançamento já
+    // tinha sido gravado no servidor, mas o operador via um erro enorme e não
+    // sabia se o dinheiro entrou.
+    //
+    // Descartado = ninguém está olhando este estado, então não há o que
+    // atualizar: sair calado aqui é o comportamento correto, e quem chamou
+    // recarrega o que É observado (a OS, a carteira) por conta própria.
+    if (_descartado) return;
+    state = novo;
   }
 
   Future<void> open({double? openingAmount, String? notes}) async {
@@ -317,3 +341,17 @@ final cashierHistoryProvider =
 // Os métodos correspondentes seguem no `CashierRepository`: as rotas
 // `/cashier/expense-templates` e as ops de sync ainda existem no backend, e
 // removê-las é uma limpeza própria (migration não apaga tabela).
+
+/// Chave de um título (OS ou venda) para o plano de parcelas dele.
+typedef TitleKey = ({String saleKind, String saleId});
+
+/// Parcelas de UM título (`saleKind` + `saleId`) — vazio quando o saldo ainda
+/// não foi parcelado (o título só tem o recebimento avulso de sempre).
+/// `autoDispose` porque a lista muda a cada plano criado/parcela paga.
+final installmentsProvider =
+    FutureProvider.autoDispose.family<List<Installment>, TitleKey>((ref, key) {
+  return ref.read(cashierRepositoryProvider).listInstallments(
+        saleKind: key.saleKind,
+        saleId: key.saleId,
+      );
+});

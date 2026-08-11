@@ -350,7 +350,12 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
+              // No desktop a página deixa de ser uma coluna estreita: vira
+              // duas (identidade fixa + conteúdo largo). No celular segue
+              // como estava, que é onde o cliente costuma abrir o link.
+              constraints: BoxConstraints(
+                maxWidth: context.isDesktop ? 1180 : 680,
+              ),
               child: _body(),
             ),
           ),
@@ -410,11 +415,18 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       _TrackTab('Conversa', Icons.chat_bubble_outline, _chatCard),
     ];
     final sel = _tab.clamp(0, tabs.length - 1);
+    return context.isDesktop
+        ? _desktopContent(t, tabs, sel)
+        : _mobileContent(t, tabs, sel);
+  }
 
+  /// CELULAR: uma coluna. Identidade e status no topo (é o que o cliente abre
+  /// o link para ver), navegação em pílulas e a seção escolhida embaixo.
+  Widget _mobileContent(PublicTrack t, List<_TrackTab> tabs, int sel) {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, 20, 16, context.isMobile ? 32 : 40),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         children: [
           _brandHeader(t),
           const SizedBox(height: 16),
@@ -427,6 +439,56 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           ),
           const SizedBox(height: 16),
           KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
+        ],
+      ),
+    );
+  }
+
+  /// DESKTOP: barra lateral fixa com a identidade (oficina, nº da OS, veículo,
+  /// status) e o menu de seções; à direita, a seção escolhida ocupando a
+  /// largura que sobra.
+  ///
+  /// Em tela larga a coluna única de celular deixava metade do monitor vazia e
+  /// escondia a navegação abaixo da dobra — o cliente rolava para achar onde
+  /// clicar. Com a lateral fixa, onde ele está e para onde pode ir ficam
+  /// sempre à vista.
+  Widget _desktopContent(PublicTrack t, List<_TrackTab> tabs, int sel) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 320,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _brandHeader(t),
+                  const SizedBox(height: 16),
+                  _statusSection(t),
+                  const SizedBox(height: 16),
+                  _SectionNavVertical(
+                    tabs: tabs,
+                    selected: sel,
+                    onSelect: (i) => setState(() => _tab = i),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -588,12 +650,11 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   // ---- Status atual + linha de progresso ----
 
   Widget _statusSection(PublicTrack t) {
-    final cancelled = _isCancelled(t.status);
-    final color =
-        t.status.isNotEmpty ? osStatusColor(t.status) : _neu.accent;
-    final label = t.statusLabel.isNotEmpty
-        ? t.statusLabel
-        : (t.status.isNotEmpty ? osStatusLabel(t.status) : 'Em andamento');
+    // Mesmos 3 estados simplificados que a equipe vê na ficha (Em andamento/
+    // Finalizada/Cancelada) — o cliente não precisa (nem deveria) enxergar os
+    // 7 status internos do workflow.
+    final atual =
+        t.status.isNotEmpty ? osSimpleStatusOf(t.status) : OsSimpleStatus.emAndamento;
     return _sectionCard(
       icon: Icons.assignment_turned_in_outlined,
       color: _neu.glyphs[1],
@@ -601,37 +662,51 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _bigStatusPill(color, label),
-          const SizedBox(height: 18),
-          if (cancelled) _cancelledBanner() else _stepper(t.status),
+          Row(
+            children: [
+              for (final s in OsSimpleStatus.values) ...[
+                if (s != OsSimpleStatus.values.first) const SizedBox(width: 10),
+                Expanded(child: _simpleStatusBadge(s, selected: s == atual)),
+              ],
+            ],
+          ),
+          if (atual == OsSimpleStatus.cancelada) ...[
+            const SizedBox(height: 14),
+            _cancelledBanner(),
+          ],
         ],
       ),
     );
   }
 
-  Widget _bigStatusPill(Color color, String label) {
+  /// Um dos 3 segmentos do status simplificado — preenchido quando é o
+  /// estado atual da OS; só leitura (o cliente não tem ação aqui).
+  Widget _simpleStatusBadge(OsSimpleStatus s, {required bool selected}) {
+    final color = osSimpleStatusColor(s);
+    final bg = selected ? color : color.withValues(alpha: .12);
+    final fg = selected ? Colors.white : color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
+        color: bg,
         borderRadius: BorderRadius.circular(NeuTokens.rField),
+        border:
+            selected ? null : Border.all(color: color.withValues(alpha: .3)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 11,
-            height: 11,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
+          Icon(osSimpleStatusIcon(s), size: 20, color: fg),
+          const SizedBox(height: 6),
+          Text(
+            osSimpleStatusLabel(s),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fg,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
             ),
           ),
         ],
@@ -664,116 +739,6 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  /// Mini-stepper da jornada do cliente (derivado do status real da OS).
-  static const _journeyLabels = ['Recebida', 'Aprovada', 'Em execução', 'Pronta'];
-
-  int _stageIndex(String status) {
-    switch (status) {
-      case 'aprovada':
-        return 1;
-      case 'em_execucao':
-        return 2;
-      case 'concluida':
-      case 'entregue':
-        return 3;
-      case 'aberta':
-      case 'aguardando_aprovacao':
-      default:
-        return 0;
-    }
-  }
-
-  bool _isCancelled(String status) => status == 'cancelada';
-
-  Widget _stepper(String status) {
-    final current = _stageIndex(status);
-    final n = _journeyLabels.length;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < n; i++)
-          Expanded(child: _stepNode(i, current, n)),
-      ],
-    );
-  }
-
-  Widget _stepNode(int i, int current, int n) {
-    final reached = i <= current;
-    final active = i == current;
-    final done = i < current;
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: i == 0
-                  ? const SizedBox()
-                  : Container(
-                      height: 3,
-                      color: i <= current ? _neu.navy : _neu.line,
-                    ),
-            ),
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: reached ? _neu.navy : _neu.surface,
-                border: Border.all(
-                  color: reached ? _neu.navy : _neu.line,
-                  width: 2,
-                ),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: _neu.navy.withValues(alpha: .35),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: done
-                  ? Icon(Icons.check_rounded, size: 15, color: _neu.onNavy)
-                  : (active
-                      ? Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _neu.onNavy,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : null),
-            ),
-            Expanded(
-              child: i == n - 1
-                  ? const SizedBox()
-                  : Container(
-                      height: 3,
-                      color: (i + 1) <= current ? _neu.navy : _neu.line,
-                    ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(
-          _journeyLabels[i],
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: TextStyle(
-            fontSize: 10.5,
-            height: 1.15,
-            color: reached ? _neu.ink : _neu.inkFaint,
-            fontWeight: active
-                ? FontWeight.w800
-                : (reached ? FontWeight.w700 : FontWeight.w500),
-          ),
-        ),
-      ],
     );
   }
 
@@ -884,6 +849,20 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     );
   }
 
+  /// Abre o visualizador a partir da timeline: acha a foto pela url na galeria
+  /// (para o swipe continuar navegando entre todas) e cai numa lista de uma só
+  /// quando ela não estiver mais lá.
+  void _openPhotoFromTimeline(String? url) {
+    if (url == null || url.isEmpty) return;
+    final galeria = _track?.photos ?? const <PublicPhoto>[];
+    final i = galeria.indexWhere((p) => p.url == url);
+    if (i >= 0) {
+      _openPhotoViewer(galeria, i);
+    } else {
+      _openPhotoViewer([PublicPhoto(id: '', url: url)], 0);
+    }
+  }
+
   /// Abre o visualizador em tela cheia (zoom + swipe entre as fotos),
   /// começando na foto tocada.
   void _openPhotoViewer(List<PublicPhoto> photos, int initialIndex) {
@@ -926,6 +905,9 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             event: ordered[i],
             isLast: i == ordered.length - 1,
             relativeTime: _relative(ordered[i].createdAt),
+            // Tocar a foto na timeline abre o MESMO visualizador da galeria,
+            // já posicionado nela — sem obrigar a procurar de novo lá.
+            onOpenPhoto: () => _openPhotoFromTimeline(ordered[i].photoUrl),
           ),
       ],
     );
@@ -1324,16 +1306,38 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     return '${l.day} de ${_months[l.month - 1]}. ${l.year} • $hh:$mm';
   }
 
+  /// Carimbo de tempo da linha do tempo: **hora exata sempre**, com o "há
+  /// quanto tempo" só como reforço no que é recente.
+  ///
+  /// Isto aqui é um registro do que foi feito no veículo — "há 3 h" não
+  /// documenta nada: quem lê amanhã não sabe se foi às 9h ou às 15h, e quem
+  /// contesta um serviço precisa da hora. A referência relativa continua ao
+  /// lado enquanto é útil (hoje/ontem), e some depois, quando só a data
+  /// importa.
   String _relative(String? iso) {
     if (iso == null || iso.isEmpty) return '';
     final d = DateTime.tryParse(iso);
     if (d == null) return '';
-    final diff = DateTime.now().difference(d.toLocal());
-    if (diff.inMinutes < 1) return 'agora';
-    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'há ${diff.inHours} h';
-    if (diff.inDays < 30) return 'há ${diff.inDays} d';
-    return _formatDate(iso);
+    final l = d.toLocal();
+    final hh = l.hour.toString().padLeft(2, '0');
+    final mm = l.minute.toString().padLeft(2, '0');
+    final hora = '$hh:$mm';
+
+    final agora = DateTime.now();
+    final dia = DateTime(l.year, l.month, l.day);
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final diasAtras = hoje.difference(dia).inDays;
+
+    if (diasAtras == 0) {
+      final diff = agora.difference(l);
+      if (diff.inMinutes < 1) return '$hora · agora';
+      if (diff.inMinutes < 60) return '$hora · há ${diff.inMinutes} min';
+      return '$hora · hoje';
+    }
+    if (diasAtras == 1) return '$hora · ontem';
+    final dd = l.day.toString().padLeft(2, '0');
+    final mo = l.month.toString().padLeft(2, '0');
+    return '$dd/$mo $hora';
   }
 }
 
@@ -1447,11 +1451,15 @@ class _TimelineRow extends StatelessWidget {
     required this.event,
     required this.isLast,
     required this.relativeTime,
+    this.onOpenPhoto,
   });
 
   final PublicEvent event;
   final bool isLast;
   final String relativeTime;
+
+  /// Abre a foto deste evento em tela cheia (visualizador com zoom).
+  final VoidCallback? onOpenPhoto;
 
   IconData get _icon {
     switch (event.kind) {
@@ -1553,11 +1561,48 @@ class _TimelineRow extends StatelessWidget {
                       style: TextStyle(color: neu.inkFaint, fontSize: 12),
                     ),
                   ],
+                  // A FOTO no próprio momento em que foi tirada. Antes a
+                  // timeline dizia "Foto adicionada" em texto e a imagem
+                  // ficava numa aba separada — o cliente lia o aviso e tinha
+                  // de ir procurar do que se tratava.
+                  if ((event.photoUrl ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _FotoDoEvento(url: event.photoUrl!, onTap: onOpenPhoto),
+                  ],
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Miniatura larga da foto dentro da linha do tempo. Toque abre em tela cheia.
+class _FotoDoEvento extends StatelessWidget {
+  const _FotoDoEvento({required this.url, this.onTap});
+
+  final String url;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ConstrainedBox(
+          // Larga o suficiente para se ver o serviço, baixa o suficiente para
+          // não empurrar o resto da timeline para fora da tela.
+          constraints: const BoxConstraints(maxHeight: 220, maxWidth: 420),
+          child: NeuNetworkImage(
+            url: url,
+            width: double.infinity,
+            height: 180,
+            radius: NeuTokens.rField,
+          ),
+        ),
       ),
     );
   }
@@ -1885,6 +1930,75 @@ class _SectionNav extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Menu de seções do DESKTOP: lista vertical na barra lateral. A selecionada
+/// fica preenchida, como um menu de aplicativo — o cliente vê de relance onde
+/// está e o que mais existe, sem precisar rolar.
+class _SectionNavVertical extends StatelessWidget {
+  const _SectionNavVertical({
+    required this.tabs,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<_TrackTab> tabs;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            Padding(
+              padding: EdgeInsets.only(bottom: i == tabs.length - 1 ? 0 : 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(NeuTokens.rField),
+                onTap: i == selected ? null : () => onSelect(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: i == selected ? neu.navy : Colors.transparent,
+                    borderRadius: BorderRadius.circular(NeuTokens.rField),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        tabs[i].icon,
+                        size: 18,
+                        color: i == selected ? neu.onNavy : neu.inkMuted,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          tabs[i].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: i == selected ? neu.onNavy : neu.ink,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

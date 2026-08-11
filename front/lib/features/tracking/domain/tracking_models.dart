@@ -66,6 +66,10 @@ abstract class PublicEvent with _$PublicEvent {
     String? message,
     String? statusSnapshot,
     String? createdAt,
+    /// Foto DESTE evento, quando ele nasceu de um anexo. Deixa a imagem
+    /// aparecer no momento em que foi tirada, em vez de só numa galeria à
+    /// parte — é o que transforma a lista num acompanhamento de verdade.
+    String? photoUrl,
   }) = _PublicEvent;
 
   factory PublicEvent.fromJson(Map<String, dynamic> json) =>

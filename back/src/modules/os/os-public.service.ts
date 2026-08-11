@@ -87,6 +87,7 @@ export class OsPublicService {
           this.repo.listPhotos(orderId),
         ]);
         const status = order.status as OsStatus;
+        const photoUrlById = new Map(photos.map((p) => [p.id, p.url]));
         return {
           number: order.number,
           status,
@@ -107,6 +108,13 @@ export class OsPublicService {
               message: e.message,
               statusSnapshot: e.status_snapshot,
               createdAt: e.created_at,
+              // A FOTO no próprio evento. A coluna `photo_id` já era gravada
+              // no upload, mas nunca saía daqui: a timeline do cliente dizia
+              // "Foto adicionada" em texto puro e a imagem ficava numa galeria
+              // à parte, desligada do momento em que foi tirada. Resolvido o
+              // id para url aqui (a foto já é pública nesta página — não expõe
+              // nada novo).
+              photoUrl: e.photo_id ? photoUrlById.get(e.photo_id) ?? null : null,
             })),
           company: company ? { name: company.name } : undefined,
           // mantido só p/ resolver o nome FORA da tx (desestruturado abaixo).

@@ -53,8 +53,9 @@ void main() {
 
     expect(find.text('OS-0001'), findsOneWidget);
     expect(find.textContaining('João da Silva'), findsOneWidget);
-    // Chip de status colorido (rótulo PT-BR).
-    expect(find.text('Em execução'), findsWidgets);
+    // Pill forte de status — 'em_execucao' cai no grupo simplificado "Em
+    // andamento" (a lista não mostra mais os 7 status reais).
+    expect(find.text('Em andamento'), findsWidgets);
     // Total formatado.
     expect(find.text('R\$ 150,00'), findsOneWidget);
     // Botão "Nova OS" visível (os.write).

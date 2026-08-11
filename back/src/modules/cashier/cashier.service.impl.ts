@@ -118,6 +118,9 @@ export class CashierServiceImpl extends CashierService {
     // Modelos de despesa fixa: sem eles no pull, os atalhos ficariam invisíveis
     // offline — e é justo offline que o operador mais precisa lançar rápido.
     'cash_expense_template',
+    // Parcelamento de fiado: criar o plano e quitar parcela precisam funcionar
+    // no balcão sem rede — é ali que o cliente está combinando o prazo.
+    'receivable_installment',
   ]);
 
   /**
@@ -808,7 +811,23 @@ export class CashierServiceImpl extends CashierService {
    * Divide o saldo atual igualmente (ajuste de centavos na última parcela).
    */
   async createInstallmentPlan(user: AuthUser, dto: CreateInstallmentPlanDto) {
-    const { saleKind, saleId, installmentCount, dueDayOfMonth, totalAmount, firstDueDate, notes } = dto;
+    const {
+      saleKind,
+      saleId,
+      installmentCount,
+      dueDayOfMonth,
+      totalAmount,
+      firstDueDate,
+      notes,
+      installmentIds,
+    } = dto;
+    // Replay offline: os ids vêm do cliente (um por parcela, na mesma ordem) —
+    // sem eles, reenviar o push duplicaria o plano inteiro.
+    if (installmentIds && installmentIds.length !== installmentCount) {
+      throw new BadRequestException(
+        'installmentIds deve ter um id por parcela.',
+      );
+    }
 
     return this.tenant.withTenantTx(async () => {
       const db = this.tenant.getClient();
@@ -838,6 +857,7 @@ export class CashierServiceImpl extends CashierService {
       }
 
       const data = dates.map((due_date, i) => ({
+        ...(installmentIds ? { id: installmentIds[i] } : {}),
         tenant_id: user.tenantId,
         sale_kind: saleKind,
         sale_id: saleId,
@@ -877,8 +897,10 @@ export class CashierServiceImpl extends CashierService {
         });
       }
 
-      // Cria o cash_entry
+      // Cria o cash_entry — `id` do cliente (replay offline) evita duplicar o
+      // lançamento se o push reenviar, mesmo idioma de `expense.pay`.
       const entry = await this.repo.createEntry(user.tenantId, {
+        ...(dto.cashEntryId ? { id: dto.cashEntryId } : {}),
         cash_session_id: open.id,
         direction: 'in',
         amount: round2(toNum(inst.amount)),

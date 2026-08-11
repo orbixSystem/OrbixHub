@@ -4,6 +4,7 @@ import '../../messages/domain/messages_models.dart';
 import '../../messages/presentation/messages_providers.dart';
 import '../domain/os_models.dart';
 import '../domain/os_repository.dart';
+import 'os_status.dart';
 
 /// Injetado em `di.dart` com a impl real (dio). Tests sobrescrevem com o fake.
 final osRepositoryProvider = Provider<OsRepository>((ref) {
@@ -28,12 +29,15 @@ enum OsSort {
   final String label;
 }
 
-/// Filtros correntes da lista de OS.
+/// Filtros correntes da lista de OS. O filtro de status é pelo GRUPO
+/// simplificado (Em andamento/Finalizada/Cancelada) — os 7 chips de status
+/// real viraram 4 (Todas + os 3 grupos); o grupo é traduzido para um CSV de
+/// status reais só na hora de chamar o repository.
 class OrderListQuery {
   const OrderListQuery({this.q, this.status, this.sort = OsSort.recent});
 
   final String? q;
-  final String? status; // null = todas
+  final OsSimpleStatus? status; // null = todas
   final OsSort sort;
 
   OrderListQuery copyWith({
@@ -43,7 +47,8 @@ class OrderListQuery {
   }) =>
       OrderListQuery(
         q: q ?? this.q,
-        status: status == _sentinel ? this.status : status as String?,
+        status:
+            status == _sentinel ? this.status : status as OsSimpleStatus?,
         sort: sort ?? this.sort,
       );
 
@@ -58,8 +63,9 @@ class OrderListQueryNotifier extends Notifier<OrderListQuery> {
   void setQuery(String value) =>
       state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
 
-  /// Filtro de status: null = todas.
-  void setStatus(String? status) => state = state.copyWith(status: status);
+  /// Filtro de status (grupo simplificado): null = todas.
+  void setStatus(OsSimpleStatus? status) =>
+      state = state.copyWith(status: status);
 
   void setSort(OsSort sort) => state = state.copyWith(sort: sort);
 }
@@ -168,7 +174,8 @@ class OrderListNotifier extends AsyncNotifier<OrderListState> {
   Future<OrderPage> _fetch(int page) =>
       ref.read(osRepositoryProvider).listOrders(
             q: _query.q,
-            status: _query.status,
+            statuses:
+                _query.status == null ? null : osRealStatusesOf(_query.status!),
             sort: _query.sort.key,
             page: page,
           );

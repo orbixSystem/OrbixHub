@@ -205,8 +205,11 @@ class _EditEntryDialogState extends ConsumerState<_EditEntryDialog> {
             // Só manda a categoria se mudou — evita um PATCH que não diz nada.
             category: _categoria == widget.entry.category ? null : _categoria,
           );
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       ref.invalidate(cashierControllerProvider);
-      if (mounted) Navigator.of(context).pop(true);
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         setState(() => _salvando = false);
@@ -311,6 +314,9 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
             amount: valor,
             method: _metodo,
           );
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       ref.invalidate(cashierControllerProvider);
       if (mounted) {
         Navigator.of(context).pop(true);
