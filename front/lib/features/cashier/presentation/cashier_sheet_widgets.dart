@@ -248,6 +248,73 @@ class _CashierOsPickerFieldState extends ConsumerState<CashierOsPickerField> {
   }
 }
 
+/// Stepper compacto com rótulo, valor exibido como texto e botões −/+.
+///
+/// Usado onde o valor é um inteiro discreto (nº de parcelas, dia de
+/// vencimento) e o label precisa aparecer acima do controle.
+class CashierStepperField extends StatelessWidget {
+  const CashierStepperField({
+    super.key,
+    required this.label,
+    required this.valueLabel,
+    this.onDecrement,
+    this.onIncrement,
+  });
+
+  final String label;
+  final String valueLabel;
+  final VoidCallback? onDecrement;
+  final VoidCallback? onIncrement;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: neu.inkMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rChip,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 16),
+                onPressed: onDecrement,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  valueLabel,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: onIncrement,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _OsSearchField extends StatelessWidget {
   const _OsSearchField({
     required this.controller,
