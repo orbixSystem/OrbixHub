@@ -854,6 +854,18 @@ export class OsService {
         }
       })();
       await this.recomputeTotal(orderId);
+      // Rastro na timeline — mesma tx. O cliente acompanha o que está sendo
+      // feito no carro dele, item a item, em vez de ver só o status pular de
+      // "em execução" para "concluída".
+      //
+      // SEM VALOR de propósito: a página pública não expõe preços (ver
+      // `os-public.service.ts`), e um evento com preço furaria isso por trás.
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message: `${kind === 'service' ? 'Serviço' : 'Peça'} adicionada: ${name}`,
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
       return item;
     });
     // Se a OS já consome estoque, baixa a linha recém-criada (fora da tx).
@@ -927,6 +939,16 @@ export class OsService {
         throw new NotFoundException('Item não encontrado.');
       await this.repo.deleteItem(itemId);
       await this.recomputeTotal(orderId);
+      // Remoção também é rastro: o cliente que viu "Peça adicionada" precisa
+      // ver que ela saiu, senão a timeline mente por omissão.
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message:
+          `${existing.kind === 'service' ? 'Serviço' : 'Peça'} removida: ` +
+          `${existing.name}`,
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
       return { removed: existing, order };
     });
     // Estorna o consumo da linha removida (alvo 0) se a OS consome (fora da tx).

@@ -787,6 +787,20 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     );
   }
 
+  /// Abre o visualizador a partir da timeline: acha a foto pela url na galeria
+  /// (para o swipe continuar navegando entre todas) e cai numa lista de uma só
+  /// quando ela não estiver mais lá.
+  void _openPhotoFromTimeline(String? url) {
+    if (url == null || url.isEmpty) return;
+    final galeria = _track?.photos ?? const <PublicPhoto>[];
+    final i = galeria.indexWhere((p) => p.url == url);
+    if (i >= 0) {
+      _openPhotoViewer(galeria, i);
+    } else {
+      _openPhotoViewer([PublicPhoto(id: '', url: url)], 0);
+    }
+  }
+
   /// Abre o visualizador em tela cheia (zoom + swipe entre as fotos),
   /// começando na foto tocada.
   void _openPhotoViewer(List<PublicPhoto> photos, int initialIndex) {
@@ -829,6 +843,9 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             event: ordered[i],
             isLast: i == ordered.length - 1,
             relativeTime: _relative(ordered[i].createdAt),
+            // Tocar a foto na timeline abre o MESMO visualizador da galeria,
+            // já posicionado nela — sem obrigar a procurar de novo lá.
+            onOpenPhoto: () => _openPhotoFromTimeline(ordered[i].photoUrl),
           ),
       ],
     );
@@ -1372,11 +1389,15 @@ class _TimelineRow extends StatelessWidget {
     required this.event,
     required this.isLast,
     required this.relativeTime,
+    this.onOpenPhoto,
   });
 
   final PublicEvent event;
   final bool isLast;
   final String relativeTime;
+
+  /// Abre a foto deste evento em tela cheia (visualizador com zoom).
+  final VoidCallback? onOpenPhoto;
 
   IconData get _icon {
     switch (event.kind) {
@@ -1478,11 +1499,48 @@ class _TimelineRow extends StatelessWidget {
                       style: TextStyle(color: neu.inkFaint, fontSize: 12),
                     ),
                   ],
+                  // A FOTO no próprio momento em que foi tirada. Antes a
+                  // timeline dizia "Foto adicionada" em texto e a imagem
+                  // ficava numa aba separada — o cliente lia o aviso e tinha
+                  // de ir procurar do que se tratava.
+                  if ((event.photoUrl ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _FotoDoEvento(url: event.photoUrl!, onTap: onOpenPhoto),
+                  ],
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Miniatura larga da foto dentro da linha do tempo. Toque abre em tela cheia.
+class _FotoDoEvento extends StatelessWidget {
+  const _FotoDoEvento({required this.url, this.onTap});
+
+  final String url;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ConstrainedBox(
+          // Larga o suficiente para se ver o serviço, baixa o suficiente para
+          // não empurrar o resto da timeline para fora da tela.
+          constraints: const BoxConstraints(maxHeight: 220, maxWidth: 420),
+          child: NeuNetworkImage(
+            url: url,
+            width: double.infinity,
+            height: 180,
+            radius: NeuTokens.rField,
+          ),
+        ),
       ),
     );
   }

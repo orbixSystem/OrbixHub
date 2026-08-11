@@ -54,7 +54,10 @@ class OsTimelineTab extends ConsumerWidget {
       action: canWrite
           ? OsHeaderAction(
               icon: Icons.add_comment_outlined,
-              label: 'Nota',
+              // "Nota" soava a rascunho interno e ninguém achava. É a porta
+              // do mecânico para registrar o que fez em TEXTO — a irmã do
+              // anexar foto, e como ela vai para o acompanhamento do cliente.
+              label: 'Registrar evento',
               onTap: () => _addNote(context, ref),
             )
           : null,
@@ -262,7 +265,12 @@ class _NoteDialog extends StatefulWidget {
 
 class _NoteDialogState extends State<_NoteDialog> {
   final _message = TextEditingController();
-  bool _visiblePublic = false;
+
+  /// Nasce LIGADO: registrar evento existe para o cliente acompanhar, e é o
+  /// mesmo contrato do anexo de foto (que sempre vai para o link). Deixar
+  /// desligado por padrão fazia o mecânico escrever achando que informou o
+  /// cliente — e não informou. Quem quer nota interna desliga aqui.
+  bool _visiblePublic = true;
 
   @override
   void dispose() {
@@ -281,7 +289,7 @@ class _NoteDialogState extends State<_NoteDialog> {
   @override
   Widget build(BuildContext context) {
     return NeuDialog(
-      title: 'Adicionar nota',
+      title: 'Registrar evento',
       maxWidth: context.isMobile ? 560 : 420,
       actions: [
         NeuButton(
@@ -290,7 +298,7 @@ class _NoteDialogState extends State<_NoteDialog> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         NeuButton(
-          label: 'Adicionar',
+          label: 'Registrar',
           icon: Icons.check_rounded,
           onPressed: _submit,
         ),
@@ -308,8 +316,9 @@ class _NoteDialogState extends State<_NoteDialog> {
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.newline,
             decoration: const InputDecoration(
-              labelText: 'Nota',
-              hintText: 'Ex.: peça pedida ao fornecedor, previsão de chegada…',
+              labelText: 'O que aconteceu?',
+              hintText: 'Ex.: troquei a correia dentada; peça pedida ao '
+                  'fornecedor, chega quinta',
               alignLabelWithHint: true,
               counterText: '',
             ),
@@ -319,9 +328,11 @@ class _NoteDialogState extends State<_NoteDialog> {
             contentPadding: EdgeInsets.zero,
             value: _visiblePublic,
             onChanged: (v) => setState(() => _visiblePublic = v),
-            title: const Text('Visível ao cliente'),
-            subtitle: const Text(
-              'Quando ligado, aparece no acompanhamento do cliente.',
+            title: const Text('Mostrar ao cliente'),
+            subtitle: Text(
+              _visiblePublic
+                  ? 'Aparece no link de acompanhamento, com data e hora.'
+                  : 'Fica só para a equipe — o cliente não vê.',
             ),
           ),
         ],

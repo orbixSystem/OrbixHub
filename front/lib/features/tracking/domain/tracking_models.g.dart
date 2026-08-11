@@ -67,6 +67,7 @@ _PublicEvent _$PublicEventFromJson(Map<String, dynamic> json) => _PublicEvent(
   message: json['message'] as String?,
   statusSnapshot: json['statusSnapshot'] as String?,
   createdAt: json['createdAt'] as String?,
+  photoUrl: json['photoUrl'] as String?,
 );
 
 Map<String, dynamic> _$PublicEventToJson(_PublicEvent instance) =>
@@ -75,6 +76,7 @@ Map<String, dynamic> _$PublicEventToJson(_PublicEvent instance) =>
       'message': instance.message,
       'statusSnapshot': instance.statusSnapshot,
       'createdAt': instance.createdAt,
+      'photoUrl': instance.photoUrl,
     };
 
 _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
