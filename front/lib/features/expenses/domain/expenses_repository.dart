@@ -50,8 +50,33 @@ abstract interface class ExpensesRepository {
   /// devolve a conta para "em aberto".
   Future<Expense> desmarcarPaga(String id);
 
-  /// Cancela a conta (sem hard delete — regra 6).
+  /// Exclui a conta — soft delete (regra 6): ela vai para a LIXEIRA, de onde
+  /// pode voltar ([restaurar]) ou ser apagada de vez ([excluirDeVez]).
+  ///
+  /// Numa compra PARCELADA o servidor exclui o grupo inteiro: uma compra
+  /// dividida em 6x é uma dívida só, e excluir metade dela deixaria o total
+  /// encolhendo sozinho com buraco na numeração. Qualquer parcela já paga
+  /// bloqueia — desfaça a baixa antes.
   Future<void> cancelar(String id);
+
+  /// As contas EXCLUÍDAS com vencimento no mês — a lixeira.
+  ///
+  /// Listagem separada de [listarMes] porque é outra consulta, não um recorte:
+  /// aquela olha só `status='active'`, esta só as canceladas. Os totais que vêm
+  /// no [ExpensesMonth] continuam descrevendo as ATIVAS do mês — quanto se tem a
+  /// pagar não muda por causa do que está no lixo.
+  Future<ExpensesMonth> listarExcluidas({required int ano, required int mes});
+
+  /// Tira da lixeira e devolve para a lista (parcelada volta inteira).
+  Future<void> restaurar(String id);
+
+  /// APAGA de vez — irreversível.
+  ///
+  /// Só funciona a partir da lixeira e só em conta que **nunca foi paga**: conta
+  /// paga tem lançamento no caixa apontando de volta para ela, e apagá-la
+  /// deixaria o extrato com um clique que não abre nada. O servidor recusa nos
+  /// dois casos.
+  Future<void> excluirDeVez(String id);
 
   /// Categorias ativas do tenant.
   Future<List<ExpenseCategory>> categorias();

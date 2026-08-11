@@ -134,18 +134,29 @@ export class ExpensesService {
     }
 
     const situacao = query.situacao ?? 'todas';
-    const visiveis = itens.filter((e) => {
-      switch (situacao) {
-        case 'aberto':
-          return !e.paid_at;
-        case 'pago':
-          return !!e.paid_at;
-        case 'vencido':
-          return !e.paid_at && e.due_date < hojeDia;
-        default:
-          return true;
-      }
-    });
+
+    // A LIXEIRA é uma listagem à parte, não um recorte da lista normal: as
+    // excluídas nem vêm no `itens` (que filtra `status='active'`). Os totais do
+    // topo continuam sendo calculados sobre as ATIVAS de propósito — eles
+    // respondem "quanto tenho a pagar neste mês", e somar conta excluída nessa
+    // conta seria mentir sobre a previsão de gasto.
+    const visiveis =
+      situacao === 'excluidas'
+        ? await this.tenant.withTenantTx(() =>
+            this.repo.listCanceledByMonth({ de, ate }),
+          )
+        : itens.filter((e) => {
+            switch (situacao) {
+              case 'aberto':
+                return !e.paid_at;
+              case 'pago':
+                return !!e.paid_at;
+              case 'vencido':
+                return !e.paid_at && e.due_date < hojeDia;
+              default:
+                return true;
+            }
+          });
 
     // As REGRAS citadas pelas contas do mês. Sem elas a tela não tem como dizer
     // "próxima em 10/09" ao dar baixa numa conta fixa: a próxima ocorrência é uma
@@ -171,7 +182,11 @@ export class ExpensesService {
       ),
     ];
     const installmentGroups = await this.tenant.withTenantTx(async () => {
-      const linhas = await this.repo.listByGroups(gruposCitados);
+      // Na lixeira as irmãs também estão canceladas: sem `includeCanceled` o
+      // resumo viria zerado e a compra excluída apareceria como "de R$ 0,00".
+      const linhas = await this.repo.listByGroups(gruposCitados, {
+        includeCanceled: situacao === 'excluidas',
+      });
       const porGrupo = new Map<
         string,
         { groupId: string; total: number; count: number; paidCount: number }
@@ -215,8 +230,13 @@ export class ExpensesService {
       const recurrence = conta.recurrence_id
         ? await this.repo.findRecurrence(conta.recurrence_id)
         : null;
+      // Conta na LIXEIRA mostra as irmãs canceladas junto: o grupo inteiro foi
+      // excluído com ela, e filtrar por `active` deixaria o detalhe da compra
+      // excluída sem nenhuma parcela e com total zero.
       const parcelas = conta.installment_group_id
-        ? await this.repo.listInstallmentGroup(conta.installment_group_id)
+        ? await this.repo.listInstallmentGroup(conta.installment_group_id, {
+            includeCanceled: conta.status === 'canceled',
+          })
         : [];
       return { expense: conta, recurrence, parcelas };
     });
@@ -579,6 +599,24 @@ export class ExpensesService {
     return primeira;
   }
 
+  /**
+   * Edita UMA conta. Não toca na regra que a gerou.
+   *
+   * **Exceção deliberada: numa parcelada, `amount` é o TOTAL DA COMPRA**, não o
+   * valor desta parcela — e o rateio pelas irmãs é refeito aqui.
+   *
+   * Editar o valor de uma parcela isolada não é uma operação que signifique
+   * alguma coisa: a compra de R$ 1.000 em 5x existe como dívida de mil reais, e
+   * mudar só a 3ª para R$ 250 produziria um parcelamento que não soma o combinado
+   * com o fornecedor. Quem digita ali quer corrigir a COMPRA. Repare que isto NÃO
+   * é reparcelar (mudar a quantidade de parcelas), que continua proibido: o
+   * número de linhas, os vencimentos e os ids seguem os mesmos — só os valores
+   * são redistribuídos.
+   *
+   * Parcelas JÁ PAGAS não mudam de valor: aquele dinheiro já saiu e está lançado
+   * no caixa, e reescrever o valor faria a despesa divergir do extrato. Elas são
+   * abatidas do total e o que sobra é rateado entre as em aberto.
+   */
   async update(user: AuthUser, id: string, dto: UpdateExpenseDto) {
     const atualizada = await this.tenant.withTenantTx(async () => {
       const atual = await this.repo.findById(id);
@@ -592,9 +630,14 @@ export class ExpensesService {
       }
       await this.validarCategoria(dto.categoryId);
       const fornecedor = this.normalizarFornecedor(dto);
+
+      // Rateio do novo total pelas irmãs em aberto. Devolve o valor QUE ESTA
+      // parcela recebe; as outras já saem atualizadas daqui.
+      const meuValor = await this.redistribuirParcelamento(atual, dto.amount);
+
       return this.repo.update(id, {
         description: dto.description?.trim(),
-        amount: dto.amount === undefined ? undefined : round2(dto.amount),
+        amount: meuValor,
         due_date: dto.dueDate ? parseDia(dto.dueDate) : undefined,
         category_id: dto.limparCategoria ? null : dto.categoryId,
         notes: dto.notes === undefined ? undefined : dto.notes.trim() || null,
@@ -606,6 +649,65 @@ export class ExpensesService {
       campos: Object.keys(dto),
     });
     return atualizada;
+  }
+
+  /**
+   * Refaz o rateio de um parcelamento a partir do novo TOTAL da compra e grava
+   * as irmãs. Devolve o valor que a conta [atual] deve receber (ou `undefined`
+   * quando não há valor novo, para o patch não mexer no campo).
+   *
+   * Não é parcelada, ou `amount` ausente → devolve o valor arredondado como
+   * antes, sem tocar em nada.
+   */
+  private async redistribuirParcelamento(
+    atual: {
+      id: string;
+      installment_group_id: string | null;
+      installment_no: number | null;
+    },
+    novoTotal: number | undefined,
+  ): Promise<number | undefined> {
+    if (novoTotal === undefined) return undefined;
+    const total = round2(novoTotal);
+    if (!atual.installment_group_id) return total;
+
+    const grupo = await this.repo.listInstallmentGroup(
+      atual.installment_group_id,
+    );
+    const pagas = grupo.filter((p) => p.paid_at);
+    const abertas = grupo
+      .filter((p) => !p.paid_at)
+      .sort((a, b) => (a.installment_no ?? 0) - (b.installment_no ?? 0));
+
+    // O previsto das pagas (não o `paid_amount`): o total da compra é a soma dos
+    // valores combinados, e juros de um mês não mudam a dívida contratada.
+    const jaComprometido = round2(
+      pagas.reduce((soma, p) => soma + toNum(p.amount), 0),
+    );
+    const sobra = round2(total - jaComprometido);
+    if (abertas.length > 0 && sobra <= 0) {
+      throw new BadRequestException(
+        `O total precisa ser maior que ${jaComprometido.toFixed(2)} — é o que já ` +
+          `está comprometido nas ${pagas.length} parcela(s) paga(s). Desfaça um ` +
+          'pagamento se quiser baixar o total abaixo disso.',
+      );
+    }
+
+    // MESMO rateio da criação: assim o valor mostrado na prévia é o gravado, e
+    // os centavos de resto continuam caindo na primeira parcela em aberto.
+    const valores = ratearParcelas(sobra, abertas.length);
+    let meuValor = total;
+    for (let i = 0; i < abertas.length; i++) {
+      const parcela = abertas[i];
+      if (parcela.id === atual.id) {
+        // O valor desta vai no patch principal, junto dos outros campos — não
+        // adianta gravar duas vezes.
+        meuValor = valores[i];
+        continue;
+      }
+      await this.repo.update(parcela.id, { amount: valores[i] });
+    }
+    return meuValor;
   }
 
   /**
@@ -623,12 +725,42 @@ export class ExpensesService {
    * outro.
    */
   async pay(user: AuthUser, id: string, dto: PayExpenseDto) {
-    const atual = await this.tenant.withTenantTx(() => this.repo.findById(id));
+    const { atual, grupo } = await this.tenant.withTenantTx(async () => {
+      const conta = await this.repo.findById(id);
+      return {
+        atual: conta,
+        // O grupo vem no MESMO tx da conta: a regra de ordem depende das irmãs,
+        // e buscá-las depois abriria janela para o estado mudar no meio.
+        grupo:
+          conta?.installment_group_id != null
+            ? await this.repo.listInstallmentGroup(conta.installment_group_id)
+            : [],
+      };
+    });
     if (!atual) throw new NotFoundException('Despesa não encontrada.');
     if (atual.status !== 'active') {
       throw new ConflictException('Despesa cancelada.');
     }
     if (atual.paid_at) throw new ConflictException('Despesa já paga.');
+
+    // PARCELA SÓ SE PAGA NA ORDEM.
+    //
+    // Antes qualquer parcela podia ser quitada a qualquer momento — o código
+    // chamava isso de "antecipar". Na prática dava o contrário do combinado com
+    // o fornecedor: a compra ficava com a 5ª paga e a 1ª vencida, e o extrato do
+    // caixa registrava a saída da parcela errada. Quem está no mês da última
+    // parcela vê as anteriores arrastadas ali (conta vencida não some do mês
+    // seguinte), e era fácil dar baixa na de cima achando que era a do mês.
+    //
+    // A mensagem NOMEIA a parcela que falta, porque "pague na ordem" sem dizer
+    // qual obrigaria a pessoa a caçar o mês certo.
+    const anterior = this.parcelaAnteriorEmAberto(atual, grupo);
+    if (anterior) {
+      throw new ConflictException(
+        `Pague antes a parcela ${anterior.installment_no}/${anterior.installment_total}, ` +
+          `que vence em ${this.formatarDia(anterior.due_date)}.`,
+      );
+    }
 
     const valor = round2(dto.amount ?? toNum(atual.amount));
     if (valor <= 0) {
@@ -700,19 +832,189 @@ export class ExpensesService {
     return emAberto;
   }
 
-  /** Cancela a conta. Sem hard delete (regra 6) — preserva o histórico. */
+  /**
+   * Exclui a conta — soft delete (`status='canceled'`), preservando o histórico
+   * (regra 6). A conta passa a viver na LIXEIRA, de onde pode voltar
+   * ([restore]) ou ser apagada de vez ([purge]).
+   *
+   * **Numa parcelada, o alvo é a COMPRA INTEIRA.** Excluir uma parcela isolada
+   * deixava as irmãs para trás e o grupo incoerente: o total da compra é a soma
+   * das parcelas ativas, então cancelar a 3ª de 6 fazia a dívida encolher sozinha
+   * de R$ 900 para R$ 750, com um buraco na numeração ("1/6, 2/6, 4/6"). Uma
+   * compra parcelada é uma dívida só; excluir metade dela não é uma operação que
+   * signifique alguma coisa.
+   *
+   * Qualquer parcela paga bloqueia a exclusão do grupo — desfazer a baixa é a
+   * operação que devolve o dinheiro ao caixa, e ela é explícita de propósito.
+   */
   async cancel(user: AuthUser, id: string) {
-    await this.tenant.withTenantTx(async () => {
+    const alvo = await this.tenant.withTenantTx(async () => {
       const atual = await this.repo.findById(id);
       if (!atual) throw new NotFoundException('Despesa não encontrada.');
-      if (atual.paid_at) {
+      if (atual.status === 'canceled') {
+        throw new ConflictException('Despesa já excluída.');
+      }
+
+      const grupo = await this.irmasDoGrupo(atual);
+      const paga = grupo.find((e) => e.paid_at);
+      if (paga) {
         throw new ConflictException(
-          'Despesa já paga. Desfaça o pagamento antes de cancelar.',
+          grupo.length > 1
+            ? `A parcela ${paga.installment_no}/${paga.installment_total} já foi paga. ` +
+              'Desfaça o pagamento antes de excluir a compra.'
+            : 'Despesa já paga. Desfaça o pagamento antes de excluir.',
         );
       }
-      await this.repo.update(id, { status: 'canceled' });
+
+      const ids = grupo.map((e) => e.id);
+      await this.repo.setStatusMany(ids, 'canceled');
+      return { ids, grupoId: atual.installment_group_id };
     });
-    await this.audit.log(user.tenantId, user.userId, 'expense_cancel', id);
+
+    await this.audit.log(user.tenantId, user.userId, 'expense_cancel', id, {
+      parcelas: alvo.ids.length,
+      installmentGroupId: alvo.grupoId,
+    });
+  }
+
+  /**
+   * Tira da lixeira: volta para `active`. Simétrico ao [cancel] — numa parcelada
+   * a compra inteira volta, senão restaurar deixaria o grupo pela metade, que é
+   * exatamente o estado incoerente que o cancelamento por grupo evita.
+   */
+  async restore(user: AuthUser, id: string) {
+    const alvo = await this.tenant.withTenantTx(async () => {
+      const atual = await this.repo.findById(id);
+      if (!atual) throw new NotFoundException('Despesa não encontrada.');
+      if (atual.status !== 'canceled') {
+        throw new ConflictException('Esta despesa não está excluída.');
+      }
+      const grupo = await this.irmasDoGrupo(atual);
+      const ids = grupo.map((e) => e.id);
+      await this.repo.setStatusMany(ids, 'active');
+      return { ids, grupoId: atual.installment_group_id };
+    });
+
+    await this.audit.log(user.tenantId, user.userId, 'expense_restore', id, {
+      parcelas: alvo.ids.length,
+      installmentGroupId: alvo.grupoId,
+    });
+    return this.findOne(id);
+  }
+
+  /**
+   * APAGA de vez — o único hard delete do projeto, e por isso cercado.
+   *
+   * A regra 6 ("sem hard delete") existe para preservar histórico, e o histórico
+   * que importa é o do DINHEIRO. Por isso a purga só alcança conta que **nunca
+   * foi paga**: sem pagamento não há lançamento no caixa, e portanto nada de
+   * financeiro se perde. Conta paga tem `cash_entry_id`, e o lançamento do caixa
+   * guarda o caminho de volta (`sale_kind='expense'` + `sale_id` = este id):
+   * apagá-la deixaria o extrato com um clique que não abre nada.
+   *
+   * Pré-requisitos, todos verificados aqui:
+   *  - precisa estar na LIXEIRA (`canceled`) — purgar é o segundo passo, nunca o
+   *    primeiro, para que apagar de verdade seja sempre uma decisão deliberada;
+   *  - nenhuma parcela do grupo pode ter pagamento registrado;
+   *  - numa parcelada, some a compra inteira (mesma razão do [cancel]).
+   *
+   * O rastro fica no `audit_log`, gravado ANTES do DELETE: depois dele não há
+   * mais linha para descrever.
+   *
+   * **Limitação conhecida (aceita com o dono do produto):** o pull de sync é
+   * baseado em `updated_at` e não tem lápide, então um aparelho que já baixou
+   * esta conta continuará mostrando a cópia local até reinstalar. O soft delete
+   * não sofre disso (é UPDATE, e propaga).
+   */
+  async purge(user: AuthUser, id: string) {
+    const alvo = await this.tenant.withTenantTx(async () => {
+      const atual = await this.repo.findById(id);
+      if (!atual) throw new NotFoundException('Despesa não encontrada.');
+      if (atual.status !== 'canceled') {
+        throw new ConflictException(
+          'Só dá para apagar de vez uma despesa que está na lixeira. Exclua-a antes.',
+        );
+      }
+
+      const grupo = await this.irmasDoGrupo(atual);
+      const paga = grupo.find((e) => e.paid_at || e.cash_entry_id);
+      if (paga) {
+        throw new ConflictException(
+          'Esta despesa tem pagamento registrado no caixa e não pode ser apagada ' +
+            'de vez — apagá-la deixaria o lançamento do caixa sem origem. ' +
+            'Ela continua na lixeira.',
+        );
+      }
+
+      return {
+        ids: grupo.map((e) => e.id),
+        grupoId: atual.installment_group_id,
+        descricao: atual.description,
+      };
+    });
+
+    // Auditoria ANTES do DELETE: depois não sobra linha para descrever.
+    await this.audit.log(user.tenantId, user.userId, 'expense_purge', id, {
+      description: alvo.descricao,
+      parcelas: alvo.ids.length,
+      installmentGroupId: alvo.grupoId,
+    });
+    await this.tenant.withTenantTx(() => this.repo.deleteMany(alvo.ids));
+  }
+
+  /**
+   * A parcela EM ABERTO mais antiga que vem antes desta no mesmo parcelamento —
+   * ou `null` quando esta é a vez dela (ou quando não é parcelada).
+   *
+   * Compara por NÚMERO de parcela, não por vencimento: o número é a identidade
+   * da parcela, e um vencimento corrigido à mão (fornecedor deu mais prazo num
+   * mês) não deve reordenar a dívida.
+   */
+  private parcelaAnteriorEmAberto(
+    conta: { installment_no: number | null; installment_group_id: string | null },
+    grupo: Array<{
+      installment_no: number | null;
+      installment_total: number | null;
+      due_date: Date;
+      paid_at: Date | null;
+    }>,
+  ) {
+    if (!conta.installment_group_id || conta.installment_no == null) return null;
+    const numero = conta.installment_no;
+    return (
+      grupo
+        .filter(
+          (p) =>
+            !p.paid_at && p.installment_no != null && p.installment_no < numero,
+        )
+        .sort((a, b) => (a.installment_no ?? 0) - (b.installment_no ?? 0))[0] ??
+      null
+    );
+  }
+
+  /** `dd/mm/aaaa` a partir do `date` do Postgres (ancorado em UTC). */
+  private formatarDia(d: Date): string {
+    const dia = String(d.getUTCDate()).padStart(2, '0');
+    const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${d.getUTCFullYear()}`;
+  }
+
+  /**
+   * A conta e suas irmãs de parcelamento — ou só ela, quando não é parcelada.
+   *
+   * Ignora o status ao buscar as irmãs: excluir, restaurar e purgar operam sobre
+   * o grupo INTEIRO, e filtrar por `active` faria a restauração devolver só parte
+   * da compra (as irmãs estão canceladas justamente porque foram excluídas com
+   * ela).
+   */
+  private async irmasDoGrupo(conta: { id: string; installment_group_id: string | null }) {
+    if (!conta.installment_group_id) {
+      const uma = await this.repo.findById(conta.id);
+      return uma ? [uma] : [];
+    }
+    return this.repo.listInstallmentGroup(conta.installment_group_id, {
+      includeCanceled: true,
+    });
   }
 
   // ===================== Esteira de recorrência =====================

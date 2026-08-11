@@ -220,6 +220,18 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                   ),
               ],
             ),
+          // Por que não dá para pagar esta. Fica ANTES do bloco de parcelas
+          // porque é a resposta à pergunta que trouxe a pessoa aqui ("cadê o
+          // botão de pagar?"), e a lista de parcelas logo abaixo mostra onde
+          // está a que falta.
+          if (!e.pago)
+            Builder(
+              builder: (context) {
+                final bloqueio = parcelaQueBloqueia(d.parcelas, alvo: e);
+                if (bloqueio == null) return const SizedBox.shrink();
+                return _AvisoOrdem(pendente: bloqueio);
+              },
+            ),
           if (d.parcelas.isNotEmpty) _BlocoParcelas(detalhe: d, hoje: hoje),
           if (d.recurrence != null)
             _Bloco(
@@ -254,6 +266,23 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
   /// que se faz com a conta, depois o documento, por último fechar.
   List<Widget> _acoes(ExpenseDetail d) {
     final e = d.expense;
+    final emGrupo = e.parcelada && d.parcelas.isNotEmpty;
+
+    // As duas listas mandam em quais botões existem. Numa parcelada elas podem
+    // estar as DUAS cheias ao mesmo tempo — é o caso corriqueiro de agosto já
+    // pago com setembro em diante ainda aberto. Era exatamente esse caso que o
+    // rodapé antigo não atendia: com a parcela do mês paga ele caía no botão
+    // único de "desfazer" e a cliente perdia o caminho para adiantar as outras.
+    final abertas =
+        emGrupo ? parcelasParaPagar(d.parcelas, aPartirDe: e) : const <Expense>[];
+    final pagas =
+        emGrupo ? parcelasParaDesfazer(d.parcelas, aPartirDe: e) : const <Expense>[];
+
+    // Parcela se paga na ORDEM: com uma anterior em aberto, o botão de pagar
+    // some. Oferecer e deixar o servidor recusar seria empurrar o erro para
+    // depois do toque — o aviso no corpo do diálogo já explica qual falta.
+    final bloqueio = emGrupo ? parcelaQueBloqueia(d.parcelas, alvo: e) : null;
+
     return [
       if (_ocupado)
         const Padding(
@@ -265,16 +294,31 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
           ),
         )
       else ...[
-        // Numa PARCELADA em aberto, "pagar" é ambíguo: esta parcela, algumas ou
-        // tudo? Um toque único que resolvesse só a do mês esconderia a opção de
-        // antecipar, e um que quitasse tudo gastaria dinheiro que ninguém mandou.
-        if (!e.pago && e.parcelada && d.parcelas.isNotEmpty)
-          NeuButton(
-            label: 'Pagar…',
-            icon: Icons.check_circle_outline_rounded,
-            onPressed: () => _escolherQuantasPagar(d),
-          )
-        else
+        if (emGrupo) ...[
+          // Numa PARCELADA, "pagar" é ambíguo: esta parcela, algumas ou tudo? Um
+          // toque único que resolvesse só a do mês esconderia a antecipação, e um
+          // que quitasse tudo gastaria dinheiro que ninguém mandou.
+          if (abertas.isNotEmpty && bloqueio == null)
+            NeuButton(
+              // Com a parcela aberta em que se está, "Pagar…" basta. Com ela já
+              // paga, o rótulo precisa dizer que o alvo são as OUTRAS — senão lê
+              // como pagar de novo a mesma.
+              label: e.pago ? 'Pagar próximas…' : 'Pagar…',
+              icon: Icons.check_circle_outline_rounded,
+              onPressed: () => _escolherQuantasPagar(abertas),
+            ),
+          // Desfazer também é escolha, não atalho: o grupo pode ter vários meses
+          // pagos e o erro estar em qualquer um deles.
+          if (pagas.isNotEmpty)
+            NeuButton(
+              label: 'Desfazer…',
+              icon: Icons.undo_rounded,
+              kind: abertas.isEmpty
+                  ? NeuButtonKind.primary
+                  : NeuButtonKind.secondary,
+              onPressed: () => _escolherQualDesfazer(pagas),
+            ),
+        ] else
           NeuButton(
             label: e.pago ? 'Desfazer pagamento' : 'Marcar como paga',
             icon: e.pago
@@ -293,7 +337,17 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
           label: 'Editar',
           kind: NeuButtonKind.secondary,
           onPressed: () async {
-            final ok = await showExpenseFormDialog(context, ref, atual: e);
+            final ok = await showExpenseFormDialog(
+              context,
+              ref,
+              atual: e,
+              // Numa parcela, o formulário edita o TOTAL da compra — e o total
+              // não está no `Expense` (é a soma das irmãs). Aqui elas estão em
+              // mãos, então vai junto em vez de o formulário buscar de novo.
+              compra: e.parcelada
+                  ? (total: d.totalParcelado, pagas: d.parcelasPagas)
+                  : null,
+            );
             if (ok && mounted) _recarregar();
           },
         ),
@@ -309,10 +363,10 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
 
   /// Pergunta QUANTAS parcelas pagar e executa.
   ///
-  /// As opções são construídas do que está realmente aberto (`parcelasParaPagar`),
-  /// então nunca oferece "pagar 3" quando só restam 2.
-  Future<void> _escolherQuantasPagar(ExpenseDetail d) async {
-    final abertas = parcelasParaPagar(d.parcelas, aPartirDe: d.expense);
+  /// Recebe as [abertas] já calculadas por quem monta o rodapé (`parcelasParaPagar`),
+  /// então nunca oferece "pagar 3" quando só restam 2 — e a lista é a mesma que
+  /// decidiu mostrar o botão.
+  Future<void> _escolherQuantasPagar(List<Expense> abertas) async {
     if (abertas.isEmpty) return;
 
     final opcoes = <int>{
@@ -353,7 +407,10 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                 ),
                 title: Text(
                   n == 1
-                      ? 'Só esta parcela'
+                      // Nomeia a parcela em vez de dizer "esta": quando a do mês
+                      // já está paga, a primeira aberta é OUTRA, e "esta" apontaria
+                      // para a errada.
+                      ? 'Só a parcela ${abertas.first.rotuloParcela}'
                       : n == abertas.length
                           ? 'Quitar o restante ($n parcelas)'
                           : 'As próximas $n parcelas',
@@ -370,21 +427,68 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
       ),
     );
     if (escolhida == null || !mounted) return;
-    await _pagarEmBloco(d, escolhida);
+    await _pagarEmBloco(abertas.take(escolhida).toList());
   }
 
-  /// Dá baixa em N parcelas, uma a uma.
+  /// Pergunta QUAL parcela desfazer e executa.
+  ///
+  /// Uma por vez, e escolhida na lista: desfazer é estorno de dinheiro que já
+  /// entrou no livro caixa, e um botão que adivinha o mês estornaria o errado. O
+  /// grupo pode ter vários meses pagos — só quem está olhando sabe em qual foi o
+  /// engano.
+  Future<void> _escolherQualDesfazer(List<Expense> pagas) async {
+    if (pagas.isEmpty) return;
+
+    final escolhida = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+              child: Text(
+                'Qual pagamento você quer desfazer?',
+                style: TextStyle(
+                  color: ctx.neu.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final p in pagas)
+              ListTile(
+                leading: Icon(Icons.undo_rounded, color: ctx.neu.danger),
+                title: Text(
+                  'Parcela ${p.rotuloParcela} — vence ${_data(p.vencimento)}',
+                ),
+                // O que foi pago e quando: são os dois dados que identificam o
+                // lançamento que vai ser estornado no caixa.
+                subtitle: Text(
+                  p.pagoEm == null
+                      ? formatMoney(p.valorEfetivo)
+                      : '${formatMoney(p.valorEfetivo)} · pago em ${_data(p.pagoEm!)}',
+                ),
+                onTap: () => Navigator.pop(ctx, p.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (escolhida == null || !mounted) return;
+    await _comAviso(
+      () => ref.read(expensesRepositoryProvider).desmarcarPaga(escolhida),
+    );
+  }
+
+  /// Dá baixa nas parcelas [alvo], uma a uma.
   ///
   /// Uma chamada por parcela porque cada baixa gera SEU lançamento no caixa —
   /// somar tudo num só impediria estornar uma parcela depois. Se a 3ª falhar, as
   /// duas primeiras ficam pagas e a mensagem diz quantas foram: estado visível e
   /// corrigível, em vez de um "erro" que esconde que metade passou.
-  Future<void> _pagarEmBloco(ExpenseDetail d, int quantidade) async {
-    final alvo = parcelasParaPagar(
-      d.parcelas,
-      aPartirDe: d.expense,
-      quantidade: quantidade,
-    );
+  Future<void> _pagarEmBloco(List<Expense> alvo) async {
     setState(() => _ocupado = true);
     final repo = ref.read(expensesRepositoryProvider);
     var pagas = 0;
@@ -490,6 +594,58 @@ class _Cartaz extends StatelessWidget {
               tint: neu.navy.withValues(alpha: .08),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Pague antes a parcela 1/5" — o motivo de esta não poder ser paga agora.
+class _AvisoOrdem extends StatelessWidget {
+  const _AvisoOrdem({required this.pendente});
+
+  final Expense pendente;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.rule_rounded, size: 18, color: neu.info),
+            const SizedBox(width: 8),
+            // Expanded: em celular estreito o texto quebra em várias linhas em
+            // vez de estourar a linha do aviso.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Pague antes a parcela ${pendente.rotuloParcela}',
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Vence em ${_DetailDialogState._data(pendente.vencimento)}'
+                    ' · ${formatMoney(pendente.amount)}. '
+                    'As parcelas são pagas na ordem.',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

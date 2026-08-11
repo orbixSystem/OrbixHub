@@ -46,6 +46,55 @@ List<Expense> parcelasParaPagar(
   return candidatas.take(quantidade).toList(growable: false);
 }
 
+/// A parcela EM ABERTO mais antiga que precisa ser paga antes de [alvo] — ou
+/// `null` quando é a vez de [alvo] (ou quando não é parcelada).
+///
+/// **Parcela se paga na ordem.** Pagar a 5ª com a 1ª vencida deixa a compra ao
+/// contrário do combinado com o fornecedor e lança no caixa a saída da parcela
+/// errada. O engano é fácil de cometer: no mês da última parcela a lista mostra
+/// também as anteriores (conta vencida não some do mês seguinte), e a mais
+/// atrasada aparece no TOPO por urgência — dá para dar baixa nela achando que é
+/// a do mês em que se está.
+///
+/// O servidor é quem manda (recusa com 409 nomeando a parcela); esta função
+/// existe para a tela não OFERECER o que vai ser recusado.
+Expense? parcelaQueBloqueia(
+  List<Expense> doGrupo, {
+  required Expense alvo,
+}) {
+  final numero = alvo.installmentNo;
+  if (numero == null) return null;
+  final pendentes = doGrupo
+      .where((p) => !p.pago && (p.installmentNo ?? 0) < numero)
+      .toList()
+    ..sort((a, b) => (a.installmentNo ?? 0).compareTo(b.installmentNo ?? 0));
+  return pendentes.firstOrNull;
+}
+
+/// As parcelas do grupo que têm baixa a desfazer, em ordem de número.
+///
+/// Ao contrário de [parcelasParaPagar], NÃO tem regra de "não voltar atrás": quem
+/// desfaz está corrigindo um erro já cometido, e o erro pode estar em qualquer mês
+/// ("dei baixa na de outubro sem querer"). Escolher a parcela é da usuária — a
+/// função só diz quais existem. Devolver as pagas de todo o grupo é justamente o
+/// que permite o seletor perguntar QUAL mês desfazer, em vez de assumir a atual.
+///
+/// Desfazer fora de ordem pode deixar a compra com um buraco (a 3ª aberta e a 4ª
+/// paga). Isso é aceito de propósito: o buraco é o estado REAL depois do estorno,
+/// e escondê-lo forçando a desfazer em cascata mexeria em dinheiro que ninguém
+/// mandou mexer.
+List<Expense> parcelasParaDesfazer(
+  List<Expense> doGrupo, {
+  required Expense aPartirDe,
+}) {
+  if (aPartirDe.installmentNo == null) {
+    // Não é parcelada: só ela mesma, e só se estiver paga.
+    return aPartirDe.pago ? [aPartirDe] : const [];
+  }
+  return doGrupo.where((p) => p.pago).toList()
+    ..sort((a, b) => (a.installmentNo ?? 0).compareTo(b.installmentNo ?? 0));
+}
+
 /// Quanto sai do caixa numa baixa em bloco — o número que o botão precisa mostrar
 /// ANTES do toque.
 ///

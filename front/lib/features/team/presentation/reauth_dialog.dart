@@ -27,7 +27,6 @@ class _ReauthDialog extends StatefulWidget {
 class _ReauthDialogState extends State<_ReauthDialog> {
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _obscure = true;
 
   @override
   void dispose() {
@@ -68,19 +67,15 @@ class _ReauthDialogState extends State<_ReauthDialog> {
               'Por segurança, confirme sua senha para continuar.',
             ),
             const SizedBox(height: 16),
+            // O olhinho vem do próprio NeuTextField desde que ele passou a
+            // cuidar disso — antes era montado aqui à mão, com o ícone invertido
+            // em relação ao da tela de certificado fiscal.
             NeuTextField(
               label: 'Senha atual *',
               controller: _controller,
               autofocus: true,
-              obscureText: _obscure,
+              obscureText: true,
               onFieldSubmitted: (_) => _submit(),
-              suffix: IconButton(
-                icon: Icon(
-                  _obscure ? Icons.visibility_off : Icons.visibility,
-                  size: 20,
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
               validator: Validators.required('Senha atual'),
             ),
           ],

@@ -407,10 +407,69 @@ class FakeExpensesRepository implements ExpensesRepository {
     return nova;
   }
 
+  /// Ids afetados por excluir/restaurar/apagar: a compra parcelada inteira, ou
+  /// só a conta. Espelha o alcance do servidor — um fake que mexesse em uma
+  /// parcela só deixaria os testes passando num comportamento que não existe.
+  List<String> _alvo(Expense e) {
+    final g = e.installmentGroupId;
+    if (g == null) return [e.id];
+    return _contas
+        .where((c) => c.installmentGroupId == g)
+        .map((c) => c.id)
+        .toList(growable: false);
+  }
+
   @override
   Future<void> cancelar(String id) async {
     final i = _idx(id);
     if (i < 0) return;
-    _contas[i] = _contas[i].copyWith(status: 'canceled');
+    for (final alvo in _alvo(_contas[i])) {
+      final j = _idx(alvo);
+      if (j >= 0) _contas[j] = _contas[j].copyWith(status: 'canceled');
+    }
+  }
+
+  @override
+  Future<ExpensesMonth> listarExcluidas({
+    required int ano,
+    required int mes,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    final itens = _contas
+        .where((e) => e.status == 'canceled' && _doMes(e, ano, mes))
+        .toList()
+      ..sort((a, b) => a.vencimento.compareTo(b.vencimento));
+
+    // Sem totais: eles descrevem o que se tem A PAGAR no mês, e o lixo não entra
+    // nessa conta.
+    return ExpensesMonth(
+      items: itens,
+      categories: _categorias,
+      installmentGroups: resumoDosGrupos(
+        _contas,
+        grupos: itens
+            .map((e) => e.installmentGroupId)
+            .whereType<String>()
+            .toSet(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> restaurar(String id) async {
+    final i = _idx(id);
+    if (i < 0) return;
+    for (final alvo in _alvo(_contas[i])) {
+      final j = _idx(alvo);
+      if (j >= 0) _contas[j] = _contas[j].copyWith(status: 'active');
+    }
+  }
+
+  @override
+  Future<void> excluirDeVez(String id) async {
+    final i = _idx(id);
+    if (i < 0) return;
+    final ids = _alvo(_contas[i]).toSet();
+    _contas.removeWhere((c) => ids.contains(c.id));
   }
 }

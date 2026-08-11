@@ -149,7 +149,10 @@ export class ExpensesController {
     return this.expenses.unpay(user, id);
   }
 
-  /** Cancela (sem hard delete). */
+  /**
+   * Exclui — soft delete para a LIXEIRA. Numa parcelada leva a compra inteira
+   * (ver `ExpensesService.cancel`).
+   */
   @Delete(':id')
   @Permissions('finance.write')
   @HttpCode(204)
@@ -158,5 +161,31 @@ export class ExpensesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.expenses.cancel(user, id);
+  }
+
+  /** Tira da lixeira e devolve para a lista. */
+  @Post(':id/restore')
+  @Permissions('finance.write')
+  @HttpCode(200)
+  restore(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.expenses.restore(user, id);
+  }
+
+  /**
+   * APAGA de vez (hard delete) — só a partir da lixeira e só o que nunca foi
+   * pago. Rota separada do `DELETE :id` de propósito: são operações diferentes,
+   * e uma delas é irreversível. Ver `ExpensesService.purge`.
+   */
+  @Delete(':id/purge')
+  @Permissions('finance.write')
+  @HttpCode(204)
+  purge(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.expenses.purge(user, id);
   }
 }

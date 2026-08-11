@@ -160,4 +160,30 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   @override
   Future<void> cancelar(String id) =>
       _guard(() => _dio.delete<Object?>('/expenses/$id'));
+
+  @override
+  Future<ExpensesMonth> listarExcluidas({
+    required int ano,
+    required int mes,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/expenses',
+          // Mesma rota da listagem normal: `situacao=excluidas` é o único valor
+          // que troca a consulta (canceladas em vez de ativas) em vez de só
+          // filtrar em memória.
+          queryParameters: {'ano': ano, 'mes': mes, 'situacao': 'excluidas'},
+        );
+        return ExpensesMonth.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<void> restaurar(String id) =>
+      _guard(() => _dio.post<Object?>('/expenses/$id/restore'));
+
+  @override
+  Future<void> excluirDeVez(String id) =>
+      // Rota própria, não o `DELETE /expenses/:id` (que é o soft delete): são
+      // operações diferentes e uma delas não tem volta.
+      _guard(() => _dio.delete<Object?>('/expenses/$id/purge'));
 }
