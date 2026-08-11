@@ -5,6 +5,8 @@ import 'package:printing/printing.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/pdf/company_document_provider.dart';
+import '../../../core/pdf/document_company.dart';
 import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
@@ -571,10 +573,16 @@ class _ReportBody extends ConsumerWidget {
   final Me me;
   final ReportSpec spec;
 
-  ReportCompany? _company() {
+  /// Empresa do cabeçalho: Configurações › Empresa (com logo, endereço e
+  /// contato) — a MESMA fonte dos outros documentos. Enquanto ela não carrega,
+  /// ou se falhar, cai nos dados do tenant: o relatório sai com menos dados no
+  /// topo em vez de não sair.
+  DocumentCompany? _company(WidgetRef ref) {
+    final completa = ref.watch(companyForDocumentsProvider).value;
+    if (completa != null) return completa;
     final t = me.activeTenant;
     if (t == null) return null;
-    return ReportCompany(
+    return DocumentCompany(
       name: t.name,
       legalName: t.legalName,
       cnpj: (t.cnpj != null && t.cnpj!.isNotEmpty) ? formatCnpj(t.cnpj) : null,
@@ -583,7 +591,9 @@ class _ReportBody extends ConsumerWidget {
 
   String _periodLabel(WidgetRef ref) {
     final r = ref.read(reportRangeProvider);
-    return '${fmtDate(r.fromIso)} – ${fmtDate(r.toIso)}';
+    // Hífen simples, não meia-risca (U+2013): a Helvetica embutida no PDF não
+    // desenha o caractere e o período saía com um BURACO entre as datas.
+    return '${fmtDate(r.fromIso)} a ${fmtDate(r.toIso)}';
   }
 
   @override
@@ -608,7 +618,7 @@ class _ReportBody extends ConsumerWidget {
         // travamento anterior). Busca + ordenação ficam na barra de filtros.
         return _OsOperationalReport(
           memberNames: memberNames,
-          company: _company(),
+          company: _company(ref),
           period: _periodLabel(ref),
         );
       case ReportKind.revenue:
@@ -622,7 +632,7 @@ class _ReportBody extends ConsumerWidget {
             ('Receita total', formatMoney(r.total)),
             ('Ticket médio', formatMoney(r.avgTicket)),
           ],
-          company: _company(),
+          company: _company(ref),
           period: _periodLabel(ref),
         );
       case ReportKind.team:
@@ -632,7 +642,7 @@ class _ReportBody extends ConsumerWidget {
           tableOf: (r) => teamTable(r, memberNames),
           isEmpty: (r) => r.rows.isEmpty,
           chartOf: (r) => _TeamChart(report: r, names: memberNames),
-          company: _company(),
+          company: _company(ref),
           period: _periodLabel(ref),
         );
       case ReportKind.topItems:
@@ -642,14 +652,14 @@ class _ReportBody extends ConsumerWidget {
           tableOf: topItemsTable,
           isEmpty: (r) => r.rows.isEmpty,
           chartOf: (r) => _TopItemsChart(report: r),
-          company: _company(),
+          company: _company(ref),
           period: _periodLabel(ref),
         );
       case ReportKind.inventoryPosition:
         // Estoque pode ter milhares de itens → paginado na tela; export (CSV/PDF
         // do relatório COMPLETO) é gerado no servidor. Caso dedicado (não o
         // genérico, que monta tudo em memória).
-        return _InventoryReport(company: _company());
+        return _InventoryReport(company: _company(ref));
       case ReportKind.expenses:
         // Sem gráfico, como o relatório de Caixa: a pergunta ("para onde vai o
         // dinheiro") é respondida pela ORDEM da tabela, que já vem do servidor
@@ -668,17 +678,17 @@ class _ReportBody extends ConsumerWidget {
             if (r.totals.vencido > 0)
               ('Vencido', formatMoney(r.totals.vencido)),
           ],
-          company: _company(),
+          company: _company(ref),
           period: _periodLabel(ref),
         );
       case ReportKind.cashFlow:
-        return _CashFlowReport(company: _company(), period: _periodLabel(ref));
+        return _CashFlowReport(company: _company(ref), period: _periodLabel(ref));
       case ReportKind.customers:
         // Clientes pode ter milhares de linhas no período → lista PAGINADA
         // (scroll infinito, render leve), como a OS operacional. O gráfico usa a
         // série agregada no servidor (independe da página); export (CSV/PDF do
         // relatório COMPLETO) é gerado no servidor.
-        return _CustomersReport(company: _company());
+        return _CustomersReport(company: _company(ref));
     }
   }
 }
@@ -1230,7 +1240,7 @@ class _AsyncReport<T> extends StatelessWidget {
   final bool Function(T) isEmpty;
   final Widget Function(T)? chartOf;
   final List<(String, String)> Function(T)? summaryOf;
-  final ReportCompany? company;
+  final DocumentCompany? company;
   final String? period;
 
   @override
@@ -1300,7 +1310,7 @@ class _AsyncReport<T> extends StatelessWidget {
 class _InventoryReport extends ConsumerWidget {
   const _InventoryReport({required this.company});
 
-  final ReportCompany? company;
+  final DocumentCompany? company;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1373,7 +1383,7 @@ class _InventoryPager extends ConsumerWidget {
 class _ServerExportButtons extends ConsumerStatefulWidget {
   const _ServerExportButtons({required this.company});
 
-  final ReportCompany? company;
+  final DocumentCompany? company;
 
   @override
   ConsumerState<_ServerExportButtons> createState() =>
@@ -1488,7 +1498,7 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
 class _OsExportButtons extends ConsumerStatefulWidget {
   const _OsExportButtons({required this.company});
 
-  final ReportCompany? company;
+  final DocumentCompany? company;
 
   @override
   ConsumerState<_OsExportButtons> createState() => _OsExportButtonsState();
@@ -1596,7 +1606,7 @@ class _OsExportButtonsState extends ConsumerState<_OsExportButtons> {
 
 class _CashFlowReport extends ConsumerWidget {
   const _CashFlowReport({required this.company, required this.period});
-  final ReportCompany? company;
+  final DocumentCompany? company;
   final String? period;
 
   @override
@@ -2049,7 +2059,7 @@ class _ExportButtons extends StatelessWidget {
   });
 
   final ReportTable table;
-  final ReportCompany? company;
+  final DocumentCompany? company;
   final String? period;
 
   void _csv() => downloadText(
@@ -2435,7 +2445,7 @@ class _OsOperationalReport extends ConsumerStatefulWidget {
   });
 
   final Map<String, String> memberNames;
-  final ReportCompany? company;
+  final DocumentCompany? company;
   final String? period;
 
   @override
@@ -2598,7 +2608,7 @@ class _OsRowTile extends StatelessWidget {
 class _CustomersReport extends ConsumerStatefulWidget {
   const _CustomersReport({required this.company});
 
-  final ReportCompany? company;
+  final DocumentCompany? company;
 
   @override
   ConsumerState<_CustomersReport> createState() => _CustomersReportState();
@@ -2760,7 +2770,7 @@ class _CustomerRowTile extends StatelessWidget {
 class _CustomersExportButtons extends ConsumerStatefulWidget {
   const _CustomersExportButtons({required this.company});
 
-  final ReportCompany? company;
+  final DocumentCompany? company;
 
   @override
   ConsumerState<_CustomersExportButtons> createState() =>

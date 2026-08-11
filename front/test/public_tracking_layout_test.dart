@@ -113,4 +113,50 @@ void main() {
     expect(find.text('Histórico'), findsOneWidget);
     expect(find.text('Conversa'), findsOneWidget);
   });
+
+  testWidgets('mostra UM status, não os três lado a lado', (tester) async {
+    await _semOverflow(tester, const Size(1440, 900));
+    // O rótulo específico do servidor, não o grupo.
+    expect(find.text('Em execução'), findsOneWidget);
+    // Os outros dois estados NÃO podem aparecer: eram um seletor que o cliente
+    // não pode usar e que fazia a OS parecer estar nos três ao mesmo tempo.
+    expect(find.text('Finalizada'), findsNothing);
+    expect(find.text('Cancelada'), findsNothing);
+  });
+
+  testWidgets('todas as seções abrem sem estourar (desktop)', (tester) async {
+    await _semOverflow(tester, const Size(1440, 900));
+    for (final secao in ['Fotos', 'Histórico', 'Conversa', 'Serviço']) {
+      // Rola até a pílula antes de tocar: no celular a navegação pode ficar
+      // abaixo da dobra (rolagem VERTICAL, natural — diferente do arrasto
+      // horizontal que escondia a última seção).
+      await tester.ensureVisible(find.text(secao));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(secao));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'seção "$secao" estourou o layout no desktop',
+      );
+    }
+  });
+
+  testWidgets('todas as seções abrem sem estourar (celular)', (tester) async {
+    await _semOverflow(tester, const Size(360, 640));
+    for (final secao in ['Fotos', 'Histórico', 'Conversa', 'Serviço']) {
+      // Rola até a pílula antes de tocar: no celular a navegação pode ficar
+      // abaixo da dobra (rolagem VERTICAL, natural — diferente do arrasto
+      // horizontal que escondia a última seção).
+      await tester.ensureVisible(find.text(secao));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(secao));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'seção "$secao" estourou o layout no celular',
+      );
+    }
+  });
 }

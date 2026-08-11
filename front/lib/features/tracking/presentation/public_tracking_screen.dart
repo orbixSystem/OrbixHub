@@ -356,7 +356,10 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               constraints: BoxConstraints(
                 maxWidth: context.isDesktop ? 1180 : 680,
               ),
-              child: _body(),
+              // `Center` entrega restrição FROUXA: sem isto o conteúdo se
+              // encolhia à altura natural e a página ficava com uma faixa de
+              // fundo sobrando embaixo, ainda por cima com o chat espremido.
+              child: SizedBox.expand(child: _body()),
             ),
           ),
         ),
@@ -481,11 +484,20 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
-                ],
+              // `minHeight` = viewport: a seção escolhida ocupa a altura toda
+              // mesmo quando é curta (nada de card flutuando no topo com fundo
+              // vazio embaixo) e rola normalmente quando é longa.
+              child: LayoutBuilder(
+                builder: (_, c) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: c.maxHeight),
+                    child: KeyedSubtree(
+                      key: ValueKey(sel),
+                      child: tabs[sel].builder(),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -649,12 +661,23 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
 
   // ---- Status atual + linha de progresso ----
 
+  /// O status ATUAL da OS — um, grande, com o que ele significa para quem
+  /// está esperando o carro.
+  ///
+  /// Antes eram os três estados lado a lado (Em andamento/Finalizada/
+  /// Cancelada) com o vigente preenchido: um seletor que o cliente não pode
+  /// usar, dando a impressão de que a OS está nos três ao mesmo tempo. Ele
+  /// abre o link para saber UMA coisa — em que pé está o carro dele.
   Widget _statusSection(PublicTrack t) {
-    // Mesmos 3 estados simplificados que a equipe vê na ficha (Em andamento/
-    // Finalizada/Cancelada) — o cliente não precisa (nem deveria) enxergar os
-    // 7 status internos do workflow.
-    final atual =
-        t.status.isNotEmpty ? osSimpleStatusOf(t.status) : OsSimpleStatus.emAndamento;
+    final atual = t.status.isNotEmpty
+        ? osSimpleStatusOf(t.status)
+        : OsSimpleStatus.emAndamento;
+    final color = osSimpleStatusColor(atual);
+    // O rótulo do servidor é mais específico ("Aguardando aprovação") que o
+    // grupo simplificado; usa-se ele quando vem, com o grupo de reserva.
+    final rotulo = t.statusLabel.trim().isNotEmpty
+        ? t.statusLabel.trim()
+        : osSimpleStatusLabel(atual);
     return _sectionCard(
       icon: Icons.assignment_turned_in_outlined,
       color: _neu.glyphs[1],
@@ -662,13 +685,52 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              for (final s in OsSimpleStatus.values) ...[
-                if (s != OsSimpleStatus.values.first) const SizedBox(width: 10),
-                Expanded(child: _simpleStatusBadge(s, selected: s == atual)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(NeuTokens.rField),
+              border: Border.all(color: color.withValues(alpha: .35)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  child: Icon(osSimpleStatusIcon(atual),
+                      size: 24, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        rotulo,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _explicacaoStatus(atual),
+                        style: TextStyle(
+                          color: _neu.inkMuted,
+                          fontSize: 12.5,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
           if (atual == OsSimpleStatus.cancelada) ...[
             const SizedBox(height: 14),
@@ -679,40 +741,15 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     );
   }
 
-  /// Um dos 3 segmentos do status simplificado — preenchido quando é o
-  /// estado atual da OS; só leitura (o cliente não tem ação aqui).
-  Widget _simpleStatusBadge(OsSimpleStatus s, {required bool selected}) {
-    final color = osSimpleStatusColor(s);
-    final bg = selected ? color : color.withValues(alpha: .12);
-    final fg = selected ? Colors.white : color;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(NeuTokens.rField),
-        border:
-            selected ? null : Border.all(color: color.withValues(alpha: .3)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(osSimpleStatusIcon(s), size: 20, color: fg),
-          const SizedBox(height: 6),
-          Text(
-            osSimpleStatusLabel(s),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: fg,
-              fontWeight: FontWeight.w800,
-              fontSize: 12.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// O que o status significa PARA O CLIENTE — o rótulo sozinho ("Em
+  /// execução") descreve a oficina, não responde "e o meu carro?".
+  String _explicacaoStatus(OsSimpleStatus s) => switch (s) {
+        OsSimpleStatus.emAndamento =>
+          'Seu veículo está com a equipe. Avisamos aqui a cada passo.',
+        OsSimpleStatus.finalizada =>
+          'Serviço concluído. Combine a retirada com a oficina.',
+        OsSimpleStatus.cancelada => 'Este serviço não será executado.',
+      };
 
   Widget _cancelledBanner() {
     return Container(
@@ -926,10 +963,16 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           if (_messages.isEmpty)
             _chatEmpty()
           else
-            // Lista com rolagem PRÓPRIA e altura limitada: o chat não estica a
-            // página inteira; o campo de envio fica sempre visível logo abaixo.
+            // Lista com rolagem PRÓPRIA: o chat não estica a página inteira e
+            // o campo de envio fica sempre visível logo abaixo. O teto
+            // acompanha a JANELA (era 340px fixos, que num monitor deixava a
+            // conversa numa fatia fina no meio da tela e num celular pequeno
+            // empurrava o campo de envio para fora).
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 340),
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.sizeOf(context).height * .48)
+                    .clamp(220.0, 620.0),
+              ),
               child: ListView.builder(
                 controller: _chatScroll,
                 shrinkWrap: true,
@@ -1888,56 +1931,81 @@ class _SectionNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tabs.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final active = i == selected;
-          return InkWell(
-            onTap: active ? null : () => onSelect(i),
-            borderRadius: BorderRadius.circular(999),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active ? neu.navy : neu.surface,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: active ? null : neu.raised(),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    tabs[i].icon,
-                    size: 17,
-                    color: active ? neu.onNavy : neu.inkMuted,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    tabs[i].label,
-                    style: TextStyle(
-                      color: active ? neu.onNavy : neu.inkMuted,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+    // `Wrap`, não rolagem horizontal: com quatro seções num celular de 360px a
+    // última ("Conversa") ficava FORA da tela e só era descoberta arrastando
+    // de lado — ninguém arrasta o que não sabe que existe. Quebrando a linha,
+    // todas ficam visíveis de uma vez.
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (var i = 0; i < tabs.length; i++)
+          _SectionPill(
+            tab: tabs[i],
+            active: i == selected,
+            onTap: () => onSelect(i),
+            neu: neu,
+          ),
+      ],
+    );
+  }
+}
+
+class _SectionPill extends StatelessWidget {
+  const _SectionPill({
+    required this.tab,
+    required this.active,
+    required this.onTap,
+    required this.neu,
+  });
+
+  final _TrackTab tab;
+  final bool active;
+  final VoidCallback onTap;
+  final NeuTokens neu;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: active ? null : onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? neu.navy : neu.surface,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: active ? null : neu.raised(),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              tab.icon,
+              size: 17,
+              color: active ? neu.onNavy : neu.inkMuted,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              tab.label,
+              style: TextStyle(
+                color: active ? neu.onNavy : neu.inkMuted,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Menu de seções do DESKTOP: lista vertical na barra lateral. A selecionada
-/// fica preenchida, como um menu de aplicativo — o cliente vê de relance onde
-/// está e o que mais existe, sem precisar rolar.
+
+/// Navegação por seções (abas em pílula, roláveis na horizontal) da página
+/// pública — organiza o conteúdo para o cliente não se perder num scroll longo.
 class _SectionNavVertical extends StatelessWidget {
   const _SectionNavVertical({
     required this.tabs,

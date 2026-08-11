@@ -18,56 +18,89 @@ class PdfDocTokens {
   static const band = PdfColor.fromInt(0xFFF3F1EC);
 }
 
-/// Cabeçalho padrão: logo à esquerda, identificação da empresa à direita.
+/// Cabeçalho padrão de TODOS os documentos: logo à esquerda, identificação da
+/// empresa à direita.
 ///
-/// Espelha o comprovante de referência. A empresa fica alinhada à DIREITA porque
-/// é o bloco denso (5–6 linhas) e o logo tem largura variável — alinhar os dois
-/// à esquerda deixaria o texto dançando conforme o logo de cada oficina.
+/// Montado como TABELA de uma linha com `TableCellVerticalAlignment.full`: é o
+/// único mecanismo deste pacote que faz as duas células terminarem na mesma
+/// altura. O logo então acompanha a altura do bloco de dados, como no
+/// comprovante de referência.
+///
+/// Tentar isso com `Row` + `CrossAxisAlignment.stretch` NÃO funciona aqui: sem
+/// altura limitada (o caso dentro de `MultiPage`) o `stretch` pede altura
+/// infinita e a geração morre com "height (Infinity) exceed a page height" —
+/// derrubando a exportação inteira, não só o cabeçalho.
+///
+/// A empresa fica alinhada à DIREITA porque é o bloco denso (5–6 linhas) e o
+/// logo tem largura variável — alinhar os dois à esquerda deixaria o texto
+/// dançando conforme o logo de cada oficina.
 pw.Widget pdfCompanyHeader(
   DocumentCompany company, {
-  double logoHeight = 78,
-  double logoMaxWidth = 230,
+  double logoMaxWidth = 200,
+
+  /// Piso de altura do cabeçalho: dá presença ao logo mesmo quando a empresa
+  /// cadastrou poucos dados (2–3 linhas de texto à direita).
+  double minHeight = 66,
 }) {
   final logo = company.logo;
-  return pw.Row(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
+  final dados = pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.end,
+    mainAxisAlignment: pw.MainAxisAlignment.center,
+    mainAxisSize: pw.MainAxisSize.min,
     children: [
-      if (logo != null)
-        pw.ConstrainedBox(
-          // Teto nas DUAS dimensões: um logo muito largo (faixa horizontal)
-          // empurraria o bloco da empresa para fora da página.
-          constraints: pw.BoxConstraints(
-            maxHeight: logoHeight,
-            maxWidth: logoMaxWidth,
-          ),
-          child: pw.Image(pw.MemoryImage(logo), fit: pw.BoxFit.contain),
+      pw.Text(
+        company.name.toUpperCase(),
+        textAlign: pw.TextAlign.right,
+        style: pw.TextStyle(
+          fontSize: 13,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfDocTokens.graphite,
         ),
-      if (logo != null) pw.SizedBox(width: 14),
-      pw.Expanded(
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
-          children: [
-            pw.Text(
-              company.name.toUpperCase(),
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                fontSize: 13,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfDocTokens.graphite,
+      ),
+      // Razão social só quando difere do fantasia — repetir o mesmo nome em
+      // duas linhas só gasta papel.
+      if ((company.legalName ?? '').isNotEmpty &&
+          company.legalName!.toUpperCase() != company.name.toUpperCase())
+        _linha(company.legalName!),
+      _linha(company.documentosLinha),
+      _linha(company.enderecoLinha),
+      _linha(company.cidadeLinha),
+      _linha(company.contatoLinha),
+      _linha(company.website ?? ''),
+    ],
+  );
+
+  if (logo == null) {
+    return pw.ConstrainedBox(
+      constraints: pw.BoxConstraints(minHeight: minHeight),
+      child: pw.Row(children: [pw.Expanded(child: dados)]),
+    );
+  }
+
+  return pw.Table(
+    columnWidths: {
+      0: pw.FixedColumnWidth(logoMaxWidth),
+      1: const pw.FlexColumnWidth(),
+    },
+    defaultVerticalAlignment: pw.TableCellVerticalAlignment.full,
+    children: [
+      pw.TableRow(
+        children: [
+          pw.ConstrainedBox(
+            // O piso vive AQUI: a célula do logo é a que define a altura
+            // mínima da linha quando a empresa tem poucos dados à direita.
+            constraints: pw.BoxConstraints(minHeight: minHeight),
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.only(right: 14),
+              child: pw.Image(
+                pw.MemoryImage(logo),
+                fit: pw.BoxFit.contain,
+                alignment: pw.Alignment.centerLeft,
               ),
             ),
-            // Razão social só quando difere do fantasia — repetir o mesmo nome
-            // em duas linhas só gasta papel.
-            if ((company.legalName ?? '').isNotEmpty &&
-                company.legalName!.toUpperCase() != company.name.toUpperCase())
-              _linha(company.legalName!),
-            _linha(company.documentosLinha),
-            _linha(company.enderecoLinha),
-            _linha(company.cidadeLinha),
-            _linha(company.contatoLinha),
-            _linha(company.website ?? ''),
-          ],
-        ),
+          ),
+          dados,
+        ],
       ),
     ],
   );
