@@ -35,9 +35,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _fullName = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _loading = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
   String? _error;
 
   // Lookup de CNPJ
@@ -55,6 +58,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _fullName.dispose();
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -272,13 +276,46 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _password,
-              decoration: const InputDecoration(labelText: 'Senha (mín. 8)'),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Senha (mín. 8)',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showPassword = !_showPassword),
+                  tooltip: _showPassword ? 'Ocultar senha' : 'Ver senha',
+                ),
+              ),
+              obscureText: !_showPassword,
               autofillHints: const [AutofillHints.newPassword],
               validator: Validators.combine([
                 Validators.required('Senha'),
                 Validators.minLength(8, 'Senha'),
               ]),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmPassword,
+              decoration: InputDecoration(
+                labelText: 'Confirmar senha',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _showConfirmPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () => setState(
+                      () => _showConfirmPassword = !_showConfirmPassword),
+                  tooltip:
+                      _showConfirmPassword ? 'Ocultar senha' : 'Ver senha',
+                ),
+              ),
+              obscureText: !_showConfirmPassword,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: (v) => v != _password.text ? 'As senhas não coincidem' : null,
             ),
             const SizedBox(height: 20),
             FilledButton(

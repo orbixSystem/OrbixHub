@@ -35,6 +35,7 @@ import {
   CreateExpenseTemplateDto,
   UpdateExpenseTemplateDto,
 } from './dto/expense-template.dto';
+import { CreateInstallmentPlanDto, PayInstallmentDto } from './dto/installment.dto';
 
 @Controller('cashier')
 @UseGuards(ModuleAccessGuard)
@@ -203,5 +204,37 @@ export class CashierController {
     @Query() query: PaymentSummaryQueryDto,
   ) {
     return this.cashier.getSalePaymentDetail(user, query.saleId, query.total);
+  }
+
+  // --- parcelas de fiado ---
+
+  @Get('installments')
+  @Permissions('cashier.read')
+  listInstallments(
+    @CurrentUser() user: AuthUser,
+    @Query('saleKind') saleKind: string,
+    @Query('saleId') saleId: string,
+  ) {
+    return this.cashier.listInstallments(user.tenantId, saleKind, saleId);
+  }
+
+  @Post('installments')
+  @Permissions('cashier.write')
+  createInstallmentPlan(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateInstallmentPlanDto,
+  ) {
+    return this.cashier.createInstallmentPlan(user, dto);
+  }
+
+  @Post('installments/:id/pay')
+  @Permissions('cashier.write')
+  @HttpCode(200)
+  payInstallment(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: PayInstallmentDto,
+  ) {
+    return this.cashier.payInstallment(user, id, dto);
   }
 }

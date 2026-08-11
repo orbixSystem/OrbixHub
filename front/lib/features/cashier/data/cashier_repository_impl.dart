@@ -289,4 +289,46 @@ class CashierRepositoryImpl implements CashierRepository {
         final res = await _dio.delete<Object?>('/cashier/expense-templates/$id');
         return ExpenseTemplate.fromJson(_asMap(res.data));
       });
+
+  // --- parcelas de fiado ---
+
+  @override
+  Future<List<Installment>> listInstallments({
+    required String saleKind,
+    required String saleId,
+  }) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/cashier/installments',
+          queryParameters: {'saleKind': saleKind, 'saleId': saleId},
+        );
+        final data = res.data;
+        if (data is! List) return const <Installment>[];
+        return data
+            .map((e) => Installment.fromJson(_asMap(e)))
+            .toList(growable: false);
+      });
+
+  @override
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) =>
+      _guard(() async {
+        await _dio.post<void>('/cashier/installments', data: draft.toJson());
+      });
+
+  @override
+  Future<Installment> payInstallment({
+    required String installmentId,
+    required String method,
+    String? description,
+  }) =>
+      _guard(() async {
+        final res = await _dio.post<Object?>(
+          '/cashier/installments/$installmentId/pay',
+          data: {
+            'method': method,
+            'description': ?description,
+          },
+        );
+        return Installment.fromJson(_asMap(res.data));
+      });
 }

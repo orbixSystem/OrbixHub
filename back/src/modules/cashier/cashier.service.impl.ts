@@ -39,6 +39,7 @@ import {
   ReverseEntryDto,
   UpdateEntryDto,
 } from './dto/entry.dto';
+import { CreateInstallmentPlanDto, PayInstallmentDto } from './dto/installment.dto';
 import {
   CreateExpenseTemplateDto,
   UpdateExpenseTemplateDto,
@@ -789,6 +790,119 @@ export class CashierServiceImpl extends CashierService {
     return { ...buildPaymentSummary(total ?? 0, paid), entries };
   }
 
+  // ===================== Parcelas de fiado =====================
+
+  /** Lista as parcelas de uma venda/OS ordenadas por vencimento. */
+  listInstallments(tenantId: string, saleKind: string, saleId: string) {
+    return this.tenant.runWithTenant(tenantId, () => {
+      const db = this.tenant.getClient();
+      return db.receivable_installment.findMany({
+        where: { sale_kind: saleKind, sale_id: saleId },
+        orderBy: { due_date: 'asc' },
+      });
+    });
+  }
+
+  /**
+   * Cria um plano de parcelas para o saldo remanescente de uma venda/OS.
+   * Divide o saldo atual igualmente (ajuste de centavos na última parcela).
+   */
+  async createInstallmentPlan(user: AuthUser, dto: CreateInstallmentPlanDto) {
+    const { saleKind, saleId, installmentCount, dueDayOfMonth, totalAmount, firstDueDate, notes } = dto;
+
+    return this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      // Verifica se já existe plano de parcelas pendentes para esta venda.
+      const existing = await db.receivable_installment.count({
+        where: { sale_kind: saleKind, sale_id: saleId, paid_at: null },
+      });
+      if (existing > 0) {
+        throw new BadRequestException('Já existe um plano de parcelas pendentes para esta venda.');
+      }
+
+      // Divide o total igualmente; ajuste de centavos na última parcela.
+      const base = round2(totalAmount / installmentCount);
+      const last = round2(totalAmount - base * (installmentCount - 1));
+
+      // Calcula as datas de vencimento
+      const dates: Date[] = [];
+      let current = firstDueDate
+        ? new Date(firstDueDate)
+        : nextOccurrenceOfDay(dueDayOfMonth);
+      for (let i = 0; i < installmentCount; i++) {
+        dates.push(new Date(current));
+        const next = new Date(current);
+        next.setMonth(next.getMonth() + 1);
+        next.setDate(Math.min(dueDayOfMonth, daysInMonth(next.getFullYear(), next.getMonth())));
+        current = next;
+      }
+
+      const data = dates.map((due_date, i) => ({
+        tenant_id: user.tenantId,
+        sale_kind: saleKind,
+        sale_id: saleId,
+        amount: i === installmentCount - 1 ? last : base,
+        due_date,
+        notes: notes ?? null,
+      }));
+
+      return db.receivable_installment.createMany({ data });
+    });
+  }
+
+  /**
+   * Quita uma parcela: cria o cash_entry correspondente e marca `paid_at`.
+   */
+  async payInstallment(user: AuthUser, installmentId: string, dto: PayInstallmentDto) {
+    const config = await this.getConfig(user.tenantId);
+
+    const result = await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const inst = await db.receivable_installment.findFirst({
+        where: { id: installmentId, paid_at: null },
+      });
+      if (!inst) throw new NotFoundException('Parcela não encontrada ou já paga.');
+
+      // Garante sessão (cria sessão implícita se necessário, como createEntry)
+      let open = await this.repo.findOpenSession(undefined);
+      if (!open) {
+        if (config.requireOpenSession) {
+          throw new BadRequestException('Não há caixa aberto. Abra o caixa para registrar o pagamento.');
+        }
+        open = await this.repo.createSession(user.tenantId, {
+          opened_by: user.userId,
+          opening_amount: 0,
+          notes: null,
+          device_id: null,
+        });
+      }
+
+      // Cria o cash_entry
+      const entry = await this.repo.createEntry(user.tenantId, {
+        cash_session_id: open.id,
+        direction: 'in',
+        amount: round2(toNum(inst.amount)),
+        method: dto.method as PaymentMethod,
+        category: (inst.sale_kind === 'os' ? 'os_payment' : 'venda_avulsa') as EntryCategory,
+        sale_kind: inst.sale_kind as SaleKind,
+        sale_id: inst.sale_id,
+        description: dto.description?.trim() || null,
+        created_by: user.userId,
+      });
+
+      // Marca a parcela como paga
+      return db.receivable_installment.update({
+        where: { id: installmentId },
+        data: { paid_at: new Date(), entry_id: entry.id, updated_at: new Date() },
+      });
+    });
+
+    await this.audit.log(user.tenantId, user.userId, 'installment_pay', installmentId, {
+      method: dto.method,
+    });
+    return result;
+  }
+
   /**
    * Cargo tem a permissão? (role/role_permission/permission são globais, sem RLS —
    * mesma consulta do PermissionsGuard). Usado para o gate fino de categorias
@@ -845,6 +959,26 @@ const pickCash = (rows: MethodTotals[]): { in: number; out: number } => {
   const cash = rows.find((r) => r.method === 'dinheiro');
   return { in: cash?.in ?? 0, out: cash?.out ?? 0 };
 };
+
+// ===================== Helpers de parcelamento =====================
+
+/** Próxima ocorrência de `day` a partir de hoje (inclusive). */
+function nextOccurrenceOfDay(day: number): Date {
+  const now = new Date();
+  const candidate = new Date(now.getFullYear(), now.getMonth(), day);
+  if (candidate <= now) {
+    const next = new Date(candidate);
+    next.setMonth(next.getMonth() + 1);
+    next.setDate(Math.min(day, daysInMonth(next.getFullYear(), next.getMonth())));
+    return next;
+  }
+  return candidate;
+}
+
+/** Número de dias do mês `month` (0-based) do ano `year`. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
 
 const pickAll = (rows: MethodTotals[]): { in: number; out: number } => {
   let i = 0;

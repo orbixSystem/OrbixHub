@@ -85,4 +85,19 @@ abstract interface class CashierRepository {
 
   /// Desativa (sem hard delete): o que já foi lançado com ele continua intacto.
   Future<ExpenseTemplate> disableExpenseTemplate(String id);
+
+  // --- parcelas de fiado ---
+
+  Future<List<Installment>> listInstallments({
+    required String saleKind,
+    required String saleId,
+  });
+
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft);
+
+  Future<Installment> payInstallment({
+    required String installmentId,
+    required String method,
+    String? description,
+  });
 }

@@ -23,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _remember = false;
+  bool _showPassword = false;
   String? _error;
 
   @override
@@ -98,10 +99,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             NeuTextField(
               label: 'Senha',
               controller: _password,
-              obscureText: true,
+              obscureText: !_showPassword,
               prefixIcon: Icons.lock_outline_rounded,
               validator: Validators.required('Senha'),
               onFieldSubmitted: (_) => _submit(),
+              suffix: IconButton(
+                icon: Icon(
+                  _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 20,
+                ),
+                onPressed: () => setState(() => _showPassword = !_showPassword),
+                tooltip: _showPassword ? 'Ocultar senha' : 'Ver senha',
+              ),
             ),
             const SizedBox(height: 12),
             // "Manter conectado" (opt-in): persiste a sessão por ~1 mês.

@@ -68,7 +68,9 @@ export type AuditAction =
   | 'expense_category_create'
   | 'expense_category_update'
   | 'sync_overwrite'
-  | 'plate_lookup';
+  | 'plate_lookup'
+  | 'installment_pay'
+  | 'installment_plan_create';
 
 @Injectable()
 export class AuditService {

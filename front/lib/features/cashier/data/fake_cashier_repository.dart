@@ -344,4 +344,25 @@ class FakeCashierRepository implements CashierRepository {
   @override
   Future<ExpenseTemplate> disableExpenseTemplate(String id) =>
       updateExpenseTemplate(id, const ExpenseTemplateDraft(status: 'disabled'));
+
+  // --- parcelas de fiado (fake — sempre vazias em dev) ---
+
+  @override
+  Future<List<Installment>> listInstallments({
+    required String saleKind,
+    required String saleId,
+  }) async =>
+      const [];
+
+  @override
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) async {}
+
+  @override
+  Future<Installment> payInstallment({
+    required String installmentId,
+    required String method,
+    String? description,
+  }) async {
+    throw UnimplementedError('payInstallment não implementado no fake.');
+  }
 }
