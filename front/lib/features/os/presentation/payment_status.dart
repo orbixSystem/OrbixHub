@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/ui.dart';
+import '../domain/os_models.dart';
+import 'os_status.dart';
 
 /// Status de pagamento da venda (derivado do caixa no backend).
 const paymentStatuses = <String>['a_receber', 'parcial', 'pago'];
@@ -34,6 +37,77 @@ Color paymentStatusColor(String status) {
     case 'a_receber':
     default:
       return AppColors.inkMuted;
+  }
+}
+
+/// Valor da OS: o total e, quando houve pagamento PARCIAL, **quanto ainda
+/// falta**.
+///
+/// Sem isto, uma OS parcial mostrava só o total e a tag "Parcial" — o número
+/// que interessa na hora de cobrar ("quanto ele ainda deve?") não estava em
+/// lugar nenhum da lista nem do cabeçalho, e só aparecia abrindo o diálogo de
+/// recebimento. O total continua sendo o número âncora (é ele que se compara
+/// entre OS); a diferença entra como anotação logo abaixo, na cor de atenção.
+///
+/// Só aparece no caso PARCIAL: numa OS totalmente em aberto o saldo é igual ao
+/// total (repetir seria ruído) e numa OS quitada não falta nada.
+class OsAmountDue extends StatelessWidget {
+  const OsAmountDue({
+    super.key,
+    required this.total,
+    required this.payment,
+    this.fontSize = 14,
+    this.alignEnd = true,
+  });
+
+  /// Total da OS (Decimal serializado, como vem do backend).
+  final String? total;
+  final OsPaymentSummary? payment;
+  final double fontSize;
+  final bool alignEnd;
+
+  /// Pagou parte, mas não tudo — o único caso em que "falta X" acrescenta algo.
+  bool get _parcial {
+    final p = payment;
+    if (p == null) return false;
+    return p.paid > 0 && p.balance > 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final valor = Text(
+      money(total),
+      textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: neu.ink,
+        fontWeight: FontWeight.w800,
+        fontSize: fontSize,
+      ),
+    );
+    if (!_parcial) return valor;
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        valor,
+        const SizedBox(height: 1),
+        Text(
+          'Falta ${money(payment!.balance.toString())}',
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppColors.warning,
+            fontWeight: FontWeight.w700,
+            fontSize: fontSize - 2.5,
+          ),
+        ),
+      ],
+    );
   }
 }
 

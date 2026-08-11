@@ -368,6 +368,73 @@ class _Body extends ConsumerWidget {
 /// Pill de status FORTE (fundo sólido na cor do grupo simplificado) — bem mais
 /// visível que o tint suave do [OsStatusChip] antigo. É o "cores bem visíveis
 /// com base no status" pedido pro card da lista.
+/// Previsão do serviço no card: "10/08 → 15/08", ou só a ponta que existe.
+///
+/// Some quando a OS não tem previsão — um "—" ali seria uma linha inteira para
+/// dizer nada. Quando o fim previsto já passou e a OS continua aberta, a linha
+/// vira aviso de ATRASO: é o único jeito de a lista responder "o que está
+/// estourando o prazo?" sem abrir OS por OS.
+class _LinhaPrevisao extends StatelessWidget {
+  const _LinhaPrevisao({required this.order});
+
+  final ServiceOrder order;
+
+  static String? _fmt(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return null;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final ini = _fmt(order.scheduledStart);
+    final fim = _fmt(order.scheduledEnd);
+    if (ini == null && fim == null) return const SizedBox.shrink();
+
+    // Atraso só faz sentido em OS viva: entregue/cancelada não estoura prazo.
+    final fimData = DateTime.tryParse(order.scheduledEnd ?? '')?.toLocal();
+    final aberta = !osIsTerminal(order.status);
+    final atrasada =
+        aberta && fimData != null && fimData.isBefore(DateTime.now());
+    final cor = atrasada ? neu.danger : neu.inkFaint;
+
+    final texto = ini != null && fim != null
+        ? '$ini → $fim'
+        : (ini != null ? 'Início $ini' : 'Entrega $fim');
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Icon(
+            atrasada
+                ? Icons.event_busy_outlined
+                : Icons.event_outlined,
+            size: 14,
+            color: cor,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              atrasada ? '$texto · atrasada' : texto,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: cor,
+                fontSize: 12.5,
+                fontWeight: atrasada ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StrongStatusPill extends StatelessWidget {
   const _StrongStatusPill({required this.status});
   final String status;
@@ -436,6 +503,7 @@ class _QuickActionsMenu extends ConsumerWidget {
       canApprove: false,
     );
     final podeReceber = canReceiveOsPayment(ref, order);
+    final podeVerPagamentos = canViewOsPayments(ref, order);
     return PopupMenuButton<String>(
       tooltip: 'Ações rápidas',
       // Sem padding próprio: no card/linha, cada pixel some do título junto
@@ -463,6 +531,8 @@ class _QuickActionsMenu extends ConsumerWidget {
             await exportOsPdfById(context, ref, order.id);
           case 'receber':
             await offerOsPayment(context, ref, order);
+          case 'pagamentos':
+            await showOsPaymentsDialog(context, ref, order);
         }
       },
       itemBuilder: (_) => [
@@ -501,7 +571,19 @@ class _QuickActionsMenu extends ConsumerWidget {
               title: Text('Receber pagamento'),
             ),
           ),
-        if (podeConcluir || podeCancelar || podeReceber)
+        // Estado de reversão: mesmo já PAGA, o dono pode precisar estornar
+        // (calote, lançamento errado) — devolve pra a receber/parcial.
+        if (podeVerPagamentos)
+          const PopupMenuItem(
+            value: 'pagamentos',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.receipt_long_outlined),
+              title: Text('Pagamentos'),
+            ),
+          ),
+        if (podeConcluir || podeCancelar || podeReceber || podeVerPagamentos)
           const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'pdf',
@@ -532,7 +614,6 @@ class _OrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final neu = context.neu;
     final subtitle = [
       if ((order.customerName ?? '').isNotEmpty) order.customerName!,
       if ((order.subjectLabel ?? '').isNotEmpty) order.subjectLabel!,
@@ -578,14 +659,7 @@ class _OrderTile extends StatelessWidget {
           const SizedBox(width: 8),
           _StrongStatusPill(status: order.status),
           const SizedBox(width: 14),
-          Text(
-            money(order.total),
-            style: TextStyle(
-              color: neu.ink,
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-            ),
-          ),
+          OsAmountDue(total: order.total, payment: order.payment),
           _QuickActionsMenu(order: order, canWrite: canWrite),
         ],
       ),
@@ -711,6 +785,10 @@ class _OrderCardMobile extends StatelessWidget {
               ],
             ),
           ],
+          // Quando o serviço está previsto — a informação que transforma a
+          // lista em planejamento ("o que entrega hoje?") em vez de só um
+          // cadastro. Sinaliza atraso: prazo vencido com a OS ainda aberta.
+          _LinhaPrevisao(order: order),
           const SizedBox(height: 14),
           Divider(height: 1, thickness: 1, color: neu.inkFaint.withValues(alpha: .15)),
           const SizedBox(height: 12),
@@ -722,16 +800,10 @@ class _OrderCardMobile extends StatelessWidget {
               Flexible(child: PaymentTag(status: order.paymentStatus)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  money(order.total),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: neu.ink,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 17,
-                  ),
+                child: OsAmountDue(
+                  total: order.total,
+                  payment: order.payment,
+                  fontSize: 17,
                 ),
               ),
               _QuickActionsMenu(order: order, canWrite: canWrite),

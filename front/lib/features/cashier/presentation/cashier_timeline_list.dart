@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
+import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
 import '../../receivables/domain/receivables_models.dart';
 import '../../receivables/presentation/receive_title_dialog.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/cashier_format.dart';
+import '../domain/cashier_models.dart';
 import '../domain/sale_summary.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_providers.dart';
@@ -77,14 +78,24 @@ class _EventCard extends ConsumerWidget {
   /// fresco (a `Sale` do histórico só traz `total`+`paymentStatus`, não o
   /// saldo) e deixa receber parcial ou total, igual em qualquer outra tela.
   Future<void> _receber(BuildContext context, WidgetRef ref, Sale s) async {
-    final estado = ref.read(cashierControllerProvider).value;
-    final config = estado?.config;
-    if (config == null) return;
-    final detail = await ref.read(cashierRepositoryProvider).paymentSummary(
-          saleKind: 'sale',
-          saleId: s.id,
-          total: moneyToDouble(s.total),
-        );
+    // ESPERA a config (o provider é `autoDispose` e pode estar carregando):
+    // ler o valor corrente devolvia `null` e o botão não fazia nada, sem dizer
+    // por quê. Mesmo bug que havia no botão "Receber" da aba Fiado.
+    final CashierConfig config;
+    final PaymentDetail detail;
+    try {
+      config = (await ref.read(cashierControllerProvider.future)).config;
+      detail = await ref.read(cashierRepositoryProvider).paymentSummary(
+            saleKind: 'sale',
+            saleId: s.id,
+            total: moneyToDouble(s.total),
+          );
+    } on Object catch (e) {
+      if (context.mounted) {
+        showNeuErrorSnackBar(context, 'Não foi possível abrir o caixa: $e');
+      }
+      return;
+    }
     if (!context.mounted) return;
     await showReceiveTitleDialog(
       context,
@@ -100,6 +111,9 @@ class _EventCard extends ConsumerWidget {
         status: detail.status,
       ),
     );
+    // A linha que chamou isto pode ter sido desmontada enquanto o diálogo
+    // estava aberto (ex.: o histórico recarregou por outro motivo).
+    if (!context.mounted) return;
     ref.invalidate(cashierHistoryProvider);
   }
 
@@ -277,6 +291,13 @@ class _EventCard extends ConsumerWidget {
                     // extrato do dia (que só mostra hoje).
                     if (canManage && !estornado)
                       EntryActionsMenu(entry: e),
+                    // Afordância: sem isto nada indica que a linha de OS/despesa
+                    // é clicável (a de venda já tinha o chevron equivalente).
+                    if (daOs || daDespesa) ...[
+                      const SizedBox(width: 2),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18, color: neu.inkFaint),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -319,8 +340,12 @@ class _EventCard extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        // OS abre em MODAL, como a venda logo acima: o histórico é uma lista
+        // de consulta, e navegar para a tela cheia fazia perder o período, o
+        // filtro e a posição da rolagem só para conferir o que foi feito. O
+        // modal ainda oferece exportar o PDF e ir para a OS completa.
         onTap: daOs
-            ? () => context.push('/m/os/${e.saleId}')
+            ? () => showOsDetailDialog(context, orderId: e.saleId!)
             : () => showExpenseDetailDialog(context, ref, id: e.saleId!),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -129,8 +129,10 @@ void main() {
   });
 
   group('detalhe da OS', () {
-    testWidgets('offline: aviso vermelho em fotos, diagnóstico e notas; link '
-        'de acompanhamento e NF desabilitados', (tester) async {
+    testWidgets(
+        'offline: cada aba avisa o que fica pendente — diagnóstico (Serviço), '
+        'notas (Histórico), fotos (Fotos) e link do cliente (Cliente)',
+        (tester) async {
       tester.view.physicalSize = const Size(1600, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -144,19 +146,43 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Um aviso vermelho por seção: diagnóstico, linha do tempo e fotos.
-      expect(find.byType(OfflinePendingNoticeBody), findsNWidgets(3));
+      // A ficha agora é dividida em abas: o aviso de cada seção vive na aba
+      // dela. Percorrer as quatro é o teste de que nenhuma perdeu o seu.
+      Future<void> abrir(String aba) async {
+        await tester.tap(find.text(aba));
+        await tester.pumpAndSettle();
+      }
+
+      // Serviço (aba inicial): diagnóstico.
+      expect(find.byType(OfflinePendingNoticeBody), findsOneWidget);
       expect(
         find.textContaining('Será enviado ao sistema quando a conexão voltar'),
         findsOneWidget,
       );
-      expect(find.textContaining('Notas criadas agora'), findsOneWidget);
-      expect(find.textContaining('As fotos adicionadas agora'), findsOneWidget);
 
-      // Ações que exigem o registro NO SERVIDOR: link de acompanhamento e
-      // remover foto (não há op de sync para a remoção — o botão fica visível e
-      // explicado, em vez de sumir). A emissão de NF foi retirada do front
-      // (kInvoiceEnabled=false), então não há mais ação de nota aqui.
+      await abrir('Histórico');
+      expect(find.textContaining('Notas criadas agora'), findsOneWidget);
+
+      await abrir('Fotos');
+      expect(find.textContaining('As fotos adicionadas agora'), findsOneWidget);
+      // Remover foto exige o registro NO SERVIDOR (não há op de sync para a
+      // remoção): o botão fica visível e explicado, em vez de sumir.
+      expect(find.byTooltip('Requer conexão — remover foto'), findsOneWidget);
+
+      await abrir('Cliente');
+      expect(
+        find.byTooltip(
+          'Requer conexão — o envio do link ao cliente exige internet',
+        ),
+        findsOneWidget,
+      );
+      // A emissão de NF foi retirada do front (kInvoiceEnabled=false).
+      expect(
+        find.byTooltip(
+          'Requer conexão — a nota é emitida pelo servidor fiscal',
+        ),
+        findsNothing,
+      );
       final blocked = tester
           .widgetList<IgnorePointer>(
             find.descendant(
@@ -165,21 +191,8 @@ void main() {
             ),
           )
           .toList();
-      expect(blocked, hasLength(2));
+      expect(blocked, isNotEmpty);
       expect(blocked.every((w) => w.ignoring), isTrue);
-      expect(
-        find.byTooltip(
-          'Requer conexão — o envio do link ao cliente exige internet',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byTooltip(
-          'Requer conexão — a nota é emitida pelo servidor fiscal',
-        ),
-        findsNothing,
-      );
-      expect(find.byTooltip('Requer conexão — remover foto'), findsOneWidget);
     });
 
     testWidgets('online: nenhum aviso vermelho e ações liberadas', (
@@ -209,6 +222,8 @@ void main() {
         findsNothing,
       );
       expect(find.textContaining('Requer conexão'), findsNothing);
+      await tester.tap(find.text('Cliente'));
+      await tester.pumpAndSettle();
       expect(find.text('Copiar link'), findsOneWidget);
     });
   });

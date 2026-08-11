@@ -48,3 +48,52 @@ double _toDouble(Object? v) {
   if (v is String) return double.tryParse(v) ?? 0;
   return 0;
 }
+
+/// Uma parcela calculada localmente (para criar o plano offline).
+class InstallmentScheduleItem {
+  const InstallmentScheduleItem({required this.amount, required this.dueDate});
+  final double amount;
+  final DateTime dueDate;
+}
+
+/// Espelha `createInstallmentPlan`/`nextOccurrenceOfDay` do backend: divide o
+/// total igualmente entre as parcelas (ajuste de centavo na ÚLTIMA) e calcula
+/// os vencimentos mensais a partir de [firstDueDate] (ou da próxima ocorrência
+/// de [dueDayOfMonth]). Usado SÓ offline — online o servidor já faz essa
+/// conta; aqui é só pra dar ao cliente uma PRÉVIA correta do plano sem rede.
+///
+/// Sem clamp de dia-no-mês: `dueDayOfMonth` é limitado a 1–28 na validação
+/// (mesmo limite do backend), então todo mês tem esse dia — não há fevereiro
+/// sem dia 30 pra se preocupar.
+List<InstallmentScheduleItem> computeInstallmentSchedule({
+  required double totalAmount,
+  required int installmentCount,
+  required int dueDayOfMonth,
+  DateTime? firstDueDate,
+  DateTime? now,
+}) {
+  final base = round2Money(totalAmount / installmentCount);
+  final last = round2Money(totalAmount - base * (installmentCount - 1));
+
+  var current = firstDueDate ?? _nextOccurrenceOfDay(dueDayOfMonth, now ?? DateTime.now());
+  final items = <InstallmentScheduleItem>[];
+  for (var i = 0; i < installmentCount; i++) {
+    items.add(InstallmentScheduleItem(
+      amount: i == installmentCount - 1 ? last : base,
+      dueDate: current,
+    ));
+    current = DateTime(current.year, current.month + 1, dueDayOfMonth);
+  }
+  return items;
+}
+
+/// Próxima ocorrência de [day] a partir de [now] (estritamente depois — meia-
+/// noite de hoje quase nunca é "depois" do instante atual, então "hoje" na
+/// prática só é escolhido se [now] for exatamente meia-noite).
+DateTime _nextOccurrenceOfDay(int day, DateTime now) {
+  final candidate = DateTime(now.year, now.month, day);
+  if (!candidate.isAfter(now)) {
+    return DateTime(now.year, now.month + 1, day);
+  }
+  return candidate;
+}

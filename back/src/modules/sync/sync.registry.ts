@@ -33,6 +33,10 @@ import {
   UpdateEntryDto,
 } from '../cashier/dto/entry.dto';
 import {
+  CreateInstallmentPlanDto,
+  PayInstallmentDto,
+} from '../cashier/dto/installment.dto';
+import {
   CreateExpenseTemplateDto,
   UpdateExpenseTemplateDto,
 } from '../cashier/dto/expense-template.dto';
@@ -164,6 +168,12 @@ export const PULL_ROUTES: Record<string, PullRouteDef> = {
   cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
   cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
   cash_expense_template: {
+    service: 'cashier',
+    module: 'cashier',
+    permission: 'cashier.read',
+  },
+  // Parcelamento de fiado: o balcão precisa ver/criar/quitar parcela sem rede.
+  receivable_installment: {
     service: 'cashier',
     module: 'cashier',
     permission: 'cashier.read',
@@ -453,6 +463,31 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     apply: (s, u, p) => s.sale.cancelSale(u, str(p.id), asDto(p)),
   },
 
+  // ---------------- receivable_installment (parcelamento de fiado) ----------------
+  // `installmentIds` (dentro do DTO) preserva os uuids gerados offline, um por
+  // parcela — mesmo espírito de `sale.create`: sem eles, reenviar o push
+  // duplicaria o plano inteiro.
+  'receivable_installment.create_plan': {
+    dto: CreateInstallmentPlanDto,
+    module: 'cashier',
+    permission: 'cashier.write',
+    create: true,
+    apply: async (s, u, p) => {
+      await s.cashier.createInstallmentPlan(u, asDto(p));
+      // `createMany` não devolve linha; o contrato do registry espera
+      // `{id?} | null` (mesmo caso de `expense.cancel`).
+      return null;
+    },
+  },
+  // Quitar espelha um lançamento no caixa — `cashEntryId` (dentro do DTO) evita
+  // duplicar o lançamento no replay, mesmo idioma de `expense.pay`.
+  'receivable_installment.pay': {
+    dto: PayInstallmentDto,
+    module: 'cashier',
+    permission: 'cashier.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.cashier.payInstallment(u, str(p.id), asDto(p)),
+  },
   'cash_entry.reverse': {
     dto: ReverseEntryDto,
     module: 'cashier',

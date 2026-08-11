@@ -3,10 +3,12 @@ import '../../../core/offline/local_first.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../domain/cashier_repository.dart';
+import '../domain/local_payment.dart';
 
 /// [CashierRepository] offline-first (B8) — decorator sobre a impl real (dio).
 ///
-/// Entidades espelhadas: `cash_session`, `cash_entry`, `cash_expense_template`.
+/// Entidades espelhadas: `cash_session`, `cash_entry`, `cash_expense_template`,
+/// `receivable_installment`.
 ///
 /// A sessão é **por ponto de caixa** (`deviceId`, B4): o decorator resolve o
 /// mesmo id do device que a impl real usa e o manda no payload das ops
@@ -36,6 +38,7 @@ class LocalFirstCashierRepository extends LocalFirstBase
   static const _sessions = 'cash_session';
   static const _entries = 'cash_entry';
   static const _templates = 'cash_expense_template';
+  static const _installments = 'receivable_installment';
   static const _pageSize = 20;
 
   /// Saídas são despesa e sangria; o resto é entrada (espelha
@@ -824,28 +827,142 @@ class LocalFirstCashierRepository extends LocalFirstBase
       // vez de precisar de uma op própria só para isso.
       updateExpenseTemplate(id, const ExpenseTemplateDraft(status: 'disabled'));
 
-  // --- parcelas de fiado (delega para o remoto; sem suporte offline por ora) ---
+  // --- parcelas de fiado ---
 
   @override
   Future<List<Installment>> listInstallments({
     required String saleKind,
     required String saleId,
-  }) =>
-      inner.listInstallments(saleKind: saleKind, saleId: saleId);
+  }) async {
+    if (isOnline()) {
+      final items =
+          await inner.listInstallments(saleKind: saleKind, saleId: saleId);
+      await mirrorRows(_installments, [for (final i in items) i.toJson()]);
+      return items;
+    }
+    final local = (await rows(_installments))
+        .where((r) => r['sale_kind'] == saleKind && r['sale_id'] == saleId)
+        .toList()
+      ..sort((a, b) => ((a['due_date'] ?? '') as String)
+          .compareTo((b['due_date'] ?? '') as String));
+    return [for (final r in local) Installment.fromJson(r)];
+  }
 
   @override
-  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) =>
-      inner.createInstallmentPlan(draft);
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) async {
+    if (isOnline()) {
+      await inner.createInstallmentPlan(draft);
+      return;
+    }
+    // Mesma regra do backend: só um plano pendente por venda/OS por vez —
+    // checa localmente pra não enfileirar uma mutação que o servidor recusaria.
+    final jaTemPendente = (await rows(_installments)).any((r) =>
+        r['sale_kind'] == draft.saleKind &&
+        r['sale_id'] == draft.saleId &&
+        r['paid_at'] == null);
+    if (jaTemPendente) {
+      throw const AppException(
+        statusCode: 400,
+        error: 'BadRequest',
+        message: 'Já existe um plano de parcelas pendentes para esta venda.',
+      );
+    }
+    final schedule = computeInstallmentSchedule(
+      totalAmount: draft.totalAmount,
+      installmentCount: draft.installmentCount,
+      dueDayOfMonth: draft.dueDayOfMonth,
+      firstDueDate: draft.firstDueDate == null
+          ? null
+          : DateTime.tryParse(draft.firstDueDate!),
+    );
+    // Um uuid por parcela, gerado AQUI — vai no payload (`installmentIds`) pra
+    // o replay usar os MESMOS ids em vez de gerar novos (senão duplicaria o
+    // plano a cada reenvio do push). Mesmo idioma de `service_order.create`.
+    final ids = [for (var i = 0; i < schedule.length; i++) newId()];
+    await enqueue(_installments, 'create_plan', {
+      ...draft.toJson(),
+      'installmentIds': ids,
+    });
+    for (var i = 0; i < schedule.length; i++) {
+      await putRow(_installments, {
+        'id': ids[i],
+        'sale_kind': draft.saleKind,
+        'sale_id': draft.saleId,
+        'amount': dec(schedule[i].amount),
+        'due_date': schedule[i].dueDate.toIso8601String(),
+        'paid_at': null,
+        'entry_id': null,
+        'notes': draft.notes,
+        'created_at': nowIso(),
+      });
+    }
+  }
 
   @override
   Future<Installment> payInstallment({
     required String installmentId,
     required String method,
     String? description,
-  }) =>
-      inner.payInstallment(
+  }) async {
+    if (!await useLocal(_installments, installmentId)) {
+      final inst = await inner.payInstallment(
         installmentId: installmentId,
         method: method,
         description: description,
       );
+      await putRow(_installments, inst.toJson());
+      return inst;
+    }
+    final row = await rowById(_installments, installmentId);
+    if (row == null) notFoundLocally('Parcela');
+    if (row['paid_at'] != null) {
+      throw const AppException(
+        statusCode: 404,
+        error: 'NotFound',
+        message: 'Parcela não encontrada ou já paga.',
+      );
+    }
+    // Mesma "sessão implícita" do createEntry: quitar uma parcela é lançar no
+    // caixa, e lançar exige uma sessão aberta local.
+    final session = await _openSessionRow();
+    if (session == null) {
+      throw const AppException(
+        statusCode: 400,
+        error: 'NoOpenSession',
+        message: 'Abra o caixa antes de lançar.',
+      );
+    }
+    // `entryId` gerado aqui e enviado no payload (`cashEntryId`) — o replay usa
+    // o MESMO id pro lançamento em vez de criar um novo, mesmo idioma de
+    // `expense.pay`.
+    final entryId = newId();
+    final saleKind = row['sale_kind'] as String;
+    await enqueue(_installments, 'pay', {
+      'id': installmentId,
+      'method': method,
+      'description': ?description,
+      'cashEntryId': entryId,
+    });
+    await putRow(_entries, {
+      'id': entryId,
+      'cash_session_id': session['id'],
+      'direction': 'in',
+      'amount': dec(moneyToDouble((row['amount'] ?? '0').toString())),
+      'method': method,
+      'category': saleKind == 'os' ? 'os_payment' : 'venda_avulsa',
+      'sale_kind': saleKind,
+      'sale_id': row['sale_id'],
+      'description': description,
+      'reversed_at': null,
+      'created_at': nowIso(),
+    });
+    final paidRow = {
+      ...row,
+      'paid_at': nowIso(),
+      'entry_id': entryId,
+      'updated_at': nowIso(),
+    };
+    await putRow(_installments, paidRow);
+    return Installment.fromJson(paidRow);
+  }
 }

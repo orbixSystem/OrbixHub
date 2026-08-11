@@ -3,8 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
+import '../../auth/presentation/session_state.dart';
+import '../../../di.dart';
+import '../../os/domain/os_models.dart';
+import '../../os/presentation/os_providers.dart';
+import '../../os/presentation/os_schedule_dialog.dart';
 import '../domain/schedule_models.dart';
 import 'schedule_providers.dart';
 
@@ -12,7 +18,6 @@ import 'schedule_providers.dart';
 final _monthFmt = DateFormat('MMMM', 'pt_BR');
 final _monthAbbrFmt = DateFormat('MMM', 'pt_BR');
 final _dayLongFmt = DateFormat("EEE', 'dd/MM/yyyy", 'pt_BR');
-final _dtFmt = DateFormat('dd/MM HH:mm');
 
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
@@ -39,6 +44,42 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
     final n = DateTime.now();
     _viewYear = n.year;
     _viewMonth = n.month;
+  }
+
+  bool _canWrite() =>
+      ref.read(sessionControllerProvider).meOrNull?.hasPermission('os.write') ??
+      false;
+
+  /// Recarrega as duas lentes: a lista do dia e a contagem do mês.
+  void _recarregarAgenda() {
+    ref.invalidate(agendaProvider);
+    ref.invalidate(monthScheduledDaysProvider);
+  }
+
+  /// Reagenda uma OS já na agenda — o diálogo é do módulo OS (dono das datas).
+  Future<void> _reagendar(AgendaItem item) async {
+    final ServiceOrder order;
+    try {
+      order = await ref.read(osRepositoryProvider).getOrder(item.order.id);
+    } on Object catch (e) {
+      if (mounted) {
+        showNeuErrorSnackBar(
+            context, e is AppException ? e.message : 'Não foi possível abrir a OS.');
+      }
+      return;
+    }
+    if (!mounted) return;
+    final ok = await showOsScheduleDialog(context, ref, order: order);
+    if (ok) _recarregarAgenda();
+  }
+
+  /// Agenda uma OS que ainda não tem data: escolhe entre as abertas e define
+  /// a janela. Sem isso a agenda era só de leitura.
+  Future<void> _agendar() async {
+    final order = await showOsPickerParaAgendar(context, ref);
+    if (order == null || !mounted) return;
+    final ok = await showOsScheduleDialog(context, ref, order: order);
+    if (ok) _recarregarAgenda();
   }
 
   void _prevMonth() => setState(() {
@@ -120,7 +161,7 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
       viewYear: _viewYear,
       viewMonth: _viewMonth,
       selectedDate: query.date,
-      markedDays: monthDots.asData?.value ?? {},
+      countByDay: monthDots.asData?.value ?? const {},
       onPrev: _prevMonth,
       onNext: _nextMonth,
       onToday: _goToday,
@@ -132,6 +173,9 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
     final events = _EventsPanel(
       selectedDate: query.date,
       agendaAsync: agendaAsync,
+      canWrite: _canWrite(),
+      onAgendar: _agendar,
+      onReagendar: _reagendar,
     );
 
     // Alvos de tutorial embrulhando as variáveis: `calendario` e `eventos` são
@@ -196,7 +240,7 @@ class _CalendarPanel extends StatelessWidget {
     required this.viewYear,
     required this.viewMonth,
     required this.selectedDate,
-    required this.markedDays,
+    required this.countByDay,
     required this.onPrev,
     required this.onNext,
     required this.onToday,
@@ -208,7 +252,7 @@ class _CalendarPanel extends StatelessWidget {
   final int viewYear;
   final int viewMonth;
   final DateTime selectedDate;
-  final Set<int> markedDays;
+  final Map<int, int> countByDay;
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onToday;
@@ -239,7 +283,7 @@ class _CalendarPanel extends StatelessWidget {
               viewYear: viewYear,
               viewMonth: viewMonth,
               selectedDate: selectedDate,
-              markedDays: markedDays,
+              countByDay: countByDay,
               onSelectDay: onSelectDay,
             ),
           ),
@@ -374,14 +418,14 @@ class _CalendarGrid extends StatelessWidget {
     required this.viewYear,
     required this.viewMonth,
     required this.selectedDate,
-    required this.markedDays,
+    required this.countByDay,
     required this.onSelectDay,
   });
 
   final int viewYear;
   final int viewMonth;
   final DateTime selectedDate;
-  final Set<int> markedDays;
+  final Map<int, int> countByDay;
   final ValueChanged<DateTime> onSelectDay;
 
   static const _headers = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
@@ -454,7 +498,7 @@ class _CalendarGrid extends StatelessWidget {
                           isOtherMonth: true,
                           isToday: false,
                           isSelected: false,
-                          hasDot: false,
+                          count: 0,
                           onTap: () {
                             final pm = viewMonth == 1 ? 12 : viewMonth - 1;
                             final py = viewMonth == 1 ? viewYear - 1 : viewYear;
@@ -471,7 +515,7 @@ class _CalendarGrid extends StatelessWidget {
                           isOtherMonth: true,
                           isToday: false,
                           isSelected: false,
-                          hasDot: false,
+                          count: 0,
                           onTap: () {
                             final nm = viewMonth == 12 ? 1 : viewMonth + 1;
                             final ny = viewMonth == 12 ? viewYear + 1 : viewYear;
@@ -485,7 +529,7 @@ class _CalendarGrid extends StatelessWidget {
                         isOtherMonth: false,
                         isToday: dayNum == todayDay,
                         isSelected: dayNum == selDay,
-                        hasDot: markedDays.contains(dayNum),
+                        count: countByDay[dayNum] ?? 0,
                         onTap: () =>
                             onSelectDay(DateTime(viewYear, viewMonth, dayNum)),
                       );
@@ -509,7 +553,7 @@ class _DayCell extends StatelessWidget {
     required this.isOtherMonth,
     required this.isToday,
     required this.isSelected,
-    required this.hasDot,
+    required this.count,
     required this.onTap,
   });
 
@@ -517,7 +561,7 @@ class _DayCell extends StatelessWidget {
   final bool isOtherMonth;
   final bool isToday;
   final bool isSelected;
-  final bool hasDot;
+  final int count;
   final VoidCallback onTap;
 
   @override
@@ -579,23 +623,34 @@ class _DayCell extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Pontinho de dia com agendamento.
+              // QUANTAS OS ocupam o dia. Um pontinho dizia só "tem alguma
+              // coisa" — o mesmo desenho para um dia tranquilo e para um dia
+              // lotado, que é exatamente a diferença que interessa na hora de
+              // decidir onde encaixar o próximo serviço.
               SizedBox(
-                height: 8,
-                child: hasDot && !isOtherMonth
+                height: 12,
+                child: count > 0 && !isOtherMonth
                     ? Center(
                         child: Container(
-                          width: 6,
-                          height: 6,
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
                           decoration: BoxDecoration(
-                            color: dotColor,
-                            shape: BoxShape.circle,
+                            color: dotColor.withValues(alpha: .18),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: TextStyle(
+                              color: dotColor,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.25,
+                            ),
                           ),
                         ),
                       )
                     : null,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
             ],
           ),
         ),
@@ -610,10 +665,18 @@ class _EventsPanel extends StatelessWidget {
   const _EventsPanel({
     required this.selectedDate,
     required this.agendaAsync,
+    required this.canWrite,
+    required this.onAgendar,
+    required this.onReagendar,
   });
 
   final DateTime selectedDate;
   final AsyncValue<AgendaResult> agendaAsync;
+
+  /// `os.write` — a agenda só LÊ a OS; quem agenda é o módulo dono dela.
+  final bool canWrite;
+  final VoidCallback onAgendar;
+  final void Function(AgendaItem) onReagendar;
 
   @override
   Widget build(BuildContext context) {
@@ -645,6 +708,23 @@ class _EventsPanel extends StatelessWidget {
                     color: neu.inkMuted,
                   ),
                 ),
+                // Filtro por responsável: existia no estado (`setAssignedTo`)
+                // e nunca era acionado por nada — "quais carros são do Carlos
+                // hoje?" não tinha resposta na tela.
+                const SizedBox(height: 12),
+                const _FiltroResponsavel(),
+                // A agenda era só de leitura: para marcar uma data era preciso
+                // achar a OS, abrir e entrar em Editar. Agendar a partir do dia
+                // que se está olhando é o caminho natural.
+                if (canWrite) ...[
+                  const SizedBox(height: 10),
+                  NeuButton(
+                    label: 'Agendar OS',
+                    icon: Icons.event_available_outlined,
+                    expanded: true,
+                    onPressed: onAgendar,
+                  ),
+                ],
               ],
             ),
           ),
@@ -662,12 +742,15 @@ class _EventsPanel extends StatelessWidget {
                 ),
               ),
               data: (result) => result.items.isEmpty
-                  ? const NeuEmptyState(
+                  ? NeuEmptyState(
                       icon: Icons.event_available_outlined,
                       title: 'Nenhum agendamento',
-                      message: 'Não há serviços agendados para este dia.',
+                      message: canWrite
+                          ? 'Nenhum carro previsto para este dia. Use '
+                              '"Agendar OS" para marcar a entrada de um.'
+                          : 'Não há serviços agendados para este dia.',
                     )
-                  : _EventsList(items: result.items),
+                  : _EventsList(items: result.items, onReagendar: onReagendar),
             ),
           ),
         ],
@@ -679,9 +762,10 @@ class _EventsPanel extends StatelessWidget {
 // ─── Lista de eventos ─────────────────────────────────────────────────────────
 
 class _EventsList extends StatelessWidget {
-  const _EventsList({required this.items});
+  const _EventsList({required this.items, this.onReagendar});
 
   final List<AgendaItem> items;
+  final void Function(AgendaItem)? onReagendar;
 
   @override
   Widget build(BuildContext context) {
@@ -689,7 +773,12 @@ class _EventsList extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       itemCount: items.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, i) => _EventCard(item: items[i], index: i),
+      itemBuilder: (ctx, i) => _EventCard(
+        item: items[i],
+        index: i,
+        onReagendar:
+            onReagendar == null ? null : () => onReagendar!(items[i]),
+      ),
     );
   }
 }
@@ -697,10 +786,22 @@ class _EventsList extends StatelessWidget {
 // ─── Card de evento ───────────────────────────────────────────────────────────
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.item, required this.index});
+  const _EventCard({
+    required this.item,
+    required this.index,
+    this.onReagendar,
+  });
 
   final AgendaItem item;
   final int index;
+
+  /// `null` sem `os.write` — quem só lê a agenda não reagenda.
+  final VoidCallback? onReagendar;
+
+  static String _dia(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}';
+  }
 
   /// Cor + tint semânticos do status (design system).
   (Color, Color) _statusColors(NeuTokens neu, String status) =>
@@ -732,6 +833,21 @@ class _EventCard extends StatelessWidget {
         ? DateTime.tryParse(item.scheduledEnd!)?.toLocal()
         : null;
     final (statusColor, statusTint) = _statusColors(neu, item.order.status);
+    final identidade = [
+      ?item.order.customerName,
+      if ((item.order.subjectLabel ?? '').isNotEmpty) item.order.subjectLabel!,
+    ].join(' · ');
+    // Mesma leitura da lista de OS: janela "10/08 → 15/08"; sem fim, um dia só.
+    final janela = start == null
+        ? 'Sem data'
+        : (end == null || _dia(end) == _dia(start)
+            ? _dia(start)
+            : '${_dia(start)} → ${_dia(end)}');
+    // Atraso só existe em OS viva — entregue/cancelada não estoura prazo.
+    final viva = item.order.status != 'entregue' &&
+        item.order.status != 'cancelada' &&
+        item.order.status != 'concluida';
+    final atrasada = viva && end != null && end.isBefore(DateTime.now());
 
     return NeuCard(
       padding: const EdgeInsets.all(12),
@@ -795,38 +911,25 @@ class _EventCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          // Cliente
-          if (item.order.customerName != null) ...[
+          // Cliente e veículo numa linha só: juntos IDENTIFICAM o carro, e
+          // separados em duas linhas com ícone cada só alongavam o card.
+          if (identidade.isNotEmpty) ...[
             const SizedBox(height: 8),
             _InfoRow(
-              icon: Icons.person_outline_rounded,
-              value: item.order.customerName!,
-            ),
-          ],
-          // Veículo
-          if (item.order.subjectLabel != null) ...[
-            const SizedBox(height: 4),
-            _InfoRow(
               icon: Icons.directions_car_outlined,
-              value: item.order.subjectLabel!,
+              value: identidade,
             ),
           ],
-          // Datas estimadas
-          if (start != null) ...[
-            const SizedBox(height: 4),
-            _InfoRow(
-              icon: Icons.play_circle_outline_rounded,
-              value: 'Início: ${_dtFmt.format(start)}',
-            ),
-          ],
-          if (end != null) ...[
-            const SizedBox(height: 4),
-            _InfoRow(
-              icon: Icons.stop_circle_outlined,
-              value: 'Fim: ${_dtFmt.format(end)}',
-            ),
-          ],
-          // Responsável
+          // A JANELA (entra → sai), não duas linhas de data. A "duração
+          // estimada" saiu: numa OS de vários dias virava "120h", que não diz
+          // nada sobre o serviço — a janela é a informação real.
+          const SizedBox(height: 4),
+          _InfoRow(
+            icon: atrasada ? Icons.event_busy_outlined : Icons.event_outlined,
+            value: atrasada ? '$janela · atrasada' : janela,
+            color: atrasada ? neu.danger : null,
+            forte: atrasada,
+          ),
           if (item.assignedToName != null) ...[
             const SizedBox(height: 4),
             _InfoRow(
@@ -834,16 +937,15 @@ class _EventCard extends StatelessWidget {
               value: item.assignedToName!,
             ),
           ],
-          // Duração estimada
-          if (item.estimatedDuration != null) ...[
+          if (onReagendar != null) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
-              child: NeuStatusChip(
-                label: _fmtDuration(item.estimatedDuration!),
-                color: neu.inkMuted,
-                tint: neu.surfaceHi,
-                icon: Icons.schedule_rounded,
+              child: NeuButton(
+                label: 'Reagendar',
+                icon: Icons.edit_calendar_outlined,
+                kind: NeuButtonKind.secondary,
+                onPressed: onReagendar,
               ),
             ),
           ],
@@ -852,12 +954,6 @@ class _EventCard extends StatelessWidget {
     );
   }
 
-  String _fmtDuration(int min) {
-    if (min < 60) return '${min}min';
-    final h = min ~/ 60;
-    final m = min % 60;
-    return m == 0 ? '${h}h' : '${h}h${m}min';
-  }
 }
 
 // ─── Linha de info (ícone + valor) ────────────────────────────────────────────
@@ -866,24 +962,29 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.icon,
     required this.value,
+    this.color,
+    this.forte = false,
   });
 
   final IconData icon;
   final String value;
+  final Color? color;
+  final bool forte;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
     return Row(
       children: [
-        Icon(icon, size: 13, color: neu.inkMuted),
+        Icon(icon, size: 13, color: color ?? neu.inkMuted),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             value,
             style: TextStyle(
               fontSize: 12,
-              color: neu.inkMuted,
+              color: color ?? neu.inkMuted,
+              fontWeight: forte ? FontWeight.w700 : FontWeight.w400,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1026,6 +1127,47 @@ class _MonthChip extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Filtro "quem é o responsável" da agenda. Some quando a oficina não tem
+/// equipe cadastrada — um seletor com uma opção só é ruído.
+class _FiltroResponsavel extends ConsumerWidget {
+  const _FiltroResponsavel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final membros = ref.watch(agendaMembersProvider).value ?? const [];
+    if (membros.isEmpty) return const SizedBox.shrink();
+    final selecionado = ref.watch(agendaQueryProvider).assignedTo;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: DropdownButtonFormField<String?>(
+        initialValue: selecionado,
+        isExpanded: true,
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+        dropdownColor: neu.surface,
+        icon: Icon(Icons.expand_more_rounded, color: neu.inkMuted),
+        style: TextStyle(color: neu.ink, fontSize: 14),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          filled: false,
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(vertical: 12),
+          prefixIcon: Icon(Icons.engineering_outlined, size: 18),
+        ),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Toda a equipe')),
+          for (final m in membros)
+            DropdownMenuItem(value: m.id, child: Text(m.name)),
+        ],
+        onChanged: (v) =>
+            ref.read(agendaQueryProvider.notifier).setAssignedTo(v),
       ),
     );
   }

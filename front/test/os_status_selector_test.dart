@@ -15,12 +15,13 @@ import 'package:orbixhub_front/features/os/domain/os_models.dart';
 import 'package:orbixhub_front/features/os/presentation/os_detail_screen.dart';
 import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
 
-/// O painel de status da ficha da OS: UM indicador explícito do status atual
-/// (não tocável) + botões de AÇÃO com verbos (Finalizar/Cancelar/Reabrir), não
-/// um seletor de 3 estados (que dava a impressão de a OS estar nos 3 ao mesmo
-/// tempo). Tocar numa ação avança AUTOMATICAMENTE pelo caminho mais curto de
-/// passos reais da FSM, preservando os efeitos colaterais de cada passo (a
-/// baixa de estoque dispara por transição real). Sem gate manual de
+/// A barra de ações da ficha da OS: UM indicador de status no cabeçalho (não
+/// tocável) + UMA ação primária rotulada (Finalizar OS / Reabrir OS); o resto
+/// — inclusive cancelar, que é destrutiva — fica separado: no celular atrás do
+/// menu "Mais" (onde a largura é escassa), no desktop à vista mas marcado.
+/// Tocar na ação avança AUTOMATICAMENTE pelo caminho mais
+/// curto de passos reais da FSM, preservando os efeitos colaterais de cada
+/// passo (a baixa de estoque dispara por transição real). Sem gate manual de
 /// aprovação: a FSM já tem saída direta de 'aberta' pra 'em_execucao'.
 class _OnlineConn extends ConnectivityController {
   @override
@@ -93,7 +94,7 @@ Widget _wrap(
 
 void main() {
   testWidgets(
-    'aberta: badge mostra "Em andamento" e o botão é "Finalizar" — avança até entregue, sem gate de confirmação',
+    'aberta: badge mostra "Em andamento" e o botão é "Finalizar OS" — avança até entregue, sem gate de confirmação',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('aberta')]);
       await tester.pumpWidget(
@@ -109,7 +110,7 @@ void main() {
       // "Confirmar entrega?" não existe mais — era um passo sem sentido
       // próprio. Finalizar age direto (a OS de teste não tem módulo cashier,
       // então não há diálogo de pagamento pra aguardar também).
-      await tester.tap(find.text('Finalizar'));
+      await tester.tap(find.text('Finalizar OS'));
       await tester.pumpAndSettle();
 
       // A FSM tem uma saída DIRETA de 'aberta' pra 'em_execucao' — o caminho
@@ -119,14 +120,18 @@ void main() {
     },
   );
 
-  testWidgets('aberta → toca "Cancelar OS": pede confirmação e cancela num passo só',
-      (tester) async {
+  testWidgets(
+      'cancelar é destrutiva e separada da primária: pede confirmação e '
+      'cancela num passo só', (tester) async {
     final repo = _RecordingOsRepository(orders: [_os('aberta')]);
     await tester.pumpWidget(
       _wrap(const OsDetailScreen(orderId: 'os-1'), repo),
     );
     await tester.pumpAndSettle();
 
+    // No desktop as ações extras ficam todas à vista (o menu "Mais" é só do
+    // celular) — mas cancelar vem marcada como destrutiva e longe da primária.
+    expect(find.text('Mais'), findsNothing);
     await tester.tap(find.text('Cancelar OS'));
     await tester.pumpAndSettle();
 
@@ -139,7 +144,7 @@ void main() {
   });
 
   testWidgets(
-    'concluida: badge mostra "Finalizada" e o único botão é "Finalizar" (falta o último passo)',
+    'concluida: badge mostra "Finalizada" e o único botão é "Finalizar OS" (falta o último passo)',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('concluida')]);
       await tester.pumpWidget(
@@ -151,7 +156,7 @@ void main() {
       // Nem "Cancelar OS" (a FSM não permite mais).
       expect(find.text('Cancelar OS'), findsNothing);
 
-      await tester.tap(find.text('Finalizar'));
+      await tester.tap(find.text('Finalizar OS'));
       await tester.pumpAndSettle();
 
       expect(repo.calls, ['entregue']);
@@ -168,9 +173,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Finalizada'), findsOneWidget);
-      expect(find.text('Finalizar'), findsNothing);
+      expect(find.text('Finalizar OS'), findsNothing);
       expect(find.text('Cancelar OS'), findsNothing);
-      expect(find.text('OS entregue — finalizada (somente leitura).'),
+      expect(find.text('OS entregue — somente leitura.'),
           findsOneWidget);
     },
   );
@@ -185,7 +190,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Sem permissão, nenhum botão de ação aparece — só o indicador e a nota.
-      expect(find.text('Reabrir'), findsNothing);
+      expect(find.text('Reabrir OS'), findsNothing);
       expect(find.text('OS cancelada.'), findsOneWidget);
     },
   );
@@ -199,7 +204,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Reabrir'));
+      await tester.tap(find.text('Reabrir OS'));
       await tester.pumpAndSettle();
 
       expect(repo.calls, ['aberta']);

@@ -1227,16 +1227,38 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     return '${l.day} de ${_months[l.month - 1]}. ${l.year} • $hh:$mm';
   }
 
+  /// Carimbo de tempo da linha do tempo: **hora exata sempre**, com o "há
+  /// quanto tempo" só como reforço no que é recente.
+  ///
+  /// Isto aqui é um registro do que foi feito no veículo — "há 3 h" não
+  /// documenta nada: quem lê amanhã não sabe se foi às 9h ou às 15h, e quem
+  /// contesta um serviço precisa da hora. A referência relativa continua ao
+  /// lado enquanto é útil (hoje/ontem), e some depois, quando só a data
+  /// importa.
   String _relative(String? iso) {
     if (iso == null || iso.isEmpty) return '';
     final d = DateTime.tryParse(iso);
     if (d == null) return '';
-    final diff = DateTime.now().difference(d.toLocal());
-    if (diff.inMinutes < 1) return 'agora';
-    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'há ${diff.inHours} h';
-    if (diff.inDays < 30) return 'há ${diff.inDays} d';
-    return _formatDate(iso);
+    final l = d.toLocal();
+    final hh = l.hour.toString().padLeft(2, '0');
+    final mm = l.minute.toString().padLeft(2, '0');
+    final hora = '$hh:$mm';
+
+    final agora = DateTime.now();
+    final dia = DateTime(l.year, l.month, l.day);
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    final diasAtras = hoje.difference(dia).inDays;
+
+    if (diasAtras == 0) {
+      final diff = agora.difference(l);
+      if (diff.inMinutes < 1) return '$hora · agora';
+      if (diff.inMinutes < 60) return '$hora · há ${diff.inMinutes} min';
+      return '$hora · hoje';
+    }
+    if (diasAtras == 1) return '$hora · ontem';
+    final dd = l.day.toString().padLeft(2, '0');
+    final mo = l.month.toString().padLeft(2, '0');
+    return '$dd/$mo $hora';
   }
 }
 

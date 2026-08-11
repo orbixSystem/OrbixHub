@@ -19,7 +19,8 @@ type DecimalIn = Prisma.Decimal | number;
 export type CashierSyncEntity =
   | 'cash_session'
   | 'cash_entry'
-  | 'cash_expense_template';
+  | 'cash_expense_template'
+  | 'receivable_installment';
 
 /** Modelo de despesa fixa a inserir. `amount: 0` = "o valor varia". */
 export interface NewTemplateData {

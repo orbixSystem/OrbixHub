@@ -557,9 +557,15 @@ export class OsService {
         uploaded_by: user.userId,
       });
       // Evento 'photo' na timeline (visível ao cliente) — mesma tx.
+      //
+      // A LEGENDA vira o texto do evento quando existe: é ela que diz o que
+      // foi feito ("Troquei a correia dentada"). Sem isso o cliente lia
+      // "Foto adicionada" e tinha de deduzir o serviço pela imagem — e o
+      // mecânico precisaria de duas ações (subir a foto e escrever uma nota)
+      // para registrar UM acontecimento.
       await this.repo.createEvent(user.tenantId, orderId, {
         kind: 'photo',
-        message: 'Foto adicionada',
+        message: caption?.trim() || 'Foto adicionada',
         photoId: created.id,
         visiblePublic: true,
         createdBy: user.userId,

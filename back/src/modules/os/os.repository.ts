@@ -346,31 +346,30 @@ export class OsRepository {
     });
   }
 
-  /** Itens com agendamento no período (para a tela de agenda). */
-  async getScheduledItems(filter: AgendaFilter) {
-    const db = this.tenant.getClient();
-    return db.service_order_item.findMany({
-      where: {
-        scheduled_start: { gte: filter.from, lt: filter.to },
-        scheduled_end: { not: null },
-        ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
-      },
-      include: {
-        order: {
-          select: { id: true, number: true, status: true, customer_name: true, subject_label: true },
-        },
-      },
-      orderBy: [{ scheduled_start: 'asc' }, { assigned_to: 'asc' }],
-    });
-  }
-
-  /** OSes com agendamento (scheduled_start) no período — alimenta a agenda. */
+  /**
+   * OSes cuja janela de serviço CRUZA o período — alimenta a agenda.
+   *
+   * A regra é de SOBREPOSIÇÃO, não de início dentro do período. Antes o filtro
+   * era `scheduled_start` dentro do range: um carro que entra dia 10 e sai dia
+   * 15 aparecia só no dia 10 e sumia da agenda nos outros cinco — justamente
+   * os dias em que ele está na oficina.
+   *
+   * E `scheduled_end` não é mais obrigatório. Ele é opcional no cadastro da OS
+   * (as duas datas são), então exigir fim não-nulo escondia da agenda toda OS
+   * com só a data de entrada — o caso mais comum de quem preenche rápido. Sem
+   * fim, a OS é tratada como um PONTO no tempo (aparece no dia do início).
+   */
   async getScheduledOrders(filter: AgendaFilter) {
     const db = this.tenant.getClient();
     return db.service_order.findMany({
       where: {
-        scheduled_start: { gte: filter.from, lt: filter.to },
-        scheduled_end: { not: null },
+        // Começou antes do fim do período…
+        scheduled_start: { not: null, lt: filter.to },
+        // …e ainda não tinha terminado quando o período começou.
+        OR: [
+          { scheduled_end: { gte: filter.from } },
+          { scheduled_end: null, scheduled_start: { gte: filter.from } },
+        ],
         ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
       },
       select: {
