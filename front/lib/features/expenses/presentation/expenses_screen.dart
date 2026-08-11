@@ -737,39 +737,7 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   /// outro conjunto de ações. Editar e dar baixa numa conta excluída não
   /// significam nada, e oferecê-las convidaria a mexer no lixo em vez de
   /// restaurar primeiro.
-  Future<void> _abrirAcoesLixeira() async {
-    final e = widget.despesa;
-    final acao = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.restore_rounded, color: ctx.neu.success),
-              title: const Text('Restaurar'),
-              subtitle: Text(
-                e.parcelada
-                    ? 'Devolve a compra inteira para a lista'
-                    : 'Devolve esta conta para a lista',
-              ),
-              onTap: () => Navigator.pop(ctx, 'restaurar'),
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_forever_rounded, color: ctx.neu.danger),
-              title: Text(
-                'Apagar de vez',
-                style: TextStyle(color: ctx.neu.danger),
-              ),
-              subtitle: const Text('Não tem como desfazer'),
-              onTap: () => Navigator.pop(ctx, 'apagar'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (acao == null || !mounted) return;
+  Future<void> _executarAcaoLixeira(String acao) async {
     switch (acao) {
       case 'restaurar':
         await _restaurar();
@@ -847,39 +815,7 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
   /// A ideia original: conta a pagar se repete de forma irregular (o mesmo
   /// fornecedor, valor diferente), e recadastrar do zero era o caminho mais
   /// usado e o mais chato.
-  Future<void> _abrirAcoes() async {
-    final acao = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Editar'),
-              onTap: () => Navigator.pop(ctx, 'editar'),
-            ),
-            // DUPLICAR — desligado a pedido do dono do produto.
-            // ListTile(
-            //   leading: const Icon(Icons.copy_all_outlined),
-            //   title: const Text('Duplicar'),
-            //   subtitle: const Text('Cria outra conta com os mesmos dados'),
-            //   onTap: () => Navigator.pop(ctx, 'duplicar'),
-            // ),
-            ListTile(
-              leading: Icon(Icons.delete_outline, color: context.neu.danger),
-              title: Text(
-                'Excluir',
-                style: TextStyle(color: context.neu.danger),
-              ),
-              onTap: () => Navigator.pop(ctx, 'excluir'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (acao == null || !mounted) return;
+  Future<void> _executarAcao(String acao) async {
     switch (acao) {
       case 'editar':
         final g = widget.grupo;
@@ -896,13 +832,12 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
         );
         if (ok) ref.invalidate(despesasDoMesProvider);
       // DUPLICAR — desligado a pedido do dono do produto. Descomente junto com
-      // o ListTile lá em cima.
+      // o item do menu lá embaixo.
       //
       // `modelo`, não `atual`: o formulário preenche os campos a partir desta
       // conta mas grava uma NOVA. Passar em `atual` com o id apagado — como era
       // antes — só fazia o formulário entrar em modo edição e salvar num
-      // `PATCH /expenses/` sem id, que o backend responde com 404. A cópia nasce
-      // em aberto porque a criação sequer manda os campos de baixa.
+      // `PATCH /expenses/` sem id, que o backend responde com 404.
       //
       // case 'duplicar':
       //   final ok =
@@ -1288,13 +1223,13 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                   // Editar / excluir (ou restaurar / apagar de vez, na lixeira).
                   // Botão VISÍVEL, não gesto escondido: descobrir a ação por
                   // toque longo não é descoberta, é sorte.
-                  NeuIconButton(
-                    icon: Icons.more_vert_rounded,
-                    tooltip: 'Mais ações',
-                    size: context.isMobile ? 38 : 48,
-                    onPressed: _ocupado
-                        ? null
-                        : (widget.naLixeira ? _abrirAcoesLixeira : _abrirAcoes),
+                  _MenuAcoesDespesa(
+                    naLixeira: widget.naLixeira,
+                    parcelada: widget.despesa.parcelada,
+                    habilitado: !_ocupado,
+                    onSelected: widget.naLixeira
+                        ? _executarAcaoLixeira
+                        : _executarAcao,
                   ),
                 ],
               ),
@@ -1368,6 +1303,109 @@ class _Erro extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Ações da linha de despesa nos MESMOS três pontinhos da lista de OS.
+///
+/// Era um bottom sheet: no desktop uma gaveta subia do rodapé da janela para
+/// oferecer duas opções — longe do clique, cobrindo a tela e sem relação com a
+/// linha que a abriu. O menu ancorado aparece onde se tocou e some ao escolher,
+/// que é o comportamento que o resto do app já usa.
+class _MenuAcoesDespesa extends StatelessWidget {
+  const _MenuAcoesDespesa({
+    required this.naLixeira,
+    required this.parcelada,
+    required this.habilitado,
+    required this.onSelected,
+  });
+
+  final bool naLixeira;
+  final bool parcelada;
+  final bool habilitado;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return PopupMenuButton<String>(
+      tooltip: 'Mais ações',
+      enabled: habilitado,
+      padding: EdgeInsets.zero,
+      color: neu.surface,
+      position: PopupMenuPosition.under,
+      icon: Icon(Icons.more_vert_rounded, size: 20, color: neu.inkMuted),
+      onSelected: onSelected,
+      itemBuilder: (_) => naLixeira
+          // LIXEIRA: outro conjunto de ações, não o mesmo com itens a mais —
+          // editar ou dar baixa numa conta excluída não significa nada.
+          ? [
+              PopupMenuItem(
+                value: 'restaurar',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      Icon(Icons.restore_rounded, color: neu.success),
+                  title: const Text('Restaurar'),
+                  subtitle: Text(
+                    parcelada
+                        ? 'Devolve a compra inteira'
+                        : 'Devolve para a lista',
+                  ),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'apagar',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      Icon(Icons.delete_forever_rounded, color: neu.danger),
+                  title: Text(
+                    'Apagar de vez',
+                    style: TextStyle(color: neu.danger),
+                  ),
+                  subtitle: const Text('Não tem como desfazer'),
+                ),
+              ),
+            ]
+          : [
+              const PopupMenuItem(
+                value: 'editar',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('Editar'),
+                ),
+              ),
+              // DUPLICAR — desligado a pedido do dono do produto. Descomente
+              // junto com o `case` em `_executarAcao`.
+              //
+              // const PopupMenuItem(
+              //   value: 'duplicar',
+              //   child: ListTile(
+              //     dense: true,
+              //     contentPadding: EdgeInsets.zero,
+              //     leading: Icon(Icons.copy_all_outlined),
+              //     title: Text('Duplicar'),
+              //   ),
+              // ),
+              PopupMenuItem(
+                value: 'excluir',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.delete_outline, color: neu.danger),
+                  title: Text(
+                    'Excluir',
+                    style: TextStyle(color: neu.danger),
+                  ),
+                ),
+              ),
+            ],
     );
   }
 }

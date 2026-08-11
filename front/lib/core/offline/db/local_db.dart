@@ -219,10 +219,7 @@ class LocalDb extends _$LocalDb {
     final rows = await (select(outbox)
           ..where((t) => t.entity.equals(entity) & t.status.isIn(statuses)))
         .get();
-    return {
-      for (final r in rows)
-        if (rowIdOfPayload(r.payload) case final String id) id,
-    };
+    return {for (final r in rows) ...rowIdsOfPayload(r.payload)};
   }
 
   /// Id da LINHA endereçada por um payload de outbox: `id` (creates/updates) ou,
@@ -231,9 +228,28 @@ class LocalDb extends _$LocalDb {
   /// DTO do item no servidor). Sem isto, uma OS com item adicionado offline não
   /// seria considerada "suja" e a tela leria o servidor (sem o item).
   static String? rowIdOfPayload(String payload) {
+    final ids = rowIdsOfPayload(payload);
+    return ids.isEmpty ? null : ids.first;
+  }
+
+  /// TODAS as linhas endereçadas por um payload de outbox.
+  ///
+  /// Quase toda op suja UMA linha (`id`/`orderId`), mas há op que nasce com
+  /// VÁRIAS de uma vez: `receivable_installment.create_plan` cria o plano
+  /// inteiro numa tacada e carrega os uuids em `installmentIds`. Enxergando só
+  /// a primeira chave, essas parcelas não contavam como sujas — e aí, com a
+  /// rede de volta mas o push ainda na fila, a tela ia ao servidor buscar
+  /// parcelas que ele ainda não conhece: a lista voltava vazia (o plano
+  /// "sumia") e quitar uma delas dava 404 "parcela não encontrada", com o
+  /// operador olhando para ela na tela.
+  static Set<String> rowIdsOfPayload(String payload) {
     final map = jsonDecode(payload) as Map<String, dynamic>;
+    final multiplos = map['installmentIds'];
+    if (multiplos is List) {
+      return {for (final v in multiplos) if (v is String) v};
+    }
     final id = map['id'] ?? map['orderId'];
-    return id is String ? id : null;
+    return id is String ? {id} : const <String>{};
   }
 
   /// `true` se [id] de [entity] tem mutação local não confirmada (ver [unsyncedIds]).

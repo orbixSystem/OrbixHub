@@ -103,7 +103,7 @@ void main() {
   });
 
   group('títulos de um cliente', () {
-    testWidgets('abre os títulos separados com os itens de cada',
+    testWidgets('abre os títulos separados, cada um levando ao detalhe real',
         (tester) async {
       tester.view.physicalSize = const Size(1200, 1400);
       tester.view.devicePixelRatio = 1;
@@ -119,10 +119,10 @@ void main() {
       // Os dois títulos, cada um com seu número...
       expect(find.text('OS-0042'), findsOneWidget);
       expect(find.text('OS-0051'), findsOneWidget);
-      // ...e o que foi vendido em cada (a pergunta "de quais serviços?").
-      expect(find.text('Troca de óleo'), findsOneWidget);
-      expect(find.text('4× Óleo 5W30'), findsOneWidget);
-      expect(find.text('Alinhamento'), findsOneWidget);
+      // ...e o convite claro para abrir o detalhe de verdade (tela da OS ou
+      // diálogo da venda, onde os itens de fato aparecem — não duplicados
+      // aqui, senão o card vira um resumo confuso do que já existe lá).
+      expect(find.text('Ver detalhes'), findsNWidgets(2));
     });
 
     testWidgets('título parcial mostra quanto já foi pago', (tester) async {

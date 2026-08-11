@@ -1094,7 +1094,10 @@ as String?,
 /// @nodoc
 mixin _$PublicEvent {
 
- String get kind; String? get message; String? get statusSnapshot; String? get createdAt;
+ String get kind; String? get message; String? get statusSnapshot; String? get createdAt;/// Foto DESTE evento, quando ele nasceu de um anexo. Deixa a imagem
+/// aparecer no momento em que foi tirada, em vez de só numa galeria à
+/// parte — é o que transforma a lista num acompanhamento de verdade.
+ String? get photoUrl;
 /// Create a copy of PublicEvent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1107,16 +1110,16 @@ $PublicEventCopyWith<PublicEvent> get copyWith => _$PublicEventCopyWithImpl<Publ
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicEvent&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PublicEvent&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,kind,message,statusSnapshot,createdAt);
+int get hashCode => Object.hash(runtimeType,kind,message,statusSnapshot,createdAt,photoUrl);
 
 @override
 String toString() {
-  return 'PublicEvent(kind: $kind, message: $message, statusSnapshot: $statusSnapshot, createdAt: $createdAt)';
+  return 'PublicEvent(kind: $kind, message: $message, statusSnapshot: $statusSnapshot, createdAt: $createdAt, photoUrl: $photoUrl)';
 }
 
 
@@ -1127,7 +1130,7 @@ abstract mixin class $PublicEventCopyWith<$Res>  {
   factory $PublicEventCopyWith(PublicEvent value, $Res Function(PublicEvent) _then) = _$PublicEventCopyWithImpl;
 @useResult
 $Res call({
- String kind, String? message, String? statusSnapshot, String? createdAt
+ String kind, String? message, String? statusSnapshot, String? createdAt, String? photoUrl
 });
 
 
@@ -1144,12 +1147,13 @@ class _$PublicEventCopyWithImpl<$Res>
 
 /// Create a copy of PublicEvent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? createdAt = freezed,Object? photoUrl = freezed,}) {
   return _then(_self.copyWith(
 kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,statusSnapshot: freezed == statusSnapshot ? _self.statusSnapshot : statusSnapshot // ignore: cast_nullable_to_non_nullable
 as String?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -1235,10 +1239,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt,  String? photoUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PublicEvent() when $default != null:
-return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);case _:
+return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt,_that.photoUrl);case _:
   return orElse();
 
 }
@@ -1256,10 +1260,10 @@ return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);c
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt,  String? photoUrl)  $default,) {final _that = this;
 switch (_that) {
 case _PublicEvent():
-return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);case _:
+return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt,_that.photoUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1276,10 +1280,10 @@ return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);c
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String kind,  String? message,  String? statusSnapshot,  String? createdAt,  String? photoUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _PublicEvent() when $default != null:
-return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);case _:
+return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt,_that.photoUrl);case _:
   return null;
 
 }
@@ -1291,13 +1295,17 @@ return $default(_that.kind,_that.message,_that.statusSnapshot,_that.createdAt);c
 @JsonSerializable()
 
 class _PublicEvent implements PublicEvent {
-  const _PublicEvent({this.kind = 'note', this.message, this.statusSnapshot, this.createdAt});
+  const _PublicEvent({this.kind = 'note', this.message, this.statusSnapshot, this.createdAt, this.photoUrl});
   factory _PublicEvent.fromJson(Map<String, dynamic> json) => _$PublicEventFromJson(json);
 
 @override@JsonKey() final  String kind;
 @override final  String? message;
 @override final  String? statusSnapshot;
 @override final  String? createdAt;
+/// Foto DESTE evento, quando ele nasceu de um anexo. Deixa a imagem
+/// aparecer no momento em que foi tirada, em vez de só numa galeria à
+/// parte — é o que transforma a lista num acompanhamento de verdade.
+@override final  String? photoUrl;
 
 /// Create a copy of PublicEvent
 /// with the given fields replaced by the non-null parameter values.
@@ -1312,16 +1320,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicEvent&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PublicEvent&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.message, message) || other.message == message)&&(identical(other.statusSnapshot, statusSnapshot) || other.statusSnapshot == statusSnapshot)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.photoUrl, photoUrl) || other.photoUrl == photoUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,kind,message,statusSnapshot,createdAt);
+int get hashCode => Object.hash(runtimeType,kind,message,statusSnapshot,createdAt,photoUrl);
 
 @override
 String toString() {
-  return 'PublicEvent(kind: $kind, message: $message, statusSnapshot: $statusSnapshot, createdAt: $createdAt)';
+  return 'PublicEvent(kind: $kind, message: $message, statusSnapshot: $statusSnapshot, createdAt: $createdAt, photoUrl: $photoUrl)';
 }
 
 
@@ -1332,7 +1340,7 @@ abstract mixin class _$PublicEventCopyWith<$Res> implements $PublicEventCopyWith
   factory _$PublicEventCopyWith(_PublicEvent value, $Res Function(_PublicEvent) _then) = __$PublicEventCopyWithImpl;
 @override @useResult
 $Res call({
- String kind, String? message, String? statusSnapshot, String? createdAt
+ String kind, String? message, String? statusSnapshot, String? createdAt, String? photoUrl
 });
 
 
@@ -1349,12 +1357,13 @@ class __$PublicEventCopyWithImpl<$Res>
 
 /// Create a copy of PublicEvent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? kind = null,Object? message = freezed,Object? statusSnapshot = freezed,Object? createdAt = freezed,Object? photoUrl = freezed,}) {
   return _then(_PublicEvent(
 kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,message: freezed == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String?,statusSnapshot: freezed == statusSnapshot ? _self.statusSnapshot : statusSnapshot // ignore: cast_nullable_to_non_nullable
 as String?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String?,photoUrl: freezed == photoUrl ? _self.photoUrl : photoUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

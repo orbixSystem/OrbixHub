@@ -268,6 +268,20 @@ class Installment {
         createdAt: json['created_at'] as String?,
       );
 
+  /// Espelho local (row-store) — mesma shape do `fromJson`, pra o offline
+  /// conseguir guardar/reler a mesma linha.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'sale_kind': saleKind,
+        'sale_id': saleId,
+        'amount': amount,
+        'due_date': dueDate,
+        'paid_at': paidAt,
+        'entry_id': entryId,
+        'notes': notes,
+        'created_at': createdAt,
+      };
+
   double get valor => moneyToDouble(amount);
 
   InstallmentStatus get status {

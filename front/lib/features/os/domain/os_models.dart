@@ -217,10 +217,31 @@ abstract class ServiceOrder with _$ServiceOrder {
     @Default(<OrderEvent>[]) List<OrderEvent> events,
     @Default(<OrderPhoto>[]) List<OrderPhoto> photos,
     @JsonKey(name: 'created_at') String? createdAt,
+    // Resumo de pagamento — o mesmo objeto que já vem embutido em toda
+    // resposta de OS (derivado do caixa, "aponta, não invade": a OS não sabe
+    // COMO o pagamento é calculado, só reflete o resultado). `paymentStatus`
+    // acima é só a tag; aqui vêm os valores para "Finalizar" oferecer
+    // recebimento e para o botão "Receber pagamento" saber o saldo.
+    OsPaymentSummary? payment,
   }) = _ServiceOrder;
 
   factory ServiceOrder.fromJson(Map<String, dynamic> json) =>
       _$ServiceOrderFromJson(json);
+}
+
+/// Total/pago/saldo da OS — espelha `PaymentDetail` do módulo caixa (mesma
+/// forma, sem a lista de lançamentos: a OS só precisa dos números).
+@freezed
+abstract class OsPaymentSummary with _$OsPaymentSummary {
+  const factory OsPaymentSummary({
+    @Default(0) num total,
+    @Default(0) num paid,
+    @Default(0) num balance,
+    @Default('a_receber') String status,
+  }) = _OsPaymentSummary;
+
+  factory OsPaymentSummary.fromJson(Map<String, dynamic> json) =>
+      _$OsPaymentSummaryFromJson(json);
 }
 
 /// Página de ordens (`GET /os/orders`).

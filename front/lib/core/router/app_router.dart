@@ -47,7 +47,17 @@ import 'navigator_key.dart';
 const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
 
 bool _isPublic(String location) =>
-    _authRoutes.contains(location) ||
+    _authRoutes.contains(location) || _isPublicContent(location);
+
+/// CONTEÚDO público: páginas que não são do app e não dependem de sessão
+/// nenhuma — o acompanhamento que o cliente da oficina recebe por link e o
+/// aceite de convite.
+///
+/// Separado das telas de auth de propósito: estas aqui não podem sequer
+/// esperar o boot da sessão. Quem abre o link é o cliente da oficina, que não
+/// tem conta — parar no splash e depois "resolver" para dashboard ou login é
+/// mandá-lo para dentro de um sistema que não é dele.
+bool _isPublicContent(String location) =>
     location.startsWith('/t/') ||
     location.startsWith('/convite/') ||
     // Vitrine do design system — só existe em dev (kDevTools).
@@ -71,6 +81,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final session = ref.read(sessionControllerProvider);
       final location = state.matchedLocation;
+
+      // Conteúdo público ANTES de qualquer coisa — inclusive do splash.
+      //
+      // Este `return` estava depois do bloco de boot abaixo, e era o bug do
+      // link do cliente: ao abrir /t/<token> a sessão ainda está carregando,
+      // então o redirect mandava para /splash e PERDIA o destino; quando o
+      // boot terminava, o app já estava no splash e seguia para / (dashboard)
+      // ou /login. O cliente clicava no link do acompanhamento e caía dentro
+      // do Orbix. Estas páginas não dependem de sessão: nunca redirecionam.
+      if (_isPublicContent(location)) return null;
 
       // While bootstrapping, park on the splash.
       if (session is SessionLoading) {

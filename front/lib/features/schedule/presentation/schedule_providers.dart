@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../os/domain/os_models.dart';
+import '../../os/presentation/os_providers.dart';
 import '../domain/schedule_models.dart';
 import '../domain/schedule_repository.dart';
 
@@ -36,8 +38,6 @@ class AgendaQueryNotifier extends Notifier<AgendaQuery> {
   @override
   AgendaQuery build() => AgendaQuery(date: _today());
 
-  void prevDay() => state = state.copyWith(date: state.date.subtract(const Duration(days: 1)));
-  void nextDay() => state = state.copyWith(date: state.date.add(const Duration(days: 1)));
   void setDate(DateTime d) => state = state.copyWith(date: d);
   void setAssignedTo(String? id) => state = state.copyWith(assignedTo: id);
 
@@ -77,21 +77,69 @@ class MonthKey {
   int get hashCode => Object.hash(year, month);
 }
 
-/// Conjunto de dias do mês que possuem pelo menos um item agendado.
-/// Usado para renderizar os pontos no calendário.
+/// Quantas OS ocupam cada dia do mês (`dia → contagem`).
+///
+/// Conta a JANELA inteira, não só o dia de início: um carro que entra dia 10 e
+/// sai dia 15 está na oficina nos seis dias, e antes marcava só o dia 10 — o
+/// calendário mostrava um mês quase vazio enquanto a oficina estava cheia.
+///
+/// Devolve contagem (não um conjunto) porque a grade passou a mostrar QUANTAS
+/// OS há no dia: um pontinho dizia apenas "tem alguma coisa", que é o mesmo
+/// para um dia tranquilo e para um dia lotado — inútil justamente quando mais
+/// importa decidir onde encaixar o próximo serviço.
 final monthScheduledDaysProvider =
-    FutureProvider.autoDispose.family<Set<int>, MonthKey>((ref, key) async {
+    FutureProvider.autoDispose.family<Map<int, int>, MonthKey>((ref, key) async {
   final from = DateTime(key.year, key.month, 1);
   final to = DateTime(key.year, key.month + 1, 1);
   final result = await ref.read(scheduleRepositoryProvider).getAgenda(
         from: from,
         to: to,
       );
-  return result.items
-      .map((item) {
-        final dt = DateTime.tryParse(item.scheduledStart ?? '')?.toLocal();
-        return dt?.day ?? 0;
-      })
-      .where((d) => d > 0)
-      .toSet();
+  final porDia = <int, int>{};
+  for (final item in result.items) {
+    for (final dia in diasOcupadosNoMes(item, year: key.year, month: key.month)) {
+      porDia[dia] = (porDia[dia] ?? 0) + 1;
+    }
+  }
+  return porDia;
+});
+
+/// Dias DO MÊS pedido que a janela de [item] ocupa.
+///
+/// Recorta ao mês para não estourar em janelas que atravessam a virada (uma OS
+/// de 28/07 a 03/08 ocupa 1–3 em agosto). Sem fim definido, ocupa só o dia do
+/// início. Exposto para teste — é regra de calendário, não desenho.
+Iterable<int> diasOcupadosNoMes(
+  AgendaItem item, {
+  required int year,
+  required int month,
+}) sync* {
+  final inicio = DateTime.tryParse(item.scheduledStart ?? '')?.toLocal();
+  if (inicio == null) return;
+  final fim = DateTime.tryParse(item.scheduledEnd ?? '')?.toLocal() ?? inicio;
+  // Dia civil: a hora não importa para ocupar a casa do calendário.
+  var d = DateTime(inicio.year, inicio.month, inicio.day);
+  final ultimo = DateTime(fim.year, fim.month, fim.day);
+  // Janela invertida (fim antes do início) é dado inconsistente: trata como
+  // ponto, em vez de girar para sempre.
+  if (ultimo.isBefore(d)) {
+    if (d.year == year && d.month == month) yield d.day;
+    return;
+  }
+  while (!d.isAfter(ultimo)) {
+    if (d.year == year && d.month == month) yield d.day;
+    d = d.add(const Duration(days: 1));
+  }
+}
+
+/// Responsáveis para o filtro da agenda. Vem do módulo OS (dono da equipe da
+/// oficina) — a agenda aponta, não invade.
+final agendaMembersProvider =
+    FutureProvider.autoDispose<List<MemberOption>>((ref) async {
+  try {
+    return await ref.read(osRepositoryProvider).listMembers();
+  } on Object {
+    // Sem a lista o filtro simplesmente não aparece — não derruba a agenda.
+    return const <MemberOption>[];
+  }
 });

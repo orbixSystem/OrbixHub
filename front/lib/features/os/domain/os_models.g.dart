@@ -169,6 +169,9 @@ _ServiceOrder _$ServiceOrderFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const <OrderPhoto>[],
       createdAt: json['created_at'] as String?,
+      payment: json['payment'] == null
+          ? null
+          : OsPaymentSummary.fromJson(json['payment'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
@@ -198,6 +201,23 @@ Map<String, dynamic> _$ServiceOrderToJson(_ServiceOrder instance) =>
       'events': instance.events.map((e) => e.toJson()).toList(),
       'photos': instance.photos.map((e) => e.toJson()).toList(),
       'created_at': instance.createdAt,
+      'payment': instance.payment?.toJson(),
+    };
+
+_OsPaymentSummary _$OsPaymentSummaryFromJson(Map<String, dynamic> json) =>
+    _OsPaymentSummary(
+      total: json['total'] as num? ?? 0,
+      paid: json['paid'] as num? ?? 0,
+      balance: json['balance'] as num? ?? 0,
+      status: json['status'] as String? ?? 'a_receber',
+    );
+
+Map<String, dynamic> _$OsPaymentSummaryToJson(_OsPaymentSummary instance) =>
+    <String, dynamic>{
+      'total': instance.total,
+      'paid': instance.paid,
+      'balance': instance.balance,
+      'status': instance.status,
     };
 
 _OrderPage _$OrderPageFromJson(Map<String, dynamic> json) => _OrderPage(

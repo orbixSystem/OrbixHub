@@ -10,6 +10,9 @@ abstract interface class OsRepository {
   Future<OrderPage> listOrders({
     String? q,
     String? status,
+    /// Filtro por VÁRIOS status reais (grupo simplificado, ex.: "em
+    /// andamento") — quando presente, prevalece sobre [status].
+    List<String>? statuses,
     String? customerId,
     String sort,
     int page,

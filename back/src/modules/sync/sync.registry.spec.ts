@@ -45,6 +45,10 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     // oficina gasta é gestão, igual às rotas HTTP equivalentes.
     'cash_expense_template.create': 'cashier.manage',
     'cash_expense_template.update': 'cashier.manage',
+    // Parcelamento de fiado: criar/quitar são `cashier.write` — mesma régua de
+    // `cash_entry.create` (operar o balcão), não gestão.
+    'receivable_installment.create_plan': 'cashier.write',
+    'receivable_installment.pay': 'cashier.write',
     'sale.create': 'sale.write',
     'sale.cancel': 'sale.write',
     'sale.update': 'sale.write',
@@ -107,6 +111,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       'expense.create',
       'expense_category.create',
       'inventory_item.create',
+      'receivable_installment.create_plan',
       'sale.create',
       'service_order.create',
       'subject.create',
@@ -153,7 +158,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     expect(SYNC_OPS['subject.create'].structuralKeys).toEqual(['customerId']);
   });
 
-  it('PULL_ROUTES cobre as 16 entidades dos 6 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
+  it('PULL_ROUTES cobre as 17 entidades dos 6 módulos donos, com permissão de LEITURA espelhando os GETs do controller dono', () => {
     // Permissões dos GETs reais: customers → customer.read; subjects →
     // subject.read; inventory → inventory.read; os → os.read; cashier →
     // cashier.read; sale → sale.read; mensagens (conversation/message) → os.read. O pull nunca
@@ -175,6 +180,11 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       cash_session: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
       cash_entry: { service: 'cashier', module: 'cashier', permission: 'cashier.read' },
       cash_expense_template: {
+        service: 'cashier',
+        module: 'cashier',
+        permission: 'cashier.read',
+      },
+      receivable_installment: {
         service: 'cashier',
         module: 'cashier',
         permission: 'cashier.read',
@@ -214,6 +224,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
       cash_session: 'cashier',
       cash_entry: 'cashier',
       cash_expense_template: 'cashier',
+      receivable_installment: 'cashier',
       sale: 'sale',
       expense: 'expenses',
       expense_category: 'expenses',

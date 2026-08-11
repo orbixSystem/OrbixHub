@@ -27,6 +27,7 @@ import {
   ChangeStatusDto,
   CreateOrderDto,
   ListOrdersQueryDto,
+  OS_STATUSES,
   OsStatus,
   UpdateOrderDto,
 } from './dto/order.dto';
@@ -307,6 +308,11 @@ export class OsService {
       this.repo.listOrders({
         q: query.q?.trim() || undefined,
         status: query.status,
+        statuses: query.statuses
+          ?.split(',')
+          .filter((s): s is OsStatus =>
+            OS_STATUSES.includes(s as OsStatus),
+          ),
         customerId: query.customerId,
         sort: query.sort,
         skip: (page - 1) * pageSize,
@@ -551,9 +557,15 @@ export class OsService {
         uploaded_by: user.userId,
       });
       // Evento 'photo' na timeline (visível ao cliente) — mesma tx.
+      //
+      // A LEGENDA vira o texto do evento quando existe: é ela que diz o que
+      // foi feito ("Troquei a correia dentada"). Sem isso o cliente lia
+      // "Foto adicionada" e tinha de deduzir o serviço pela imagem — e o
+      // mecânico precisaria de duas ações (subir a foto e escrever uma nota)
+      // para registrar UM acontecimento.
       await this.repo.createEvent(user.tenantId, orderId, {
         kind: 'photo',
-        message: 'Foto adicionada',
+        message: caption?.trim() || 'Foto adicionada',
         photoId: created.id,
         visiblePublic: true,
         createdBy: user.userId,
@@ -842,6 +854,18 @@ export class OsService {
         }
       })();
       await this.recomputeTotal(orderId);
+      // Rastro na timeline — mesma tx. O cliente acompanha o que está sendo
+      // feito no carro dele, item a item, em vez de ver só o status pular de
+      // "em execução" para "concluída".
+      //
+      // SEM VALOR de propósito: a página pública não expõe preços (ver
+      // `os-public.service.ts`), e um evento com preço furaria isso por trás.
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message: `${kind === 'service' ? 'Serviço' : 'Peça'} adicionada: ${name}`,
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
       return item;
     });
     // Se a OS já consome estoque, baixa a linha recém-criada (fora da tx).
@@ -915,6 +939,16 @@ export class OsService {
         throw new NotFoundException('Item não encontrado.');
       await this.repo.deleteItem(itemId);
       await this.recomputeTotal(orderId);
+      // Remoção também é rastro: o cliente que viu "Peça adicionada" precisa
+      // ver que ela saiu, senão a timeline mente por omissão.
+      await this.repo.createEvent(user.tenantId, orderId, {
+        kind: 'note',
+        message:
+          `${existing.kind === 'service' ? 'Serviço' : 'Peça'} removida: ` +
+          `${existing.name}`,
+        visiblePublic: true,
+        createdBy: user.userId,
+      });
       return { removed: existing, order };
     });
     // Estorna o consumo da linha removida (alvo 0) se a OS consome (fora da tx).

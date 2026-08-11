@@ -142,6 +142,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   Future<OrderPage> listOrders({
     String? q,
     String? status,
+    List<String>? statuses,
     String? customerId,
     String sort = 'recent',
     int page = 1,
@@ -150,6 +151,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       final res = await inner.listOrders(
         q: q,
         status: status,
+        statuses: statuses,
         customerId: customerId,
         sort: sort,
         page: page,
@@ -167,6 +169,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
           row,
           q: q,
           status: status,
+          statuses: statuses,
           customerId: customerId,
         ),
       );
@@ -181,6 +184,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
               row,
               q: q,
               status: status,
+              statuses: statuses,
               customerId: customerId,
             ))
         .toList();
@@ -222,9 +226,12 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     Map<String, dynamic> row, {
     String? q,
     String? status,
+    List<String>? statuses,
     String? customerId,
   }) {
-    if (status != null && status.isNotEmpty && row['status'] != status) {
+    if (statuses != null && statuses.isNotEmpty) {
+      if (!statuses.contains(row['status'])) return false;
+    } else if (status != null && status.isNotEmpty && row['status'] != status) {
       return false;
     }
     if (customerId != null &&
