@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
+import '../domain/os_models.dart';
 import 'order_form_dialog.dart';
 import 'os_providers.dart';
+import 'os_quick_actions.dart';
 import 'os_status.dart';
 import 'payment_status.dart';
 
@@ -99,7 +102,11 @@ class _OsListScreenState extends ConsumerState<OsListScreen> {
             Expanded(
               child: CoachTarget(
                 'os.lista',
-                child: _Body(scroll: _scroll, onCreate: _create),
+                child: _Body(
+                  scroll: _scroll,
+                  onCreate: _create,
+                  canWrite: canWrite,
+                ),
               ),
             ),
           ],
@@ -128,6 +135,9 @@ class _Toolbar extends ConsumerWidget {
     final notifier = ref.read(orderListQueryProvider.notifier);
     final isMobile = context.isMobile;
 
+    // 4 chips (Todas + os 3 grupos simplificados) — os 7 chips de status real
+    // sumiram junto com o stepper de 7 estados: "aquele monte de filtros que
+    // não existem" na visão do usuário.
     final statusChips = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -138,9 +148,9 @@ class _Toolbar extends ConsumerWidget {
             selected: query.status == null,
             onTap: () => notifier.setStatus(null),
           ),
-          for (final s in osStatuses)
+          for (final s in OsSimpleStatus.values)
             _StatusChip(
-              label: osStatusLabel(s),
+              label: osSimpleStatusLabel(s),
               selected: query.status == s,
               onTap: () => notifier.setStatus(s),
             ),
@@ -188,13 +198,6 @@ class _Toolbar extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             _SortMenu(value: query.sort, onChanged: notifier.setSort),
-            const SizedBox(width: 12),
-            NeuButton(
-              label: 'Templates',
-              kind: NeuButtonKind.secondary,
-              icon: Icons.dashboard_customize_outlined,
-              onPressed: () => context.go('/m/os/templates'),
-            ),
             if (canWrite) ...[
               const SizedBox(width: 12),
               NeuButton(
@@ -254,10 +257,15 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.scroll, required this.onCreate});
+  const _Body({
+    required this.scroll,
+    required this.onCreate,
+    required this.canWrite,
+  });
 
   final ScrollController scroll;
   final VoidCallback onCreate;
+  final bool canWrite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -317,24 +325,14 @@ class _Body extends ConsumerWidget {
             // viravam "…" e a cauda estourava.
             if (isMobile) {
               return _OrderCardMobile(
-                id: o.id,
-                number: o.number,
-                customerName: o.customerName,
-                subjectLabel: o.subjectLabel,
-                status: o.status,
-                paymentStatus: o.paymentStatus,
-                total: o.total,
+                order: o,
+                canWrite: canWrite,
                 onTap: () => context.go('/m/os/${o.id}'),
               );
             }
             return _OrderTile(
-              id: o.id,
-              number: o.number,
-              customerName: o.customerName,
-              subjectLabel: o.subjectLabel,
-              status: o.status,
-              paymentStatus: o.paymentStatus,
-              total: o.total,
+              order: o,
+              canWrite: canWrite,
               dense: true,
               onTap: () => context.go('/m/os/${o.id}'),
             );
@@ -367,26 +365,168 @@ class _Body extends ConsumerWidget {
   }
 }
 
+/// Pill de status FORTE (fundo sólido na cor do grupo simplificado) — bem mais
+/// visível que o tint suave do [OsStatusChip] antigo. É o "cores bem visíveis
+/// com base no status" pedido pro card da lista.
+class _StrongStatusPill extends StatelessWidget {
+  const _StrongStatusPill({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final simple = osSimpleStatusOf(status);
+    final color = osSimpleStatusColor(simple);
+    return ConstrainedBox(
+      // Cap explícito: sem ele, o rótulo mais longo do grupo simplificado
+      // ("Em andamento") cresce mais que o chip antigo e rouba espaço demais
+      // do título ao lado (nº da OS + selo de sync), que não tem como reagir.
+      constraints: const BoxConstraints(maxWidth: 108),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(osSimpleStatusIcon(simple), size: 13, color: Colors.white),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                osSimpleStatusLabel(simple),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ações rápidas do card (Concluir/Cancelar/Exportar PDF) — a MESMA lógica de
+/// transição do seletor da ficha (`os_quick_actions.dart`), só que num menu
+/// compacto pra não competir por espaço no card. "Sem precisar entrar na
+/// tela" — é o que o dono pediu.
+class _QuickActionsMenu extends ConsumerWidget {
+  const _QuickActionsMenu({required this.order, required this.canWrite});
+
+  final ServiceOrder order;
+  final bool canWrite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final podeConcluir = osSimpleTransitionEnabled(
+      order,
+      OsSimpleStatus.finalizada,
+      canWrite: canWrite,
+      canApprove: false,
+    );
+    final podeCancelar = osSimpleTransitionEnabled(
+      order,
+      OsSimpleStatus.cancelada,
+      canWrite: canWrite,
+      canApprove: false,
+    );
+    final podeReceber = canReceiveOsPayment(ref, order);
+    return PopupMenuButton<String>(
+      tooltip: 'Ações rápidas',
+      // Sem padding próprio: no card/linha, cada pixel some do título junto
+      // dela — o toque continua confortável (a área do PopupMenuButton some
+      // com o InkResponse, não com este padding).
+      padding: EdgeInsets.zero,
+      icon: const Icon(Icons.more_vert_rounded, size: 20),
+      onSelected: (action) async {
+        switch (action) {
+          case 'concluir':
+            await runOsSimpleTransition(
+              context,
+              ref,
+              order,
+              OsSimpleStatus.finalizada,
+            );
+          case 'cancelar':
+            await runOsSimpleTransition(
+              context,
+              ref,
+              order,
+              OsSimpleStatus.cancelada,
+            );
+          case 'pdf':
+            await exportOsPdfById(context, ref, order.id);
+          case 'receber':
+            await offerOsPayment(context, ref, order);
+        }
+      },
+      itemBuilder: (_) => [
+        if (podeConcluir)
+          const PopupMenuItem(
+            value: 'concluir',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.check_circle_outline_rounded),
+              title: Text('Concluir'),
+            ),
+          ),
+        if (podeCancelar)
+          PopupMenuItem(
+            value: 'cancelar',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.cancel_outlined, color: AppColors.danger),
+              title: Text(
+                'Cancelar',
+                style: TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ),
+        // Mesma ação da ficha — sem precisar abrir a OS pra receber um saldo
+        // que já se sabe que existe (é por isso que ela aparece na lista).
+        if (podeReceber)
+          const PopupMenuItem(
+            value: 'receber',
+            child: ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.payments_outlined),
+              title: Text('Receber pagamento'),
+            ),
+          ),
+        if (podeConcluir || podeCancelar || podeReceber)
+          const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'pdf',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.picture_as_pdf_outlined),
+            title: Text('Exportar PDF'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _OrderTile extends StatelessWidget {
   const _OrderTile({
-    required this.id,
-    required this.number,
-    required this.customerName,
-    required this.subjectLabel,
-    required this.status,
-    required this.paymentStatus,
-    required this.total,
+    required this.order,
+    required this.canWrite,
     required this.dense,
     required this.onTap,
   });
 
-  final String id;
-  final String number;
-  final String? customerName;
-  final String? subjectLabel;
-  final String status;
-  final String paymentStatus;
-  final String? total;
+  final ServiceOrder order;
+  final bool canWrite;
   final bool dense;
   final VoidCallback onTap;
 
@@ -394,49 +534,59 @@ class _OrderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final neu = context.neu;
     final subtitle = [
-      if (customerName != null && customerName!.isNotEmpty) customerName!,
-      if (subjectLabel != null && subjectLabel!.isNotEmpty) subjectLabel!,
+      if ((order.customerName ?? '').isNotEmpty) order.customerName!,
+      if ((order.subjectLabel ?? '').isNotEmpty) order.subjectLabel!,
     ].join(' · ');
+    final color = osSimpleStatusColor(osSimpleStatusOf(order.status));
     return NeuListTile(
       dense: dense,
       onTap: onTap,
-      leading: NeuIconChip.glyph(
-        context,
-        icon: Icons.build_outlined,
-        index: 1,
-        size: dense ? 40 : 44,
+      // Ícone tingido na cor do status: "cores bem visíveis" já no primeiro
+      // olhar, antes até de ler o pill.
+      leading: Container(
+        width: dense ? 40 : 44,
+        height: dense ? 40 : 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .16),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.build_outlined, color: color, size: 20),
       ),
       // OS criada offline (número provisório OS-P…) ganha o selo "pendente de
       // envio" — Wrap para não estourar o tile no mobile.
-      title: isPendingOsNumber(number)
+      title: isPendingOsNumber(order.number)
           ? Wrap(
               spacing: 8,
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(number),
-                SyncRowBadge(entity: 'service_order', id: id, dense: true),
+                Text(order.number),
+                SyncRowBadge(
+                  entity: 'service_order',
+                  id: order.id,
+                  dense: true,
+                ),
               ],
             )
-          : Text(number),
+          : Text(order.number),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          PaymentTag(status: paymentStatus, dense: true),
+          PaymentTag(status: order.paymentStatus, dense: true),
           const SizedBox(width: 8),
-          OsStatusChip(status: status),
+          _StrongStatusPill(status: order.status),
           const SizedBox(width: 14),
           Text(
-            money(total),
+            money(order.total),
             style: TextStyle(
               color: neu.ink,
               fontWeight: FontWeight.w800,
               fontSize: 14,
             ),
           ),
-          const SizedBox(width: 6),
-          Icon(Icons.chevron_right, color: neu.inkFaint, size: 20),
+          _QuickActionsMenu(order: order, canWrite: canWrite),
         ],
       ),
     );
@@ -444,37 +594,29 @@ class _OrderTile extends StatelessWidget {
 }
 
 /// Card de OS para mobile: layout vertical e arejado.
-/// - Cabeçalho: ícone + número em destaque + selo de status.
-/// - Corpo: cliente · veículo (até 2 linhas, sem cortar no "…" cedo demais).
-/// - Rodapé: situação de pagamento à esquerda; valor à direita.
+/// - Cabeçalho: ícone tingido pelo status + número em destaque + pill forte.
+/// - Corpo: cliente · veículo + relato (quando existe) — "mais detalhes".
+/// - Rodapé: situação de pagamento à esquerda; valor + ações à direita.
 class _OrderCardMobile extends StatelessWidget {
   const _OrderCardMobile({
-    required this.id,
-    required this.number,
-    required this.customerName,
-    required this.subjectLabel,
-    required this.status,
-    required this.paymentStatus,
-    required this.total,
+    required this.order,
+    required this.canWrite,
     required this.onTap,
   });
 
-  final String id;
-  final String number;
-  final String? customerName;
-  final String? subjectLabel;
-  final String status;
-  final String paymentStatus;
-  final String? total;
+  final ServiceOrder order;
+  final bool canWrite;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
     final subtitle = [
-      if (customerName != null && customerName!.isNotEmpty) customerName!,
-      if (subjectLabel != null && subjectLabel!.isNotEmpty) subjectLabel!,
+      if ((order.customerName ?? '').isNotEmpty) order.customerName!,
+      if ((order.subjectLabel ?? '').isNotEmpty) order.subjectLabel!,
     ].join(' · ');
+    final relato = order.complaint?.trim() ?? '';
+    final color = osSimpleStatusColor(osSimpleStatusOf(order.status));
 
     return NeuCard(
       onTap: onTap,
@@ -487,11 +629,17 @@ class _OrderCardMobile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              NeuIconChip.glyph(
-                context,
-                icon: Icons.build_outlined,
-                index: 1,
-                size: 44,
+              // Ícone tingido na cor do status — "cores bem visíveis" desde o
+              // primeiro olhar, antes até de ler o pill.
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .16),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.build_outlined, color: color, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -499,7 +647,7 @@ class _OrderCardMobile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      number,
+                      order.number,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -510,11 +658,11 @@ class _OrderCardMobile extends StatelessWidget {
                       ),
                     ),
                     // OS offline (número provisório) mostra o selo de envio.
-                    if (isPendingOsNumber(number)) ...[
+                    if (isPendingOsNumber(order.number)) ...[
                       const SizedBox(height: 6),
                       SyncRowBadge(
                         entity: 'service_order',
-                        id: id,
+                        id: order.id,
                         dense: true,
                       ),
                     ],
@@ -522,9 +670,10 @@ class _OrderCardMobile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Flexible: o rótulo do status ("Aguardando aprovação") somado ao
-              // número da OS não cabia em tela de celular e estourava a linha.
-              Flexible(child: OsStatusChip(status: status)),
+              // Flexible: com o rótulo curto do grupo simplificado ("Em
+              // andamento") já sobra mais espaço que o chip de 7 estados
+              // antigo, mas ainda cede se o número da OS for longo.
+              Flexible(child: _StrongStatusPill(status: order.status)),
             ],
           ),
           if (subtitle.isNotEmpty) ...[
@@ -540,19 +689,41 @@ class _OrderCardMobile extends StatelessWidget {
               ),
             ),
           ],
+          // Relato do cliente ("mais detalhes" — o card estava cru demais):
+          // é o contexto que faz a lista dizer algo sobre o TRABALHO, não só
+          // sobre cliente/valor.
+          if (relato.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.chat_bubble_outline_rounded,
+                    size: 14, color: neu.inkFaint),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    relato,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           Divider(height: 1, thickness: 1, color: neu.inkFaint.withValues(alpha: .15)),
           const SizedBox(height: 12),
-          // Rodapé: pagamento + valor.
-          // Tag de pagamento + valor: em celular, com valor na casa dos
-          // milhares, a linha não fechava. Cada lado agora cede espaço.
+          // Rodapé: pagamento + valor + ações rápidas. As ações foram tiradas
+          // do cabeçalho (que já disputa espaço com nº/badge de sync/pill) e
+          // vieram pra cá, onde o valor tem `Expanded` pra cedar.
           Row(
             children: [
-              Flexible(child: PaymentTag(status: paymentStatus)),
+              Flexible(child: PaymentTag(status: order.paymentStatus)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  money(total),
+                  money(order.total),
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -563,6 +734,7 @@ class _OrderCardMobile extends StatelessWidget {
                   ),
                 ),
               ),
+              _QuickActionsMenu(order: order, canWrite: canWrite),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right, color: neu.inkFaint, size: 22),
             ],

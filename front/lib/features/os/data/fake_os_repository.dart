@@ -38,13 +38,16 @@ class FakeOsRepository implements OsRepository {
   Future<OrderPage> listOrders({
     String? q,
     String? status,
+    List<String>? statuses,
     String? customerId,
     String sort = 'recent',
     int page = 1,
   }) async {
     final term = q?.toLowerCase();
     var list = _orders.values.where((o) => true);
-    if (status != null && status.isNotEmpty) {
+    if (statuses != null && statuses.isNotEmpty) {
+      list = list.where((o) => statuses.contains(o.status));
+    } else if (status != null && status.isNotEmpty) {
       list = list.where((o) => o.status == status);
     }
     if (customerId != null && customerId.isNotEmpty) {

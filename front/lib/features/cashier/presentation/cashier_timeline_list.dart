@@ -5,10 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ui/ui.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
+import '../../receivables/domain/receivables_models.dart';
+import '../../receivables/presentation/receive_title_dialog.dart';
+import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
 import '../domain/cashier_format.dart';
 import '../domain/sale_summary.dart';
 import '../domain/cashier_timeline.dart';
+import 'cashier_providers.dart';
 import 'entry_edit_dialogs.dart';
 
 /// Histórico do caixa: UMA lista com tudo que aconteceu, cada linha detalhada.
@@ -66,14 +70,46 @@ class _EventCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return event.ehVenda ? _venda(context) : _lancamento(context, ref);
+    return event.ehVenda ? _venda(context, ref) : _lancamento(context, ref);
+  }
+
+  /// Recebimento: abre o MESMO diálogo que a aba Fiado usa — busca o saldo
+  /// fresco (a `Sale` do histórico só traz `total`+`paymentStatus`, não o
+  /// saldo) e deixa receber parcial ou total, igual em qualquer outra tela.
+  Future<void> _receber(BuildContext context, WidgetRef ref, Sale s) async {
+    final estado = ref.read(cashierControllerProvider).value;
+    final config = estado?.config;
+    if (config == null) return;
+    final detail = await ref.read(cashierRepositoryProvider).paymentSummary(
+          saleKind: 'sale',
+          saleId: s.id,
+          total: moneyToDouble(s.total),
+        );
+    if (!context.mounted) return;
+    await showReceiveTitleDialog(
+      context,
+      ref,
+      config: config,
+      title: ReceivableTitle(
+        id: s.id,
+        origin: 'sale',
+        number: s.number,
+        total: detail.total,
+        paid: detail.paid,
+        balance: detail.balance,
+        status: detail.status,
+      ),
+    );
+    ref.invalidate(cashierHistoryProvider);
   }
 
   // ---------------------------------------------------------------- venda
-  Widget _venda(BuildContext context) {
+  Widget _venda(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final s = event.sale!;
     final cancelada = s.status == 'canceled';
+    final podeReceber =
+        canManage && !cancelada && s.paymentStatus != 'pago';
     final risco = cancelada ? TextDecoration.lineThrough : null;
     return NeuCard(
       padding: EdgeInsets.zero,
@@ -160,7 +196,18 @@ class _EventCard extends ConsumerWidget {
                         else
                           PaymentTag(status: s.paymentStatus, dense: true),
                         const Spacer(),
-                        Icon(Icons.chevron_right_rounded,
+                        // Receber sem precisar ir até a aba Fiado — o dono
+                        // vê a venda parcial rolando o histórico do dia e
+                        // quer resolver ali mesmo.
+                        if (podeReceber)
+                          NeuButton(
+                            label: 'Receber',
+                            icon: Icons.payments_outlined,
+                            kind: NeuButtonKind.secondary,
+                            onPressed: () => _receber(context, ref, s),
+                          )
+                        else
+                          Icon(Icons.chevron_right_rounded,
                             size: 18, color: neu.inkFaint),
                       ],
                     ),

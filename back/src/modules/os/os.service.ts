@@ -27,6 +27,7 @@ import {
   ChangeStatusDto,
   CreateOrderDto,
   ListOrdersQueryDto,
+  OS_STATUSES,
   OsStatus,
   UpdateOrderDto,
 } from './dto/order.dto';
@@ -307,6 +308,11 @@ export class OsService {
       this.repo.listOrders({
         q: query.q?.trim() || undefined,
         status: query.status,
+        statuses: query.statuses
+          ?.split(',')
+          .filter((s): s is OsStatus =>
+            OS_STATUSES.includes(s as OsStatus),
+          ),
         customerId: query.customerId,
         sort: query.sort,
         skip: (page - 1) * pageSize,

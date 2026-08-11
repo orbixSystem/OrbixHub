@@ -23,7 +23,11 @@ class PdfDocTokens {
 /// Espelha o comprovante de referência. A empresa fica alinhada à DIREITA porque
 /// é o bloco denso (5–6 linhas) e o logo tem largura variável — alinhar os dois
 /// à esquerda deixaria o texto dançando conforme o logo de cada oficina.
-pw.Widget pdfCompanyHeader(DocumentCompany company, {double logoHeight = 54}) {
+pw.Widget pdfCompanyHeader(
+  DocumentCompany company, {
+  double logoHeight = 78,
+  double logoMaxWidth = 230,
+}) {
   final logo = company.logo;
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -34,10 +38,11 @@ pw.Widget pdfCompanyHeader(DocumentCompany company, {double logoHeight = 54}) {
           // empurraria o bloco da empresa para fora da página.
           constraints: pw.BoxConstraints(
             maxHeight: logoHeight,
-            maxWidth: 190,
+            maxWidth: logoMaxWidth,
           ),
           child: pw.Image(pw.MemoryImage(logo), fit: pw.BoxFit.contain),
         ),
+      if (logo != null) pw.SizedBox(width: 14),
       pw.Expanded(
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.end,

@@ -588,12 +588,11 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   // ---- Status atual + linha de progresso ----
 
   Widget _statusSection(PublicTrack t) {
-    final cancelled = _isCancelled(t.status);
-    final color =
-        t.status.isNotEmpty ? osStatusColor(t.status) : _neu.accent;
-    final label = t.statusLabel.isNotEmpty
-        ? t.statusLabel
-        : (t.status.isNotEmpty ? osStatusLabel(t.status) : 'Em andamento');
+    // Mesmos 3 estados simplificados que a equipe vê na ficha (Em andamento/
+    // Finalizada/Cancelada) — o cliente não precisa (nem deveria) enxergar os
+    // 7 status internos do workflow.
+    final atual =
+        t.status.isNotEmpty ? osSimpleStatusOf(t.status) : OsSimpleStatus.emAndamento;
     return _sectionCard(
       icon: Icons.assignment_turned_in_outlined,
       color: _neu.glyphs[1],
@@ -601,37 +600,51 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _bigStatusPill(color, label),
-          const SizedBox(height: 18),
-          if (cancelled) _cancelledBanner() else _stepper(t.status),
+          Row(
+            children: [
+              for (final s in OsSimpleStatus.values) ...[
+                if (s != OsSimpleStatus.values.first) const SizedBox(width: 10),
+                Expanded(child: _simpleStatusBadge(s, selected: s == atual)),
+              ],
+            ],
+          ),
+          if (atual == OsSimpleStatus.cancelada) ...[
+            const SizedBox(height: 14),
+            _cancelledBanner(),
+          ],
         ],
       ),
     );
   }
 
-  Widget _bigStatusPill(Color color, String label) {
+  /// Um dos 3 segmentos do status simplificado — preenchido quando é o
+  /// estado atual da OS; só leitura (o cliente não tem ação aqui).
+  Widget _simpleStatusBadge(OsSimpleStatus s, {required bool selected}) {
+    final color = osSimpleStatusColor(s);
+    final bg = selected ? color : color.withValues(alpha: .12);
+    final fg = selected ? Colors.white : color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
+        color: bg,
         borderRadius: BorderRadius.circular(NeuTokens.rField),
+        border:
+            selected ? null : Border.all(color: color.withValues(alpha: .3)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 11,
-            height: 11,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
+          Icon(osSimpleStatusIcon(s), size: 20, color: fg),
+          const SizedBox(height: 6),
+          Text(
+            osSimpleStatusLabel(s),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fg,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
             ),
           ),
         ],
@@ -664,116 +677,6 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  /// Mini-stepper da jornada do cliente (derivado do status real da OS).
-  static const _journeyLabels = ['Recebida', 'Aprovada', 'Em execução', 'Pronta'];
-
-  int _stageIndex(String status) {
-    switch (status) {
-      case 'aprovada':
-        return 1;
-      case 'em_execucao':
-        return 2;
-      case 'concluida':
-      case 'entregue':
-        return 3;
-      case 'aberta':
-      case 'aguardando_aprovacao':
-      default:
-        return 0;
-    }
-  }
-
-  bool _isCancelled(String status) => status == 'cancelada';
-
-  Widget _stepper(String status) {
-    final current = _stageIndex(status);
-    final n = _journeyLabels.length;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < n; i++)
-          Expanded(child: _stepNode(i, current, n)),
-      ],
-    );
-  }
-
-  Widget _stepNode(int i, int current, int n) {
-    final reached = i <= current;
-    final active = i == current;
-    final done = i < current;
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: i == 0
-                  ? const SizedBox()
-                  : Container(
-                      height: 3,
-                      color: i <= current ? _neu.navy : _neu.line,
-                    ),
-            ),
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: reached ? _neu.navy : _neu.surface,
-                border: Border.all(
-                  color: reached ? _neu.navy : _neu.line,
-                  width: 2,
-                ),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: _neu.navy.withValues(alpha: .35),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: done
-                  ? Icon(Icons.check_rounded, size: 15, color: _neu.onNavy)
-                  : (active
-                      ? Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _neu.onNavy,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : null),
-            ),
-            Expanded(
-              child: i == n - 1
-                  ? const SizedBox()
-                  : Container(
-                      height: 3,
-                      color: (i + 1) <= current ? _neu.navy : _neu.line,
-                    ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(
-          _journeyLabels[i],
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: TextStyle(
-            fontSize: 10.5,
-            height: 1.15,
-            color: reached ? _neu.ink : _neu.inkFaint,
-            fontWeight: active
-                ? FontWeight.w800
-                : (reached ? FontWeight.w700 : FontWeight.w500),
-          ),
-        ),
-      ],
     );
   }
 

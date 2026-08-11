@@ -65,6 +65,9 @@ const OS_REPORT_ORDER_BY: Record<
 export interface OrderListFilter {
   q?: string;
   status?: string;
+  /** Filtro por VÁRIOS status reais (ex.: o grupo "em andamento" do front
+   * simplificado) — quando presente, prevalece sobre `status`. */
+  statuses?: string[];
   customerId?: string;
   sort?: string;
   skip: number;
@@ -207,7 +210,11 @@ export class OsRepository {
     const db = this.tenant.getClient();
     const where: Prisma.service_orderWhereInput = {
       deleted_at: null,
-      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.statuses?.length
+        ? { status: { in: filter.statuses } }
+        : filter.status
+          ? { status: filter.status }
+          : {}),
       ...(filter.customerId ? { customer_id: filter.customerId } : {}),
       ...(filter.q
         ? {

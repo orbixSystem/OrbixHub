@@ -30,7 +30,9 @@ import '../../../core/pdf/company_document_provider.dart';
 import '../../../core/pdf/document_company.dart';
 import 'os_pdf.dart';
 import 'os_providers.dart';
+import 'os_quick_actions.dart';
 import 'os_status.dart';
+import 'payment_status.dart';
 
 const _maxContentWidth = 1200.0;
 
@@ -209,7 +211,6 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
                 canEdit: canEdit,
                 canRead: canRead,
                 onEdit: () => _edit(context, ref, order),
-                onApplyTemplate: () => _applyTemplate(context, ref, order),
                 onPrint: () => _exportOrder(context, ref, order),
                 // Emitir/ver NF fala com o servidor fiscal — offline a ação
                 // fica inerte com tooltip "Requer conexão".
@@ -221,14 +222,13 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
                     : null,
               ),
               const SizedBox(height: 20),
-              // Painel de workflow: mostra em qual etapa a OS está (stepper) e
-              // qual o PRÓXIMO passo, com a ação principal em destaque.
+              // Seletor de 3 botões (Em andamento/Finalizada/Cancelada): mostra
+              // em qual dos 3 estados a OS está e avança automaticamente por
+              // todos os passos reais da FSM ao tocar num destino alcançável.
               _WorkflowPanel(
                 order: order,
                 canWrite: canWrite,
                 canApprove: canApprove,
-                onChange: (target) =>
-                    _changeStatus(context, ref, order, target),
               ),
               const SizedBox(height: 24),
               body,
@@ -246,134 +246,6 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
   ) async {
     final ok = await OrderEditDialog.show(context, order: order);
     if (ok == true) ref.invalidate(orderProvider(orderId));
-  }
-
-  Future<void> _changeStatus(
-    BuildContext context,
-    WidgetRef ref,
-    ServiceOrder order,
-    String target,
-  ) async {
-    // Ações que travam/encerram a OS pedem confirmação (sem volta fácil).
-    if (target == 'cancelada') {
-      final ok = await showNeuConfirm(
-        context,
-        title: 'Cancelar OS?',
-        message:
-            'A OS ${order.number} será cancelada e a edição bloqueada. '
-            'Você poderá reabri-la depois, mas os dados param aqui.',
-        confirmLabel: 'Cancelar OS',
-      );
-      if (!ok || !context.mounted) return;
-    } else if (target == 'entregue') {
-      final ok = await showNeuConfirm(
-        context,
-        title: 'Confirmar entrega?',
-        message: 'A OS será marcada como entregue e ficará somente leitura.',
-        confirmLabel: 'Confirmar entrega',
-        danger: false,
-        icon: Icons.local_shipping_outlined,
-      );
-      if (!ok || !context.mounted) return;
-    }
-    try {
-      await ref.read(osRepositoryProvider).changeStatus(order.id, target);
-      ref.invalidate(orderProvider(orderId));
-      ref.invalidate(orderListProvider);
-      // Ao finalizar a OS (concluída/entregue) sem nota ativa, oferece emitir.
-      if (context.mounted && (target == 'concluida' || target == 'entregue')) {
-        await _maybeOfferInvoice(context, ref, order);
-      }
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
-  }
-
-  /// Ao finalizar a OS, se o módulo fiscal estiver ligado, o usuário puder
-  /// emitir e ainda NÃO houver nota ativa, abre um modal oferecendo emitir agora.
-  ///
-  /// Com `kInvoiceEnabled = false` isto NÃO acontece. O flag estava respeitado no
-  /// botão "Emitir NF" da barra, mas faltava aqui: concluir a OS ainda abria
-  /// "Deseja emitir a nota fiscal agora?" — um passo a mais no fluxo mais usado do
-  /// sistema, oferecendo algo que o app inteiro esconde.
-  Future<void> _maybeOfferInvoice(
-    BuildContext context,
-    WidgetRef ref,
-    ServiceOrder order,
-  ) async {
-    if (!kInvoiceEnabled) return;
-    if (!(_hasModule(ref, 'invoice') && _has(ref, 'invoice.issue'))) return;
-    try {
-      final page = await ref
-          .read(invoiceRepositoryProvider)
-          .list(orderId: order.id);
-      final hasActive = page.items.any(
-        (i) =>
-            i.status == 'draft' ||
-            i.status == 'processing' ||
-            i.status == 'authorized',
-      );
-      if (hasActive || !context.mounted) return;
-    } on AppException {
-      return; // falha ao consultar não interrompe o fluxo da OS
-    }
-    final go = await showNeuConfirm(
-      context,
-      title: 'Emitir nota fiscal?',
-      message:
-          'A OS ${order.number} foi finalizada. Deseja emitir a nota fiscal '
-          'agora?',
-      confirmLabel: 'Emitir nota',
-      cancelLabel: 'Agora não',
-      danger: false,
-      icon: Icons.receipt_long_outlined,
-    );
-    if (!go || !context.mounted) return;
-    try {
-      final inv = await ref
-          .read(invoiceRepositoryProvider)
-          .issue(orderId: order.id);
-      ref.invalidate(orderInvoicesProvider(order.id));
-      if (context.mounted) context.go('/m/invoice/${inv.id}');
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
-  }
-
-  Future<void> _applyTemplate(
-    BuildContext context,
-    WidgetRef ref,
-    ServiceOrder order,
-  ) async {
-    final repo = ref.read(osRepositoryProvider);
-    // O seletor carrega os templates sob demanda (busca + rolagem infinita),
-    // então não pré-carregamos a lista inteira aqui.
-    final chosen = await _TemplatePickerDialog.show(context);
-    if (chosen == null) return;
-    try {
-      await repo.applyTemplate(order.id, chosen.id);
-      ref.invalidate(orderProvider(orderId));
-      ref.invalidate(orderListProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Template aplicado.')));
-      }
-    } on AppException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
   }
 
   /// Exporta a OS em PDF DIRETO para arquivo — sem passar pelo diálogo de
@@ -462,7 +334,6 @@ class _Header extends StatelessWidget {
     required this.canEdit,
     required this.canRead,
     required this.onEdit,
-    required this.onApplyTemplate,
     required this.onPrint,
     this.logoUrl,
     this.invoiceAction,
@@ -474,7 +345,6 @@ class _Header extends StatelessWidget {
   final bool canEdit;
   final bool canRead;
   final VoidCallback onEdit;
-  final VoidCallback onApplyTemplate;
   final VoidCallback onPrint;
 
   /// Ação opcional "Emitir NF" (só com módulo fiscal + permissão).
@@ -588,13 +458,17 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   // OS criada offline (número provisório OS-P…): o registro
-                  // ainda não existe no servidor.
+                  // ainda não existe no servidor. Status SIMPLIFICADO (não os
+                  // 7 reais) — é a mesma leitura de Em andamento/Finalizada/
+                  // Cancelada que a lista e o seletor de ações usam.
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      OsStatusChip(status: order.status),
+                      _SimpleStatusTag(status: order.status),
+                      if (order.payment != null && order.payment!.total > 0)
+                        PaymentTag(status: order.paymentStatus, dense: true),
                       if (isPendingOsNumber(order.number))
                         SyncRowBadge(entity: 'service_order', id: order.id),
                     ],
@@ -612,13 +486,6 @@ class _Header extends StatelessWidget {
                     size: 42,
                     onPressed: () =>
                         context.push('/mensagens/${order.conversationId}'),
-                  ),
-                if (canEdit)
-                  NeuIconButton(
-                    tooltip: 'Aplicar template',
-                    icon: Icons.dashboard_customize_outlined,
-                    size: 42,
-                    onPressed: onApplyTemplate,
                   ),
                 if (canRead)
                   NeuIconButton(
@@ -690,6 +557,43 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 18),
             invoiceAction!,
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tag de status SIMPLIFICADO no cabeçalho (tint suave, mesmo estilo do
+/// [OsStatusChip] granular que substitui) — Em andamento/Finalizada/
+/// Cancelada, não os 7 status reais.
+class _SimpleStatusTag extends StatelessWidget {
+  const _SimpleStatusTag({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final simples = osSimpleStatusOf(status);
+    final color = osSimpleStatusColor(simples);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: dark ? .22 : .14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(osSimpleStatusIcon(simples), size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            osSimpleStatusLabel(simples),
+            style: TextStyle(
+              color: dark ? Color.lerp(color, Colors.white, .35) : color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -867,135 +771,168 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-// ===================== Workflow (stepper + próximo passo) =====================
+// ===================== Workflow (seletor de 3 estados) =====================
 
-/// Etapas do fluxo "feliz" da OS, em ordem. `cancelada` fica fora — é desvio.
-const _happyFlow = <String>[
-  'aberta',
-  'aguardando_aprovacao',
-  'aprovada',
-  'em_execucao',
-  'concluida',
-  'entregue',
-];
-
-/// Painel de workflow: um STEPPER mostrando em que etapa a OS está + o PRÓXIMO
-/// passo, com a ação principal em destaque (secundárias/cancelar discretas).
-/// Responde "o que está acontecendo aqui?" logo de cara.
-class _WorkflowPanel extends StatelessWidget {
+/// Painel de workflow: 3 botões (Em andamento/Finalizada/Cancelada) — o botão
+/// do estado atual aparece preenchido; tocar num outro alcançável avança
+/// AUTOMATICAMENTE por todos os passos reais da FSM entre eles (aprovação e
+/// baixa de estoque acontecem no caminho, sem gate manual — "quanto mais
+/// simples for isso melhor").
+class _WorkflowPanel extends ConsumerStatefulWidget {
   const _WorkflowPanel({
     required this.order,
     required this.canWrite,
     required this.canApprove,
-    required this.onChange,
   });
 
   final ServiceOrder order;
   final bool canWrite;
   final bool canApprove;
-  final void Function(String target) onChange;
+
+  @override
+  ConsumerState<_WorkflowPanel> createState() => _WorkflowPanelState();
+}
+
+class _WorkflowPanelState extends ConsumerState<_WorkflowPanel> {
+  bool _busy = false;
+
+  /// Se um toque em [destino] resultaria numa ação de verdade (caminho não
+  /// vazio) E o usuário tem permissão para ela.
+  bool _habilitado(OsSimpleStatus destino) {
+    if (_busy) return false;
+    return osSimpleTransitionEnabled(
+      widget.order,
+      destino,
+      canWrite: widget.canWrite,
+      canApprove: widget.canApprove,
+    );
+  }
+
+  Future<void> _tap(OsSimpleStatus destino) async {
+    if (!_habilitado(destino)) return;
+    await runOsSimpleTransition(
+      context,
+      ref,
+      widget.order,
+      destino,
+      onWillApply: () => setState(() => _busy = true),
+    );
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _receberPagamento() async {
+    if (_busy || !canReceiveOsPayment(ref, widget.order)) return;
+    setState(() => _busy = true);
+    await offerOsPayment(context, ref, widget.order);
+    if (mounted) setState(() => _busy = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final status = order.status;
-    final cancelled = status == 'cancelada';
+    final order = widget.order;
+    final isMobile = context.isMobile;
+    final podeReceber = canReceiveOsPayment(ref, order);
 
-    // Ações válidas a partir do status atual (respeitando permissões).
-    final targets = osTransitions[status] ?? const <String>[];
-    bool allowed(String t) {
-      if (t == 'aprovada') return canApprove;
-      // reabrir é privilegiado
-      if (cancelled && t == 'aberta') return canApprove;
-      return true;
-    }
-
-    final available = canWrite ? targets.where(allowed).toList() : <String>[];
-    final hasCancel = available.contains('cancelada');
-    final forward = available.where((t) => t != 'cancelada').toList();
-
-    // Ação principal = o avanço "para frente" (maior índice > atual no fluxo);
-    // se não houver avanço (ex.: reabrir cancelada), usa o primeiro disponível.
-    final curIdx = _happyFlow.indexOf(status);
-    String? primary;
-    for (final t in forward) {
-      final i = _happyFlow.indexOf(t);
-      if (i > curIdx && (primary == null || i > _happyFlow.indexOf(primary))) {
-        primary = t;
+    // Botões de AÇÃO (verbos) — o status já foi dito no cabeçalho (badge
+    // simplificado + tag de pagamento); esta linha existe só para agir, não
+    // pra repetir "onde a OS está". Sem NeuCard: não precisa ocupar a tela
+    // toda, principalmente no mobile.
+    final acoes = <({IconData icon, String label, NeuButtonKind kind, VoidCallback onPressed})>[];
+    if (order.status == 'cancelada') {
+      if (_habilitado(OsSimpleStatus.emAndamento)) {
+        acoes.add((
+          icon: Icons.undo_rounded,
+          label: 'Reabrir',
+          kind: NeuButtonKind.primary,
+          onPressed: () => _tap(OsSimpleStatus.emAndamento),
+        ));
+      }
+    } else if (order.status != 'entregue') {
+      // Um botão só, "Finalizar" — sem distinguir concluida/entregue por
+      // dentro: essa nuance do FSM não interessa a quem está fechando o
+      // serviço. O que importa (receber ou não) vem a seguir, no diálogo.
+      if (_habilitado(OsSimpleStatus.finalizada)) {
+        acoes.add((
+          icon: Icons.check_circle_rounded,
+          label: 'Finalizar',
+          kind: NeuButtonKind.primary,
+          onPressed: () => _tap(OsSimpleStatus.finalizada),
+        ));
+      }
+      if (_habilitado(OsSimpleStatus.cancelada)) {
+        acoes.add((
+          icon: Icons.close_rounded,
+          label: 'Cancelar OS',
+          kind: NeuButtonKind.danger,
+          onPressed: () => _tap(OsSimpleStatus.cancelada),
+        ));
       }
     }
-    primary ??= forward.isNotEmpty ? forward.first : null;
-    final secondary = forward.where((t) => t != primary).toList();
+    // "Receber pagamento" fica disponível a qualquer momento em que houver
+    // saldo — não só no instante de finalizar. Se o dono recusou o diálogo
+    // ali (ou a OS já estava concluída sem pagar), o botão continua aqui.
+    if (podeReceber) {
+      acoes.add((
+        icon: Icons.payments_outlined,
+        label: 'Receber pagamento',
+        kind: NeuButtonKind.secondary,
+        onPressed: _receberPagamento,
+      ));
+    }
 
-    return NeuCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (_busy) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ProgressStepper(status: status),
-          if (cancelled)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: _WorkflowNote(
-                icon: Icons.cancel_outlined,
-                color: neu.danger,
-                text: canWrite
-                    ? 'OS cancelada — edição bloqueada. Reabra para voltar a editá-la.'
-                    : 'OS cancelada.',
-              ),
-            )
-          else if (status == 'entregue')
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: _WorkflowNote(
-                icon: Icons.verified_outlined,
-                color: neu.success,
-                text: 'OS entregue — finalizada (somente leitura).',
-              ),
-            ),
-          if (available.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            Divider(height: 1, color: neu.base),
-            const SizedBox(height: 16),
-            Text(
-              'Próximo passo',
-              style: TextStyle(
-                color: neu.inkMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                if (primary != null)
-                  NeuButton(
-                    label: osTransitionLabel(primary),
-                    icon: _transitionIcon(primary),
-                    onPressed: () => onChange(primary!),
-                  ),
-                for (final t in secondary)
-                  NeuButton(
-                    label: osTransitionLabel(t),
-                    icon: _transitionIcon(t),
-                    kind: NeuButtonKind.secondary,
-                    onPressed: () => onChange(t),
-                  ),
-                if (hasCancel)
-                  NeuButton(
-                    label: osTransitionLabel('cancelada'),
-                    icon: Icons.close_rounded,
-                    kind: NeuButtonKind.danger,
-                    onPressed: () => onChange('cancelada'),
-                  ),
-              ],
-            ),
-          ],
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: neu.inkMuted),
+          ),
+          const SizedBox(width: 10),
+          Text('Atualizando…', style: TextStyle(color: neu.inkMuted, fontSize: 13)),
         ],
-      ),
+      );
+    }
+    if (acoes.isEmpty) {
+      if (order.status == 'cancelada') {
+        return _WorkflowNote(
+          icon: Icons.cancel_outlined,
+          color: neu.danger,
+          text: 'OS cancelada.',
+        );
+      }
+      if (order.status == 'entregue') {
+        return _WorkflowNote(
+          icon: Icons.verified_outlined,
+          color: neu.success,
+          text: 'OS entregue — finalizada (somente leitura).',
+        );
+      }
+      return const SizedBox.shrink();
+    }
+    // Desktop: texto + ícone (espaço não falta). Mobile: só ícone — a linha
+    // fica compacta, sem competir por largura numa tela estreita.
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final a in acoes)
+          isMobile
+              ? NeuIconButton(
+                  icon: a.icon,
+                  tooltip: a.label,
+                  color: a.kind == NeuButtonKind.danger ? neu.danger : null,
+                  onPressed: a.onPressed,
+                )
+              : NeuButton(
+                  label: a.label,
+                  icon: a.icon,
+                  kind: a.kind,
+                  onPressed: a.onPressed,
+                ),
+      ],
     );
   }
 }
@@ -1036,219 +973,6 @@ class _WorkflowNote extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-IconData _transitionIcon(String target) {
-  switch (target) {
-    case 'aguardando_aprovacao':
-      return Icons.outbox_outlined;
-    case 'aprovada':
-      return Icons.check_circle_outline;
-    case 'aberta':
-      return Icons.undo_rounded;
-    case 'em_execucao':
-      return Icons.play_arrow_rounded;
-    case 'concluida':
-      return Icons.task_alt;
-    case 'entregue':
-      return Icons.local_shipping_outlined;
-    default:
-      return Icons.arrow_forward;
-  }
-}
-
-/// Stepper do ciclo de vida da OS. Desktop/tablet: nós ligados horizontalmente
-/// (feito ✓ / atual ● / futuro nº). Mobile: "Etapa X de N" + barra segmentada.
-class _ProgressStepper extends StatelessWidget {
-  const _ProgressStepper({required this.status});
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final cancelled = status == 'cancelada';
-    final curIdx = cancelled ? -1 : _happyFlow.indexOf(status);
-    return context.isMobile
-        ? _StepperMobile(curIdx: curIdx, cancelled: cancelled)
-        : _StepperWide(curIdx: curIdx, cancelled: cancelled);
-  }
-}
-
-class _StepperWide extends StatelessWidget {
-  const _StepperWide({required this.curIdx, required this.cancelled});
-  final int curIdx;
-  final bool cancelled;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final children = <Widget>[];
-    for (var i = 0; i < _happyFlow.length; i++) {
-      if (i > 0) {
-        final done = !cancelled && i <= curIdx;
-        children.add(
-          Expanded(
-            child: Container(
-              height: 3,
-              margin: const EdgeInsets.only(top: 13),
-              decoration: BoxDecoration(
-                color: done ? neu.navy : neu.base,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        );
-      }
-      children.add(
-        _StepNode(
-          index: i,
-          curIdx: curIdx,
-          cancelled: cancelled,
-          label: osStatusLabel(_happyFlow[i]),
-        ),
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: children,
-    );
-  }
-}
-
-class _StepNode extends StatelessWidget {
-  const _StepNode({
-    required this.index,
-    required this.curIdx,
-    required this.cancelled,
-    required this.label,
-  });
-
-  final int index;
-  final int curIdx;
-  final bool cancelled;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final done = !cancelled && index < curIdx;
-    final current = !cancelled && index == curIdx;
-    final Color circle;
-    final Color fg;
-    if (current) {
-      circle = neu.navy;
-      fg = neu.onNavy;
-    } else if (done) {
-      circle = neu.navy.withValues(alpha: 0.16);
-      fg = neu.navy;
-    } else {
-      circle = neu.base;
-      fg = neu.inkFaint;
-    }
-    return SizedBox(
-      width: 92,
-      child: Column(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: circle),
-            child: done
-                ? Icon(Icons.check_rounded, size: 18, color: fg)
-                : Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: current ? neu.ink : neu.inkMuted,
-              fontSize: 11.5,
-              fontWeight: current ? FontWeight.w800 : FontWeight.w600,
-              height: 1.15,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepperMobile extends StatelessWidget {
-  const _StepperMobile({required this.curIdx, required this.cancelled});
-  final int curIdx;
-  final bool cancelled;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final total = _happyFlow.length;
-    final idx = curIdx < 0 ? 0 : curIdx;
-    final label = cancelled ? 'Cancelada' : osStatusLabel(_happyFlow[idx]);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Etapa + rótulo do status: "Aguardando aprovação" não cabia ao lado de
-        // "Etapa 2 de 5" em celular. Os dois cedem espaço em vez de estourar.
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                cancelled ? 'Fluxo interrompido' : 'Etapa ${idx + 1} de $total',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: neu.inkMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                textAlign: TextAlign.right,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: cancelled ? neu.danger : neu.ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (var i = 0; i < total; i++) ...[
-              if (i > 0) const SizedBox(width: 4),
-              Expanded(
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: !cancelled && i <= curIdx ? neu.navy : neu.base,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
     );
   }
 }
@@ -1866,6 +1590,23 @@ class _TotalsCard extends StatelessWidget {
               ],
             ),
           ),
+          // Pago/saldo — a mesma informação que antes só aparecia no painel
+          // de status (removido de lá pra não fazer o indicador de andamento
+          // da OS parecer também um indicador de pagamento).
+          if (order.payment != null && order.payment!.total > 0) ...[
+            const SizedBox(height: 8),
+            _TotalRow(
+              label: 'Pago',
+              value: money(order.payment!.paid.toString()),
+            ),
+            if (order.payment!.balance > 0) ...[
+              const SizedBox(height: 8),
+              _TotalRow(
+                label: 'Saldo a receber',
+                value: money(order.payment!.balance.toString()),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -2977,214 +2718,3 @@ class _CommentTile extends StatelessWidget {
   }
 }
 
-// ===================== Seletor de template =====================
-
-/// Dialog para escolher um template de OS a aplicar. Lista cada template como
-/// um ListTile clicável; devolve o escolhido (ou null em Cancelar). Vazio →
-/// mensagem orientando a criar templates.
-class _TemplatePickerDialog extends ConsumerStatefulWidget {
-  const _TemplatePickerDialog();
-
-  static Future<OsTemplate?> show(BuildContext context) {
-    return showDialog<OsTemplate>(
-      context: context,
-      builder: (_) => const _TemplatePickerDialog(),
-    );
-  }
-
-  @override
-  ConsumerState<_TemplatePickerDialog> createState() =>
-      _TemplatePickerDialogState();
-}
-
-class _TemplatePickerDialogState extends ConsumerState<_TemplatePickerDialog> {
-  static const _pageSize = 20;
-
-  final _scroll = ScrollController();
-  final _search = TextEditingController();
-  Timer? _debounce;
-
-  final List<OsTemplate> _items = [];
-  String _query = '';
-  int _page = 1;
-  bool _hasMore = false;
-  bool _loading = true;
-  bool _loadingMore = false;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-    _load(reset: true);
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _scroll.dispose();
-    _search.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
-      _loadMore();
-    }
-  }
-
-  void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      final q = value.trim();
-      if (q == _query) return;
-      _query = q;
-      _load(reset: true);
-    });
-  }
-
-  Future<void> _load({required bool reset}) async {
-    if (reset) {
-      setState(() {
-        _loading = true;
-        _error = null;
-        _page = 1;
-      });
-    }
-    try {
-      final pageData = await ref
-          .read(osRepositoryProvider)
-          .listTemplatesPage(
-            query: _query.isEmpty ? null : _query,
-            page: _page,
-            pageSize: _pageSize,
-          );
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items.clear();
-        _items.addAll(pageData.items);
-        _hasMore = pageData.hasMore;
-        _loading = false;
-      });
-    } on AppException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e;
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore || _loading) return;
-    setState(() => _loadingMore = true);
-    _page += 1;
-    try {
-      final pageData = await ref
-          .read(osRepositoryProvider)
-          .listTemplatesPage(
-            query: _query.isEmpty ? null : _query,
-            page: _page,
-            pageSize: _pageSize,
-          );
-      if (!mounted) return;
-      setState(() {
-        _items.addAll(pageData.items);
-        _hasMore = pageData.hasMore;
-        _loadingMore = false;
-      });
-    } on AppException {
-      if (!mounted) return;
-      setState(() {
-        _page -= 1;
-        _loadingMore = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: const Text('Aplicar template'),
-      content: SizedBox(
-        width: 440,
-        height: 460,
-        child: Column(
-          children: [
-            TextField(
-              controller: _search,
-              onChanged: _onSearchChanged,
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Buscar template',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(child: _body(scheme)),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-      ],
-    );
-  }
-
-  Widget _body(ColorScheme scheme) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(
-        child: Text(
-          _error is AppException
-              ? (_error as AppException).message
-              : 'Erro ao carregar os templates.',
-        ),
-      );
-    }
-    if (_items.isEmpty) {
-      return Center(
-        child: Text(
-          _query.isEmpty
-              ? 'Nenhum template — crie em Templates.'
-              : 'Nenhum template para "$_query".',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: scheme.onSurfaceVariant),
-        ),
-      );
-    }
-    return ListView.builder(
-      controller: _scroll,
-      itemCount: _items.length + (_hasMore ? 1 : 0),
-      itemBuilder: (_, i) {
-        if (i >= _items.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final t = _items[i];
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.dashboard_customize_outlined),
-          title: Text(t.name),
-          subtitle: (t.description != null && t.description!.isNotEmpty)
-              ? Text(
-                  t.description!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                )
-              : null,
-          onTap: () => Navigator.of(context).pop(t),
-        );
-      },
-    );
-  }
-}

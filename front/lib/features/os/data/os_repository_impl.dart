@@ -29,6 +29,7 @@ class OsRepositoryImpl implements OsRepository {
   Future<OrderPage> listOrders({
     String? q,
     String? status,
+    List<String>? statuses,
     String? customerId,
     String sort = 'recent',
     int page = 1,
@@ -38,7 +39,10 @@ class OsRepositoryImpl implements OsRepository {
           '/os/orders',
           queryParameters: {
             if (q != null && q.isNotEmpty) 'q': q,
-            if (status != null && status.isNotEmpty) 'status': status,
+            if (statuses != null && statuses.isNotEmpty)
+              'statuses': statuses.join(',')
+            else if (status != null && status.isNotEmpty)
+              'status': status,
             if (customerId != null && customerId.isNotEmpty)
               'customerId': customerId,
             if (sort.isNotEmpty) 'sort': sort,
