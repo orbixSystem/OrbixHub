@@ -107,6 +107,17 @@ export class CreateExpenseDto {
 export class UpdateExpenseDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) description?: string;
   @IsOptional() @IsISO8601() dueDate?: string;
+
+  /**
+   * Valor. **Numa conta PARCELADA é o TOTAL da compra**, não o valor desta
+   * parcela — o serviço refaz o rateio entre as irmãs em aberto (as pagas ficam
+   * como estão e são abatidas do total).
+   *
+   * O mesmo campo com dois significados é deliberado: para quem está editando,
+   * "o valor" de uma compra em 5x é sempre a dívida inteira. Um segundo campo
+   * `amountTotal` estaria sempre errado numa das duas situações e obrigaria a
+   * tela a escolher qual mandar.
+   */
   @IsOptional() @IsNumber() @Min(0) amount?: number;
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsString() @MaxLength(500) notes?: string;

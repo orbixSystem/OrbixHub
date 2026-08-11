@@ -12,14 +12,47 @@ import 'expense_visuals.dart';
 import 'expenses_providers.dart';
 
 /// Formulário de uma conta a pagar. Devolve `true` quando gravou.
+///
+/// [atual] = EDITAR aquela conta. [modelo] = criar uma NOVA usando a conta como
+/// molde (o "Duplicar" da lista). Os dois são a mesma tela, mas não a mesma
+/// operação, e é por isso que são parâmetros distintos: antes o duplicar mandava
+/// a conta em `atual` com o id apagado, o formulário via `atual != null`, entrava
+/// em modo edição e salvava com `PATCH /expenses/` sem id — 404 na cara da
+/// cliente. Quem decide criar-ou-editar não pode ser um campo esvaziado.
+///
+/// **[modelo] não tem chamador hoje**: o "Duplicar" foi desligado a pedido do
+/// dono do produto e está comentado em `expenses_screen.dart` (procure por
+/// `DUPLICAR`). O suporte aqui é mantido de propósito — está correto e testado
+/// pelo analisador, e reativar a função é só descomentar de lá. Não remova isto
+/// achando que é código morto sem antes conferir aquele trecho.
+/// A compra parcelada a que uma conta pertence — o que o formulário precisa
+/// saber para editar o TOTAL em vez do valor da parcela.
+///
+/// `Expense` sozinho não responde isso: ele guarda o valor DELE, e o total é a
+/// soma das irmãs, que vive fora dele (no detalhe ou no resumo do grupo). Quem
+/// abre o formulário já tem esse número em mãos, então ele é passado em vez de
+/// buscado de novo.
+typedef CompraParcelada = ({num total, int pagas});
+
 Future<bool> showExpenseFormDialog(
   BuildContext context,
   WidgetRef ref, {
   Expense? atual,
+  Expense? modelo,
+  CompraParcelada? compra,
 }) async {
+  assert(
+    atual == null || modelo == null,
+    'atual (editar) e modelo (duplicar) são excludentes.',
+  );
+  assert(
+    !(atual?.parcelada ?? false) || compra != null,
+    'editar parcela exige `compra` — sem o total, o campo de valor mostraria o '
+    'valor da parcela e a edição gravaria a compra inteira com ele.',
+  );
   final ok = await showDialog<bool>(
     context: context,
-    builder: (_) => _FormDialog(atual: atual),
+    builder: (_) => _FormDialog(atual: atual, modelo: modelo, compra: compra),
   );
   return ok ?? false;
 }
@@ -46,9 +79,17 @@ enum _Tipo {
 }
 
 class _FormDialog extends ConsumerStatefulWidget {
-  const _FormDialog({this.atual});
+  const _FormDialog({this.atual, this.modelo, this.compra});
 
+  /// A conta sendo EDITADA. `null` quando é criação.
   final Expense? atual;
+
+  /// A conta usada como MOLDE numa duplicação. Preenche os campos, mas a
+  /// operação continua sendo criação.
+  final Expense? modelo;
+
+  /// A compra parcelada de [atual], quando ela é uma parcela.
+  final CompraParcelada? compra;
 
   @override
   ConsumerState<_FormDialog> createState() => _FormDialogState();
@@ -56,36 +97,69 @@ class _FormDialog extends ConsumerStatefulWidget {
 
 class _FormDialogState extends ConsumerState<_FormDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final _descCtrl =
-      TextEditingController(text: widget.atual?.description ?? '');
-  late final _valorCtrl = TextEditingController(
-    text: (widget.atual?.temValor ?? false)
-        ? widget.atual!.amount.toStringAsFixed(2).replaceAll('.', ',')
-        : '',
-  );
-  late final _obsCtrl = TextEditingController(text: widget.atual?.notes ?? '');
-  late final _fornecedorCtrl =
-      TextEditingController(text: widget.atual?.supplierName ?? '');
-  late final _docCtrl =
-      TextEditingController(text: formatCnpj(widget.atual?.supplierDoc));
 
-  late DateTime _vencimento = widget.atual?.vencimento ?? DateTime.now();
-  late String? _categoriaId = widget.atual?.categoryId;
-  late _Tipo _tipo = _tipoDe(widget.atual);
+  /// De onde vêm os valores iniciais: a conta em edição ou o molde da cópia. Só
+  /// preenchimento — quem decide criar-ou-editar é [_editando], que olha apenas
+  /// `atual`.
+  Expense? get _origem => widget.atual ?? widget.modelo;
+
+  late final _descCtrl =
+      TextEditingController(text: _origem?.description ?? '');
+  /// Numa parcela em edição o campo abre com o TOTAL DA COMPRA, não com o valor
+  /// da parcela: era o bug relatado — a compra de R$ 1.000 em 5x abria com
+  /// R$ 200, e salvar reescrevia a dívida inteira com o valor de uma fatia.
+  late final _valorCtrl = TextEditingController(text: _valorInicial());
+
+  String _valorInicial() {
+    final compra = widget.compra;
+    if (_editando && compra != null) return _comoTexto(compra.total);
+    final origem = _origem;
+    if (origem?.temValor ?? false) return _comoTexto(origem!.amount);
+    return '';
+  }
+
+  static String _comoTexto(num v) =>
+      v.toStringAsFixed(2).replaceAll('.', ',');
+
+  /// Quantas parcelas o rateio vai dividir ao salvar: as EM ABERTO. As pagas já
+  /// saíram do caixa e o servidor não mexe no valor delas.
+  int get _parcelasEmAberto {
+    final compra = widget.compra;
+    final total = widget.atual?.installmentTotal ?? 0;
+    if (compra == null) return total;
+    return total - compra.pagas;
+  }
+  late final _obsCtrl = TextEditingController(text: _origem?.notes ?? '');
+  late final _fornecedorCtrl =
+      TextEditingController(text: _origem?.supplierName ?? '');
+  late final _docCtrl =
+      TextEditingController(text: formatCnpj(_origem?.supplierDoc));
+
+  late DateTime _vencimento = _origem?.vencimento ?? DateTime.now();
+  late String? _categoriaId = _origem?.categoryId;
+
+  /// Tipo da conta. A cópia nasce AVULSA mesmo quando o molde é fixa ou
+  /// parcelada: "Duplicar" não pode, num toque de menu, criar uma regra que
+  /// repete para sempre nem uma dívida nova em 6 vezes. Além disso o valor
+  /// copiado de uma parcela é o da PARCELA, e ele apareceria sob o rótulo "valor
+  /// total" — número errado no campo que mais importa. Quem quiser outro tipo usa
+  /// "Voltar" e escolhe, que na criação continua disponível.
+  late _Tipo _tipo = widget.modelo != null ? _Tipo.avulsa : _tipoDe(widget.atual);
   int _parcelas = 2;
   bool _salvando = false;
 
   /// Etapa 1 = escolher o tipo. Na EDIÇÃO já começa na 2: o tipo de uma conta
   /// lançada não muda (o backend não aceita reparcelar nem transformar avulsa em
-  /// fixa), e mostrar a escolha sugeriria que muda.
-  late bool _escolhendoTipo = widget.atual == null;
+  /// fixa), e mostrar a escolha sugeriria que muda. Na DUPLICAÇÃO também começa
+  /// na 2 — os dados já estão preenchidos, e a promessa do menu é "mesmos dados".
+  late bool _escolhendoTipo = widget.atual == null && widget.modelo == null;
 
-  /// Fornecedor JÁ PREENCHIDO na conta que está sendo editada.
+  /// Fornecedor JÁ PREENCHIDO na conta de origem.
   ///
   /// Mantém a seção visível mesmo que a categoria não peça fornecedor — dado
   /// gravado que a tela esconde é dado que ninguém consegue corrigir nem apagar.
   late final bool _tinhaFornecedor =
-      (widget.atual?.supplierName ?? widget.atual?.supplierDoc) != null;
+      (_origem?.supplierName ?? _origem?.supplierDoc) != null;
 
   ExpenseSupplierLookup? _consultado;
   bool _consultando = false;
@@ -187,8 +261,7 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _salvando = true);
 
-    // Vazio = "valor a confirmar" (grava 0). Não é erro de preenchimento: a
-    // conta de luz existe antes de a fatura chegar.
+    // Garantido > 0 pelo validator acima — o campo é obrigatório.
     final valor = _valorDigitado;
     final doc = normalizeCnpj(_docCtrl.text);
     final nomeForn = _fornecedorCtrl.text.trim();
@@ -282,7 +355,14 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
         ref.watch(despesasDoMesProvider).value?.categories ?? const [];
 
     return NeuDialog(
-      title: _editando ? 'Editar despesa' : 'Nova despesa',
+      // "Duplicar" ganha título próprio: os campos vêm preenchidos com os de
+      // outra conta, e sem esse aviso a tela parece uma edição — a cliente
+      // acharia que está mexendo na conta original.
+      title: _editando
+          ? 'Editar despesa'
+          : widget.modelo != null
+              ? 'Duplicar despesa'
+              : 'Nova despesa',
       maxWidth: 520,
       actions: [
         // "Voltar" só na criação, e só porque houve uma etapa antes.
@@ -332,7 +412,8 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
                 NeuTextField(
                   // Na parcelada o rótulo muda porque o número muda de
                   // significado: é o total da dívida, e o servidor rateia.
-                  label: _tipo == _Tipo.parcelada ? 'Valor total *' : 'Valor',
+                  label:
+                      _tipo == _Tipo.parcelada ? 'Valor total *' : 'Valor *',
                   controller: _valorCtrl,
                   hint: '0,00',
                   prefixIcon: Icons.attach_money_rounded,
@@ -344,16 +425,27 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
                     if (_tipo == _Tipo.parcelada) setState(() {});
                   },
                   helper: _tipo == _Tipo.parcelada
-                      ? 'O valor da COMPRA inteira — dividimos nas parcelas.'
-                      : 'Deixe vazio se ainda não sabe — dá para preencher ao pagar.',
+                      ? (_editando
+                          ? 'O valor da COMPRA inteira — as parcelas em aberto '
+                              'são recalculadas.'
+                          : 'O valor da COMPRA inteira — dividimos nas parcelas.')
+                      : 'Quanto a conta vai custar.',
+                  // Valor OBRIGATÓRIO em qualquer tipo, por decisão do dono do
+                  // produto. Antes o campo aceitava vazio e gravava 0 ("valor a
+                  // confirmar"): a conta entrava na lista sem número, não somava
+                  // nos totais do mês e ainda exigia digitar o valor na hora de
+                  // pagar — a previsão de gasto ficava mentindo justamente para
+                  // quem abre a tela para saber quanto tem a pagar.
+                  //
+                  // Contas antigas gravadas com 0 continuam sendo exibidas como
+                  // "a confirmar"; o backend ainda aceita 0 (ver CreateExpenseDto).
+                  // A obrigatoriedade é do formulário, não do contrato da API.
                   validator: (v) {
-                    if (_tipo != _Tipo.parcelada) return null;
-                    // Parcelar "a confirmar" não tem como: sem total não há o
-                    // que dividir. O backend também recusa.
-                    if (_valorDigitado <= 0) {
-                      return 'Informe o valor total para parcelar.';
-                    }
-                    return null;
+                    if (_valorDigitado > 0) return null;
+                    return _tipo == _Tipo.parcelada
+                        // Sem total não há o que ratear — o backend também recusa.
+                        ? 'Informe o valor total para parcelar.'
+                        : 'Informe o valor da despesa.';
                   },
                 ),
                 const SizedBox(height: 14),
@@ -397,6 +489,19 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
                     onMudar: _salvando
                         ? null
                         : (n) => setState(() => _parcelas = n),
+                  ),
+                ],
+                // Na EDIÇÃO não há stepper (reparcelar continua proibido: mudaria
+                // o número de linhas), mas a prévia do novo rateio precisa
+                // existir — quem digita 1200 no lugar de 1000 quer ver em quanto
+                // fica cada parcela antes de salvar.
+                if (_tipo == _Tipo.parcelada && _editando) ...[
+                  const SizedBox(height: 14),
+                  _PreviaRerateio(
+                    total: _valorDigitado,
+                    emAberto: _parcelasEmAberto,
+                    pagas: widget.compra?.pagas ?? 0,
+                    totalDeParcelas: widget.atual?.installmentTotal ?? 0,
                   ),
                 ],
               ],
@@ -671,6 +776,90 @@ class _CampoParcelas extends StatelessWidget {
 
   static String _dm(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+}
+
+/// Prévia do rateio ao EDITAR o total de uma compra parcelada.
+///
+/// Mostra em quanto fica cada parcela em aberto com o total digitado — usando o
+/// mesmo `ratearParcelas` do servidor, então o número exibido é o que vai ser
+/// gravado. Quando há parcelas pagas, diz explicitamente que elas não mudam: o
+/// dinheiro já saiu e está no caixa, e reescrever o valor faria a despesa
+/// divergir do extrato.
+class _PreviaRerateio extends StatelessWidget {
+  const _PreviaRerateio({
+    required this.total,
+    required this.emAberto,
+    required this.pagas,
+    required this.totalDeParcelas,
+  });
+
+  final num total;
+  final int emAberto;
+  final int pagas;
+  final int totalDeParcelas;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    if (total <= 0 || emAberto <= 0) return const SizedBox.shrink();
+
+    // O que sobra para as em aberto = total - o já comprometido nas pagas. Não
+    // dá para saber o valor exato das pagas aqui (só a contagem), então a prévia
+    // só é precisa quando nada foi pago; com pagas, explica em vez de chutar.
+    if (pagas > 0) {
+      return NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 17, color: neu.info),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$pagas de $totalDeParcelas parcelas já foram pagas e não mudam '
+                'de valor. O que sobrar do total será dividido entre as '
+                '$emAberto em aberto.',
+                style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final valores = ratearParcelas(total, emAberto);
+    final iguais = valores.every((v) => v == valores.first);
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            iguais
+                ? '${emAberto}x de ${formatMoney(valores.first)}'
+                // Centavos de resto vão na 1ª em aberto — dizer "5x de X" com a
+                // primeira diferente seria impreciso no valor cobrado primeiro.
+                : '1ª de ${formatMoney(valores.first)} + '
+                    '${emAberto - 1}x de ${formatMoney(valores[1])}',
+            style: TextStyle(
+              color: neu.ink,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Os vencimentos e a quantidade de parcelas não mudam.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Fornecedor: CNPJ com consulta + nome. Recolhido quando vazio.

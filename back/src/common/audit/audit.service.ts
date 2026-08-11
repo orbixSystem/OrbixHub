@@ -65,6 +65,12 @@ export type AuditAction =
   | 'expense_pay'
   | 'expense_unpay'
   | 'expense_cancel'
+  | 'expense_restore'
+  // `expense_purge` é o ÚNICO hard delete do projeto: depois dele não há mais
+  // linha para consultar, então esta entrada de auditoria é o que resta como
+  // prova de que a conta existiu. Gravada antes do DELETE, com a descrição no
+  // metadata justamente por isso.
+  | 'expense_purge'
   | 'expense_category_create'
   | 'expense_category_update'
   | 'sync_overwrite'

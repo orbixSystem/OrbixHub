@@ -391,6 +391,52 @@ class LocalFirstExpensesRepository extends LocalFirstBase
     await removeRow(_contas, id);
   }
 
+  // ===================== Lixeira (online-only) =====================
+  //
+  // As três operações abaixo NÃO têm caminho offline, e isso é deliberado.
+  //
+  // O espelho local guarda o que a tela do dia a dia usa: as contas ATIVAS do
+  // mês. Excluir remove a linha do espelho (ver `cancelar` acima), então o
+  // aparelho simplesmente não tem os dados da lixeira para mostrar sem rede — e
+  // baixar as canceladas para o celular seria carregar histórico que ninguém
+  // consulta no balcão.
+  //
+  // Restaurar e apagar de vez também exigiriam operações NOVAS no push do sync
+  // (`restore`/`purge`), e o hard delete ainda precisaria de lápide para os
+  // outros aparelhos removerem a cópia local — trabalho que foi conscientemente
+  // adiado com o dono do produto. Enquanto isso, falhar com uma mensagem clara é
+  // melhor que fingir que funcionou e divergir do servidor.
+
+  // `async` de propósito: sem isso `requiresConnection` estoura de forma
+  // SÍNCRONA, antes de existir um Future — quem chamar dentro de um
+  // `try`/`catch` assíncrono (ou de um `expectLater`) não pegaria o erro.
+  @override
+  Future<ExpensesMonth> listarExcluidas({
+    required int ano,
+    required int mes,
+  }) async {
+    if (!isOnline()) requiresConnection('ver as despesas excluídas');
+    return inner.listarExcluidas(ano: ano, mes: mes);
+  }
+
+  @override
+  Future<void> restaurar(String id) async {
+    if (!isOnline()) requiresConnection('restaurar uma despesa excluída');
+    await inner.restaurar(id);
+    // O espelho local não tem a linha (saiu na exclusão) e o pull seguinte a
+    // traz de volta já com `status='active'` — nada a reconstruir aqui.
+  }
+
+  @override
+  Future<void> excluirDeVez(String id) async {
+    if (!isOnline()) requiresConnection('apagar uma despesa de vez');
+    await inner.excluirDeVez(id);
+    // Defensivo: se por algum caminho a linha ainda estiver no espelho, ela
+    // some agora. O pull não conseguiria removê-la — ele só enxerga o que
+    // existe, e a linha deixou de existir no servidor.
+    await removeRow(_contas, id);
+  }
+
   @override
   Future<ExpenseCategory> criarCategoria({
     required String name,

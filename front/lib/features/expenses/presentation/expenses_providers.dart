@@ -45,12 +45,29 @@ final despesasDoMesProvider =
       );
 });
 
+/// Contas EXCLUÍDAS do mês em foco — a lixeira.
+///
+/// Provider à parte, e não um recorte de [despesasDoMesProvider]: aquela
+/// listagem traz só `status='active'`, então as excluídas nem chegam ao cliente.
+/// Carrega sob demanda — quem nunca abre a lixeira não paga por ela.
+final despesasExcluidasProvider =
+    FutureProvider.autoDispose<ExpensesMonth>((ref) {
+  final mes = ref.watch(mesEmFocoProvider);
+  return ref.read(expensesRepositoryProvider).listarExcluidas(
+        ano: mes.year,
+        mes: mes.month,
+      );
+});
+
 /// Filtro da tela. `todas` é o default: a cliente abre para ver o mês, não para
 /// caçar um estado específico.
 ///
 /// `semana` é hoje + 7 dias (incluindo as vencidas) — a pergunta prática "o que
 /// tenho pra pagar esta semana". Ver `contasDaSemana`.
-enum FiltroDespesa { todas, semana, emAberto, vencidas, pagas }
+///
+/// `excluidas` é a LIXEIRA e é diferente das demais: as outras recortam a mesma
+/// lista já carregada, esta troca a FONTE (vai no [despesasExcluidasProvider]).
+enum FiltroDespesa { todas, semana, emAberto, vencidas, pagas, excluidas }
 
 class FiltroDespesaNotifier extends Notifier<FiltroDespesa> {
   @override
