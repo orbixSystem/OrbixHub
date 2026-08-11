@@ -38,9 +38,14 @@ pw.Widget pdfCompanyHeader(
   DocumentCompany company, {
   double logoMaxWidth = 200,
 
-  /// Piso de altura do cabeçalho: dá presença ao logo mesmo quando a empresa
-  /// cadastrou poucos dados (2–3 linhas de texto à direita).
-  double minHeight = 66,
+  /// Piso de altura: dá presença ao logo quando a empresa cadastrou poucos
+  /// dados (2–3 linhas à direita).
+  double minHeight = 44,
+
+  /// TETO de altura: sem ele um logo quadrado, esticado até os 200pt da
+  /// coluna, geraria um cabeçalho de palmo e meio e empurraria o corpo do
+  /// documento para baixo.
+  double maxHeight = 70,
 }) {
   final logo = company.logo;
   final dados = pw.Column(
@@ -87,9 +92,13 @@ pw.Widget pdfCompanyHeader(
       pw.TableRow(
         children: [
           pw.ConstrainedBox(
-            // O piso vive AQUI: a célula do logo é a que define a altura
-            // mínima da linha quando a empresa tem poucos dados à direita.
-            constraints: pw.BoxConstraints(minHeight: minHeight),
+            // Piso E TETO vivem AQUI: a célula do logo é a que define a altura
+            // da linha. Sem o teto, um logo quadrado ocuparia os 200pt da
+            // coluna em altura e o cabeçalho comeria um terço da página.
+            constraints: pw.BoxConstraints(
+              minHeight: minHeight,
+              maxHeight: maxHeight,
+            ),
             child: pw.Padding(
               padding: const pw.EdgeInsets.only(right: 14),
               child: pw.Image(
