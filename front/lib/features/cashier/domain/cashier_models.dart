@@ -230,6 +230,98 @@ class ExpenseTemplateDraft {
       };
 }
 
+// ===================== Parcelamento de fiado =====================
+
+/// Uma parcela de fiado (provisionada ou quitada).
+class Installment {
+  const Installment({
+    required this.id,
+    required this.saleKind,
+    required this.saleId,
+    required this.amount,
+    required this.dueDate,
+    this.paidAt,
+    this.entryId,
+    this.notes,
+    this.createdAt,
+  });
+
+  final String id;
+  final String saleKind;
+  final String saleId;
+  final String amount;
+  final String dueDate;
+  final String? paidAt;
+  final String? entryId;
+  final String? notes;
+  final String? createdAt;
+
+  factory Installment.fromJson(Map<String, dynamic> json) => Installment(
+        id: json['id'] as String,
+        saleKind: json['sale_kind'] as String,
+        saleId: json['sale_id'] as String,
+        amount: (json['amount'] ?? '0').toString(),
+        dueDate: json['due_date'] as String,
+        paidAt: json['paid_at'] as String?,
+        entryId: json['entry_id'] as String?,
+        notes: json['notes'] as String?,
+        createdAt: json['created_at'] as String?,
+      );
+
+  double get valor => moneyToDouble(amount);
+
+  InstallmentStatus get status {
+    if (paidAt != null) return InstallmentStatus.paga;
+    final due = DateTime.tryParse(dueDate);
+    if (due != null && due.isBefore(DateTime.now())) {
+      return InstallmentStatus.vencida;
+    }
+    return InstallmentStatus.pendente;
+  }
+
+  bool get venceHoje {
+    final due = DateTime.tryParse(dueDate);
+    if (due == null) return false;
+    final now = DateTime.now();
+    return due.year == now.year && due.month == now.month && due.day == now.day;
+  }
+}
+
+/// Status derivado de uma parcela.
+enum InstallmentStatus { pendente, vencida, paga }
+
+/// Plano de parcelamento a criar.
+class InstallmentPlanDraft {
+  const InstallmentPlanDraft({
+    required this.saleKind,
+    required this.saleId,
+    required this.installmentCount,
+    required this.dueDayOfMonth,
+    required this.totalAmount,
+    this.firstDueDate,
+    this.notes,
+  });
+
+  final String saleKind;
+  final String saleId;
+  final int installmentCount;
+  final int dueDayOfMonth;
+  /// Valor total a parcelar (será dividido igualmente entre as parcelas).
+  final double totalAmount;
+  final String? firstDueDate;
+  final String? notes;
+
+  Map<String, dynamic> toJson() => {
+        'saleKind': saleKind,
+        'saleId': saleId,
+        'installmentCount': installmentCount,
+        'dueDayOfMonth': dueDayOfMonth,
+        'totalAmount': totalAmount,
+        if (firstDueDate != null) 'firstDueDate': firstDueDate,
+        if (notes != null) 'notes': notes,
+      };
+}
+
 /// Rascunho de um lançamento (a direção é derivada da categoria no backend).
 class EntryDraft {
   const EntryDraft({

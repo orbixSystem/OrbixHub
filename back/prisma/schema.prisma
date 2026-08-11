@@ -166,8 +166,9 @@ model cash_entry {
   created_by      String       @db.Uuid
   created_at      DateTime     @default(now()) @db.Timestamptz(6)
   updated_at      DateTime     @default(now()) @db.Timestamptz(6)
-  cash_session    cash_session @relation(fields: [cash_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenant          tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cash_session                  cash_session            @relation(fields: [cash_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant                        tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  receivable_installments       receivable_installment[]
 
   @@index([tenant_id, cash_session_id], map: "idx_cash_entry_tenant_session")
   @@index([tenant_id, sale_kind, sale_id], map: "idx_cash_entry_tenant_sale")
@@ -745,9 +746,10 @@ model tenant {
   settings      Json            @default("{}")
   created_at    DateTime        @default(now()) @db.Timestamptz(6)
   audit_log             audit_log[]
-  cash_entry            cash_entry[]
-  cash_expense_template cash_expense_template[]
-  cash_session          cash_session[]
+  cash_entry                    cash_entry[]
+  cash_expense_template         cash_expense_template[]
+  cash_session                  cash_session[]
+  receivable_installments       receivable_installment[]
   conversation       conversation[]
   customer           customer[]
   expense               expense[]
@@ -804,6 +806,27 @@ model business_hours {
 
   @@unique([tenant_id, day_of_week])
   @@index([tenant_id], map: "idx_business_hours_tenant")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model receivable_installment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  sale_kind  String
+  sale_id    String    @db.Uuid
+  amount     Decimal   @db.Decimal(14, 2)
+  due_date   DateTime  @db.Date
+  paid_at    DateTime? @db.Timestamptz(6)
+  entry_id   String?   @db.Uuid
+  notes      String?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant     tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  cash_entry cash_entry? @relation(fields: [entry_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, sale_kind, sale_id], map: "idx_ri_tenant_sale")
+  @@index([tenant_id, due_date], map: "idx_ri_tenant_due")
 }
 
 model billing_webhook_event {

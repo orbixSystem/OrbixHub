@@ -10,6 +10,7 @@ import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../customers/domain/customers_models.dart';
+import '../../customers/presentation/customer_form_dialog.dart';
 import '../domain/os_models.dart';
 import 'os_providers.dart';
 
@@ -71,6 +72,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   List<SubjectOption> _subjects = const [];
   SubjectOption? _subject;
   bool _loadingSubjects = false;
+  String _lastCustomerQuery = '';
 
   /// Cliente JÁ existente para o qual estamos cadastrando um veículo aqui
   /// mesmo (ele não tinha nenhum, ou quer registrar mais um). O veículo nasce
@@ -630,11 +632,28 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   /// Cliente existente: autocomplete restilizado (mantém optionsBuilder/onSelected).
   /// Sem clientes não quebra — o campo fica vazio e o usuário pode trocar de modo.
+  Future<void> _criarClienteInline() async {
+    final customer = await CustomerFormDialog.show(
+      context,
+      documentRequired: false,
+      initialName: _lastCustomerQuery.trim(),
+    );
+    if (customer != null && mounted) {
+      await _pickCustomer(CustomerOption(
+        id: customer.id,
+        name: customer.name,
+        document: customer.document,
+        phone: customer.phone,
+      ));
+    }
+  }
+
   Widget _customerAutocomplete() {
     final neu = context.neu;
     return Autocomplete<CustomerOption>(
       displayStringForOption: (c) => c.name,
       optionsBuilder: (value) async {
+        _lastCustomerQuery = value.text;
         try {
           return await ref
               .read(osRepositoryProvider)
@@ -660,6 +679,15 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
               hintStyle: TextStyle(color: neu.inkFaint),
               prefixIcon:
                   Icon(Icons.person_outline, size: 20, color: neu.inkMuted),
+              suffixIcon: IconButton(
+                tooltip: 'Criar novo cliente',
+                icon: Icon(Icons.person_add_alt_1_outlined,
+                    size: 18, color: neu.inkMuted),
+                onPressed: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  _criarClienteInline();
+                },
+              ),
               border: InputBorder.none,
               isDense: true,
               contentPadding:
@@ -676,7 +704,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             elevation: 4,
             borderRadius: BorderRadius.circular(NeuTokens.rField),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240, maxWidth: 412),
+              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 412),
               child: ListView(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
@@ -696,6 +724,23 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                             ),
                       onTap: () => onSelected(c),
                     ),
+                  // Criar novo — sempre visível no final da lista
+                  ListTile(
+                    dense: true,
+                    leading: Icon(Icons.person_add_alt_1_outlined,
+                        size: 20, color: neu.navy),
+                    title: Text(
+                      _lastCustomerQuery.trim().isNotEmpty
+                          ? 'Criar cliente "${_lastCustomerQuery.trim()}"'
+                          : 'Criar novo cliente',
+                      style: TextStyle(
+                          color: neu.navy, fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      _criarClienteInline();
+                    },
+                  ),
                 ],
               ),
             ),
