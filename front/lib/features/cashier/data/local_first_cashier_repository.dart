@@ -838,14 +838,29 @@ class LocalFirstCashierRepository extends LocalFirstBase
       final items =
           await inner.listInstallments(saleKind: saleKind, saleId: saleId);
       await mirrorRows(_installments, [for (final i in items) i.toJson()]);
-      return items;
+      // Junta o que ainda está na FILA. Rede de volta não é o mesmo que push
+      // concluído: um plano criado offline segue só no aparelho até o outbox
+      // esvaziar, e sem este merge a lista voltava vazia — o plano "sumia" da
+      // tela minutos depois de ter sido criado.
+      final merged = await mergePending(
+        _installments,
+        [for (final i in items) i.toJson()],
+        keepExtra: (r) => r['sale_kind'] == saleKind && r['sale_id'] == saleId,
+      );
+      return _ordenadasPorVencimento(merged);
     }
     final local = (await rows(_installments))
         .where((r) => r['sale_kind'] == saleKind && r['sale_id'] == saleId)
-        .toList()
-      ..sort((a, b) => ((a['due_date'] ?? '') as String)
-          .compareTo((b['due_date'] ?? '') as String));
-    return [for (final r in local) Installment.fromJson(r)];
+        .toList();
+    return _ordenadasPorVencimento(local);
+  }
+
+  /// Mais antiga primeiro — é a ordem em que se cobra, e a que o card assume.
+  List<Installment> _ordenadasPorVencimento(List<Map<String, dynamic>> linhas) {
+    final ordenadas = [...linhas]..sort((a, b) =>
+        ((a['due_date'] ?? '') as String)
+            .compareTo((b['due_date'] ?? '') as String));
+    return [for (final r in ordenadas) Installment.fromJson(r)];
   }
 
   @override
