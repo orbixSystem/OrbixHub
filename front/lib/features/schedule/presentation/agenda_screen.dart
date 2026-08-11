@@ -70,7 +70,7 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
     }
     if (!mounted) return;
     final ok = await showOsScheduleDialog(context, ref, order: order);
-    if (ok) _recarregarAgenda();
+    if (ok && mounted) _recarregarAgenda();
   }
 
   /// Agenda uma OS que ainda não tem data: escolhe entre as abertas e define
@@ -79,7 +79,7 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
     final order = await showOsPickerParaAgendar(context, ref);
     if (order == null || !mounted) return;
     final ok = await showOsScheduleDialog(context, ref, order: order);
-    if (ok) _recarregarAgenda();
+    if (ok && mounted) _recarregarAgenda();
   }
 
   void _prevMonth() => setState(() {

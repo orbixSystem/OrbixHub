@@ -367,8 +367,11 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     try {
       final invoice =
           await ref.read(invoiceRepositoryProvider).issue(orderId: order.id);
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       ref.invalidate(orderInvoicesProvider(order.id));
-      if (mounted) context.go('/m/invoice/${invoice.id}');
+      context.go('/m/invoice/${invoice.id}');
     } on AppException catch (e) {
       if (mounted) showNeuErrorSnackBar(context, e.message);
     } finally {

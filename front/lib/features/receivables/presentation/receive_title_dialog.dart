@@ -104,18 +104,27 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final parcela = widget.parcela;
     final valor = _digitado;
-    if (valor <= 0) return;
-    // Receber mais do que se deve seria erro de digitação virando dinheiro
-    // fantasma no caixa — barra antes de gravar.
-    if (valor > _saldo + paymentEps) {
-      _snack('O valor é maior que o saldo de ${formatMoney(_saldo)}.');
-      return;
+    // Quitação de PARCELA não usa o valor digitado (o backend cobra o valor
+    // programado), então as travas de valor abaixo só valem no caminho livre.
+    if (parcela == null) {
+      if (valor <= 0) {
+        // Nunca sair calado: "o botão não faz nada" é o pior modo de falha, e
+        // já custou caro neste app.
+        _snack('Informe um valor maior que zero.');
+        return;
+      }
+      // Receber mais do que se deve seria erro de digitação virando dinheiro
+      // fantasma no caixa — barra antes de gravar.
+      if (valor > _saldo + paymentEps) {
+        _snack('O valor é maior que o saldo de ${formatMoney(_saldo)}.');
+        return;
+      }
     }
     setState(() => _saving = true);
     final nota = _descCtrl.text.trim();
     try {
-      final parcela = widget.parcela;
       if (parcela != null) {
         // Quitação de parcela: o backend lança no caixa E marca a parcela.
         await ref.read(cashierRepositoryProvider).payInstallment(

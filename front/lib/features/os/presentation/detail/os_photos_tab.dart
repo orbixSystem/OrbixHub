@@ -61,6 +61,9 @@ class _OsPhotosTabState extends ConsumerState<OsPhotosTab> {
             contentType: 'image/$ext',
             caption: legenda.isEmpty ? null : legenda,
           );
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (mounted) {
@@ -152,6 +155,9 @@ class _OsPhotosTabState extends ConsumerState<OsPhotosTab> {
     if (!confirmed || !mounted) return;
     try {
       await ref.read(osRepositoryProvider).deletePhoto(order.id, photo.id);
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       ref.invalidate(orderProvider(order.id));
     } on AppException catch (e) {
       if (mounted) {
@@ -390,6 +396,9 @@ class _PhotoCommentsPanelState extends ConsumerState<_PhotoCommentsPanel> {
       final created = await ref
           .read(osRepositoryProvider)
           .addPhotoComment(widget.orderId, widget.photo.id, body);
+      // Guard depois do await: o widget pode ter sido descartado enquanto a
+      // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
+      if (!mounted) return;
       _input.clear();
       setState(() => _comments = [..._comments, created]);
     } on AppException catch (e) {
