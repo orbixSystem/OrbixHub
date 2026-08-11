@@ -350,7 +350,12 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
+              // No desktop a página deixa de ser uma coluna estreita: vira
+              // duas (identidade fixa + conteúdo largo). No celular segue
+              // como estava, que é onde o cliente costuma abrir o link.
+              constraints: BoxConstraints(
+                maxWidth: context.isDesktop ? 1180 : 680,
+              ),
               child: _body(),
             ),
           ),
@@ -410,11 +415,18 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       _TrackTab('Conversa', Icons.chat_bubble_outline, _chatCard),
     ];
     final sel = _tab.clamp(0, tabs.length - 1);
+    return context.isDesktop
+        ? _desktopContent(t, tabs, sel)
+        : _mobileContent(t, tabs, sel);
+  }
 
+  /// CELULAR: uma coluna. Identidade e status no topo (é o que o cliente abre
+  /// o link para ver), navegação em pílulas e a seção escolhida embaixo.
+  Widget _mobileContent(PublicTrack t, List<_TrackTab> tabs, int sel) {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, 20, 16, context.isMobile ? 32 : 40),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         children: [
           _brandHeader(t),
           const SizedBox(height: 16),
@@ -427,6 +439,56 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           ),
           const SizedBox(height: 16),
           KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
+        ],
+      ),
+    );
+  }
+
+  /// DESKTOP: barra lateral fixa com a identidade (oficina, nº da OS, veículo,
+  /// status) e o menu de seções; à direita, a seção escolhida ocupando a
+  /// largura que sobra.
+  ///
+  /// Em tela larga a coluna única de celular deixava metade do monitor vazia e
+  /// escondia a navegação abaixo da dobra — o cliente rolava para achar onde
+  /// clicar. Com a lateral fixa, onde ele está e para onde pode ir ficam
+  /// sempre à vista.
+  Widget _desktopContent(PublicTrack t, List<_TrackTab> tabs, int sel) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 320,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _brandHeader(t),
+                  const SizedBox(height: 16),
+                  _statusSection(t),
+                  const SizedBox(height: 16),
+                  _SectionNavVertical(
+                    tabs: tabs,
+                    selected: sel,
+                    onSelect: (i) => setState(() => _tab = i),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  KeyedSubtree(key: ValueKey(sel), child: tabs[sel].builder()),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1868,6 +1930,75 @@ class _SectionNav extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Menu de seções do DESKTOP: lista vertical na barra lateral. A selecionada
+/// fica preenchida, como um menu de aplicativo — o cliente vê de relance onde
+/// está e o que mais existe, sem precisar rolar.
+class _SectionNavVertical extends StatelessWidget {
+  const _SectionNavVertical({
+    required this.tabs,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<_TrackTab> tabs;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            Padding(
+              padding: EdgeInsets.only(bottom: i == tabs.length - 1 ? 0 : 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(NeuTokens.rField),
+                onTap: i == selected ? null : () => onSelect(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: i == selected ? neu.navy : Colors.transparent,
+                    borderRadius: BorderRadius.circular(NeuTokens.rField),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        tabs[i].icon,
+                        size: 18,
+                        color: i == selected ? neu.onNavy : neu.inkMuted,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          tabs[i].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: i == selected ? neu.onNavy : neu.ink,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
