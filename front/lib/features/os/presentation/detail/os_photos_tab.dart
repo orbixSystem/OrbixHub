@@ -253,13 +253,15 @@ class _PhotoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final neu = context.neu;
+    final legenda = photo.caption?.trim() ?? '';
     final Widget image = NeuNetworkImage(
       url: photo.url,
       width: 96,
       height: 96,
       radius: 12,
     );
-    return Stack(
+    final miniatura = Stack(
       children: [
         if (offline)
           Tooltip(
@@ -332,6 +334,36 @@ class _PhotoThumb extends StatelessWidget {
             ),
           ),
       ],
+    );
+    // A LEGENDA embaixo da miniatura. Ela já era pedida no anexo e já aparecia
+    // para o cliente no link de acompanhamento — só a própria oficina não via,
+    // e ficava com uma grade de fotos sem contexto ("qual delas era a correia?").
+    if (legenda.isEmpty) return miniatura;
+    return SizedBox(
+      width: 96,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          miniatura,
+          const SizedBox(height: 5),
+          Tooltip(
+            // Duas linhas cobrem a maioria; o texto inteiro fica no tooltip
+            // em vez de esticar a célula da grade.
+            message: legenda,
+            child: Text(
+              legenda,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 11.5,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
