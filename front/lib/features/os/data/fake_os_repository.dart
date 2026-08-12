@@ -184,6 +184,22 @@ class FakeOsRepository implements OsRepository {
     return next;
   }
 
+  /// E-mail sugerido por OS (o que o "cadastro do cliente" teria). Vazio = sem
+  /// e-mail cadastrado → a tela abre com o campo em branco.
+  final Map<String, String> trackingEmails = {};
+
+  /// Envios feitos, na ordem — os testes conferem PARA QUEM o link foi.
+  final List<({String orderId, String email})> sentTrackingLinks = [];
+
+  @override
+  Future<String?> trackingRecipientEmail(String orderId) async =>
+      trackingEmails[orderId];
+
+  @override
+  Future<void> sendTrackingLinkEmail(String orderId, String email) async {
+    sentTrackingLinks.add((orderId: orderId, email: email));
+  }
+
   @override
   Future<ServiceOrder> createNote(
     String id, {

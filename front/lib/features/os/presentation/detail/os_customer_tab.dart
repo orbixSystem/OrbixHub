@@ -12,6 +12,7 @@ import '../../../../core/ui/ui.dart';
 import '../../../messages/domain/messages_models.dart';
 import '../../domain/os_models.dart';
 import '../os_providers.dart';
+import '../send_tracking_email_dialog.dart';
 import 'os_detail_shared.dart';
 
 /// Aba **Cliente**: os dois canais com quem está do outro lado — a conversa da
@@ -39,14 +40,15 @@ class OsCustomerTab extends StatelessWidget {
       children: [
         if (temConversa) _MessagesSection(conversationId: conversationId),
         if (temConversa && temTracking) const SizedBox(height: 20),
-        if (temTracking) _TrackingLinkCard(token: token),
+        if (temTracking) _TrackingLinkCard(order: order),
       ],
     );
   }
 }
 
 /// Card com o link público de acompanhamento da OS: copiar, compartilhar por
-/// WhatsApp (wa.me) e por e-mail (mailto) via url_launcher. A origem do link vem de
+/// WhatsApp (wa.me) via url_launcher e enviar por e-mail (o SERVIDOR envia — ver
+/// `SendTrackingEmailDialog`). A origem do link vem de
 /// `Uri.base.origin` na WEB; em desktop/mobile `Uri.base` é `file://` (sem
 /// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
 /// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
@@ -228,10 +230,12 @@ class _MessagePreviewTile extends StatelessWidget {
   }
 }
 
-class _TrackingLinkCard extends StatelessWidget {
-  const _TrackingLinkCard({required this.token});
+class _TrackingLinkCard extends ConsumerWidget {
+  const _TrackingLinkCard({required this.order});
 
-  final String token;
+  final ServiceOrder order;
+
+  String get token => order.publicToken!;
 
   String get _url {
     final origin = kIsWeb
@@ -248,7 +252,22 @@ class _TrackingLinkCard extends StatelessWidget {
     ).showSnackBar(const SnackBar(content: Text('Link copiado')));
   }
 
-  /// Mensagem padrão compartilhada por WhatsApp/e-mail (link de acompanhamento).
+  /// Envio por e-mail: confirma o endereço do cliente ANTES de disparar (o
+  /// cadastro pode estar errado/desatualizado) e o servidor é quem envia.
+  Future<void> _email(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(osRepositoryProvider);
+    final sent = await SendTrackingEmailDialog.show(
+      context,
+      repo: repo,
+      order: order,
+    );
+    if (sent == null || !context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Link enviado para $sent')));
+  }
+
+  /// Mensagem padrão compartilhada por WhatsApp (link de acompanhamento).
   String get _shareText =>
       'Acompanhe sua ordem de serviço em tempo real: $_url';
 
@@ -266,18 +285,8 @@ class _TrackingLinkCard extends StatelessWidget {
     Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
   );
 
-  Future<void> _email(BuildContext context) => _openExternal(
-    context,
-    Uri(
-      scheme: 'mailto',
-      query:
-          'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
-          '&body=${Uri.encodeComponent(_shareText)}',
-    ),
-  );
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     return OsSectionCard(
       icon: Icons.link_rounded,
@@ -324,7 +333,7 @@ class _TrackingLinkCard extends StatelessWidget {
                   label: 'E-mail',
                   icon: Icons.email_outlined,
                   kind: NeuButtonKind.secondary,
-                  onPressed: () => _email(context),
+                  onPressed: () => _email(context, ref),
                 ),
               ],
             ),

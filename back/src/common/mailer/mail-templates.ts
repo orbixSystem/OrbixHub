@@ -147,6 +147,60 @@ export function buildActionUrl(
   }
 }
 
+/**
+ * Link público de acompanhamento da OS. Mesmo `/#/` dos links de identidade —
+ * o front usa hash URL strategy, e sem ele o cliente cai no login.
+ */
+export function buildTrackingUrl(token: string, publicUrl: string): string {
+  return `${trimTrailingSlash(publicUrl)}/#/t/${encodeURIComponent(token)}`;
+}
+
+export interface TrackingLinkMailInput {
+  /** Nome da oficina (vira a marca do e-mail e o remetente visível). */
+  companyName: string;
+  customerName?: string | null;
+  /** Número da OS (ex.: `OS-0007`), quando houver. */
+  orderNumber?: string | null;
+  url: string;
+}
+
+/**
+ * E-mail com o link de acompanhamento da OS. Vai para o CLIENTE (não é um
+ * fluxo de identidade): a marca é a da oficina, não a nossa, e o assunto cita a
+ * OS para o destinatário reconhecer de imediato.
+ */
+export function renderTrackingLinkEmail(
+  input: TrackingLinkMailInput,
+): RenderedMail {
+  const company = input.companyName.trim() || 'OrbixHub';
+  const name = input.customerName?.trim();
+  const number = input.orderNumber?.trim();
+  const greeting = name ? `Olá, ${escapeHtml(name)}!` : 'Olá!';
+  const os = number
+    ? `a sua ordem de serviço <strong>${escapeHtml(number)}</strong>`
+    : 'a sua ordem de serviço';
+
+  const rendered = renderLayout({
+    heading: 'Acompanhe sua ordem de serviço',
+    paragraphs: [
+      greeting,
+      `A ${escapeHtml(company)} preparou uma página para você acompanhar ${os} em tempo real: status, fotos e mensagens.`,
+    ],
+    ctaLabel: 'Acompanhar minha OS',
+    ctaUrl: input.url,
+    footnote:
+      'O link é pessoal — guarde-o para voltar quando quiser. Se você não reconhece esta mensagem, pode ignorá-la.',
+    brandName: company,
+  });
+
+  return {
+    ...rendered,
+    subject: number
+      ? `Acompanhe sua OS ${number} — ${company}`
+      : `Acompanhe sua ordem de serviço — ${company}`,
+  };
+}
+
 /** Renderiza um dos três e-mails de identidade a partir do kind + token. */
 export function renderVerificationEmail(
   email: VerificationEmail,

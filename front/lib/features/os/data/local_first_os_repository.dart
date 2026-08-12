@@ -23,7 +23,8 @@ import '../domain/os_repository.dart';
 /// Offline lançam "Requer conexão" (sem op de sync / dado só do servidor):
 /// `deleteOrder`, `emitInvoice`, `deletePhoto`, `listPhotoComments`,
 /// `addPhotoComment`, `createTemplate`, `updateTemplate`, `deleteTemplate`,
-/// `listMembers`, `lookup` (FIPE).
+/// `listMembers`, `lookup` (FIPE), `trackingRecipientEmail`,
+/// `sendTrackingLinkEmail`.
 class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
   LocalFirstOsRepository({
     required this.inner,
@@ -443,6 +444,21 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     final order = await inner.emitInvoice(id);
     await _mirrorOrder(order);
     return order;
+  }
+
+  /// Enviar o link ao cliente sai do servidor (SMTP) — sempre online. Uma OS
+  /// ainda não sincronizada não existe lá: não há para onde apontar o link.
+  @override
+  Future<String?> trackingRecipientEmail(String orderId) async {
+    if (!isOnline()) requiresConnection('enviar o link ao cliente');
+    return inner.trackingRecipientEmail(orderId);
+  }
+
+  @override
+  Future<void> sendTrackingLinkEmail(String orderId, String email) async {
+    if (!isOnline()) requiresConnection('enviar o link ao cliente');
+    if (await isDirty(_orders, orderId)) pendingSync('Esta OS');
+    await inner.sendTrackingLinkEmail(orderId, email);
   }
 
   @override

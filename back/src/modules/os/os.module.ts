@@ -5,11 +5,13 @@ import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { MessagesModule } from '../messages/messages.module';
 import { IamModule } from '../iam/iam.module';
+import { TenancyModule } from '../tenancy/tenancy.module';
 import { OsController } from './os.controller';
 import { OsPublicController } from './os-public.controller';
 import { OsService } from './os.service';
 import { OsMetricsService } from './os-metrics.service';
 import { OsPublicService } from './os-public.service';
+import { OsTrackingService } from './os-tracking.service';
 import { OsRepository } from './os.repository';
 import { OsSubjectHistoryProvider } from './os-subject-history.provider';
 
@@ -28,12 +30,16 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
     InventoryModule,
     MessagesModule,
     IamModule,
+    // Nome/e-mail da oficina para o e-mail do link de acompanhamento
+    // (TenancyService.getCompanyView — sem tocar a tabela `tenant`).
+    TenancyModule,
   ],
   controllers: [OsController, OsPublicController],
   providers: [
     OsService,
     OsMetricsService,
     OsPublicService,
+    OsTrackingService,
     OsRepository,
     OsSubjectHistoryProvider,
   ],
