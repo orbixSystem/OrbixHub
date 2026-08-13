@@ -2277,7 +2277,8 @@ class _TopItemsChart extends StatelessWidget {
 
     return NeuChartCard(
       title: 'Receita por item',
-      height: 260,
+      // Barras com rótulo precisam de um piso maior que o padrão.
+      minHeight: 260,
       child: BarChart(
         BarChartData(
           maxY: top,
