@@ -138,7 +138,7 @@ class _NeuTextFieldState extends State<NeuTextField> {
             maxLength: widget.maxLength,
             textCapitalization: widget.textCapitalization,
             autofocus: widget.autofocus,
-            style: TextStyle(color: neu.ink, fontSize: 15),
+            style: TextStyle(color: neu.ink, fontSize: 16),
             decoration: InputDecoration(
               counterText: '', // esconde o contador; o cap de maxLength continua
               hintText: widget.hint,
@@ -260,7 +260,7 @@ class NeuSearchBar extends StatelessWidget {
               onChanged: onChanged,
               onSubmitted: onSubmitted,
               textInputAction: TextInputAction.search,
-              style: TextStyle(color: neu.ink, fontSize: 15),
+              style: TextStyle(color: neu.ink, fontSize: 16),
               decoration: InputDecoration(
                 hintText: hint,
                 hintStyle: TextStyle(color: neu.inkFaint),

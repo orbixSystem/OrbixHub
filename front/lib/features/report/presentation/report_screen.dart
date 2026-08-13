@@ -18,7 +18,7 @@ import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
-    show osStatuses, osStatusColor, osStatusLabel, OsStatusChip;
+    show osStatuses, osStatusInk, osStatusLabel, OsStatusChip;
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
@@ -1032,7 +1032,9 @@ class _StatusDonutCard extends StatelessWidget {
                   for (final e in entries)
                     PieChartSectionData(
                       value: e.value.count.toDouble(),
-                      color: osStatusColor(e.key),
+                      // A fatia carrega a contagem em BRANCO: a paleta
+                      // gráfica não sustenta isso (2,3:1 no âmbar).
+                      color: osStatusInk(e.key, Brightness.light),
                       // Rótulo direto só na fatia grande (≥12%); as pequenas
                       // ficam só na legenda para não sobrepor.
                       title: total > 0 && e.value.count / total >= 0.12
@@ -1065,7 +1067,8 @@ class _StatusDonutCard extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: osStatusColor(e.key),
+                            color: osStatusInk(
+                                e.key, Theme.of(context).brightness),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),

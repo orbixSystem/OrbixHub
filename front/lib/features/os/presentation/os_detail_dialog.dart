@@ -109,7 +109,9 @@ class _Corpo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final simples = osSimpleStatusOf(order.status);
-    final corStatus = osSimpleStatusColor(simples);
+    // Gráfico para o tint, legível para o rótulo — ver osStatusInk.
+    final corStatus = osSimpleStatusInk(simples, Theme.of(context).brightness);
+    final tintStatus = osSimpleStatusColor(simples);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,7 +133,7 @@ class _Corpo extends ConsumerWidget {
             NeuStatusChip(
               label: osSimpleStatusLabel(simples),
               color: corStatus,
-              tint: corStatus.withValues(alpha: .14),
+              tint: tintStatus.withValues(alpha: .14),
               icon: osSimpleStatusIcon(simples),
             ),
           ],

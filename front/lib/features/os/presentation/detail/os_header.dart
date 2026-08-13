@@ -255,8 +255,9 @@ class _SimpleStatusTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final simples = osSimpleStatusOf(status);
-    final color = osSimpleStatusColor(simples);
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = osSimpleStatusColor(simples);
+    final ink = osSimpleStatusInk(simples, Theme.of(context).brightness);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -266,12 +267,12 @@ class _SimpleStatusTag extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(osSimpleStatusIcon(simples), size: 13, color: color),
+          Icon(osSimpleStatusIcon(simples), size: 13, color: ink),
           const SizedBox(width: 5),
           Text(
             osSimpleStatusLabel(simples),
             style: TextStyle(
-              color: dark ? Color.lerp(color, Colors.white, .35) : color,
+              color: ink,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),

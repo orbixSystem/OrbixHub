@@ -707,6 +707,12 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         ? osSimpleStatusOf(t.status)
         : OsSimpleStatus.emAndamento;
     final color = osSimpleStatusColor(atual);
+    // O tint/borda usam a cor gráfica; o disco sólido (ícone branco) e o
+    // rótulo usam a variante legível — ver osStatusInk.
+    final ink = osSimpleStatusInk(atual, _neu.base.computeLuminance() > .5
+        ? Brightness.light
+        : Brightness.dark);
+    final solido = osSimpleStatusInk(atual, Brightness.light);
     // O rótulo do servidor é mais específico ("Aguardando aprovação") que o
     // grupo simplificado; usa-se ele quando vem, com o grupo de reserva.
     final rotulo = t.statusLabel.trim().isNotEmpty
@@ -732,7 +738,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                   width: 46,
                   height: 46,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration:
+                      BoxDecoration(color: solido, shape: BoxShape.circle),
                   child: Icon(osSimpleStatusIcon(atual),
                       size: 24, color: Colors.white),
                 ),
@@ -745,7 +752,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                       Text(
                         rotulo,
                         style: TextStyle(
-                          color: color,
+                          color: ink,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           height: 1.15,

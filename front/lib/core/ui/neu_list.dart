@@ -52,7 +52,9 @@ class NeuListTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15,
+                    // 16px: "texto padrão de componente (ex.: itens de
+                    // lista)" no padrão SysOne. Era 15.
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                   child: title,

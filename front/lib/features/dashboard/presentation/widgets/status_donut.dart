@@ -83,7 +83,10 @@ class StatusDonut extends StatelessWidget {
                         width: 10,
                         height: 10,
                         decoration: BoxDecoration(
-                          color: osStatusColor(e.key),
+                          // Swatch de 10px é identificador (piso 3:1), não a
+                          // área grande da fatia — daí a variante legível.
+                          color: osStatusInk(
+                              e.key, Theme.of(context).brightness),
                           shape: BoxShape.circle,
                         ),
                       ),

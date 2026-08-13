@@ -175,6 +175,21 @@ sugestões — valem para todo o produto, sem exceção:
 Contraste mínimo: 4,5:1 para texto normal; 3:1 para texto grande (≥18pt, ou
 ≥16pt em negrito) e para componentes não textuais (botões, bordas de campo).
 
+**Como o contraste é garantido (não confie no olho):**
+
+- `front/test/acessibilidade_padrao_sysone_test.dart` calcula a razão WCAG de
+  verdade sobre os tokens reais — as duas paletas hand-tuned, o tema
+  monocromático e as 12 paletas derivadas de cor-semente. Quebrou o piso,
+  quebrou o build.
+- As paletas derivadas miram **luminância**, não lightness do HSL
+  (`NeuTokens._hslLum`). Uma `l: 0.305` fixa rende luminância ~2x maior em
+  amarelo do que em azul — era por isso que o mesmo token de texto passava num
+  matiz e reprovava em outro.
+- **Cor de superfície ≠ cor de texto.** `navy` é a ação primária (fundo);
+  `accent` é o equivalente para texto. Idem no status da OS: `osStatusColor` é
+  gráfico (fatia de rosca, tint, faixa) e `osStatusInk(status, brightness)` é a
+  variante legível. Usar a gráfica como rótulo dá 2,3:1 no âmbar.
+
 > A escala de tokens acima (`caption` 11px) é **anterior** a este padrão e está
 > abaixo do piso. Ao tocar num componente que ainda use 11px, suba para 12px.
 

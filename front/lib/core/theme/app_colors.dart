@@ -9,7 +9,7 @@ class AppColors {
   const AppColors._();
 
   // Brand accent — lavanda/violeta (ex-tangerina).
-  static const brand = Color(0xFF767CC0);
+  static const brand = Color(0xFF555DB1);
   static const brandBright = Color(0xFF9BA2E8);
   static const brandDeep = Color(0xFF575DA8);
   static const brandTint = Color(0xFFDFE1F0); // accent wash on light surfaces
@@ -29,8 +29,8 @@ class AppColors {
 
   // Ink.
   static const ink = Color(0xFF2B2F44);
-  static const inkMuted = Color(0xFF7B8094);
-  static const inkFaint = Color(0xFFA6AABC);
+  static const inkMuted = Color(0xFF515564);
+  static const inkFaint = Color(0xFF5E647D);
 
   // Deep-space — the dark "azul-noite + ciano" treatment used on the auth
   // screens (login/register/…). Cool, ambient; the tangerine brand stays as a
@@ -46,11 +46,11 @@ class AppColors {
   static const onSpaceMuted = Color(0xFF8C9AB8);
 
   // Semantic.
-  static const success = Color(0xFF0E9F6E);
+  static const success = Color(0xFF0A734F);
   static const successTint = Color(0xFFDDF0E8);
-  static const danger = Color(0xFFE5484D);
+  static const danger = Color(0xFFC61C22);
   static const dangerTint = Color(0xFFF8E2E3);
-  static const warning = Color(0xFFCC8F02);
+  static const warning = Color(0xFF855D01);
   static const warningTint = Color(0xFFF5ECD3);
-  static const info = Color(0xFF2E90FA);
+  static const info = Color(0xFF0562C7);
 }
