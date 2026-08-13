@@ -342,7 +342,7 @@ class _ItemsBlock extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
                 'Nenhum item lançado nesta OS.',
-                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             )
           else

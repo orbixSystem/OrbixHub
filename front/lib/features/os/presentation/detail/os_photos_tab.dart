@@ -131,7 +131,7 @@ class _OsPhotosTabState extends ConsumerState<OsPhotosTab> {
                     'acompanhamento do cliente, com data e hora.',
                     style: TextStyle(
                       color: context.neu.inkFaint,
-                      fontSize: 11.5,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -300,7 +300,7 @@ class _PhotoThumb extends StatelessWidget {
                         '${photo.commentCount}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -357,7 +357,7 @@ class _PhotoThumb extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: neu.inkMuted,
-                fontSize: 11.5,
+                fontSize: 12,
                 height: 1.25,
               ),
             ),
@@ -586,7 +586,7 @@ class _CommentTile extends StatelessWidget {
               if (date.isNotEmpty)
                 Text(
                   date,
-                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 12),
                 ),
             ],
           ),

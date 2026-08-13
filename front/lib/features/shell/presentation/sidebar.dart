@@ -192,7 +192,7 @@ class SidebarContent extends ConsumerWidget {
                   'MENU',
                   style: TextStyle(
                     color: c.fgMuted,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
                   ),
@@ -376,11 +376,11 @@ class _WorkspaceChip extends StatelessWidget {
                   style: TextStyle(
                     color: c.fg,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
                 Text('Workspace',
-                    style: TextStyle(color: c.fgMuted, fontSize: 11.5)),
+                    style: TextStyle(color: c.fgMuted, fontSize: 12)),
               ],
             ),
           ),
@@ -512,7 +512,7 @@ class _SideNavItemState extends State<_SideNavItem> {
                 widget.badge > 99 ? '99+' : '${widget.badge}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -600,7 +600,7 @@ class _UserFooter extends ConsumerWidget {
       child: Text(
         _initials,
         style: TextStyle(
-            color: c.fg, fontWeight: FontWeight.w700, fontSize: 13),
+            color: c.fg, fontWeight: FontWeight.w700, fontSize: 14),
       ),
     );
 
@@ -642,11 +642,11 @@ class _UserFooter extends ConsumerWidget {
                   style: TextStyle(
                     color: c.fg,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: 14,
                   ),
                 ),
                 Text(me.role,
-                    style: TextStyle(color: c.fgMuted, fontSize: 11.5)),
+                    style: TextStyle(color: c.fgMuted, fontSize: 12)),
               ],
             ),
           ),

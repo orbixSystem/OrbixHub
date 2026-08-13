@@ -240,7 +240,7 @@ class _TemplateCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: scheme.onSurfaceVariant, fontSize: 13),
+                      color: scheme.onSurfaceVariant, fontSize: 14),
                 ),
               ],
             ),
@@ -259,7 +259,7 @@ class _TemplateCard extends StatelessWidget {
               Text(
                 'Total',
                 style: TextStyle(
-                    color: scheme.onSurfaceVariant, fontSize: 11),
+                    color: scheme.onSurfaceVariant, fontSize: 12),
               ),
             ],
           ),

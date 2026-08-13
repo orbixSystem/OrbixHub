@@ -160,7 +160,7 @@ class OfflineScreenNotice extends ConsumerWidget {
                 message,
                 style: TextStyle(
                   color: error,
-                  fontSize: 13,
+                  fontSize: 14,
                   height: 1.35,
                   fontWeight: FontWeight.w700,
                 ),

@@ -138,7 +138,7 @@ class _StatusFilterBar extends ConsumerWidget {
                   f.label,
                   style: TextStyle(
                     color: f == selected ? neu.onNavy : neu.inkMuted,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

@@ -466,7 +466,7 @@ class _CalendarGrid extends StatelessWidget {
                         child: Text(
                           h,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: neu.inkMuted,
                             letterSpacing: 0.5,
@@ -641,7 +641,7 @@ class _DayCell extends StatelessWidget {
                             '$count',
                             style: TextStyle(
                               color: dotColor,
-                              fontSize: 9.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w800,
                               height: 1.25,
                             ),
@@ -737,7 +737,7 @@ class _EventsPanel extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'Erro: $e',
-                    style: TextStyle(color: neu.danger, fontSize: 13),
+                    style: TextStyle(color: neu.danger, fontSize: 14),
                   ),
                 ),
               ),
@@ -880,7 +880,7 @@ class _EventCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontSize: 14,
                         color: neu.navy,
                       ),
                     ),
@@ -904,7 +904,7 @@ class _EventCard extends StatelessWidget {
               item.name,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                fontSize: 13.5,
+                fontSize: 14,
                 color: neu.ink,
               ),
               maxLines: 2,

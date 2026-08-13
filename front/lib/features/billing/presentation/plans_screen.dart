@@ -203,7 +203,7 @@ class _PlanCard extends StatelessWidget {
             style: TextStyle(
               color: AppColors.inkMuted,
               fontWeight: FontWeight.w600,
-              fontSize: 13,
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: 12),

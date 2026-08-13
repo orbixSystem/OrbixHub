@@ -137,7 +137,7 @@ class _InviteDialogState extends State<_InviteDialog> {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),

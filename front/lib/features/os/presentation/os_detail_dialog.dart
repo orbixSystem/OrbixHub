@@ -159,7 +159,7 @@ class _Corpo extends ConsumerWidget {
           'Itens',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -286,7 +286,7 @@ class _Linha extends StatelessWidget {
               valor,
               style: TextStyle(
                 color: destaque ? neu.warning : neu.ink,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: destaque ? FontWeight.w800 : FontWeight.w600,
               ),
             ),

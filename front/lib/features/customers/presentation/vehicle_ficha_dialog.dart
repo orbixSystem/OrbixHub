@@ -241,7 +241,7 @@ class VehicleFichaDialog {
           Text(
             'Dados obtidos por consulta à base de veículos emplacados. Podem '
             'estar incompletos ou desatualizados — confira antes de usar.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 12),
           ),
         ],
       ),
@@ -298,14 +298,14 @@ class _Section extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                        style: TextStyle(color: neu.inkFaint, fontSize: 12),
                       ),
                       const SizedBox(height: 3),
                       SelectableText(
                         value,
                         style: TextStyle(
                           color: neu.ink,
-                          fontSize: 13.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -353,7 +353,7 @@ class _FipeRow extends StatelessWidget {
                     fipe.modelo ?? '—',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -361,7 +361,7 @@ class _FipeRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       ref,
-                      style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                      style: TextStyle(color: neu.inkFaint, fontSize: 12),
                     ),
                   ],
                 ],

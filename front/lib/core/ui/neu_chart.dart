@@ -223,7 +223,7 @@ AxisTitles neuLeftTitles(
           space: 6,
           child: Text(
             format(value),
-            style: TextStyle(fontSize: 10, color: neu.inkFaint),
+            style: TextStyle(fontSize: 12, color: neu.inkFaint),
           ),
         );
       },
@@ -259,7 +259,7 @@ AxisTitles neuBottomTitles(
           angle: angle,
           child: Text(
             label(i),
-            style: TextStyle(fontSize: 10, color: neu.inkMuted),
+            style: TextStyle(fontSize: 12, color: neu.inkMuted),
           ),
         );
       },

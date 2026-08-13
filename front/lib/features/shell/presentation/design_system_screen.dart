@@ -202,7 +202,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                 Text(
                   'Borda fina + duas sombras (1px nítida + 12px difusa). '
                   'Pousa no canvas sem usar elevation.',
-                  style: TextStyle(color: AppColors.inkMuted, fontSize: 13),
+                  style: TextStyle(color: AppColors.inkMuted, fontSize: 14),
                 ),
               ],
             ),
@@ -231,7 +231,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                           style: Theme.of(context).textTheme.titleMedium),
                       Text('Ripple + InkWell sobre o background.',
                           style: TextStyle(
-                              color: AppColors.inkMuted, fontSize: 13)),
+                              color: AppColors.inkMuted, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -369,7 +369,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
             Text(
               title,
               style: GoogleFonts.manrope(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppColors.inkFaint,
                 letterSpacing: 0.8,
@@ -386,7 +386,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
   Widget _label(String text) => Text(
         text,
         style: TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppColors.inkFaint,
           letterSpacing: 0.4,
@@ -411,7 +411,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
           width: 56,
           child: Text(
             name,
-            style: const TextStyle(fontSize: 9, color: AppColors.inkMuted),
+            style: const TextStyle(fontSize: 12, color: AppColors.inkMuted),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),

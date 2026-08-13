@@ -237,7 +237,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                 child: Text(
                   'Total ${formatMoney(t.total)} · já pagou '
                   '${formatMoney(t.paid)}',
-                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 12),
                 ),
               ),
             const SizedBox(height: 14),
@@ -426,7 +426,7 @@ class _ParcelarRestante extends StatelessWidget {
                   'Parcelar o restante',
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -504,7 +504,7 @@ class _FormaPagamento extends StatelessWidget {
           'Forma de pagamento',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -534,7 +534,7 @@ class _FormaPagamento extends StatelessWidget {
                     methodLabel(m),
                     style: TextStyle(
                       color: m == selecionada ? neu.onNavy : neu.inkMuted,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

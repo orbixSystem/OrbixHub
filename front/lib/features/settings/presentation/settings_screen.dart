@@ -413,7 +413,7 @@ class _SectionHeader extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 category.subtitle,
-                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             ],
           ),

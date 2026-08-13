@@ -154,7 +154,7 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
                       (unread ?? 0) > 99 ? '99+' : '${unread ?? 0}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -350,7 +350,7 @@ class _PanelContent extends ConsumerWidget {
                       '$unread',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -425,7 +425,7 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             'Nenhuma notificação por aqui.',
-            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
           ),
         ],
       ),
@@ -512,7 +512,7 @@ class _NotificationRow extends StatelessWidget {
                                       fontWeight: unread
                                           ? FontWeight.w800
                                           : FontWeight.w600,
-                                      fontSize: 13.5,
+                                      fontSize: 14,
                                       color: scheme.onSurface,
                                     ),
                                   ),
@@ -547,7 +547,7 @@ class _NotificationRow extends StatelessWidget {
                               style: TextStyle(
                                   color: scheme.onSurfaceVariant.withValues(
                                       alpha: 0.85),
-                                  fontSize: 11),
+                                  fontSize: 12),
                             ),
                           ],
                         ),
@@ -667,7 +667,7 @@ class _NotificationToastState extends State<_NotificationToast>
                                   style: TextStyle(
                                     color: scheme.onInverseSurface,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 if (widget.body != null) ...[
@@ -776,7 +776,7 @@ class NotificationsPage extends ConsumerWidget {
                   '$unread',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

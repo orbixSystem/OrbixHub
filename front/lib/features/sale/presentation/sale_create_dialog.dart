@@ -531,7 +531,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                   'Busque um produto do estoque ou adicione um item avulso.',
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 13),
+                      fontSize: 14),
                 ),
               )
             else
@@ -998,7 +998,7 @@ class _LinhaResumo extends StatelessWidget {
             child: Text(
               rotulo,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 color: destaque ? neu.ink : neu.inkMuted,
                 fontWeight: destaque ? FontWeight.w700 : FontWeight.w500,
               ),
@@ -1156,7 +1156,7 @@ class _DescontoRow extends StatelessWidget {
                     '${bruto - desconto <= 0 ? ' · venda como brinde' : ''}',
             style: TextStyle(
               color: limitado ? AppColors.warning : scheme.onSurfaceVariant,
-              fontSize: 11.5,
+              fontSize: 12,
             ),
           ),
         ],
@@ -1172,7 +1172,7 @@ class _ItemsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(
-        color: AppColors.inkMuted, fontSize: 11, fontWeight: FontWeight.w700);
+        color: AppColors.inkMuted, fontSize: 12, fontWeight: FontWeight.w700);
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       // Mesmas proporções do `_LineTile` (5/3/4 + 36) — colunas em flex, não em

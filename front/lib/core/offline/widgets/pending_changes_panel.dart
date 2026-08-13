@@ -159,7 +159,7 @@ class _OutboxTile extends ConsumerWidget {
                     describeMutation(row.entity, row.op),
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -168,7 +168,7 @@ class _OutboxTile extends ConsumerWidget {
                   failed ? 'Falhou ao enviar' : 'Pendente de envio',
                   style: TextStyle(
                     color: color,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

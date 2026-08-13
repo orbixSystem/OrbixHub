@@ -608,7 +608,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                 _error!,
                 style: TextStyle(
                   color: neu.danger,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -782,7 +782,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   style: TextStyle(
                     color: selected ? neu.onNavy : neu.ink,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -977,7 +977,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                     'Novo $_subjectLabelSingular para ${_customer?.name ?? "o cliente"}',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1915,7 +1915,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1992,7 +1992,7 @@ class _DateTimeField extends FormField<DateTime?> {
                     label,
                     style: TextStyle(
                       color: neu.inkMuted,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2137,7 +2137,7 @@ class _SubjectLookupField extends ConsumerWidget {
                 '${field.rotulo} (opcional)',
                 style: TextStyle(
                   color: neu.inkMuted,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),

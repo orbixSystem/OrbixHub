@@ -554,7 +554,7 @@ class _BottomItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: active ? FontWeight.w800 : FontWeight.w600,
             ),
           ),
@@ -647,7 +647,7 @@ class _QuickCreateFab extends ConsumerWidget {
                   'Criar',
                   style: TextStyle(
                     color: neu.inkMuted,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

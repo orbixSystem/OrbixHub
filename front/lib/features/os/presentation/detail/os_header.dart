@@ -187,7 +187,7 @@ class _Total extends StatelessWidget {
       'Total',
       style: TextStyle(
         color: neu.inkFaint,
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
     );
@@ -212,7 +212,7 @@ class _Total extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: neu.warning,
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           );
@@ -408,7 +408,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           const SizedBox(width: 10),
           Text(
             'Atualizando…',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       );
@@ -608,7 +608,7 @@ class _MenuMais extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: i.perigo ? neu.danger : neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -628,7 +628,7 @@ class _MenuMais extends StatelessWidget {
               'Mais',
               style: TextStyle(
                 color: neu.inkMuted,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -666,7 +666,7 @@ class _Nota extends StatelessWidget {
               text,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),

@@ -309,7 +309,7 @@ class _TabChip extends StatelessWidget {
               label,
               style: TextStyle(
                 color: selected ? neu.onNavy : neu.inkMuted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -328,7 +328,7 @@ class _TabChip extends StatelessWidget {
                   badge!,
                   style: TextStyle(
                     color: selected ? neu.onNavy : neu.inkMuted,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

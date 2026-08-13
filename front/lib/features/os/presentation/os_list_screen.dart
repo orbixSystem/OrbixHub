@@ -246,7 +246,7 @@ class _StatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: selected ? neu.onNavy : neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),

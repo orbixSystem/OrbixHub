@@ -89,7 +89,7 @@ class FalhaDeWidget extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0x77000000),
-                  fontSize: 10.5,
+                  fontSize: 12,
                   decoration: TextDecoration.none,
                 ),
               ),

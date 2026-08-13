@@ -152,7 +152,7 @@ class _Body extends ConsumerWidget {
                           Text(
                             subject.identifier!,
                             style:
-                                TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                                TextStyle(color: neu.inkMuted, fontSize: 14),
                           ),
                       ],
                     ),
@@ -734,7 +734,7 @@ class _InfoSection extends StatelessWidget {
                   title.toUpperCase(),
                   style: TextStyle(
                     color: neu.inkMuted,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
@@ -807,7 +807,7 @@ class _InfoTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: neu.inkFaint,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
@@ -822,7 +822,7 @@ class _InfoTile extends StatelessWidget {
                   : ok
                       ? neu.success
                       : neu.ink,
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               height: 1.15,
             ),
@@ -885,14 +885,14 @@ class _PlateHero extends StatelessWidget {
             info.versao!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         if ((consultadoEm ?? '').isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               'Consultado em ${_formatDate(consultadoEm!)}',
-              style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
             ),
           ),
       ],
@@ -908,7 +908,7 @@ class _PlateHero extends StatelessWidget {
                 'REFERÊNCIA FIPE',
                 style: TextStyle(
                   color: neu.inkFaint,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
                 ),
@@ -1011,7 +1011,7 @@ class _FipeSection extends StatelessWidget {
                   'VALORES DE REFERÊNCIA FIPE',
                   style: TextStyle(
                     color: neu.inkMuted,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
@@ -1066,7 +1066,7 @@ class _FipeRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: neu.ink,
-                          fontSize: 13.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -1085,7 +1085,7 @@ class _FipeRow extends StatelessWidget {
                           'melhor correspondência',
                           style: TextStyle(
                             color: neu.success,
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -1098,7 +1098,7 @@ class _FipeRow extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       ref,
-                      style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                      style: TextStyle(color: neu.inkFaint, fontSize: 12),
                     ),
                   ),
               ],

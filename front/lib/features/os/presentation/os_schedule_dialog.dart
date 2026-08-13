@@ -152,7 +152,7 @@ class _OsPickerState extends ConsumerState<_OsPicker> {
                       style: TextStyle(
                         color: neu.ink,
                         fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
+                        fontSize: 14,
                       ),
                     ),
                     subtitle: Text(
@@ -169,7 +169,7 @@ class _OsPickerState extends ConsumerState<_OsPicker> {
                             'Sem data',
                             style: TextStyle(
                               color: neu.warning,
-                              fontSize: 11.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
                           )
@@ -290,7 +290,7 @@ class _FormState extends ConsumerState<_Form> {
             ].join(' · '),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
           const SizedBox(height: 14),
         ],
@@ -387,7 +387,7 @@ class _CampoData extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             dica!,
-            style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 12),
           ),
         ],
       ],

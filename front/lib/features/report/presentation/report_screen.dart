@@ -181,7 +181,7 @@ class _ReportPicker extends ConsumerWidget {
                 child: Text(
                   entry.key.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                     color: neu.inkFaint,
@@ -244,7 +244,7 @@ class _PickerItem extends StatelessWidget {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     color: selected ? neu.ink : neu.inkMuted,
                   ),
@@ -320,7 +320,7 @@ class _ReportChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: selected ? neu.onNavy : neu.inkMuted,
           ),
@@ -1204,7 +1204,7 @@ class _ChartEmpty extends StatelessWidget {
     return Center(
       child: Text(
         message,
-        style: TextStyle(color: context.neu.inkMuted, fontSize: 13),
+        style: TextStyle(color: context.neu.inkMuted, fontSize: 14),
       ),
     );
   }
@@ -1823,7 +1823,7 @@ class _DataTableCardState extends State<_DataTableCard> {
               color: neu.inkMuted,
               letterSpacing: 0.2,
             ),
-            dataTextStyle: TextStyle(fontSize: 13.5, color: neu.ink),
+            dataTextStyle: TextStyle(fontSize: 14, color: neu.ink),
             dividerThickness: 0.5,
             columns: [
               for (var c = 0; c < headers.length; c++)
@@ -1907,7 +1907,7 @@ class _MobileTableCards extends StatelessWidget {
               const Spacer(),
               for (final p in pairs) ...[
                 Text('${p.$1}: ',
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14)),
                 Text(p.$2,
                     style: TextStyle(
                         fontWeight: FontWeight.w800, color: neu.navy)),
@@ -2580,7 +2580,7 @@ class _OsRowTile extends StatelessWidget {
                 Text(subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14)),
               ],
             ),
           ),
@@ -2749,7 +2749,7 @@ class _CustomerRowTile extends StatelessWidget {
                   customerTypeLabel(row.type),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),
@@ -2757,7 +2757,7 @@ class _CustomerRowTile extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             fmtDate(row.createdAt),
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       ),
@@ -2963,7 +2963,7 @@ class _ListFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = TextStyle(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 13,
+      fontSize: 14,
     );
     final Widget child;
     if (loadingMore) {

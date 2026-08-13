@@ -99,7 +99,7 @@ class OsHeaderAction extends StatelessWidget {
               label,
               style: TextStyle(
                 color: neu.navy,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),

@@ -177,7 +177,7 @@ class ChartSinglePoint extends StatelessWidget {
           Text(
             caption,
             textAlign: TextAlign.center,
-            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
           ),
           const SizedBox(height: 10),
           Text(

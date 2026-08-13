@@ -159,6 +159,25 @@ Mantemos a dupla atual — geometria + humanismo, excelente contraste de persona
 | `label`         | Manrope  | 12.5px  | 600  | Chips, badges, cabeçalho de col. |
 | `caption`       | Manrope  | 11px    | 400  | Metadados, timestamps, sublegenda|
 
+### Pisos obrigatórios (padrão SysOne)
+
+Auditoria de usabilidade e acessibilidade SysOne. Estes são **mínimos**, não
+sugestões — valem para todo o produto, sem exceção:
+
+| Categoria                                   | Mínimo |
+|---------------------------------------------|--------|
+| Título de página                            | 18px   |
+| Texto padrão de componente (item de lista)  | 16px   |
+| Texto operacional / descritivo              | 14px   |
+| Legenda / informação de baixa relevância    | 12px   |
+| **Qualquer texto**                          | **12px** |
+
+Contraste mínimo: 4,5:1 para texto normal; 3:1 para texto grande (≥18pt, ou
+≥16pt em negrito) e para componentes não textuais (botões, bordas de campo).
+
+> A escala de tokens acima (`caption` 11px) é **anterior** a este padrão e está
+> abaixo do piso. Ao tocar num componente que ainda use 11px, suba para 12px.
+
 **Regras de ouro:**
 - Texto principal nunca abaixo de 14px.
 - `ink` (`#1A1A2E`) para títulos; `ink-80` (`#333344`) para corpo; `ink-muted` para secundário.

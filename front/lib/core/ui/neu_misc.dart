@@ -145,7 +145,7 @@ class NeuSegmented<T> extends StatelessWidget {
                         color: entry.key == selected
                             ? neu.onNavy
                             : neu.inkMuted,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

@@ -44,7 +44,7 @@ class _UiShowcaseScreenState extends State<UiShowcaseScreen> {
                 const Spacer(),
                 Text(
                   '${context.screenSize.name} · ${MediaQuery.sizeOf(context).width.round()}px',
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),
@@ -199,7 +199,7 @@ class _UiShowcaseScreenState extends State<UiShowcaseScreen> {
                         const Text(
                           'Faturamento do mês',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -244,7 +244,7 @@ class _UiShowcaseScreenState extends State<UiShowcaseScreen> {
                                 'OS abertas',
                                 style: TextStyle(
                                   color: neu.inkMuted,
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                               Text(
@@ -311,7 +311,7 @@ class _UiShowcaseScreenState extends State<UiShowcaseScreen> {
         title.toUpperCase(),
         style: TextStyle(
           color: neu.inkFaint,
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.2,
         ),

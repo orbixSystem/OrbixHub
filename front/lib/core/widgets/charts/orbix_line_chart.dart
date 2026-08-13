@@ -93,7 +93,7 @@ class OrbixLineChart extends StatelessWidget {
                   child: Text(
                     _formatAxis(value),
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -121,7 +121,7 @@ class OrbixLineChart extends StatelessWidget {
                   child: Text(
                     axisDayMonth(points[i].date),
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -157,7 +157,7 @@ class OrbixLineChart extends StatelessWidget {
                   '${tooltipDate(points[s.x.toInt()].date)}\n',
                   TextStyle(
                     color: scheme.onInverseSurface.withValues(alpha: 0.7),
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                   children: [
@@ -165,7 +165,7 @@ class OrbixLineChart extends StatelessWidget {
                       text: _formatValue(s.y),
                       style: TextStyle(
                         color: scheme.onInverseSurface,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

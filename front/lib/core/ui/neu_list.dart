@@ -62,7 +62,7 @@ class NeuListTile extends StatelessWidget {
                   DefaultTextStyle.merge(
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                     child: subtitle!,
                   ),
                 ],
@@ -118,7 +118,7 @@ class NeuPageControls extends StatelessWidget {
       children: [
         Text(
           '$total ${total == 1 ? 'registro' : 'registros'}',
-          style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          style: TextStyle(color: neu.inkMuted, fontSize: 14),
         ),
         const Spacer(),
         NeuIconButton(
@@ -186,7 +186,7 @@ class _PageDot extends StatelessWidget {
           style: TextStyle(
             color: selected ? neu.onNavy : neu.inkMuted,
             fontWeight: FontWeight.w700,
-            fontSize: 13.5,
+            fontSize: 14,
           ),
         ),
       ),

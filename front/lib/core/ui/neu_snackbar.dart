@@ -51,7 +51,7 @@ void showNeuErrorOn(
               message,
               style: TextStyle(
                 color: tokens?.onNavy ?? Colors.white,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
@@ -100,7 +100,7 @@ void showNeuSuccessOn(
               message,
               style: TextStyle(
                 color: tokens?.onNavy ?? Colors.white,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
