@@ -299,7 +299,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                 'Enviar foto da ordem',
                 style: TextStyle(
                   color: _neu.ink,
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -763,7 +763,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                         _explicacaoStatus(atual),
                         style: TextStyle(
                           color: _neu.inkMuted,
-                          fontSize: 12.5,
+                          fontSize: 14,
                           height: 1.3,
                         ),
                       ),
@@ -1237,7 +1237,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               q.body.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: bodyColor, fontSize: 12.5, height: 1.3),
+              style: TextStyle(color: bodyColor, fontSize: 14, height: 1.3),
             ),
           ],
         ],
@@ -1362,7 +1362,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     color: _neu.ink,
                   ),
                 ),

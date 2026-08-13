@@ -187,7 +187,7 @@ class VehicleFichaDialog {
                   info.placa,
                   style: TextStyle(
                     color: neu.accent,
-                    fontSize: 15,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.2,
                   ),
@@ -201,7 +201,7 @@ class VehicleFichaDialog {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -212,7 +212,7 @@ class VehicleFichaDialog {
             const SizedBox(height: 10),
             Text(
               'Dados do cache da consulta anterior — não gastou consulta.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ],
           const SizedBox(height: 6),
@@ -230,7 +230,7 @@ class VehicleFichaDialog {
               'Valores de referência FIPE',
               style: TextStyle(
                 color: neu.ink,
-                fontSize: 14,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -241,7 +241,7 @@ class VehicleFichaDialog {
           Text(
             'Dados obtidos por consulta à base de veículos emplacados. Podem '
             'estar incompletos ou desatualizados — confira antes de usar.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ],
       ),
@@ -273,7 +273,7 @@ class _Section extends StatelessWidget {
           title,
           style: TextStyle(
             color: neu.ink,
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
         ),

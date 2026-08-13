@@ -176,7 +176,7 @@ class _NeuTextFieldState extends State<NeuTextField> {
               widget.errorText!,
               style: TextStyle(
                 color: neu.danger,
-                fontSize: 12.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -186,7 +186,7 @@ class _NeuTextFieldState extends State<NeuTextField> {
             padding: const EdgeInsets.only(left: 4, top: 6),
             child: Text(
               widget.helper!,
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ),
       ],

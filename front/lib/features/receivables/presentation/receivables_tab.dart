@@ -152,7 +152,7 @@ class _AvisoTruncado extends StatelessWidget {
               'A carteira é grande e esta lista está parcial — há fiados '
               'não exibidos. Receba os títulos listados para revelar os '
               'demais.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
             ),
           ),
         ],
@@ -419,7 +419,7 @@ class _TitleCard extends ConsumerWidget {
                     'Ver detalhes',
                     style: TextStyle(
                       color: neu.navy,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -682,7 +682,7 @@ class _Erro extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
           const SizedBox(height: 12),
           NeuButton(

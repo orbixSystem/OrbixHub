@@ -131,7 +131,7 @@ class _OsPhotosTabState extends ConsumerState<OsPhotosTab> {
                     'acompanhamento do cliente, com data e hora.',
                     style: TextStyle(
                       color: context.neu.inkFaint,
-                      fontSize: 12,
+                      fontSize: 14,
                       height: 1.3,
                     ),
                   ),

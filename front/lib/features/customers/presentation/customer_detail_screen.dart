@@ -1201,7 +1201,7 @@ class _TimelineItem extends StatelessWidget {
                         'Ver detalhes',
                         style: TextStyle(
                           color: scheme.primary,
-                          fontSize: 12.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

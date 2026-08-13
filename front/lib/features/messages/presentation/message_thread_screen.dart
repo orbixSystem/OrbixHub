@@ -346,7 +346,7 @@ class _ThreadHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -689,7 +689,7 @@ class _QuoteBlock extends StatelessWidget {
                         body,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: bodyColor, fontSize: 12.5),
+                        style: TextStyle(color: bodyColor, fontSize: 14),
                       ),
                     ],
                   ],

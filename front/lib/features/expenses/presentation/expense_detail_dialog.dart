@@ -392,7 +392,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                 'Quanto você vai pagar agora?',
                 style: TextStyle(
                   color: ctx.neu.ink,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -452,7 +452,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                 'Qual pagamento você quer desfazer?',
                 style: TextStyle(
                   color: ctx.neu.ink,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),

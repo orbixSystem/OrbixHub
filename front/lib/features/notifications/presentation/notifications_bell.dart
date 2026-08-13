@@ -537,7 +537,7 @@ class _NotificationRow extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                     color: scheme.onSurfaceVariant,
-                                    fontSize: 12.5,
+                                    fontSize: 14,
                                     height: 1.25),
                               ),
                             ],
@@ -679,7 +679,7 @@ class _NotificationToastState extends State<_NotificationToast>
                                     style: TextStyle(
                                       color: scheme.onInverseSurface
                                           .withValues(alpha: 0.8),
-                                      fontSize: 12,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ],

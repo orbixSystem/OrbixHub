@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/core/ui/neu_tokens.dart';
 import 'package:orbixhub_front/features/os/presentation/os_status.dart';
 
@@ -32,6 +34,10 @@ double razao(Color a, Color b) {
 }
 
 void main() {
+  // GoogleFonts (usado pelo AppTheme) precisa do binding.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
   test('nenhum texto de tela abaixo de 12px', () {
     // Geradores de PDF ficam de fora: papel é outro meio e a auditoria é
     // explicitamente sobre tela.
@@ -55,6 +61,44 @@ void main() {
       reason: 'padrão SysOne: nunca usar texto abaixo de 12px.\n'
           '${violacoes.join('\n')}',
     );
+  });
+
+  testWidgets('a escala do TextTheme respeita os pisos', (tester) async {
+    // O teste acima varre `fontSize:` literal — não enxerga o que vem do TEMA.
+    // Foi assim que titleMedium (estilo de todo título de card/seção) ficou
+    // em 15px e labelSmall em 11px, herdado do default do Material.
+    for (final (nomeTema, tema)
+        in [('claro', AppTheme.light()), ('escuro', AppTheme.dark())]) {
+      final t = tema.textTheme;
+      final pisos = <String, (TextStyle?, double)>{
+        'displaySmall': (t.displaySmall, 18),
+        'headlineMedium': (t.headlineMedium, 18),
+        'headlineSmall': (t.headlineSmall, 18),
+        'titleLarge': (t.titleLarge, 18),
+        'titleMedium': (t.titleMedium, 18), // título → 18px
+        'titleSmall': (t.titleSmall, 16), // texto de componente → 16px
+        'bodyLarge': (t.bodyLarge, 16),
+        'bodyMedium': (t.bodyMedium, 14), // operacional/descritivo → 14px
+        'bodySmall': (t.bodySmall, 12), // legenda → 12px
+        'labelLarge': (t.labelLarge, 14),
+        'labelMedium': (t.labelMedium, 12),
+        'labelSmall': (t.labelSmall, 12), // piso absoluto
+      };
+      pisos.forEach((nome, par) {
+        final (estilo, piso) = par;
+        expect(
+          estilo?.fontSize,
+          isNotNull,
+          reason: '$nome ($nomeTema) sem fontSize definido',
+        );
+        expect(
+          estilo!.fontSize,
+          greaterThanOrEqualTo(piso),
+          reason: '$nome ($nomeTema) = ${estilo.fontSize}px, '
+              'abaixo do piso SysOne de ${piso}px',
+        );
+      });
+    }
   });
 
   group('contraste mínimo dos tokens (4,5:1 para texto normal)', () {

@@ -73,7 +73,7 @@ class FalhaDeWidget extends StatelessWidget {
                     'Não foi possível exibir esta parte da tela.',
                     style: TextStyle(
                       color: Color(0x99000000),
-                      fontSize: 12.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.none,
                     ),
@@ -89,7 +89,7 @@ class FalhaDeWidget extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0x77000000),
-                  fontSize: 12,
+                  fontSize: 14,
                   decoration: TextDecoration.none,
                 ),
               ),

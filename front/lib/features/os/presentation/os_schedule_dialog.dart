@@ -121,7 +121,7 @@ class _OsPickerState extends ConsumerState<_OsPicker> {
                   child: Text(
                     'Não foi possível carregar as OS.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                   ),
                 );
               }
@@ -132,7 +132,7 @@ class _OsPickerState extends ConsumerState<_OsPicker> {
                   child: Text(
                     'Nenhuma OS em andamento.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                   ),
                 );
               }
@@ -311,7 +311,7 @@ class _FormState extends ConsumerState<_Form> {
         ),
         if (_erro != null) ...[
           const SizedBox(height: 10),
-          Text(_erro!, style: TextStyle(color: neu.danger, fontSize: 12.5)),
+          Text(_erro!, style: TextStyle(color: neu.danger, fontSize: 14)),
         ],
         const SizedBox(height: 20),
         NeuButton(
@@ -387,7 +387,7 @@ class _CampoData extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             dica!,
-            style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ],
       ],

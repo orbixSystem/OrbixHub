@@ -247,7 +247,7 @@ class _FieldValue extends StatelessWidget {
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) => Text(
             'Imagem indisponível',
-            style: TextStyle(color: neu.inkMuted, fontSize: 12),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ),
       );

@@ -549,7 +549,7 @@ class _UnreadMessagesCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text('Abrir Mensagens',
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14)),
               ],
             ),
           ),

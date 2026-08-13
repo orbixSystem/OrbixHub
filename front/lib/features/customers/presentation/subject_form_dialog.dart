@@ -804,7 +804,7 @@ class _VehiclePhotoPicker extends StatelessWidget {
                 Text(
                   'Toque para escolher uma imagem',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 14),
                 ),
               ],
             ),

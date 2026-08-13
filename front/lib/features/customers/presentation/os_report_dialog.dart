@@ -311,7 +311,7 @@ class _SectionTitle extends StatelessWidget {
           label,
           style: TextStyle(
             color: neu.ink,
-            fontSize: 15,
+            fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
         ),

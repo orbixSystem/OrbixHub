@@ -696,7 +696,7 @@ class _EventsPanel extends StatelessWidget {
                   'Agendamentos',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                    fontSize: 18,
                     color: neu.ink,
                   ),
                 ),

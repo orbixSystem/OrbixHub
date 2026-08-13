@@ -51,7 +51,7 @@ class OsSectionCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -148,7 +148,7 @@ class OsInlineEmpty extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: neu.inkFaint,
-                fontSize: 12.5,
+                fontSize: 14,
                 height: 1.3,
               ),
             ),

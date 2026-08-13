@@ -103,7 +103,7 @@ class ChartCard extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 14,
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
@@ -120,6 +120,71 @@ class ChartCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Acessibilidade dos gráficos (auditoria SysOne §5)
+// ---------------------------------------------------------------------------
+
+/// Envelope de acessibilidade do canvas de um gráfico.
+///
+/// O fl_chart pinta num `Canvas`: para um leitor de tela o gráfico inteiro é um
+/// buraco, e o valor de cada ponto só existe no tooltip de **hover**. A
+/// auditoria SysOne pede o oposto — "todo valor relevante precisa ser lido
+/// corretamente em seu estado enabled, não apenas disponível visualmente por
+/// hover de mouse" — e, para o desenho puramente decorativo, "marcar como
+/// decorativo para leitores de tela e manter o texto associado como a fonte
+/// oficial da informação".
+///
+/// É o que este widget faz: o desenho sempre sai da árvore de acessibilidade
+/// ([ExcludeSemantics], equivalente ao `aria-hidden="true"` da recomendação) e,
+/// quando não há legenda de texto ao lado que já anuncie nome + valor, um
+/// [resumo] textual entra no lugar dele.
+///
+/// Passe `resumo: null` **só** quando existir legenda em texto real (é o caso
+/// dos donuts, que listam categoria e valor ao lado) — aí a legenda já é a
+/// fonte oficial e repetir tudo no rótulo semântico só faz o leitor ler duas
+/// vezes.
+class ChartSemantics extends StatelessWidget {
+  const ChartSemantics({super.key, required this.child, this.resumo});
+
+  final Widget child;
+  final String? resumo;
+
+  @override
+  Widget build(BuildContext context) {
+    final desenho = ExcludeSemantics(child: child);
+    if (resumo == null) return desenho;
+    return Semantics(container: true, label: resumo, child: desenho);
+  }
+}
+
+/// Resumo textual de uma série temporal, para o [ChartSemantics].
+///
+/// Descreve período, extremos e valor final — o que responde "como foi o
+/// período?" sem obrigar o leitor a ouvir 90 pontos em sequência. O detalhe
+/// ponto a ponto fica nas tabelas do relatório, que são texto de verdade.
+String resumoSerie(
+  String nome,
+  List<({DateTime data, double valor})> pontos,
+  String Function(double) formatar,
+) {
+  if (pontos.isEmpty) return '$nome: sem dados no período.';
+  if (pontos.length == 1) {
+    return '$nome: ${formatar(pontos.first.valor)} em '
+        '${axisDayMonth(pontos.first.data)}.';
+  }
+  var menor = pontos.first, maior = pontos.first;
+  for (final p in pontos) {
+    if (p.valor < menor.valor) menor = p;
+    if (p.valor > maior.valor) maior = p;
+  }
+  final ultimo = pontos.last;
+  return '$nome: ${pontos.length} pontos, de ${axisDayMonth(pontos.first.data)} '
+      'a ${axisDayMonth(ultimo.data)}. '
+      'Menor ${formatar(menor.valor)} em ${axisDayMonth(menor.data)}, '
+      'maior ${formatar(maior.valor)} em ${axisDayMonth(maior.data)}, '
+      'último ${formatar(ultimo.valor)} em ${axisDayMonth(ultimo.data)}.';
 }
 
 /// Estado vazio dentro de um gráfico: ícone + mensagem centralizados. Usado
@@ -185,7 +250,7 @@ class ChartSinglePoint extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
-              fontSize: 12,
+              fontSize: 14,
             ),
           ),
         ],

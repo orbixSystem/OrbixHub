@@ -181,7 +181,7 @@ class _OutboxTile extends ConsumerWidget {
                 row.message!,
                 style: TextStyle(
                   color: neu.inkMuted,
-                  fontSize: 12,
+                  fontSize: 14,
                   height: 1.3,
                 ),
               ),

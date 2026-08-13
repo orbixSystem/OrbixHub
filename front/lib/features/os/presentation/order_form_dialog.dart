@@ -1021,7 +1021,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             const SizedBox(height: 8),
             Text(
               'Ou siga sem selecionar — dá para vincular depois.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ],
         );
@@ -2035,7 +2035,7 @@ class _DateTimeField extends FormField<DateTime?> {
                       state.errorText!,
                       style: TextStyle(
                         color: neu.danger,
-                        fontSize: 12.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

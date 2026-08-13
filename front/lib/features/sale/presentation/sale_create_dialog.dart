@@ -807,7 +807,7 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
                 Text(
                   'Não achei “$_q” no estoque.',
                   style: const TextStyle(
-                      fontSize: 12.5, color: AppColors.inkMuted),
+                      fontSize: 14, color: AppColors.inkMuted),
                 ),
                 TextButton.icon(
                   onPressed: () => _cadastrar(_q),

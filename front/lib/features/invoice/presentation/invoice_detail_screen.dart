@@ -150,7 +150,7 @@ class _SectionCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

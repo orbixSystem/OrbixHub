@@ -128,7 +128,7 @@ class _MessagesSection extends ConsumerWidget {
                 Text(
                   'Mostrando as ${recent.length} mais recentes de $older — '
                   'toque em "Abrir" para ver tudo.',
-                  style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 14),
                 ),
               ],
             ],

@@ -91,7 +91,7 @@ class _SaleDetail extends ConsumerWidget {
             const SizedBox(height: 10),
             Text('$e',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14)),
             const SizedBox(height: 12),
             NeuButton(
               label: 'Tentar de novo',
@@ -142,7 +142,7 @@ class _Corpo extends ConsumerWidget {
                     sale.number.isEmpty ? 'Venda' : 'Venda ${sale.number}',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 15,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -204,7 +204,7 @@ class _Corpo extends ConsumerWidget {
                           i.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: neu.ink, fontSize: 12.5),
+                          style: TextStyle(color: neu.ink, fontSize: 14),
                         ),
                       ),
                       Text(
@@ -286,7 +286,7 @@ class _Corpo extends ConsumerWidget {
             'e o estoque reconciliado. Não é possível editar depois de emitir a '
             'nota, nem baixar o total abaixo do que o cliente já pagou; nesses '
             'casos, cancele e refaça.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12, height: 1.35),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14, height: 1.35),
           ),
         ],
       ],

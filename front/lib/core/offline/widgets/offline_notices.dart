@@ -114,7 +114,7 @@ class OfflinePendingNoticeBody extends StatelessWidget {
               message,
               style: TextStyle(
                 color: error,
-                fontSize: 12.5,
+                fontSize: 14,
                 height: 1.3,
                 fontWeight: FontWeight.w700,
               ),

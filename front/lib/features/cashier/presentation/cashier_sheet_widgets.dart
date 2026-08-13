@@ -381,7 +381,7 @@ class _OsSearchField extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, top: 6),
           child: Text(
             'Aponta para a OS selecionada',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ),
       ],

@@ -47,7 +47,7 @@ class NeuEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: neu.ink,
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
             ),

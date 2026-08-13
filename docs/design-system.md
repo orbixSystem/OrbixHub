@@ -193,6 +193,37 @@ Contraste mínimo: 4,5:1 para texto normal; 3:1 para texto grande (≥18pt, ou
 > A escala de tokens acima (`caption` 11px) é **anterior** a este padrão e está
 > abaixo do piso. Ao tocar num componente que ainda use 11px, suba para 12px.
 
+**Como classificar (§3 da auditoria):** o piso depende do PAPEL do texto, não do
+lugar onde ele aparece.
+
+| Papel | Exemplos no OrbixHub | Piso |
+|---|---|---|
+| Título de página / card / seção | título do `ChartCard`, "Análise por região", cabeçalho de diálogo | **18px** |
+| Texto padrão de componente | item de lista, rótulo de botão, valor digitado num campo | **16px** |
+| Operacional / descritivo | frase explicativa, helper e erro de campo, mensagem de estado, corpo de notificação, link de ação, cabeçalho de tabela | **14px** |
+| Legenda / baixa relevância | rótulo de chip, eixo e legenda de gráfico, contador, carimbo de data | **12px** |
+
+**O tema é parte da escala.** `titleMedium` é o estilo de todo título de
+card/seção e vinha em 15px; `labelSmall` vinha em 11px, herdado do default do
+Material. `acessibilidade_padrao_sysone_test.dart` afere o `TextTheme` inteiro —
+varrer `fontSize:` no código não enxerga o que vem do tema.
+
+### Gráficos (§5 da auditoria)
+
+Dois princípios: **nenhuma informação depende só da cor** e **todo valor
+relevante é legível no estado enabled, não só no hover**.
+
+- O fl_chart pinta num `Canvas`: para leitor de tela o gráfico é um buraco, e o
+  valor de cada ponto só existe no tooltip. Todo canvas passa por
+  [`ChartSemantics`], que o tira da árvore de acessibilidade (equivale ao
+  `aria-hidden="true"` da recomendação).
+- Quando existe legenda em texto real ao lado (é o caso dos donuts, que listam
+  categoria **e** valor), ela é a fonte oficial — o desenho fica só decorativo.
+- Quando não existe, o `ChartSemantics` recebe um `resumo` textual
+  (`resumoSerie`): período, extremos e valor final.
+- Cor nunca é o único código: o chip de status leva ícone + rótulo, e a legenda
+  do donut leva swatch + nome + valor.
+
 **Regras de ouro:**
 - Texto principal nunca abaixo de 14px.
 - `ink` (`#1A1A2E`) para títulos; `ink-80` (`#333344`) para corpo; `ink-muted` para secundário.

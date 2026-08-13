@@ -83,7 +83,7 @@ class _OsDetail extends ConsumerWidget {
             Text(
               '$e',
               textAlign: TextAlign.center,
-              style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
             ),
             const SizedBox(height: 12),
             NeuButton(
@@ -169,7 +169,7 @@ class _Corpo extends ConsumerWidget {
         if (order.items.isEmpty)
           Text(
             'Sem itens lançados.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           )
         else
           NeuSurface(
@@ -195,7 +195,7 @@ class _Corpo extends ConsumerWidget {
                           child: Text(
                             _qtdPrefixo(i.quantity) + i.name,
                             maxLines: 2,
-                            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                            style: TextStyle(color: neu.inkMuted, fontSize: 14),
                           ),
                         ),
                         const SizedBox(width: 8),

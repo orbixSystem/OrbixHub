@@ -859,7 +859,7 @@ class _PlateHero extends StatelessWidget {
         info.placa,
         style: TextStyle(
           color: neu.accent,
-          fontSize: 17,
+          fontSize: 18,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.6,
         ),
@@ -876,7 +876,7 @@ class _PlateHero extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: neu.ink,
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
         ),
