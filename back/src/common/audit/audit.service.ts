@@ -11,6 +11,12 @@ export type AuditAction =
   | 'member_activate'
   | 'member_deactivate'
   | 'settings_change'
+  // Ligar/desligar módulo ou funcionalidade tem rastro próprio, e não
+  // `settings_change`: muda o que o tenant PODE fazer, não uma preferência de
+  // tela. Quando existir cobrança por funcionalidade, é por aqui que se audita
+  // quem ligou o quê e quando.
+  | 'module_toggle'
+  | 'feature_toggle'
   | 'customer_delete'
   | 'subject_delete'
   | 'inventory_item_create'

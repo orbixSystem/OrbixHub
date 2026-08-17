@@ -113,6 +113,58 @@ export class BillingRepository {
     }
   }
 
+  /**
+   * Todos os módulos do catálogo com o estado no tenant — alimenta a tela
+   * "Módulos e funcionalidades". Módulo nunca provisionado aparece como
+   * desabilitado, e não some da lista: o dono precisa ver o que existe.
+   */
+  async listTenantModules(): Promise<
+    Array<{ key: string; name: string; enabled: boolean; isCore: boolean; source: string | null }>
+  > {
+    const db = this.tenant.getClient();
+    const [mods, tms] = await Promise.all([
+      db.module.findMany({ orderBy: { name: 'asc' } }),
+      db.tenant_module.findMany(),
+    ]);
+    const byModuleId = new Map(tms.map((t) => [t.module_id, t] as const));
+    return mods.map((m) => {
+      const tm = byModuleId.get(m.id);
+      return {
+        key: m.key,
+        name: m.name,
+        enabled: m.is_core ? true : (tm?.enabled ?? false),
+        isCore: m.is_core,
+        source: tm?.source ?? null,
+      };
+    });
+  }
+
+  /**
+   * Liga/desliga um módulo POR DECISÃO DO DONO — e grava `source='manual'`.
+   *
+   * Essa marca é o que faz a escolha SOBREVIVER: o `reconcile` acima pula
+   * linhas com `source !== 'plan'`. Sem ela, a linha ficava como 'plan' e a
+   * próxima troca de plano a religava (`update: { enabled: true }`) — era
+   * exatamente o bug de "módulo desativado continua aparecendo na sidebar".
+   *
+   * Devolve false se a chave não existe no catálogo (o service vira 400).
+   */
+  async setModuleEnabled(
+    tenantId: string,
+    moduleKey: string,
+    enabled: boolean,
+  ): Promise<boolean> {
+    const db = this.tenant.getClient();
+    const mod = await db.module.findFirst({ where: { key: moduleKey } });
+    if (!mod) return false;
+    await db.tenant_module.upsert({
+      where: { tenant_id_module_id: { tenant_id: tenantId, module_id: mod.id } },
+      create: { tenant_id: tenantId, module_id: mod.id, enabled, source: 'manual' },
+      update: { enabled, source: 'manual' },
+    });
+    return true;
+  }
+
   // ---- platform table (no RLS) — webhook idempotency ----
   insertWebhookEvent(externalEventId: string, type: string, payload: Prisma.InputJsonValue) {
     return this.prisma.billing_webhook_event.create({

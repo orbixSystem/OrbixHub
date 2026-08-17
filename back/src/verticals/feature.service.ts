@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { FeatureCatalog, VerticalRegistry } from './vertical.registry';
 import { TenantFeatureRepository } from './tenant-feature.repository';
+import { AuditService } from '../common/audit/audit.service';
 import {
   featureDisponivel,
   featureLigada,
@@ -31,6 +32,7 @@ export class FeatureService {
     private readonly registry: VerticalRegistry,
     private readonly catalog: FeatureCatalog,
     private readonly repo: TenantFeatureRepository,
+    private readonly audit: AuditService,
   ) {}
 
   private async contexto(
@@ -86,11 +88,21 @@ export class FeatureService {
    * calado: linha órfã em `tenant_feature` seria um toggle fantasma que ninguém
    * consegue explicar depois.
    */
-  async definir(tenantId: string, featureKey: string, enabled: boolean): Promise<void> {
+  async definir(
+    tenantId: string,
+    featureKey: string,
+    enabled: boolean,
+    actorUserId?: string,
+  ): Promise<void> {
     if (!this.catalog.achar(featureKey)) {
       throw new BadRequestException(`Funcionalidade desconhecida: ${featureKey}`);
     }
     await this.repo.definir(tenantId, featureKey, enabled);
+    if (actorUserId) {
+      await this.audit.log(tenantId, actorUserId, 'feature_toggle', featureKey, {
+        enabled,
+      });
+    }
   }
 
   /** Remove o toggle: volta a herdar o pacote da vertical. */

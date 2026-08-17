@@ -131,6 +131,35 @@ export class BillingService {
     });
   }
 
+  /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */
+  listTenantModules(tenantId: string) {
+    return this.tenant.runWithTenant(tenantId, () => this.repo.listTenantModules());
+  }
+
+  /**
+   * Liga/desliga um módulo por decisão do dono. Grava `source='manual'`, que é
+   * o que faz a escolha sobreviver à próxima troca de plano — ver o comentário
+   * no repositório. Núcleo (`is_core`) não é desligável: ele sustenta o resto.
+   */
+  async setModuleEnabled(
+    tenantId: string,
+    actorUserId: string,
+    moduleKey: string,
+    enabled: boolean,
+  ): Promise<void> {
+    const info = await this.getModuleAccess(tenantId, moduleKey);
+    if (info.isCore && !enabled) {
+      throw new BadRequestException('Módulo de núcleo não pode ser desativado.');
+    }
+    const ok = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.setModuleEnabled(tenantId, moduleKey, enabled),
+    );
+    if (!ok) throw new BadRequestException(`Módulo desconhecido: ${moduleKey}`);
+    await this.audit.log(tenantId, actorUserId, 'module_toggle', moduleKey, {
+      enabled,
+    });
+  }
+
   /**
    * Settings JSONB de um módulo (em `tenant_module.settings`). Billing é dono da
    * tabela `tenant_module` — outros módulos leem/escrevem a própria config por

@@ -56,7 +56,14 @@ import { SubjectLookupRegistry } from './subject-lookup.registry';
     SubjectLookupService,
     SubjectLookupRegistry,
   ],
-  // SubjectLookupRegistry é exportado para a vertical registrar as fontes dela.
-  exports: [CustomersService, CustomersMetricsService, SubjectLookupRegistry],
+  // Exportados para a VERTICAL: o registry para ela registrar as fontes dela, e
+  // o service porque o casador de placa↔FIPE (que vive na vertical) consulta o
+  // autocomplete genérico para achar o modelo correspondente.
+  exports: [
+    CustomersService,
+    CustomersMetricsService,
+    SubjectLookupRegistry,
+    SubjectLookupService,
+  ],
 })
 export class CustomersModule {}
