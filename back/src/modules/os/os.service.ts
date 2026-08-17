@@ -249,6 +249,9 @@ export class OsService {
             diagnosis: dto.diagnosis?.trim() || null,
             scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
             scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
+            // Nasce sem itens: o desconto fica gravado e entra no total assim
+            // que o primeiro item chega (recomputeTotal).
+            discount: dto.discount ?? 0,
           });
           // Evento de abertura — mesma tx (createEvent usa o cliente tx-scoped).
           await this.repo.createEvent(user.tenantId, created.id, {

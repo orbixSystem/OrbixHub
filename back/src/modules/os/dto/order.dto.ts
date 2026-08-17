@@ -83,6 +83,13 @@ export class CreateOrderDto {
   @IsOptional() @IsString() scheduledStart?: string;
   @IsOptional() @IsString() scheduledEnd?: string;
   @IsOptional() @IsUUID() assignedTo?: string;
+  /**
+   * Desconto do cabeçalho já na abertura — o atendente que fecha o orçamento
+   * junto com o cliente não precisa criar a OS e depois editá-la só para isso.
+   * O total é recalculado a cada item; aqui a OS nasce sem itens, então só o
+   * desconto é gravado.
+   */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
 }
 
 /** Edita cabeçalho. NÃO altera status, cliente nem veículo. */
