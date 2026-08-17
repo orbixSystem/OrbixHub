@@ -47,6 +47,17 @@ class ItemListQuery {
   final bool lowStock;
   final ItemSort sort;
 
+  /// Algum filtro capaz de **esconder** itens está ligado? `active: 'true'` é o
+  /// padrão da tela (não é escolha do usuário) e `sort` só reordena — nenhum
+  /// dos dois conta. Serve para a lista vazia dizer a verdade: "seus itens
+  /// estão lá, os filtros é que esconderam" em vez de "cadastre produtos".
+  bool get hasHidingFilters =>
+      (q != null && q!.isNotEmpty) ||
+      category != null ||
+      kind != null ||
+      lowStock ||
+      active != 'true';
+
   ItemListQuery copyWith({
     String? q,
     String? category,
@@ -92,6 +103,11 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
       );
   void setLowStock(bool value) => state = state.copyWith(lowStock: value);
   void setSort(ItemSort sort) => state = state.copyWith(sort: sort);
+
+  /// Zera tudo que esconde item, preservando a ordenação escolhida (ordenar não
+  /// esconde nada, e refazer essa escolha só irritaria). `copyWith` não serve
+  /// aqui: ele não consegue voltar `q`/`category`/`kind` para null.
+  void clearFilters() => state = ItemListQuery(sort: state.sort);
 }
 
 final itemListQueryProvider =

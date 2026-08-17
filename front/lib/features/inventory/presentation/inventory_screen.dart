@@ -46,6 +46,26 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    // `itemListQueryProvider` não é autoDispose: os filtros sobrevivem à saída
+    // da tela (de propósito — voltar do detalhe mantém o contexto). Só que este
+    // controller nasce vazio a cada montagem, e sem a linha abaixo a lista volta
+    // filtrada por um termo que a caixa de busca não mostra. Foi assim que uma
+    // cliente com 84 itens viu a tela vazia e achou que tinha perdido o estoque.
+    final q = ref.read(itemListQueryProvider).q;
+    if (q != null && q.isNotEmpty) {
+      _search.value = TextEditingValue(
+        text: q,
+        selection: TextSelection.collapsed(offset: q.length),
+      );
+    }
+  }
+
+  /// Limpa busca e filtros de uma vez. Precisa mexer nos dois lados: o
+  /// controller (o que ela vê) e o provider (o que a query usa) — limpar só um
+  /// recria justamente a divergência que este conserto elimina.
+  void _clearFilters() {
+    _search.clear();
+    ref.read(itemListQueryProvider.notifier).clearFilters();
   }
 
   @override
@@ -111,7 +131,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             Expanded(
               child: CoachTarget(
                 'estoque.lista',
-                child: _Body(scroll: _scroll, canWrite: canWrite),
+                child: _Body(
+                  scroll: _scroll,
+                  canWrite: canWrite,
+                  onClearFilters: _clearFilters,
+                ),
               ),
             ),
           ],
@@ -254,14 +278,20 @@ class _Toolbar extends ConsumerWidget {
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.scroll, required this.canWrite});
+  const _Body({
+    required this.scroll,
+    required this.canWrite,
+    required this.onClearFilters,
+  });
 
   final ScrollController scroll;
   final bool canWrite;
+  final VoidCallback onClearFilters;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final listAsync = ref.watch(itemListProvider);
+    final hasHidingFilters = ref.watch(itemListQueryProvider).hasHidingFilters;
     final isMobile = context.isMobile;
 
     return listAsync.when(
@@ -283,6 +313,20 @@ class _Body extends ConsumerWidget {
       ),
       data: (page) {
         if (page.items.isEmpty) {
+          // Vazio por filtro e vazio de verdade são situações opostas: uma pede
+          // para limpar a busca, a outra para cadastrar. Dizer "cadastre
+          // produtos" a quem tem 84 itens escondidos por um filtro é o que faz
+          // a pessoa achar que o sistema perdeu o trabalho dela.
+          if (hasHidingFilters) {
+            return NeuEmptyState(
+              icon: Icons.filter_alt_off_outlined,
+              title: 'Nenhum item com os filtros ativos',
+              message:
+                  'Seus itens continuam cadastrados — a busca ou os filtros desta tela estão escondendo todos.',
+              actionLabel: 'Limpar filtros',
+              onAction: onClearFilters,
+            );
+          }
           return const NeuEmptyState(
             icon: Icons.inventory_2_outlined,
             title: 'Nenhum item encontrado',
