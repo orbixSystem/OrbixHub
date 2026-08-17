@@ -16,7 +16,8 @@ describe('mergeCustomersConfig', () => {
     expect(merged.documentRequired).toBe(true);
     // untouched keys keep their defaults
     expect(merged.usaSubjects).toBe(true);
-    expect(merged.subjectLabel.singular).toBe('Veículo');
+    // Base GENÉRICA: o rótulo de oficina saiu daqui e virou pacote da vertical.
+    expect(merged.subjectLabel.singular).toBe('Objeto');
   });
 
   it('merges the label object shallowly', () => {
@@ -40,9 +41,17 @@ describe('mergeCustomersConfig', () => {
   });
 
   // Snapshots de config salvos ANTES da introdução de `fonte` congelaram
-  // marca/modelo sem o atributo. O merge reaplica fonte/dependeDe dos defaults
-  // por `chave`, para o autocomplete voltar a funcionar sem migration de dados.
-  it('reapplies fonte/dependeDe from defaults to old saved fields by chave', () => {
+  // marca/modelo sem o atributo. O merge reaplica fonte/dependeDe por `chave` —
+  // agora a partir da BASE recebida (o pacote da vertical), não de uma constante
+  // fixa. É como `getConfig` chama: base = pacote, patch = o que o tenant salvou.
+  it('reapplies fonte/dependeDe from the base pack to old saved fields by chave', () => {
+    const pacote = {
+      subjectFields: [
+        { chave: 'identifier', rotulo: 'Placa', tipo: 'text' as const, obrigatorio: true },
+        { chave: 'marca', rotulo: 'Marca', tipo: 'text' as const, obrigatorio: false, fonte: 'fipe.marcas' },
+        { chave: 'modelo', rotulo: 'Modelo', tipo: 'text' as const, obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
+      ],
+    };
     const savedOld = {
       subjectFields: [
         { chave: 'identifier', rotulo: 'Placa', tipo: 'text' as const, obrigatorio: true },
@@ -50,7 +59,7 @@ describe('mergeCustomersConfig', () => {
         { chave: 'modelo', rotulo: 'Modelo', tipo: 'text' as const, obrigatorio: false },
       ],
     };
-    const merged = mergeCustomersConfig(savedOld);
+    const merged = mergeCustomersConfig(pacote, savedOld);
     const marca = merged.subjectFields.find((f) => f.chave === 'marca');
     const modelo = merged.subjectFields.find((f) => f.chave === 'modelo');
     expect(marca?.fonte).toBe('fipe.marcas');

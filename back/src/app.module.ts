@@ -20,6 +20,7 @@ import { RequestIdMiddleware } from './common/observability/request-id.middlewar
 import { HealthController } from './common/observability/health.controller';
 import { CnpjModule } from './common/cnpj/cnpj.module';
 import { VerticalsModule } from './verticals/verticals.module';
+import { VeiculosVerticalModule } from './verticals/veiculos/veiculos.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IamModule } from './modules/iam/iam.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
@@ -59,6 +60,8 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     AuthModule,
     IamModule,
     VerticalsModule,
+
+    VeiculosVerticalModule,
 
     TenancyModule,
     BillingModule,

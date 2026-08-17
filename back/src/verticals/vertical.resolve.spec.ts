@@ -89,19 +89,37 @@ describe('resolverCampos', () => {
 });
 
 describe('critério de aceite da migração — a oficina não pode ver diferença', () => {
-  it('o pacote veiculos reproduz, campo a campo, o DEFAULT_CUSTOMERS_CONFIG de hoje', () => {
-    // Os 6 tenants de produção são todos oficina e hoje rodam este default.
-    // Se este teste quebrar, alguém mudou um dos dois lados e a migração deixou
-    // de ser invisível para eles.
-    expect(resolverCampos(PACOTES, 'veiculos')).toEqual(
-      DEFAULT_CUSTOMERS_CONFIG.subjectFields,
-    );
+  /**
+   * GOLDEN do formulário de oficina: é exatamente o que o
+   * `DEFAULT_CUSTOMERS_CONFIG` continha antes de 17/08/2026, quando os campos
+   * de veículo ainda moravam dentro do módulo genérico. Os 6 tenants de
+   * produção são todos oficina e rodavam esse default; se este teste quebrar,
+   * a migração deixou de ser invisível para eles e alguém vai perceber na tela.
+   *
+   * Escrito à mão de propósito: comparar com a constante não provaria nada
+   * depois que ela virou genérica.
+   */
+  it('o formulário da oficina continua idêntico ao de antes da migração', () => {
+    expect(resolverCampos(PACOTES, 'veiculos')).toEqual([
+      { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
+      { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
+      { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
+      { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },
+      { chave: 'cor', rotulo: 'Cor', tipo: 'text', obrigatorio: false },
+      { chave: 'km', rotulo: 'KM', tipo: 'number', obrigatorio: false },
+    ]);
   });
 
   it('o rótulo do objeto na oficina continua sendo Veículo/Veículos', () => {
     const v = resolverVocab(PACOTES, 'veiculos');
-    expect(v['objeto.singular']).toBe(DEFAULT_CUSTOMERS_CONFIG.subjectLabel.singular);
-    expect(v['objeto.plural']).toBe(DEFAULT_CUSTOMERS_CONFIG.subjectLabel.plural);
+    expect(v['objeto.singular']).toBe('Veículo');
+    expect(v['objeto.plural']).toBe('Veículos');
+  });
+
+  it('a base genérica não tem mais nenhum termo de oficina', () => {
+    // O contrário do teste acima: prova que a casca saiu do módulo genérico.
+    expect(DEFAULT_CUSTOMERS_CONFIG.subjectFields).toEqual([]);
+    expect(DEFAULT_CUSTOMERS_CONFIG.subjectLabel.singular).toBe('Objeto');
   });
 });
 

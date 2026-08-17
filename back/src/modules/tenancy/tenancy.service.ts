@@ -73,6 +73,18 @@ export class TenancyService {
   }
 
   /**
+   * Nicho do tenant (coluna `tenant.vertical`), ou null.
+   *
+   * A Tenancy é dona da tabela `tenant`, então quem precisa do nicho para
+   * resolver vocabulário — `customers`, e na Fase 2 o `os` — pede por aqui em
+   * vez de ler a coluna. "Aponta, não invade".
+   */
+  async getTenantVertical(tenantId: string): Promise<string | null> {
+    const t = await this.repo.getTenant(tenantId);
+    return t?.vertical ?? null;
+  }
+
+  /**
    * Settings da empresa (JSONB em tenant.settings). Tenancy é dono da tabela
    * `tenant` — outros módulos (ex.: Settings) leem/escrevem por aqui, não direto.
    */

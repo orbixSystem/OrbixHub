@@ -39,9 +39,10 @@ export class VerticalsModule implements OnModuleInit {
    * mexer nos módulos agora só para mover três linhas aumentaria o diff da Fase 1
    * sem entregar nada. Ficam aqui, visíveis, até lá.
    *
-   * `requerImplementacao` fica DESMARCADO de propósito nesta fase: nenhuma
-   * vertical registra implementação ainda, e marcar agora deixaria a oficina sem
-   * as capacidades dela. A Fase 2 marca e registra no mesmo commit.
+   * `requerImplementacao` está MARCADO nas capacidades de veículo: elas só
+   * existem se a vertical registrar a implementação (Fase 2, feita). Um tenant
+   * de nicho genérico não consegue ligá-las — não há base externa para o objeto
+   * dele, e o toggle nem aparece na tela.
    */
   onModuleInit(): void {
     this.catalog.registrar({
@@ -52,6 +53,7 @@ export class VerticalsModule implements OnModuleInit {
         'Consulta o identificador numa base externa e pré-preenche os atributos ' +
         '(placa na oficina, número de série na assistência técnica).',
       defaultEnabled: false,
+      requerImplementacao: true,
     });
     this.catalog.registrar({
       key: 'customers.atributosCascata',
@@ -59,6 +61,7 @@ export class VerticalsModule implements OnModuleInit {
       nome: 'Autocomplete encadeado',
       descricao: 'Sugestões em cascata, onde um campo depende do anterior (marca → modelo → ano).',
       defaultEnabled: false,
+      requerImplementacao: true,
     });
     this.catalog.registrar({
       key: 'customers.fichaTecnica',
@@ -66,6 +69,7 @@ export class VerticalsModule implements OnModuleInit {
       nome: 'Ficha técnica em PDF',
       descricao: 'Gera o dossiê do objeto com os dados técnicos consultados.',
       defaultEnabled: false,
+      requerImplementacao: true,
     });
     this.catalog.registrar({
       key: 'os.trackingLink',

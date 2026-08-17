@@ -46,18 +46,22 @@ export interface CustomersConfig {
   documentRequired: boolean;
 }
 
-/** Defaults do vertical oficina (genéricos por design — trocáveis por config). */
+/**
+ * Base GENÉRICA da config — sem nenhum termo de vertical.
+ *
+ * O rótulo do objeto e os campos do formulário NÃO moram mais aqui: vêm do
+ * pacote da vertical do tenant (`back/src/verticals/`), resolvidos em runtime
+ * por `CustomersService.getConfig`. Este objeto só carrega o que independe de
+ * nicho, e serve de piso quando nenhum pacote responde.
+ *
+ * Antes, este arquivo continha os defaults de oficina ("Veículo", "Placa",
+ * cascata FIPE) — era a casca de vertical cravada no módulo que se dizia
+ * genérico. Ver docs/superpowers/specs/2026-08-17-verticais-nicho-features-design.md
+ */
 export const DEFAULT_CUSTOMERS_CONFIG: CustomersConfig = {
   usaSubjects: true,
-  subjectLabel: { singular: 'Veículo', plural: 'Veículos' },
-  subjectFields: [
-    { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
-    { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
-    { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
-    { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },
-    { chave: 'cor', rotulo: 'Cor', tipo: 'text', obrigatorio: false },
-    { chave: 'km', rotulo: 'KM', tipo: 'number', obrigatorio: false },
-  ],
+  subjectLabel: { singular: 'Objeto', plural: 'Objetos' },
+  subjectFields: [],
   documentRequired: false,
 };
 
@@ -70,10 +74,9 @@ export const DEFAULT_CUSTOMERS_CONFIG: CustomersConfig = {
  */
 function withFieldSourceDefaults(
   fields: SubjectFieldConfig[],
+  defaults: SubjectFieldConfig[],
 ): SubjectFieldConfig[] {
-  const defaultsByChave = new Map(
-    DEFAULT_CUSTOMERS_CONFIG.subjectFields.map((f) => [f.chave, f]),
-  );
+  const defaultsByChave = new Map(defaults.map((f) => [f.chave, f]));
   return fields.map((field) => {
     const def = defaultsByChave.get(field.chave);
     if (!def) return field;
@@ -99,8 +102,12 @@ export function mergeCustomersConfig(
     usaSubjects: patch.usaSubjects ?? base.usaSubjects,
     documentRequired: patch.documentRequired ?? base.documentRequired,
     subjectLabel: { ...base.subjectLabel, ...(patch.subjectLabel ?? {}) },
+    // Os defaults de fonte/dependeDe vêm da BASE (hoje: o pacote da vertical),
+    // não mais de uma constante fixa. Assim um tenant com config antiga salva
+    // recupera o autocomplete em runtime, sem migration de dados.
     subjectFields: withFieldSourceDefaults(
       patch.subjectFields ?? base.subjectFields,
+      base.subjectFields,
     ),
   };
 }

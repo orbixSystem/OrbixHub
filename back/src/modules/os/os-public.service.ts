@@ -5,18 +5,24 @@ import { IamService } from '../iam/iam.service';
 import { MessagesService } from '../messages/messages.service';
 import { OsRepository } from './os.repository';
 import { OsStatus } from './dto/order.dto';
+import { VocabularyService } from '../../verticals/vocabulary.service';
 
 /** ref_type do contexto de conversa de uma OS (módulo genérico `messages`). */
 const OS_REF_TYPE = 'os';
 
-/** Rótulos PT-BR dos status (espelha STATUS_LABELS do OsService). */
-const STATUS_LABELS: Record<string, string> = {
+/**
+ * PISO dos rótulos de status. O texto real vem do pacote da vertical do tenant
+ * — e aqui isso importa mais que em qualquer outro lugar: esta é a tela que o
+ * CLIENTE FINAL abre. Uma clínica de fisioterapia mandando "Veículo entregue"
+ * para o paciente dela era o vazamento mais visível do sistema.
+ */
+const STATUS_LABELS_FALLBACK: Record<string, string> = {
   aberta: 'OS aberta',
   aguardando_aprovacao: 'Aguardando aprovação',
   aprovada: 'Orçamento aprovado',
   em_execucao: 'Em execução',
   concluida: 'Serviço concluído',
-  entregue: 'Veículo entregue',
+  entregue: 'Serviço entregue',
   cancelada: 'OS cancelada',
 };
 
@@ -43,6 +49,7 @@ export class OsPublicService {
     private readonly repo: OsRepository,
     private readonly messages: MessagesService,
     private readonly iam: IamService,
+    private readonly vocabulary: VocabularyService,
   ) {}
 
   /**
@@ -69,11 +76,15 @@ export class OsPublicService {
    */
   async getPublicTrack(token: string) {
     const { tenantId, orderId } = await this.resolveToken(token);
-    // Nome da empresa: tabela global `tenant` (sem RLS) — leitura direta pelo client base.
+    // Nome da empresa + nicho: tabela global `tenant` (sem RLS) — leitura direta
+    // pelo client base. O `vertical` entra no MESMO select de propósito: este é
+    // um fluxo público, sem JWT, e uma consulta a mais por acesso de cliente
+    // final não se paga. O vocabulário resolvido daqui é o que o cliente lê.
     const company = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { name: true },
+      select: { name: true, vertical: true },
     });
+    const vocab = this.vocabulary.vocab(company?.vertical ?? null);
 
     const { assignedTo, ...payload } = await this.tenant.runWithTenant(
       tenantId,
@@ -91,7 +102,7 @@ export class OsPublicService {
         return {
           number: order.number,
           status,
-          statusLabel: STATUS_LABELS[status] ?? status,
+          statusLabel: vocab[`os.status.${status}`] ?? STATUS_LABELS_FALLBACK[status] ?? status,
           diagnosis: order.diagnosis ?? null,
           subjectLabel: order.subject_label,
           scheduledEnd: order.scheduled_end,

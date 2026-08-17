@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LookupOption, SubjectLookupService } from '../subject-lookup.service';
+import { LookupOption, SubjectLookupService } from '../../../modules/customers/subject-lookup.service';
 import { PlateFipeMatch, PlateFipeRef, PlateHit } from './plate.provider';
 
 /** Normaliza p/ comparação: sem acento, sem pontuação, minúsculo, 1 espaço. */
