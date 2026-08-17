@@ -41,6 +41,17 @@ abstract interface class OsRepository {
     required bool visiblePublic,
   });
 
+  // ---- link público de acompanhamento ----
+  /// E-mail cadastrado do cliente da OS
+  /// (`GET /os/orders/:id/tracking-recipient`) — sugestão para o atendente
+  /// CONFERIR antes de enviar. `null` quando o cliente não tem e-mail.
+  Future<String?> trackingRecipientEmail(String orderId);
+
+  /// Envia o link de acompanhamento para o endereço confirmado
+  /// (`POST /os/orders/:id/tracking-link/email`). Exige `os.write`. Não altera
+  /// o cadastro do cliente. 503 quando o e-mail não pôde sair.
+  Future<void> sendTrackingLinkEmail(String orderId, String email);
+
   // ---- fotos ----
   /// Anexa uma foto à OS (multipart `file`). Retorna a OS atualizada (com `photos`).
   Future<ServiceOrder> addPhoto(

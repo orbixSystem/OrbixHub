@@ -13,3 +13,8 @@ back/.storage/
 
 # Local StorageProvider uploads (dev)
 .storage/
+
+# Runbooks de acesso à infraestrutura — ficam só na máquina de quem opera.
+# Não guardam senha (os segredos vivem no servidor), mas descrevem caminho de
+# acesso e não têm por que ser públicos. Ver ponteiro no CLAUDE.md §9.
+*.local.md

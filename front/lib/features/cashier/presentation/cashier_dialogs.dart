@@ -12,7 +12,7 @@ import 'cashier_providers.dart';
 /// (despesa) com valor, forma de pagamento e descrição opcional.
 ///
 /// Usado tanto no grid rápido da tela do Caixa quanto no FAB global do shell.
-/// Não se confunde com Sangria/Suprimento (operações de gaveta) nem com
+/// Não se confunde com Saque/Depósito (operações de gaveta) nem com
 /// Receber/Venda (vinculados a uma OS ou venda).
 Future<void> showEntryDialog(
   BuildContext context,
@@ -97,8 +97,9 @@ class _EntrySheetState extends ConsumerState<_EntrySheet> {
   Widget build(BuildContext context) {
     final neu = context.neu;
     final accentColor = _isEntrada ? const Color(0xFF16A34A) : neu.danger;
+    // Convenção do módulo: entrada sobe (verde), saída desce (vermelho).
     final accentIcon =
-        _isEntrada ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded;
+        _isEntrada ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
 
     return Padding(
       padding:
@@ -152,12 +153,12 @@ class _EntrySheetState extends ConsumerState<_EntrySheet> {
                       ButtonSegment(
                         value: true,
                         label: Text('Entrada'),
-                        icon: Icon(Icons.arrow_downward_rounded, size: 16),
+                        icon: Icon(Icons.arrow_upward_rounded, size: 16),
                       ),
                       ButtonSegment(
                         value: false,
                         label: Text('Saída'),
-                        icon: Icon(Icons.arrow_upward_rounded, size: 16),
+                        icon: Icon(Icons.arrow_downward_rounded, size: 16),
                       ),
                     ],
                     selected: {_isEntrada},

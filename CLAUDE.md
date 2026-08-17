@@ -290,6 +290,24 @@ Nunca diga que algo passa sem rodar e ver o output.
   `CORS_ORIGINS`). Nunca mate processo por porta sem checar a identidade antes.
 - Conta de teste semeada em dev: `dono@teste.com` / `senha12345` (owner, trial).
 
+### Acesso à produção (AWS, servidor, banco)
+
+**Quando o usuário pedir para acessar a AWS, entrar no servidor ou consultar o
+banco de produção, leia `docs/ACESSO-INFRA.local.md` antes de qualquer coisa.**
+
+Esse arquivo é **gitignorado** — existe só na máquina de quem opera, e por isso
+não aparece no repositório clonado. Ele traz endereços, caminho da chave SSH,
+como abrir o túnel do banco, onde ler as senhas (que ficam no servidor, nunca no
+arquivo), como obter credencial AWS temporária, e os comandos de diagnóstico.
+
+Traz também as armadilhas que já custaram tempo: o `app_owner` precisa de
+`BYPASSRLS` senão ninguém loga; o `orbixhub-api` do systemd está desativado de
+propósito porque o backend roda em container; chave fora do `env.schema.ts` é
+descartada em silêncio pelo Zod.
+
+Se o arquivo não existir na máquina, peça ao usuário — não tente adivinhar
+endereço nem credencial.
+
 ---
 
 ## 10. Convenções de trabalho

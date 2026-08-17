@@ -40,10 +40,12 @@ String categoryLabel(String category) {
       return 'Venda avulsa';
     case 'despesa':
       return 'Despesa';
+    // As CHAVES continuam `sangria`/`suprimento` (é o que o backend grava);
+    // só o rótulo mostrado ao usuário virou a linguagem de banco.
     case 'sangria':
-      return 'Sangria';
+      return 'Saque';
     case 'suprimento':
-      return 'Suprimento';
+      return 'Depósito';
     default:
       return category;
   }

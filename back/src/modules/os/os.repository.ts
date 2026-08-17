@@ -95,6 +95,8 @@ export interface CreateOrderData {
   diagnosis: string | null;
   scheduled_start: Date | null;
   scheduled_end: Date | null;
+  /** Desconto do cabeçalho informado já na abertura (default 0 no banco). */
+  discount?: DecimalIn;
 }
 
 export interface UpdateOrderData {

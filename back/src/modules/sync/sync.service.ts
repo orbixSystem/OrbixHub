@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate, ValidationError } from 'class-validator';
 import type { AuthUser } from '../../common/auth/auth.types';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { clampChangedSinceLimit } from '../../common/database/changed-since';
@@ -17,6 +20,7 @@ import { CashierServiceImpl } from '../cashier/cashier.service.impl';
 import { SaleService } from '../sale/sale.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { BillingService } from '../billing/billing.service';
+import { subscriptionAllows } from '../billing/subscription-access';
 import {
   PULL_ROUTES,
   SYNC_OPS,
@@ -59,6 +63,7 @@ export class SyncService {
     private readonly audit: AuditService,
     private readonly repo: SyncRepository,
     private readonly billing: BillingService,
+    @Inject(ENV) private readonly env: Env,
     customers: CustomersService,
     inventory: InventoryService,
     os: OsService,
@@ -270,10 +275,10 @@ export class SyncService {
 
   /**
    * Régua de acesso ao módulo dono da entidade — a MESMA do `ModuleAccessGuard`:
-   * módulo não habilitado (e não `is_core`) → barrado; assinatura `canceled` (ou
-   * qualquer status fora de trialing/active/past_due) → barrado; `past_due` →
-   * leitura (pull) liberada, escrita (push) barrada. Devolve a MENSAGEM PT-BR da
-   * recusa, ou `null` quando liberado.
+   * módulo não habilitado (e não `is_core`) → barrado; status da assinatura
+   * decidido por `subscriptionAllows` (fonte única, hoje desligada por
+   * `BILLING_ENFORCE_SUBSCRIPTION=false`). Devolve a MENSAGEM PT-BR da recusa,
+   * ou `null` quando liberado.
    */
   private async moduleDenial(
     user: AuthUser,
@@ -297,8 +302,12 @@ export class SyncService {
     if (!access.isCore && !access.enabled) {
       return `Módulo "${moduleKey}" não está habilitado no seu plano.`;
     }
-    if (access.status === 'trialing' || access.status === 'active') return null;
-    if (access.status === 'past_due' && !isWrite) return null;
+    const allowed = subscriptionAllows(
+      access.status,
+      isWrite,
+      this.env.BILLING_ENFORCE_SUBSCRIPTION,
+    );
+    if (allowed) return null;
     return `Assinatura com status "${access.status}" não permite esta operação.`;
   }
 

@@ -280,6 +280,7 @@ class OrderDraft {
     this.scheduledStart,
     this.scheduledEnd,
     this.assignedTo,
+    this.discount,
   });
 
   final String? customerId;
@@ -298,6 +299,10 @@ class OrderDraft {
   final String? scheduledEnd;
   final String? assignedTo;
 
+  /// Desconto do cabeçalho fechado já na abertura (a OS nasce sem itens; o
+  /// total passa a considerá-lo quando o primeiro item entra).
+  final double? discount;
+
   Map<String, dynamic> toJson() => {
         if (customerId != null) 'customerId': customerId,
         if (subjectId != null) 'subjectId': subjectId,
@@ -314,6 +319,7 @@ class OrderDraft {
         if (scheduledStart != null) 'scheduledStart': scheduledStart,
         if (scheduledEnd != null) 'scheduledEnd': scheduledEnd,
         if (assignedTo != null) 'assignedTo': assignedTo,
+        if (discount != null) 'discount': discount,
       };
 }
 

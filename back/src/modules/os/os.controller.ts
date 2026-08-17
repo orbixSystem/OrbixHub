@@ -20,6 +20,7 @@ import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { OsService, type UploadedImage } from './os.service';
 import { OsMetricsService } from './os-metrics.service';
+import { OsTrackingService } from './os-tracking.service';
 import { OsMetricsQueryDto } from './dto/metrics.dto';
 import { resolveRange } from '../../common/metrics/range';
 import {
@@ -30,6 +31,7 @@ import {
 } from './dto/order.dto';
 import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
 import { CreateNoteDto } from './dto/note.dto';
+import { SendTrackingLinkDto } from './dto/tracking-link.dto';
 import { PostPhotoCommentDto } from './dto/photo-comment.dto';
 import {
   CreateTemplateDto,
@@ -44,6 +46,7 @@ export class OsController {
   constructor(
     private readonly os: OsService,
     private readonly metrics: OsMetricsService,
+    private readonly tracking: OsTrackingService,
   ) {}
 
   // --- métricas (Dashboard) — leitura agregada, gated pelo módulo + os.read ---
@@ -159,6 +162,26 @@ export class OsController {
   @HttpCode(200)
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.os.deleteOrder(user, id);
+  }
+
+  // --- link público de acompanhamento ---
+  // Sugestão de destinatário: o atendente CONFERE o e-mail do cliente antes de
+  // enviar (pode corrigir na hora — o cadastro não muda).
+  @Get('orders/:id/tracking-recipient')
+  @Permissions('os.read')
+  trackingRecipient(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.tracking.getRecipient(user, id);
+  }
+
+  @Post('orders/:id/tracking-link/email')
+  @Permissions('os.write')
+  @HttpCode(200)
+  sendTrackingLink(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: SendTrackingLinkDto,
+  ) {
+    return this.tracking.sendLinkByEmail(user, id, dto);
   }
 
   // --- itens ---

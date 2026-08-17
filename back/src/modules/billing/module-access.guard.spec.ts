@@ -9,7 +9,13 @@ function ctx(method: string, user: { tenantId: string } | undefined = { tenantId
   } as never;
 }
 
-function guardWith(row: { enabled: boolean; is_core: boolean } | null, status: string) {
+/** `enforce` = BILLING_ENFORCE_SUBSCRIPTION. Os casos de status assumem a régua
+ *  LIGADA; com ela desligada (o default em produção hoje) o status não barra. */
+function guardWith(
+  row: { enabled: boolean; is_core: boolean } | null,
+  status: string,
+  enforce = true,
+) {
   const reflector = { getAllAndOverride: () => 'os' } as never;
   const db = {
     subscription: { findFirst: jest.fn(async () => (status ? { status } : null)) },
@@ -23,7 +29,8 @@ function guardWith(row: { enabled: boolean; is_core: boolean } | null, status: s
     runWithTenant: (_t: string, fn: () => unknown) => fn(),
     getClient: () => db,
   } as never;
-  return new ModuleAccessGuard(reflector, tenant);
+  const env = { BILLING_ENFORCE_SUBSCRIPTION: enforce } as never;
+  return new ModuleAccessGuard(reflector, tenant, env);
 }
 
 describe('ModuleAccessGuard', () => {
@@ -67,7 +74,25 @@ describe('ModuleAccessGuard', () => {
   it('no @RequiresModule -> passes', async () => {
     const reflector = { getAllAndOverride: () => undefined } as never;
     const tenant = {} as never;
-    const g = new ModuleAccessGuard(reflector, tenant);
+    const env = { BILLING_ENFORCE_SUBSCRIPTION: false } as never;
+    const g = new ModuleAccessGuard(reflector, tenant, env);
     await expect(g.canActivate(ctx('GET'))).resolves.toBe(true);
+  });
+
+  describe('BILLING_ENFORCE_SUBSCRIPTION=false (default enquanto não há cobrança)', () => {
+    it('past_due escreve normalmente', async () => {
+      const g = guardWith({ enabled: true, is_core: false }, 'past_due', false);
+      await expect(g.canActivate(ctx('POST'))).resolves.toBe(true);
+    });
+    it('canceled lê e escreve normalmente', async () => {
+      const read = guardWith({ enabled: true, is_core: false }, 'canceled', false);
+      await expect(read.canActivate(ctx('GET'))).resolves.toBe(true);
+      const write = guardWith({ enabled: true, is_core: false }, 'canceled', false);
+      await expect(write.canActivate(ctx('POST'))).resolves.toBe(true);
+    });
+    it('módulo desabilitado CONTINUA barrado (modularidade não é cobrança)', async () => {
+      const g = guardWith({ enabled: false, is_core: false }, 'active', false);
+      await expect(g.canActivate(ctx('GET'))).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 });

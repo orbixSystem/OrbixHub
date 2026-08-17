@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository } from './billing.repository';
@@ -12,10 +14,16 @@ export class TrialExpiryJob {
     private readonly repo: BillingRepository,
     private readonly tenant: TenantContext,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async run(): Promise<void> {
+    // Sem cobrança de verdade, marcar past_due só produz tenant travado e uma
+    // entrada de auditoria por dia. O status volta a mudar quando o módulo de
+    // assinatura existir e `BILLING_ENFORCE_SUBSCRIPTION` for ligado.
+    if (!this.env.BILLING_ENFORCE_SUBSCRIPTION) return;
+
     const expired = await this.repo.findExpiredTrials();
     if (expired.length === 0) return;
     this.logger.log(`Expiring ${expired.length} trial(s)`);

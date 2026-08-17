@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbixhub_front/core/error/app_exception.dart';
 import 'package:orbixhub_front/core/ui/ui.dart';
 import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/domain/os_models.dart';
@@ -19,16 +20,67 @@ class _OnlineConn extends ConnectivityController {
 }
 
 /// Captura o draft enviado ao criar a OS, para asserções precisas sobre o que
-/// o wizard monta (veículo novo, dados da consulta de placa...).
+/// o wizard monta (veículo novo, dados da consulta de placa...). Registra também
+/// o que o wizard lança DEPOIS de criar a OS (template, itens, situação), que é
+/// como tudo aquilo entra sem endpoint novo.
 class _CapturingOsRepo extends FakeOsRepository {
-  _CapturingOsRepo({super.customers});
+  _CapturingOsRepo({super.customers, super.templates});
 
   OrderDraft? lastDraft;
+  final List<String> appliedTemplates = [];
+  final List<OrderItemDraft> addedItems = [];
+  final List<String> statusChanges = [];
+
+  /// Quando não-nulo, `addItem` falha com esta mensagem — para provar que a OS
+  /// já criada não é desfeita por causa de um lançamento.
+  String? failItemsWith;
 
   @override
   Future<ServiceOrder> createOrder(OrderDraft d) {
     lastDraft = d;
     return super.createOrder(d);
+  }
+
+  @override
+  Future<ServiceOrder> applyTemplate(String orderId, String templateId) {
+    appliedTemplates.add(templateId);
+    return super.applyTemplate(orderId, templateId);
+  }
+
+  @override
+  Future<ServiceOrder> addItem(String id, OrderItemDraft d) {
+    addedItems.add(d);
+    if (failItemsWith != null) {
+      throw AppException(error: 'bad_request', message: failItemsWith!);
+    }
+    return super.addItem(id, d);
+  }
+
+  @override
+  Future<ServiceOrder> changeStatus(String id, String status) {
+    statusChanges.add(status);
+    return super.changeStatus(id, status);
+  }
+
+  final List<OsTemplateDraft> createdTemplates = [];
+
+  @override
+  Future<OsTemplate> createTemplate(OsTemplateDraft draft) {
+    createdTemplates.add(draft);
+    return super.createTemplate(draft);
+  }
+}
+
+/// Devolve a OS criada COM `public_token`, como o servidor faz (o fake padrão
+/// nasce sem — é o retrato de uma OS criada offline, em que o link ainda não
+/// existe).
+class _TokenOsRepo extends _CapturingOsRepo {
+  _TokenOsRepo({super.customers});
+
+  @override
+  Future<ServiceOrder> createOrder(OrderDraft d) async {
+    final order = await super.createOrder(d);
+    return order.copyWith(publicToken: 'tok-123');
   }
 }
 
@@ -75,6 +127,52 @@ Finder _fieldByLabel(String label) => find
 Future<void> _next(WidgetTester tester) async {
   await tester.tap(find.widgetWithText(NeuButton, 'Próximo'));
   await tester.pumpAndSettle();
+}
+
+/// Rola até o alvo e toca — o passo "Detalhes" é longo (itens, totais, fotos)
+/// e boa parte dele nasce fora da janela do teste.
+Future<void> _tap(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+/// Rola até o campo de [label] e digita [text].
+Future<void> _fill(WidgetTester tester, String label, String text) async {
+  final field = _fieldByLabel(label);
+  await tester.ensureVisible(field);
+  await tester.pumpAndSettle();
+  await tester.enterText(field, text);
+  await tester.pump();
+}
+
+/// Escolhe um cliente existente e atravessa os passos Cliente e Veículo,
+/// parando no passo Detalhes.
+Future<void> _ateDetalhes(WidgetTester tester) async {
+  await tester.enterText(_fieldByLabel('Cliente *'), 'João');
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('João da Silva').last);
+  await tester.pumpAndSettle();
+  await _next(tester);
+  await _next(tester); // veículo: este cliente não tem nenhum cadastrado
+}
+
+/// Adiciona um item avulso pelo painel que abre INLINE no passo (sem diálogo
+/// sobre diálogo).
+Future<void> _addItemAvulso(
+  WidgetTester tester, {
+  required String descricao,
+  required String preco,
+}) async {
+  await _tap(tester, find.widgetWithText(NeuButton, 'Adicionar item'));
+  await _tap(tester, find.text('Avulso'));
+  await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição *'), descricao);
+  await tester.enterText(
+      find.widgetWithText(TextFormField, 'Preço unit. *'), preco);
+  await tester.pump();
+  await _tap(tester, find.widgetWithText(NeuButton, 'Adicionar'));
 }
 
 /// Seleciona o primeiro membro no dropdown "Responsável *" (obrigatório).
@@ -305,5 +403,218 @@ void main() {
     final plate = fake.lastDraft!.newSubjectPlateData;
     expect(plate, isNotNull);
     expect(plate!['chassi'], '9BWKB05Z174110137');
+  });
+
+  testWidgets(
+      'Detalhes preenche a OS inteira: diagnóstico, template, item, desconto e '
+      'situação inicial', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+      templates: const [
+        OsTemplate(
+          id: 't1',
+          name: 'Revisão simples',
+          items: [OsTemplateItem(kind: 'service', name: 'Troca de óleo')],
+          total: '100.00',
+        ),
+      ],
+    );
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+
+    await _fill(tester, 'Relato do cliente *', 'Revisão dos 10 mil');
+    await _selectResponsavel(tester);
+    await _fill(tester, 'Diagnóstico (opcional)', 'Correia gasta');
+
+    // Template: o seletor abre INLINE no passo e devolve o pacote escolhido.
+    await _tap(tester, find.widgetWithText(NeuButton, 'Aplicar template'));
+    await _tap(tester, find.text('Revisão simples').last);
+
+    await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
+    await _fill(tester, 'Desconto (opcional)', '10');
+    await _tap(tester, find.text('Em execução'));
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+
+    // O que cabe no POST vai no POST...
+    final draft = fake.lastDraft!;
+    expect(draft.diagnosis, 'Correia gasta');
+    expect(draft.discount, 10);
+    // ...e o resto entra pelos mesmos endpoints da tela de detalhe.
+    expect(fake.appliedTemplates, ['t1']);
+    expect(fake.addedItems.single.name, 'Mão de obra');
+    // A OS nasce 'aberta' (FSM do backend) e o wizard faz a transição pedida.
+    expect(fake.statusChanges, ['em_execucao']);
+
+    final page = await fake.listOrders();
+    expect(page.items.single.status, 'em_execucao');
+  });
+
+  testWidgets('seletores abrem NO LUGAR — nada de diálogo sobre diálogo',
+      (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    );
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+
+    // Só o wizard está aberto.
+    expect(find.byType(Dialog), findsOneWidget);
+
+    // Abrir o seletor de template NÃO empilha outro diálogo.
+    await _tap(tester, find.widgetWithText(NeuButton, 'Aplicar template'));
+    expect(find.text('Buscar template'), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
+    await _tap(tester, find.widgetWithText(NeuButton, 'Fechar'));
+
+    // Nem o de item.
+    await _tap(tester, find.widgetWithText(NeuButton, 'Adicionar item'));
+    expect(find.text('Do estoque'), findsOneWidget);
+    expect(find.byType(Dialog), findsOneWidget);
+  });
+
+  testWidgets('salvar como template guarda o pacote montado, com o nome à vista',
+      (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    );
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _selectResponsavel(tester);
+    await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
+
+    // A opção só aparece depois de haver o que salvar.
+    await _tap(tester, find.byType(Checkbox));
+    await _fill(tester, 'Nome do template *', 'Revisão simples');
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+
+    final template = fake.createdTemplates.single;
+    expect(template.name, 'Revisão simples');
+    expect(template.items.single.name, 'Mão de obra');
+    // A OS foi criada do mesmo jeito.
+    expect((await fake.listOrders()).items, hasLength(1));
+  });
+
+  testWidgets('dá para criar o template pelo próprio seletor de template',
+      (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    );
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _selectResponsavel(tester);
+    await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
+
+    // Sem templates cadastrados, o seletor não é um beco sem saída: oferece
+    // guardar o que já está lançado.
+    await _tap(tester, find.widgetWithText(NeuButton, 'Aplicar template'));
+    await _tap(tester, find.textContaining('Criar template com o item'));
+    await _fill(tester, 'Nome do template *', 'Revisão simples');
+    await _tap(tester, find.widgetWithText(NeuButton, 'Salvar template'));
+
+    // Volta para o passo (o painel fechou) com a intenção marcada e o nome à
+    // vista — nada é salvo antes de a OS ser criada.
+    expect(fake.createdTemplates, isEmpty);
+    expect(find.text('Nome do template *'), findsOneWidget);
+
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+    expect(fake.createdTemplates.single.name, 'Revisão simples');
+  });
+
+  testWidgets('lançamento que falha não desfaz a OS já criada', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    )..failItemsWith = 'Estoque indisponível';
+
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _selectResponsavel(tester);
+    await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+
+    // A OS existe, o wizard fechou e o usuário é avisado do que não entrou —
+    // perder o cadastro inteiro por causa de um item seria pior.
+    final page = await fake.listOrders();
+    expect(page.items, hasLength(1));
+    expect(find.text('Nova ordem de serviço'), findsNothing);
+    expect(find.textContaining('não foi possível lançar'), findsOneWidget);
+  });
+
+  testWidgets('criada a OS, o link do cliente vem ANTES de abrir a ficha',
+      (tester) async {
+    tester.view.physicalSize = const Size(1100, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _TokenOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    );
+    // Guarda o que o `show` resolve: enquanto o passo do link está aberto o
+    // wizard NÃO resolveu nada, então a lista continua vazia.
+    final resolvidos = <Object?>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          osRepositoryProvider.overrideWithValue(fake),
+          connectivityControllerProvider.overrideWith(_OnlineConn.new),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async =>
+                    resolvidos.add(await OrderFormDialog.show(context)),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    await _ateDetalhes(tester);
+    await tester.enterText(
+        _fieldByLabel('Relato do cliente *'), 'Revisão geral');
+    await tester.pump();
+    await _selectResponsavel(tester);
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+
+    // O link aparece com as três formas de entregá-lo, e nada foi resolvido
+    // ainda — a navegação para a OS espera o "Abrir a OS".
+    expect(find.textContaining('/#/t/tok-123'), findsOneWidget);
+    expect(find.widgetWithText(NeuButton, 'Copiar link'), findsOneWidget);
+    expect(find.widgetWithText(NeuButton, 'E-mail'), findsOneWidget);
+    expect(resolvidos, isEmpty);
+
+    await _tap(tester, find.widgetWithText(NeuButton, 'Abrir a OS'));
+
+    // Confirmado: o wizard fecha devolvendo o id da OS (quem chamou navega).
+    expect(find.text('Nova ordem de serviço'), findsNothing);
+    expect(resolvidos, hasLength(1));
+    expect(resolvidos.single, (await fake.listOrders()).items.first.id);
   });
 }

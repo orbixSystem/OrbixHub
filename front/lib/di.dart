@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/network/access_token_store.dart';
+import 'core/network/error_log_interceptor.dart';
 import 'core/network/refresh_token_store.dart';
 import 'core/network/server_time.dart';
 import 'core/offline/connectivity_controller.dart';
@@ -122,6 +123,9 @@ final serverTimeStoreProvider = Provider<ServerTimeStore>(
 /// The app dio: attaches the bearer and does single-flight refresh-and-retry.
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(_baseOptions());
+  // Primeiro da fila: registra TODA falha no console antes que alguém a trate
+  // (o refresh 401, o repository, a tela). Só observa — repassa o erro intacto.
+  dio.interceptors.add(ErrorLogInterceptor());
   dio.interceptors.add(ServerTimeInterceptor(ref.read(serverTimeStoreProvider)));
   dio.interceptors.add(
     AuthInterceptor(

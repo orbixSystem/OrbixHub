@@ -62,6 +62,11 @@ describe('Sync — pull + push offline (e2e)', () => {
   const past = () => new Date(Date.now() - 3_600_000).toISOString();
 
   beforeAll(async () => {
+    // A régua de status da assinatura nasce DESLIGADA (BILLING_ENFORCE_SUBSCRIPTION,
+    // default false) enquanto não existe o módulo de assinatura. Os casos
+    // past_due/canceled abaixo exercitam essa régua, então este suite a liga
+    // explicitamente — é o comportamento de quando a cobrança entrar em vigor.
+    process.env.BILLING_ENFORCE_SUBSCRIPTION = 'true';
     mailer = new CapturingMailer();
     const mod = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(MailerService)
@@ -85,7 +90,12 @@ describe('Sync — pull + push offline (e2e)', () => {
     await redis.flushall();
   });
 
-  afterAll(async () => app?.close());
+  afterAll(async () => {
+    // Jest reaproveita o processo entre arquivos do mesmo worker — devolver a
+    // variável evita que a régua ligada aqui vaze para outro suite.
+    delete process.env.BILLING_ENFORCE_SUBSCRIPTION;
+    await app?.close();
+  });
 
   // ---- helpers ----------------------------------------------------------
   async function registerOwner(): Promise<Owner> {
