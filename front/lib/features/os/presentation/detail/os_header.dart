@@ -436,26 +436,15 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     final podeReceber = canReceiveOsPayment(ref, order);
     final saldo = order.payment?.balance ?? 0;
     // Cobrar é o passo DEPOIS de terminar o serviço. Enquanto ainda houver o
-    // que finalizar, "Receber" não disputa espaço com "Finalizar OS": o
-    // próprio Finalizar já abre o recebimento ao chegar em entregue (ver
-    // `runOsSimpleTransition`), então dois botões ali eram dois caminhos para
-    // o mesmo lugar — e convidavam a cobrar por um serviço ainda em execução.
-    //
-    // Receber continua alcançável enquanto o carro está na oficina (é assim
-    // que se registra um sinal para comprar peça), só que como ação
-    // secundária e com o nome do que de fato é: adiantamento.
+    // que finalizar, "Receber" não aparece aqui: o próprio Finalizar já abre o
+    // recebimento ao chegar em entregue (ver `runOsSimpleTransition`), então um
+    // segundo botão era outro caminho para o mesmo lugar — e convidava a cobrar
+    // por um serviço ainda em execução. Adiantamento (sinal para comprar peça)
+    // continua alcançável pelo menu de ações rápidas da lista.
     final receberEhPrincipal = podeReceber && primaria == null;
-    final receberEhAdiantamento = podeReceber && primaria != null;
 
     // --- menu: o resto, sem competir por atenção ---
     final extras = <({String valor, String rotulo, IconData icone, bool perigo})>[
-      if (receberEhAdiantamento)
-        (
-          valor: 'receber',
-          rotulo: 'Receber adiantamento',
-          icone: Icons.payments_outlined,
-          perigo: false
-        ),
       if (widget.canRead)
         (
           valor: 'pdf',
@@ -508,8 +497,6 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 
     Future<void> executar(String v) async {
       switch (v) {
-        case 'receber':
-          await _receber();
         case 'pdf':
           widget.onExport();
         case 'editar':

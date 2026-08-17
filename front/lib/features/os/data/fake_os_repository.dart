@@ -140,7 +140,8 @@ class FakeOsRepository implements OsRepository {
       scheduledStart: d.scheduledStart,
       scheduledEnd: d.scheduledEnd,
       assignedTo: d.assignedTo,
-      discount: '0',
+      // O desconto pode vir fechado já na abertura (espelha o backend).
+      discount: (d.discount ?? 0).toString(),
       total: '0',
     );
     _orders[id] = order;

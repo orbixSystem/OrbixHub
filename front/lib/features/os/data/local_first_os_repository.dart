@@ -344,6 +344,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       if (draft.scheduledStart != null) 'scheduledStart': draft.scheduledStart,
       if (draft.scheduledEnd != null) 'scheduledEnd': draft.scheduledEnd,
       if (draft.assignedTo != null) 'assignedTo': draft.assignedTo,
+      if (draft.discount != null) 'discount': draft.discount,
     });
 
     final header = <String, dynamic>{
@@ -359,7 +360,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
       'diagnosis': draft.diagnosis,
       'scheduled_start': draft.scheduledStart,
       'scheduled_end': draft.scheduledEnd,
-      'discount': '0.00',
+      'discount': (draft.discount ?? 0).toStringAsFixed(2),
       'total': '0.00',
       'payment_status': 'a_receber',
       'created_at': nowIso(),

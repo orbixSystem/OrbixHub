@@ -395,7 +395,7 @@ const _caixa = ScreenTutorial(
       title: 'As três ações do dia',
       text: '"Venda avulsa" abre o balcão completo (itens, desconto, '
           'recebimento). "Receber OS" recebe de uma ordem já aberta, inclusive '
-          'parcial. "Despesa / sangria" registra saída. No desktop ficam em até '
+          'parcial. "Despesa / saque" registra saída. No desktop ficam em até '
           'três colunas; no celular, duas — os mesmos botões.',
     ),
     CoachStep(
@@ -404,7 +404,7 @@ const _caixa = ScreenTutorial(
       text: 'São as 5 últimas linhas, só para você confirmar que o que acabou de '
           'lançar entrou. O extrato completo do período é a aba Histórico — '
           '"Ver tudo" leva até lá. Linha de VENDA abre o detalhe dela (toque nela); '
-          'despesa e sangria abrem o menu de ações nos três pontinhos.',
+          'despesa e saque abrem o menu de ações nos três pontinhos.',
     ),
     CoachStep(
       title: 'O valor recebido decide se é fiado',
