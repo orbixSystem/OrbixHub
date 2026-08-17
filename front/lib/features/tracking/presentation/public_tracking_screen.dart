@@ -16,6 +16,7 @@ import '../../../di.dart';
 import '../../os/presentation/os_status.dart';
 import '../domain/tracking_models.dart';
 import '../domain/tracking_repository.dart';
+import 'tracking_error_info.dart';
 
 /// PUBLIC deep-link screen (`/t/:token`) — sem autenticação. É o que o cliente
 /// abre no celular: status da OS + previsão + fotos + linha do tempo + chat com
@@ -369,7 +370,9 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
 
   Widget _body() {
     if (!_validToken) {
-      return _notFoundBody();
+      return _errorBody(
+        trackingErrorInfo(validToken: false, error: null),
+      );
     }
     if (_loading) {
       return const Center(
@@ -380,26 +383,57 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
       );
     }
     if (_error != null || _track == null) {
-      return _notFoundBody();
+      return _errorBody(
+        trackingErrorInfo(validToken: true, error: _error),
+      );
     }
     return _content(_track!);
   }
 
-  Widget _notFoundBody() => SingleChildScrollView(
+  static IconData _iconeDoErro(TrackingErrorKind kind) => switch (kind) {
+        TrackingErrorKind.linkInvalido => Icons.link_off_rounded,
+        TrackingErrorKind.naoEncontrado => Icons.search_off_rounded,
+        TrackingErrorKind.semConexao => Icons.wifi_off_rounded,
+        TrackingErrorKind.servidor => Icons.cloud_off_rounded,
+        TrackingErrorKind.outro => Icons.error_outline_rounded,
+      };
+
+  /// Estado de falha da página pública. Diferente do que havia antes, ele diz a
+  /// verdade sobre a causa: rede caída não é "OS não encontrada". Quando a
+  /// falha pode passar sozinha, oferece "Tentar de novo"; e o código técnico
+  /// fica selecionável embaixo, para o cliente repassar à oficina — é o mesmo
+  /// id que está na linha de log do servidor.
+  Widget _errorBody(TrackingErrorInfo info) => SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            SizedBox(height: 24),
-            Center(child: BrandMark(size: 28)),
-            SizedBox(height: 28),
+          children: [
+            const SizedBox(height: 24),
+            const Center(child: BrandMark(size: 28)),
+            const SizedBox(height: 28),
             NeuEmptyState(
-              icon: Icons.search_off_rounded,
-              title: 'Acompanhamento não encontrado',
-              message:
-                  'Verifique o link recebido. Se o problema continuar, entre '
-                  'em contato com a oficina.',
+              icon: _iconeDoErro(info.kind),
+              title: info.title,
+              message: info.message,
+              actionLabel: info.canRetry ? 'Tentar de novo' : null,
+              onAction: info.canRetry ? _load : null,
             ),
+            if (info.detail != null) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: SelectableText(
+                  info.detail!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.color
+                            ?.withValues(alpha: 0.6),
+                      ),
+                ),
+              ),
+            ],
           ],
         ),
       );

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/network/error_log_interceptor.dart';
 import '../domain/tracking_models.dart';
 import '../domain/tracking_repository.dart';
 
@@ -13,13 +14,13 @@ import '../domain/tracking_repository.dart';
 class TrackingRepositoryImpl implements TrackingRepository {
   TrackingRepositoryImpl([Dio? dio])
       : _dio = dio ??
-            Dio(
+            (Dio(
               BaseOptions(
                 baseUrl: AppConfig.apiBaseUrl,
                 connectTimeout: const Duration(seconds: 15),
                 receiveTimeout: const Duration(seconds: 15),
               ),
-            );
+            )..interceptors.add(ErrorLogInterceptor()));
 
   final Dio _dio;
 
