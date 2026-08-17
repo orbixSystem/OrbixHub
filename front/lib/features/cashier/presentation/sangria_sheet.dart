@@ -7,7 +7,8 @@ import '../../../core/util/validators.dart';
 import '../domain/cashier_models.dart';
 import 'cashier_providers.dart';
 
-/// Bottom sheet de SANGRIA (retirada da gaveta). Fluxo rápido: valor + forma
+/// Bottom sheet de SAQUE — categoria `sangria` no backend (retirada da gaveta).
+/// Fluxo rápido: valor + forma
 /// (sempre dinheiro) + descrição opcional. Separado para deixar claro o que é:
 /// tirar dinheiro da gaveta sem dar falta.
 Future<void> showSangriaSheet(BuildContext context, WidgetRef ref) {
@@ -114,11 +115,11 @@ class _SangriaSheetState extends ConsumerState<_SangriaSheet> {
                         color: neu.danger.withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.arrow_upward_rounded,
+                      child: Icon(Icons.arrow_downward_rounded,
                           color: neu.danger, size: 18),
                     ),
                     const SizedBox(width: 10),
-                    Text('Sangria — Retirada da gaveta',
+                    Text('Saque — Retirada da gaveta',
                         style: Theme.of(context).textTheme.titleMedium),
                   ],
                 ),
@@ -152,7 +153,7 @@ class _SangriaSheetState extends ConsumerState<_SangriaSheet> {
                 ),
                 const SizedBox(height: 20),
                 NeuButton(
-                  label: 'Registrar sangria',
+                  label: 'Registrar saque',
                   expanded: true,
                   loading: _saving,
                   onPressed: _saving ? null : _submit,

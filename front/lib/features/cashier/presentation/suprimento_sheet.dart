@@ -7,7 +7,8 @@ import '../../../core/util/validators.dart';
 import '../domain/cashier_models.dart';
 import 'cashier_providers.dart';
 
-/// Bottom sheet de SUPRIMENTO (aporte na gaveta). Fluxo rápido: valor + forma
+/// Bottom sheet de DEPÓSITO — categoria `suprimento` no backend (aporte na
+/// gaveta). Fluxo rápido: valor + forma
 /// (sempre dinheiro) + descrição opcional. Separado para deixar claro o que é:
 /// colocar dinheiro na gaveta (ex.: troco inicial do dia).
 Future<void> showSuprimentoSheet(BuildContext context, WidgetRef ref) {
@@ -114,11 +115,11 @@ class _SuprimentoSheetState extends ConsumerState<_SuprimentoSheet> {
                         color: neu.success.withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.arrow_downward_rounded,
+                      child: Icon(Icons.arrow_upward_rounded,
                           color: neu.success, size: 18),
                     ),
                     const SizedBox(width: 10),
-                    Text('Suprimento — Aporte na gaveta',
+                    Text('Depósito — Aporte na gaveta',
                         style: Theme.of(context).textTheme.titleMedium),
                   ],
                 ),
@@ -152,7 +153,7 @@ class _SuprimentoSheetState extends ConsumerState<_SuprimentoSheet> {
                 ),
                 const SizedBox(height: 20),
                 NeuButton(
-                  label: 'Registrar suprimento',
+                  label: 'Registrar depósito',
                   expanded: true,
                   loading: _saving,
                   onPressed: _saving ? null : _submit,
