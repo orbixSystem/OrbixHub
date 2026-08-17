@@ -21,6 +21,17 @@ describe('billing env knobs', () => {
     expect(env.TRIAL_PLAN_KEY).toBe('trial');
     expect(env.TRIAL_DAYS).toBe(14);
     expect(env.BILLING_REQUIRE_PAYMENT).toBe(false);
+    // Régua de status DESLIGADA por padrão: esquecer a variável nunca trava o
+    // tenant em somente-leitura enquanto não existe o módulo de assinatura.
+    expect(env.BILLING_ENFORCE_SUBSCRIPTION).toBe(false);
+  });
+  it('parses BILLING_ENFORCE_SUBSCRIPTION="true" as true', () => {
+    const env = envSchema.parse({ ...base, BILLING_ENFORCE_SUBSCRIPTION: 'true' });
+    expect(env.BILLING_ENFORCE_SUBSCRIPTION).toBe(true);
+  });
+  it('parses BILLING_ENFORCE_SUBSCRIPTION="false" as boolean false (not truthy string)', () => {
+    const env = envSchema.parse({ ...base, BILLING_ENFORCE_SUBSCRIPTION: 'false' });
+    expect(env.BILLING_ENFORCE_SUBSCRIPTION).toBe(false);
   });
   it('parses BILLING_REQUIRE_PAYMENT="false" as boolean false (not truthy string)', () => {
     const env = envSchema.parse({ ...base, BILLING_REQUIRE_PAYMENT: 'false' });
