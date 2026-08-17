@@ -2263,3 +2263,66 @@ DO $$ BEGIN
 END $$;
 
 GRANT SELECT, INSERT, UPDATE ON receivable_installment TO app_user;
+
+-- ============================================================
+-- 0047 — Verticais (nicho) e funcionalidades por tenant — aditivo, idempotente
+-- ============================================================
+-- Design: docs/superpowers/specs/2026-08-17-verticais-nicho-features-design.md
+--
+-- Dois eixos ORTOGONAIS:
+--   * NICHO manda só no VOCABULÁRIO. `tenant.vertical` aponta o pacote
+--     ('veiculos' | 'equipamentos'); os textos e os campos do formulário vivem
+--     no CÓDIGO (back/src/verticals/<key>/), não aqui.
+--   * FUNCIONALIDADE é capacidade que liga/desliga POR MÓDULO: `tenant_feature`.
+--
+-- O catálogo fica no código porque só muda com deploy; em tabela, cada texto
+-- novo viraria migration em vez de objeto tipado com type-check e teste. Por
+-- isso `feature_key` é TEXTO, não FK — validado contra o catálogo na escrita.
+--
+-- REGRA INVARIANTE: linha em `tenant_feature` só existe quando o dono mexeu no
+-- toggle. Ausência = herda do pacote da vertical — é o que impede o retorno do
+-- snapshot congelado que quebrou o autocomplete FIPE em 11 de 18 tenants.
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'tenant' AND column_name = 'vertical'
+  ) THEN
+    ALTER TABLE tenant ADD COLUMN vertical text;
+    -- Backfill DENTRO do guard: roda uma vez só, quando a coluna nasce. Numa
+    -- reaplicação do baseline não mexe em ninguém (senão um tenant genérico
+    -- criado depois viraria oficina). Todo tenant que já existia é oficina.
+    UPDATE tenant SET vertical = 'veiculos';
+  END IF;
+END $$;
+
+-- Sem índice extra em (tenant_id): a PK (tenant_id, feature_key) já atende as
+-- buscas por tenant pelo prefixo.
+CREATE TABLE IF NOT EXISTS tenant_feature (
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  feature_key text NOT NULL,
+  enabled     boolean NOT NULL,
+  source      text NOT NULL DEFAULT 'manual',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, feature_key)
+);
+
+ALTER TABLE tenant_feature ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_feature FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'tenant_feature' AND policyname = 'tenant_isolation'
+  ) THEN
+    CREATE POLICY tenant_isolation ON tenant_feature
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+
+-- DELETE concedido de propósito, ao contrário das tabelas de negócio: apagar a
+-- linha é o dono dizendo "volta ao padrão do meu nicho", e preferência de toggle
+-- não é registro histórico. A regra "sem hard delete" protege dado de negócio.
+GRANT SELECT, INSERT, UPDATE, DELETE ON tenant_feature TO app_user;
