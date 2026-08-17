@@ -1,17 +1,13 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../core/config/app_config.dart';
 import '../../../../core/error/app_exception.dart';
-import '../../../../core/offline/widgets/offline_notices.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../messages/domain/messages_models.dart';
 import '../../domain/os_models.dart';
 import '../os_providers.dart';
+import '../tracking_link_share.dart';
 import 'os_detail_shared.dart';
 
 /// Aba **Cliente**: os dois canais com quem está do outro lado — a conversa da
@@ -39,18 +35,12 @@ class OsCustomerTab extends StatelessWidget {
       children: [
         if (temConversa) _MessagesSection(conversationId: conversationId),
         if (temConversa && temTracking) const SizedBox(height: 20),
-        if (temTracking) _TrackingLinkCard(token: token),
+        if (temTracking) _TrackingLinkCard(order: order),
       ],
     );
   }
 }
 
-/// Card com o link público de acompanhamento da OS: copiar, compartilhar por
-/// WhatsApp (wa.me) e por e-mail (mailto) via url_launcher. A origem do link vem de
-/// `Uri.base.origin` na WEB; em desktop/mobile `Uri.base` é `file://` (sem
-/// origin http → `.origin` lança StateError), então usamos `AppConfig.publicWebUrl`.
-/// O app usa hash URL strategy, então o link precisa do `/#/` (sem ele, a rota
-/// pública não casa e o cliente cai no login).
 // ===================== Mensagens da OS (prévia) =====================
 
 /// Caixinha compacta com as últimas mensagens DESTA OS (cliente ↔ equipe).
@@ -228,53 +218,13 @@ class _MessagePreviewTile extends StatelessWidget {
   }
 }
 
+/// Card com o link público de acompanhamento da OS. As ações (copiar/WhatsApp/
+/// e-mail) vivem em [OsTrackingLinkActions] — as mesmas que o diálogo mostrado
+/// logo depois de criar a OS oferece.
 class _TrackingLinkCard extends StatelessWidget {
-  const _TrackingLinkCard({required this.token});
+  const _TrackingLinkCard({required this.order});
 
-  final String token;
-
-  String get _url {
-    final origin = kIsWeb
-        ? Uri.base.origin
-        : AppConfig.publicWebUrl.replaceFirst(RegExp(r'/+$'), '');
-    return '$origin/#/t/$token';
-  }
-
-  Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: _url));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Link copiado')));
-  }
-
-  /// Mensagem padrão compartilhada por WhatsApp/e-mail (link de acompanhamento).
-  String get _shareText =>
-      'Acompanhe sua ordem de serviço em tempo real: $_url';
-
-  Future<void> _openExternal(BuildContext context, Uri uri) async {
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o aplicativo.')),
-      );
-    }
-  }
-
-  Future<void> _whatsApp(BuildContext context) => _openExternal(
-    context,
-    Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}'),
-  );
-
-  Future<void> _email(BuildContext context) => _openExternal(
-    context,
-    Uri(
-      scheme: 'mailto',
-      query:
-          'subject=${Uri.encodeComponent('Acompanhamento da sua OS')}'
-          '&body=${Uri.encodeComponent(_shareText)}',
-    ),
-  );
+  final ServiceOrder order;
 
   @override
   Widget build(BuildContext context) {
@@ -291,44 +241,7 @@ class _TrackingLinkCard extends StatelessWidget {
             style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
           ),
           const SizedBox(height: 12),
-          NeuSurface(
-            elevation: NeuElevation.inset,
-            radius: NeuTokens.rField,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: SelectableText(
-              _url,
-              style: TextStyle(fontSize: 13, color: neu.inkMuted),
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Enviar o link ao cliente é a ÚNICA coisa da OS que não funciona
-          // offline (o cliente precisa alcançar o servidor pelo link).
-          RequiresConnection(
-            reason: 'o envio do link ao cliente exige internet',
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                NeuButton(
-                  label: 'Copiar link',
-                  icon: Icons.copy_rounded,
-                  onPressed: () => _copy(context),
-                ),
-                NeuButton(
-                  label: 'WhatsApp',
-                  icon: Icons.chat_outlined,
-                  kind: NeuButtonKind.secondary,
-                  onPressed: () => _whatsApp(context),
-                ),
-                NeuButton(
-                  label: 'E-mail',
-                  icon: Icons.email_outlined,
-                  kind: NeuButtonKind.secondary,
-                  onPressed: () => _email(context),
-                ),
-              ],
-            ),
-          ),
+          OsTrackingLinkActions(order: order),
         ],
       ),
     );

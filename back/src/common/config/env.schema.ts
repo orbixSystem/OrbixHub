@@ -22,6 +22,15 @@ export const envSchema = z.object({
     .string()
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
+  // Liga a régua de acesso pelo STATUS da assinatura (ver subscription-access.ts)
+  // e o job que expira trials. Default FALSE de propósito: enquanto não existir o
+  // módulo de assinatura, o trial vencido derrubava o tenant em somente-leitura
+  // sem nenhum caminho para regularizar. Ligue quando houver cobrança de verdade.
+  // NB: z.coerce.boolean() treats the string "false" as TRUE. Parse explicitly.
+  BILLING_ENFORCE_SUBSCRIPTION: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
   DEV_TOOLS_ENABLED: z
     .string()

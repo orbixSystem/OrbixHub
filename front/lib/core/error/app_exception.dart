@@ -10,6 +10,7 @@ class AppException implements Exception {
     required this.error,
     required this.message,
     this.debugDetails,
+    this.requestId,
   });
 
   final int? statusCode;
@@ -19,6 +20,11 @@ class AppException implements Exception {
   /// A mensagem TÉCNICA original, quando [message] foi trocada por uma
   /// genérica (ver [fromDio]). Só para depuração — a UI nunca mostra isto.
   final String? debugDetails;
+
+  /// Id da requisição gerado pelo servidor (`x-request-id`), o MESMO que ele
+  /// escreveu na linha de log. É o que liga "deu erro na minha tela" à linha
+  /// exata no servidor — por isso pode aparecer na UI (como código de erro).
+  final String? requestId;
 
   bool get isForbidden => statusCode == 403;
   bool get isUnauthorized => statusCode == 401;
@@ -41,9 +47,22 @@ class AppException implements Exception {
   ///
   /// A mensagem técnica não é descartada — vai em [AppException.debugDetails],
   /// para quem estiver investigando (nunca renderizado na UI).
+  /// O id que o servidor logou: vem no corpo do erro e, como reserva, no
+  /// header `x-request-id` (posto pelo `RequestIdMiddleware` em TODA resposta).
+  static String? _requestIdDe(Response<dynamic>? res) {
+    final data = res?.data;
+    if (data is Map) {
+      final noCorpo = data['requestId']?.toString();
+      if (noCorpo != null && noCorpo.isNotEmpty) return noCorpo;
+    }
+    final noHeader = res?.headers.value('x-request-id');
+    return (noHeader != null && noHeader.isNotEmpty) ? noHeader : null;
+  }
+
   factory AppException.fromDio(DioException e) {
     final res = e.response;
     final data = res?.data;
+    final requestId = _requestIdDe(res);
     if (data is Map) {
       final msg = data['message'];
       final erro = (data['error'] ?? 'Error').toString();
@@ -60,12 +79,14 @@ class AppException implements Exception {
           message: 'Não foi possível concluir. Verifique os dados e tente '
               'novamente.',
           debugDetails: tecnico,
+          requestId: requestId,
         );
       }
       return AppException(
         statusCode: res?.statusCode,
         error: erro,
         message: (msg ?? 'Algo deu errado.').toString(),
+        requestId: requestId,
       );
     }
     if (res != null) {
@@ -73,6 +94,7 @@ class AppException implements Exception {
         statusCode: res.statusCode,
         error: 'Error',
         message: 'Algo deu errado.',
+        requestId: requestId,
       );
     }
     return const AppException(

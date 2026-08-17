@@ -46,10 +46,13 @@ void main() {
     expect(labels, isNot(contains('Clientes')));
   });
 
-  test('unknown module key falls back to its key as label', () {
+  // Antes a chave desconhecida virava um item cru (chave em inglês + ícone de
+  // quebra-cabeça) e vazava estrutura interna pro cliente — ver
+  // nav_items_unknown_module_test.dart. Agora ela é simplesmente ignorada.
+  test('unknown module key is dropped, not shown as a raw item', () {
     final me = makeMe(role: 'owner', modules: ['fiscal'], permissions: []);
     final labels = gatedNavItems(me).map((i) => i.label).toList();
-    expect(labels, contains('fiscal'));
+    expect(labels, isNot(contains('fiscal')));
   });
 
   test('selectedNavIndex picks the longest matching route', () {

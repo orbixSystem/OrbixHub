@@ -131,7 +131,7 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
               if ((_selectedOs!.customerName?.trim().isNotEmpty) ?? false)
                 _selectedOs!.customerName!.trim(),
               if (note.isNotEmpty) note,
-            ].join(' Â· ')
+            ].join(' · ')
           : note.isEmpty
               ? null
               : note;
@@ -208,7 +208,7 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                     ),
                   ),
                 ),
-                // TÃ­tulo
+                // Título
                 Row(
                   children: [
                     Container(
@@ -235,7 +235,7 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                   child: Row(
                     children: [
                       for (final opt in [
-                        ('os', 'Ordem de ServiÃ§o'),
+                        ('os', 'Ordem de Serviço'),
                         ('sale', 'Venda avulsa'),
                       ])
                         Expanded(
@@ -323,7 +323,7 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                   inputFormatters: const [DecimalInputFormatter()],
                   validator: Validators.positiveNumber(field: 'Valor'),
                   helper: _osPayment != null
-                      ? 'Pode receber parcial â€” edite o valor.'
+                      ? 'Pode receber parcial — edite o valor.'
                       : null,
                   suffix: (_osPayment == null ||
                           (_osPayment!.balance.toDouble()) <= 0)
@@ -368,13 +368,13 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // ObservaÃ§Ã£o
+                // Observação
                 NeuTextField(
-                  label: 'ObservaÃ§Ã£o (opcional)',
+                  label: 'Observação (opcional)',
                   controller: _descCtrl,
                   maxLength: 500,
                 ),
-                // Parcelamento â€” aparece quando hÃ¡ saldo restante
+                // Parcelamento — aparece quando há saldo restante
                 if (_temSaldoRestante) ...[
                   const SizedBox(height: 16),
                   NeuSurface(
@@ -421,13 +421,13 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                           const SizedBox(height: 14),
                           Row(
                             children: [
-                              // NÂº de parcelas
+                              // Nº de parcelas
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'NÂº de parcelas',
+                                      'Nº de parcelas',
                                       style: TextStyle(
                                         color: neu.inkMuted,
                                         fontSize: 12,
@@ -537,7 +537,7 @@ class _ReceberSheetState extends ConsumerState<_ReceberSheet> {
                             final perParcela = restante / _numParcelas;
                             return Text(
                               '${_numParcelas}x de ${formatMoney(perParcela)} '
-                              'Â· vencimento todo dia $_diaVencimento',
+                              '· vencimento todo dia $_diaVencimento',
                               style: TextStyle(
                                 color: neu.navy,
                                 fontSize: 12,

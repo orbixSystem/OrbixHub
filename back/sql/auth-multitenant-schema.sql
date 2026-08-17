@@ -2265,6 +2265,23 @@ END $$;
 GRANT SELECT, INSERT, UPDATE ON receivable_installment TO app_user;
 
 -- ============================================================
+-- 0046 — aposenta o módulo legado `sales`
+-- ============================================================
+-- O módulo de venda avulsa em uso é `sale` (guard @RequiresModule('sale'));
+-- `sales`, semeado pela 0029, ficou órfão. Desligar só o tenant_module (feito
+-- mais acima) não bastava: a ligação em plan_module fazia o reconcile religar
+-- o módulo a cada assinatura, e ele reaparecia em /me e na sidebar do cliente.
+-- A linha em `module` permanece (sem hard delete) — tenant_module aponta nela.
+DELETE FROM plan_module pm
+USING module m
+WHERE m.id = pm.module_id AND m.key = 'sales';
+
+UPDATE tenant_module tm
+SET enabled = false
+FROM module m
+WHERE m.id = tm.module_id AND m.key = 'sales' AND tm.enabled;
+
+-- ============================================================
 -- 0047 — Verticais (nicho) e funcionalidades por tenant — aditivo, idempotente
 -- ============================================================
 -- Design: docs/superpowers/specs/2026-08-17-verticais-nicho-features-design.md

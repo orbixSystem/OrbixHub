@@ -9,23 +9,28 @@ import '../domain/os_models.dart';
 import 'os_providers.dart';
 import 'os_status.dart';
 
-/// Dialog para adicionar um item à OS: busca no estoque (`searchInventory`) OU
-/// item avulso (nome/preço livres). Retorna um [OrderItemDraft] via Navigator.pop.
-class ItemPickerDialog extends ConsumerStatefulWidget {
-  const ItemPickerDialog({super.key});
+/// Conteúdo (sem moldura) para descrever um item de OS: busca no estoque
+/// (`searchInventory`) OU item avulso (nome/preço livres).
+///
+/// É um PAINEL, não um diálogo, porque tem dois donos: a tela de detalhe abre-o
+/// dentro de um [ItemPickerDialog], e o wizard "Nova OS" — que já é um diálogo —
+/// embute-o **inline** no passo. Diálogo abrindo diálogo abrindo diálogo é
+/// exatamente o que queremos evitar.
+class ItemPickerPanel extends ConsumerStatefulWidget {
+  const ItemPickerPanel({
+    super.key,
+    required this.onConfirm,
+    required this.onCancel,
+  });
 
-  static Future<OrderItemDraft?> show(BuildContext context) {
-    return showDialog<OrderItemDraft>(
-      context: context,
-      builder: (_) => const ItemPickerDialog(),
-    );
-  }
+  final ValueChanged<OrderItemDraft> onConfirm;
+  final VoidCallback onCancel;
 
   @override
-  ConsumerState<ItemPickerDialog> createState() => _ItemPickerDialogState();
+  ConsumerState<ItemPickerPanel> createState() => _ItemPickerPanelState();
 }
 
-class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
+class _ItemPickerPanelState extends ConsumerState<ItemPickerPanel> {
   final _formKey = GlobalKey<FormState>();
   bool _avulso = false; // false = do estoque, true = item avulso
 
@@ -77,42 +82,24 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
     });
   }
 
-  Future<void> _confirm() async {
-    if (!(_formKey.currentState?.validate() ?? true)) return;
+  /// Aviso de estoque insuficiente — `null` quando não se aplica (item avulso,
+  /// serviço, ou item de catálogo sem controle de estoque).
+  ///
+  /// Antes isto era um diálogo de confirmação POR CIMA do diálogo do item. Como
+  /// aviso na própria tela ele aparece ENQUANTO a quantidade é digitada, e não
+  /// depois de já ter mandado adicionar — e some uma pilha de diálogos.
+  String? get _avisoEstoque {
+    if (_avulso || _picked == null || _picked!.kind != 'product') return null;
+    final stock = double.tryParse(_picked!.currentStock ?? '');
+    if (stock == null) return null;
     final qty = _toDouble(_quantity.text) ?? 1;
+    if (qty <= stock) return null;
+    return 'Estoque insuficiente: disponível ${_fmtStock(stock.toString())}. '
+        'Dá para adicionar mesmo assim.';
+  }
 
-    // Aviso de estoque: só para produto vinculado ao estoque (serviço não tem
-    // estoque; item avulso não aponta para o catálogo).
-    if (!_avulso && _picked != null && _picked!.kind == 'product') {
-      final stock = double.tryParse(_picked!.currentStock ?? '');
-      if (stock != null && qty > stock) {
-        final fmtStock = stock == stock.truncate()
-            ? stock.toInt().toString()
-            : stock.toString().replaceAll('.', ',');
-        final go = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Estoque insuficiente'),
-            content: Text(
-              'Estoque insuficiente: disponível $fmtStock. '
-              'Deseja adicionar mesmo assim?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Adicionar mesmo assim'),
-              ),
-            ],
-          ),
-        );
-        if (go != true) return;
-      }
-    }
-
+  void _confirm() {
+    if (!(_formKey.currentState?.validate() ?? true)) return;
     final draft = _avulso
         ? OrderItemDraft(
             kind: _kind,
@@ -124,115 +111,140 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
         : OrderItemDraft(
             kind: _kind,
             inventoryItemId: _picked!.id,
+            // O nome viaja junto para quem só tem o draft na mão conseguir
+            // mostrar o item antes de existir OS (wizard "Nova OS"). No
+            // servidor ele é ignorado: com `inventoryItemId`, o nome é
+            // refotografado do estoque.
+            name: _picked!.name,
             quantity: _toDouble(_quantity.text),
             unitPrice: _toDouble(_unitPrice.text),
             discount: _toDouble(_discount.text),
           );
-    if (mounted) Navigator.of(context).pop(draft);
+    widget.onConfirm(draft);
   }
 
-  bool get _canConfirm => _avulso
-      ? _name.text.trim().isNotEmpty
-      : _picked != null;
+  bool get _canConfirm =>
+      _avulso ? _name.text.trim().isNotEmpty : _picked != null;
 
   @override
   Widget build(BuildContext context) {
-    return NeuDialog(
-      title: 'Adicionar item',
-      maxWidth: context.isMobile ? 560 : 480,
-      actions: [
-        NeuButton(
-          label: 'Cancelar',
-          kind: NeuButtonKind.secondary,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        NeuButton(
-          label: 'Adicionar',
-          icon: Icons.check_rounded,
-          onPressed: _canConfirm ? () => _confirm() : null,
-        ),
-      ],
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(
-                    value: false,
-                    label: Text('Do estoque'),
-                    icon: Icon(Icons.inventory_2_outlined, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    label: Text('Avulso'),
-                    icon: Icon(Icons.edit_outlined, size: 18),
-                  ),
-                ],
-                selected: {_avulso},
-                showSelectedIcon: false,
-                onSelectionChanged: (sel) => setState(() => _avulso = sel.first),
+    final neu = context.neu;
+    final aviso = _avisoEstoque;
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: false,
+                label: Text('Do estoque'),
+                icon: Icon(Icons.inventory_2_outlined, size: 18),
               ),
-              const SizedBox(height: 16),
-              if (_avulso) ..._avulsoFields() else ..._inventoryFields(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _quantity,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Quantidade *',
-                        prefixIcon: Icon(Icons.numbers),
-                      ),
-                      validator:
-                          Validators.positiveNumber(field: 'Quantidade'),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _unitPrice,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Preço unit. *',
-                        prefixText: 'R\$ ',
-                        prefixIcon: Icon(Icons.sell_outlined),
-                      ),
-                      validator: Validators.positiveNumber(field: 'Preço'),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ],
+              ButtonSegment(
+                value: true,
+                label: Text('Avulso'),
+                icon: Icon(Icons.edit_outlined, size: 18),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _discount,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Desconto (opcional)',
-                  prefixText: 'R\$ ',
-                  prefixIcon: Icon(Icons.discount_outlined),
+            ],
+            selected: {_avulso},
+            showSelectedIcon: false,
+            onSelectionChanged: (sel) => setState(() => _avulso = sel.first),
+          ),
+          const SizedBox(height: 16),
+          if (_avulso) ..._avulsoFields() else ..._inventoryFields(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _quantity,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantidade *',
+                    prefixIcon: Icon(Icons.numbers),
+                  ),
+                  validator: Validators.positiveNumber(field: 'Quantidade'),
+                  onChanged: (_) => setState(() {}),
                 ),
-                validator:
-                    Validators.positiveNumber(optional: true, field: 'Desconto'),
-                onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
-              _PreviewTotal(
-                quantity: _toDouble(_quantity.text),
-                unitPrice: _toDouble(_unitPrice.text),
-                discount: _toDouble(_discount.text),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _unitPrice,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Preço unit. *',
+                    prefixText: 'R\$ ',
+                    prefixIcon: Icon(Icons.sell_outlined),
+                  ),
+                  validator: Validators.positiveNumber(field: 'Preço'),
+                  onChanged: (_) => setState(() {}),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _discount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Desconto (opcional)',
+              prefixText: 'R\$ ',
+              prefixIcon: Icon(Icons.discount_outlined),
+            ),
+            validator:
+                Validators.positiveNumber(optional: true, field: 'Desconto'),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (aviso != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 18, color: neu.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    aviso,
+                    style: TextStyle(
+                      color: neu.warning,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
+          const SizedBox(height: 12),
+          _PreviewTotal(
+            quantity: _toDouble(_quantity.text),
+            unitPrice: _toDouble(_unitPrice.text),
+            discount: _toDouble(_discount.text),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              NeuButton(
+                label: 'Cancelar',
+                kind: NeuButtonKind.secondary,
+                onPressed: widget.onCancel,
+              ),
+              const SizedBox(width: 10),
+              NeuButton(
+                label: 'Adicionar',
+                icon: Icons.check_rounded,
+                onPressed: _canConfirm ? _confirm : null,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -380,6 +392,32 @@ class _ItemPickerDialogState extends ConsumerState<ItemPickerDialog> {
         onChanged: (_) => setState(() {}),
       ),
     ];
+  }
+}
+
+/// Moldura de diálogo em volta do [ItemPickerPanel] — usada pela tela de
+/// detalhe da OS, onde o painel abre a partir de uma TELA (um nível de diálogo,
+/// não uma pilha).
+class ItemPickerDialog extends StatelessWidget {
+  const ItemPickerDialog({super.key});
+
+  static Future<OrderItemDraft?> show(BuildContext context) {
+    return showDialog<OrderItemDraft>(
+      context: context,
+      builder: (_) => const ItemPickerDialog(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NeuDialog(
+      title: 'Adicionar item',
+      maxWidth: context.isMobile ? 560 : 480,
+      child: ItemPickerPanel(
+        onCancel: () => Navigator.of(context).pop(),
+        onConfirm: (draft) => Navigator.of(context).pop(draft),
+      ),
+    );
   }
 }
 

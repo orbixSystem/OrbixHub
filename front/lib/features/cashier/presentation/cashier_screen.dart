@@ -275,15 +275,15 @@ class _FreeBody extends ConsumerWidget {
                   ),
                 if (canManage)
                   _Acao(
-                    label: 'Sangria',
-                    icon: Icons.arrow_upward_rounded,
+                    label: 'Saque',
+                    icon: Icons.arrow_downward_rounded,
                     cor: neu.danger,
                     onTap: () => showSangriaSheet(context, ref),
                   ),
                 if (canManage)
                   _Acao(
-                    label: 'Suprimento',
-                    icon: Icons.arrow_downward_rounded,
+                    label: 'Depósito',
+                    icon: Icons.arrow_upward_rounded,
                     cor: neu.success,
                     onTap: () => showSuprimentoSheet(context, ref),
                   ),
