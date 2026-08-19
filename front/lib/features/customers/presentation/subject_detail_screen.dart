@@ -10,6 +10,7 @@ import '../../../core/util/masks.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../core/export/file_download.dart';
+import '../../../core/export/export_filename.dart';
 import '../../../core/pdf/company_document_provider.dart';
 import '../../../core/pdf/document_company.dart';
 import '../../os/presentation/os_pdf.dart';
@@ -593,8 +594,7 @@ class _OrdemTileState extends ConsumerState<_OrdemTile> {
         PdfPageFormat.a4,
         company: company,
       );
-      final nome =
-          'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';
+      final nome = exportFileName(prefix: 'OS', number: order.number);
       await downloadBytes(bytes, nome, 'application/pdf');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

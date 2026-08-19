@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/export/file_download.dart';
+import '../../../core/export/export_filename.dart';
 import '../../../core/pdf/company_document_provider.dart';
 import '../../../core/pdf/document_company.dart';
 import '../../../core/ui/ui.dart';
@@ -400,8 +401,7 @@ Future<void> exportOsPdfById(
     final order = await ref.read(osRepositoryProvider).getOrder(orderId);
     final company = await _companyForPdf(ref);
     final bytes = await buildOsPdf(order, PdfPageFormat.a4, company: company);
-    final nome =
-        'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';
+    final nome = exportFileName(prefix: 'OS', number: order.number);
     await downloadBytes(bytes, nome, 'application/pdf');
     if (context.mounted) {
       ScaffoldMessenger.of(

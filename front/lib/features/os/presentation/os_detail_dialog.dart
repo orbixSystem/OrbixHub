@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pdf/pdf.dart';
 
 import '../../../core/export/file_download.dart';
+import '../../../core/export/export_filename.dart';
 import '../../../core/pdf/company_document_provider.dart';
 import '../../../core/ui/ui.dart';
 import '../../cashier/domain/cashier_format.dart';
@@ -366,9 +367,7 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         PdfPageFormat.a4,
         company: company,
       );
-      final numero =
-          widget.order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');
-      final nome = 'OS-$numero.pdf';
+      final nome = exportFileName(prefix: 'OS', number: widget.order.number);
       await downloadBytes(bytes, nome, 'application/pdf');
       showNeuSuccessOn(messenger, 'PDF exportado: $nome');
     } on Object {

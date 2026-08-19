@@ -11,6 +11,7 @@ import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/entry_edit_dialogs.dart';
 import '../../os/presentation/payment_status.dart';
 import '../../../core/export/file_download.dart';
+import '../../../core/export/export_filename.dart';
 import '../../../core/pdf/company_document_provider.dart';
 import '../../customers/domain/customers_models.dart';
 import '../../customers/presentation/customers_providers.dart';
@@ -652,10 +653,11 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         company: company,
         extras: SaleReceiptExtras(customer: cliente, pagamentos: pagamentos),
       );
-      final numero = sale.number.isEmpty
-          ? sale.id.substring(0, 8)
-          : sale.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');
-      final nome = 'venda-$numero.pdf';
+      final nome = exportFileName(
+        prefix: 'venda',
+        number: sale.number,
+        fallback: sale.id.substring(0, 8),
+      );
       await downloadBytes(bytes, nome, 'application/pdf');
       showNeuSuccessOn(messenger, 'PDF exportado: $nome');
     } on Object {
