@@ -7,6 +7,7 @@ import 'package:orbixhub_front/features/cashier/domain/cashier_models.dart';
 import 'package:orbixhub_front/features/cashier/domain/cashier_timeline.dart';
 import 'package:orbixhub_front/features/cashier/domain/sale_summary.dart';
 import 'package:orbixhub_front/features/cashier/presentation/cashier_timeline_list.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
 import 'package:orbixhub_front/features/sale/domain/sale_models.dart';
 
 /// Histórico do caixa como UMA linha do tempo.
@@ -73,7 +74,102 @@ CashEntry _lanc({
       reversedAt: estornado,
     );
 
+ReceivableTitle _osTitulo({
+  String id = 'os-1',
+  String numero = 'OS-0002',
+  String? cliente = 'Prefeitura Municipal',
+  num total = 292,
+  num pago = 0,
+  num saldo = 292,
+  String status = 'a_receber',
+  String criada = '2026-08-01T12:00:00Z',
+}) =>
+    ReceivableTitle(
+      id: id,
+      origin: 'os',
+      number: numero,
+      createdAt: criada,
+      total: total,
+      paid: pago,
+      balance: saldo,
+      status: status,
+      customerName: cliente,
+    );
+
 void main() {
+  // A OS que fica "finalizada e a receber" não move o caixa — e por isso sumia
+  // do histórico, enquanto a VENDA em fiado aparecia. Quem ia cobrar tinha de
+  // procurar em duas telas.
+  group('buildCashierTimeline — OS em fiado', () {
+    test('OS a receber entra na linha do tempo', () {
+      final eventos = buildCashierTimeline(
+        entries: const [],
+        sales: const [],
+        osTitles: [_osTitulo()],
+      );
+      expect(eventos, hasLength(1));
+      expect(eventos.single.ehOsFiado, isTrue);
+      expect(cashierEventTitle(eventos.single), 'OS em fiado');
+    });
+
+    test('OS paga em parte é rotulada como tal', () {
+      final eventos = buildCashierTimeline(
+        entries: const [],
+        sales: const [],
+        osTitles: [_osTitulo(pago: 100, saldo: 192, status: 'parcial')],
+      );
+      expect(cashierEventTitle(eventos.single), 'OS (paga em parte)');
+    });
+
+    test('OS em fiado não conta como movimento de dinheiro', () {
+      final eventos = buildCashierTimeline(
+        entries: const [],
+        sales: const [],
+        osTitles: [_osTitulo()],
+      );
+      expect(cashierEventTemMovimento(eventos.single), isFalse);
+    });
+
+    test('recebimento parcial NÃO duplica a OS que está na lista', () {
+      // A OS parcial gera título E lançamento; sem dedupe o mesmo pagamento
+      // apareceria duas vezes — o mesmo erro que a venda paga já evitava.
+      final eventos = buildCashierTimeline(
+        entries: [
+          _lanc(saleKind: 'os', saleId: 'os-1', categoria: 'os_payment'),
+        ],
+        sales: const [],
+        osTitles: [_osTitulo(pago: 100, saldo: 192, status: 'parcial')],
+      );
+      expect(eventos, hasLength(1));
+      expect(eventos.single.ehOsFiado, isTrue);
+    });
+
+    test('recebimento de OS JÁ QUITADA (fora da carteira) continua aparecendo',
+        () {
+      // Quitou: some da carteira, mas o dinheiro entrou — é fato do período.
+      final eventos = buildCashierTimeline(
+        entries: [
+          _lanc(saleKind: 'os', saleId: 'os-9', categoria: 'os_payment'),
+        ],
+        sales: const [],
+        osTitles: [_osTitulo()],
+      );
+      expect(eventos, hasLength(2));
+    });
+
+    test('título de VENDA não vira linha de OS (a venda já entra por `sales`)',
+        () {
+      final eventos = buildCashierTimeline(
+        entries: const [],
+        sales: const [],
+        osTitles: const [
+          ReceivableTitle(id: 'v1', origin: 'sale', number: '15'),
+        ],
+      );
+      expect(eventos, isEmpty);
+    });
+  });
+
   group('buildCashierTimeline — sem duplicar o mesmo fato', () {
     test('venda paga aparece UMA vez (o recebimento dela não duplica)', () {
       final eventos = buildCashierTimeline(

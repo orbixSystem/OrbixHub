@@ -119,6 +119,22 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   }
 
   @override
+  Future<OpenTitlesPage> listOpenTitles() async {
+    final items = [
+      for (final t in _titulos)
+        t.copyWith(
+          customerId: _donos[t.id]?.$1,
+          customerName: _donos[t.id]?.$2 ?? 'Sem cliente',
+        ),
+    ]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    return OpenTitlesPage(
+      items: items,
+      totalDue: items.fold<num>(0, (acc, t) => acc + t.balance),
+      truncated: truncated,
+    );
+  }
+
+  @override
   Future<DebtorDetail> titlesOf(String? customerId) async {
     final meus = _titulos
         .where((t) => (_donos[t.id]?.$1) == customerId)

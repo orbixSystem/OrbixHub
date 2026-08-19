@@ -112,7 +112,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   String _method = 'dinheiro';
   bool _emitInvoice = false;
 
-  // Descrição livre da venda (MELHORIA): aparece no extrato do caixa.
+  // Observação livre da venda: fica GRAVADA na venda (sai no comprovante) e
+  // ainda acompanha o lançamento no extrato do caixa. Antes só ia para o
+  // extrato — quem vendia para alguém sem cadastro escrevia ali quem levou e
+  // o texto não aparecia em lugar nenhum depois.
   final _descCtrl = TextEditingController();
   /// Valor recebido — é ele que decide se a venda é paga, parcial ou fiado.
   /// Não existe mais um "Receber agora? sim/não": o número já diz tudo, e um
@@ -168,6 +171,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     if (emEdicao != null) {
       _customerId = emEdicao.customerId;
       _customerName = emEdicao.customerName;
+      _descCtrl.text = emEdicao.description ?? '';
       if (moneyToDouble(emEdicao.discount) > 0) {
         _descontoCtrl.text = formatAmountForInput(moneyToDouble(emEdicao.discount));
       }
@@ -313,6 +317,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                       ),
                   ],
                   discount: _desconto,
+                  // Sempre enviado (inclusive vazio): apagar a observação é uma
+                  // edição legítima.
+                  description: _descCtrl.text.trim(),
                 );
         ref.invalidate(cashierControllerProvider);
         if (mounted) {
@@ -350,6 +357,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       final draft = SaleDraft(
         customerId: _customerId,
         discount: _desconto > 0 ? _desconto : null,
+        description: _descCtrl.text.trim(),
         items: [
           for (final l in valid)
             SaleItemDraft(
@@ -549,7 +557,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 16),
-            // Descrição livre da venda (MELHORIA) — vai para o extrato do caixa.
+            // Observação da venda — gravada na venda, sai no comprovante e
+            // acompanha o lançamento do caixa.
             TextField(
               controller: _descCtrl,
               maxLength: 500,
@@ -558,7 +567,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 isDense: true,
                 counterText: '',
                 labelText: 'Descrição da venda (opcional)',
-                hintText: 'Ex.: cliente levou fiado, obs. do balcão…',
+                hintText: 'Ex.: placa do veículo, quem levou, nº do equipamento…',
+                helperText: 'Sai no comprovante de venda.',
               ),
             ),
             const SizedBox(height: 16),

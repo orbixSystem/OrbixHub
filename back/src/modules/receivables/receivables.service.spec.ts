@@ -247,6 +247,83 @@ describe('ReceivablesService — detalhamento dos itens', () => {
   });
 });
 
+/**
+ * Listagem ACHATADA — existe para o histórico do caixa poder mostrar a OS que
+ * ficou fiada. Antes o histórico listava venda em fiado e não OS em fiado: o
+ * mesmo fato aparecia numa tela e sumia na outra.
+ */
+describe('ReceivablesService — títulos em aberto achatados', () => {
+  it('devolve OS e venda juntas, cada uma com o próprio dono', async () => {
+    const { service } = makeService({
+      os: [linha({ id: 'os-1', payment: pagamento(300, 0) })],
+      vendas: [
+        linha({
+          id: 'v-1',
+          number: '15',
+          status: 'active',
+          customer_id: 'c2',
+          customer_name: 'Maria Souza',
+          payment: pagamento(150, 50),
+        }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items).toHaveLength(2);
+    expect(r.items.map((t) => [t.origin, t.customerName])).toEqual(
+      expect.arrayContaining([
+        ['os', 'João Silva'],
+        ['sale', 'Maria Souza'],
+      ]),
+    );
+    expect(r.totalDue).toBe(400);
+  });
+
+  it('ordena do mais recente para o mais antigo', async () => {
+    const { service } = makeService({
+      os: [
+        linha({ id: 'velha', created_at: new Date('2026-07-01T10:00:00Z') }),
+        linha({ id: 'nova', created_at: new Date('2026-08-10T10:00:00Z') }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items.map((t) => t.id)).toEqual(['nova', 'velha']);
+  });
+
+  it('título quitado não entra (mesma régua do resto do módulo)', async () => {
+    const { service } = makeService({
+      os: [linha({ id: 'paga', payment: pagamento(100, 100) })],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.totalDue).toBe(0);
+  });
+
+  it('venda de balcão sem cliente vem com customerId nulo', async () => {
+    const { service } = makeService({
+      vendas: [
+        linha({
+          id: 'v-1',
+          status: 'active',
+          customer_id: null,
+          customer_name: null,
+          payment: pagamento(80, 0),
+        }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items[0].customerId).toBeNull();
+    expect(r.items[0].customerName).toBe('Sem cliente');
+  });
+
+  it('não busca o detalhe da OS (o histórico quer quem/quanto, não itens)', async () => {
+    const { service, os } = makeService({
+      os: [linha({ id: 'os-1' })],
+    });
+    await service.listOpenTitles(user);
+    expect(os.getOrderOrThrow).not.toHaveBeenCalled();
+  });
+});
+
 describe('ReceivablesService — varredura', () => {
   it('não sinaliza truncamento quando leu tudo', async () => {
     const { service } = makeService({ os: [linha()], osTotal: 1 });

@@ -296,6 +296,8 @@ model sale {
   status             String      @default("active")
   total              Decimal     @default(0) @db.Decimal(14, 2)
   discount           Decimal     @default(0) @db.Decimal(14, 2)
+  /// Observação livre do balcão (a quem entregou, placa, nº do equipamento).
+  description        String?
   fiscal_status      String?
   fiscal_external_id String?
   fiscal_emitted_at  DateTime?   @db.Timestamptz(6)

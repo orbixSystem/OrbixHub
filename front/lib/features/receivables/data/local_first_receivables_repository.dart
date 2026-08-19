@@ -81,6 +81,25 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   }
 
   @override
+  Future<OpenTitlesPage> listOpenTitles() async {
+    if (isOnline()) return inner.listOpenTitles();
+
+    final items = [
+      for (final t in await _titulosLocais())
+        t.title.copyWith(
+          customerId: t.customerId,
+          customerName: t.customerName,
+        ),
+    ]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    return OpenTitlesPage(
+      items: items,
+      totalDue: _round2(items.fold<num>(0, (a, t) => a + t.balance)),
+      // Sem cap offline: a carteira sai INTEIRA do espelho (mesma razão do
+      // `listDebtors`).
+    );
+  }
+
+  @override
   Future<DebtorDetail> titlesOf(String? customerId) async {
     if (isOnline()) return inner.titlesOf(customerId);
 

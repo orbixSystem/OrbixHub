@@ -1,3 +1,4 @@
+import '../../receivables/domain/receivables_models.dart';
 import '../../sale/domain/sale_models.dart';
 import 'cashier_format.dart';
 import 'cashier_models.dart';
@@ -17,30 +18,53 @@ import 'cashier_models.dart';
 /// venda está presente — o valor recebido aparece dentro da própria venda.
 /// Recebimento de uma venda de outro período continua aparecendo, porque ali é
 /// um fato novo (o fiado sendo quitado).
-enum CashierEventKind { venda, lancamento }
+/// **OS em fiado também é linha daqui.** A OS não move o caixa quando fica a
+/// receber, então sumia do histórico — enquanto a VENDA em fiado aparecia. O
+/// mesmo fato ("ficou devendo") existia numa tela e não na outra, e quem ia
+/// receber tinha de procurar em dois lugares. A OS entra pelo título em aberto
+/// (`ReceivableTitle`, origem `os`), que é a forma como o resto do app já
+/// enxerga dívida — nenhum conceito novo, e o módulo `os` não é invadido.
+enum CashierEventKind { venda, osFiado, lancamento }
 
 class CashierEvent {
   CashierEvent.venda(Sale s)
       : kind = CashierEventKind.venda,
         at = DateTime.tryParse(s.createdAt ?? '') ?? DateTime(1970),
         sale = s,
-        entry = null;
+        entry = null,
+        title = null;
+
+  CashierEvent.osFiado(ReceivableTitle t)
+      : kind = CashierEventKind.osFiado,
+        at = DateTime.tryParse(t.createdAt ?? '') ?? DateTime(1970),
+        sale = null,
+        entry = null,
+        title = t;
 
   CashierEvent.lancamento(CashEntry e)
       : kind = CashierEventKind.lancamento,
         at = DateTime.tryParse(e.createdAt ?? '') ?? DateTime(1970),
         sale = null,
-        entry = e;
+        entry = e,
+        title = null;
 
   final CashierEventKind kind;
   final DateTime at;
   final Sale? sale;
   final CashEntry? entry;
 
+  /// Título em aberto da OS — só em [CashierEventKind.osFiado].
+  final ReceivableTitle? title;
+
   bool get ehVenda => kind == CashierEventKind.venda;
+  bool get ehOsFiado => kind == CashierEventKind.osFiado;
 
   /// Chave estável para lista/animação.
-  String get id => ehVenda ? 'sale:${sale!.id}' : 'entry:${entry!.id}';
+  String get id => switch (kind) {
+        CashierEventKind.venda => 'sale:${sale!.id}',
+        CashierEventKind.osFiado => 'os:${title!.id}',
+        CashierEventKind.lancamento => 'entry:${entry!.id}',
+      };
 }
 
 /// Monta a linha do tempo do período: vendas + lançamentos, do mais recente para
@@ -51,17 +75,25 @@ class CashierEvent {
 List<CashierEvent> buildCashierTimeline({
   required List<CashEntry> entries,
   required List<Sale> sales,
+  List<ReceivableTitle> osTitles = const [],
 }) {
   final idsDeVendasNaLista = {for (final s in sales) s.id};
+  // Só OS: a venda em aberto já entra pela própria linha (`sales`), e contá-la
+  // duas vezes é exatamente o erro que a dedupe abaixo evita.
+  final osEmAberto = [for (final t in osTitles) if (t.origin == 'os') t];
+  final idsDeOsNaLista = {for (final t in osEmAberto) t.id};
 
   final eventos = <CashierEvent>[
     for (final s in sales) CashierEvent.venda(s),
+    for (final t in osEmAberto) CashierEvent.osFiado(t),
     for (final e in entries)
-      // Recebimento de uma venda que já está na lista: o fato já é contado pela
-      // linha da venda (o valor recebido aparece nela).
-      if (!(e.saleKind == 'sale' &&
-          e.saleId != null &&
-          idsDeVendasNaLista.contains(e.saleId)))
+      // Recebimento de um título que já está na lista: o fato já é contado pela
+      // linha dele (o valor recebido aparece nela). Vale para venda e para OS —
+      // uma OS parcialmente paga gera lançamento E título, e sem isto o mesmo
+      // pagamento apareceria duas vezes.
+      if (!(e.saleId != null &&
+          ((e.saleKind == 'sale' && idsDeVendasNaLista.contains(e.saleId)) ||
+              (e.saleKind == 'os' && idsDeOsNaLista.contains(e.saleId)))))
         CashierEvent.lancamento(e),
   ];
 
@@ -74,6 +106,10 @@ List<CashierEvent> buildCashierTimeline({
 /// Venda: diz o pagamento junto, porque "vendi 300 mas é fiado" é uma informação
 /// só. Lançamento: usa o rótulo da categoria já existente.
 String cashierEventTitle(CashierEvent ev) {
+  if (ev.ehOsFiado) {
+    final t = ev.title!;
+    return t.status == 'parcial' ? 'OS (paga em parte)' : 'OS em fiado';
+  }
   if (ev.ehVenda) {
     final s = ev.sale!;
     if (s.status == 'canceled') return 'Venda cancelada';
@@ -103,16 +139,20 @@ String cashierEventTitle(CashierEvent ev) {
 /// entrou" é o resumo do período, que vem calculado do backend.
 ///
 /// O sinal +/− fica só nos lançamentos, que são movimento de dinheiro de fato.
-bool cashierEventTemMovimento(CashierEvent ev) => !ev.ehVenda;
+bool cashierEventTemMovimento(CashierEvent ev) =>
+    !ev.ehVenda && !ev.ehOsFiado;
 
 /// Filtro de tipo do histórico. "Saídas" reúne despesa e sangria (as duas tiram
 /// dinheiro); "Despesas" isola só a despesa, que é a pergunta de custo;
 /// "Canceladas" responde "o que foi desfeito no período?" — pergunta de
 /// conferência, que antes exigia varrer a lista inteira à procura do risco.
-enum CashierFilter { tudo, vendas, entradas, saidas, despesas, canceladas }
+/// "A receber" responde a pergunta com que se chega aqui de manhã: **o que
+/// falta receber?** — venda e OS em aberto juntas, sem lançamento no meio.
+enum CashierFilter { tudo, fiado, vendas, entradas, saidas, despesas, canceladas }
 
 String cashierFilterLabel(CashierFilter f) => switch (f) {
       CashierFilter.tudo => 'Tudo',
+      CashierFilter.fiado => 'A receber',
       CashierFilter.vendas => 'Vendas',
       CashierFilter.entradas => 'Entradas',
       CashierFilter.saidas => 'Saídas',
@@ -141,9 +181,21 @@ List<CashierEvent> filterCashierTimeline(
 }
 
 bool _passaFiltro(CashierEvent ev, CashierFilter f) {
+  // OS em fiado não é lançamento nem venda de balcão: ela só aparece em "Tudo"
+  // e em "A receber". Sem este desvio as lentes de dinheiro (entradas/saídas/
+  // despesas) leriam `ev.entry!` num evento que não tem lançamento nenhum.
+  if (ev.ehOsFiado) {
+    return f == CashierFilter.tudo || f == CashierFilter.fiado;
+  }
   switch (f) {
     case CashierFilter.tudo:
       return true;
+    case CashierFilter.fiado:
+      // Venda com saldo em aberto (a OS já foi tratada acima). Lançamento não
+      // é dívida — é o dinheiro que já andou.
+      return ev.ehVenda &&
+          ev.sale!.status != 'canceled' &&
+          ev.sale!.paymentStatus != 'pago';
     case CashierFilter.vendas:
       return ev.ehVenda;
     case CashierFilter.entradas:
@@ -163,11 +215,22 @@ bool _passaFiltro(CashierEvent ev, CashierFilter f) {
 
 /// Tudo que a linha "diz", concatenado para a busca.
 String _textoBuscavel(CashierEvent ev) {
+  if (ev.ehOsFiado) {
+    final t = ev.title!;
+    return [
+      t.customerName ?? '',
+      t.number,
+      for (final i in t.items) i.name,
+    ].join(' ');
+  }
   if (ev.ehVenda) {
     final s = ev.sale!;
     return [
       s.customerName ?? '',
       s.number,
+      // A observação do balcão guarda placa/modelo/quem levou — é justamente
+      // por ela que se procura meses depois.
+      s.description ?? '',
       for (final i in s.items) i.name,
     ].join(' ');
   }

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../receivables/domain/receivables_models.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/domain/sale_repository.dart';
 import '../../sale/presentation/sale_providers.dart';
@@ -267,11 +269,17 @@ class CashierHistoryData {
     required this.summary,
     required this.entries,
     this.sales = const [],
+    this.osTitles = const [],
   });
 
   final CashSummary summary;
   final List<CashEntry> entries;
   final List<Sale> sales;
+
+  /// OS com saldo em aberto no período. Sem isto o histórico mostrava a VENDA
+  /// em fiado e escondia a OS em fiado — o mesmo fato aparecendo numa tela e
+  /// sumindo na outra, e quem ia receber procurando em dois lugares.
+  final List<ReceivableTitle> osTitles;
 
   /// Venda por id — usado para enriquecer as linhas do extrato.
   Map<String, Sale> get salesById => {for (final s in sales) s.id: s};
@@ -292,9 +300,10 @@ final cashierHistoryProvider =
   // página já carregada: filtrar em memória quebraria a paginação e daria
   // resultado diferente conforme a conexão.
   final q = busca.isEmpty ? null : busca;
-  final soVendas = filtro == CashierFilter.vendas;
-  final page = soVendas
-      // Filtro "Vendas": não há lançamento a listar.
+  // Lentes que não olham para movimento de dinheiro: não há lançamento a listar.
+  final semLancamentos =
+      filtro == CashierFilter.vendas || filtro == CashierFilter.fiado;
+  final page = semLancamentos
       ? const EntryPage()
       : await repo.listEntries(
           from: fromIso,
@@ -327,12 +336,49 @@ final cashierHistoryProvider =
       sales = const [];
     }
   }
+  // OS em aberto — só nas lentes onde dívida faz sentido ("Tudo" e "A receber").
+  // A carteira vem inteira do servidor (não tem recorte de data lá, porque
+  // dívida é ESTADO, não evento), então o recorte do período é feito aqui, com
+  // a mesma régua das outras fontes: o histórico continua sendo "o que
+  // aconteceu no período".
+  final incluiOs =
+      filtro == CashierFilter.tudo || filtro == CashierFilter.fiado;
+  List<ReceivableTitle> osTitles = const [];
+  if (incluiOs) {
+    try {
+      final carteira =
+          await ref.read(receivablesRepositoryProvider).listOpenTitles();
+      osTitles = [
+        for (final t in carteira.items)
+          if (t.origin == 'os' && _dentroDoPeriodo(t.createdAt, fromIso, toIso))
+            t,
+      ];
+    } catch (_) {
+      // Sem o módulo/permissão o backend recusa — o histórico segue normal.
+      osTitles = const [];
+    }
+  }
+
   return CashierHistoryData(
     summary: summary,
     entries: page.items,
     sales: sales,
+    osTitles: osTitles,
   );
 });
+
+/// `createdAt` (ISO) cai dentro de [from, to]? Um `createdAt` ausente não pode
+/// ser descartado em silêncio: título sem data entra, e a ordenação o joga para
+/// o fim.
+bool _dentroDoPeriodo(String? createdAt, String from, String to) {
+  final iso = createdAt;
+  if (iso == null || iso.isEmpty) return true;
+  final at = DateTime.tryParse(iso);
+  if (at == null) return true;
+  final inicio = DateTime.parse(from);
+  final fim = DateTime.parse(to);
+  return !at.isBefore(inicio) && !at.isAfter(fim);
+}
 
 // Os providers de "despesa fixa" saíram com a UI que os consumia: o que se
 // repete todo mês virou uma RECORRÊNCIA no módulo `Despesas`, que tem
