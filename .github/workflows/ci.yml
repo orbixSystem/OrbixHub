@@ -25,6 +25,25 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      # Um BOM (EF BB BF) no topo de um .sql derruba o deploy: o Postgres
+      # responde `syntax error at or near "\ufeff"` e o prisma migrate deploy
+      # marca a migration como falha, travando TODAS as seguintes ate alguem
+      # rodar `migrate resolve` na producao. Ja aconteceu com a
+      # 0046_retire_legacy_sales_module. Editor no Windows reintroduz isso
+      # sozinho, entao o CI barra antes de virar problema de producao.
+      - name: SQL sem BOM
+        run: |
+          # `od -An -tx1` separa os bytes com 1 espaco no GNU e 2 no BSD, entao
+          # o espaco e removido antes de comparar — o teste vale nos dois.
+          bom=$(find . -name '*.sql' -not -path './node_modules/*' -print0 \
+            | while IFS= read -r -d '' f; do
+                [ "$(head -c3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ] && echo "$f"
+              done)
+          if [ -n "$bom" ]; then
+            echo "::error::arquivo .sql com BOM (quebra o psql/prisma):"
+            echo "$bom"
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
