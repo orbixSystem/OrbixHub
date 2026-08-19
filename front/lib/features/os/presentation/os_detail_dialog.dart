@@ -119,15 +119,35 @@ class _Corpo extends ConsumerWidget {
         // Identidade: número + status + pagamento.
         Row(
           children: [
+            // Mesma hierarquia do modal de venda: o CLIENTE e o titulo, o
+            // numero da OS vira identificacao secundaria.
             Expanded(
-              child: Text(
-                order.number,
-                style: TextStyle(
-                  color: neu.ink,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    (order.customerName ?? '').trim().isEmpty
+                        ? 'Sem cliente'
+                        : order.customerName!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: (order.customerName ?? '').trim().isEmpty
+                          ? neu.inkMuted
+                          : neu.ink,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    order.number,
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                  ),
+                ],
               ),
             ),
             NeuStatusChip(
@@ -146,7 +166,6 @@ class _Corpo extends ConsumerWidget {
           ),
         const SizedBox(height: 14),
         // Quem e o quê — as duas perguntas que identificam a OS.
-        _Linha(rotulo: 'Cliente', valor: order.customerName ?? '—'),
         if ((order.subjectLabel ?? '').isNotEmpty)
           _Linha(rotulo: 'Veículo', valor: order.subjectLabel!),
         if ((order.assignedToName ?? '').isNotEmpty)
