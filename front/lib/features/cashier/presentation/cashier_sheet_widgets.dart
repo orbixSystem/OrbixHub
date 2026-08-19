@@ -248,17 +248,18 @@ class _CashierOsPickerFieldState extends ConsumerState<CashierOsPickerField> {
   }
 }
 
-/// Stepper compacto com rótulo, valor exibido como texto e botões −/+.
-///
-/// Usado onde o valor é um inteiro discreto (nº de parcelas, dia de
-/// vencimento) e o label precisa aparecer acima do controle.
+/// Um "N x" com −/+ que NÃO se estica (sem `Expanded`) — cabe num [Wrap], que
+/// quebra linha sozinho em telas estreitas. Os sheets antigos usavam duas
+/// colunas fixas lado a lado (`Row` de dois `Expanded`) para parcelas/vencimento
+/// e isso é o que estourava/espremia no celular; aqui cada stepper mede só o
+/// que precisa e o `Wrap` do chamador decide se cabem lado a lado ou empilham.
 class CashierStepperField extends StatelessWidget {
   const CashierStepperField({
     super.key,
     required this.label,
     required this.valueLabel,
-    this.onDecrement,
-    this.onIncrement,
+    required this.onDecrement,
+    required this.onIncrement,
   });
 
   final String label;
@@ -293,7 +294,7 @@ class CashierStepperField extends StatelessWidget {
                 onPressed: onDecrement,
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   valueLabel,
                   style: TextStyle(
