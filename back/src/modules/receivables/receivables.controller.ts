@@ -28,6 +28,17 @@ export class ReceivablesController {
   }
 
   /**
+   * TODOS os títulos em aberto, achatados — alimenta o histórico do caixa, que
+   * precisa mostrar a OS fiada junto da venda fiada. Rota literal antes do
+   * `:customerId` (senão "titulos" cairia no ParseUUID).
+   */
+  @Get('titulos')
+  @Permissions('cashier.read')
+  listOpenTitles(@CurrentUser() user: AuthUser) {
+    return this.receivables.listOpenTitles(user);
+  }
+
+  /**
    * Títulos em aberto das vendas de balcão SEM cliente identificado. Rota
    * literal antes do `:customerId` (senão "sem-cliente" cairia no ParseUUID).
    */

@@ -72,6 +72,8 @@ _ReceivableTitle _$ReceivableTitleFromJson(Map<String, dynamic> json) =>
               ?.map((e) => ReceivableItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <ReceivableItem>[],
+      customerId: json['customerId'] as String?,
+      customerName: json['customerName'] as String?,
     );
 
 Map<String, dynamic> _$ReceivableTitleToJson(_ReceivableTitle instance) =>
@@ -85,6 +87,26 @@ Map<String, dynamic> _$ReceivableTitleToJson(_ReceivableTitle instance) =>
       'balance': instance.balance,
       'status': instance.status,
       'items': instance.items.map((e) => e.toJson()).toList(),
+      'customerId': instance.customerId,
+      'customerName': instance.customerName,
+    };
+
+_OpenTitlesPage _$OpenTitlesPageFromJson(Map<String, dynamic> json) =>
+    _OpenTitlesPage(
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map((e) => ReceivableTitle.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <ReceivableTitle>[],
+      totalDue: json['totalDue'] as num? ?? 0,
+      truncated: json['truncated'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$OpenTitlesPageToJson(_OpenTitlesPage instance) =>
+    <String, dynamic>{
+      'items': instance.items.map((e) => e.toJson()).toList(),
+      'totalDue': instance.totalDue,
+      'truncated': instance.truncated,
     };
 
 _DebtorDetail _$DebtorDetailFromJson(Map<String, dynamic> json) =>
