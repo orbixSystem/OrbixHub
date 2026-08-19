@@ -22,6 +22,15 @@ Map<String, dynamic> _$DebtorToJson(_Debtor instance) => <String, dynamic>{
   'oldestAt': instance.oldestAt,
 };
 
+_PendingSettlement _$PendingSettlementFromJson(Map<String, dynamic> json) =>
+    _PendingSettlement(
+      count: (json['count'] as num?)?.toInt() ?? 0,
+      total: json['total'] as num? ?? 0,
+    );
+
+Map<String, dynamic> _$PendingSettlementToJson(_PendingSettlement instance) =>
+    <String, dynamic>{'count': instance.count, 'total': instance.total};
+
 _DebtorsPage _$DebtorsPageFromJson(Map<String, dynamic> json) => _DebtorsPage(
   items:
       (json['items'] as List<dynamic>?)
@@ -29,6 +38,11 @@ _DebtorsPage _$DebtorsPageFromJson(Map<String, dynamic> json) => _DebtorsPage(
           .toList() ??
       const <Debtor>[],
   totalDue: json['totalDue'] as num? ?? 0,
+  pendingSettlement: json['pendingSettlement'] == null
+      ? const PendingSettlement()
+      : PendingSettlement.fromJson(
+          json['pendingSettlement'] as Map<String, dynamic>,
+        ),
   truncated: json['truncated'] as bool? ?? false,
 );
 
@@ -36,6 +50,7 @@ Map<String, dynamic> _$DebtorsPageToJson(_DebtorsPage instance) =>
     <String, dynamic>{
       'items': instance.items.map((e) => e.toJson()).toList(),
       'totalDue': instance.totalDue,
+      'pendingSettlement': instance.pendingSettlement.toJson(),
       'truncated': instance.truncated,
     };
 

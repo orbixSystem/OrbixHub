@@ -177,6 +177,9 @@ class FakeOsRepository implements OsRepository {
   }
 
   @override
+  Future<ServiceOrder> markFiado(String id) async => _orders[id]!;
+
+  @override
   Future<ServiceOrder> emitInvoice(String id) async {
     // Fake: simula emissão bem-sucedida (snapshot 'emitida'). Não muda pagamento
     // nem status da OS. O Fiscal real é quem decide o status de verdade.

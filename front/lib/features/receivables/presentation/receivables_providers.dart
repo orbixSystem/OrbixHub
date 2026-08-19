@@ -25,6 +25,15 @@ final debtorsProvider = FutureProvider.autoDispose<DebtorsPage>((ref) {
 });
 
 /// Títulos em aberto de um cliente (`null` = vendas sem cliente identificado).
+/// Os títulos por trás do aviso "N finalizados não passaram pelo caixa".
+/// Carregado só quando o operador abre o drill-down — o resumo já vem no
+/// [debtorsProvider], então a lista não precisa custar nada no caminho comum.
+final pendingSettlementProvider =
+    FutureProvider.autoDispose<OpenTitlesPage>((ref) {
+  ref.watch(connectivityControllerProvider.select((s) => s.status));
+  return ref.read(receivablesRepositoryProvider).listPendingSettlement();
+});
+
 final debtorTitlesProvider =
     FutureProvider.autoDispose.family<DebtorDetail, String?>((ref, customerId) {
   ref.watch(connectivityControllerProvider.select((s) => s.status));

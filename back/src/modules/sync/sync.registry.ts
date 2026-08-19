@@ -406,6 +406,16 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     apply: (s, u, p) => s.os.applyTemplate(u, str(p.id), str(p.templateId)),
   },
 
+  // Declarar fiado (recebeu ZERO no caixa). Sem LWW: é um carimbo de uma via, e
+  // o service ignora a segunda declaração — reenvio de push não faz estrago.
+  'service_order.markFiado': {
+    dto: EmptyPayloadDto,
+    module: 'os',
+    permission: 'os.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.os.markFiado(u, str(p.id)),
+  },
+
   // ---------------- cash_session / cash_entry ----------------
   'cash_session.open': {
     dto: OpenSessionDto,
@@ -461,6 +471,15 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     permission: 'sale.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.sale.cancelSale(u, str(p.id), asDto(p)),
+  },
+
+  // Mesmo carimbo da OS, do lado da venda de balcão.
+  'sale.markFiado': {
+    dto: EmptyPayloadDto,
+    module: 'sale',
+    permission: 'sale.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.sale.markFiado(u, str(p.id)),
   },
 
   // ---------------- receivable_installment (parcelamento de fiado) ----------------

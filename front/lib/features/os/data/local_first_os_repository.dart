@@ -437,6 +437,23 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     return _assemble(merged);
   }
 
+  /// Declarar fiado é um carimbo local simples: funciona offline, entra na fila
+  /// e o servidor aplica no push. Idempotente dos dois lados — declarar duas
+  /// vezes não muda nada.
+  @override
+  Future<ServiceOrder> markFiado(String id) async {
+    if (!await useLocal(_orders, id)) {
+      final order = await inner.markFiado(id);
+      await _mirrorOrder(order);
+      return order;
+    }
+    final header = await _orderRow(id);
+    await enqueue(_orders, 'markFiado', {'id': id});
+    final merged = {...header, 'fiado_at': nowIso(), 'updated_at': nowIso()};
+    await putRow(_orders, merged);
+    return _assemble(merged);
+  }
+
   /// Emissão fiscal fala com o gateway do servidor — sempre online.
   @override
   Future<ServiceOrder> emitInvoice(String id) async {

@@ -37,6 +37,12 @@ abstract interface class SaleRepository {
   /// Cancelamento lógico (estorna estoque no backend). Nunca apaga.
   Future<Sale> cancelSale(String id, {String? reason});
 
+  /// Declara a venda como FIADO (`POST /sales/:id/fiado`).
+  ///
+  /// Só é necessário para venda que JÁ existe (o caminho normal declara na
+  /// criação, via [SaleDraft.fiado]). Idempotente no backend.
+  Future<Sale> markFiado(String id);
+
   /// Dispara a emissão da nota via o Fiscal; devolve o resultado (snapshot).
   Future<SaleFiscalResult> emitInvoice(String id);
 }

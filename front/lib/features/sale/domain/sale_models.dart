@@ -96,6 +96,7 @@ class SaleDraft {
     required this.items,
     this.discount,
     this.description,
+    this.fiado = false,
   });
 
   final String? customerId;
@@ -107,12 +108,19 @@ class SaleDraft {
   /// Observação livre do balcão (opcional).
   final String? description;
 
+  /// A venda nasce declarada como FIADO — o operador recebeu menos que o total
+  /// e confirmou. Vai junto da criação (e não numa segunda chamada) para que
+  /// offline seja UMA mutação: duas em ordem poderiam chegar pela metade e a
+  /// venda ficaria fora da carteira de cobrança.
+  final bool fiado;
+
   Map<String, dynamic> toJson() => {
         if (customerId != null) 'customerId': customerId,
         'items': items.map((i) => i.toJson()).toList(),
         if (discount != null && discount! > 0) 'discount': discount,
         if (description != null && description!.isNotEmpty)
           'description': description,
+        if (fiado) 'fiado': true,
       };
 }
 

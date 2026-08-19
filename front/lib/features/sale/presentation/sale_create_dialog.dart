@@ -358,6 +358,11 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
         customerId: _customerId,
         discount: _desconto > 0 ? _desconto : null,
         description: _descCtrl.text.trim(),
+        // Nasce declarada: fiado agora é DECISÃO registrada, não algo derivado
+        // do saldo. Sem este carimbo a venda ficaria fora da carteira de
+        // cobrança quando nada foi recebido (zero não gera lançamento de caixa,
+        // e é justamente o lançamento que prova a passagem pelo caixa).
+        fiado: _ehFiado,
         items: [
           for (final l in valid)
             SaleItemDraft(
