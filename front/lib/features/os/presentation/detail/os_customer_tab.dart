@@ -80,7 +80,7 @@ class _MessagesSection extends ConsumerWidget {
         ),
         error: (e, _) => Text(
           e is AppException ? e.message : 'Erro ao carregar as mensagens.',
-          style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+          style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
         ),
         data: (thread) {
           final unread = thread.conversation.staffUnread;
@@ -89,7 +89,7 @@ class _MessagesSection extends ConsumerWidget {
             return Text(
               'Nenhuma mensagem ainda. O cliente pode escrever pelo link de '
               'acompanhamento — a conversa aparece aqui.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
             );
           }
           // As 3 mais recentes (a página vem em ordem cronológica).
@@ -128,7 +128,7 @@ class _MessagesSection extends ConsumerWidget {
                 Text(
                   'Mostrando as ${recent.length} mais recentes de $older — '
                   'toque em "Abrir" para ver tudo.',
-                  style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 14),
                 ),
               ],
             ],
@@ -189,7 +189,7 @@ class _MessagePreviewTile extends StatelessWidget {
                 ),
                 Text(
                   _fmtMsgDate(message.createdAt),
-                  style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 12),
                 ),
               ],
             ),
@@ -206,7 +206,7 @@ class _MessagePreviewTile extends StatelessWidget {
                     body.isNotEmpty ? body : (hasPhoto ? 'Foto' : ''),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: neu.ink, fontSize: 13, height: 1.3),
+                    style: TextStyle(color: neu.ink, fontSize: 14, height: 1.3),
                   ),
                 ),
               ],
@@ -238,7 +238,7 @@ class _TrackingLinkCard extends StatelessWidget {
         children: [
           Text(
             'Compartilhe com o cliente para ele acompanhar a OS em tempo real.',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.35),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
           ),
           const SizedBox(height: 12),
           OsTrackingLinkActions(order: order),

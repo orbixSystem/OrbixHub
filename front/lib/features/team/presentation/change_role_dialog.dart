@@ -148,7 +148,7 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
               'Cargo *',
               style: TextStyle(
                 color: context.neu.inkMuted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -177,7 +177,7 @@ class _ChangeRoleDialogState extends State<_ChangeRoleDialog> {
               'Este é o único proprietário ativo. Promova outro membro a '
               'proprietário antes de alterar este cargo.',
               style: TextStyle(
-                  color: scheme.onSurfaceVariant, fontSize: 12.5),
+                  color: scheme.onSurfaceVariant, fontSize: 14),
             ),
           ],
         ],

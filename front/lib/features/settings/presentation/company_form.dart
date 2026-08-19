@@ -491,7 +491,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
           const SizedBox(height: 4),
           Text(
             'Dados cadastrais e visuais da sua empresa.',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
           const SizedBox(height: 24),
         ],
@@ -761,7 +761,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -777,7 +777,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
             padding: const EdgeInsets.only(left: 4, top: 6),
             child: Text(
               helper,
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ),
       ],
@@ -1041,7 +1041,7 @@ class _LogoSection extends StatelessWidget {
           style: TextStyle(
             color: neu.inkMuted,
             fontWeight: FontWeight.w700,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
         const SizedBox(height: 12),

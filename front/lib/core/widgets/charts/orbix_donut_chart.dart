@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import 'chart_common.dart';
+
 /// Uma fatia do donut (categoria → valor + cor).
 class OrbixDonutSlice {
   const OrbixDonutSlice({
@@ -45,31 +47,39 @@ class OrbixDonutChart extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 36,
-                  pieTouchData: PieTouchData(enabled: true),
-                  sections: [
-                    for (final s in visible)
-                      PieChartSectionData(
-                        value: s.value.toDouble(),
-                        color: s.color,
-                        radius: 18,
-                        showTitle: false,
-                      ),
-                  ],
+              // A legenda ao lado lista categoria e valor em texto real: o
+              // desenho é redundante e sai da árvore de acessibilidade.
+              ChartSemantics(
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 36,
+                    pieTouchData: PieTouchData(enabled: true),
+                    sections: [
+                      for (final s in visible)
+                        PieChartSectionData(
+                          value: s.value.toDouble(),
+                          color: s.color,
+                          radius: 18,
+                          showTitle: false,
+                        ),
+                    ],
+                  ),
                 ),
               ),
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(centerValue,
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    centerValue,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   Text(
                     centerLabel,
                     style: TextStyle(
-                        color: scheme.onSurfaceVariant, fontSize: 12),
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -103,9 +113,13 @@ class OrbixDonutChart extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text('${s.value}',
-                          style: const TextStyle(
-                              fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      Text(
+                        '${s.value}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),

@@ -118,7 +118,7 @@ class _PeriodChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: selected ? neu.onNavy : neu.inkMuted,
           ),

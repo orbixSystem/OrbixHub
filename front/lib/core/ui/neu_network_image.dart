@@ -49,7 +49,7 @@ class NeuNetworkImage extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         'Foto indisponível',
-                        style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                        style: TextStyle(color: neu.inkFaint, fontSize: 14),
                       ),
                     ],
                   ],

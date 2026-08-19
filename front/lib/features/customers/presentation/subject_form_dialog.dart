@@ -476,7 +476,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
                             _error!,
                             style: TextStyle(
                               color: neu.danger,
-                              fontSize: 13,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -695,7 +695,7 @@ class _VehiclePhotoPicker extends StatelessWidget {
             'Foto do veículo',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -804,7 +804,7 @@ class _VehiclePhotoPicker extends StatelessWidget {
                 Text(
                   'Toque para escolher uma imagem',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+                  style: TextStyle(color: neu.inkFaint, fontSize: 14),
                 ),
               ],
             ),
@@ -920,7 +920,7 @@ class _LookupField extends ConsumerWidget {
                 '${field.rotulo}${field.obrigatorio ? ' *' : ' (opcional)'}',
                 style: TextStyle(
                   color: neu.inkMuted,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),

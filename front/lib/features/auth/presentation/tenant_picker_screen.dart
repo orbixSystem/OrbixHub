@@ -138,7 +138,7 @@ class _WorkshopTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text('Papel: $role',
                         style: const TextStyle(
-                            color: AppColors.inkMuted, fontSize: 13)),
+                            color: AppColors.inkMuted, fontSize: 14)),
                   ],
                 ),
               ),

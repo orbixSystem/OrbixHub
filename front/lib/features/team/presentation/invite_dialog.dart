@@ -137,7 +137,7 @@ class _InviteDialogState extends State<_InviteDialog> {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -152,7 +152,7 @@ class _InviteDialogState extends State<_InviteDialog> {
             padding: const EdgeInsets.only(left: 4, top: 6),
             child: Text(
               helper,
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ),
       ],

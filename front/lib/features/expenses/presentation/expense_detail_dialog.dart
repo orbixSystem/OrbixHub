@@ -392,7 +392,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                 'Quanto você vai pagar agora?',
                 style: TextStyle(
                   color: ctx.neu.ink,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -452,7 +452,7 @@ class _DetailDialogState extends ConsumerState<_DetailDialog> {
                 'Qual pagamento você quer desfazer?',
                 style: TextStyle(
                   color: ctx.neu.ink,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -578,7 +578,7 @@ class _Cartaz extends StatelessWidget {
                       textoDoPrazo(status, dias),
                       style: TextStyle(
                         color: cor,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -630,7 +630,7 @@ class _AvisoOrdem extends StatelessWidget {
                     'Pague antes a parcela ${pendente.rotuloParcela}',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -679,7 +679,7 @@ class _Bloco extends StatelessWidget {
                 titulo.toUpperCase(),
                 style: TextStyle(
                   color: neu.inkFaint,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: .6,
                 ),
@@ -723,7 +723,7 @@ class _Linha extends StatelessWidget {
               width: 132,
               child: Text(
                 rotulo,
-                style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             ),
           if (icone != null) ...[
@@ -735,7 +735,7 @@ class _Linha extends StatelessWidget {
               valor,
               style: TextStyle(
                 color: cor ?? neu.ink,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: destaque ? FontWeight.w800 : FontWeight.w600,
               ),
             ),

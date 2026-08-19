@@ -33,9 +33,15 @@ String osStatusLabel(String status) {
   }
 }
 
-/// Cor por status — paleta fixa do redesign (violeta/azul/verde; sem laranja).
-/// Cores escolhidas para funcionar como TINT (fundo alpha) + texto pleno nos
-/// dois temas.
+/// Cor **gráfica** do status: fatia da rosca, faixa do card, fundo em tint,
+/// ícone sobre esse tint. É elemento NÃO textual — o padrão SysOne pede 3:1,
+/// que estas cores cumprem.
+///
+/// **Não use como cor de texto.** Uma mesma cor não consegue servir de rótulo
+/// legível sobre canvas claro *e* escuro: o verde #10B981 dá 2,5:1 com branco
+/// e o âmbar #D9A13B dá 2,3:1. Para texto use [osStatusInk] /
+/// [osSimpleStatusInk], que devolvem a variante do matiz com 4,5:1 no tema
+/// pedido.
 Color osStatusColor(String status) {
   switch (status) {
     case 'em_execucao':
@@ -53,6 +59,33 @@ Color osStatusColor(String status) {
     case 'aberta':
     default:
       return const Color(0xFF8B90B8); // lavanda neutra
+  }
+}
+
+/// O mesmo matiz de [osStatusColor], mas na luminância que dá **4,5:1 de
+/// contraste com o canvas** do tema pedido (piso do padrão SysOne para texto).
+///
+/// No claro a variante é escura o bastante para também servir de **fundo sólido
+/// sob texto branco** (≥ 5,8:1) — daí os chips sólidos usarem a versão clara em
+/// ambos os temas.
+Color osStatusInk(String status, Brightness brightness) {
+  final claro = brightness == Brightness.light;
+  switch (status) {
+    case 'em_execucao':
+      return claro ? const Color(0xFF7238F4) : const Color(0xFFBA9EFA);
+    case 'aprovada':
+      return claro ? const Color(0xFF165AE0) : const Color(0xFF89ADF3);
+    case 'concluida':
+      return claro ? const Color(0xFF0A7350) : const Color(0xFF11C589);
+    case 'entregue':
+      return claro ? const Color(0xFF58667A) : const Color(0xFFA3AEBD);
+    case 'cancelada':
+      return claro ? const Color(0xFFC61C22) : const Color(0xFFF09496);
+    case 'aguardando_aprovacao':
+      return claro ? const Color(0xFF835E19) : const Color(0xFFDAA441);
+    case 'aberta':
+    default:
+      return claro ? const Color(0xFF5B6194) : const Color(0xFFA7ABC9);
   }
 }
 
@@ -132,11 +165,25 @@ String osSimpleStatusLabel(OsSimpleStatus s) => switch (s) {
 
 /// Paleta bem mais forte que o tint do chip — é o "cores bem visíveis" pedido
 /// para os cards da lista (faixa sólida na borda, não fundo pastel).
+///
+/// Papel **gráfico**, como [osStatusColor]. Para texto, [osSimpleStatusInk].
 Color osSimpleStatusColor(OsSimpleStatus s) => switch (s) {
       OsSimpleStatus.emAndamento => const Color(0xFF8B5CF6), // roxo — trabalho em curso
       OsSimpleStatus.finalizada => const Color(0xFF10B981), // verde — concluído
       OsSimpleStatus.cancelada => const Color(0xFFE5484D), // vermelho — cancelada
     };
+
+/// Variante de [osSimpleStatusColor] com 4,5:1 sobre o canvas — ver
+/// [osStatusInk].
+Color osSimpleStatusInk(OsSimpleStatus s, Brightness brightness) =>
+    osStatusInk(
+      switch (s) {
+        OsSimpleStatus.emAndamento => 'em_execucao',
+        OsSimpleStatus.finalizada => 'concluida',
+        OsSimpleStatus.cancelada => 'cancelada',
+      },
+      brightness,
+    );
 
 IconData osSimpleStatusIcon(OsSimpleStatus s) => switch (s) {
       OsSimpleStatus.emAndamento => Icons.autorenew_rounded,

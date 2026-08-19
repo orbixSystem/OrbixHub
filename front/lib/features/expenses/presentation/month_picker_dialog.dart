@@ -118,7 +118,7 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
           Text(
             'As contas vencidas e não pagas continuam aparecendo nos meses '
             'seguintes.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ],
       ),

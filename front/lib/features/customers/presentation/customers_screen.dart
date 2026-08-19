@@ -153,7 +153,7 @@ class _Toolbar extends ConsumerWidget {
               'Arquivados',
               style: TextStyle(
                 color: query.showArchived ? neu.onNavy : neu.inkMuted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),

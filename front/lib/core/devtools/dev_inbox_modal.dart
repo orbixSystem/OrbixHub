@@ -234,7 +234,7 @@ class _EntryCard extends StatelessWidget {
             ),
             child: SelectableText(
               entry.value,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
             ),
           ),
           const SizedBox(height: 8),

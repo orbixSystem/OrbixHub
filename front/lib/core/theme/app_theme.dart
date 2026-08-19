@@ -107,15 +107,32 @@ class AppTheme {
         headlineMedium: headline(28),
         headlineSmall: headline(23),
         titleLarge: headline(19, FontWeight.w600),
+        // 18px: piso de TÍTULO no padrão SysOne. Era 15 — e como titleMedium é
+        // o estilo de todo título de card/seção (ChartCard, NeuChartCard,
+        // "Análise por região"…), o produto inteiro exibia título em 15px.
         titleMedium: GoogleFonts.manrope(
-          fontSize: 15,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
           color: onSurface,
         ),
+        // O resto da escala vinha do default do Material, que fica ABAIXO dos
+        // pisos SysOne em três degraus: titleSmall/bodyLarge em 16 já servem,
+        // mas labelSmall vinha em 11px — abaixo do piso absoluto de 12.
+        titleSmall: GoogleFonts.manrope(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: onSurface,
+        ),
+        bodyLarge: GoogleFonts.manrope(fontSize: 16, color: onSurface),
+        bodyMedium: GoogleFonts.manrope(fontSize: 14, color: onSurface),
+        bodySmall: GoogleFonts.manrope(fontSize: 12, color: onSurfaceMuted),
         labelLarge: GoogleFonts.manrope(
+          fontSize: 14,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.1,
         ),
+        labelMedium: GoogleFonts.manrope(fontSize: 12, color: onSurfaceMuted),
+        labelSmall: GoogleFonts.manrope(fontSize: 12, color: onSurfaceMuted),
       ),
       cardTheme: CardThemeData(
         color: scheme.surfaceContainerLowest,

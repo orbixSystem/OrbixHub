@@ -246,7 +246,7 @@ class _StatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: selected ? neu.onNavy : neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -442,7 +442,10 @@ class _StrongStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final simple = osSimpleStatusOf(status);
-    final color = osSimpleStatusColor(simple);
+    // Fundo SÓLIDO com rótulo branco: a paleta gráfica não serve aqui (branco
+    // sobre o verde #10B981 dá 2,5:1). A variante clara do matiz é escura o
+    // bastante para o branco passar em ≥5,8:1 nos dois temas.
+    final color = osSimpleStatusInk(simple, Brightness.light);
     return ConstrainedBox(
       // Cap explícito: sem ele, o rótulo mais longo do grupo simplificado
       // ("Em andamento") cresce mais que o chip antigo e rouba espaço demais
@@ -632,7 +635,9 @@ class _OrderTile extends StatelessWidget {
           color: color.withValues(alpha: .16),
           shape: BoxShape.circle,
         ),
-        child: Icon(Icons.build_outlined, color: color, size: 20),
+        child: Icon(Icons.build_outlined,
+            color: osStatusInk(order.status, Theme.of(context).brightness),
+            size: 20),
       ),
       // OS criada offline (número provisório OS-P…) ganha o selo "pendente de
       // envio" — Wrap para não estourar o tile no mobile.

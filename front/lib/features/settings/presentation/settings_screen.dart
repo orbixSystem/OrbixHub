@@ -303,7 +303,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: context.neu.ink,
-                      fontSize: 17,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -413,7 +413,7 @@ class _SectionHeader extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 category.subtitle,
-                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             ],
           ),
@@ -504,7 +504,7 @@ class _CategoryTile extends StatelessWidget {
                   style: TextStyle(
                     color: selected ? neu.navy : neu.ink,
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+                    fontSize: 18,
                     height: 1.15,
                   ),
                 ),
@@ -513,7 +513,7 @@ class _CategoryTile extends StatelessWidget {
                   category.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),

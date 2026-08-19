@@ -242,7 +242,7 @@ class _DayCardState extends State<_DayCard> {
             ),
           ] else
             Text('Fechado',
-                style: TextStyle(color: AppColors.inkFaint, fontSize: 13)),
+                style: TextStyle(color: AppColors.inkFaint, fontSize: 14)),
         ],
       ),
     );
@@ -271,7 +271,7 @@ class _TimeChip extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.brandDeep,
             fontWeight: FontWeight.w600,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
       ),

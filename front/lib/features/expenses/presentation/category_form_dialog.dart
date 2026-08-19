@@ -228,7 +228,7 @@ class _Rotulo extends StatelessWidget {
           texto,
           style: TextStyle(
             color: context.neu.inkMuted,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),

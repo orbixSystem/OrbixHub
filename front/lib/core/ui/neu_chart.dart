@@ -4,48 +4,86 @@ import 'package:flutter/material.dart';
 import 'neu_card.dart';
 import 'neu_tokens.dart';
 
-/// Cartão de gráfico do design system: título + área do gráfico (altura fixa)
-/// dentro de um [NeuCard]. Padroniza o enquadramento de qualquer chart.
+/// Cartão de gráfico do design system: título + área do gráfico dentro de um
+/// [NeuCard].
+///
+/// A área do gráfico **acompanha o espaço disponível**, em dois modos:
+///
+/// - Quando o pai dá ALTURA LIMITADA (uma `Column` com `Expanded`, um painel de
+///   altura fixa), o gráfico preenche o que sobrou — o card ocupa a área toda.
+/// - Quando a altura é livre (dentro de uma rolagem, o caso comum), a altura é
+///   PROPORCIONAL à largura, entre [minHeight] e [maxHeight]. Assim o gráfico
+///   cresce numa tela larga em vez de ficar numa tira de 220px com metade do
+///   cartão vazio ao lado.
+///
+/// A largura sempre foi total (o `NeuCard` estica); o que faltava era a altura
+/// reagir a alguma coisa.
 class NeuChartCard extends StatelessWidget {
   const NeuChartCard({
     super.key,
     required this.title,
     required this.child,
-    this.height = 220,
+    this.minHeight = 220,
+    this.maxHeight = 460,
+    this.aspect = 2.2,
     this.trailing,
   });
 
   final String title;
   final Widget child;
-  final double height;
+
+  /// Piso da área do gráfico quando a altura é livre.
+  final double minHeight;
+
+  /// Teto quando a altura é livre — sem ele, num monitor ultrawide o gráfico
+  /// viraria um paredão e empurraria o resto da página para fora da vista.
+  final double maxHeight;
+
+  /// Largura ÷ altura desejada quando a altura é livre.
+  final double aspect;
+
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    return NeuCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final alturaLivre = !constraints.maxHeight.isFinite;
+        final proporcional = constraints.maxWidth.isFinite
+            ? (constraints.maxWidth / aspect).clamp(minHeight, maxHeight)
+            : minHeight;
+        return NeuCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            // `min` quando a altura é livre: o card não pode tentar esticar
+            // dentro de uma rolagem (altura infinita).
+            mainAxisSize: alturaLivre ? MainAxisSize.min : MainAxisSize.max,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(color: neu.ink),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(color: neu.ink),
+                    ),
+                  ),
+                  ?trailing,
+                ],
               ),
-              ?trailing,
+              const SizedBox(height: 18),
+              if (alturaLivre)
+                SizedBox(height: proporcional, child: child)
+              else
+                Expanded(child: child),
             ],
           ),
-          const SizedBox(height: 18),
-          SizedBox(height: height, child: child),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -185,7 +223,7 @@ AxisTitles neuLeftTitles(
           space: 6,
           child: Text(
             format(value),
-            style: TextStyle(fontSize: 10, color: neu.inkFaint),
+            style: TextStyle(fontSize: 12, color: neu.inkFaint),
           ),
         );
       },
@@ -221,7 +259,7 @@ AxisTitles neuBottomTitles(
           angle: angle,
           child: Text(
             label(i),
-            style: TextStyle(fontSize: 10, color: neu.inkMuted),
+            style: TextStyle(fontSize: 12, color: neu.inkMuted),
           ),
         );
       },

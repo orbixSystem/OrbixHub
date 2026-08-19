@@ -61,7 +61,7 @@ class KpiTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
           if (sub != null) ...[
             const SizedBox(height: 6),

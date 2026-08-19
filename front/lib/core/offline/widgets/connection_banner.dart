@@ -177,7 +177,7 @@ class _BannerBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: spec.color,
-                fontSize: 12.5,
+                fontSize: 14,
                 height: 1.25,
                 fontWeight: FontWeight.w700,
               ),

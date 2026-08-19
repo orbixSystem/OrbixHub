@@ -91,7 +91,7 @@ class _SaleDetail extends ConsumerWidget {
             const SizedBox(height: 10),
             Text('$e',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14)),
             const SizedBox(height: 12),
             NeuButton(
               label: 'Tentar de novo',
@@ -142,7 +142,7 @@ class _Corpo extends ConsumerWidget {
                     sale.number.isEmpty ? 'Venda' : 'Venda ${sale.number}',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 15,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -175,7 +175,7 @@ class _Corpo extends ConsumerWidget {
           'Itens',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -204,12 +204,12 @@ class _Corpo extends ConsumerWidget {
                           i.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: neu.ink, fontSize: 12.5),
+                          style: TextStyle(color: neu.ink, fontSize: 14),
                         ),
                       ),
                       Text(
                         '${_qtd(i.quantity)} × ${formatMoney(i.unitPrice)}',
-                        style: TextStyle(color: neu.inkMuted, fontSize: 11.5),
+                        style: TextStyle(color: neu.inkMuted, fontSize: 12),
                       ),
                       const SizedBox(width: 10),
                       SizedBox(
@@ -235,7 +235,7 @@ class _Corpo extends ConsumerWidget {
                       'Total',
                       style: TextStyle(
                         color: neu.ink,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -286,7 +286,7 @@ class _Corpo extends ConsumerWidget {
             'e o estoque reconciliado. Não é possível editar depois de emitir a '
             'nota, nem baixar o total abaixo do que o cliente já pagou; nesses '
             'casos, cancele e refaça.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 11, height: 1.35),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14, height: 1.35),
           ),
         ],
       ],
@@ -407,7 +407,7 @@ class _Corpo extends ConsumerWidget {
                       : 'A venda ${sale.number} será cancelada e o estoque '
                           'estornado. O registro permanece no histórico.',
                   style: TextStyle(
-                      color: neu.inkMuted, fontSize: 13, height: 1.4),
+                      color: neu.inkMuted, fontSize: 14, height: 1.4),
                 ),
                 const SizedBox(height: 14),
                 NeuTextField(
@@ -470,7 +470,7 @@ class _Pagamentos extends StatelessWidget {
           'Recebimentos',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -506,7 +506,7 @@ class _Pagamentos extends StatelessWidget {
                               methodLabel(e.method),
                             ].join(' · '),
                             style:
-                                TextStyle(color: neu.inkMuted, fontSize: 11.5),
+                                TextStyle(color: neu.inkMuted, fontSize: 12),
                           ),
                         ),
                         Text(
@@ -543,7 +543,7 @@ class _Pagamentos extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 10.5)),
+          Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 12)),
           const SizedBox(height: 2),
           Text(
             formatMoney(value),

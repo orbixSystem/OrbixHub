@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show Brightness;
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -157,7 +158,8 @@ pw.Widget _tituloDocumento(ServiceOrder order) {
 /// `Color` do Flutter — o gerador de PDF fala com `pdf`/`PdfColor`, então o
 /// valor ARGB é convertido aqui, sem duplicar a paleta).
 PdfColor _pdfSimpleStatusColor(String status) {
-  final c = osSimpleStatusColor(osSimpleStatusOf(status));
+  // Papel é sempre canvas claro → variante clara (o chip leva texto branco).
+  final c = osSimpleStatusInk(osSimpleStatusOf(status), Brightness.light);
   return PdfColor.fromInt(c.toARGB32() & 0xFFFFFFFF);
 }
 

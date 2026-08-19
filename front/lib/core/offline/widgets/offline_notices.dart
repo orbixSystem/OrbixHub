@@ -114,7 +114,7 @@ class OfflinePendingNoticeBody extends StatelessWidget {
               message,
               style: TextStyle(
                 color: error,
-                fontSize: 12.5,
+                fontSize: 14,
                 height: 1.3,
                 fontWeight: FontWeight.w700,
               ),
@@ -160,7 +160,7 @@ class OfflineScreenNotice extends ConsumerWidget {
                 message,
                 style: TextStyle(
                   color: error,
-                  fontSize: 13,
+                  fontSize: 14,
                   height: 1.35,
                   fontWeight: FontWeight.w700,
                 ),

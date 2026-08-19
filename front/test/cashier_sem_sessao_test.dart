@@ -114,7 +114,7 @@ void main() {
       expect(find.text('Abrir caixa'), findsNothing);
       expect(find.text('Fechar caixa'), findsNothing);
       // E o operador consegue trabalhar de imediato.
-      expect(find.text('Receber'), findsOneWidget);
+      expect(find.text('Receber OS'), findsOneWidget);
     });
 
     testWidgets('nem com sessão aberta reaparece "Fechar caixa"',
@@ -137,7 +137,7 @@ void main() {
       expect(find.text('Caixa fechado'), findsNothing);
       // ...e as ações do dia estão disponíveis de imediato.
       expect(find.text('Caixa de hoje'), findsOneWidget);
-      expect(find.text('Receber'), findsOneWidget);
+      expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Venda avulsa'), findsOneWidget);
       // Despesa NÃO é mais ação do caixa: conta a pagar virou o módulo
       // `Despesas`, e o lançamento aqui nasce da baixa lá. Duas portas para o
@@ -171,7 +171,7 @@ void main() {
       // para o módulo `Despesas`; sangria/suprimento ficaram só no diálogo de
       // lançamento, já que a cerimônia de gaveta foi removida do produto.
       expect(find.text('Venda avulsa'), findsOneWidget);
-      expect(find.text('Receber'), findsOneWidget);
+      expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Despesa / sangria'), findsNothing);
     });
   });

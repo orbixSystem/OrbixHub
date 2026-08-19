@@ -60,7 +60,7 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
                   const Expanded(
                     child: Text(
                       'Escanear código de barras',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                     ),
                   ),
                   IconButton(
@@ -74,7 +74,7 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
               padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
                 'Aponte a câmera para o código de barras do produto.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(fontSize: 14, color: Colors.black54),
               ),
             ),
             // Área da câmera

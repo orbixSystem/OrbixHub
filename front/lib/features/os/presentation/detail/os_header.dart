@@ -187,7 +187,7 @@ class _Total extends StatelessWidget {
       'Total',
       style: TextStyle(
         color: neu.inkFaint,
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
     );
@@ -212,7 +212,7 @@ class _Total extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: neu.warning,
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           );
@@ -255,8 +255,9 @@ class _SimpleStatusTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final simples = osSimpleStatusOf(status);
-    final color = osSimpleStatusColor(simples);
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = osSimpleStatusColor(simples);
+    final ink = osSimpleStatusInk(simples, Theme.of(context).brightness);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -266,12 +267,12 @@ class _SimpleStatusTag extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(osSimpleStatusIcon(simples), size: 13, color: color),
+          Icon(osSimpleStatusIcon(simples), size: 13, color: ink),
           const SizedBox(width: 5),
           Text(
             osSimpleStatusLabel(simples),
             style: TextStyle(
-              color: dark ? Color.lerp(color, Colors.white, .35) : color,
+              color: ink,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
@@ -408,7 +409,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           const SizedBox(width: 10),
           Text(
             'Atualizando…',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       );
@@ -608,7 +609,7 @@ class _MenuMais extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: i.perigo ? neu.danger : neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -628,7 +629,7 @@ class _MenuMais extends StatelessWidget {
               'Mais',
               style: TextStyle(
                 color: neu.inkMuted,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -666,7 +667,7 @@ class _Nota extends StatelessWidget {
               text,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),

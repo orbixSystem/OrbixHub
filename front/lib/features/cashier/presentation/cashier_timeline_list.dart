@@ -152,7 +152,7 @@ class _EventCard extends ConsumerWidget {
                             cashierEventTitle(event),
                             style: TextStyle(
                               color: cancelada ? neu.inkMuted : neu.ink,
-                              fontSize: 13.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                               decoration: risco,
                             ),
@@ -192,7 +192,7 @@ class _EventCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: neu.inkFaint,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 1.3,
                         ),
                       ),
@@ -271,7 +271,7 @@ class _EventCard extends ConsumerWidget {
                         cashierEventTitle(event),
                         style: TextStyle(
                           color: estornado ? neu.inkMuted : neu.ink,
-                          fontSize: 13.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           decoration: risco,
                         ),

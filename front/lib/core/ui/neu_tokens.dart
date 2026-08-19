@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Tokens do design system neumórfico (soft-UI) do OrbixHub.
@@ -110,24 +112,24 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         shadowLight: Color(0xFFFFFFFF),
         shadowDark: Color(0x66B8BCCC),
         ink: Color(0xFF2B2F44),
-        inkMuted: Color(0xFF7B8094),
-        inkFaint: Color(0xFFA6AABC),
+        inkMuted: Color(0xFF515564),
+        inkFaint: Color(0xFF5E647D),
         line: Color(0xFFD8DAE5),
         // Ação primária = ROXO principal (não o navy escuro — botões "pretos"
         // liam como quebrados). O navy escuro segue nos painéis (sidebar/NeuPanel).
-        navy: Color(0xFF6C72C4),
-        navyHover: Color(0xFF7B81D4),
+        navy: Color(0xFF535BBB),
+        navyHover: Color(0xFF424AA6),
         onNavy: Color(0xFFFFFFFF),
-        onNavyMuted: Color(0xFFD8DAF2),
-        accent: Color(0xFF767CC0),
+        onNavyMuted: Color(0xFFE3E5F7),
+        accent: Color(0xFF555DB1),
         accentTint: Color(0xFFDFE1F0),
-        success: Color(0xFF0E9F6E),
+        success: Color(0xFF0A734F),
         successTint: Color(0xFFDDF0E8),
-        danger: Color(0xFFE5484D),
+        danger: Color(0xFFC61C22),
         dangerTint: Color(0xFFF8E2E3),
-        warning: Color(0xFFCC8F02),
+        warning: Color(0xFF855D01),
         warningTint: Color(0xFFF5ECD3),
-        info: Color(0xFF2E90FA),
+        info: Color(0xFF0562C7),
         infoTint: Color(0xFFDFECFD),
         glyphs: _glyphsLight,
       );
@@ -140,8 +142,8 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         shadowLight: Color(0x40525C96),
         shadowDark: Color(0x8612142A),
         ink: Color(0xFFEDEEFA),
-        inkMuted: Color(0xFFA2A7CB),
-        inkFaint: Color(0xFF6F7499),
+        inkMuted: Color(0xFFC1C5DE),
+        inkFaint: Color(0xFFA9ACC2),
         line: Color(0xFF3E4370),
         navy: Color(0xFFAEB4F0),
         navyHover: Color(0xFFC2C7F7),
@@ -151,7 +153,7 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         accentTint: Color(0xFF3B4066),
         success: Color(0xFF3ECFA0),
         successTint: Color(0xFF243B34),
-        danger: Color(0xFFF0787C),
+        danger: Color(0xFFF39295),
         dangerTint: Color(0xFF3F282D),
         warning: Color(0xFFE8BC52),
         warningTint: Color(0xFF3B3526),
@@ -212,8 +214,8 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         shadowLight: Color(0xFFFFFFFF),
         shadowDark: Color(0x66AEAEB2),
         ink: Color(0xFF1E1E20),
-        inkMuted: Color(0xFF6C6C71),
-        inkFaint: Color(0xFF9B9B9F),
+        inkMuted: Color(0xFF55555A),
+        inkFaint: Color(0xFF646469),
         line: Color(0xFFD6D6D8),
         navy: Color(0xFF242426),
         navyHover: Color(0xFF3A3A3D),
@@ -221,13 +223,13 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         onNavyMuted: Color(0xFFC9C9CB),
         accent: Color(0xFF3A3A3D),
         accentTint: Color(0xFFDCDCDE),
-        success: Color(0xFF0E9F6E),
+        success: Color(0xFF0A734F),
         successTint: Color(0xFFDDF0E8),
-        danger: Color(0xFFE5484D),
+        danger: Color(0xFFC61C22),
         dangerTint: Color(0xFFF8E2E3),
-        warning: Color(0xFFCC8F02),
+        warning: Color(0xFF855D01),
         warningTint: Color(0xFFF5ECD3),
-        info: Color(0xFF2E90FA),
+        info: Color(0xFF0562C7),
         infoTint: Color(0xFFDFECFD),
         glyphs: _glyphsLight,
       );
@@ -241,7 +243,7 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
         shadowDark: Color(0x8C09090A),
         ink: Color(0xFFF3F3F4),
         inkMuted: Color(0xFFA9A9AD),
-        inkFaint: Color(0xFF6E6E73),
+        inkFaint: Color(0xFF96969A),
         line: Color(0xFF343437),
         navy: Color(0xFFF0F0F1),
         navyHover: Color(0xFFFFFFFF),
@@ -264,6 +266,39 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
       HSLColor.fromAHSL(a, h % 360, s.clamp(0.0, 1.0), l.clamp(0.0, 1.0))
           .toColor();
 
+  /// Cor no matiz [h] e saturação [s] cuja **luminância relativa** vale [alvo].
+  ///
+  /// Fixar a lightness do HSL não serve para contraste: a mesma `l: 0.305`
+  /// rende luminância ~2x maior em amarelo (#61613A) do que em azul (#3A3A61).
+  /// Era por isso que um mesmo token de texto passava em 4,5:1 num matiz e
+  /// reprovava em outro — o texto era constante, o fundo é que oscilava.
+  /// Mirando a luminância, as 10 paletas ficam com o mesmo brilho percebido e
+  /// os limiares de contraste valem para todas de uma vez.
+  static Color _hslLum(double h, double s, double alvo) {
+    var lo = 0.0, hi = 1.0;
+    for (var i = 0; i < 20; i++) {
+      final mid = (lo + hi) / 2;
+      if (_hsl(h, s, mid).computeLuminance() < alvo) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return _hsl(h, s, (lo + hi) / 2);
+  }
+
+  static double _contraste(Color a, Color b) {
+    final la = a.computeLuminance(), lb = b.computeLuminance();
+    final hi = math.max(la, lb), lo = math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  /// Escolhe entre tinta clara e escura pelo contraste **medido** sobre [fundo].
+  /// O limiar de luminância que havia aqui (`> 0.55`) errava feio: no matiz 300
+  /// escolhia branco sobre um navy claro e dava 1,78:1.
+  static Color _tintaSobre(Color fundo, Color clara, Color escura) =>
+      _contraste(fundo, clara) >= _contraste(fundo, escura) ? clara : escura;
+
   /// Deriva a paleta clara de uma cor-semente, tingindo sutilmente o canvas
   /// (base/superfície) com o matiz e normalizando o brilho da ação primária
   /// para contraste consistente entre matizes.
@@ -271,35 +306,44 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
     final s = HSLColor.fromColor(seed);
     final h = s.hue;
     final navSat = s.saturation.clamp(0.32, 0.85);
-    final navy = _hsl(h, navSat, 0.575);
-    // Texto sobre a ação: branco por padrão; escuro só se o navy ficar claro.
-    final whiteOnNavy = navy.computeLuminance() <= 0.62;
+    // L escolhido para o RÓTULO BRANCO do botão passar em 4,5:1 no pior
+    // matiz; a saturação alta é o que limita — daí depender de navSat.
+    // Luminância-alvo (não lightness): garante o mesmo contraste do rótulo em
+    // todos os matizes, sem os degraus por saturação que havia aqui.
+    final navy = _hslLum(h, navSat, 0.1293);
+    // Texto sobre a ação: o que de fato contrastar mais com este navy.
     final onNavy =
-        whiteOnNavy ? const Color(0xFFFFFFFF) : const Color(0xFF2B2F44);
+        _tintaSobre(navy, const Color(0xFFFFFFFF), const Color(0xFF2B2F44));
+    final whiteOnNavy = onNavy.computeLuminance() > 0.5;
     return NeuTokens(
-      base: _hsl(h, 0.13, 0.915),
-      surface: _hsl(h, 0.22, 0.945),
-      surfaceHi: _hsl(h, 0.30, 0.968),
+      // Luminância travada na da paleta canônica (#E6E7EE/#EDEEF5/#F4F5FA), não
+      // lightness fixa — ver [_hslLum].
+      base: _hslLum(h, 0.13, 0.8015),
+      surface: _hslLum(h, 0.22, 0.8575),
+      surfaceHi: _hslLum(h, 0.30, 0.9144),
       shadowLight: const Color(0xFFFFFFFF),
       shadowDark: _hsl(h, 0.22, 0.70, 0.40),
       ink: _hsl(h, 0.24, 0.205),
-      inkMuted: _hsl(h, 0.11, 0.53),
-      inkFaint: _hsl(h, 0.11, 0.69),
+      // WCAG 4,5:1 sobre o canvas claro (piso da auditoria SysOne). Os valores
+      // antigos (.53/.69) davam 2,6:1 e 1,7:1 — texto secundário praticamente
+      // invisível, e o terciário ilegível.
+      inkMuted: _hslLum(h, 0.11, 0.0917),
+      inkFaint: _hslLum(h, 0.11, 0.1293),
       line: _hsl(h, 0.16, 0.855),
       navy: navy,
-      navyHover: _hsl(h, navSat, 0.645),
+      navyHover: _hslLum(h, navSat, 0.0880),
       onNavy: onNavy,
       onNavyMuted:
           whiteOnNavy ? _hsl(h, 0.45, 0.88) : _hsl(h, 0.30, 0.38),
-      accent: _hsl(h, (s.saturation * 0.9).clamp(0.34, 0.72), 0.56),
+      accent: _hslLum(h, (s.saturation * 0.9).clamp(0.34, 0.72), 0.1293),
       accentTint: _hsl(h, 0.42, 0.90),
-      success: const Color(0xFF0E9F6E),
+      success: const Color(0xFF0A734F),
       successTint: const Color(0xFFDDF0E8),
-      danger: const Color(0xFFE5484D),
+      danger: const Color(0xFFC61C22),
       dangerTint: const Color(0xFFF8E2E3),
-      warning: const Color(0xFFCC8F02),
+      warning: const Color(0xFF855D01),
       warningTint: const Color(0xFFF5ECD3),
-      info: const Color(0xFF2E90FA),
+      info: const Color(0xFF0562C7),
       infoTint: const Color(0xFFDFECFD),
       glyphs: _glyphsLight,
     );
@@ -312,28 +356,29 @@ class NeuTokens extends ThemeExtension<NeuTokens> {
     final h = s.hue;
     final navSat = s.saturation.clamp(0.45, 0.85);
     final navy = _hsl(h, navSat, 0.80);
-    final onNavy = navy.computeLuminance() > 0.55
-        ? const Color(0xFF1E2136)
-        : const Color(0xFFFFFFFF);
+    final onNavy =
+        _tintaSobre(navy, const Color(0xFFFFFFFF), const Color(0xFF1E2136));
     return NeuTokens(
-      base: _hsl(h, 0.28, 0.175),
-      surface: _hsl(h, 0.26, 0.24),
-      surfaceHi: _hsl(h, 0.25, 0.305),
+      // Luminância travada na da paleta canônica (#23263B/#2C3050/#373C63) —
+      // ver [_hslLum].
+      base: _hslLum(h, 0.28, 0.0206),
+      surface: _hslLum(h, 0.26, 0.0323),
+      surfaceHi: _hslLum(h, 0.25, 0.0494),
       shadowLight: _hsl(h, 0.30, 0.45, 0.25),
       shadowDark: _hsl(h, 0.45, 0.055, 0.52),
       ink: _hsl(h, 0.40, 0.955),
-      inkMuted: _hsl(h, 0.22, 0.71),
-      inkFaint: _hsl(h, 0.16, 0.52),
+      inkMuted: _hslLum(h, 0.22, 0.5500),
+      inkFaint: _hslLum(h, 0.16, 0.4172),
       line: _hsl(h, 0.28, 0.34),
       navy: navy,
       navyHover: _hsl(h, navSat, 0.865),
       onNavy: onNavy,
       onNavyMuted: _hsl(h, 0.30, 0.47),
-      accent: _hsl(h, 0.58, 0.78),
+      accent: _hslLum(h, 0.58, 0.4172),
       accentTint: _hsl(h, 0.30, 0.30),
       success: const Color(0xFF3ECFA0),
       successTint: const Color(0xFF243B34),
-      danger: const Color(0xFFF0787C),
+      danger: const Color(0xFFF39295),
       dangerTint: const Color(0xFF3F282D),
       warning: const Color(0xFFE8BC52),
       warningTint: const Color(0xFF3B3526),
