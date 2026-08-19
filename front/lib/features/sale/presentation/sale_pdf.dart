@@ -200,44 +200,48 @@ pw.Widget _celula(String rotulo, String valor) => pw.Padding(
       ),
     );
 
+/// Bloco "Dados do cliente" — só o que EXISTE na ficha.
+///
+/// Documento e telefone em branco não saem mais como "CPF/CNPJ: -": rótulo sem
+/// valor faz o comprovante parecer formulário mal preenchido. O nome é a única
+/// linha sempre presente — quando não há cliente, dizer "consumidor não
+/// identificado" é informação, não vazio (e a observação da venda, logo abaixo,
+/// costuma ser onde o balcão anota quem levou).
 pw.Widget _blocoCliente(Sale sale, Customer? c) {
   final nome = (c?.name ?? sale.customerName ?? '').trim();
+  final documento = (c?.document ?? '').trim();
+  final telefone = (c?.phone ?? '').trim();
   final endereco = (c?.address ?? '').trim();
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
+  final email = (c?.email ?? '').trim();
+
+  final identificacao = <pw.Widget>[
+    if (documento.isNotEmpty)
       pdfLabelValue(
-        'Cliente:',
-        nome.isEmpty ? 'Consumidor não identificado' : nome,
+        c?.type == 'PJ' ? 'CNPJ:' : 'CPF/CNPJ:',
+        formataCnpj(documento),
       ),
-      pw.SizedBox(height: 2),
+    if (telefone.isNotEmpty) pdfLabelValue('Telefone:', telefone),
+  ];
+
+  return pdfStack([
+    pdfLabelValue(
+      'Cliente:',
+      nome.isEmpty ? 'Consumidor não identificado' : nome,
+    ),
+    if (identificacao.isNotEmpty)
       pw.Row(
         children: [
-          pw.Expanded(
-            flex: 3,
-            child: pdfLabelValue(
-              c?.type == 'PJ' ? 'CNPJ:' : 'CPF/CNPJ:',
-              (c?.document ?? '').trim().isEmpty
-                  ? ''
-                  : formataCnpj(c!.document!),
-            ),
-          ),
-          pw.Expanded(
-            flex: 3,
-            child: pdfLabelValue('Telefone:', (c?.phone ?? '').trim()),
-          ),
+          for (final linha in identificacao)
+            pw.Expanded(flex: 3, child: linha),
+          // Sozinha, a linha continua ocupando só metade da largura — como
+          // ocuparia se a outra existisse.
+          if (identificacao.length == 1)
+            pw.Expanded(flex: 3, child: pw.SizedBox()),
         ],
       ),
-      if (endereco.isNotEmpty) ...[
-        pw.SizedBox(height: 2),
-        pdfLabelValue('Endereço:', endereco),
-      ],
-      if ((c?.email ?? '').trim().isNotEmpty) ...[
-        pw.SizedBox(height: 2),
-        pdfLabelValue('E-mail:', c!.email!.trim()),
-      ],
-    ],
-  );
+    if (endereco.isNotEmpty) pdfLabelValue('Endereço:', endereco),
+    if (email.isNotEmpty) pdfLabelValue('E-mail:', email),
+  ]);
 }
 
 pw.Widget _tabelaItens(List<SaleItem> itens) {
@@ -311,6 +315,26 @@ pw.Widget _tabelaItens(List<SaleItem> itens) {
   );
 }
 
+/// Linhas do quadro de totais que TÊM o que dizer.
+///
+/// Desconto e troco zerados são a AUSÊNCIA do fato, não um dado: "Valor troco:
+/// R$ 0,00" só enche o papel de linha morta. Pura e pública para ser testada
+/// direto (o widget de PDF não se inspeciona).
+List<(String, String)> saleTotaisLinhas({
+  required double qtdTotal,
+  required double somaItens,
+  required double desconto,
+  required double total,
+  required double troco,
+}) =>
+    [
+      ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
+      ('Valor dos produtos', formatMoney(somaItens)),
+      if (desconto > 0.005) ('Valor total desconto', formatMoney(desconto)),
+      ('Valor total', formatMoney(total)),
+      if (troco > 0.005) ('Valor troco', formatMoney(troco)),
+    ];
+
 pw.Widget _blocoTotais({
   required double qtdTotal,
   required double somaItens,
@@ -321,13 +345,13 @@ pw.Widget _blocoTotais({
   // Troco só quando recebeu MAIS que o total (dinheiro). Pagamento parcial é
   // fiado, não troco negativo — mostrar "-50" aqui confundiria o balcão.
   final troco = recebido > total ? recebido - total : 0.0;
-  final linhas = <(String, String)>[
-    ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
-    ('Valor dos produtos', formatMoney(somaItens)),
-    ('Valor total desconto', formatMoney(desconto)),
-    ('Valor total', formatMoney(total)),
-    ('Valor troco', formatMoney(troco)),
-  ];
+  final linhas = saleTotaisLinhas(
+    qtdTotal: qtdTotal,
+    somaItens: somaItens,
+    desconto: desconto,
+    total: total,
+    troco: troco,
+  );
   return pw.Table(
     border: pw.TableBorder.all(color: PdfDocTokens.line, width: .5),
     columnWidths: const {
