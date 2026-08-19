@@ -4,10 +4,12 @@
 # pull -> backup do banco -> migrations -> troca o container -> healthcheck
 # -> rollback automatico se falhar -> limpa imagens antigas (disco de 8 GB).
 #
-# Uso: remote-deploy.sh <image-ref>
+# Uso: remote-deploy.sh <image-ref> [migration-a-resolver]
 set -euo pipefail
 
-IMAGE_REF="${1:?uso: remote-deploy.sh <image-ref>}"
+IMAGE_REF="${1:?uso: remote-deploy.sh <image-ref> [migration-a-resolver]}"
+# Preenchido so pelo input resolve_failed_migration do workflow_dispatch.
+RESOLVE_MIGRATION="${2:-}"
 
 APP_DIR="/home/ubuntu/OrbixHub/back"
 ENV_FILE="$APP_DIR/.env"
@@ -34,8 +36,21 @@ log "backup salvo em $BACKUP_DIR/db-$TS.sql.gz"
 # Migrations como app_owner (dono das tabelas + superuser): DDL (ALTER/CREATE)
 # exige ser dono da tabela; app_migrator só tem BypassRLS e não consegue alterar
 # as tabelas existentes. Este é o role que historicamente migrou esta base.
-log "aplicando migrations (prisma migrate deploy como app_owner)"
 ADMIN_URL=$(grep -E '^ADMIN_DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
+
+# Destrava o P3009 ("migrate found failed migrations"): enquanto houver uma
+# migration marcada como FALHA, o prisma se recusa a aplicar QUALQUER outra, e
+# so sai desse estado por intervencao explicita. Nunca e automatico — depende do
+# input resolve_failed_migration do workflow_dispatch, com o nome digitado a
+# mao, justamente para nao mascarar uma migration que aplicou pela metade.
+if [ -n "$RESOLVE_MIGRATION" ]; then
+  log "resolvendo migration falha como revertida: $RESOLVE_MIGRATION"
+  podman run --rm --network host --env-file "$ENV_FILE" \
+    -e DATABASE_URL="$ADMIN_URL" "$IMAGE_REF" \
+    npx prisma migrate resolve --rolled-back "$RESOLVE_MIGRATION"
+fi
+
+log "aplicando migrations (prisma migrate deploy como app_owner)"
 podman run --rm --network host --env-file "$ENV_FILE" \
   -e DATABASE_URL="$ADMIN_URL" "$IMAGE_REF" \
   npx prisma migrate deploy

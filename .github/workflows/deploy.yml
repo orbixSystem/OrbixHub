@@ -6,6 +6,18 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      resolve_failed_migration:
+        description: >-
+          Destrava o P3009. Nome da migration que ficou marcada como FALHA no
+          banco (ex.: 0046_retire_legacy_sales_module). Ela e marcada como
+          revertida ANTES do migrate deploy, que entao a reaplica. Use so
+          quando a migration NAO chegou a alterar o banco — se ela aplicou
+          parte das mudancas, reaplicar pode duplicar efeito. Erro de sintaxe
+          na posicao 0 e o caso seguro: nada foi executado. Em branco = deploy
+          normal, nada e resolvido.
+        required: false
+        default: ''
 
 # Nunca deixa dois deploys correrem ao mesmo tempo.
 concurrency:
@@ -130,6 +142,7 @@ jobs:
           IMAGE_REF: ${{ needs.build-backend.outputs.image_ref }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESOLVE_MIGRATION: ${{ github.event.inputs.resolve_failed_migration }}
         run: |
           set -euo pipefail
           SSH="ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 ${USER}@${HOST}"
@@ -145,7 +158,7 @@ jobs:
           echo "== envia o script de deploy e executa (backend) =="
           scp -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new \
             scripts/deploy/remote-deploy.sh "${USER}@${HOST}:/tmp/remote-deploy.sh"
-          $SSH "chmod +x /tmp/remote-deploy.sh && /tmp/remote-deploy.sh '${IMAGE_REF}'"
+          $SSH "chmod +x /tmp/remote-deploy.sh && /tmp/remote-deploy.sh '${IMAGE_REF}' '${RESOLVE_MIGRATION:-}'"
 
           echo "== confere pela borda publica =="
           curl -fsS https://hub.orbixsystem.com/api/health | grep -q '"status":"ok"'
