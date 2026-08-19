@@ -27,12 +27,32 @@ abstract class Debtor with _$Debtor {
   factory Debtor.fromJson(Map<String, dynamic> json) => _$DebtorFromJson(json);
 }
 
+/// Títulos FINALIZADOS com saldo que nunca passaram pelo caixa.
+///
+/// Não são fiado (ninguém decidiu fiar), mas serviço entregue e não cobrado não
+/// pode sumir da vista — a carteira mostra isto como aviso.
+@freezed
+abstract class PendingSettlement with _$PendingSettlement {
+  const factory PendingSettlement({
+    @Default(0) int count,
+    @Default(0) num total,
+  }) = _PendingSettlement;
+
+  factory PendingSettlement.fromJson(Map<String, dynamic> json) =>
+      _$PendingSettlementFromJson(json);
+}
+
 /// Página de devedores + o total a receber da carteira.
 @freezed
 abstract class DebtorsPage with _$DebtorsPage {
   const factory DebtorsPage({
     @Default(<Debtor>[]) List<Debtor> items,
     @JsonKey(name: 'totalDue') @Default(0) num totalDue,
+
+    /// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+    @JsonKey(name: 'pendingSettlement')
+    @Default(PendingSettlement())
+    PendingSettlement pendingSettlement,
 
     /// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
     /// em vez de deixar o usuário achar que viu tudo.

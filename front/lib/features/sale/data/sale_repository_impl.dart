@@ -85,6 +85,12 @@ class SaleRepositoryImpl implements SaleRepository {
       });
 
   @override
+  Future<Sale> markFiado(String id) => _guard(() async {
+        final res = await _dio.post<Object?>('/sales/$id/fiado');
+        return Sale.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<SaleFiscalResult> emitInvoice(String id) => _guard(() async {
         // A nota é do módulo `invoice` (POST /invoices { saleId }); o backend
         // espelha o snapshot em `sale.fiscal_status`. Aqui só traduzimos o

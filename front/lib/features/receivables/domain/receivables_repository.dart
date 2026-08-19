@@ -19,5 +19,9 @@ abstract interface class ReceivablesRepository {
 
   /// Títulos em aberto de um cliente, com os itens de cada.
   /// `customerId: null` = vendas de balcão sem cliente identificado.
+  /// Títulos FINALIZADOS que nunca passaram pelo caixa — o drill-down do aviso
+  /// da aba Fiado. Sem isto o operador vê "3 títulos" e não descobre quais.
+  Future<OpenTitlesPage> listPendingSettlement();
+
   Future<DebtorDetail> titlesOf(String? customerId);
 }

@@ -335,6 +335,23 @@ class LocalFirstSaleRepository extends LocalFirstBase
     return _assemble(canceled, await rows(_items), const {});
   }
 
+  /// Carimbo de fiado: funciona offline, entra na fila e o servidor aplica no
+  /// push. Idempotente dos dois lados.
+  @override
+  Future<Sale> markFiado(String id) async {
+    if (!await useLocal(_sales, id)) {
+      final sale = await inner.markFiado(id);
+      await _mirrorSale(sale);
+      return sale;
+    }
+    final row = await rowById(_sales, id);
+    if (row == null) notFoundLocally('Venda');
+    await enqueue(_sales, 'markFiado', {'id': id});
+    final merged = {...row, 'fiado_at': nowIso(), 'updated_at': nowIso()};
+    await putRow(_sales, merged);
+    return _assemble(merged, await rows(_items), const {});
+  }
+
   @override
   Future<SaleFiscalResult> emitInvoice(String id) async {
     // O Fiscal fala com a SEFAZ/prefeitura: não existe emitir offline.
