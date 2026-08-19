@@ -415,8 +415,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   /// cadastro inteiro por causa de uma foto seria pior.
   Future<void> _save() async {
     if (!_canSubmit) return;
-    // Todos os campos obrigatórios (relato + responsável) vivem no último passo,
-    // portanto estão montados aqui — o Form valida-os antes de criar.
+    // Os campos obrigatórios vivem no último passo, portanto estão montados
+    // aqui — o Form valida-os antes de criar.
     if (!_formKey.currentState!.validate()) return;
     final messenger = ScaffoldMessenger.of(context);
     final neu = context.neu;
@@ -1261,8 +1261,14 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // OPCIONAL, e de propósito: nem toda OS nasce de uma queixa. Venda de
+        // peça faturada, serviço contratado por órgão público, retorno de
+        // garantia — em todos esses não há "problema relatado", e exigir o
+        // campo obrigava a inventar texto ou a abandonar a OS no meio. O
+        // backend sempre aceitou `complaint` opcional (`CreateOrderDto`); a
+        // obrigatoriedade só existia aqui.
         NeuTextField(
-          label: 'Relato do cliente *',
+          label: 'Relato do cliente (opcional)',
           controller: _complaint,
           hint: 'Descreva o problema relatado pelo cliente…',
           minLines: 3,
@@ -1270,9 +1276,6 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           keyboardType: TextInputType.multiline,
           textInputAction: TextInputAction.newline,
           enabled: !_saving,
-          validator: (v) => (v == null || v.trim().isEmpty)
-              ? 'Informe o relato do cliente'
-              : null,
         ),
         const SizedBox(height: 12),
         // Diagnóstico opcional: quando quem recebe já sabe o que é (ou o
