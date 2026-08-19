@@ -2280,3 +2280,17 @@ UPDATE tenant_module tm
 SET enabled = false
 FROM module m
 WHERE m.id = tm.module_id AND m.key = 'sales' AND tm.enabled;
+
+-- ============================================================
+-- 0048 — Descrição livre da venda de balcão — aditivo, idempotente
+-- ============================================================
+-- A tela de venda já pedia uma "descrição da venda", mas o texto morria no
+-- extrato do caixa: a venda em si não guardava nada, então o comprovante saía
+-- sem ele. Quem vende no balcão usa esse campo para escrever a quem entregou
+-- ("bateria para o rapaz da Hilux", placa do veículo, número do trator) — é
+-- justamente o que se procura meses depois, quando alguém volta reclamando.
+--
+-- Coluna do núcleo (não `attributes`): descrição livre é conceito universal —
+-- qualquer vertical tem venda com observação — e o mesmo raciocínio de 0044
+-- (`inventory_item.description`) se aplica aqui.
+ALTER TABLE sale ADD COLUMN IF NOT EXISTS description text;

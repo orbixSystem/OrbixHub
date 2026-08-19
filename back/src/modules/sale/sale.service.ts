@@ -113,6 +113,7 @@ export class SaleService {
         status: 'active',
         total,
         discount,
+        description: dto.description?.trim() || null,
         created_by: user.userId,
       });
       for (const r of resolved) {
@@ -245,6 +246,7 @@ export class SaleService {
   async updateSale(user: AuthUser, id: string, dto: UpdateSaleDto) {
     const trocaCliente = dto.customerId !== undefined;
     const trocaDesconto = dto.discount !== undefined;
+    const trocaDescricao = dto.description !== undefined;
 
     let customerId: string | null = null;
     let customerName: string | null = null;
@@ -334,12 +336,16 @@ export class SaleService {
       if (resolved || trocaDesconto) {
         await this.repo.setTotals(id, { total, discount });
       }
+      if (trocaDescricao) {
+        await this.repo.setDescription(id, dto.description?.trim() || null);
+      }
       return this.repo.findSaleById(id);
     });
 
     await this.audit.log(user.tenantId, user.userId, 'sale_update', id, {
       ...(trocaCliente ? { customerId } : {}),
       ...(resolved ? { itens: resolved.length, total, discount } : {}),
+      ...(trocaDescricao ? { descricao: dto.description?.trim() || null } : {}),
     });
 
     // Estoque FORA da tx: devolve o que as linhas antigas consumiram (alvo 0) e

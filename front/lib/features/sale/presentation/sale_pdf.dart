@@ -97,6 +97,21 @@ Future<Uint8List> buildSalePdf(
         pdfSectionBand('Dados do cliente'),
         pw.SizedBox(height: 4),
         _blocoCliente(sale, cliente),
+        // Observação da venda: é ela que identifica o comprador quando ninguém
+        // foi cadastrado ("bateria p/ o rapaz da Hilux", placa, nº do trator).
+        // Fica ANTES dos produtos, junto de quem comprou — é a mesma pergunta.
+        if ((sale.description ?? '').trim().isNotEmpty) ...[
+          pw.SizedBox(height: 8),
+          pdfSectionBand('Observações'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            sale.description!.trim(),
+            style: const pw.TextStyle(
+              fontSize: 8.5,
+              color: PdfDocTokens.graphite,
+            ),
+          ),
+        ],
         pw.SizedBox(height: 8),
         pdfSectionBand('Discriminação dos produtos'),
         _tabelaItens(itens),
