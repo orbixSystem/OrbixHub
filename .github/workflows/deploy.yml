@@ -94,13 +94,37 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+      # Versao real no build: sem isto o version.json publicado dizia
+      # "1.0.0+1" para sempre, e nao havia como saber, olhando o ar, QUAL
+      # commit estava servindo — a duvida "nao deployou ou e cache do
+      # navegador?" so se resolvia baixando os 6 MB do main.dart.js e
+      # procurando string dentro. O run_number e monotonico e leva de
+      # volta ao run do Actions; o deploy-info.json carrega o SHA exato.
+      - name: Versao do build
+        id: v
+        run: |
+          set -euo pipefail
+          BASE=$(grep -E '^version:' front/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "name=$BASE" >> "$GITHUB_OUTPUT"
       - working-directory: front
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
           flutter build web --release \
+            --build-name=${{ steps.v.outputs.name }} \
+            --build-number=${{ github.run_number }} \
             --dart-define=API_BASE_URL=https://hub.orbixsystem.com/api \
             --dart-define=APP_PUBLIC_URL=https://hub.orbixsystem.com
+      # Carimbo do que esta no ar, consultavel sem abrir o app:
+      #   curl -s https://hub.orbixsystem.com/deploy-info.json
+      - name: Carimba o commit no artefato
+        working-directory: front/build/web
+        run: |
+          set -euo pipefail
+          printf '{"commit":"%s","ref":"%s","run":"%s","builtAt":"%s"}\n' \
+            "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_RUN_NUMBER" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > deploy-info.json
+          cat deploy-info.json
       - uses: actions/upload-artifact@v4
         with:
           name: web
