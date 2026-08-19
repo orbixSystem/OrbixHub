@@ -27,6 +27,13 @@ abstract interface class OsRepository {
   /// Transição de status (FSM no backend). `aprovada` exige `os.approve`.
   Future<ServiceOrder> changeStatus(String id, String status);
 
+  /// Declara a OS como FIADO (`POST /os/orders/:id/fiado`).
+  ///
+  /// Usado quando o operador leva a OS ao caixa e recebe ZERO: é a única prova
+  /// de que a OS passou por lá, já que não gera lançamento. Sem isso ela não
+  /// entra na carteira de cobrança. Idempotente no backend.
+  Future<ServiceOrder> markFiado(String id);
+
   /// Emite a nota fiscal da venda via o módulo Fiscal (`POST /os/orders/:id/invoice`).
   /// Exige `invoice.issue`. Não altera pagamento nem status da OS. Retorna a OS
   /// atualizada (com o snapshot de `fiscalStatus`). Lança [AppException] quando o

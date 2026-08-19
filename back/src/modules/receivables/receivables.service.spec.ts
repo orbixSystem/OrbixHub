@@ -30,6 +30,10 @@ const linha = (over: Linha = {}): Linha => ({
   customer_name: 'João Silva',
   created_at: new Date('2026-07-01T10:00:00Z'),
   payment: pagamento(100, 0),
+  // Fiado agora é DECLARADO, não derivado: um título só conta como dívida
+  // depois de passar pelo caixa. A fixture representa dívida legítima, então
+  // nasce declarada — os cenários que testam a regra de passagem sobrescrevem.
+  fiado_at: new Date('2026-07-01T11:00:00Z'),
   items: [],
   ...over,
 });
@@ -115,6 +119,83 @@ describe('ReceivablesService — o que conta como dívida', () => {
   it('sem resumo de pagamento (caixa Noop) não inventa dívida', async () => {
     const { service } = makeService({ os: [linha({ payment: null })] });
     expect((await service.listCustomers(user)).items).toHaveLength(0);
+  });
+});
+
+describe('ReceivablesService — só é fiado depois de passar pelo caixa', () => {
+  it('OS recém-aberta, nada recebido e não declarada, NÃO é fiado', async () => {
+    // O bug que originou a mudança: a OS entrava na carteira de cobrança no
+    // instante em que era criada, antes do serviço e de qualquer conversa
+    // sobre pagamento.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 0) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.totalDue).toBe(0);
+  });
+
+  it('recebimento PARCIAL já prova a passagem — vira fiado sem declaração', async () => {
+    // Quem recebeu alguma coisa deixou lançamento no caixa; não precisa de
+    // `fiado_at` para provar que passou por lá.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 40) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].totalDue).toBe(60);
+  });
+
+  it('declarada com fiado_at e zero recebido É fiado', async () => {
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', payment: pagamento(100, 0) })],
+    });
+    expect((await service.listCustomers(user)).items).toHaveLength(1);
+  });
+
+  it('OS finalizada sem acerto vira AVISO, não dívida', async () => {
+    // Serviço entregue e não cobrado não pode simplesmente sumir: sai da
+    // carteira, mas aparece como pendente de acerto.
+    const { service } = makeService({
+      os: [
+        linha({ id: 'a', status: 'entregue', fiado_at: null, payment: pagamento(100, 0) }),
+        linha({ id: 'b', status: 'concluida', fiado_at: null, payment: pagamento(50, 0) }),
+      ],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 2, total: 150 });
+  });
+
+  it('OS em andamento não entra nem no aviso', async () => {
+    // Trabalho acontecendo não é dinheiro esquecido.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 0) })],
+    });
+    expect((await service.listCustomers(user)).pendingSettlement).toEqual({
+      count: 0,
+      total: 0,
+    });
+  });
+
+  it('venda de balcão sem acerto entra no aviso (é entregue no ato)', async () => {
+    const { service } = makeService({
+      vendas: [
+        linha({ id: 'v1', status: 'active', fiado_at: null, payment: pagamento(80, 0) }),
+      ],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 1, total: 80 });
+  });
+
+  it('título já pago não vira aviso (não há o que acertar)', async () => {
+    const { service } = makeService({
+      os: [linha({ status: 'entregue', fiado_at: null, payment: pagamento(100, 100) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 0, total: 0 });
   });
 });
 

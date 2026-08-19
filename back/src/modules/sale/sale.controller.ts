@@ -74,6 +74,14 @@ export class SaleController {
     return this.sales.cancelSale(user, id, dto);
   }
 
+  /** Declara a venda como fiado (recebeu zero). Ver `SaleService.markFiado`. */
+  @Post(':id/fiado')
+  @Permissions('sale.write')
+  @HttpCode(200)
+  markFiado(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.sales.markFiado(user, id);
+  }
+
   // A NOTA da venda é emitida pelo módulo `invoice` (POST /invoices { saleId })
   // — dependência one-way invoice→sale; a venda só guarda o snapshot fiscal.
 }

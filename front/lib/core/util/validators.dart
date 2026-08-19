@@ -63,6 +63,20 @@ class Validators {
       };
 
   /// Número > 0 — preços, quantidades. Aceita vírgula ou ponto.
+  /// Número >= 0 (zero é resposta válida, não erro).
+  ///
+  /// Existe para o recebimento de título, onde ZERO significa "não recebi nada,
+  /// vai ficar fiado" — uma decisão de negócio legítima que o
+  /// [positiveNumber] rejeitava. Campo vazio continua obrigatório: em branco é
+  /// falta de resposta, zero é uma resposta.
+  static Validator nonNegativeNumber({String field = 'Valor'}) => (v) {
+        final s = (v ?? '').trim().replaceAll(',', '.');
+        if (s.isEmpty) return '$field é obrigatório.';
+        final n = double.tryParse(s);
+        if (n == null) return '$field inválido.';
+        return n >= 0 ? null : '$field não pode ser negativo.';
+      };
+
   static Validator positiveNumber({
     bool optional = false,
     String field = 'Valor',

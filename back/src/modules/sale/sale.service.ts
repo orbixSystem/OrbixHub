@@ -114,6 +114,8 @@ export class SaleService {
         total,
         discount,
         description: dto.description?.trim() || null,
+        // Declarada fiado já na criação (ver CreateSaleDto.fiado).
+        ...(dto.fiado ? { fiado_at: new Date() } : {}),
         created_by: user.userId,
       });
       for (const r of resolved) {
@@ -390,6 +392,26 @@ export class SaleService {
   }
 
   // ===================== Cancelamento (estorno lógico) =====================
+  /**
+   * Declara a venda como FIADO — recebeu zero e o operador assumiu a dívida.
+   * Mesmo papel do `OsService.markFiado`: é a única prova de passagem pelo
+   * caixa quando não há lançamento. Idempotente (offline repete mutação).
+   */
+  async markFiado(user: AuthUser, id: string) {
+    const { sale, jaEra } = await this.tenant.withTenantTx(async () => {
+      const found = await this.repo.findSaleById(id);
+      if (!found) throw new NotFoundException('Venda não encontrada.');
+      if (found.status === 'canceled')
+        throw new ConflictException('Venda cancelada não pode virar fiado.');
+      if (found.fiado_at) return { sale: found, jaEra: true };
+      return { sale: await this.repo.setFiadoAt(id, new Date()), jaEra: false };
+    });
+    if (!jaEra) {
+      await this.audit.log(user.tenantId, user.userId, 'sale_fiado', id);
+    }
+    return sale;
+  }
+
   async cancelSale(user: AuthUser, id: string, dto: CancelSaleDto) {
     const sale = await this.tenant.withTenantTx(async () => {
       const found = await this.repo.findSaleById(id);

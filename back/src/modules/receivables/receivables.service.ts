@@ -54,6 +54,16 @@ export interface ReceivableOpenTitle extends ReceivableTitle {
   customerName: string;
 }
 
+/**
+ * Títulos FINALIZADOS com saldo que nunca passaram pelo caixa. Não são fiado
+ * (ninguém decidiu fiar), mas também não podem sumir da vista: serviço entregue
+ * e não cobrado é dinheiro esquecido. A aba Fiado mostra isto como aviso.
+ */
+export interface PendingSettlement {
+  count: number;
+  total: number;
+}
+
 /** Um cliente devedor e o que ele deve. */
 export interface ReceivableCustomer {
   /** `null` = venda de balcão sem cliente identificado. */
@@ -71,8 +81,40 @@ const n = (v: unknown): number => {
 };
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
+/** Resumo (contagem + total) da lista de pendentes de acerto. */
+function resumoPendentes(pendentes: TituloComDono[]): PendingSettlement {
+  return {
+    count: pendentes.length,
+    total: round2(pendentes.reduce((acc, p) => acc + p.title.balance, 0)),
+  };
+}
+
 /** Um centavo de tolerância: resíduo de arredondamento não é dívida. */
 const EPS = 0.005;
+
+/** Status de OS em que o serviço já foi entregue ao cliente. */
+const FINALIZADAS = new Set(['concluida', 'entregue']);
+
+/**
+ * O título passou pelo caixa? É o que separa DÍVIDA de trabalho em andamento.
+ *
+ * Antes, fiado era puramente derivado (saldo > 0) e por isso uma OS entrava na
+ * carteira de cobrança no instante em que era aberta — antes do serviço, antes
+ * de qualquer conversa sobre pagamento.
+ *
+ * Duas provas, ambas já no banco:
+ *  - `paid > 0`: existe lançamento de caixa ligado ao título (recebimento
+ *    parcial). Quem recebeu alguma coisa, por definição passou pelo caixa.
+ *  - `fiado_at`: o operador recebeu ZERO e declarou fiado — o único caso que
+ *    não deixa lançamento, e a razão de a coluna existir.
+ *
+ * Plano de parcelas não é consultado aqui de propósito: quem parcela pelo
+ * diálogo ou lançou no caixa, ou ganhou `fiado_at` na mesma ação. Para os
+ * títulos ANTIGOS, o backfill da migration 0049 já resolveu.
+ */
+function passouPeloCaixa(row: LinhaVendavel, paid: number): boolean {
+  return paid > EPS || row.fiado_at != null;
+}
 
 /** Cap de `pageSize` dos DTOs de listagem (não burlar chamando o service direto). */
 const PAGE_SIZE = 100;
@@ -111,6 +153,12 @@ interface LinhaVendavel {
   created_at?: Date | string | null;
   /** Resumo derivado do caixa; `null` quando o caixa está Noop/desligado. */
   payment?: { total?: unknown; paid?: unknown; balance?: unknown } | null;
+  /**
+   * Quando o operador DECLAROU o título como fiado recebendo zero. É a prova de
+   * passagem pelo caixa do único caso que não deixa lançamento — ver
+   * [passouPeloCaixa].
+   */
+  fiado_at?: Date | string | null;
   items?: ItemBruto[] | null;
 }
 
@@ -130,9 +178,10 @@ export class ReceivablesService {
   async listCustomers(user: AuthUser): Promise<{
     items: ReceivableCustomer[];
     totalDue: number;
+    pendingSettlement: PendingSettlement;
     truncated: boolean;
   }> {
-    const { titulos, truncated } = await this.openTitles(user);
+    const { titulos, pendentes, truncated } = await this.openTitles(user);
     const porCliente = new Map<string, ReceivableCustomer>();
 
     for (const { title, customerId, customerName } of titulos) {
@@ -159,6 +208,38 @@ export class ReceivablesService {
     return {
       items,
       totalDue: round2(items.reduce((acc, c) => acc + c.totalDue, 0)),
+      // Vai junto de propósito: a aba Fiado já faz esta chamada, então o aviso
+      // de "entregue e não acertado" não custa uma segunda varredura.
+      pendingSettlement: resumoPendentes(pendentes),
+      truncated,
+    };
+  }
+
+  /**
+   * QUAIS são os títulos finalizados que nunca passaram pelo caixa.
+   *
+   * O resumo (contagem/total) vem junto de [listCustomers] e serve para o aviso;
+   * esta lista é o drill-down — sem ela o operador sabe que existem 3 OS
+   * esquecidas mas não consegue descobrir QUAIS, e o aviso vira um beco sem
+   * saída. Mesma forma de [listOpenTitles], para a tela reusar o mesmo widget.
+   */
+  async listPendingSettlement(user: AuthUser): Promise<{
+    items: ReceivableOpenTitle[];
+    totalDue: number;
+    truncated: boolean;
+  }> {
+    const { pendentes, truncated } = await this.openTitles(user);
+    const items = pendentes
+      .map(({ title, customerId, customerName }) => ({
+        ...title,
+        customerId,
+        customerName,
+      }))
+      // Mais antigo primeiro: é a ordem em que se cobra.
+      .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+    return {
+      items,
+      totalDue: round2(items.reduce((acc, t) => acc + t.balance, 0)),
       truncated,
     };
   }
@@ -247,7 +328,11 @@ export class ReceivablesService {
    */
   private async openTitles(
     user: AuthUser,
-  ): Promise<{ titulos: TituloComDono[]; truncated: boolean }> {
+  ): Promise<{
+    titulos: TituloComDono[];
+    pendentes: TituloComDono[];
+    truncated: boolean;
+  }> {
     const [os, vendas] = await Promise.all([
       this.varrer((page) =>
         this.os.listOrders(user, { page, pageSize: PAGE_SIZE } as never),
@@ -262,13 +347,26 @@ export class ReceivablesService {
     ]);
 
     const titulos: TituloComDono[] = [];
+    const pendentes: TituloComDono[] = [];
 
     for (const o of os.linhas) {
       // OS cancelada não é dívida.
       if (o.status === 'cancelada') continue;
       const title = this.toTitle('os', o);
-      if (title) {
+      if (!title) continue;
+      if (passouPeloCaixa(o, title.paid)) {
         titulos.push({
+          title,
+          customerId: o.customer_id ?? null,
+          customerName: o.customer_name ?? 'Sem cliente',
+        });
+        continue;
+      }
+      // Não passou pelo caixa: ainda não é fiado. Só entra no aviso quando o
+      // serviço já FOI ENTREGUE — OS em andamento não é dívida esquecida, é
+      // trabalho acontecendo.
+      if (FINALIZADAS.has(String(o.status ?? ''))) {
+        pendentes.push({
           title,
           customerId: o.customer_id ?? null,
           customerName: o.customer_name ?? 'Sem cliente',
@@ -279,16 +377,29 @@ export class ReceivablesService {
     for (const s of vendas.linhas) {
       if (s.status !== 'active') continue;
       const title = this.toTitle('sale', s);
-      if (title) {
+      if (!title) continue;
+      if (passouPeloCaixa(s, title.paid)) {
         titulos.push({
           title,
           customerId: s.customer_id ?? null,
           customerName: s.customer_name ?? 'Sem cliente',
         });
+        continue;
       }
+      // Venda de balcão é sempre entregue no ato: se tem saldo e ninguém
+      // acertou, é pendente de acerto.
+      pendentes.push({
+        title,
+        customerId: s.customer_id ?? null,
+        customerName: s.customer_name ?? 'Sem cliente',
+      });
     }
 
-    return { titulos, truncated: os.truncated || vendas.truncated };
+    return {
+      titulos,
+      pendentes,
+      truncated: os.truncated || vendas.truncated,
+    };
   }
 
   /** Pagina até esgotar (ou até o teto), acumulando as linhas. */

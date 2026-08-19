@@ -39,6 +39,18 @@ export class ReceivablesController {
   }
 
   /**
+   * Títulos FINALIZADOS que nunca passaram pelo caixa — o drill-down do aviso
+   * na aba Fiado ("3 títulos finalizados não passaram pelo caixa"). Sem esta
+   * rota o operador vê o número mas não descobre QUAIS. Rota literal antes do
+   * `:customerId`.
+   */
+  @Get('pendentes')
+  @Permissions('cashier.read')
+  listPendingSettlement(@CurrentUser() user: AuthUser) {
+    return this.receivables.listPendingSettlement(user);
+  }
+
+  /**
    * Títulos em aberto das vendas de balcão SEM cliente identificado. Rota
    * literal antes do `:customerId` (senão "sem-cliente" cairia no ParseUUID).
    */

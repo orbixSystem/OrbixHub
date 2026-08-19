@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -49,6 +50,14 @@ export class CreateSaleDto {
    * não é cliente cadastrado.
    */
   @IsOptional() @IsString() @MaxLength(500) description?: string;
+  /**
+   * A venda já nasce declarada como FIADO. O front manda `true` quando o
+   * operador confirma o modal "Registrar como fiado?" (recebeu menos que o
+   * total). Vem junto da criação — e não numa segunda chamada — para que
+   * offline seja UMA mutação: duas em ordem poderiam chegar pela metade e a
+   * venda ficaria fora da carteira de cobrança.
+   */
+  @IsOptional() @IsBoolean() fiado?: boolean;
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

@@ -33,6 +33,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     'service_order.deleteItem': 'os.write',
     'service_order.createNote': 'os.write',
     'service_order.applyTemplate': 'os.write',
+    'service_order.markFiado': 'os.write',
     'cash_session.open': 'cashier.manage',
     'cash_session.close': 'cashier.manage',
     'cash_entry.create': 'cashier.write',
@@ -51,6 +52,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     'receivable_installment.pay': 'cashier.write',
     'sale.create': 'sale.write',
     'sale.cancel': 'sale.write',
+    'sale.markFiado': 'sale.write',
     'sale.update': 'sale.write',
     // Despesas (contas a pagar): tudo `finance.write`, espelhando o
     // `@Permissions` do ExpensesController. `expense.pay` mexe dinheiro e ainda

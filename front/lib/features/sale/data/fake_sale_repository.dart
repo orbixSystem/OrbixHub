@@ -151,6 +151,10 @@ class FakeSaleRepository implements SaleRepository {
   }
 
   @override
+  Future<Sale> markFiado(String id) async =>
+      _sales[_sales.indexWhere((s) => s.id == id)];
+
+  @override
   Future<SaleFiscalResult> emitInvoice(String id) async {
     final idx = _sales.indexWhere((s) => s.id == id);
     _sales[idx] = _sales[idx].copyWith(fiscalStatus: 'emitida');

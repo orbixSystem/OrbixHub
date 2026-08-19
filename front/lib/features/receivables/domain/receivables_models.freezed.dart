@@ -292,9 +292,276 @@ as String?,
 
 
 /// @nodoc
+mixin _$PendingSettlement {
+
+ int get count; num get total;
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<PendingSettlement> get copyWith => _$PendingSettlementCopyWithImpl<PendingSettlement>(this as PendingSettlement, _$identity);
+
+  /// Serializes this PendingSettlement to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PendingSettlement&&(identical(other.count, count) || other.count == count)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,count,total);
+
+@override
+String toString() {
+  return 'PendingSettlement(count: $count, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PendingSettlementCopyWith<$Res>  {
+  factory $PendingSettlementCopyWith(PendingSettlement value, $Res Function(PendingSettlement) _then) = _$PendingSettlementCopyWithImpl;
+@useResult
+$Res call({
+ int count, num total
+});
+
+
+
+
+}
+/// @nodoc
+class _$PendingSettlementCopyWithImpl<$Res>
+    implements $PendingSettlementCopyWith<$Res> {
+  _$PendingSettlementCopyWithImpl(this._self, this._then);
+
+  final PendingSettlement _self;
+  final $Res Function(PendingSettlement) _then;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? count = null,Object? total = null,}) {
+  return _then(_self.copyWith(
+count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PendingSettlement].
+extension PendingSettlementPatterns on PendingSettlement {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PendingSettlement value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PendingSettlement value)  $default,){
+final _that = this;
+switch (_that) {
+case _PendingSettlement():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PendingSettlement value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int count,  num total)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that.count,_that.total);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int count,  num total)  $default,) {final _that = this;
+switch (_that) {
+case _PendingSettlement():
+return $default(_that.count,_that.total);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int count,  num total)?  $default,) {final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that.count,_that.total);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PendingSettlement implements PendingSettlement {
+  const _PendingSettlement({this.count = 0, this.total = 0});
+  factory _PendingSettlement.fromJson(Map<String, dynamic> json) => _$PendingSettlementFromJson(json);
+
+@override@JsonKey() final  int count;
+@override@JsonKey() final  num total;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PendingSettlementCopyWith<_PendingSettlement> get copyWith => __$PendingSettlementCopyWithImpl<_PendingSettlement>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PendingSettlementToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PendingSettlement&&(identical(other.count, count) || other.count == count)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,count,total);
+
+@override
+String toString() {
+  return 'PendingSettlement(count: $count, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PendingSettlementCopyWith<$Res> implements $PendingSettlementCopyWith<$Res> {
+  factory _$PendingSettlementCopyWith(_PendingSettlement value, $Res Function(_PendingSettlement) _then) = __$PendingSettlementCopyWithImpl;
+@override @useResult
+$Res call({
+ int count, num total
+});
+
+
+
+
+}
+/// @nodoc
+class __$PendingSettlementCopyWithImpl<$Res>
+    implements _$PendingSettlementCopyWith<$Res> {
+  __$PendingSettlementCopyWithImpl(this._self, this._then);
+
+  final _PendingSettlement _self;
+  final $Res Function(_PendingSettlement) _then;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? count = null,Object? total = null,}) {
+  return _then(_PendingSettlement(
+count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$DebtorsPage {
 
- List<Debtor> get items;@JsonKey(name: 'totalDue') num get totalDue;/// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
+ List<Debtor> get items;@JsonKey(name: 'totalDue') num get totalDue;/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+@JsonKey(name: 'pendingSettlement') PendingSettlement get pendingSettlement;/// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
 /// em vez de deixar o usuário achar que viu tudo.
  bool get truncated;
 /// Create a copy of DebtorsPage
@@ -309,16 +576,16 @@ $DebtorsPageCopyWith<DebtorsPage> get copyWith => _$DebtorsPageCopyWithImpl<Debt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -329,11 +596,11 @@ abstract mixin class $DebtorsPageCopyWith<$Res>  {
   factory $DebtorsPageCopyWith(DebtorsPage value, $Res Function(DebtorsPage) _then) = _$DebtorsPageCopyWithImpl;
 @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+ List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
-
+$PendingSettlementCopyWith<$Res> get pendingSettlement;
 
 }
 /// @nodoc
@@ -346,15 +613,25 @@ class _$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
-
+/// Create a copy of DebtorsPage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<$Res> get pendingSettlement {
+  
+  return $PendingSettlementCopyWith<$Res>(_self.pendingSettlement, (value) {
+    return _then(_self.copyWith(pendingSettlement: value));
+  });
+}
 }
 
 
@@ -436,10 +713,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   return orElse();
 
 }
@@ -457,10 +734,10 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage():
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -477,10 +754,10 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   return null;
 
 }
@@ -492,7 +769,7 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 @JsonSerializable()
 
 class _DebtorsPage implements DebtorsPage {
-  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], @JsonKey(name: 'totalDue') this.totalDue = 0, this.truncated = false}): _items = items;
+  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'pendingSettlement') this.pendingSettlement = const PendingSettlement(), this.truncated = false}): _items = items;
   factory _DebtorsPage.fromJson(Map<String, dynamic> json) => _$DebtorsPageFromJson(json);
 
  final  List<Debtor> _items;
@@ -503,6 +780,8 @@ class _DebtorsPage implements DebtorsPage {
 }
 
 @override@JsonKey(name: 'totalDue') final  num totalDue;
+/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+@override@JsonKey(name: 'pendingSettlement') final  PendingSettlement pendingSettlement;
 /// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
 /// em vez de deixar o usuário achar que viu tudo.
 @override@JsonKey() final  bool truncated;
@@ -520,16 +799,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -540,11 +819,11 @@ abstract mixin class _$DebtorsPageCopyWith<$Res> implements $DebtorsPageCopyWith
   factory _$DebtorsPageCopyWith(_DebtorsPage value, $Res Function(_DebtorsPage) _then) = __$DebtorsPageCopyWithImpl;
 @override @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+ List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
-
+@override $PendingSettlementCopyWith<$Res> get pendingSettlement;
 
 }
 /// @nodoc
@@ -557,16 +836,26 @@ class __$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_DebtorsPage(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
 as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
 
-
+/// Create a copy of DebtorsPage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<$Res> get pendingSettlement {
+  
+  return $PendingSettlementCopyWith<$Res>(_self.pendingSettlement, (value) {
+    return _then(_self.copyWith(pendingSettlement: value));
+  });
+}
 }
 
 
