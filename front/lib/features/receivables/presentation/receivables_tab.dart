@@ -290,17 +290,28 @@ class _PendenteTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(rotulo,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  // O CLIENTE e o titulo — cobrar fiado comeca por "quem
+                  // deve". `customerName` e opcional no titulo achatado: venda
+                  // de balcao sem cliente vem nula.
+                  Text(
+                    (titulo.customerName ?? '').trim().isEmpty
+                        ? 'Sem cliente'
+                        : titulo.customerName!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: (titulo.customerName ?? '').trim().isEmpty
+                          ? neu.inkMuted
+                          : neu.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
-                    // `customerName` e opcional no titulo achatado: venda de
-                    // balcao sem cliente vem nulo.
-                    [
-                      titulo.customerName ?? 'Sem cliente',
-                      ?dias,
-                    ].join(' - '),
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    [rotulo, ?dias].join(' · '),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                   ),
                 ],
               ),
@@ -402,12 +413,14 @@ class _DebtorTile extends ConsumerWidget {
                   children: [
                     Text(
                       debtor.customerName,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: neu.ink,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                        height: 1.15,
                       ),
                     ),
                     const SizedBox(height: 3),
