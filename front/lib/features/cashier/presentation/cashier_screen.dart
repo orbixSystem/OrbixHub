@@ -697,6 +697,7 @@ class _CashierHistory extends ConsumerWidget {
                       final todos = buildCashierTimeline(
                         entries: data.entries,
                         sales: data.sales,
+                        osTitles: data.osTitles,
                       );
                       // Servidor já recortou; aqui fica só a coerência entre as
                       // duas fontes (venda em fiado não é entrada de caixa).
@@ -827,6 +828,15 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
           ),
         ),
         const SizedBox(height: 2),
+        if (widget.filtro == CashierFilter.fiado)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Vendas e OS com saldo em aberto no período. A carteira inteira '
+              '(inclusive de antes) fica no fiado, na aba Caixa.',
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
+            ),
+          ),
         if (widget.filtro == CashierFilter.entradas)
           Padding(
             padding: const EdgeInsets.only(top: 4),

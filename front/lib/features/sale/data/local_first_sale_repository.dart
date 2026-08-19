@@ -175,6 +175,9 @@ class LocalFirstSaleRepository extends LocalFirstBase
       'status': 'active',
       'total': dec(round2(bruto - desconto)),
       'discount': dec(desconto),
+      'description': draft.description?.trim().isEmpty ?? true
+          ? null
+          : draft.description!.trim(),
       'fiscal_status': null,
       'created_at': nowIso(),
       'updated_at': nowIso(),
@@ -192,6 +195,7 @@ class LocalFirstSaleRepository extends LocalFirstBase
     String? customerId,
     List<SaleItemDraft>? items,
     double? discount,
+    String? description,
   }) async {
     if (!await useLocal(_sales, id)) {
       final sale = await inner.updateSale(
@@ -199,6 +203,7 @@ class LocalFirstSaleRepository extends LocalFirstBase
         customerId: customerId,
         items: items,
         discount: discount,
+        description: description,
       );
       await _mirrorSale(sale);
       return sale;
@@ -232,9 +237,17 @@ class LocalFirstSaleRepository extends LocalFirstBase
       'customerId': ?customerId,
       'items': ?items?.map((i) => i.toJson()).toList(),
       'discount': ?discount,
+      'description': ?description,
     });
 
     var atualizada = {...row, 'updated_at': nowIso()};
+    if (description != null) {
+      // String vazia apaga a observação (mesma regra do servidor).
+      atualizada = {
+        ...atualizada,
+        'description': description.trim().isEmpty ? null : description.trim(),
+      };
+    }
     if (customerId != null) {
       // Offline não há como resolver o NOME do cliente pelo id (é snapshot via
       // service do módulo de clientes, no servidor): guarda o ponteiro e limpa

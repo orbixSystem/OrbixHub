@@ -48,6 +48,12 @@ export interface ReceivableTitle {
   items: ReceivableItem[];
 }
 
+/** Um título em aberto já com o dono — a forma achatada, sem agrupar. */
+export interface ReceivableOpenTitle extends ReceivableTitle {
+  customerId: string | null;
+  customerName: string;
+}
+
 /** Um cliente devedor e o que ele deve. */
 export interface ReceivableCustomer {
   /** `null` = venda de balcão sem cliente identificado. */
@@ -153,6 +159,39 @@ export class ReceivablesService {
     return {
       items,
       totalDue: round2(items.reduce((acc, c) => acc + c.totalDue, 0)),
+      truncated,
+    };
+  }
+
+  /**
+   * TODOS os títulos em aberto, achatados (sem agrupar por cliente) e do mais
+   * recente para o mais antigo.
+   *
+   * Existe para o **histórico do caixa** poder mostrar a OS que ficou fiada.
+   * Sem isto o histórico listava venda em fiado mas não OS em fiado — o mesmo
+   * fato ("ficou devendo") aparecia num lugar e sumia no outro, e quem ia
+   * receber tinha de procurar em duas telas.
+   *
+   * Não traz os itens da OS (só os da venda, que já vêm na listagem): quem
+   * precisa do detalhamento é a aba Fiado, via [listTitles]. Aqui o que
+   * importa é "quem, quanto e quando".
+   */
+  async listOpenTitles(user: AuthUser): Promise<{
+    items: ReceivableOpenTitle[];
+    totalDue: number;
+    truncated: boolean;
+  }> {
+    const { titulos, truncated } = await this.openTitles(user);
+    const items = titulos
+      .map(({ title, customerId, customerName }) => ({
+        ...title,
+        customerId,
+        customerName,
+      }))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+    return {
+      items,
+      totalDue: round2(items.reduce((acc, t) => acc + t.balance, 0)),
       truncated,
     };
   }

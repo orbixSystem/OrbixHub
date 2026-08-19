@@ -24,6 +24,16 @@ class _FakeSession extends SessionController {
       );
 }
 
+/// Filtros já "sujos" na montagem da tela — reproduz o cenário real: o provider
+/// de filtros não é autoDispose, então quem volta para o Estoque reencontra a
+/// busca de antes.
+class _PresetQuery extends ItemListQueryNotifier {
+  _PresetQuery(this._initial);
+  final ItemListQuery _initial;
+  @override
+  ItemListQuery build() => _initial;
+}
+
 List<InventoryItem> _items(int n) => [
       for (var i = 0; i < n; i++)
         InventoryItem(
@@ -105,5 +115,145 @@ void main() {
 
     expect(find.text('Pastilha'), findsOneWidget);
     expect(find.text('Baixo'), findsOneWidget);
+  });
+
+  group('filtro invisível', () {
+    test('hasHidingFilters ignora o padrão da tela e a ordenação', () {
+      expect(const ItemListQuery().hasHidingFilters, isFalse);
+      expect(
+        const ItemListQuery(sort: ItemSort.priceDesc).hasHidingFilters,
+        isFalse,
+      );
+      expect(const ItemListQuery(q: 'gás').hasHidingFilters, isTrue);
+      expect(const ItemListQuery(lowStock: true).hasHidingFilters, isTrue);
+      expect(const ItemListQuery(kind: 'product').hasHidingFilters, isTrue);
+      expect(const ItemListQuery(active: 'false').hasHidingFilters, isTrue);
+    });
+
+    test('clearFilters zera o que esconde e preserva a ordenação', () {
+      final container = ProviderContainer(
+        overrides: [
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(itemListQueryProvider.notifier);
+      notifier.setQuery('gás');
+      notifier.setLowStock(true);
+      notifier.setKind('product');
+      notifier.setSort(ItemSort.priceDesc);
+      expect(container.read(itemListQueryProvider).hasHidingFilters, isTrue);
+
+      notifier.clearFilters();
+      final q = container.read(itemListQueryProvider);
+      expect(q.hasHidingFilters, isFalse);
+      expect(q.q, isNull);
+      expect(q.lowStock, isFalse);
+      expect(q.kind, isNull);
+      expect(q.sort, ItemSort.priceDesc); // ordenar não esconde nada
+    });
+
+    test('sair da tela zera busca e filtros (autoDispose)', () async {
+      final container = ProviderContainer(
+        overrides: [
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Tela aberta: alguém escuta o provider.
+      final naTela = container.listen(itemListQueryProvider, (_, _) {});
+      container.read(itemListQueryProvider.notifier).setQuery('t');
+      container.read(itemListQueryProvider.notifier).setLowStock(true);
+      expect(container.read(itemListQueryProvider).hasHidingFilters, isTrue);
+
+      // Saiu do Estoque: o último ouvinte cai.
+      naTela.close();
+      await Future<void>.delayed(Duration.zero);
+
+      // Voltou: tem de começar limpo, senão a lista filtra por um termo que a
+      // caixa de busca (recriada vazia) não mostra.
+      final devolta = container.listen(itemListQueryProvider, (_, _) {});
+      addTearDown(devolta.close);
+      final q = container.read(itemListQueryProvider);
+      expect(q.q, isNull);
+      expect(q.lowStock, isFalse);
+      expect(q.hasHidingFilters, isFalse);
+    });
+
+    testWidgets('busca retida do provider aparece na caixa ao montar a tela',
+        (tester) async {
+      final fake = FakeInventoryRepository();
+      await fake.createItem(const ItemDraft(name: 'Pastilha', unit: 'un'));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            inventoryRepositoryProvider.overrideWithValue(fake),
+            sessionControllerProvider.overrideWith(_FakeSession.new),
+            itemListQueryProvider.overrideWith(
+              () => _PresetQuery(const ItemListQuery(q: 'ZZZ')),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: InventoryScreen())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // O termo que está filtrando precisa estar VISÍVEL na caixa de busca.
+      expect(find.widgetWithText(TextField, 'ZZZ'), findsOneWidget);
+    });
+
+    testWidgets('lista vazia por filtro avisa e o botão devolve os itens',
+        (tester) async {
+      final fake = FakeInventoryRepository();
+      await fake.createItem(const ItemDraft(name: 'Pastilha', unit: 'un'));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            inventoryRepositoryProvider.overrideWithValue(fake),
+            sessionControllerProvider.overrideWith(_FakeSession.new),
+            itemListQueryProvider.overrideWith(
+              () => _PresetQuery(const ItemListQuery(q: 'ZZZ')),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: InventoryScreen())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Nada casa com "ZZZ": a tela precisa culpar o filtro, não a cliente.
+      expect(find.text('Nenhum item com os filtros ativos'), findsOneWidget);
+      expect(find.text('Nenhum item encontrado'), findsNothing);
+      expect(find.text('Pastilha'), findsNothing);
+
+      await tester.tap(find.text('Limpar filtros'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pastilha'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'ZZZ'), findsNothing);
+    });
+
+    testWidgets('estoque realmente vazio mantém o convite a cadastrar',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            inventoryRepositoryProvider
+                .overrideWithValue(FakeInventoryRepository()),
+            sessionControllerProvider.overrideWith(_FakeSession.new),
+          ],
+          child: const MaterialApp(home: Scaffold(body: InventoryScreen())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nenhum item encontrado'), findsOneWidget);
+      expect(find.text('Limpar filtros'), findsNothing);
+    });
   });
 }

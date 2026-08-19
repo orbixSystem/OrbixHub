@@ -38,6 +38,8 @@ export interface CreateSaleData {
   total: DecimalIn;
   /** Desconto concedido (registro; não entra no total). */
   discount?: DecimalIn;
+  /** Observação livre do balcão (sai no comprovante). */
+  description?: string | null;
   created_by: string | null;
 }
 
@@ -179,6 +181,19 @@ export class SaleRepository {
   deleteItems(saleId: string) {
     const db = this.tenant.getClient();
     return db.sale_item.deleteMany({ where: { sale_id: saleId } });
+  }
+
+  /**
+   * Observação livre da venda. Separada de [setTotals] de propósito: mudar o
+   * texto NÃO mexe em dinheiro, e por isso não passa pelas guardas de nota
+   * emitida / valor já pago.
+   */
+  setDescription(id: string, description: string | null) {
+    const db = this.tenant.getClient();
+    return db.sale.update({
+      where: { id },
+      data: { description, updated_at: new Date() },
+    });
   }
 
   /** Total/desconto recalculados no servidor após editar as linhas. */

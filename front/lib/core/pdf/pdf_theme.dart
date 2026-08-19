@@ -36,16 +36,33 @@ class PdfDocTokens {
 /// dançando conforme o logo de cada oficina.
 pw.Widget pdfCompanyHeader(
   DocumentCompany company, {
-  double logoMaxWidth = 200,
+  /// Largura da coluna do logo — o número que manda na maioria dos casos reais,
+  /// porque marca de oficina costuma ser bem mais larga que alta e bate na
+  /// largura antes de chegar no teto de altura.
+  ///
+  /// O teto vem de MEDIR a fonte embutida (Helvetica), não de chute: a folha A4
+  /// útil tem 531pt (595 menos as margens de 32) e as linhas do bloco da
+  /// empresa pedem, na pior das medidas reais, ~222pt — a de contato
+  /// ("Fone: … E-mail: …"), mais larga que o próprio nome. 531 − 300 = 231pt
+  /// de sobra, então a direita continua cabendo em uma linha. Passar muito
+  /// disto começa a quebrar o nome da empresa em duas.
+  double logoMaxWidth = 300,
 
   /// Piso de altura: dá presença ao logo quando a empresa cadastrou poucos
   /// dados (2–3 linhas à direita).
-  double minHeight = 44,
+  double minHeight = 70,
 
-  /// TETO de altura: sem ele um logo quadrado, esticado até os 200pt da
+  /// TETO de altura: sem ele um logo quadrado, esticado até a largura da
   /// coluna, geraria um cabeçalho de palmo e meio e empurraria o corpo do
   /// documento para baixo.
-  double maxHeight = 70,
+  ///
+  /// Segura o caso do logo QUADRADO (ou em pé), que sem teto ocuparia os 300pt
+  /// da coluna também em altura e comeria um terço da folha.
+  ///
+  /// Sobe JUNTO com a largura (200×70 → 300×120) porque senão ele volta a ser o
+  /// gargalo: uma marca 2.5:1 esticada a 286pt pede 114pt de altura, e um teto
+  /// mais baixo cortaria justamente a largura que o dono pediu.
+  double maxHeight = 120,
 }) {
   final logo = company.logo;
   final dados = pw.Column(
@@ -173,6 +190,24 @@ pw.Widget pdfLabelValue(String rotulo, String valor) {
           style: const pw.TextStyle(fontSize: 12, color: PdfDocTokens.graphite),
         ),
       ),
+    ],
+  );
+}
+
+/// Empilha linhas de um bloco com um respiro entre elas.
+///
+/// Existe para que a regra "campo vazio não aparece no papel" não custe um
+/// emaranhado de `if` + `SizedBox` dentro de cada bloco: quem monta devolve só
+/// as linhas que tem (`if (x.isNotEmpty) …` na lista) e o espaçamento sai certo
+/// sozinho — sem sobrar um vão onde a linha ausente estaria.
+pw.Widget pdfStack(List<pw.Widget> linhas, {double gap = 2}) {
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      for (final (i, linha) in linhas.indexed) ...[
+        if (i > 0) pw.SizedBox(height: gap),
+        linha,
+      ],
     ],
   );
 }

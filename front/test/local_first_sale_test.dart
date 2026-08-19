@@ -52,6 +52,65 @@ void main() {
 
   tearDown(() => db.close());
 
+  group('observação da venda', () {
+    // A cliente escreve ali quem levou / a placa do veículo quando o comprador
+    // não é cadastrado ("venda rápida, uma luz, paga na hora"). O texto ia só
+    // para o extrato do caixa e não voltava em lugar nenhum — agora é da venda,
+    // e é o que sai no comprovante.
+    test('offline: fica no espelho e viaja no payload da mutação', () async {
+      final venda = await repo().createSale(const SaleDraft(
+        description: 'Trator Massey nº 4292 — levou o rapaz do sítio',
+        items: [
+          SaleItemDraft(name: 'Bateria', kind: 'product', quantity: 1, unitPrice: 250),
+        ],
+      ));
+      expect(venda.description, 'Trator Massey nº 4292 — levou o rapaz do sítio');
+
+      final payload =
+          jsonDecode((await db.pendingFor('u1')).single.payload)
+              as Map<String, dynamic>;
+      expect(payload['description'], 'Trator Massey nº 4292 — levou o rapaz do sítio');
+
+      // Sobrevive à releitura do espelho (não era só o retorno da chamada).
+      expect((await repo().getSale(venda.id)).description, isNotNull);
+    });
+
+    test('offline: editar troca o texto e enfileira sale.update', () async {
+      final venda = await repo().createSale(const SaleDraft(
+        description: 'texto errado',
+        items: [
+          SaleItemDraft(name: 'Bateria', kind: 'product', quantity: 1, unitPrice: 250),
+        ],
+      ));
+      final editada =
+          await repo().updateSale(venda.id, description: 'Placa GDY8B74');
+      expect(editada.description, 'Placa GDY8B74');
+    });
+
+    test('offline: string vazia APAGA a observação', () async {
+      // Corrigir um texto errado é tão legítimo quanto escrevê-lo — e é por isso
+      // que a chave vazia não pode ser confundida com "não mexe".
+      final venda = await repo().createSale(const SaleDraft(
+        description: 'anotação a remover',
+        items: [
+          SaleItemDraft(name: 'Bateria', kind: 'product', quantity: 1, unitPrice: 250),
+        ],
+      ));
+      final limpa = await repo().updateSale(venda.id, description: '');
+      expect(limpa.description, isNull);
+    });
+
+    test('venda sem observação continua sem o campo no payload', () async {
+      await repo().createSale(const SaleDraft(items: [
+        SaleItemDraft(name: 'Palheta', kind: 'product', quantity: 1, unitPrice: 40),
+      ]));
+      final payload =
+          jsonDecode((await db.pendingFor('u1')).single.payload)
+              as Map<String, dynamic>;
+      expect(payload.containsKey('description'), isFalse);
+    });
+  });
+
   group('criar venda offline', () {
     test('grava no espelho e enfileira sale.create com o uuid do cliente',
         () async {

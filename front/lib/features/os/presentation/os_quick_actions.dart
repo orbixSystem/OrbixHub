@@ -17,8 +17,6 @@ import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/entry_edit_dialogs.dart';
 import '../../invoice/presentation/invoice_providers.dart';
-import '../../receivables/domain/receivables_models.dart';
-import '../../receivables/presentation/receive_title_dialog.dart';
 import '../domain/os_models.dart';
 import 'os_pdf.dart';
 import 'os_providers.dart';
@@ -48,14 +46,20 @@ bool osSimpleTransitionEnabled(
 
 /// Executa a transição de [order] para [destino] pelo caminho mais curto da
 /// FSM, com confirmação quando o último passo é sensível (cancelar) e, ao
-/// chegar em "entregue", oferece receber o pagamento em aberto (e, se ainda
-/// não houver nota, emitir a NF). Invalida `orderProvider` e
-/// `orderListProvider` ao final. Retorna sem fazer nada se não houver caminho
-/// alcançável (o chamador deve ter verificado [osSimpleTransitionEnabled]).
+/// chegar em "entregue", avisa o que sobrou a receber (e, se ainda não houver
+/// nota, oferece emitir a NF). Invalida `orderProvider` e `orderListProvider`
+/// ao final. Retorna sem fazer nada se não houver caminho alcançável (o
+/// chamador deve ter verificado [osSimpleTransitionEnabled]).
 ///
 /// Sem confirmação para "entregar": era um passo isolado sem sentido próprio
-/// ("Confirmar entrega?" não perguntava nada de real) — o que importa de
-/// verdade ao finalizar é o pagamento, e esse SIM tem seu próprio diálogo.
+/// ("Confirmar entrega?" não perguntava nada de real).
+///
+/// **Finalizar NÃO abre mais o recebimento.** Antes abria, e o diálogo de
+/// "Receber" caía na tela com o valor obrigatório em vermelho — quem finaliza
+/// uma OS que só será paga depois (órgão público, faturamento a prazo) lia
+/// aquilo como "não dá pra concluir sem cobrar" e abandonava a OS. Dinheiro é
+/// assunto do **Caixa**: a OS fica com saldo em aberto, aparece no histórico e
+/// no fiado, e se recebe por lá.
 ///
 /// [onWillApply], se informado, é chamado só depois que qualquer confirmação
 /// foi aceita — ou seja, exatamente quando a mutação de verdade está prestes
@@ -101,9 +105,7 @@ Future<void> runOsSimpleTransition(
     ref.invalidate(orderProvider(order.id));
     ref.invalidate(orderListProvider);
     if (ultimo == 'entregue') {
-      // Pagamento primeiro (o cliente costuma estar ali, na hora) — a NF
-      // (quando ligada) vem depois, é secundária nesse momento.
-      await offerOsPayment(context, ref, order);
+      _avisarSaldoEmAberto(context, order);
       if (context.mounted) await _offerInvoiceIfNeeded(context, ref, order);
     }
   } on AppException catch (e) {
@@ -115,51 +117,28 @@ Future<void> runOsSimpleTransition(
   }
 }
 
-/// Se a OS tem saldo em aberto E o usuário pode lançar recebimento no caixa —
-/// usado tanto para decidir se oferece o diálogo ao finalizar quanto para
-/// mostrar (ou não) o botão "Receber pagamento" permanente na ficha.
-bool canReceiveOsPayment(WidgetRef ref, ServiceOrder order) {
+/// Avisa, ao finalizar, que a OS ficou com saldo em aberto — e diz ONDE se
+/// recebe, com o atalho pronto.
+///
+/// Isto substitui o diálogo de cobrança que abria sozinho aqui. O objetivo é o
+/// oposto do anterior: deixar explícito que finalizar sem receber é um caminho
+/// normal e completo, não um passo pela metade.
+void _avisarSaldoEmAberto(BuildContext context, ServiceOrder order) {
   final saldo = order.payment?.balance ?? 0;
-  if (saldo <= 0) return false;
-  final me = ref.read(sessionControllerProvider).meOrNull;
-  return (me?.hasModule('cashier') ?? false) &&
-      (me?.hasPermission('cashier.write') ?? false);
-}
-
-/// Abre o MESMO diálogo de recebimento que a aba Fiado usa — "integrar com o
-/// caixa" é isto: nenhuma lógica de pagamento nova, só o mesmo caminho que já
-/// existe pra vendas, agora alcançável direto da OS. Aceita parcial (o saldo
-/// que sobra volta a aparecer como fiado) ou o total (a OS vira "Paga").
-Future<void> offerOsPayment(
-  BuildContext context,
-  WidgetRef ref,
-  ServiceOrder order,
-) async {
-  if (!canReceiveOsPayment(ref, order)) return;
-  final payment = order.payment!;
-  CashierConfig config;
-  try {
-    config = (await ref.read(cashierControllerProvider.future)).config;
-  } on Object {
-    return; // caixa indisponível não deve travar o fluxo da OS
-  }
-  if (!context.mounted) return;
-  final title = ReceivableTitle(
-    id: order.id,
-    origin: 'os',
-    number: order.number,
-    createdAt: order.createdAt,
-    total: payment.total,
-    paid: payment.paid,
-    balance: payment.balance,
-    status: payment.status,
+  if (saldo <= 0) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        'OS ${order.number} finalizada. Ficaram ${money(saldo.toString())} '
+        'em aberto — receba pelo Caixa quando o cliente pagar.',
+      ),
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(
+        label: 'Ir ao Caixa',
+        onPressed: () => context.go('/m/cashier'),
+      ),
+    ),
   );
-  await showReceiveTitleDialog(context, ref, config: config, title: title);
-  // O widget que abriu isto (ex.: o menu do card na lista) pode ter sido
-  // desmontado enquanto o diálogo estava aberto.
-  if (!context.mounted) return;
-  ref.invalidate(orderProvider(order.id));
-  ref.invalidate(orderListProvider);
 }
 
 /// Se há QUALQUER pagamento lançado para esta OS (mesmo já quitada) E o
