@@ -110,8 +110,19 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
   void clearFilters() => state = ItemListQuery(sort: state.sort);
 }
 
+/// **autoDispose de propósito**: sair da tela de Estoque zera busca e filtros.
+///
+/// Enquanto este provider sobrevivia à saída da tela, o `TextEditingController`
+/// da busca — que nasce vazio a cada montagem — passava a mentir: a caixa em
+/// branco e a lista obedecendo a um termo antigo. Em produção (19/08/2026) um
+/// tenant com 21 itens via só 2 ao voltar para o Estoque; eram exatamente os
+/// dois que continham o "t" de uma busca abandonada minutos antes.
+///
+/// Preservar filtro só se justificaria se houvesse ida-e-volta para um detalhe
+/// em outra rota. Não há: `/m/inventory` é rota única e a ficha do item abre
+/// inline na própria lista.
 final itemListQueryProvider =
-    NotifierProvider<ItemListQueryNotifier, ItemListQuery>(
+    NotifierProvider.autoDispose<ItemListQueryNotifier, ItemListQuery>(
         ItemListQueryNotifier.new);
 
 /// Estado da lista paginada. Dois modos (spec): mobile acumula lotes

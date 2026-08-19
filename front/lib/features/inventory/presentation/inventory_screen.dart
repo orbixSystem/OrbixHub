@@ -46,11 +46,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
-    // `itemListQueryProvider` não é autoDispose: os filtros sobrevivem à saída
-    // da tela (de propósito — voltar do detalhe mantém o contexto). Só que este
-    // controller nasce vazio a cada montagem, e sem a linha abaixo a lista volta
-    // filtrada por um termo que a caixa de busca não mostra. Foi assim que uma
-    // cliente com 84 itens viu a tela vazia e achou que tinha perdido o estoque.
+    // Rede de segurança do filtro invisível. A causa raiz é o provider sobreviver
+    // à tela, e ela foi cortada tornando-o autoDispose; isto cobre o resto: se o
+    // State for recriado com o provider ainda vivo (rebuild, rotação), a caixa
+    // volta mostrando o termo em vigor em vez de fingir que não há filtro.
+    // Caixa vazia filtrando a lista é o que fez uma cliente com 84 itens achar
+    // que tinha perdido o estoque.
     final q = ref.read(itemListQueryProvider).q;
     if (q != null && q.isNotEmpty) {
       _search.value = TextEditingValue(

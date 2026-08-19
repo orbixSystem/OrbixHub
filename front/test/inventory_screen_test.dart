@@ -155,6 +155,35 @@ void main() {
       expect(q.sort, ItemSort.priceDesc); // ordenar não esconde nada
     });
 
+    test('sair da tela zera busca e filtros (autoDispose)', () async {
+      final container = ProviderContainer(
+        overrides: [
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Tela aberta: alguém escuta o provider.
+      final naTela = container.listen(itemListQueryProvider, (_, _) {});
+      container.read(itemListQueryProvider.notifier).setQuery('t');
+      container.read(itemListQueryProvider.notifier).setLowStock(true);
+      expect(container.read(itemListQueryProvider).hasHidingFilters, isTrue);
+
+      // Saiu do Estoque: o último ouvinte cai.
+      naTela.close();
+      await Future<void>.delayed(Duration.zero);
+
+      // Voltou: tem de começar limpo, senão a lista filtra por um termo que a
+      // caixa de busca (recriada vazia) não mostra.
+      final devolta = container.listen(itemListQueryProvider, (_, _) {});
+      addTearDown(devolta.close);
+      final q = container.read(itemListQueryProvider);
+      expect(q.q, isNull);
+      expect(q.lowStock, isFalse);
+      expect(q.hasHidingFilters, isFalse);
+    });
+
     testWidgets('busca retida do provider aparece na caixa ao montar a tela',
         (tester) async {
       final fake = FakeInventoryRepository();
