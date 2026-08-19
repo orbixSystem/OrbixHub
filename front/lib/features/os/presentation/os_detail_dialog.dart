@@ -83,7 +83,7 @@ class _OsDetail extends ConsumerWidget {
             Text(
               '$e',
               textAlign: TextAlign.center,
-              style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
             ),
             const SizedBox(height: 12),
             NeuButton(
@@ -109,7 +109,9 @@ class _Corpo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final simples = osSimpleStatusOf(order.status);
-    final corStatus = osSimpleStatusColor(simples);
+    // Gráfico para o tint, legível para o rótulo — ver osStatusInk.
+    final corStatus = osSimpleStatusInk(simples, Theme.of(context).brightness);
+    final tintStatus = osSimpleStatusColor(simples);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,7 +133,7 @@ class _Corpo extends ConsumerWidget {
             NeuStatusChip(
               label: osSimpleStatusLabel(simples),
               color: corStatus,
-              tint: corStatus.withValues(alpha: .14),
+              tint: tintStatus.withValues(alpha: .14),
               icon: osSimpleStatusIcon(simples),
             ),
           ],
@@ -159,7 +161,7 @@ class _Corpo extends ConsumerWidget {
           'Itens',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -167,7 +169,7 @@ class _Corpo extends ConsumerWidget {
         if (order.items.isEmpty)
           Text(
             'Sem itens lançados.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           )
         else
           NeuSurface(
@@ -193,7 +195,7 @@ class _Corpo extends ConsumerWidget {
                           child: Text(
                             _qtdPrefixo(i.quantity) + i.name,
                             maxLines: 2,
-                            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                            style: TextStyle(color: neu.inkMuted, fontSize: 14),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -286,7 +288,7 @@ class _Linha extends StatelessWidget {
               valor,
               style: TextStyle(
                 color: destaque ? neu.warning : neu.ink,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: destaque ? FontWeight.w800 : FontWeight.w600,
               ),
             ),

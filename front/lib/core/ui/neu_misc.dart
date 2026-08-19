@@ -47,7 +47,7 @@ class NeuEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: neu.ink,
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -145,7 +145,7 @@ class NeuSegmented<T> extends StatelessWidget {
                         color: entry.key == selected
                             ? neu.onNavy
                             : neu.inkMuted,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

@@ -53,7 +53,11 @@ void main() {
 
   testWidgets('tela larga o bastante para caber tudo não mostra a seta',
       (tester) async {
-    await montar(tester, largura: 1200);
+    // Era 1200px. Subiu para 1440 quando o texto operacional foi ao mínimo de
+    // 14px do padrão SysOne: os mesmos filtros passaram a exigir ~1280px para
+    // caber. Não é regressão — é o custo, aceito, de texto legível; a seta
+    // existe exatamente para o caso de não caber.
+    await montar(tester, largura: 1440);
     expect(find.byIcon(Icons.keyboard_double_arrow_right_rounded), findsNothing);
   });
 }

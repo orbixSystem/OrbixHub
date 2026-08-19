@@ -335,8 +335,13 @@ class _TemplatePickerPanelState extends ConsumerState<TemplatePickerPanel> {
           style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
         ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        // Wrap, não Row: com o rótulo de botão no piso de 16px do padrão
+        // SysOne os dois botões não cabem lado a lado num diálogo estreito
+        // (estourava 5,3px). Assim eles empilham em vez de cortar.
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 10,
+          runSpacing: 10,
           children: [
             NeuButton(
               label: 'Voltar',
@@ -344,7 +349,6 @@ class _TemplatePickerPanelState extends ConsumerState<TemplatePickerPanel> {
               icon: Icons.arrow_back_rounded,
               onPressed: () => setState(() => _criando = false),
             ),
-            const SizedBox(width: 10),
             NeuButton(
               label: 'Salvar template',
               icon: Icons.check_rounded,

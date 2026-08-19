@@ -882,7 +882,7 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
         label,
         style: TextStyle(
           color: context.neu.inkMuted,
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -1013,7 +1013,7 @@ class _CodeFirstCard extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.brandDeep,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -1085,7 +1085,7 @@ class _SectionHeader extends StatelessWidget {
           style: TextStyle(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
-            fontSize: 13,
+            fontSize: 14,
           ),
         ),
       ],

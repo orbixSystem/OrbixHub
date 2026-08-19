@@ -1,5 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/charts/chart_common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
@@ -18,7 +20,7 @@ import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
-    show osStatuses, osStatusColor, osStatusLabel, OsStatusChip;
+    show osStatuses, osStatusInk, osStatusLabel, OsStatusChip;
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
@@ -47,7 +49,8 @@ class ReportScreen extends ConsumerWidget {
     // como gerá-los (nem exportar).
     if (ref.watch(isOfflineProvider)) {
       return const RequiresConnectionView(
-        message: 'Os relatórios são calculados no servidor. Conecte-se à '
+        message:
+            'Os relatórios são calculados no servidor. Conecte-se à '
             'internet para gerá-los e exportá-los.',
       );
     }
@@ -83,13 +86,16 @@ class ReportScreen extends ConsumerWidget {
         final header = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Relatórios',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Relatórios',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 4),
             Text(
               'Lentes detalhadas sobre os dados dos seus módulos.',
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         );
@@ -112,9 +118,7 @@ class ReportScreen extends ConsumerWidget {
                     children: [
                       SizedBox(width: 240, child: picker),
                       const SizedBox(width: 24),
-                      Expanded(
-                        child: SingleChildScrollView(child: content),
-                      ),
+                      Expanded(child: SingleChildScrollView(child: content)),
                     ],
                   ),
                 ),
@@ -181,7 +185,7 @@ class _ReportPicker extends ConsumerWidget {
                 child: Text(
                   entry.key.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                     color: neu.inkFaint,
@@ -244,7 +248,7 @@ class _PickerItem extends StatelessWidget {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     color: selected ? neu.ink : neu.inkMuted,
                   ),
@@ -320,7 +324,7 @@ class _ReportChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: selected ? neu.onNavy : neu.inkMuted,
           ),
@@ -432,10 +436,7 @@ class _FiltersBar extends ConsumerWidget {
           const _OsSearchField(),
           const _OsSortMenu(),
         ],
-        if (kind == ReportKind.topItems) ...[
-          kindFilter,
-          limitFilter,
-        ],
+        if (kind == ReportKind.topItems) ...[kindFilter, limitFilter],
       ],
     );
   }
@@ -466,10 +467,7 @@ class _MemberFilter extends ConsumerWidget {
             isDense: true,
           ),
           items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('Todos'),
-            ),
+            const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
             for (final m in members)
               DropdownMenuItem<String?>(value: m.id, child: Text(m.name)),
           ],
@@ -493,10 +491,7 @@ class _StatusFilter extends StatelessWidget {
       child: DropdownButtonFormField<String?>(
         initialValue: value,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Status',
-          isDense: true,
-        ),
+        decoration: const InputDecoration(labelText: 'Status', isDense: true),
         items: [
           const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
           for (final s in osStatuses)
@@ -521,10 +516,7 @@ class _KindFilter extends StatelessWidget {
       child: DropdownButtonFormField<String?>(
         initialValue: value,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Tipo',
-          isDense: true,
-        ),
+        decoration: const InputDecoration(labelText: 'Tipo', isDense: true),
         items: const [
           DropdownMenuItem<String?>(value: null, child: Text('Todos')),
           DropdownMenuItem<String?>(value: 'product', child: Text('Produtos')),
@@ -549,10 +541,7 @@ class _LimitFilter extends StatelessWidget {
       child: DropdownButtonFormField<int>(
         initialValue: value,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Top',
-          isDense: true,
-        ),
+        decoration: const InputDecoration(labelText: 'Top', isDense: true),
         items: const [
           DropdownMenuItem(value: 5, child: Text('Top 5')),
           DropdownMenuItem(value: 10, child: Text('Top 10')),
@@ -682,7 +671,10 @@ class _ReportBody extends ConsumerWidget {
           period: _periodLabel(ref),
         );
       case ReportKind.cashFlow:
-        return _CashFlowReport(company: _company(ref), period: _periodLabel(ref));
+        return _CashFlowReport(
+          company: _company(ref),
+          period: _periodLabel(ref),
+        );
       case ReportKind.customers:
         // Clientes pode ter milhares de linhas no período → lista PAGINADA
         // (scroll infinito, render leve), como a OS operacional. O gráfico usa a
@@ -721,10 +713,7 @@ class _OverviewReport extends ConsumerWidget {
           const SizedBox(height: 18),
           _OverviewKpis(me: me, revenue: revenue),
           const SizedBox(height: 20),
-          _OverviewCharts(
-            revenue: revenue,
-            memberNames: memberNames,
-          ),
+          _OverviewCharts(revenue: revenue, memberNames: memberNames),
         ],
       ),
     );
@@ -744,8 +733,7 @@ class _OverviewKpis extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     // Nº de OS no período = soma das contagens por status do faturamento.
-    final osCount =
-        revenue.byStatus.values.fold<int>(0, (a, b) => a + b.count);
+    final osCount = revenue.byStatus.values.fold<int>(0, (a, b) => a + b.count);
     // "Atrasadas" não vem do RevenueReport (não há esse recorte lá); usa a
     // métrica gerencial de OS, que reage ao MESMO período selecionado.
     final osMetrics = ref.watch(osManagementMetricsProvider);
@@ -784,25 +772,29 @@ class _OverviewKpis extends ConsumerWidget {
     if (me.hasModule('customers')) {
       final cust = ref.watch(customersReportProvider);
       final data = cust.asData?.value;
-      tiles.add(KpiTile(
-        icon: Icons.people_alt_outlined,
-        glyphIndex: 3,
-        label: 'Novos clientes',
-        loading: cust.isLoading,
-        value: '${data?.newInRange ?? 0}',
-        sub: data != null && data.active > 0 ? '${data.active} ativos' : null,
-      ));
+      tiles.add(
+        KpiTile(
+          icon: Icons.people_alt_outlined,
+          glyphIndex: 3,
+          label: 'Novos clientes',
+          loading: cust.isLoading,
+          value: '${data?.newInRange ?? 0}',
+          sub: data != null && data.active > 0 ? '${data.active} ativos' : null,
+        ),
+      );
     }
 
     if (me.hasModule('inventory')) {
       final inv = ref.watch(inventoryReportProvider);
-      tiles.add(KpiTile(
-        icon: Icons.inventory_2_outlined,
-        glyphIndex: 5,
-        label: 'Valor em estoque',
-        loading: inv.isLoading,
-        value: formatMoney(inv.asData?.value.stockValue ?? 0),
-      ));
+      tiles.add(
+        KpiTile(
+          icon: Icons.inventory_2_outlined,
+          glyphIndex: 5,
+          label: 'Valor em estoque',
+          loading: inv.isLoading,
+          value: formatMoney(inv.asData?.value.stockValue ?? 0),
+        ),
+      );
     }
 
     return _OverviewKpiGrid(tiles: tiles);
@@ -832,20 +824,22 @@ class _OverviewKpiGrid extends StatelessWidget {
         final rows = <Widget>[];
         for (var i = 0; i < n; i += cols) {
           final slice = tiles.skip(i).take(cols).toList();
-          rows.add(Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var j = 0; j < slice.length; j++) ...[
-                    if (j > 0) const SizedBox(width: gap),
-                    Expanded(child: slice[j]),
+          rows.add(
+            Padding(
+              padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = 0; j < slice.length; j++) ...[
+                      if (j > 0) const SizedBox(width: gap),
+                      Expanded(child: slice[j]),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ));
+          );
         }
         return Column(children: rows);
       },
@@ -889,17 +883,19 @@ class _OverviewCharts extends ConsumerWidget {
     final rows = <Widget>[];
     for (var i = 0; i < cards.length; i += 2) {
       final right = i + 1 < cards.length ? cards[i + 1] : null;
-      rows.add(Padding(
-        padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: cards[i]),
-            const SizedBox(width: gap),
-            Expanded(child: right ?? const SizedBox.shrink()),
-          ],
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : gap),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: cards[i]),
+              const SizedBox(width: gap),
+              Expanded(child: right ?? const SizedBox.shrink()),
+            ],
+          ),
         ),
-      ));
+      );
     }
     return Column(children: rows);
   }
@@ -927,7 +923,9 @@ class _RevenueLineCard extends StatelessWidget {
     final days = report.byDay;
     if (days.isEmpty) {
       return const NeuChartCard(
-          title: 'Faturamento no tempo', child: _ChartEmpty());
+        title: 'Faturamento no tempo',
+        child: _ChartEmpty(),
+      );
     }
     final maxY = days
         .map((d) => d.revenue.toDouble())
@@ -940,53 +938,55 @@ class _RevenueLineCard extends StatelessWidget {
 
     return NeuChartCard(
       title: 'Faturamento no tempo',
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: (days.length - 1).toDouble(),
-          minY: 0,
-          maxY: top,
-          gridData: neuGrid(context, interval: top / 4),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: neuLeftTitles(
-              context,
-              format: neuShortMoney,
-              interval: top / 4,
-            ),
-            rightTitles: neuNoAxis,
-            topTitles: neuNoAxis,
-            bottomTitles: neuBottomTitles(
-              context,
-              count: days.length,
-              label: (i) => _dayShort(days[i].day),
-            ),
-          ),
-          lineTouchData: neuLineTouch(
-            context,
-            label: (i, v) => formatMoney(v),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              curveSmoothness: 0.25,
-              barWidth: 3,
-              color: neu.accent,
-              dotData: FlDotData(show: days.length <= 14),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    neu.accent.withValues(alpha: .28),
-                    neu.accent.withValues(alpha: .02),
-                  ],
-                ),
+      child: ChartSemantics(
+        child: LineChart(
+          LineChartData(
+            minX: 0,
+            maxX: (days.length - 1).toDouble(),
+            minY: 0,
+            maxY: top,
+            gridData: neuGrid(context, interval: top / 4),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: neuLeftTitles(
+                context,
+                format: neuShortMoney,
+                interval: top / 4,
+              ),
+              rightTitles: neuNoAxis,
+              topTitles: neuNoAxis,
+              bottomTitles: neuBottomTitles(
+                context,
+                count: days.length,
+                label: (i) => _dayShort(days[i].day),
               ),
             ),
-          ],
+            lineTouchData: neuLineTouch(
+              context,
+              label: (i, v) => formatMoney(v),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: true,
+                curveSmoothness: 0.25,
+                barWidth: 3,
+                color: neu.accent,
+                dotData: FlDotData(show: days.length <= 14),
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      neu.accent.withValues(alpha: .28),
+                      neu.accent.withValues(alpha: .02),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1012,8 +1012,7 @@ class _StatusDonutCard extends StatelessWidget {
         if (!osStatuses.contains(e.key) && e.value.count > 0) e,
     ];
     if (entries.isEmpty) {
-      return const NeuChartCard(
-          title: 'OS por status', child: _ChartEmpty());
+      return const NeuChartCard(title: 'OS por status', child: _ChartEmpty());
     }
 
     final total = entries.fold<int>(0, (a, e) => a + e.value.count);
@@ -1024,28 +1023,32 @@ class _StatusDonutCard extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 40,
-                sections: [
-                  for (final e in entries)
-                    PieChartSectionData(
-                      value: e.value.count.toDouble(),
-                      color: osStatusColor(e.key),
-                      // Rótulo direto só na fatia grande (≥12%); as pequenas
-                      // ficam só na legenda para não sobrepor.
-                      title: total > 0 && e.value.count / total >= 0.12
-                          ? '${e.value.count}'
-                          : '',
-                      radius: 44,
-                      titleStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+            child: ChartSemantics(
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    for (final e in entries)
+                      PieChartSectionData(
+                        value: e.value.count.toDouble(),
+                        // A fatia carrega a contagem em BRANCO: a paleta
+                        // gráfica não sustenta isso (2,3:1 no âmbar).
+                        color: osStatusInk(e.key, Brightness.light),
+                        // Rótulo direto só na fatia grande (≥12%); as pequenas
+                        // ficam só na legenda para não sobrepor.
+                        title: total > 0 && e.value.count / total >= 0.12
+                            ? '${e.value.count}'
+                            : '',
+                        radius: 44,
+                        titleStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1065,7 +1068,10 @@ class _StatusDonutCard extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: osStatusColor(e.key),
+                            color: osStatusInk(
+                              e.key,
+                              Theme.of(context).brightness,
+                            ),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -1073,8 +1079,10 @@ class _StatusDonutCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             osStatusLabel(e.key),
-                            style:
-                                TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                            style: TextStyle(
+                              color: neu.inkMuted,
+                              fontSize: 12.5,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1126,43 +1134,45 @@ class _OverviewTopItemsCard extends StatelessWidget {
 
         return NeuChartCard(
           title: title,
-          child: BarChart(
-            BarChartData(
-              maxY: top,
-              gridData: neuGrid(context, interval: top / 4),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                leftTitles: neuLeftTitles(
-                  context,
-                  format: neuShortMoney,
-                  interval: top / 4,
-                ),
-                rightTitles: neuNoAxis,
-                topTitles: neuNoAxis,
-                bottomTitles: neuBottomTitles(
-                  context,
-                  count: rows.length,
-                  label: (i) => _clip(rows[i].name, 8),
-                ),
-              ),
-              barTouchData: neuBarTouch(
-                context,
-                label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
-              ),
-              barGroups: [
-                for (var i = 0; i < rows.length; i++)
-                  BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      neuBarRod(
-                        context,
-                        rows[i].revenue.toDouble(),
-                        width: 16,
-                        color: neu.accent,
-                      ),
-                    ],
+          child: ChartSemantics(
+            child: BarChart(
+              BarChartData(
+                maxY: top,
+                gridData: neuGrid(context, interval: top / 4),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: neuLeftTitles(
+                    context,
+                    format: neuShortMoney,
+                    interval: top / 4,
                   ),
-              ],
+                  rightTitles: neuNoAxis,
+                  topTitles: neuNoAxis,
+                  bottomTitles: neuBottomTitles(
+                    context,
+                    count: rows.length,
+                    label: (i) => _clip(rows[i].name, 8),
+                  ),
+                ),
+                barTouchData: neuBarTouch(
+                  context,
+                  label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
+                ),
+                barGroups: [
+                  for (var i = 0; i < rows.length; i++)
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        neuBarRod(
+                          context,
+                          rows[i].revenue.toDouble(),
+                          width: 16,
+                          color: neu.accent,
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -1204,7 +1214,7 @@ class _ChartEmpty extends StatelessWidget {
     return Center(
       child: Text(
         message,
-        style: TextStyle(color: context.neu.inkMuted, fontSize: 13),
+        style: TextStyle(color: context.neu.inkMuted, fontSize: 14),
       ),
     );
   }
@@ -1270,11 +1280,7 @@ class _AsyncReport<T> extends StatelessWidget {
                   table.title,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                _ExportButtons(
-                  table: table,
-                  company: company,
-                  period: period,
-                ),
+                _ExportButtons(table: table, company: company, period: period),
               ],
             ),
             const SizedBox(height: 18),
@@ -1336,21 +1342,23 @@ class _InventoryReport extends ConsumerWidget {
               runSpacing: 12,
               spacing: 16,
               children: [
-                Text('Posição de estoque',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Posição de estoque',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 _ServerExportButtons(company: company),
               ],
             ),
             const SizedBox(height: 18),
             _SummaryStat(
-                label: 'Valor em estoque',
-                value: formatMoney(data.stockValue)),
+              label: 'Valor em estoque',
+              value: formatMoney(data.stockValue),
+            ),
             const SizedBox(height: 18),
             if (empty)
               const _Empty(message: 'Sem itens em estoque.')
             else ...[
-              _DataTableCard(
-                  table: inventoryTable(data, includeTotal: false)),
+              _DataTableCard(table: inventoryTable(data, includeTotal: false)),
               const SizedBox(height: 12),
               _InventoryPager(report: data),
             ],
@@ -1415,7 +1423,8 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Não foi possível gerar o arquivo. Tente novamente.')),
+            content: Text('Não foi possível gerar o arquivo. Tente novamente.'),
+          ),
         );
       }
     } finally {
@@ -1426,23 +1435,22 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
   }
 
   Future<void> _csv() => _run(
-        isPdf: false,
-        task: () async {
-          final bytes = await ref.read(reportRepositoryProvider).inventoryCsv();
-          downloadBytes(bytes, 'posicao-de-estoque.csv',
-              'text/csv;charset=utf-8');
-        },
-      );
+    isPdf: false,
+    task: () async {
+      final bytes = await ref.read(reportRepositoryProvider).inventoryCsv();
+      downloadBytes(bytes, 'posicao-de-estoque.csv', 'text/csv;charset=utf-8');
+    },
+  );
 
   Future<void> _pdf() => _run(
-        isPdf: true,
-        task: () async {
-          final bytes = await ref
-              .read(reportRepositoryProvider)
-              .inventoryPdf(company: _exportCompany());
-          downloadBytes(bytes, 'posicao-de-estoque.pdf', 'application/pdf');
-        },
-      );
+    isPdf: true,
+    task: () async {
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .inventoryPdf(company: _exportCompany());
+      downloadBytes(bytes, 'posicao-de-estoque.pdf', 'application/pdf');
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1455,18 +1463,20 @@ class _ServerExportButtonsState extends ConsumerState<_ServerExportButtons> {
         onPressed: busy
             ? null
             : () => _showExportSheet(
-                  context,
-                  options: [
-                    _ExportOption(
-                        label: 'Exportar CSV',
-                        icon: Icons.table_view_outlined,
-                        onTap: _csv),
-                    _ExportOption(
-                        label: 'Exportar PDF',
-                        icon: Icons.picture_as_pdf_outlined,
-                        onTap: _pdf),
-                  ],
-                ),
+                context,
+                options: [
+                  _ExportOption(
+                    label: 'Exportar CSV',
+                    icon: Icons.table_view_outlined,
+                    onTap: _csv,
+                  ),
+                  _ExportOption(
+                    label: 'Exportar PDF',
+                    icon: Icons.picture_as_pdf_outlined,
+                    onTap: _pdf,
+                  ),
+                ],
+              ),
       );
     }
 
@@ -1529,8 +1539,8 @@ class _OsExportButtonsState extends ConsumerState<_OsExportButtons> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content:
-                  Text('Não foi possível gerar o arquivo. Tente novamente.')),
+            content: Text('Não foi possível gerar o arquivo. Tente novamente.'),
+          ),
         );
       }
     } finally {
@@ -1541,44 +1551,49 @@ class _OsExportButtonsState extends ConsumerState<_OsExportButtons> {
   }
 
   Future<void> _csv() => _run(
-        isPdf: false,
-        task: () async {
-          final f = ref.read(reportFiltersProvider);
-          final bytes = await ref.read(reportRepositoryProvider).osCsv(
-                range: ref.read(reportRangeProvider),
-                assignedTo: f.assignedTo,
-                status: f.status,
-                q: f.osQ,
-                sort: f.osSort.key,
-              );
-          downloadBytes(bytes, 'os-operacional.csv', 'text/csv;charset=utf-8');
-        },
-      );
+    isPdf: false,
+    task: () async {
+      final f = ref.read(reportFiltersProvider);
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .osCsv(
+            range: ref.read(reportRangeProvider),
+            assignedTo: f.assignedTo,
+            status: f.status,
+            q: f.osQ,
+            sort: f.osSort.key,
+          );
+      downloadBytes(bytes, 'os-operacional.csv', 'text/csv;charset=utf-8');
+    },
+  );
 
   Future<void> _pdf() => _run(
-        isPdf: true,
-        task: () async {
-          final f = ref.read(reportFiltersProvider);
-          final bytes = await ref.read(reportRepositoryProvider).osPdf(
-                range: ref.read(reportRangeProvider),
-                assignedTo: f.assignedTo,
-                status: f.status,
-                q: f.osQ,
-                sort: f.osSort.key,
-                company: _exportCompany(),
-              );
-          downloadBytes(bytes, 'os-operacional.pdf', 'application/pdf');
-        },
-      );
+    isPdf: true,
+    task: () async {
+      final f = ref.read(reportFiltersProvider);
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .osPdf(
+            range: ref.read(reportRangeProvider),
+            assignedTo: f.assignedTo,
+            status: f.status,
+            q: f.osQ,
+            sort: f.osSort.key,
+            company: _exportCompany(),
+          );
+      downloadBytes(bytes, 'os-operacional.pdf', 'application/pdf');
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
     const compact = Size(0, 40);
     const pad = EdgeInsets.symmetric(horizontal: 16);
     Widget spinner() => const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2));
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1618,7 +1633,8 @@ class _CashFlowReport extends ConsumerWidget {
         child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
       ),
       error: (e, _) => _ErrorBox(
-          onRetry: () => ref.invalidate(cashierRecebidoReportProvider)),
+        onRetry: () => ref.invalidate(cashierRecebidoReportProvider),
+      ),
       data: (s) {
         final table = cashFlowTable(s);
         final empty = s.byMethod.isEmpty;
@@ -1631,8 +1647,10 @@ class _CashFlowReport extends ConsumerWidget {
               runSpacing: 12,
               spacing: 16,
               children: [
-                Text('Caixa — recebido por forma',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Caixa — recebido por forma',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 _ExportButtons(table: table, company: company, period: period),
               ],
             ),
@@ -1640,7 +1658,8 @@ class _CashFlowReport extends ConsumerWidget {
             Text(
               'O que passou pelo caixa no período (recebido — não é faturamento).',
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 18),
             Wrap(
@@ -1680,10 +1699,9 @@ class _SummaryStat extends StatelessWidget {
         children: [
           Text(
             value,
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(color: neu.ink),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: neu.ink),
           ),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
@@ -1723,9 +1741,11 @@ double? _numKey(String s, _ColType type) {
   if (type == _ColType.date) {
     final m = _dateRe.firstMatch(s.trim());
     if (m == null) return null;
-    return DateTime(int.parse(m[3]!), int.parse(m[2]!), int.parse(m[1]!))
-        .millisecondsSinceEpoch
-        .toDouble();
+    return DateTime(
+      int.parse(m[3]!),
+      int.parse(m[2]!),
+      int.parse(m[1]!),
+    ).millisecondsSinceEpoch.toDouble();
   }
   return _parseBrNumber(s);
 }
@@ -1789,11 +1809,15 @@ class _DataTableCardState extends State<_DataTableCard> {
 
     final neu = context.neu;
     final headers = table.headers;
-    final types = [
-      for (var c = 0; c < headers.length; c++) _colType(table, c),
+    final types = [for (var c = 0; c < headers.length; c++) _colType(table, c)];
+    final dataRows = [
+      for (final r in table.rows)
+        if (!_isTotalRow(r)) r,
     ];
-    final dataRows = [for (final r in table.rows) if (!_isTotalRow(r)) r];
-    final totalRows = [for (final r in table.rows) if (_isTotalRow(r)) r];
+    final totalRows = [
+      for (final r in table.rows)
+        if (_isTotalRow(r)) r,
+    ];
     if (_sortCol != null && _sortCol! < headers.length) {
       dataRows.sort((a, b) => _cmp(a, b, _sortCol!, types[_sortCol!]));
     }
@@ -1816,56 +1840,56 @@ class _DataTableCardState extends State<_DataTableCard> {
                 horizontalMargin: 20,
                 sortColumnIndex: _sortCol,
                 sortAscending: _asc,
-            headingRowColor: WidgetStateProperty.all(neu.surfaceHi),
-            headingTextStyle: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: neu.inkMuted,
-              letterSpacing: 0.2,
-            ),
-            dataTextStyle: TextStyle(fontSize: 13.5, color: neu.ink),
-            dividerThickness: 0.5,
-            columns: [
-              for (var c = 0; c < headers.length; c++)
-                DataColumn(
-                  label: Text(headers[c]),
-                  numeric: types[c] == _ColType.number,
-                  onSort: (i, asc) => setState(() {
-                    _sortCol = i;
-                    _asc = asc;
-                  }),
+                headingRowColor: WidgetStateProperty.all(neu.surfaceHi),
+                headingTextStyle: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: neu.inkMuted,
+                  letterSpacing: 0.2,
                 ),
-            ],
-            rows: [
-              for (var i = 0; i < ordered.length; i++)
-                () {
-                  final row = ordered[i];
-                  final total = _isTotalRow(row);
-                  return DataRow(
-                    color: WidgetStateProperty.all(
-                      total
-                          ? neu.accentTint
-                          : (i.isOdd
-                              ? neu.base.withValues(alpha: 0.5)
-                              : null),
+                dataTextStyle: TextStyle(fontSize: 14, color: neu.ink),
+                dividerThickness: 0.5,
+                columns: [
+                  for (var c = 0; c < headers.length; c++)
+                    DataColumn(
+                      label: Text(headers[c]),
+                      numeric: types[c] == _ColType.number,
+                      onSort: (i, asc) => setState(() {
+                        _sortCol = i;
+                        _asc = asc;
+                      }),
                     ),
-                    cells: [
-                      for (final cell in row)
-                        DataCell(
-                          Text(
-                            cell,
-                            style: total
-                                ? TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: neu.navy,
-                                  )
-                                : null,
-                          ),
+                ],
+                rows: [
+                  for (var i = 0; i < ordered.length; i++)
+                    () {
+                      final row = ordered[i];
+                      final total = _isTotalRow(row);
+                      return DataRow(
+                        color: WidgetStateProperty.all(
+                          total
+                              ? neu.accentTint
+                              : (i.isOdd
+                                    ? neu.base.withValues(alpha: 0.5)
+                                    : null),
                         ),
-                    ],
-                  );
-                }(),
-            ],
+                        cells: [
+                          for (final cell in row)
+                            DataCell(
+                              Text(
+                                cell,
+                                style: total
+                                    ? TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: neu.navy,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                        ],
+                      );
+                    }(),
+                ],
               ),
             ),
           ),
@@ -1896,71 +1920,86 @@ class _MobileTableCards extends StatelessWidget {
           for (var c = 1; c < row.length && c < headers.length; c++)
             if (!_isEmptyCell(row[c])) (headers[c], row[c]),
         ];
-        cards.add(NeuCard(
-          color: neu.accentTint,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              Text('TOTAL',
+        cards.add(
+          NeuCard(
+            color: neu.accentTint,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              children: [
+                Text(
+                  'TOTAL',
                   style: TextStyle(
-                      fontWeight: FontWeight.w800, color: neu.navy)),
-              const Spacer(),
-              for (final p in pairs) ...[
-                Text('${p.$1}: ',
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
-                Text(p.$2,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800, color: neu.navy)),
-                const SizedBox(width: 12),
-              ],
-            ],
-          ),
-        ));
-        continue;
-      }
-      cards.add(NeuCard(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              row.isNotEmpty ? row.first : '',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
-            ),
-            const SizedBox(height: 8),
-            for (var c = 1; c < row.length && c < headers.length; c++)
-              if (!_isEmptyCell(row[c]))
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          headers[c],
-                          style:
-                              TextStyle(color: neu.inkMuted, fontSize: 12.5),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          row[c],
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: TextStyle(
-                              color: neu.ink, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
+                    fontWeight: FontWeight.w800,
+                    color: neu.navy,
                   ),
                 ),
-          ],
+                const Spacer(),
+                for (final p in pairs) ...[
+                  Text(
+                    '${p.$1}: ',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                  ),
+                  Text(
+                    p.$2,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: neu.navy,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+      cards.add(
+        NeuCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                row.isNotEmpty ? row.first : '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
+              ),
+              const SizedBox(height: 8),
+              for (var c = 1; c < row.length && c < headers.length; c++)
+                if (!_isEmptyCell(row[c]))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            headers[c],
+                            style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            row[c],
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: neu.ink,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
         ),
-      ));
+      );
     }
 
     return Column(
@@ -2024,7 +2063,7 @@ void _showExportSheet(
                 'Exportar relatório',
                 style: TextStyle(
                   color: neu.ink,
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -2063,22 +2102,21 @@ class _ExportButtons extends StatelessWidget {
   final String? period;
 
   void _csv() => downloadText(
-      buildCsv(table), csvFileName(table.title), 'text/csv;charset=utf-8');
+    buildCsv(table),
+    csvFileName(table.title),
+    'text/csv;charset=utf-8',
+  );
 
   void _excel() => downloadBytes(
-        buildXlsx(table, company: company?.name, period: period),
-        xlsxFileName(table.title),
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
+    buildXlsx(table, company: company?.name, period: period),
+    xlsxFileName(table.title),
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
 
   void _pdf() => Printing.layoutPdf(
-        onLayout: (format) => buildReportPdf(
-          table,
-          format,
-          company: company,
-          periodLabel: period,
-        ),
-      );
+    onLayout: (format) =>
+        buildReportPdf(table, format, company: company, periodLabel: period),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -2090,17 +2128,20 @@ class _ExportButtons extends StatelessWidget {
           context,
           options: [
             _ExportOption(
-                label: 'Exportar CSV',
-                icon: Icons.table_view_outlined,
-                onTap: _csv),
+              label: 'Exportar CSV',
+              icon: Icons.table_view_outlined,
+              onTap: _csv,
+            ),
             _ExportOption(
-                label: 'Exportar Excel',
-                icon: Icons.grid_on_outlined,
-                onTap: _excel),
+              label: 'Exportar Excel',
+              icon: Icons.grid_on_outlined,
+              onTap: _excel,
+            ),
             _ExportOption(
-                label: 'Exportar PDF',
-                icon: Icons.picture_as_pdf_outlined,
-                onTap: _pdf),
+              label: 'Exportar PDF',
+              icon: Icons.picture_as_pdf_outlined,
+              onTap: _pdf,
+            ),
           ],
         ),
       );
@@ -2151,45 +2192,52 @@ class _RevenueChart extends StatelessWidget {
     final width = days.length > 20
         ? 6.0
         : days.length > 10
-            ? 12.0
-            : days.length > 4
-                ? 20.0
-                : 30.0;
+        ? 12.0
+        : days.length > 4
+        ? 20.0
+        : 30.0;
 
     return NeuChartCard(
       title: 'Evolução do faturamento',
-      child: BarChart(
-        BarChartData(
-          maxY: top,
-          alignment: BarChartAlignment.spaceAround,
-          gridData: neuGrid(context, interval: top / 4),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: neuLeftTitles(
-              context,
-              format: neuShortMoney,
-              interval: top / 4,
-            ),
-            rightTitles: neuNoAxis,
-            topTitles: neuNoAxis,
-            bottomTitles: neuBottomTitles(
-              context,
-              count: days.length,
-              label: (i) => _dayShort(days[i].day),
-            ),
-          ),
-          barTouchData: neuBarTouch(
-            context,
-            label: (i, v) => '${_dayShort(days[i].day)}\n${formatMoney(v)}',
-          ),
-          barGroups: [
-            for (var i = 0; i < days.length; i++)
-              BarChartGroupData(
-                x: i,
-                barRods: [neuBarRod(context, days[i].revenue.toDouble(),
-                    width: width)],
+      child: ChartSemantics(
+        child: BarChart(
+          BarChartData(
+            maxY: top,
+            alignment: BarChartAlignment.spaceAround,
+            gridData: neuGrid(context, interval: top / 4),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: neuLeftTitles(
+                context,
+                format: neuShortMoney,
+                interval: top / 4,
               ),
-          ],
+              rightTitles: neuNoAxis,
+              topTitles: neuNoAxis,
+              bottomTitles: neuBottomTitles(
+                context,
+                count: days.length,
+                label: (i) => _dayShort(days[i].day),
+              ),
+            ),
+            barTouchData: neuBarTouch(
+              context,
+              label: (i, v) => '${_dayShort(days[i].day)}\n${formatMoney(v)}',
+            ),
+            barGroups: [
+              for (var i = 0; i < days.length; i++)
+                BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    neuBarRod(
+                      context,
+                      days[i].revenue.toDouble(),
+                      width: width,
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2214,45 +2262,48 @@ class _TeamChart extends StatelessWidget {
 
     return NeuChartCard(
       title: 'Faturamento por responsável',
-      child: BarChart(
-        BarChartData(
-          maxY: top,
-          alignment: BarChartAlignment.spaceAround,
-          gridData: neuGrid(context, interval: top / 4),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: neuLeftTitles(
-              context,
-              format: neuShortMoney,
-              interval: top / 4,
-            ),
-            rightTitles: neuNoAxis,
-            topTitles: neuNoAxis,
-            bottomTitles: neuBottomTitles(
-              context,
-              count: rows.length,
-              label: (i) => _clip(assignedLabel(rows[i].assignedTo, names), 8),
-            ),
-          ),
-          barTouchData: neuBarTouch(
-            context,
-            label: (i, v) =>
-                '${assignedLabel(rows[i].assignedTo, names)}\n${formatMoney(v)}',
-          ),
-          barGroups: [
-            for (var i = 0; i < rows.length; i++)
-              BarChartGroupData(
-                x: i,
-                barRods: [
-                  neuBarRod(
-                    context,
-                    rows[i].revenue.toDouble(),
-                    width: rows.length > 8 ? 14 : 22,
-                    color: neu.accent,
-                  ),
-                ],
+      child: ChartSemantics(
+        child: BarChart(
+          BarChartData(
+            maxY: top,
+            alignment: BarChartAlignment.spaceAround,
+            gridData: neuGrid(context, interval: top / 4),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: neuLeftTitles(
+                context,
+                format: neuShortMoney,
+                interval: top / 4,
               ),
-          ],
+              rightTitles: neuNoAxis,
+              topTitles: neuNoAxis,
+              bottomTitles: neuBottomTitles(
+                context,
+                count: rows.length,
+                label: (i) =>
+                    _clip(assignedLabel(rows[i].assignedTo, names), 8),
+              ),
+            ),
+            barTouchData: neuBarTouch(
+              context,
+              label: (i, v) =>
+                  '${assignedLabel(rows[i].assignedTo, names)}\n${formatMoney(v)}',
+            ),
+            barGroups: [
+              for (var i = 0; i < rows.length; i++)
+                BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    neuBarRod(
+                      context,
+                      rows[i].revenue.toDouble(),
+                      width: rows.length > 8 ? 14 : 22,
+                      color: neu.accent,
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2277,42 +2328,49 @@ class _TopItemsChart extends StatelessWidget {
 
     return NeuChartCard(
       title: 'Receita por item',
-      height: 260,
-      child: BarChart(
-        BarChartData(
-          maxY: top,
-          alignment: BarChartAlignment.spaceAround,
-          gridData: neuGrid(context, interval: top / 4),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            leftTitles: neuLeftTitles(
-              context,
-              format: neuShortMoney,
-              interval: top / 4,
-            ),
-            rightTitles: neuNoAxis,
-            topTitles: neuNoAxis,
-            bottomTitles: neuBottomTitles(
-              context,
-              count: rows.length,
-              label: (i) => _clip(rows[i].name, 8),
-              maxLabels: 12,
-            ),
-          ),
-          barTouchData: neuBarTouch(
-            context,
-            label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
-          ),
-          barGroups: [
-            for (var i = 0; i < rows.length; i++)
-              BarChartGroupData(
-                x: i,
-                barRods: [
-                  neuBarRod(context, rows[i].revenue.toDouble(),
-                      width: rows.length > 8 ? 14 : 20, color: neu.accent),
-                ],
+      // Barras com rótulo precisam de um piso maior que o padrão.
+      minHeight: 260,
+      child: ChartSemantics(
+        child: BarChart(
+          BarChartData(
+            maxY: top,
+            alignment: BarChartAlignment.spaceAround,
+            gridData: neuGrid(context, interval: top / 4),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              leftTitles: neuLeftTitles(
+                context,
+                format: neuShortMoney,
+                interval: top / 4,
               ),
-          ],
+              rightTitles: neuNoAxis,
+              topTitles: neuNoAxis,
+              bottomTitles: neuBottomTitles(
+                context,
+                count: rows.length,
+                label: (i) => _clip(rows[i].name, 8),
+                maxLabels: 12,
+              ),
+            ),
+            barTouchData: neuBarTouch(
+              context,
+              label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
+            ),
+            barGroups: [
+              for (var i = 0; i < rows.length; i++)
+                BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    neuBarRod(
+                      context,
+                      rows[i].revenue.toDouble(),
+                      width: rows.length > 8 ? 14 : 20,
+                      color: neu.accent,
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2350,7 +2408,9 @@ class _CustomersChart extends StatelessWidget {
     ];
     if (slices.isEmpty) {
       return const NeuChartCard(
-          title: 'Novos clientes por tipo', child: _ChartEmpty());
+        title: 'Novos clientes por tipo',
+        child: _ChartEmpty(),
+      );
     }
     final total = slices.fold<int>(0, (a, s) => a + s.$2);
 
@@ -2360,24 +2420,28 @@ class _CustomersChart extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 40,
-                sections: [
-                  for (final s in slices)
-                    PieChartSectionData(
-                      value: s.$2.toDouble(),
-                      color: s.$3,
-                      title: total > 0 && s.$2 / total >= 0.12 ? '${s.$2}' : '',
-                      radius: 44,
-                      titleStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+            child: ChartSemantics(
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    for (final s in slices)
+                      PieChartSectionData(
+                        value: s.$2.toDouble(),
+                        color: s.$3,
+                        title: total > 0 && s.$2 / total >= 0.12
+                            ? '${s.$2}'
+                            : '',
+                        radius: 44,
+                        titleStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -2387,8 +2451,7 @@ class _CustomersChart extends StatelessWidget {
             child: NeuChartLegend(
               items: [
                 for (final s in slices)
-                  NeuLegendItem(
-                      color: s.$3, label: s.$1, value: '${s.$2}'),
+                  NeuLegendItem(color: s.$3, label: s.$1, value: '${s.$2}'),
               ],
             ),
           ),
@@ -2490,8 +2553,10 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
           _ErrorBox(onRetry: () => ref.invalidate(osOperationalReportProvider)),
       data: (state) {
         final empty = state.rows.isEmpty;
-        final listHeight =
-            (MediaQuery.of(context).size.height * 0.6).clamp(360.0, 820.0);
+        final listHeight = (MediaQuery.of(context).size.height * 0.6).clamp(
+          360.0,
+          820.0,
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2501,8 +2566,10 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
               runSpacing: 12,
               spacing: 16,
               children: [
-                Text('OS — Operacional',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'OS — Operacional',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 _OsExportButtons(company: widget.company),
               ],
             ),
@@ -2517,25 +2584,25 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(NeuTokens.rCard),
                     child: ListView.separated(
-                    controller: _scroll,
-                    itemCount: state.rows.length + 1,
-                    separatorBuilder: (_, i) => i >= state.rows.length - 1
-                        ? const SizedBox.shrink()
-                        : Divider(height: 1, color: context.neu.line),
-                    itemBuilder: (_, i) {
-                      if (i < state.rows.length) {
-                        return _OsRowTile(
-                          row: state.rows[i],
-                          names: widget.memberNames,
+                      controller: _scroll,
+                      itemCount: state.rows.length + 1,
+                      separatorBuilder: (_, i) => i >= state.rows.length - 1
+                          ? const SizedBox.shrink()
+                          : Divider(height: 1, color: context.neu.line),
+                      itemBuilder: (_, i) {
+                        if (i < state.rows.length) {
+                          return _OsRowTile(
+                            row: state.rows[i],
+                            names: widget.memberNames,
+                          );
+                        }
+                        return _ListFooter(
+                          loadingMore: state.loadingMore,
+                          hasMore: state.hasMore,
+                          total: state.total,
+                          noun: 'OS',
                         );
-                      }
-                      return _ListFooter(
-                        loadingMore: state.loadingMore,
-                        hasMore: state.hasMore,
-                        total: state.total,
-                        noun: 'OS',
-                      );
-                    },
+                      },
                     ),
                   ),
                 ),
@@ -2571,15 +2638,16 @@ class _OsRowTile extends StatelessWidget {
               children: [
                 Text(
                   '${row.number} · ${row.customerName}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, color: neu.ink),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: neu.ink),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                ),
               ],
             ),
           ),
@@ -2651,8 +2719,10 @@ class _CustomersReportState extends ConsumerState<_CustomersReport> {
           _ErrorBox(onRetry: () => ref.invalidate(customersReportListProvider)),
       data: (state) {
         final empty = state.rows.isEmpty;
-        final listHeight =
-            (MediaQuery.of(context).size.height * 0.6).clamp(360.0, 820.0);
+        final listHeight = (MediaQuery.of(context).size.height * 0.6).clamp(
+          360.0,
+          820.0,
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2662,8 +2732,7 @@ class _CustomersReportState extends ConsumerState<_CustomersReport> {
               runSpacing: 12,
               spacing: 16,
               children: [
-                Text('Clientes',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text('Clientes', style: Theme.of(context).textTheme.titleLarge),
                 _CustomersExportButtons(company: widget.company),
               ],
             ),
@@ -2672,9 +2741,14 @@ class _CustomersReportState extends ConsumerState<_CustomersReport> {
               spacing: 24,
               runSpacing: 12,
               children: [
-                _SummaryStat(label: 'Clientes ativos', value: '${state.active}'),
                 _SummaryStat(
-                    label: 'Novos no período', value: '${state.newInRange}'),
+                  label: 'Clientes ativos',
+                  value: '${state.active}',
+                ),
+                _SummaryStat(
+                  label: 'Novos no período',
+                  value: '${state.newInRange}',
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -2748,7 +2822,7 @@ class _CustomerRowTile extends StatelessWidget {
                   customerTypeLabel(row.type),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),
@@ -2756,7 +2830,7 @@ class _CustomerRowTile extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             fmtDate(row.createdAt),
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       ),
@@ -2803,8 +2877,8 @@ class _CustomersExportButtonsState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content:
-                  Text('Não foi possível gerar o arquivo. Tente novamente.')),
+            content: Text('Não foi possível gerar o arquivo. Tente novamente.'),
+          ),
         );
       }
     } finally {
@@ -2815,34 +2889,37 @@ class _CustomersExportButtonsState
   }
 
   Future<void> _csv() => _run(
-        isPdf: false,
-        task: () async {
-          final bytes = await ref
-              .read(reportRepositoryProvider)
-              .customersCsv(range: ref.read(reportRangeProvider));
-          downloadBytes(bytes, 'clientes.csv', 'text/csv;charset=utf-8');
-        },
-      );
+    isPdf: false,
+    task: () async {
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .customersCsv(range: ref.read(reportRangeProvider));
+      downloadBytes(bytes, 'clientes.csv', 'text/csv;charset=utf-8');
+    },
+  );
 
   Future<void> _pdf() => _run(
-        isPdf: true,
-        task: () async {
-          final bytes = await ref.read(reportRepositoryProvider).customersPdf(
-                range: ref.read(reportRangeProvider),
-                company: _exportCompany(),
-              );
-          downloadBytes(bytes, 'clientes.pdf', 'application/pdf');
-        },
-      );
+    isPdf: true,
+    task: () async {
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .customersPdf(
+            range: ref.read(reportRangeProvider),
+            company: _exportCompany(),
+          );
+      downloadBytes(bytes, 'clientes.pdf', 'application/pdf');
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
     const compact = Size(0, 40);
     const pad = EdgeInsets.symmetric(horizontal: 16);
     Widget spinner() => const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2));
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -2902,8 +2979,10 @@ class _OsSortMenu extends ConsumerWidget {
           children: [
             Icon(Icons.swap_vert, size: 18, color: neu.inkMuted),
             const SizedBox(width: 8),
-            Text(value.label,
-                style: TextStyle(fontWeight: FontWeight.w600, color: neu.ink)),
+            Text(
+              value.label,
+              style: TextStyle(fontWeight: FontWeight.w600, color: neu.ink),
+            ),
             Icon(Icons.arrow_drop_down, color: neu.inkMuted),
           ],
         ),
@@ -2962,7 +3041,7 @@ class _ListFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = TextStyle(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 13,
+      fontSize: 14,
     );
     final Widget child;
     if (loadingMore) {

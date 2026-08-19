@@ -249,7 +249,7 @@ class _Grupo extends StatelessWidget {
                 money(subtotal.toString()),
                 style: TextStyle(
                   color: neu.ink,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -299,14 +299,14 @@ class _LinhaDesconto extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           'Desconto da OS',
-          style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          style: TextStyle(color: neu.inkMuted, fontSize: 14),
         ),
         const Spacer(),
         Text(
           '- ${money(valor.toString())}',
           style: TextStyle(
             color: neu.warning,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -377,7 +377,7 @@ class _ItemRow extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   detail,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),

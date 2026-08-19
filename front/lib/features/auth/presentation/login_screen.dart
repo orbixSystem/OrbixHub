@@ -175,7 +175,7 @@ class _OfflineNoticeBanner extends StatelessWidget {
               message,
               style: const TextStyle(
                 color: amber,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),

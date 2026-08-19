@@ -146,7 +146,7 @@ class AuthErrorBanner extends StatelessWidget {
               style: TextStyle(
                 color: neu.danger,
                 fontWeight: FontWeight.w600,
-                fontSize: 13.5,
+                fontSize: 14,
               ),
             ),
           ),

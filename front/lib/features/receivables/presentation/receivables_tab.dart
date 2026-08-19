@@ -102,7 +102,7 @@ class _TotalNaRua extends StatelessWidget {
                   'A receber',
                   style: TextStyle(
                     color: neu.inkMuted,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.4,
                   ),
@@ -152,7 +152,7 @@ class _AvisoTruncado extends StatelessWidget {
               'A carteira é grande e esta lista está parcial — há fiados '
               'não exibidos. Receba os títulos listados para revelar os '
               'demais.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
             ),
           ),
         ],
@@ -291,7 +291,7 @@ class _DebtorTitles extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
               'Nada em aberto para este cliente.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 13),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
             ),
           );
         }
@@ -402,7 +402,7 @@ class _TitleCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: neu.ink,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -419,7 +419,7 @@ class _TitleCard extends ConsumerWidget {
                     'Ver detalhes',
                     style: TextStyle(
                       color: neu.navy,
-                      fontSize: 11.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -453,7 +453,7 @@ class _TitleCard extends ConsumerWidget {
                               'de ${formatMoney(title.total)} · já pagou '
                               '${formatMoney(title.paid)}',
                               style: TextStyle(
-                                  color: neu.inkMuted, fontSize: 11.5),
+                                  color: neu.inkMuted, fontSize: 12),
                             ),
                         ],
                       ),
@@ -568,14 +568,14 @@ class _ScheduleList extends StatelessWidget {
                 'Parcelado em ${ordenadas.length}x',
                 style: TextStyle(
                   color: neu.inkMuted,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const Spacer(),
               Text(
                 '$pagas de ${ordenadas.length} pagas',
-                style: TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                style: TextStyle(color: neu.inkFaint, fontSize: 12),
               ),
             ],
           ),
@@ -682,7 +682,7 @@ class _Erro extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
           const SizedBox(height: 12),
           NeuButton(

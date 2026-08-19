@@ -346,7 +346,7 @@ class _ThreadHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -550,7 +550,7 @@ class _BubbleState extends State<_Bubble> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: metaColor,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -579,7 +579,7 @@ class _BubbleState extends State<_Bubble> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(time, style: TextStyle(color: metaColor, fontSize: 10.5)),
+                Text(time, style: TextStyle(color: metaColor, fontSize: 12)),
                 if (isStaff) ...[
                   const SizedBox(width: 4),
                   ReadTicks(read: message.readAt != null, onBrand: true),
@@ -679,7 +679,7 @@ class _QuoteBlock extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: authorColor,
-                        fontSize: 11.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -689,7 +689,7 @@ class _QuoteBlock extends StatelessWidget {
                         body,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: bodyColor, fontSize: 12.5),
+                        style: TextStyle(color: bodyColor, fontSize: 14),
                       ),
                     ],
                   ],
@@ -827,7 +827,7 @@ class _Composer extends StatelessWidget {
                       'Foto da OS anexada',
                       style: TextStyle(
                         color: neu.inkMuted,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

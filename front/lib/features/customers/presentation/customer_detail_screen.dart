@@ -604,7 +604,7 @@ class _VehicleCardState extends ConsumerState<_VehicleCard> {
                             _s.identifier!,
                             style: TextStyle(
                               color: scheme.onSurfaceVariant,
-                              fontSize: 13,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -753,7 +753,7 @@ class _SubjectPhotoBlock extends StatelessWidget {
                     'Adicionar foto',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1181,7 +1181,7 @@ class _TimelineItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: scheme.onSurfaceVariant,
-                    fontSize: 13,
+                    fontSize: 14,
                   ),
                 ),
                 if (clicavel) ...[
@@ -1201,7 +1201,7 @@ class _TimelineItem extends StatelessWidget {
                         'Ver detalhes',
                         style: TextStyle(
                           color: scheme.primary,
-                          fontSize: 12.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

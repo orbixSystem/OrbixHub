@@ -80,7 +80,7 @@ class DynamicSection extends StatelessWidget {
           if (!hideTitle) const SizedBox(height: 10),
           Text(
             'Nenhuma configuração disponível.',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       ],
@@ -119,7 +119,7 @@ class _FieldRow extends StatelessWidget {
             field.label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -226,7 +226,7 @@ class _FieldValue extends StatelessWidget {
             value.toString(),
             style: TextStyle(
               color: neu.ink,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -247,7 +247,7 @@ class _FieldValue extends StatelessWidget {
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) => Text(
             'Imagem indisponível',
-            style: TextStyle(color: neu.inkMuted, fontSize: 12),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ),
       );

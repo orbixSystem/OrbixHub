@@ -325,7 +325,7 @@ class _FormDialogState extends ConsumerState<_FormDialog> {
             'Como essa despesa se comporta?',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -593,7 +593,7 @@ class _CartaoTipo extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     tipo.explicacao,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                   ),
                 ],
               ),
@@ -634,7 +634,7 @@ class _FaixaTipo extends StatelessWidget {
                   : tipo.rotulo,
               style: TextStyle(
                 color: neu.ink,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -675,7 +675,7 @@ class _Secao extends StatelessWidget {
                   titulo.toUpperCase(),
                   style: TextStyle(
                     color: neu.inkFaint,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .6,
                   ),
@@ -725,7 +725,7 @@ class _CampoParcelas extends StatelessWidget {
             'Em quantas vezes?',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -764,7 +764,7 @@ class _CampoParcelas extends StatelessWidget {
                 Text(
                   'De ${_dm(datas.first)} até ${_dm(datas.last)} '
                   '(${datas.last.year})',
-                  style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),
@@ -821,7 +821,7 @@ class _PreviaRerateio extends StatelessWidget {
                 '$pagas de $totalDeParcelas parcelas já foram pagas e não mudam '
                 'de valor. O que sobrar do total será dividido entre as '
                 '$emAberto em aberto.',
-                style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             ),
           ],
@@ -854,7 +854,7 @@ class _PreviaRerateio extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Os vencimentos e a quantidade de parcelas não mudam.',
-            style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       ),
@@ -932,7 +932,7 @@ class _SecaoFornecedor extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             erro!,
-            style: TextStyle(color: neu.danger, fontSize: 12.5),
+            style: TextStyle(color: neu.danger, fontSize: 14),
           ),
         ],
         if (consultado != null) ...[
@@ -1011,7 +1011,7 @@ class _CampoData extends StatelessWidget {
             rotulo,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1072,7 +1072,7 @@ class _SeletorCategoria extends StatelessWidget {
             'Categoria',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1140,7 +1140,7 @@ class _ChipCategoria extends StatelessWidget {
               categoria.name,
               style: TextStyle(
                 color: selecionada ? neu.ink : neu.inkMuted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: selecionada ? FontWeight.w800 : FontWeight.w600,
               ),
             ),

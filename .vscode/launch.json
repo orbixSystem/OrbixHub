@@ -42,7 +42,7 @@
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
       "deviceId": "web-server",
-      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true", "--dart-define=API_BASE_URL=http://localhost:3000/api"]
     },
     {
       // Alternativa: rodar no Chrome (instale o Google Chrome para habilitar).
@@ -52,7 +52,7 @@
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
       "deviceId": "chrome",
-      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true"]
+      "args": ["--web-port=8090", "--dart-define=DEV_TOOLS=true", "--dart-define=API_BASE_URL=http://localhost:3000/api"]
     },
     {
       // Desktop Windows. Só roda EM uma máquina Windows. (target `windows/` já existe.)
@@ -72,7 +72,7 @@
       "program": "lib/main.dart",
       "cwd": "${workspaceFolder}/front",
       "deviceId": "macos",
-      "args": ["--dart-define=DEV_TOOLS=true"]
+      "args": ["--dart-define=DEV_TOOLS=true", "--dart-define=API_BASE_URL=http://localhost:3000/api"]
     },
     {
       // Android — detecta o device/emulador Android conectado (sem hardcode de id)

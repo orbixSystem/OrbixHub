@@ -247,7 +247,7 @@ class _ConversationTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: neu.inkMuted,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: unread > 0
                             ? FontWeight.w600
                             : FontWeight.w400,
@@ -267,7 +267,7 @@ class _ConversationTile extends StatelessWidget {
               time,
               style: TextStyle(
                 color: unread > 0 ? neu.accent : neu.inkMuted,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

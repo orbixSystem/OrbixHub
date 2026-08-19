@@ -150,7 +150,7 @@ class _SectionCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -239,7 +239,7 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 4),
             SelectableText(
               invoice.accessKey!,
-              style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.4),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
             ),
           ],
         ],
@@ -286,7 +286,7 @@ class _RejectionNotice extends StatelessWidget {
                   reason,
                   style: TextStyle(
                     color: neu.danger,
-                    fontSize: 13.5,
+                    fontSize: 14,
                     height: 1.4,
                   ),
                 ),
@@ -447,7 +447,7 @@ class _LineRow extends StatelessWidget {
                         color: neu.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(detail,
-                    style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14)),
               ],
             ),
           ),
@@ -590,7 +590,7 @@ class _DocumentsSection extends StatelessWidget {
             )
           : Text(
               'Os arquivos ficam disponíveis quando a nota é autorizada.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 13.5, height: 1.4),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14, height: 1.4),
             ),
     );
   }
@@ -616,7 +616,7 @@ class _CancelSection extends StatelessWidget {
           Text(
             'O cancelamento é definitivo e registra o motivo. A nota deixa de '
             'ser válida, mas o histórico é preservado.',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 14),
           Align(

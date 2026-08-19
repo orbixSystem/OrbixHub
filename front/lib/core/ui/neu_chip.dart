@@ -66,7 +66,7 @@ class NeuBadge extends StatelessWidget {
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),

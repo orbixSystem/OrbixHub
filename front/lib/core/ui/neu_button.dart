@@ -86,7 +86,8 @@ class _NeuButtonState extends State<NeuButton> {
             style: TextStyle(
               color: fg,
               fontWeight: FontWeight.w700,
-              fontSize: 15,
+              // 16px: rótulo de botão é "texto padrão de componente".
+              fontSize: 16,
             ),
           ),
         ),

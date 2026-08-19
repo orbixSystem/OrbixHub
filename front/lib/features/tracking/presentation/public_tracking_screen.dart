@@ -193,7 +193,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             Text(
               'Seu nome aparece para a oficina nas mensagens e comentários. '
               'Fica salvo só neste aparelho e você pode trocar quando quiser.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
             ),
             const SizedBox(height: 16),
             NeuTextField(
@@ -299,14 +299,14 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                 'Enviar foto da ordem',
                 style: TextStyle(
                   color: _neu.ink,
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Toque numa foto para enviá-la na conversa com a oficina.',
-                style: TextStyle(color: _neu.inkMuted, fontSize: 13.5, height: 1.4),
+                style: TextStyle(color: _neu.inkMuted, fontSize: 14, height: 1.4),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -610,7 +610,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             'ORDEM DE SERVIÇO',
             style: TextStyle(
               color: onNavyMuted,
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.4,
             ),
@@ -643,7 +643,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                     'Responsável: ${t.responsibleName!}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: onNavyMuted, fontSize: 13.5),
+                    style: TextStyle(color: onNavyMuted, fontSize: 14),
                   ),
                 ),
               ],
@@ -680,7 +680,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -707,6 +707,12 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
         ? osSimpleStatusOf(t.status)
         : OsSimpleStatus.emAndamento;
     final color = osSimpleStatusColor(atual);
+    // O tint/borda usam a cor gráfica; o disco sólido (ícone branco) e o
+    // rótulo usam a variante legível — ver osStatusInk.
+    final ink = osSimpleStatusInk(atual, _neu.base.computeLuminance() > .5
+        ? Brightness.light
+        : Brightness.dark);
+    final solido = osSimpleStatusInk(atual, Brightness.light);
     // O rótulo do servidor é mais específico ("Aguardando aprovação") que o
     // grupo simplificado; usa-se ele quando vem, com o grupo de reserva.
     final rotulo = t.statusLabel.trim().isNotEmpty
@@ -732,7 +738,8 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                   width: 46,
                   height: 46,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration:
+                      BoxDecoration(color: solido, shape: BoxShape.circle),
                   child: Icon(osSimpleStatusIcon(atual),
                       size: 24, color: Colors.white),
                 ),
@@ -745,7 +752,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                       Text(
                         rotulo,
                         style: TextStyle(
-                          color: color,
+                          color: ink,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           height: 1.15,
@@ -756,7 +763,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                         _explicacaoStatus(atual),
                         style: TextStyle(
                           color: _neu.inkMuted,
-                          fontSize: 12.5,
+                          fontSize: 14,
                           height: 1.3,
                         ),
                       ),
@@ -802,7 +809,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               'mais informações.',
               style: TextStyle(
                 color: _neu.danger,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.35,
               ),
@@ -902,7 +909,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
           const SizedBox(height: 8),
           Text(
             p.caption!.trim(),
-            style: TextStyle(color: _neu.inkMuted, fontSize: 13.5, height: 1.4),
+            style: TextStyle(color: _neu.inkMuted, fontSize: 14, height: 1.4),
           ),
         ],
         if (hasId) ...[
@@ -1035,7 +1042,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _neu.inkMuted,
-              fontSize: 13.5,
+              fontSize: 14,
               height: 1.4,
             ),
           ),
@@ -1178,7 +1185,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                     snippet,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: _neu.inkMuted, fontSize: 13),
+                    style: TextStyle(color: _neu.inkMuted, fontSize: 14),
                   ),
                 ],
               ],
@@ -1220,7 +1227,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: titleColor,
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1230,7 +1237,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               q.body.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: bodyColor, fontSize: 12.5, height: 1.3),
+              style: TextStyle(color: bodyColor, fontSize: 14, height: 1.3),
             ),
           ],
         ],
@@ -1260,7 +1267,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: _neu.inkMuted,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1318,7 +1325,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
               children: [
                 Text(
                   _relative(m.createdAt),
-                  style: TextStyle(color: _neu.inkFaint, fontSize: 11),
+                  style: TextStyle(color: _neu.inkFaint, fontSize: 12),
                 ),
                 // Recibo de leitura nas mensagens do próprio cliente: 1 tracinho
                 // = enviada; 2 azuis = a oficina já leu.
@@ -1355,7 +1362,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 15.5,
+                    fontSize: 18,
                     color: _neu.ink,
                   ),
                 ),
@@ -1510,7 +1517,7 @@ class _PhotoViewerState extends State<_PhotoViewer> {
                       child: Text(
                         '${_current + 1} / $total',
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 13),
+                            color: Colors.white, fontSize: 14),
                       ),
                     ),
                   ),
@@ -1816,7 +1823,7 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
           text,
-          style: TextStyle(color: neu.inkFaint, fontSize: 13, height: 1.35),
+          style: TextStyle(color: neu.inkFaint, fontSize: 14, height: 1.35),
         ),
       );
 
@@ -1869,7 +1876,7 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
                       const SizedBox(width: 8),
                       Text(
                         when,
-                        style: TextStyle(color: neu.inkFaint, fontSize: 11),
+                        style: TextStyle(color: neu.inkFaint, fontSize: 12),
                       ),
                     ],
                   ],
@@ -1877,7 +1884,7 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
                 const SizedBox(height: 2),
                 Text(
                   c.body,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.35),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
                 ),
               ],
             ),
@@ -1902,13 +1909,13 @@ class _PhotoCommentsSectionState extends State<_PhotoCommentsSection> {
               maxLines: 3,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _add(),
-              style: TextStyle(fontSize: 13.5, color: neu.ink),
+              style: TextStyle(fontSize: 14, color: neu.ink),
               decoration: InputDecoration(
                 isDense: true,
                 filled: false,
                 border: InputBorder.none,
                 hintText: 'Comentar esta foto...',
-                hintStyle: TextStyle(color: neu.inkFaint, fontSize: 13.5),
+                hintStyle: TextStyle(color: neu.inkFaint, fontSize: 14),
                 contentPadding: const EdgeInsets.symmetric(vertical: 11),
               ),
             ),
@@ -2026,7 +2033,7 @@ class _SectionPill extends StatelessWidget {
               tab.label,
               style: TextStyle(
                 color: active ? neu.onNavy : neu.inkMuted,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),

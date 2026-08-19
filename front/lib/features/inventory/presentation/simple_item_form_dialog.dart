@@ -239,7 +239,7 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
                         '(${margem.pct.toStringAsFixed(1).replaceAll('.', ',')}%)',
                         style: TextStyle(
                           color: neu.ink,
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
