@@ -11,7 +11,8 @@ class NavItem {
   final String route;
 }
 
-/// Friendly label + icon per known module key; unknown keys fall back gracefully.
+/// Rótulo + ícone por chave de módulo. Esta tabela é a lista de módulos que
+/// VIRAM item de menu — chave que não está aqui não aparece (ver gatedNavItems).
 const Map<String, (String, IconData)> moduleMeta = {
   'os': ('Ordens de Serviço', Icons.build_outlined),
   'customers': ('Clientes', Icons.people_alt_outlined),
@@ -30,9 +31,14 @@ List<NavItem> gatedNavItems(Me me) {
     const NavItem('Início', Icons.home_outlined, '/'),
   ];
   for (final key in me.modules) {
+    // Só entra no menu módulo com rótulo/ícone declarados aqui. Chave sem
+    // registro é estrutura interna (entitlement legado, módulo sem tela ainda)
+    // e NUNCA deve aparecer para o cliente — antes virava um item cru com a
+    // chave em inglês e ícone de quebra-cabeça (ex.: `sales`).
+    final meta = moduleMeta[key];
+    if (meta == null) continue;
     // `sale` (venda avulsa) NÃO é um destino de menu — é uma ação rápida dentro
-    // do Caixa. O entitlement existe no backend, mas não vira item de navegação
-    // (não vazar estrutura interna pro usuário).
+    // do Caixa. O entitlement existe no backend, mas não vira item de navegação.
     if (key == 'sale') continue;
     // NF desligada no front (kInvoiceEnabled=false): não vira item de menu,
     // mesmo o backend habilitando o módulo `invoice`.
@@ -41,7 +47,6 @@ List<NavItem> gatedNavItems(Me me) {
     // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
     // veem o item. Demais módulos seguem só pelo módulo habilitado.
     if (key == 'report' && !me.hasPermission('report.read')) continue;
-    final meta = moduleMeta[key] ?? (key, Icons.extension_outlined);
     items.add(NavItem(meta.$1, meta.$2, '/m/$key'));
   }
   // Agenda — disponível quando o módulo OS está habilitado.

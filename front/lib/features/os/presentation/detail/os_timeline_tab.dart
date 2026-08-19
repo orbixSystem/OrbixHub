@@ -205,7 +205,8 @@ class _EventRow extends StatelessWidget {
       case 'status_change':
         return event.statusSnapshot == null
             ? neu.navy
-            : osStatusColor(event.statusSnapshot!);
+            : osStatusInk(
+                event.statusSnapshot!, Theme.of(context).brightness);
       case 'created':
         return neu.success;
       case 'photo':

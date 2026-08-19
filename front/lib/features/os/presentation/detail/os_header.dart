@@ -187,7 +187,7 @@ class _Total extends StatelessWidget {
       'Total',
       style: TextStyle(
         color: neu.inkFaint,
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
     );
@@ -212,7 +212,7 @@ class _Total extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: neu.warning,
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           );
@@ -255,8 +255,9 @@ class _SimpleStatusTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final simples = osSimpleStatusOf(status);
-    final color = osSimpleStatusColor(simples);
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = osSimpleStatusColor(simples);
+    final ink = osSimpleStatusInk(simples, Theme.of(context).brightness);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -266,12 +267,12 @@ class _SimpleStatusTag extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(osSimpleStatusIcon(simples), size: 13, color: color),
+          Icon(osSimpleStatusIcon(simples), size: 13, color: ink),
           const SizedBox(width: 5),
           Text(
             osSimpleStatusLabel(simples),
             style: TextStyle(
-              color: dark ? Color.lerp(color, Colors.white, .35) : color,
+              color: ink,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
@@ -408,7 +409,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           const SizedBox(width: 10),
           Text(
             'Atualizando…',
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
       );
@@ -436,26 +437,15 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     final podeReceber = canReceiveOsPayment(ref, order);
     final saldo = order.payment?.balance ?? 0;
     // Cobrar é o passo DEPOIS de terminar o serviço. Enquanto ainda houver o
-    // que finalizar, "Receber" não disputa espaço com "Finalizar OS": o
-    // próprio Finalizar já abre o recebimento ao chegar em entregue (ver
-    // `runOsSimpleTransition`), então dois botões ali eram dois caminhos para
-    // o mesmo lugar — e convidavam a cobrar por um serviço ainda em execução.
-    //
-    // Receber continua alcançável enquanto o carro está na oficina (é assim
-    // que se registra um sinal para comprar peça), só que como ação
-    // secundária e com o nome do que de fato é: adiantamento.
+    // que finalizar, "Receber" não aparece aqui: o próprio Finalizar já abre o
+    // recebimento ao chegar em entregue (ver `runOsSimpleTransition`), então um
+    // segundo botão era outro caminho para o mesmo lugar — e convidava a cobrar
+    // por um serviço ainda em execução. Adiantamento (sinal para comprar peça)
+    // continua alcançável pelo menu de ações rápidas da lista.
     final receberEhPrincipal = podeReceber && primaria == null;
-    final receberEhAdiantamento = podeReceber && primaria != null;
 
     // --- menu: o resto, sem competir por atenção ---
     final extras = <({String valor, String rotulo, IconData icone, bool perigo})>[
-      if (receberEhAdiantamento)
-        (
-          valor: 'receber',
-          rotulo: 'Receber adiantamento',
-          icone: Icons.payments_outlined,
-          perigo: false
-        ),
       if (widget.canRead)
         (
           valor: 'pdf',
@@ -508,8 +498,6 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 
     Future<void> executar(String v) async {
       switch (v) {
-        case 'receber':
-          await _receber();
         case 'pdf':
           widget.onExport();
         case 'editar':
@@ -621,7 +609,7 @@ class _MenuMais extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: i.perigo ? neu.danger : neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -641,7 +629,7 @@ class _MenuMais extends StatelessWidget {
               'Mais',
               style: TextStyle(
                 color: neu.inkMuted,
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -679,7 +667,7 @@ class _Nota extends StatelessWidget {
               text,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),

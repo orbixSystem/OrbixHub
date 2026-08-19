@@ -311,7 +311,7 @@ class _SectionTitle extends StatelessWidget {
           label,
           style: TextStyle(
             color: neu.ink,
-            fontSize: 15,
+            fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -342,7 +342,7 @@ class _ItemsBlock extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
                 'Nenhum item lançado nesta OS.',
-                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
             )
           else
@@ -570,7 +570,8 @@ class _TimelineRow extends StatelessWidget {
       case 'status_change':
         return event.statusSnapshot == null
             ? neu.navy
-            : osStatusColor(event.statusSnapshot!);
+            : osStatusInk(
+                event.statusSnapshot!, Theme.of(context).brightness);
       case 'created':
         return neu.success;
       case 'photo':

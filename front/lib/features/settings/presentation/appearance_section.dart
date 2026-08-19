@@ -79,7 +79,7 @@ class AppearanceSection extends ConsumerWidget {
           'Tema do sistema',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -105,7 +105,7 @@ class AppearanceSection extends ConsumerWidget {
           'Modo',
           style: TextStyle(
             color: neu.inkMuted,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -391,7 +391,7 @@ class _ModeOption extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: fg,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),

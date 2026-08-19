@@ -682,7 +682,7 @@ class _FiltroChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: selected ? neu.onNavy : neu.inkMuted,
           ),
@@ -1173,7 +1173,7 @@ class _LinhaDespesaState extends ConsumerState<_LinhaDespesa> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              TextStyle(color: neu.inkFaint, fontSize: 11.5),
+                              TextStyle(color: neu.inkFaint, fontSize: 12),
                         ),
                       ],
                     ),
@@ -1269,7 +1269,7 @@ class _SeloParcela extends StatelessWidget {
         rotulo,
         style: TextStyle(
           color: neu.inkMuted,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),

@@ -140,7 +140,8 @@ class FakeOsRepository implements OsRepository {
       scheduledStart: d.scheduledStart,
       scheduledEnd: d.scheduledEnd,
       assignedTo: d.assignedTo,
-      discount: '0',
+      // O desconto pode vir fechado já na abertura (espelha o backend).
+      discount: (d.discount ?? 0).toString(),
       total: '0',
     );
     _orders[id] = order;
@@ -182,6 +183,22 @@ class FakeOsRepository implements OsRepository {
     final next = _orders[id]!.copyWith(fiscalStatus: 'emitida');
     _orders[id] = next;
     return next;
+  }
+
+  /// E-mail sugerido por OS (o que o "cadastro do cliente" teria). Vazio = sem
+  /// e-mail cadastrado → a tela abre com o campo em branco.
+  final Map<String, String> trackingEmails = {};
+
+  /// Envios feitos, na ordem — os testes conferem PARA QUEM o link foi.
+  final List<({String orderId, String email})> sentTrackingLinks = [];
+
+  @override
+  Future<String?> trackingRecipientEmail(String orderId) async =>
+      trackingEmails[orderId];
+
+  @override
+  Future<void> sendTrackingLinkEmail(String orderId, String email) async {
+    sentTrackingLinks.add((orderId: orderId, email: email));
   }
 
   @override

@@ -1,7 +1,9 @@
 import {
   buildActionUrl,
+  buildTrackingUrl,
   escapeHtml,
   renderLayout,
+  renderTrackingLinkEmail,
   renderVerificationEmail,
 } from './mail-templates';
 
@@ -56,6 +58,48 @@ describe('mail-templates', () => {
         'http://x',
       );
       expect(mail.text).toMatch(/ignore este e-mail/i);
+    });
+  });
+
+  describe('link de acompanhamento da OS', () => {
+    it('monta o link público com o /#/ que a rota /t/:token espera', () => {
+      expect(buildTrackingUrl('tok-1', 'https://hub.orbixsystem.com/')).toBe(
+        'https://hub.orbixsystem.com/#/t/tok-1',
+      );
+    });
+
+    it('leva a marca da OFICINA (não a nossa) e a OS no assunto', () => {
+      const mail = renderTrackingLinkEmail({
+        companyName: 'Oficina do Zé',
+        customerName: 'Maria',
+        orderNumber: 'OS-0007',
+        url: 'https://hub.orbixsystem.com/#/t/tok-1',
+      });
+      expect(mail.subject).toBe('Acompanhe sua OS OS-0007 — Oficina do Zé');
+      expect(mail.html).toContain('Oficina do Zé');
+      expect(mail.html).toContain('Maria');
+      expect(mail.html).toContain('https://hub.orbixsystem.com/#/t/tok-1');
+      expect(mail.text).toContain('https://hub.orbixsystem.com/#/t/tok-1');
+    });
+
+    it('sem nome/número: continua um e-mail válido', () => {
+      const mail = renderTrackingLinkEmail({
+        companyName: 'Oficina do Zé',
+        url: 'http://x/#/t/t1',
+      });
+      expect(mail.subject).toBe(
+        'Acompanhe sua ordem de serviço — Oficina do Zé',
+      );
+      expect(mail.text).toContain('http://x/#/t/t1');
+    });
+
+    it('escapa nome de cliente com markup', () => {
+      const mail = renderTrackingLinkEmail({
+        companyName: 'Oficina',
+        customerName: '<script>alert(1)</script>',
+        url: 'http://x/#/t/t1',
+      });
+      expect(mail.html).not.toContain('<script>');
     });
   });
 

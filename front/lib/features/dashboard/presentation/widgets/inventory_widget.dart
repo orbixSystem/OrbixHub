@@ -73,7 +73,7 @@ class InventoryWidget extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             item.name,
-                            style: const TextStyle(fontSize: 12.5),
+                            style: const TextStyle(fontSize: 14),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

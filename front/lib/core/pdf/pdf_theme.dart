@@ -57,7 +57,7 @@ pw.Widget pdfCompanyHeader(
         company.name.toUpperCase(),
         textAlign: pw.TextAlign.right,
         style: pw.TextStyle(
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: pw.FontWeight.bold,
           color: PdfDocTokens.graphite,
         ),
@@ -123,7 +123,7 @@ pw.Widget _linha(String texto) {
     child: pw.Text(
       texto,
       textAlign: pw.TextAlign.right,
-      style: const pw.TextStyle(fontSize: 8.5, color: PdfDocTokens.muted),
+      style: const pw.TextStyle(fontSize: 12, color: PdfDocTokens.muted),
     ),
   );
 }
@@ -142,7 +142,7 @@ pw.Widget pdfSectionBand(String titulo) {
       child: pw.Text(
         titulo,
         style: pw.TextStyle(
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: pw.FontWeight.bold,
           color: PdfDocTokens.graphite,
         ),
@@ -160,7 +160,7 @@ pw.Widget pdfLabelValue(String rotulo, String valor) {
       pw.Text(
         '$rotulo ',
         style: pw.TextStyle(
-          fontSize: 8.5,
+          fontSize: 12,
           fontWeight: pw.FontWeight.bold,
           color: PdfDocTokens.graphite,
         ),
@@ -170,7 +170,7 @@ pw.Widget pdfLabelValue(String rotulo, String valor) {
           // Hífen simples, não travessão: a Helvetica embutida no PDF não
           // desenha U+2014 e o caractere sairia SUMIDO do documento.
           valor.isEmpty ? '-' : valor,
-          style: const pw.TextStyle(fontSize: 8.5, color: PdfDocTokens.graphite),
+          style: const pw.TextStyle(fontSize: 12, color: PdfDocTokens.graphite),
         ),
       ),
     ],
@@ -193,7 +193,7 @@ pw.Widget pdfSignatureLine(String rotulo, {double width = 220}) {
       pw.SizedBox(height: 2),
       pw.Text(
         rotulo,
-        style: const pw.TextStyle(fontSize: 8, color: PdfDocTokens.muted),
+        style: const pw.TextStyle(fontSize: 12, color: PdfDocTokens.muted),
       ),
     ],
   );

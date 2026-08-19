@@ -47,7 +47,7 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
                 'Versão ${data.update.version} disponível.',
                 style: TextStyle(
                   color: neu.ink,
-                  fontSize: 13.5,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -211,7 +211,7 @@ class _UpdateProgressBodyState extends ConsumerState<_UpdateProgressBody> {
             u.notes!.trim(),
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: neu.inkMuted, fontSize: 13),
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
           ),
         ],
         const SizedBox(height: 18),
@@ -236,7 +236,7 @@ class _UpdateProgressBodyState extends ConsumerState<_UpdateProgressBody> {
             _error!,
             style: TextStyle(
               color: neu.danger,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),

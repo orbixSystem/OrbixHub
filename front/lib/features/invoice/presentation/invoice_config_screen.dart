@@ -241,7 +241,7 @@ class _InvoiceConfigBodyState extends ConsumerState<_InvoiceConfigBody> {
               Text(
                 'Cadastro no provedor fiscal, certificado digital e '
                 'preferências de emissão de notas.',
-                style: TextStyle(color: neu.inkMuted, fontSize: 13.5),
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
               ),
               if (!canManage) ...[
                 const SizedBox(height: 16),
@@ -319,7 +319,7 @@ class _ReadOnlyNotice extends StatelessWidget {
             child: Text(
               'Você não tem permissão para alterar a configuração fiscal — '
               'apenas visualização.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 13),
+              style: TextStyle(color: neu.inkMuted, fontSize: 14),
             ),
           ),
         ],
@@ -363,13 +363,13 @@ class _EmpresaSection extends StatelessWidget {
                       style: TextStyle(
                         color: neu.ink,
                         fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontSize: 18,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       'Necessário antes de emitir a primeira nota fiscal.',
-                      style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                      style: TextStyle(color: neu.inkMuted, fontSize: 14),
                     ),
                   ],
                 ),
@@ -445,7 +445,7 @@ class _CertificadoSection extends StatelessWidget {
                       style: TextStyle(
                         color: neu.ink,
                         fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontSize: 18,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -473,7 +473,7 @@ class _CertificadoSection extends StatelessWidget {
             Text(
               'Arquivo .pfx ou .p12 — a senha é enviada direto ao provedor '
               'fiscal e nunca é guardada aqui.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ],
         ],
@@ -518,7 +518,7 @@ class _PreferenciasSection extends StatelessWidget {
                 style: TextStyle(
                   color: neu.ink,
                   fontWeight: FontWeight.w800,
-                  fontSize: 15,
+                  fontSize: 18,
                 ),
               ),
             ],
@@ -620,7 +620,7 @@ class _AmbienteDropdown extends StatelessWidget {
             'Ambiente',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -656,7 +656,7 @@ class _AmbienteDropdown extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4),
           child: Text(
             'Use homologação para testar a emissão sem valor fiscal.',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ),
       ],
@@ -702,7 +702,7 @@ class _CertificatePasswordDialogState
       children: [
         Text(
           'Informe a senha do arquivo .pfx/.p12 para concluir o envio.',
-          style: TextStyle(color: neu.inkMuted, fontSize: 13.5, height: 1.4),
+          style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.4),
         ),
         const SizedBox(height: 16),
         // Olhinho por conta do NeuTextField (antes era montado aqui à mão).

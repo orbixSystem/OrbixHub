@@ -98,6 +98,24 @@ class OsRepositoryImpl implements OsRepository {
       });
 
   @override
+  Future<String?> trackingRecipientEmail(String orderId) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/os/orders/$orderId/tracking-recipient',
+        );
+        final email = _asMap(res.data)['email'] as String?;
+        return (email == null || email.trim().isEmpty) ? null : email.trim();
+      });
+
+  @override
+  Future<void> sendTrackingLinkEmail(String orderId, String email) =>
+      _guard(() async {
+        await _dio.post<Object?>(
+          '/os/orders/$orderId/tracking-link/email',
+          data: {'email': email},
+        );
+      });
+
+  @override
   Future<ServiceOrder> createNote(
     String id, {
     required String message,

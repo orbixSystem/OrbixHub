@@ -2,12 +2,16 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { AuthUser } from '../../common/auth/auth.types';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { REQUIRES_MODULE } from './requires-module.decorator';
+import { subscriptionAllows } from './subscription-access';
 
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -16,6 +20,7 @@ export class ModuleAccessGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -48,8 +53,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     if (!isCore && !enabled) throw new ForbiddenException(`Module ${moduleKey} is not enabled`);
 
-    if (status === 'trialing' || status === 'active') return true;
-    if (status === 'past_due' && !isWrite) return true;
+    if (subscriptionAllows(status, isWrite, this.env.BILLING_ENFORCE_SUBSCRIPTION)) return true;
     throw new ForbiddenException(`Subscription status "${status}" forbids this operation`);
   }
 }

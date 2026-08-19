@@ -8,6 +8,7 @@ import '../../domain/os_models.dart';
 import '../item_picker_dialog.dart';
 import '../os_providers.dart';
 import '../os_status.dart';
+import '../template_picker_dialog.dart';
 import 'os_detail_shared.dart';
 
 /// Aba **Itens**: o que a oficina está cobrando, separado em **Serviços** (mão
@@ -40,6 +41,61 @@ class OsItemsTab extends ConsumerWidget {
           context,
         ).showSnackBar(SnackBar(content: Text(e.message)));
       }
+    }
+  }
+
+  /// Aplica um template (pacote de peças e serviços) à OS. O backend expande os
+  /// itens re-fotografando o preço corrente do estoque. O mesmo seletor oferece
+  /// o caminho inverso — guardar o que ESTA OS tem como um template novo.
+  Future<void> _aplicarTemplate(BuildContext context, WidgetRef ref) async {
+    final template = await TemplatePickerDialog.show(
+      context,
+      qtdItensParaSalvar: order.items.length,
+      onCriarTemplate: (nome) => _salvarComoTemplate(context, ref, nome),
+    );
+    if (template == null || !context.mounted) return;
+    try {
+      await ref.read(osRepositoryProvider).applyTemplate(order.id, template.id);
+      ref.invalidate(orderProvider(order.id));
+    } on AppException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  /// Guarda as peças e serviços desta OS como um template reaproveitável.
+  /// Itens do estoque viram ponteiro (o preço é refotografado ao aplicar);
+  /// avulsos guardam nome e preço.
+  Future<void> _salvarComoTemplate(
+    BuildContext context,
+    WidgetRef ref,
+    String nome,
+  ) async {
+    try {
+      await ref.read(osRepositoryProvider).createTemplate(
+            OsTemplateDraft(
+              name: nome,
+              items: [
+                for (final i in order.items)
+                  OsTemplateItemDraft(
+                    kind: i.kind,
+                    inventoryItemId: i.inventoryItemId,
+                    name: i.inventoryItemId == null ? i.name : null,
+                    quantity: double.tryParse(i.quantity),
+                    unitPrice: double.tryParse(i.unitPrice),
+                  ),
+              ],
+            ),
+          );
+      ref.invalidate(templateListProvider);
+      if (context.mounted) {
+        showNeuSuccessSnackBar(context, 'Template "$nome" salvo.');
+      }
+    } on AppException catch (e) {
+      if (context.mounted) showNeuErrorSnackBar(context, e.message);
     }
   }
 
@@ -82,10 +138,20 @@ class OsItemsTab extends ConsumerWidget {
       title: 'Peças e serviços',
       glyphIndex: 0,
       action: canWrite
-          ? OsHeaderAction(
-              icon: Icons.add_rounded,
-              label: 'Adicionar',
-              onTap: () => _add(context, ref),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OsHeaderAction(
+                  icon: Icons.checklist_rounded,
+                  label: 'Template',
+                  onTap: () => _aplicarTemplate(context, ref),
+                ),
+                OsHeaderAction(
+                  icon: Icons.add_rounded,
+                  label: 'Adicionar',
+                  onTap: () => _add(context, ref),
+                ),
+              ],
             )
           : null,
       child: order.items.isEmpty
@@ -183,7 +249,7 @@ class _Grupo extends StatelessWidget {
                 money(subtotal.toString()),
                 style: TextStyle(
                   color: neu.ink,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -233,14 +299,14 @@ class _LinhaDesconto extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           'Desconto da OS',
-          style: TextStyle(color: neu.inkMuted, fontSize: 13),
+          style: TextStyle(color: neu.inkMuted, fontSize: 14),
         ),
         const Spacer(),
         Text(
           '- ${money(valor.toString())}',
           style: TextStyle(
             color: neu.warning,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -311,7 +377,7 @@ class _ItemRow extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   detail,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
                 ),
               ],
             ),

@@ -89,6 +89,41 @@ void main() {
     });
   });
 
+  group('correlação com o log do servidor (requestId)', () {
+    test('captura o requestId devolvido no corpo do erro', () {
+      final e = AppException.fromDio(dioComResposta(500, {
+        'statusCode': 500,
+        'error': 'Internal Server Error',
+        'message': 'Internal server error',
+        'requestId': 'req-abc',
+      }));
+      expect(e.requestId, 'req-abc');
+    });
+
+    test('cai no header x-request-id quando o corpo não traz', () {
+      final req = RequestOptions(path: '/x');
+      final e = AppException.fromDio(DioException(
+        requestOptions: req,
+        response: Response(
+          requestOptions: req,
+          statusCode: 500,
+          data: {'message': 'boom'},
+          headers: Headers.fromMap({
+            'x-request-id': ['req-do-header'],
+          }),
+        ),
+      ));
+      expect(e.requestId, 'req-do-header');
+    });
+
+    test('sem resposta do servidor não inventa requestId', () {
+      final e = AppException.fromDio(
+        DioException(requestOptions: RequestOptions(path: '/x')),
+      );
+      expect(e.requestId, isNull);
+    });
+  });
+
   test('toString() é a mensagem exibível, nunca a técnica', () {
     final e = AppException.fromDio(dioComResposta(400, {
       'message': ['property x should not exist'],

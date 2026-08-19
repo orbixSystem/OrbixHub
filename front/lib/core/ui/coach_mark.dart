@@ -234,7 +234,7 @@ class _CoachViewState extends State<_CoachView> {
                     _step.title,
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 16.5,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

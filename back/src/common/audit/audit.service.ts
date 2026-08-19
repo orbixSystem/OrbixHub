@@ -22,6 +22,7 @@ export type AuditAction =
   | 'os_update'
   | 'os_status_change'
   | 'os_delete'
+  | 'os_tracking_link_email'
   | 'os_photo_add'
   | 'os_photo_delete'
   | 'os_template_create'

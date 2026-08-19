@@ -175,7 +175,7 @@ class _Toolbar extends ConsumerWidget {
               'Estoque baixo',
               style: TextStyle(
                 color: query.lowStock ? Colors.white : neu.inkMuted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -505,7 +505,7 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              TextStyle(color: neu.inkMuted, fontSize: 13),
+                              TextStyle(color: neu.inkMuted, fontSize: 14),
                         ),
                       ],
                     ),

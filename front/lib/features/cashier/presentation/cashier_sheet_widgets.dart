@@ -37,7 +37,7 @@ class CashierFieldShell extends StatelessWidget {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -66,14 +66,14 @@ class CashierBalanceLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 11)),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12)),
               const SizedBox(height: 2),
               Text(
                 formatMoney(value),
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13.5,
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -248,17 +248,18 @@ class _CashierOsPickerFieldState extends ConsumerState<CashierOsPickerField> {
   }
 }
 
-/// Stepper compacto com rótulo, valor exibido como texto e botões −/+.
-///
-/// Usado onde o valor é um inteiro discreto (nº de parcelas, dia de
-/// vencimento) e o label precisa aparecer acima do controle.
+/// Um "N x" com −/+ que NÃO se estica (sem `Expanded`) — cabe num [Wrap], que
+/// quebra linha sozinho em telas estreitas. Os sheets antigos usavam duas
+/// colunas fixas lado a lado (`Row` de dois `Expanded`) para parcelas/vencimento
+/// e isso é o que estourava/espremia no celular; aqui cada stepper mede só o
+/// que precisa e o `Wrap` do chamador decide se cabem lado a lado ou empilham.
 class CashierStepperField extends StatelessWidget {
   const CashierStepperField({
     super.key,
     required this.label,
     required this.valueLabel,
-    this.onDecrement,
-    this.onIncrement,
+    required this.onDecrement,
+    required this.onIncrement,
   });
 
   final String label;
@@ -293,7 +294,7 @@ class CashierStepperField extends StatelessWidget {
                 onPressed: onDecrement,
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   valueLabel,
                   style: TextStyle(
@@ -343,7 +344,7 @@ class _OsSearchField extends StatelessWidget {
             'OS — busque por nº, cliente ou responsável',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -381,7 +382,7 @@ class _OsSearchField extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, top: 6),
           child: Text(
             'Aponta para a OS selecionada',
-            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+            style: TextStyle(color: neu.inkFaint, fontSize: 14),
           ),
         ),
       ],

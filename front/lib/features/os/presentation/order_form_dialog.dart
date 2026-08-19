@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -12,7 +15,11 @@ import '../../auth/presentation/session_state.dart';
 import '../../customers/domain/customers_models.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
 import '../domain/os_models.dart';
+import 'item_picker_dialog.dart';
 import 'os_providers.dart';
+import 'os_status.dart';
+import 'template_picker_dialog.dart';
+import 'tracking_link_share.dart';
 
 /// Dois modos de origem do cliente na "Nova OS".
 enum _CustomerMode { existing, novo }
@@ -41,9 +48,56 @@ class OrderFormDialog extends ConsumerStatefulWidget {
   ConsumerState<OrderFormDialog> createState() => _OrderFormDialogState();
 }
 
+/// Painel aberto dentro do passo "Detalhes". Os seletores de template e de item
+/// abrem AQUI, no lugar, em vez de empilhar diálogo sobre diálogo.
+enum _Painel { nenhum, template, item }
+
+/// Foto escolhida ANTES de a OS existir: fica em memória com o preview e sobe
+/// logo depois do `createOrder` (mesmo padrão do cadastro de veículo).
+class _FotoPendente {
+  const _FotoPendente({
+    required this.bytes,
+    required this.filename,
+    required this.contentType,
+  });
+
+  final Uint8List bytes;
+  final String filename;
+  final String contentType;
+}
+
 class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _complaint = TextEditingController();
+  final _diagnosis = TextEditingController();
+  final _discount = TextEditingController();
+
+  /// Legenda aplicada às fotos da abertura (ex.: "estado na entrada"). Uma só
+  /// para o lote: na correria da recepção, pedir uma legenda por foto faria
+  /// ninguém fotografar.
+  final _fotoLegenda = TextEditingController();
+
+  /// Situação com que a OS deve nascer. A OS é sempre criada `aberta` (o
+  /// backend é dono da FSM) e o wizard faz a transição em seguida, então a
+  /// linha do tempo registra a mudança como qualquer outra.
+  String _statusInicial = 'aberta';
+
+  /// Templates a aplicar assim que a OS existir (na ordem escolhida).
+  final List<OsTemplate> _templates = [];
+
+  /// Itens avulsos/do estoque a lançar assim que a OS existir.
+  final List<OrderItemDraft> _itens = [];
+
+  /// Fotos da abertura, em memória até haver um id de OS para anexá-las.
+  final List<_FotoPendente> _fotos = [];
+
+  /// Seletor aberto no lugar (nenhum diálogo novo).
+  _Painel _painel = _Painel.nenhum;
+
+  /// Guardar o que foi montado aqui como template reaproveitável. O nome fica
+  /// num campo visível — nada é salvo sem o usuário ler o que vai salvar.
+  bool _salvarComoTemplate = false;
+  final _templateNome = TextEditingController();
 
   // Passo atual do wizard (índice na lista dinâmica de passos [_steps]).
   int _stepIndex = 0;
@@ -116,7 +170,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   @override
   void dispose() {
-    for (final c in [_complaint, _newName, _newPhone, ..._subjFields.values]) {
+    for (final c in [
+      _complaint,
+      _diagnosis,
+      _discount,
+      _fotoLegenda,
+      _templateNome,
+      _newName,
+      _newPhone,
+      ..._subjFields.values,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -278,9 +341,12 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   OrderDraft _buildDraft() {
     final complaint = _opt(_complaint.text);
+    final diagnosis = _opt(_diagnosis.text);
     final assignedTo = _assignedTo;
     final startIso = _scheduledStart?.toUtc().toIso8601String();
     final endIso = _scheduledEnd?.toUtc().toIso8601String();
+    // Só manda desconto quando existe: 0 é o default do banco.
+    final desconto = _descontoValor > 0 ? _descontoValor : null;
     if (_mode == _CustomerMode.existing) {
       // Cliente existente pode vir com um veículo NOVO cadastrado aqui mesmo —
       // o backend cria o veículo para ele e já vincula na OS.
@@ -295,9 +361,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         newSubjectPlateData:
             _novoSubjetoParaExistente ? _plateInfo?.toJson() : null,
         complaint: complaint,
+        diagnosis: diagnosis,
         assignedTo: assignedTo,
         scheduledStart: startIso,
         scheduledEnd: endIso,
+        discount: desconto,
       );
     }
     // Cliente novo: identifier (placa) + atributos do veículo a partir dos
@@ -310,9 +378,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       newSubjectAttributes: attrs,
       newSubjectPlateData: _plateInfo?.toJson(),
       complaint: complaint,
+      diagnosis: diagnosis,
       assignedTo: assignedTo,
       scheduledStart: startIso,
       scheduledEnd: endIso,
+      discount: desconto,
     );
   }
 
@@ -334,23 +404,114 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     return (identifier, built.isEmpty ? null : built);
   }
 
+  /// Cria a OS e, sobre ela, lança tudo que foi preenchido no wizard:
+  /// templates, itens, fotos e a situação inicial. Cada etapa usa o mesmo
+  /// endpoint que a tela de detalhe usaria — assim a baixa de estoque, o
+  /// re-snapshot de preço e a FSM continuam sendo do backend, e offline o
+  /// repositório local-first enfileira tudo na ordem.
+  ///
+  /// Se a OS nasce mas um anexo falha, NÃO desfazemos nada: a OS existe, o
+  /// usuário vai para ela e dizemos exatamente o que não entrou. Perder o
+  /// cadastro inteiro por causa de uma foto seria pior.
   Future<void> _save() async {
     if (!_canSubmit) return;
     // Todos os campos obrigatórios (relato + responsável) vivem no último passo,
     // portanto estão montados aqui — o Form valida-os antes de criar.
     if (!_formKey.currentState!.validate()) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final neu = context.neu;
     setState(() {
       _saving = true;
       _error = null;
     });
+
+    final repo = ref.read(osRepositoryProvider);
+    final ServiceOrder order;
     try {
-      final order =
-          await ref.read(osRepositoryProvider).createOrder(_buildDraft());
-      if (mounted) Navigator.of(context).pop(order.id);
+      order = await repo.createOrder(_buildDraft());
     } on AppException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _saving = false;
+        });
+      }
+      return;
+    }
+
+    // Daqui para baixo a OS JÁ EXISTE — falhas viram aviso, não erro fatal.
+    final falhas = <String>[];
+    for (final template in _templates) {
+      try {
+        await repo.applyTemplate(order.id, template.id);
+      } on AppException {
+        falhas.add('template "${template.name}"');
+      }
+    }
+    for (final item in _itens) {
+      try {
+        await repo.addItem(order.id, item);
+      } on AppException {
+        falhas.add('item "${item.name ?? 'sem nome'}"');
+      }
+    }
+    // "Salvar como template": o pacote montado aqui vira reaproveitável. Não
+    // depende da OS — se um item falhou acima, o template ainda faz sentido.
+    final nomeTemplate = _templateNome.text.trim();
+    if (_salvarComoTemplate && nomeTemplate.isNotEmpty && _itens.isNotEmpty) {
+      try {
+        await repo.createTemplate(OsTemplateDraft(
+          name: nomeTemplate,
+          items: _itens.map(_paraItemDeTemplate).toList(),
+        ));
+        ref.invalidate(templateListProvider);
+      } on AppException {
+        falhas.add('template "$nomeTemplate"');
+      }
+    }
+
+    final legenda = _opt(_fotoLegenda.text);
+    for (final foto in _fotos) {
+      try {
+        await repo.addPhoto(
+          order.id,
+          bytes: foto.bytes,
+          filename: foto.filename,
+          contentType: foto.contentType,
+          caption: legenda,
+        );
+      } on AppException {
+        falhas.add('foto "${foto.filename}"');
+      }
+    }
+    if (_statusInicial != 'aberta') {
+      try {
+        await repo.changeStatus(order.id, _statusInicial);
+      } on AppException {
+        falhas.add('situação "${osStatusLabel(_statusInicial)}"');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+    // Entregar o link ao cliente vem ANTES de abrir a ficha: o cliente ainda
+    // está no balcão. Só ao confirmar aqui o wizard fecha e a navegação para a
+    // OS acontece. OS criada offline nasce sem `public_token` (o link só existe
+    // depois que o servidor a registra) — nesse caso não há passo nenhum.
+    final token = order.publicToken;
+    if (token != null && token.isNotEmpty) {
+      await OsTrackingLinkDialog.show(context, order: order);
+      if (!mounted) return;
+    }
+    Navigator.of(context).pop(order.id);
+    // Depois do pop: o messenger do app sobrevive ao diálogo.
+    if (falhas.isNotEmpty) {
+      showNeuErrorOn(
+        messenger,
+        'OS criada, mas não foi possível lançar: ${falhas.join(', ')}. '
+        'Dá para refazer pela tela da OS.',
+        tokens: neu,
+      );
     }
   }
 
@@ -401,7 +562,9 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
     return NeuDialog(
       title: 'Nova ordem de serviço',
-      maxWidth: context.isMobile ? 560 : 480,
+      // O passo Detalhes concentra relato, itens, totais e fotos — 480 apertava
+      // as linhas de lançamento.
+      maxWidth: 560,
       actions: [
         NeuButton(
           label: _isFirst ? 'Cancelar' : 'Voltar',
@@ -445,7 +608,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                 _error!,
                 style: TextStyle(
                   color: neu.danger,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -619,7 +782,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   style: TextStyle(
                     color: selected ? neu.onNavy : neu.ink,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -814,7 +977,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                     'Novo $_subjectLabelSingular para ${_customer?.name ?? "o cliente"}',
                     style: TextStyle(
                       color: neu.ink,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -858,7 +1021,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             const SizedBox(height: 8),
             Text(
               'Ou siga sem selecionar — dá para vincular depois.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ],
         );
@@ -1112,6 +1275,20 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
               : null,
         ),
         const SizedBox(height: 12),
+        // Diagnóstico opcional: quando quem recebe já sabe o que é (ou o
+        // mecânico está do lado), não faz sentido criar a OS para depois
+        // abri-la só para escrever isto.
+        NeuTextField(
+          label: 'Diagnóstico (opcional)',
+          controller: _diagnosis,
+          hint: 'O que a oficina identificou…',
+          minLines: 2,
+          maxLines: 4,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          enabled: !_saving,
+        ),
+        const SizedBox(height: 12),
         _responsavelDropdown(),
         const SizedBox(height: 12),
         // ---- Datas de previsão (OPCIONAIS — cadastro-relâmpago da OS; a agenda
@@ -1145,7 +1322,535 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
               ),
           ],
         ),
+        _secao('Situação inicial'),
+        _situacaoInicial(),
+        _secao(
+          'Serviços e peças',
+          hint: 'Opcional — dá para lançar depois, na tela da OS.',
+        ),
+        _itensSection(),
+        const SizedBox(height: 12),
+        _totaisSection(),
+        _secao(
+          'Fotos',
+          hint: 'Registre o estado do veículo na entrada.',
+        ),
+        _fotosSection(),
       ],
+    );
+  }
+
+  // ---- Situação inicial -----------------------------------------------------
+
+  /// Situações com que a OS pode nascer: 'aberta' mais as transições que a FSM
+  /// permite a partir dela — menos 'cancelada' (ninguém abre uma OS cancelada).
+  /// Deriva da FSM em vez de repetir a lista: se o backend mudar as transições,
+  /// aqui acompanha.
+  List<String> get _situacoesIniciais => [
+        'aberta',
+        ...?osTransitions['aberta']?.where((s) => s != 'cancelada'),
+      ];
+
+  Widget _situacaoInicial() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final status in _situacoesIniciais)
+          _statusChip(status, selected: _statusInicial == status),
+      ],
+    );
+  }
+
+  Widget _statusChip(String status, {required bool selected}) {
+    final neu = context.neu;
+    final cor = osStatusColor(status);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _saving ? null : () => setState(() => _statusInicial = status),
+      child: NeuSurface(
+        elevation: selected ? NeuElevation.flat : NeuElevation.raised,
+        radius: NeuTokens.rField,
+        color: selected ? cor.withValues(alpha: 0.16) : null,
+        border: selected ? Border.all(color: cor, width: 1.5) : null,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              osStatusLabel(status),
+              style: TextStyle(
+                color: selected ? neu.ink : neu.inkMuted,
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---- Serviços e peças -----------------------------------------------------
+
+  void _escolherTemplate(OsTemplate template) {
+    if (_templates.any((t) => t.id == template.id)) {
+      _snack('O template "${template.name}" já está nesta OS.');
+      return;
+    }
+    setState(() {
+      _templates.add(template);
+      _painel = _Painel.nenhum;
+    });
+  }
+
+  /// O painel de template pediu para guardar o que está lançado como template
+  /// novo. Aqui a OS ainda nem existe, então só marcamos a intenção (com o nome
+  /// à vista): o template é criado junto com a OS, no "Criar OS".
+  void _marcarSalvarComoTemplate(String nome) {
+    setState(() {
+      _salvarComoTemplate = true;
+      _templateNome.text = nome;
+      _painel = _Painel.nenhum;
+    });
+  }
+
+  /// Item de OS → item de template (mesma tradução da tela de templates).
+  OsTemplateItemDraft _paraItemDeTemplate(OrderItemDraft d) =>
+      OsTemplateItemDraft(
+        kind: d.kind,
+        inventoryItemId: d.inventoryItemId,
+        name: d.inventoryItemId == null ? d.name : null,
+        quantity: d.quantity,
+        unitPrice: d.unitPrice,
+      );
+
+  double _totalDoItem(OrderItemDraft item) {
+    final bruto =
+        (item.quantity ?? 1) * (item.unitPrice ?? 0) - (item.discount ?? 0);
+    return bruto < 0 ? 0 : bruto;
+  }
+
+  double get _totalTemplates => _templates.fold(
+        0,
+        (soma, t) => soma + (double.tryParse(t.total ?? '0') ?? 0),
+      );
+
+  double get _totalItens =>
+      _itens.fold(0, (soma, item) => soma + _totalDoItem(item));
+
+  double get _descontoValor =>
+      double.tryParse(_discount.text.trim().replaceAll(',', '.')) ?? 0;
+
+  double get _totalGeral {
+    final bruto = _totalTemplates + _totalItens - _descontoValor;
+    return bruto < 0 ? 0 : bruto;
+  }
+
+  Widget _itensSection() {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_painel == _Painel.nenhum)
+          Row(
+            children: [
+              Expanded(
+                child: NeuButton(
+                  label: 'Aplicar template',
+                  icon: Icons.checklist_rounded,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _painel = _Painel.template),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: NeuButton(
+                  label: 'Adicionar item',
+                  icon: Icons.add_rounded,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _painel = _Painel.item),
+                ),
+              ),
+            ],
+          )
+        else
+          _painelInline(),
+        if (_painel == _Painel.nenhum && _templates.isEmpty && _itens.isEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Nenhuma peça ou serviço lançado.',
+            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+          ),
+        ],
+        for (var i = 0; i < _templates.length; i++) ...[
+          const SizedBox(height: 10),
+          _linhaLancamento(
+            icone: Icons.checklist_rounded,
+            titulo: _templates[i].name,
+            detalhe: _templates[i].items.length == 1
+                ? '1 item do template'
+                : '${_templates[i].items.length} itens do template',
+            valor: double.tryParse(_templates[i].total ?? '0') ?? 0,
+            onRemove: _saving ? null : () => setState(() => _templates.removeAt(i)),
+          ),
+        ],
+        for (var i = 0; i < _itens.length; i++) ...[
+          const SizedBox(height: 10),
+          _linhaLancamento(
+            icone: _itens[i].kind == 'service'
+                ? Icons.handyman_outlined
+                : Icons.inventory_2_outlined,
+            titulo: _itens[i].name?.trim().isNotEmpty == true
+                ? _itens[i].name!
+                : 'Item',
+            detalhe: '${_fmtQuantidade(_itens[i].quantity ?? 1)} × '
+                '${money((_itens[i].unitPrice ?? 0).toStringAsFixed(2))}',
+            valor: _totalDoItem(_itens[i]),
+            onRemove: _saving ? null : () => setState(() => _itens.removeAt(i)),
+          ),
+        ],
+        if (_itens.isNotEmpty && _painel == _Painel.nenhum) ...[
+          const SizedBox(height: 14),
+          _salvarComoTemplateBloco(),
+        ],
+      ],
+    );
+  }
+
+  /// O seletor aberto — template ou item — dentro de uma cavidade, no lugar dos
+  /// dois botões. Nada de diálogo por cima de diálogo: o passo continua sendo
+  /// uma folha só, e o "Voltar/Cancelar" do painel devolve os botões.
+  Widget _painelInline() {
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(14),
+      child: _painel == _Painel.template
+          ? TemplatePickerPanel(
+              qtdItensParaSalvar: _itens.length,
+              maxAltura: 240,
+              onSelected: _escolherTemplate,
+              onCancel: () => setState(() => _painel = _Painel.nenhum),
+              onCriarTemplate: _marcarSalvarComoTemplate,
+            )
+          : ItemPickerPanel(
+              onConfirm: (draft) => setState(() {
+                _itens.add(draft);
+                _painel = _Painel.nenhum;
+              }),
+              onCancel: () => setState(() => _painel = _Painel.nenhum),
+            ),
+    );
+  }
+
+  /// "Guarde isto para a próxima": o pacote de peças e serviços que acabou de
+  /// ser montado vira um template reaproveitável. O nome fica à vista e é
+  /// editável — o template só nasce junto com a OS, no "Criar OS".
+  Widget _salvarComoTemplateBloco() {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: _saving
+              ? null
+              : () => setState(
+                    () => _salvarComoTemplate = !_salvarComoTemplate,
+                  ),
+          borderRadius: BorderRadius.circular(NeuTokens.rField),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: _salvarComoTemplate,
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() => _salvarComoTemplate = v ?? false),
+                ),
+                Expanded(
+                  child: Text(
+                    'Salvar estas peças e serviços como template',
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_salvarComoTemplate) ...[
+          const SizedBox(height: 8),
+          NeuTextField(
+            label: 'Nome do template *',
+            controller: _templateNome,
+            hint: 'ex.: Revisão simples',
+            prefixIcon: Icons.checklist_rounded,
+            enabled: !_saving,
+            maxLength: 120,
+            onChanged: (_) => setState(() {}),
+            validator: (v) => (_salvarComoTemplate && (v == null || v.trim().isEmpty))
+                ? 'Dê um nome ao template (ou desmarque a opção)'
+                : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              'Fica salvo ao criar a OS e aparece em "Aplicar template" na '
+              'próxima vez.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 1 → "1"; 1.5 → "1,5" (quantidade fracionada existe: 0,5 h de mão de obra).
+  String _fmtQuantidade(double v) => v == v.truncate()
+      ? v.toInt().toString()
+      : v.toString().replaceAll('.', ',');
+
+  Widget _linhaLancamento({
+    required IconData icone,
+    required String titulo,
+    required String detalhe,
+    required double valor,
+    VoidCallback? onRemove,
+  }) {
+    final neu = context.neu;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Icon(icone, size: 18, color: neu.inkMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  detalhe,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            money(valor.toStringAsFixed(2)),
+            style: TextStyle(
+              color: neu.ink,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          NeuIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Remover',
+            size: 34,
+            onPressed: onRemove,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Desconto e total -----------------------------------------------------
+
+  Widget _totaisSection() {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NeuTextField(
+          label: 'Desconto (opcional)',
+          controller: _discount,
+          hint: '0,00',
+          prefixIcon: Icons.discount_outlined,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          enabled: !_saving,
+          onChanged: (_) => setState(() {}),
+          validator:
+              Validators.positiveNumber(optional: true, field: 'Desconto'),
+        ),
+        const SizedBox(height: 12),
+        NeuSurface(
+          elevation: NeuElevation.inset,
+          radius: NeuTokens.rField,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total',
+                style: TextStyle(
+                  color: neu.inkMuted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                money(_totalGeral.toStringAsFixed(2)),
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_templates.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 6),
+            child: Text(
+              'O template é somado pelo preço atual do estoque; o valor final é '
+              'confirmado quando a OS for criada.',
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ---- Fotos ----------------------------------------------------------------
+
+  /// Escolhe imagens e guarda os bytes em memória — só sobem depois que a OS
+  /// existir (é preciso um id para anexar).
+  Future<void> _addFotos() async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.image,
+      withData: true,
+      allowMultiple: true,
+    );
+    if (picked == null || !mounted) return;
+    final novas = <_FotoPendente>[];
+    for (final file in picked.files) {
+      final bytes = file.bytes;
+      if (bytes == null) continue;
+      final ext = (file.extension ?? 'jpeg').toLowerCase();
+      novas.add(_FotoPendente(
+        bytes: bytes,
+        filename: file.name,
+        contentType: 'image/$ext',
+      ));
+    }
+    if (novas.isEmpty) return;
+    setState(() => _fotos.addAll(novas));
+  }
+
+  Widget _fotosSection() {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NeuButton(
+          label: _fotos.isEmpty ? 'Anexar fotos' : 'Anexar mais fotos',
+          icon: Icons.add_a_photo_outlined,
+          kind: NeuButtonKind.secondary,
+          onPressed: _saving ? null : _addFotos,
+        ),
+        if (_fotos.isEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Nenhuma foto anexada.',
+            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
+          ),
+        ] else ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (var i = 0; i < _fotos.length; i++)
+                _MiniaturaFoto(
+                  bytes: _fotos[i].bytes,
+                  onRemove:
+                      _saving ? null : () => setState(() => _fotos.removeAt(i)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          NeuTextField(
+            label: 'Legenda das fotos (opcional)',
+            controller: _fotoLegenda,
+            hint: 'ex.: estado na entrada',
+            prefixIcon: Icons.notes_outlined,
+            enabled: !_saving,
+            maxLength: 200,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Título de seção do passo Detalhes — separa os blocos sem virar um card
+  /// dentro do diálogo.
+  Widget _secao(String titulo, {String? hint}) {
+    final neu = context.neu;
+    return Padding(
+      padding: const EdgeInsets.only(top: 22, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text(
+                titulo,
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Container(height: 1, color: neu.line)),
+            ],
+          ),
+          if (hint != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              hint,
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1210,7 +1915,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1287,7 +1992,7 @@ class _DateTimeField extends FormField<DateTime?> {
                     label,
                     style: TextStyle(
                       color: neu.inkMuted,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1330,7 +2035,7 @@ class _DateTimeField extends FormField<DateTime?> {
                       state.errorText!,
                       style: TextStyle(
                         color: neu.danger,
-                        fontSize: 12.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1432,7 +2137,7 @@ class _SubjectLookupField extends ConsumerWidget {
                 '${field.rotulo} (opcional)',
                 style: TextStyle(
                   color: neu.inkMuted,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1458,6 +2163,50 @@ class _SubjectLookupField extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Miniatura de uma foto ainda não enviada (bytes em memória), com o X para
+/// desistir dela antes de criar a OS.
+class _MiniaturaFoto extends StatelessWidget {
+  const _MiniaturaFoto({required this.bytes, required this.onRemove});
+
+  final Uint8List bytes;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return SizedBox(
+      width: 84,
+      height: 84,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(NeuTokens.rField),
+              child: Image.memory(bytes, fit: BoxFit.cover),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Material(
+              color: neu.surface,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onRemove,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close_rounded, size: 15, color: neu.ink),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -158,6 +158,29 @@ describe('OsService.createOrder — cliente e veículo', () => {
     expect(data.subject_id).toBeNull();
   });
 
+  it('grava o desconto fechado na abertura (e 0 quando não vem)', async () => {
+    const comDesconto = makeService();
+    await comDesconto.svc.createOrder(user, {
+      ...baseDto,
+      customerId: 'c1',
+      discount: 25.5,
+    } as CreateOrderDto);
+    expect(
+      (comDesconto.repo.createOrder.mock.calls[0][1] as Record<string, unknown>)
+        .discount,
+    ).toBe(25.5);
+
+    const semDesconto = makeService();
+    await semDesconto.svc.createOrder(user, {
+      ...baseDto,
+      customerId: 'c1',
+    } as CreateOrderDto);
+    expect(
+      (semDesconto.repo.createOrder.mock.calls[0][1] as Record<string, unknown>)
+        .discount,
+    ).toBe(0);
+  });
+
   it('sem cliente algum: recusa com mensagem clara', async () => {
     const { svc } = makeService();
     await expect(svc.createOrder(user, { ...baseDto })).rejects.toBeInstanceOf(
