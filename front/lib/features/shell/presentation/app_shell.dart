@@ -45,9 +45,16 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// Abre o tutorial da rota, se houver e se o usuário nunca o viu.
   void _talvezTutorial(String location) {
-    final tut = tutorialForRoute(location);
-    if (tut == null || _tutorialDisparado == tut.id) return;
-    _tutorialDisparado = tut.id;
+    final bruto = tutorialForRoute(location);
+    if (bruto == null || _tutorialDisparado == bruto.id) return;
+    _tutorialDisparado = bruto.id;
+    // O texto do tutorial fala do objeto atendido; a palavra vem do nicho.
+    final me = ref.read(sessionControllerProvider).meOrNull;
+    final tut = aplicarVocabulario(
+      bruto,
+      objeto: me?.objeto ?? 'objeto',
+      objetos: me?.objetos ?? 'objetos',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       CoachMark.maybeStart(context, id: tut.id, steps: tut.steps);

@@ -35,7 +35,7 @@ final outboxEntriesProvider = FutureProvider<List<OutboxData>>((ref) async {
 String describeMutation(String entity, String op) {
   const entities = <String, String>{
     'customer': 'Cliente',
-    'subject': 'Veículo/objeto',
+    'subject': 'Objeto',
     'inventory_item': 'Item de estoque',
     'service_order': 'Ordem de serviço',
     'cash_session': 'Caixa',

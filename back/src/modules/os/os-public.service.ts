@@ -128,6 +128,14 @@ export class OsPublicService {
               photoUrl: e.photo_id ? photoUrlById.get(e.photo_id) ?? null : null,
             })),
           company: company ? { name: company.name } : undefined,
+          // Vocabulário do nicho para a PÁGINA PÚBLICA. Ela não tem sessão, então
+          // não pode resolver isso sozinha — e é justamente onde mais importa:
+          // é o cliente final da empresa que lê. Sem isto, a clínica dizia
+          // "Seu veículo está com a equipe" para o paciente dela.
+          vocab: {
+            objeto: vocab['objeto.singular'] ?? 'item',
+            objetoPlural: vocab['objeto.plural'] ?? 'itens',
+          },
           // mantido só p/ resolver o nome FORA da tx (desestruturado abaixo).
           assignedTo: order.assigned_to,
         };

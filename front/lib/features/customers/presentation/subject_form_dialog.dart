@@ -217,7 +217,10 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     final confirmed = await showNeuConfirm(
       context,
       title: 'Remover foto?',
-      message: 'A foto do veículo será removida.',
+      // Sem artigo: o rótulo do objeto vem do nicho e pode ser masculino ou
+      // feminino ("Veículo", "Aparelho", "Máquina"). Adivinhar o gênero pelo
+      // texto erra — "Aparelho" começa com 'a' e é masculino.
+      message: 'A foto será removida.',
       confirmLabel: 'Remover',
     );
     if (!confirmed || !mounted) return;
@@ -698,7 +701,7 @@ class _VehiclePhotoPicker extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
-            'Foto do veículo',
+            'Foto',
             style: TextStyle(
               color: neu.inkMuted,
               fontSize: 14,

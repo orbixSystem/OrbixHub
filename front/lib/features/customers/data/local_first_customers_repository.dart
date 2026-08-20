@@ -361,8 +361,8 @@ class LocalFirstCustomersRepository extends LocalFirstBase
     required String filename,
     required String contentType,
   }) async {
-    if (!isOnline()) requiresConnection('enviar a foto do veículo');
-    if (await isDirty('subject', id)) pendingSync('Este veículo');
+    if (!isOnline()) requiresConnection('enviar a foto');
+    if (await isDirty('subject', id)) pendingSync('Este registro');
     final subject = await inner.setSubjectPhoto(
       id,
       bytes: bytes,
@@ -375,8 +375,8 @@ class LocalFirstCustomersRepository extends LocalFirstBase
 
   @override
   Future<Subject> removeSubjectPhoto(String id) async {
-    if (!isOnline()) requiresConnection('remover a foto do veículo');
-    if (await isDirty('subject', id)) pendingSync('Este veículo');
+    if (!isOnline()) requiresConnection('remover a foto');
+    if (await isDirty('subject', id)) pendingSync('Este registro');
     final subject = await inner.removeSubjectPhoto(id);
     await putRow('subject', subject.toJson());
     return subject;

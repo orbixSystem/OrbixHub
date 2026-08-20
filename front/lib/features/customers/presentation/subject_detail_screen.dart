@@ -7,6 +7,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../core/export/file_download.dart';
@@ -55,7 +56,7 @@ class SubjectDetailScreen extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
         child: Text(
-          e is AppException ? e.message : 'Erro ao carregar o veículo.',
+          e is AppException ? e.message : 'Erro ao carregar o registro.',
         ),
       ),
       data: (page) {
@@ -106,8 +107,13 @@ class _Body extends ConsumerWidget {
     final customerName =
         ref.watch(customerProvider(customerId)).whenOrNull(data: (c) => c.name);
 
+    // A aba de ficha existe só para quem TEM a capacidade de consultar o
+    // identificador numa base externa. Num nicho sem essa base ela ficaria
+    // eternamente vazia falando de placa — e antes ela aparecia para todo mundo.
+    final temFicha = ref.watch(hasFeatureProvider(Features.identifierLookup));
+
     return DefaultTabController(
-      length: 3,
+      length: temFicha ? 3 : 2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -181,9 +187,9 @@ class _Body extends ConsumerWidget {
               ),
             ),
           ),
-          const _Bounded(
+          _Bounded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               // Mesmo cabeçalho em desktop e mobile — um alvo serve aos dois.
               child: CoachTarget(
                 'veiculo.abas',
@@ -191,15 +197,16 @@ class _Body extends ConsumerWidget {
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 tabs: [
-                  Tab(
+                  const Tab(
                     icon: Icon(Icons.description_outlined, size: 18),
                     text: 'Dados',
                   ),
-                  Tab(
-                    icon: Icon(Icons.travel_explore_outlined, size: 18),
-                    text: 'Informações adicionais',
-                  ),
-                  Tab(
+                  if (temFicha)
+                    const Tab(
+                      icon: Icon(Icons.travel_explore_outlined, size: 18),
+                      text: 'Informações adicionais',
+                    ),
+                  const Tab(
                     icon: Icon(Icons.build_outlined, size: 18),
                     text: 'Ordens de serviço',
                   ),
@@ -215,12 +222,13 @@ class _Body extends ConsumerWidget {
               child: TabBarView(
               children: [
                 _DadosTab(subject: subject, config: config),
-                _PlacaTab(
-                  customerId: customerId,
-                  subject: subject,
-                  customerName: customerName,
-                  canWrite: canWrite,
-                ),
+                if (temFicha)
+                  _PlacaTab(
+                    customerId: customerId,
+                    subject: subject,
+                    customerName: customerName,
+                    canWrite: canWrite,
+                  ),
                 _OrdensTab(customerId: customerId, subject: subject),
                 ],
               ),
@@ -526,7 +534,7 @@ class _OrdensTab extends ConsumerWidget {
                 child: NeuEmptyState(
                   icon: Icons.build_outlined,
                   title: 'Nenhuma ordem de serviço',
-                  message: 'As OS abertas para este veículo aparecem aqui, '
+                  message: 'As OS abertas para este registro aparecem aqui, '
                       'prontas para consultar e imprimir.',
                 ),
               ),
