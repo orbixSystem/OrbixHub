@@ -18,21 +18,30 @@ abstract interface class SaleRepository {
   Future<Sale> getSale(String id);
   Future<Sale> createSale(SaleDraft draft);
 
-  /// Edita uma venda registrada: cliente, itens e desconto.
+  /// Edita uma venda registrada: cliente, itens, desconto e observação.
   ///
   /// `items` SUBSTITUI as linhas (manda a lista inteira, como na criação); o
   /// total é recalculado no servidor e o estoque reconciliado. O backend recusa
   /// quando a edição quebraria algo já emitido: nota fiscal existente ou total
   /// abaixo do que o cliente já pagou.
+  ///
+  /// `description: ''` APAGA a observação; omitir a chave não a toca.
   Future<Sale> updateSale(
     String id, {
     String? customerId,
     List<SaleItemDraft>? items,
     double? discount,
+    String? description,
   });
 
   /// Cancelamento lógico (estorna estoque no backend). Nunca apaga.
   Future<Sale> cancelSale(String id, {String? reason});
+
+  /// Declara a venda como FIADO (`POST /sales/:id/fiado`).
+  ///
+  /// Só é necessário para venda que JÁ existe (o caminho normal declara na
+  /// criação, via [SaleDraft.fiado]). Idempotente no backend.
+  Future<Sale> markFiado(String id);
 
   /// Dispara a emissão da nota via o Fiscal; devolve o resultado (snapshot).
   Future<SaleFiscalResult> emitInvoice(String id);

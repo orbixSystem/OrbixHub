@@ -10,6 +10,7 @@ import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../customers/domain/customers_models.dart';
@@ -415,8 +416,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   /// cadastro inteiro por causa de uma foto seria pior.
   Future<void> _save() async {
     if (!_canSubmit) return;
-    // Todos os campos obrigatórios (relato + responsável) vivem no último passo,
-    // portanto estão montados aqui — o Form valida-os antes de criar.
+    // Os campos obrigatórios vivem no último passo, portanto estão montados
+    // aqui — o Form valida-os antes de criar.
     if (!_formKey.currentState!.validate()) return;
     final messenger = ScaffoldMessenger.of(context);
     final neu = context.neu;
@@ -1163,7 +1164,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
     final button = NeuIconButton(
       icon: Icons.manage_search_rounded,
-      tooltip: 'Buscar dados do veículo pela placa',
+      tooltip: 'Consultar ${_byChave['identifier']?.rotulo ?? 'identificador'}',
       size: 48,
       onPressed: _saving ? null : _plateLookup,
     );
@@ -1177,10 +1178,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
   /// O identificador é uma placa? Decidido pela CONFIG do tenant (rótulo), não
   /// por vertical hardcoded.
-  bool get _identifierIsPlate {
-    final f = _byChave['identifier'];
-    return f != null && f.rotulo.toLowerCase().contains('placa');
-  }
+  /// A consulta do identificador numa base externa é uma CAPACIDADE do tenant,
+  /// não um palpite sobre o texto. Antes isto era
+  /// `f.rotulo.toLowerCase().contains('placa')` — renomear o campo mudava
+  /// comportamento, e um nicho novo (nº de série) não tinha como habilitar.
+  bool get _identifierIsPlate =>
+      _byChave['identifier'] != null &&
+      ref.watch(hasFeatureProvider(Features.identifierLookup));
 
   /// Consulta a placa e preenche os campos do veículo. Usa o "equivalente"
   /// FIPE devolvido pelo backend, então a cascata (marca→modelo→ano) continua
@@ -1261,8 +1265,14 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // OPCIONAL, e de propósito: nem toda OS nasce de uma queixa. Venda de
+        // peça faturada, serviço contratado por órgão público, retorno de
+        // garantia — em todos esses não há "problema relatado", e exigir o
+        // campo obrigava a inventar texto ou a abandonar a OS no meio. O
+        // backend sempre aceitou `complaint` opcional (`CreateOrderDto`); a
+        // obrigatoriedade só existia aqui.
         NeuTextField(
-          label: 'Relato do cliente *',
+          label: 'Relato do cliente (opcional)',
           controller: _complaint,
           hint: 'Descreva o problema relatado pelo cliente…',
           minLines: 3,
@@ -1270,9 +1280,6 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           keyboardType: TextInputType.multiline,
           textInputAction: TextInputAction.newline,
           enabled: !_saving,
-          validator: (v) => (v == null || v.trim().isEmpty)
-              ? 'Informe o relato do cliente'
-              : null,
         ),
         const SizedBox(height: 12),
         // Diagnóstico opcional: quando quem recebe já sabe o que é (ou o

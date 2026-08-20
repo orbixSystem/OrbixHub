@@ -191,6 +191,8 @@ export class AuthRepository {
     fullName: string;
     emailNormalized: string;
     passwordHash: string;
+    /** Nicho escolhido no cadastro; null = pacote padrão. */
+    vertical: string | null;
     createTrial: (tenantId: string) => Promise<void>;
   }): Promise<{ userId: string; tenantId: string }> {
     return this.prisma.$transaction(
@@ -202,6 +204,7 @@ export class AuthRepository {
             cnpj: params.cnpj,
             legal_name: params.legalName,
             trade_name: params.tradeName,
+            vertical: params.vertical,
           },
         });
         const user = await tx.users.create({

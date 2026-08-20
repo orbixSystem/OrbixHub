@@ -22,6 +22,12 @@ void main() {
     role: 'owner',
     permissions: ['billing.manage'],
     modules: ['os', 'customers'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
   );
 
   // Stub: settingsControllerProvider retorna bundle vazio (sem logoUrl),

@@ -60,6 +60,7 @@ class SaleRepositoryImpl implements SaleRepository {
     String? customerId,
     List<SaleItemDraft>? items,
     double? discount,
+    String? description,
   }) =>
       _guard(() async {
         final res = await _dio.patch<Object?>('/sales/$id', data: {
@@ -68,6 +69,9 @@ class SaleRepositoryImpl implements SaleRepository {
           'customerId': ?customerId,
           'items': ?items?.map((i) => i.toJson()).toList(),
           'discount': ?discount,
+          // String vazia é intencional (apaga a observação) — por isso o teste é
+          // por `null`, não por `isNotEmpty`.
+          'description': ?description,
         });
         return Sale.fromJson(_asMap(res.data));
       });
@@ -77,6 +81,12 @@ class SaleRepositoryImpl implements SaleRepository {
         final res = await _dio.post<Object?>('/sales/$id/cancel', data: {
           if (reason != null && reason.isNotEmpty) 'reason': reason,
         });
+        return Sale.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Sale> markFiado(String id) => _guard(() async {
+        final res = await _dio.post<Object?>('/sales/$id/fiado');
         return Sale.fromJson(_asMap(res.data));
       });
 

@@ -163,8 +163,9 @@ void main() {
   });
 
   test('logo quadrado não estica o cabeçalho (teto de altura)', () async {
-    // Sem teto, um logo 1:1 esticado até os 200pt da coluna geraria um
-    // cabeçalho de palmo e meio. O PNG do fixture é 1x1 — o pior caso.
+    // Sem teto, um logo 1:1 esticado até a largura da coluna geraria um
+    // cabeçalho de palmo e meio. O PNG do fixture é 1x1 — o pior caso, e o que
+    // segura a subida do teto de altura (70 → 100) feita a pedido do dono.
     final bytes = await buildOsPdf(os, PdfPageFormat.a4, company: empresa());
     final m = RegExp(r'/Count\s+(\d+)')
         .firstMatch(String.fromCharCodes(bytes));

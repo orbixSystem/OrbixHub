@@ -168,6 +168,29 @@ class _Corpo extends ConsumerWidget {
               PaymentTag(status: sale.paymentStatus, dense: true),
           ],
         ),
+        // Observação da venda: costuma ser onde o balcão anotou QUEM levou
+        // quando ninguém foi cadastrado — some quando não foi preenchida.
+        if ((sale.description ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          NeuSurface(
+            elevation: NeuElevation.inset,
+            radius: NeuTokens.rField,
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.notes_outlined, size: 14, color: neu.inkFaint),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    sale.description!.trim(),
+                    style: TextStyle(color: neu.ink, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
 
         // O que foi vendido — o "expandir" que faltava no histórico.

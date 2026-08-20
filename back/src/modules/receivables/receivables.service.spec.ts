@@ -30,6 +30,10 @@ const linha = (over: Linha = {}): Linha => ({
   customer_name: 'João Silva',
   created_at: new Date('2026-07-01T10:00:00Z'),
   payment: pagamento(100, 0),
+  // Fiado agora é DECLARADO, não derivado: um título só conta como dívida
+  // depois de passar pelo caixa. A fixture representa dívida legítima, então
+  // nasce declarada — os cenários que testam a regra de passagem sobrescrevem.
+  fiado_at: new Date('2026-07-01T11:00:00Z'),
   items: [],
   ...over,
 });
@@ -115,6 +119,83 @@ describe('ReceivablesService — o que conta como dívida', () => {
   it('sem resumo de pagamento (caixa Noop) não inventa dívida', async () => {
     const { service } = makeService({ os: [linha({ payment: null })] });
     expect((await service.listCustomers(user)).items).toHaveLength(0);
+  });
+});
+
+describe('ReceivablesService — só é fiado depois de passar pelo caixa', () => {
+  it('OS recém-aberta, nada recebido e não declarada, NÃO é fiado', async () => {
+    // O bug que originou a mudança: a OS entrava na carteira de cobrança no
+    // instante em que era criada, antes do serviço e de qualquer conversa
+    // sobre pagamento.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 0) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.totalDue).toBe(0);
+  });
+
+  it('recebimento PARCIAL já prova a passagem — vira fiado sem declaração', async () => {
+    // Quem recebeu alguma coisa deixou lançamento no caixa; não precisa de
+    // `fiado_at` para provar que passou por lá.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 40) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].totalDue).toBe(60);
+  });
+
+  it('declarada com fiado_at e zero recebido É fiado', async () => {
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', payment: pagamento(100, 0) })],
+    });
+    expect((await service.listCustomers(user)).items).toHaveLength(1);
+  });
+
+  it('OS finalizada sem acerto vira AVISO, não dívida', async () => {
+    // Serviço entregue e não cobrado não pode simplesmente sumir: sai da
+    // carteira, mas aparece como pendente de acerto.
+    const { service } = makeService({
+      os: [
+        linha({ id: 'a', status: 'entregue', fiado_at: null, payment: pagamento(100, 0) }),
+        linha({ id: 'b', status: 'concluida', fiado_at: null, payment: pagamento(50, 0) }),
+      ],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 2, total: 150 });
+  });
+
+  it('OS em andamento não entra nem no aviso', async () => {
+    // Trabalho acontecendo não é dinheiro esquecido.
+    const { service } = makeService({
+      os: [linha({ status: 'aberta', fiado_at: null, payment: pagamento(100, 0) })],
+    });
+    expect((await service.listCustomers(user)).pendingSettlement).toEqual({
+      count: 0,
+      total: 0,
+    });
+  });
+
+  it('venda de balcão sem acerto entra no aviso (é entregue no ato)', async () => {
+    const { service } = makeService({
+      vendas: [
+        linha({ id: 'v1', status: 'active', fiado_at: null, payment: pagamento(80, 0) }),
+      ],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 1, total: 80 });
+  });
+
+  it('título já pago não vira aviso (não há o que acertar)', async () => {
+    const { service } = makeService({
+      os: [linha({ status: 'entregue', fiado_at: null, payment: pagamento(100, 100) })],
+    });
+    const r = await service.listCustomers(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.pendingSettlement).toEqual({ count: 0, total: 0 });
   });
 });
 
@@ -243,6 +324,83 @@ describe('ReceivablesService — detalhamento dos itens', () => {
   it('a visão agregada NÃO busca detalhe de OS (evita N+1 na carteira)', async () => {
     const { service, os } = makeService({ os: [linha({ id: 'os1' })] });
     await service.listCustomers(user);
+    expect(os.getOrderOrThrow).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Listagem ACHATADA — existe para o histórico do caixa poder mostrar a OS que
+ * ficou fiada. Antes o histórico listava venda em fiado e não OS em fiado: o
+ * mesmo fato aparecia numa tela e sumia na outra.
+ */
+describe('ReceivablesService — títulos em aberto achatados', () => {
+  it('devolve OS e venda juntas, cada uma com o próprio dono', async () => {
+    const { service } = makeService({
+      os: [linha({ id: 'os-1', payment: pagamento(300, 0) })],
+      vendas: [
+        linha({
+          id: 'v-1',
+          number: '15',
+          status: 'active',
+          customer_id: 'c2',
+          customer_name: 'Maria Souza',
+          payment: pagamento(150, 50),
+        }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items).toHaveLength(2);
+    expect(r.items.map((t) => [t.origin, t.customerName])).toEqual(
+      expect.arrayContaining([
+        ['os', 'João Silva'],
+        ['sale', 'Maria Souza'],
+      ]),
+    );
+    expect(r.totalDue).toBe(400);
+  });
+
+  it('ordena do mais recente para o mais antigo', async () => {
+    const { service } = makeService({
+      os: [
+        linha({ id: 'velha', created_at: new Date('2026-07-01T10:00:00Z') }),
+        linha({ id: 'nova', created_at: new Date('2026-08-10T10:00:00Z') }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items.map((t) => t.id)).toEqual(['nova', 'velha']);
+  });
+
+  it('título quitado não entra (mesma régua do resto do módulo)', async () => {
+    const { service } = makeService({
+      os: [linha({ id: 'paga', payment: pagamento(100, 100) })],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items).toHaveLength(0);
+    expect(r.totalDue).toBe(0);
+  });
+
+  it('venda de balcão sem cliente vem com customerId nulo', async () => {
+    const { service } = makeService({
+      vendas: [
+        linha({
+          id: 'v-1',
+          status: 'active',
+          customer_id: null,
+          customer_name: null,
+          payment: pagamento(80, 0),
+        }),
+      ],
+    });
+    const r = await service.listOpenTitles(user);
+    expect(r.items[0].customerId).toBeNull();
+    expect(r.items[0].customerName).toBe('Sem cliente');
+  });
+
+  it('não busca o detalhe da OS (o histórico quer quem/quanto, não itens)', async () => {
+    const { service, os } = makeService({
+      os: [linha({ id: 'os-1' })],
+    });
+    await service.listOpenTitles(user);
     expect(os.getOrderOrThrow).not.toHaveBeenCalled();
   });
 });

@@ -48,9 +48,9 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   Future<DebtorsPage> listDebtors() async {
     if (isOnline()) return inner.listDebtors();
 
-    final titulos = await _titulosLocais();
+    final local = await _titulosLocais();
     final porCliente = <String, Debtor>{};
-    for (final t in titulos) {
+    for (final t in local.fiado) {
       final chave = t.customerId ?? 'nome:${t.customerName}';
       final atual = porCliente[chave];
       if (atual == null) {
@@ -74,9 +74,53 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
     return DebtorsPage(
       items: items,
       totalDue: _round2(items.fold<num>(0, (a, d) => a + d.totalDue)),
+      pendingSettlement: PendingSettlement(
+        count: local.pendentes.length,
+        total: _round2(
+          local.pendentes.fold<num>(0, (a, p) => a + p.title.balance),
+        ),
+      ),
       // Sem cap: offline a carteira sai INTEIRA do espelho (OS + venda), então
       // não há o que avisar. O `truncated` do servidor é outra coisa — lá existe
       // teto de páginas.
+    );
+  }
+
+  @override
+  Future<OpenTitlesPage> listOpenTitles() async {
+    if (isOnline()) return inner.listOpenTitles();
+
+    final items = [
+      for (final t in (await _titulosLocais()).fiado)
+        t.title.copyWith(
+          customerId: t.customerId,
+          customerName: t.customerName,
+        ),
+    ]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    return OpenTitlesPage(
+      items: items,
+      totalDue: _round2(items.fold<num>(0, (a, t) => a + t.balance)),
+      // Sem cap offline: a carteira sai INTEIRA do espelho (mesma razão do
+      // `listDebtors`).
+    );
+  }
+
+  /// Offline os pendentes saem do mesmo espelho — o operador que ficou sem rede
+  /// precisa tanto quanto (ou mais) descobrir qual OS ficou sem acerto.
+  @override
+  Future<OpenTitlesPage> listPendingSettlement() async {
+    if (isOnline()) return inner.listPendingSettlement();
+
+    final items = [
+      for (final t in (await _titulosLocais()).pendentes)
+        t.title.copyWith(
+          customerId: t.customerId,
+          customerName: t.customerName,
+        ),
+    ]..sort((a, b) => (a.createdAt ?? '').compareTo(b.createdAt ?? ''));
+    return OpenTitlesPage(
+      items: items,
+      totalDue: _round2(items.fold<num>(0, (a, t) => a + t.balance)),
     );
   }
 
@@ -85,6 +129,7 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
     if (isOnline()) return inner.titlesOf(customerId);
 
     final doCliente = (await _titulosLocais())
+        .fiado
         .where((t) => t.customerId == customerId)
         .toList()
       ..sort((a, b) =>
@@ -99,12 +144,19 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
 
   /// Títulos em aberto derivados do espelho local: OS **e** venda de balcão,
   /// menos o que o caixa já recebeu de cada uma.
-  Future<List<_TituloLocal>> _titulosLocais() async {
+  /// Status de OS em que o serviço já foi entregue ao cliente.
+  static const _osFinalizadas = {'concluida', 'entregue'};
+
+  /// Os dois baldes do fiado local: o que É dívida (passou pelo caixa) e o que
+  /// foi entregue mas nunca passou por lá — o aviso da aba.
+  Future<({List<_TituloLocal> fiado, List<_TituloLocal> pendentes})>
+      _titulosLocais() async {
     // Σ recebido por título — regra compartilhada com o histórico de vendas e
     // espelho da do servidor (ver `local_payment.dart`).
     final pago = paidByTitleFrom(await rows(_entries));
 
-    return [
+    final pendentes = <_TituloLocal>[];
+    final fiado = [
       ..._titulosDe(
         linhas: await rows(_orders),
         itens: await rows(_orderItems),
@@ -113,6 +165,8 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
         origem: 'os',
         statusSemDivida: _osSemDivida,
         pago: pago,
+        pendentes: pendentes,
+        finalizados: _osFinalizadas,
       ),
       ..._titulosDe(
         linhas: await rows(_sales),
@@ -123,8 +177,10 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
         origem: 'sale',
         statusSemDivida: _vendaSemDivida,
         pago: pago,
+        pendentes: pendentes,
       ),
     ];
+    return (fiado: fiado, pendentes: pendentes);
   }
 
   /// Monta os títulos em aberto de UMA origem (OS ou venda). As duas tabelas têm
@@ -139,6 +195,10 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
     required String origem,
     required Set<String> statusSemDivida,
     required Map<String, double> pago,
+    required List<_TituloLocal> pendentes,
+    /// Status em que o item JÁ foi entregue. `null` = sempre entregue (venda de
+    /// balcão sai com o cliente no ato).
+    Set<String>? finalizados,
   }) {
     final itensPorPai = <String, List<ReceivableItem>>{};
     for (final i in itens) {
@@ -165,7 +225,22 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
       final saldo = _round2(total - recebido);
       if (saldo <= _eps) continue; // pago (ou resíduo de centavo) não é fiado
 
-      out.add(_TituloLocal(
+
+      // Mesma régua do servidor (`passouPeloCaixa`): ter saldo NÃO basta — o
+      // título precisa ter passado pelo caixa. Sem isto a regra valeria só
+      // online e o bug (OS virando fiado no ato da criação) voltaria assim que
+      // o aparelho perdesse a rede.
+      final passou = recebido > _eps || linha['fiado_at'] != null;
+      // Não passou e já foi ENTREGUE ⇒ não é fiado, é pendente de acerto (o
+      // aviso da aba). Não passou e ainda está em andamento ⇒ nada: é trabalho
+      // acontecendo, não dinheiro esquecido.
+      if (!passou &&
+          !(finalizados == null ||
+              finalizados.contains((linha['status'] ?? '').toString()))) {
+        continue;
+      }
+
+      (passou ? out : pendentes).add(_TituloLocal(
         customerId: linha['customer_id'] as String?,
         customerName: (linha['customer_name'] ?? 'Sem cliente').toString(),
         title: ReceivableTitle(

@@ -505,7 +505,6 @@ class _QuickActionsMenu extends ConsumerWidget {
       canWrite: canWrite,
       canApprove: false,
     );
-    final podeReceber = canReceiveOsPayment(ref, order);
     final podeVerPagamentos = canViewOsPayments(ref, order);
     return PopupMenuButton<String>(
       tooltip: 'Ações rápidas',
@@ -532,8 +531,6 @@ class _QuickActionsMenu extends ConsumerWidget {
             );
           case 'pdf':
             await exportOsPdfById(context, ref, order.id);
-          case 'receber':
-            await offerOsPayment(context, ref, order);
           case 'pagamentos':
             await showOsPaymentsDialog(context, ref, order);
         }
@@ -562,18 +559,6 @@ class _QuickActionsMenu extends ConsumerWidget {
               ),
             ),
           ),
-        // Mesma ação da ficha — sem precisar abrir a OS pra receber um saldo
-        // que já se sabe que existe (é por isso que ela aparece na lista).
-        if (podeReceber)
-          const PopupMenuItem(
-            value: 'receber',
-            child: ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.payments_outlined),
-              title: Text('Receber pagamento'),
-            ),
-          ),
         // Estado de reversão: mesmo já PAGA, o dono pode precisar estornar
         // (calote, lançamento errado) — devolve pra a receber/parcial.
         if (podeVerPagamentos)
@@ -586,7 +571,7 @@ class _QuickActionsMenu extends ConsumerWidget {
               title: Text('Pagamentos'),
             ),
           ),
-        if (podeConcluir || podeCancelar || podeReceber || podeVerPagamentos)
+        if (podeConcluir || podeCancelar || podeVerPagamentos)
           const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'pdf',

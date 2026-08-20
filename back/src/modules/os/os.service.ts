@@ -508,6 +508,33 @@ export class OsService {
     return order;
   }
 
+  /**
+   * Declara a OS como FIADO — o operador levou o título ao caixa e recebeu zero.
+   *
+   * Existe porque "passou pelo caixa" é o que separa dívida de trabalho em
+   * andamento (ver `passouPeloCaixa` no módulo de fiado), e receber zero é o
+   * único caminho que não deixa lançamento nenhum para provar a passagem.
+   *
+   * Idempotente: declarar duas vezes não reescreve a data nem duplica auditoria
+   * — offline a mesma mutação pode chegar repetida.
+   */
+  async markFiado(user: AuthUser, id: string) {
+    const { order, jaEra } = await this.tenant.withTenantTx(async () => {
+      const existing = await this.repo.findOrderById(id);
+      if (!existing || existing.deleted_at)
+        throw new NotFoundException('OS não encontrada.');
+      if (existing.status === 'cancelada') {
+        throw new BadRequestException('OS cancelada não pode virar fiado.');
+      }
+      if (existing.fiado_at) return { order: existing, jaEra: true };
+      return { order: await this.repo.setFiadoAt(id, new Date()), jaEra: false };
+    });
+    if (jaEra) return order;
+    await this.audit.log(user.tenantId, user.userId, 'os_fiado', id);
+    this.emitOsChanged(user.tenantId, id, 'fields');
+    return order;
+  }
+
   async deleteOrder(user: AuthUser, id: string) {
     const result = await this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findOrderById(id);

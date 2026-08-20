@@ -53,6 +53,12 @@ void main() {
         role: 'caixa',
         permissions: ['sale.read', 'sale.write', 'cashier.read'],
         modules: ['cashier', 'sale'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
       );
       final items = gatedNavItems(me);
       expect(items.any((i) => i.route == '/m/sale'), isFalse);

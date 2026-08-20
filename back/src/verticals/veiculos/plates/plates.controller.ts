@@ -4,6 +4,8 @@ import type { AuthUser } from '../../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../../../modules/billing/module-access.guard';
 import { RequiresModule } from '../../../modules/billing/requires-module.decorator';
 import { PlateLookupService } from './plate-lookup.service';
+import { FeatureAccessGuard } from '../../feature-access.guard';
+import { RequiresFeature } from '../../requires-feature.decorator';
 
 /**
  * Consulta de veículo por placa — rotas da VERTICAL, não do módulo genérico.
@@ -17,8 +19,11 @@ import { PlateLookupService } from './plate-lookup.service';
  * (quem vê os objetos pode consultar a ficha deles).
  */
 @Controller('customers/plates')
-@UseGuards(ModuleAccessGuard)
+@UseGuards(ModuleAccessGuard, FeatureAccessGuard)
 @RequiresModule('customers')
+// Um nicho sem base externa para o objeto dele não alcança estas rotas — nem
+// pela API. O app já esconde o botão; isto é a trava do lado que vale.
+@RequiresFeature('customers.identifierLookup')
 export class PlatesController {
   constructor(private readonly plates: PlateLookupService) {}
 

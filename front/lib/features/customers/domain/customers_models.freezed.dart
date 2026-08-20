@@ -807,7 +807,7 @@ return $default(_that.singular,_that.plural);case _:
 @JsonSerializable()
 
 class _SubjectLabel implements SubjectLabel {
-  const _SubjectLabel({this.singular = 'Veículo', this.plural = 'Veículos'});
+  const _SubjectLabel({this.singular = 'Objeto', this.plural = 'Objetos'});
   factory _SubjectLabel.fromJson(Map<String, dynamic> json) => _$SubjectLabelFromJson(json);
 
 @override@JsonKey() final  String singular;

@@ -41,6 +41,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String fullName,
     required String email,
     required String password,
+    String? vertical,
   }) =>
       _guard(() async {
         final res = await _dio.post<Object?>('/auth/register', data: {
@@ -52,8 +53,19 @@ class AuthRepositoryImpl implements AuthRepository {
           'fullName': fullName,
           'email': email,
           'password': password,
+          if (vertical != null && vertical.isNotEmpty) 'vertical': vertical,
         });
         return RegisterResult.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<List<VerticalOption>> listVerticals() => _guard(() async {
+        // Rota pública: a tela de cadastro roda sem sessão.
+        final res = await _dio.get<Object?>('/verticals');
+        final list = (_asMap(res.data)['verticals'] as List<dynamic>? ?? []);
+        return list
+            .map((e) => VerticalOption.fromJson(e as Map<String, dynamic>))
+            .toList();
       });
 
   @override

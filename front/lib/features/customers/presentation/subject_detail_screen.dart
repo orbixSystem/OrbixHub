@@ -18,9 +18,9 @@ import '../../os/presentation/os_status.dart';
 import '../domain/customers_models.dart';
 import 'customers_providers.dart';
 import 'os_report_dialog.dart';
-import 'plate_labels.dart';
+import '../../../verticals/veiculos/plate_labels.dart';
 import 'subject_form_dialog.dart';
-import 'vehicle_ficha_dialog.dart';
+import '../../../verticals/veiculos/vehicle_ficha_dialog.dart';
 
 const _maxContentWidth = 940.0;
 

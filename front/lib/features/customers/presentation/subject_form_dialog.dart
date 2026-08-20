@@ -8,6 +8,7 @@ import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
 import 'customers_providers.dart';
@@ -95,12 +96,14 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   /// não houve consulta nesta edição; o que já estava salvo é preservado.
   PlateInfo? _plateInfo;
 
-  /// O botão de busca só existe quando o identificador é uma placa de fato —
-  /// decidido pela CONFIG do tenant (rótulo), nunca hardcoded por vertical.
-  bool get _identifierIsPlate {
-    final f = _byChave['identifier'];
-    return f != null && f.rotulo.toLowerCase().contains('placa');
-  }
+  /// O botão de busca existe quando o tenant TEM a capacidade de consultar o
+  /// identificador numa base externa — e não quando o rótulo do campo por acaso
+  /// contém a palavra "placa", que era a heurística antiga. Farejar o texto
+  /// fazia renomear o campo mudar comportamento, e travava qualquer nicho novo
+  /// (nº de série numa assistência) que quisesse a mesma capacidade.
+  bool get _podeConsultarIdentificador =>
+      _byChave['identifier'] != null &&
+      ref.watch(hasFeatureProvider(Features.identifierLookup));
 
   Map<String, SubjectFieldConfig> get _byChave =>
       {for (final f in widget.config.subjectFields) f.chave: f};
@@ -297,8 +300,8 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               : 'consulta realizada';
       _snack(
         _autoFilled.isEmpty
-            ? 'Veículo encontrado, mas sem dados para preencher ($custo).'
-            : 'Dados do veículo preenchidos ($custo). Revise antes de salvar.',
+            ? '${widget.config.subjectLabel.singular} encontrado, mas sem dados para preencher ($custo).'
+            : 'Dados preenchidos ($custo). Revise antes de salvar.',
       );
     } on AppException catch (e) {
       _snack(e.message);
@@ -359,7 +362,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               contentType: _localContentType ?? 'image/jpeg',
             );
           } on AppException catch (e) {
-            _snack('Veículo criado, mas a foto não pôde ser enviada: '
+            _snack('\${widget.config.subjectLabel.singular} criado, mas a foto não pôde ser enviada: '
                 '${e.message}');
           }
         }
@@ -558,7 +561,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         ),
         for (final f in widget.config.subjectFields) ...[
           const SizedBox(height: 14),
-          if (f.chave == 'identifier' && _identifierIsPlate)
+          if (f.chave == 'identifier' && _podeConsultarIdentificador)
             _identifierWithLookup(f, offline: offline)
           else if (f.fonte != null && offline)
             // Sem conexão: campo de sugestão (marca/modelo/ano) vira texto livre.
@@ -629,7 +632,10 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
           )
         : NeuIconButton(
             icon: Icons.manage_search_rounded,
-            tooltip: 'Buscar dados do veículo pela placa',
+            // Rótulo do campo tal como o nicho o nomeia: "Consultar Placa" na
+            // oficina, "Consultar Número de série" numa assistência. Concordância
+            // funciona com qualquer gênero, ao contrário de "pelo/pela".
+            tooltip: 'Consultar ${f.rotulo}',
             size: 48,
             onPressed: _saving ? null : _plateLookup,
           );

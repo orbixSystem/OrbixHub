@@ -9,6 +9,8 @@ import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/domain/local_payment.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/cashier_sheet_widgets.dart';
+import '../../os/presentation/os_providers.dart';
+import '../../sale/presentation/sale_providers.dart';
 import '../domain/receivables_models.dart';
 
 /// Recebimento de um título em fiado — a ÚNICA porta de entrada de dinheiro
@@ -86,10 +88,31 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
   /// Quanto continua pendente depois deste recebimento.
   double get _restante => round2Money(_saldo - _digitado);
 
+  /// Recebeu ZERO: a ação deixa de ser "registrar dinheiro" e passa a ser
+  /// "declarar fiado". Só existe no caminho livre — quitar PARCELA sempre move
+  /// o valor programado.
+  bool get _ehFiadoPuro => widget.parcela == null && _digitado <= paymentEps;
+
+  /// Sobra saldo depois do que foi digitado (parcial ou zero).
+  bool get _deixaSaldo => widget.parcela == null && _restante > paymentEps;
+
+  /// O botão principal se nomeia pelo estado — um controle só, e a tela nunca
+  /// discorda de si mesma. Mesma filosofia da venda avulsa, onde o valor
+  /// recebido (e não um "é fiado? sim/não") decide o desfecho.
+  String get _rotuloAcao {
+    if (widget.parcela != null) return 'Registrar';
+    if (_ehFiadoPuro) return 'Deixar fiado';
+    if (_deixaSaldo) return 'Registrar e deixar o resto fiado';
+    return 'Registrar';
+  }
+
   /// Só oferece parcelar quando de fato sobra dinheiro E o título ainda não
   /// tem plano — parcelar duas vezes o mesmo saldo não faria sentido.
+  /// Parcelar vale para o que sobra — inclusive quando NADA foi recebido (o
+  /// caso "vou fiar e já combinar as parcelas", que antes era inalcançável
+  /// porque o diálogo exigia valor maior que zero).
   bool get _podeParcelarRestante =>
-      widget.parcela == null && _restante > paymentEps && _digitado > 0;
+      widget.parcela == null && _restante > paymentEps;
 
   @override
   void dispose() {
@@ -109,14 +132,9 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     // Quitação de PARCELA não usa o valor digitado (o backend cobra o valor
     // programado), então as travas de valor abaixo só valem no caminho livre.
     if (parcela == null) {
-      if (valor <= 0) {
-        // Nunca sair calado: "o botão não faz nada" é o pior modo de falha, e
-        // já custou caro neste app.
-        _snack('Informe um valor maior que zero.');
-        return;
-      }
       // Receber mais do que se deve seria erro de digitação virando dinheiro
-      // fantasma no caixa — barra antes de gravar.
+      // fantasma no caixa — barra antes de gravar. Zero NÃO é barrado: é a
+      // declaração de fiado (ver [_ehFiadoPuro]).
       if (valor > _saldo + paymentEps) {
         _snack('O valor é maior que o saldo de ${formatMoney(_saldo)}.');
         return;
@@ -132,6 +150,14 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
               method: _method,
               description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
             );
+      } else if (_ehFiadoPuro) {
+        // Nada recebido: não há dinheiro a lançar. O que se registra é a
+        // DECISÃO — sem ela o título não passou pelo caixa e ficaria fora da
+        // carteira de cobrança.
+        await _declararFiado();
+        if (_parcelar && _restante > paymentEps) {
+          await _programarRestante();
+        }
       } else {
         await ref.read(cashierControllerProvider.notifier).addEntry(
               EntryDraft(
@@ -149,15 +175,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
         // Programar o que sobrou, quando pedido — na mesma ação, para o
         // operador não ter de voltar depois só para parcelar.
         if (_parcelar && _restante > paymentEps) {
-          await ref.read(cashierRepositoryProvider).createInstallmentPlan(
-                InstallmentPlanDraft(
-                  saleKind: widget.title.origin,
-                  saleId: widget.title.id,
-                  installmentCount: _numParcelas,
-                  dueDayOfMonth: _diaVencimento,
-                  totalAmount: _restante,
-                ),
-              );
+          await _programarRestante();
         }
       }
       if (!mounted) return;
@@ -168,6 +186,27 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
       _snack('$e');
     }
   }
+
+  /// Carimba o título como fiado no módulo DONO (OS ou venda) — o fiado não tem
+  /// tabela própria, então quem registra é o dono do título.
+  Future<void> _declararFiado() async {
+    if (widget.title.origin == 'os') {
+      await ref.read(osRepositoryProvider).markFiado(widget.title.id);
+    } else {
+      await ref.read(saleRepositoryProvider).markFiado(widget.title.id);
+    }
+  }
+
+  Future<void> _programarRestante() =>
+      ref.read(cashierRepositoryProvider).createInstallmentPlan(
+            InstallmentPlanDraft(
+              saleKind: widget.title.origin,
+              saleId: widget.title.id,
+              installmentCount: _numParcelas,
+              dueDayOfMonth: _diaVencimento,
+              totalAmount: _restante,
+            ),
+          );
 
   void _snack(String msg) {
     final neu = context.neu;
@@ -194,8 +233,10 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
           ),
         ),
         NeuButton(
-          label: 'Registrar',
-          icon: Icons.payments_outlined,
+          label: _rotuloAcao,
+          icon: _ehFiadoPuro
+              ? Icons.handshake_outlined
+              : Icons.payments_outlined,
           loading: _saving,
           onPressed: _saving ? null : _submit,
         ),
@@ -259,7 +300,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: const [DecimalInputFormatter()],
-                      validator: Validators.positiveNumber(field: 'Valor'),
+                      // Zero é LEGÍTIMO aqui: significa "não recebi nada,
+                      // vai ficar fiado". A trava de positivo impedia
+                      // justamente o caso que o operador mais precisa
+                      // registrar. Negativo/lixo continua barrado.
+                      validator: Validators.nonNegativeNumber(field: 'Valor'),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),

@@ -392,6 +392,7 @@ class SessionController extends Notifier<SessionState> {
     required String fullName,
     required String email,
     required String password,
+    String? vertical,
   }) async {
     final res = await _auth.register(
       tenantName: tenantName,
@@ -402,6 +403,7 @@ class SessionController extends Notifier<SessionState> {
       fullName: fullName,
       email: email,
       password: password,
+      vertical: vertical,
     );
     // Criação de conta: mantém conectado (persiste).
     await _applyTokens(res.accessToken, res.refreshToken, remember: true);

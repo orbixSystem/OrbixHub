@@ -315,7 +315,7 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       return subject;
     }
     final row = await rowById('subject', id);
-    if (row == null) notFoundLocally('Veículo');
+    if (row == null) notFoundLocally('Objeto');
     await enqueue('subject', 'update', {'id': id, ...draft.toJson()});
     final merged = {...row, ...draft.toJson(), 'updated_at': nowIso()};
     await putRow('subject', merged);
@@ -346,7 +346,7 @@ class LocalFirstCustomersRepository extends LocalFirstBase
       return subject;
     }
     final row = await rowById('subject', id);
-    if (row == null) notFoundLocally('Veículo');
+    if (row == null) notFoundLocally('Objeto');
     await enqueue('subject', op, {'id': id});
     final merged = {...row, 'status': status, 'updated_at': nowIso()};
     await putRow('subject', merged);

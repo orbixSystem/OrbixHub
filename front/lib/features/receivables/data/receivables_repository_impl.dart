@@ -28,6 +28,18 @@ class ReceivablesRepositoryImpl implements ReceivablesRepository {
       });
 
   @override
+  Future<OpenTitlesPage> listOpenTitles() => _guard(() async {
+        final res = await _dio.get<Object?>('/receivables/titulos');
+        return OpenTitlesPage.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<OpenTitlesPage> listPendingSettlement() => _guard(() async {
+        final res = await _dio.get<Object?>('/receivables/pendentes');
+        return OpenTitlesPage.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<DebtorDetail> titlesOf(String? customerId) => _guard(() async {
         // Venda de balcão sem cliente tem rota literal própria (não é um uuid).
         final path = customerId == null

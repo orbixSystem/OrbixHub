@@ -77,6 +77,7 @@ class FakeAuthRepository implements AuthRepository {
     required String fullName,
     required String email,
     required String password,
+    String? vertical,
   }) async {
     return RegisterResult(
       accessToken: 'fake-access',
@@ -85,6 +86,13 @@ class FakeAuthRepository implements AuthRepository {
       tenant: Tenant(id: 't-new', slug: slug, name: tenantName),
     );
   }
+
+  @override
+  Future<List<VerticalOption>> listVerticals() async => const [
+        VerticalOption(
+            key: 'equipamentos', nome: 'Equipamentos e serviços', isDefault: true),
+        VerticalOption(key: 'veiculos', nome: 'Oficina / veículos'),
+      ];
 
   @override
   Future<CnpjCompany> lookupCnpj(String cnpj) async => CnpjCompany(

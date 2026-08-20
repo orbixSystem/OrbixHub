@@ -83,7 +83,11 @@ export type AuditAction =
   | 'sync_overwrite'
   | 'plate_lookup'
   | 'installment_pay'
-  | 'installment_plan_create';
+  | 'installment_plan_create'
+  // Declaração de fiado: o operador passou o título pelo caixa e recebeu ZERO.
+  // É a única prova desse caso (não gera lançamento), então precisa de trilha.
+  | 'os_fiado'
+  | 'sale_fiado';
 
 @Injectable()
 export class AuditService {

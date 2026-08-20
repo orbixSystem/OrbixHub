@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/features/cashier/domain/cashier_models.dart';
 import 'package:orbixhub_front/features/cashier/domain/cashier_timeline.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
 import 'package:orbixhub_front/features/sale/domain/sale_models.dart';
 
 /// Filtros e busca do histórico.
@@ -207,12 +208,86 @@ void main() {
     });
   });
 
+  // A lente com que se chega de manhã: "o que falta receber?". Antes ela não
+  // existia — e a OS a receber nem aparecia no histórico, só a venda.
+  group('filtro "A receber"', () {
+    final eventos = buildCashierTimeline(
+      entries: [_lanc(id: 'entrada', direcao: 'in', categoria: 'os_payment')],
+      sales: [
+        _venda(id: 'paga', pagamento: 'pago'),
+        _venda(id: 'fiado', pagamento: 'a_receber'),
+        _venda(id: 'cancelada', pagamento: 'a_receber', status: 'canceled'),
+      ],
+      osTitles: const [
+        ReceivableTitle(
+          id: 'os-1',
+          origin: 'os',
+          number: 'OS-0002',
+          balance: 292,
+          total: 292,
+          createdAt: '2026-08-01T09:00:00Z',
+        ),
+      ],
+    );
+
+    test('reúne venda em fiado E OS em fiado', () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.fiado);
+      expect(r.map((e) => e.id), containsAll(['sale:fiado', 'os:os-1']));
+      expect(r, hasLength(2));
+    });
+
+    test('não traz venda paga, venda cancelada nem lançamento', () {
+      final r = filterCashierTimeline(eventos, filtro: CashierFilter.fiado);
+      final ids = r.map((e) => e.id);
+      expect(ids, isNot(contains('sale:paga')));
+      expect(ids, isNot(contains('sale:cancelada')));
+      expect(ids, isNot(contains('entry:entrada')));
+    });
+
+    test('OS em fiado fica fora das lentes de dinheiro', () {
+      // Não é entrada (nada entrou), nem saída, nem despesa — e antes deste
+      // desvio essas lentes liam `entry!` num evento sem lançamento.
+      for (final f in [
+        CashierFilter.entradas,
+        CashierFilter.saidas,
+        CashierFilter.despesas,
+        CashierFilter.vendas,
+        CashierFilter.canceladas,
+      ]) {
+        final r = filterCashierTimeline(eventos, filtro: f);
+        expect(r.map((e) => e.id), isNot(contains('os:os-1')), reason: '$f');
+      }
+    });
+
+    test('a busca alcança o cliente e o número da OS', () {
+      final comCliente = buildCashierTimeline(
+        entries: const [],
+        sales: const [],
+        osTitles: const [
+          ReceivableTitle(
+            id: 'os-1',
+            origin: 'os',
+            number: 'OS-0002',
+            balance: 292,
+            customerName: 'Prefeitura Municipal',
+          ),
+        ],
+      );
+      expect(
+        filterCashierTimeline(comCliente, busca: 'prefeitura'),
+        hasLength(1),
+      );
+      expect(filterCashierTimeline(comCliente, busca: 'OS-0002'), hasLength(1));
+    });
+  });
+
   group('rótulos', () {
     test('todos os filtros têm rótulo em pt-BR', () {
       for (final f in CashierFilter.values) {
         expect(cashierFilterLabel(f), isNotEmpty);
       }
       expect(cashierFilterLabel(CashierFilter.despesas), 'Despesas');
+      expect(cashierFilterLabel(CashierFilter.fiado), 'A receber');
     });
   });
 }

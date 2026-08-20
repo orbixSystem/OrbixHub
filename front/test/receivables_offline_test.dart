@@ -29,6 +29,14 @@ class _InnerProibido implements ReceivablesRepository {
   @override
   Future<DebtorDetail> titlesOf(String? customerId) =>
       throw StateError('offline não deve chamar a rede');
+
+  @override
+  Future<OpenTitlesPage> listOpenTitles() =>
+      throw StateError('offline não deve chamar a rede');
+
+  @override
+  Future<OpenTitlesPage> listPendingSettlement() =>
+      throw StateError('offline não deve chamar a rede');
 }
 
 /// Inner que responde, para o caso online.
@@ -45,6 +53,18 @@ class _InnerOnline implements ReceivablesRepository {
   Future<DebtorDetail> titlesOf(String? customerId) async {
     chamado = true;
     return const DebtorDetail(customerName: 'do servidor');
+  }
+
+  @override
+  Future<OpenTitlesPage> listOpenTitles() async {
+    chamado = true;
+    return const OpenTitlesPage(totalDue: 999);
+  }
+
+  @override
+  Future<OpenTitlesPage> listPendingSettlement() async {
+    chamado = true;
+    return const OpenTitlesPage(totalDue: 999);
   }
 }
 
@@ -74,6 +94,10 @@ void main() {
     String criada = '2026-07-10T10:00:00Z',
     String? recebido,
     bool estornado = false,
+    // Fiado é DECLARADO: sem passagem pelo caixa o título não é dívida. A
+    // fixture padrão representa dívida legítima, então nasce declarada — os
+    // cenários que testam a regra de passagem passam `fiadoAt: null`.
+    String? fiadoAt = '2026-07-10T11:00:00Z',
     List<Map<String, dynamic>> itens = const [],
   }) async {
     await gravar('service_order', {
@@ -84,6 +108,7 @@ void main() {
       'customer_name': clienteNome,
       'total': total,
       'created_at': criada,
+      'fiado_at': fiadoAt,
     });
     for (final i in itens) {
       await gravar('service_order_item', {'order_id': osId, ...i});
@@ -272,6 +297,7 @@ void main() {
       String? clienteNome = 'João Silva',
       String criada = '2026-07-15T10:00:00Z',
       String? recebido,
+      String? fiadoAt = '2026-07-15T11:00:00Z',
       List<Map<String, dynamic>> itens = const [],
     }) async {
       await gravar('sale', {
@@ -283,6 +309,7 @@ void main() {
         'total': total,
         'discount': '0',
         'created_at': criada,
+        'fiado_at': fiadoAt,
       });
       for (final i in itens) {
         await gravar('sale_item', {'sale_id': id, ...i});

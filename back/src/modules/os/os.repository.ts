@@ -257,6 +257,22 @@ export class OsRepository {
     });
   }
 
+  /**
+   * Marca a OS como fiado declarado.
+   *
+   * `updated_at` é tocado de propósito: o pull de sync avança pelo cursor
+   * (`updated_at`, id) — ver `changed-since.ts`. Gravar só `fiado_at` deixaria a
+   * declaração invisível para os outros aparelhos do tenant, que continuariam
+   * mostrando o título fora do Fiado até algum outro campo mudar.
+   */
+  setFiadoAt(id: string, at: Date) {
+    const db = this.tenant.getClient();
+    return db.service_order.update({
+      where: { id },
+      data: { fiado_at: at, updated_at: new Date() },
+    });
+  }
+
   /** Snapshot do status fiscal devolvido pelo Fiscal (só p/ exibir; Fiscal é dono). */
   setFiscalSnapshot(id: string, fields: FiscalSnapshotFields) {
     const db = this.tenant.getClient();

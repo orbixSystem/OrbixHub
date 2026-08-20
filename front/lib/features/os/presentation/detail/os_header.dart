@@ -348,13 +348,6 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _receber() async {
-    if (_busy || !canReceiveOsPayment(ref, order)) return;
-    setState(() => _busy = true);
-    await offerOsPayment(context, ref, order);
-    if (mounted) setState(() => _busy = false);
-  }
-
   Future<void> _emitirNota() async {
     if (_busy) return;
     // Já existe nota ativa? Então o caminho é VER, não emitir de novo (e bater
@@ -434,15 +427,10 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
       );
     }
 
-    final podeReceber = canReceiveOsPayment(ref, order);
-    final saldo = order.payment?.balance ?? 0;
-    // Cobrar é o passo DEPOIS de terminar o serviço. Enquanto ainda houver o
-    // que finalizar, "Receber" não aparece aqui: o próprio Finalizar já abre o
-    // recebimento ao chegar em entregue (ver `runOsSimpleTransition`), então um
-    // segundo botão era outro caminho para o mesmo lugar — e convidava a cobrar
-    // por um serviço ainda em execução. Adiantamento (sinal para comprar peça)
-    // continua alcançável pelo menu de ações rápidas da lista.
-    final receberEhPrincipal = podeReceber && primaria == null;
+    // Não há botão de RECEBER aqui, de propósito: dinheiro entra pelo Caixa e
+    // só por lá (histórico ou fiado). A ficha da OS continua mostrando a
+    // situação do pagamento (o `PaymentTag`) e o histórico de lançamentos
+    // ("Pagamentos"), que é informação — não uma segunda boca de caixa.
 
     // --- menu: o resto, sem competir por atenção ---
     final extras = <({String valor, String rotulo, IconData icone, bool perigo})>[
@@ -521,13 +509,6 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           label: primaria.label,
           icon: primaria.icon,
           onPressed: primaria.onTap,
-        ),
-      if (receberEhPrincipal)
-        NeuButton(
-          // O valor no rótulo evita abrir o diálogo só para descobrir quanto é.
-          label: saldo > 0 ? 'Receber ${money(saldo.toString())}' : 'Receber',
-          icon: Icons.payments_outlined,
-          onPressed: _receber,
         ),
       // No DESKTOP sobra largura: esconder ação atrás de um menu ali só
       // adiciona um clique para descobrir o que existe. No celular a largura é

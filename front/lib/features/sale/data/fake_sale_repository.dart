@@ -78,6 +78,7 @@ class FakeSaleRepository implements SaleRepository {
       customerId: draft.customerId,
       status: 'active',
       total: total.toStringAsFixed(2),
+      description: draft.description,
       paymentStatus: 'a_receber',
       items: items,
     );
@@ -91,9 +92,16 @@ class FakeSaleRepository implements SaleRepository {
     String? customerId,
     List<SaleItemDraft>? items,
     double? discount,
+    String? description,
   }) async {
     final idx = _sales.indexWhere((s) => s.id == id);
     var atualizada = _sales[idx];
+    if (description != null) {
+      // String vazia apaga a observação, como no servidor.
+      atualizada = atualizada.copyWith(
+        description: description.isEmpty ? null : description,
+      );
+    }
     if (customerId != null) {
       // O fake não tem base de clientes: guarda o ponteiro e rotula o snapshot.
       atualizada = atualizada.copyWith(
@@ -141,6 +149,10 @@ class FakeSaleRepository implements SaleRepository {
     _sales[idx] = canceled;
     return canceled;
   }
+
+  @override
+  Future<Sale> markFiado(String id) async =>
+      _sales[_sales.indexWhere((s) => s.id == id)];
 
   @override
   Future<SaleFiscalResult> emitInvoice(String id) async {

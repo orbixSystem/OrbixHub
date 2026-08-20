@@ -3,6 +3,7 @@ import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { BillingModule } from '../../modules/billing/billing.module';
 import { CustomersModule } from '../../modules/customers/customers.module';
+import { TenancyModule } from '../../modules/tenancy/tenancy.module';
 import { SubjectLookupRegistry } from '../../modules/customers/subject-lookup.registry';
 import { VerticalRegistry } from '../vertical.registry';
 import { FIPE_CLIENT, HttpFipeClient, brandLogoUrl, type FipeClient } from './fipe.client';
@@ -27,7 +28,7 @@ import { PlatesController } from './plates/plates.controller';
  * `customers`, que se dizia genérico.
  */
 @Module({
-  imports: [BillingModule, CustomersModule],
+  imports: [BillingModule, CustomersModule, TenancyModule],
   controllers: [PlatesController],
   providers: [
     { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },

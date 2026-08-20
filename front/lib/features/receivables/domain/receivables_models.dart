@@ -27,12 +27,32 @@ abstract class Debtor with _$Debtor {
   factory Debtor.fromJson(Map<String, dynamic> json) => _$DebtorFromJson(json);
 }
 
+/// Títulos FINALIZADOS com saldo que nunca passaram pelo caixa.
+///
+/// Não são fiado (ninguém decidiu fiar), mas serviço entregue e não cobrado não
+/// pode sumir da vista — a carteira mostra isto como aviso.
+@freezed
+abstract class PendingSettlement with _$PendingSettlement {
+  const factory PendingSettlement({
+    @Default(0) int count,
+    @Default(0) num total,
+  }) = _PendingSettlement;
+
+  factory PendingSettlement.fromJson(Map<String, dynamic> json) =>
+      _$PendingSettlementFromJson(json);
+}
+
 /// Página de devedores + o total a receber da carteira.
 @freezed
 abstract class DebtorsPage with _$DebtorsPage {
   const factory DebtorsPage({
     @Default(<Debtor>[]) List<Debtor> items,
     @JsonKey(name: 'totalDue') @Default(0) num totalDue,
+
+    /// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+    @JsonKey(name: 'pendingSettlement')
+    @Default(PendingSettlement())
+    PendingSettlement pendingSettlement,
 
     /// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
     /// em vez de deixar o usuário achar que viu tudo.
@@ -75,10 +95,36 @@ abstract class ReceivableTitle with _$ReceivableTitle {
     /// 'a_receber' | 'parcial'
     @Default('a_receber') String status,
     @Default(<ReceivableItem>[]) List<ReceivableItem> items,
+
+    /// Dono da dívida. Só vem na listagem ACHATADA
+    /// (`ReceivablesRepository.listOpenTitles`), que precisa dizer de quem é
+    /// cada título; no drill-down por cliente é redundante e o servidor não
+    /// manda. `customerId` nulo = venda de balcão sem cliente identificado.
+    @JsonKey(name: 'customerId') String? customerId,
+    @JsonKey(name: 'customerName') String? customerName,
   }) = _ReceivableTitle;
 
   factory ReceivableTitle.fromJson(Map<String, dynamic> json) =>
       _$ReceivableTitleFromJson(json);
+}
+
+/// Todos os títulos em aberto, sem agrupar por cliente — a carteira "achatada".
+///
+/// Alimenta o **histórico do caixa**, que precisa mostrar a OS fiada ao lado da
+/// venda fiada: antes o histórico listava só vendas, e uma OS que ficou a
+/// receber sumia dali, obrigando quem ia cobrar a procurar em duas telas.
+@freezed
+abstract class OpenTitlesPage with _$OpenTitlesPage {
+  const factory OpenTitlesPage({
+    @Default(<ReceivableTitle>[]) List<ReceivableTitle> items,
+    @JsonKey(name: 'totalDue') @Default(0) num totalDue,
+
+    /// A varredura bateu no teto do servidor: há dívida não listada.
+    @Default(false) bool truncated,
+  }) = _OpenTitlesPage;
+
+  factory OpenTitlesPage.fromJson(Map<String, dynamic> json) =>
+      _$OpenTitlesPageFromJson(json);
 }
 
 /// Os títulos em aberto de UM cliente.

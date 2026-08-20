@@ -18,7 +18,13 @@ abstract interface class AuthRepository {
     required String fullName,
     required String email,
     required String password,
+    /// Nicho escolhido no cadastro. null = pacote padrão do servidor.
+    String? vertical,
   });
+
+  /// Catálogo de nichos para a tela de cadastro. Vem do servidor — nicho
+  /// hardcoded no app seria a mesma dívida que planos e módulos já não têm.
+  Future<List<VerticalOption>> listVerticals();
 
   /// Consulta pública de dados da empresa pelo CNPJ (pré-cadastro).
   /// Lança [AppException] (400 inválido, 404 não encontrado, 503 fonte fora).

@@ -38,6 +38,10 @@ export interface CreateSaleData {
   total: DecimalIn;
   /** Desconto concedido (registro; não entra no total). */
   discount?: DecimalIn;
+  /** Venda já nasce declarada como fiado (ver CreateSaleDto.fiado). */
+  fiado_at?: Date | null;
+  /** Observação livre do balcão (sai no comprovante). */
+  description?: string | null;
   created_by: string | null;
 }
 
@@ -179,6 +183,34 @@ export class SaleRepository {
   deleteItems(saleId: string) {
     const db = this.tenant.getClient();
     return db.sale_item.deleteMany({ where: { sale_id: saleId } });
+  }
+
+  /**
+   * Observação livre da venda. Separada de [setTotals] de propósito: mudar o
+   * texto NÃO mexe em dinheiro, e por isso não passa pelas guardas de nota
+   * emitida / valor já pago.
+   */
+  setDescription(id: string, description: string | null) {
+    const db = this.tenant.getClient();
+    return db.sale.update({
+      where: { id },
+      data: { description, updated_at: new Date() },
+    });
+  }
+
+  /**
+   * Marca a venda como fiado declarado (recebeu zero no caixa).
+   *
+   * `updated_at` é tocado de propósito: o pull de sync avança pelo cursor
+   * (`updated_at`, id), então gravar só `fiado_at` deixaria a declaração
+   * invisível para os outros aparelhos do tenant.
+   */
+  setFiadoAt(id: string, at: Date) {
+    const db = this.tenant.getClient();
+    return db.sale.update({
+      where: { id },
+      data: { fiado_at: at, updated_at: new Date() },
+    });
   }
 
   /** Total/desconto recalculados no servidor após editar as linhas. */

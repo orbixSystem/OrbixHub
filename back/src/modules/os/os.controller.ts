@@ -157,6 +157,18 @@ export class OsController {
     return this.os.changeStatus(user, id, dto);
   }
 
+  /**
+   * Declara a OS como fiado (recebeu zero no caixa). Não é rota de dinheiro —
+   * nada entra no caixa aqui —, por isso `os.write` e não uma permissão
+   * financeira: quem pode mexer na OS pode dizer que ela ficou fiada.
+   */
+  @Post('orders/:id/fiado')
+  @Permissions('os.write')
+  @HttpCode(200)
+  markFiado(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.os.markFiado(user, id);
+  }
+
   @Delete('orders/:id')
   @Permissions('os.write')
   @HttpCode(200)

@@ -9,7 +9,7 @@ import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/customers_models.dart';
-import 'brand_logo.dart';
+import '../../../verticals/veiculos/brand_logo.dart';
 import 'customer_form_dialog.dart';
 import 'customers_providers.dart';
 import '../../cashier/domain/cashier_format.dart';

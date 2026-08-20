@@ -292,9 +292,276 @@ as String?,
 
 
 /// @nodoc
+mixin _$PendingSettlement {
+
+ int get count; num get total;
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<PendingSettlement> get copyWith => _$PendingSettlementCopyWithImpl<PendingSettlement>(this as PendingSettlement, _$identity);
+
+  /// Serializes this PendingSettlement to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PendingSettlement&&(identical(other.count, count) || other.count == count)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,count,total);
+
+@override
+String toString() {
+  return 'PendingSettlement(count: $count, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $PendingSettlementCopyWith<$Res>  {
+  factory $PendingSettlementCopyWith(PendingSettlement value, $Res Function(PendingSettlement) _then) = _$PendingSettlementCopyWithImpl;
+@useResult
+$Res call({
+ int count, num total
+});
+
+
+
+
+}
+/// @nodoc
+class _$PendingSettlementCopyWithImpl<$Res>
+    implements $PendingSettlementCopyWith<$Res> {
+  _$PendingSettlementCopyWithImpl(this._self, this._then);
+
+  final PendingSettlement _self;
+  final $Res Function(PendingSettlement) _then;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? count = null,Object? total = null,}) {
+  return _then(_self.copyWith(
+count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [PendingSettlement].
+extension PendingSettlementPatterns on PendingSettlement {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _PendingSettlement value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _PendingSettlement value)  $default,){
+final _that = this;
+switch (_that) {
+case _PendingSettlement():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _PendingSettlement value)?  $default,){
+final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int count,  num total)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that.count,_that.total);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int count,  num total)  $default,) {final _that = this;
+switch (_that) {
+case _PendingSettlement():
+return $default(_that.count,_that.total);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int count,  num total)?  $default,) {final _that = this;
+switch (_that) {
+case _PendingSettlement() when $default != null:
+return $default(_that.count,_that.total);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _PendingSettlement implements PendingSettlement {
+  const _PendingSettlement({this.count = 0, this.total = 0});
+  factory _PendingSettlement.fromJson(Map<String, dynamic> json) => _$PendingSettlementFromJson(json);
+
+@override@JsonKey() final  int count;
+@override@JsonKey() final  num total;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$PendingSettlementCopyWith<_PendingSettlement> get copyWith => __$PendingSettlementCopyWithImpl<_PendingSettlement>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$PendingSettlementToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PendingSettlement&&(identical(other.count, count) || other.count == count)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,count,total);
+
+@override
+String toString() {
+  return 'PendingSettlement(count: $count, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$PendingSettlementCopyWith<$Res> implements $PendingSettlementCopyWith<$Res> {
+  factory _$PendingSettlementCopyWith(_PendingSettlement value, $Res Function(_PendingSettlement) _then) = __$PendingSettlementCopyWithImpl;
+@override @useResult
+$Res call({
+ int count, num total
+});
+
+
+
+
+}
+/// @nodoc
+class __$PendingSettlementCopyWithImpl<$Res>
+    implements _$PendingSettlementCopyWith<$Res> {
+  __$PendingSettlementCopyWithImpl(this._self, this._then);
+
+  final _PendingSettlement _self;
+  final $Res Function(_PendingSettlement) _then;
+
+/// Create a copy of PendingSettlement
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? count = null,Object? total = null,}) {
+  return _then(_PendingSettlement(
+count: null == count ? _self.count : count // ignore: cast_nullable_to_non_nullable
+as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$DebtorsPage {
 
- List<Debtor> get items;@JsonKey(name: 'totalDue') num get totalDue;/// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
+ List<Debtor> get items;@JsonKey(name: 'totalDue') num get totalDue;/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+@JsonKey(name: 'pendingSettlement') PendingSettlement get pendingSettlement;/// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
 /// em vez de deixar o usuário achar que viu tudo.
  bool get truncated;
 /// Create a copy of DebtorsPage
@@ -309,16 +576,16 @@ $DebtorsPageCopyWith<DebtorsPage> get copyWith => _$DebtorsPageCopyWithImpl<Debt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -329,11 +596,11 @@ abstract mixin class $DebtorsPageCopyWith<$Res>  {
   factory $DebtorsPageCopyWith(DebtorsPage value, $Res Function(DebtorsPage) _then) = _$DebtorsPageCopyWithImpl;
 @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+ List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
-
+$PendingSettlementCopyWith<$Res> get pendingSettlement;
 
 }
 /// @nodoc
@@ -346,15 +613,25 @@ class _$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
-
+/// Create a copy of DebtorsPage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<$Res> get pendingSettlement {
+  
+  return $PendingSettlementCopyWith<$Res>(_self.pendingSettlement, (value) {
+    return _then(_self.copyWith(pendingSettlement: value));
+  });
+}
 }
 
 
@@ -436,10 +713,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   return orElse();
 
 }
@@ -457,10 +734,10 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage():
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -477,10 +754,10 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.truncated);case _:
+return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
   return null;
 
 }
@@ -492,7 +769,7 @@ return $default(_that.items,_that.totalDue,_that.truncated);case _:
 @JsonSerializable()
 
 class _DebtorsPage implements DebtorsPage {
-  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], @JsonKey(name: 'totalDue') this.totalDue = 0, this.truncated = false}): _items = items;
+  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'pendingSettlement') this.pendingSettlement = const PendingSettlement(), this.truncated = false}): _items = items;
   factory _DebtorsPage.fromJson(Map<String, dynamic> json) => _$DebtorsPageFromJson(json);
 
  final  List<Debtor> _items;
@@ -503,6 +780,8 @@ class _DebtorsPage implements DebtorsPage {
 }
 
 @override@JsonKey(name: 'totalDue') final  num totalDue;
+/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+@override@JsonKey(name: 'pendingSettlement') final  PendingSettlement pendingSettlement;
 /// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
 /// em vez de deixar o usuário achar que viu tudo.
 @override@JsonKey() final  bool truncated;
@@ -520,16 +799,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -540,11 +819,11 @@ abstract mixin class _$DebtorsPageCopyWith<$Res> implements $DebtorsPageCopyWith
   factory _$DebtorsPageCopyWith(_DebtorsPage value, $Res Function(_DebtorsPage) _then) = __$DebtorsPageCopyWithImpl;
 @override @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+ List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
-
+@override $PendingSettlementCopyWith<$Res> get pendingSettlement;
 
 }
 /// @nodoc
@@ -557,16 +836,26 @@ class __$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_DebtorsPage(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
 as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
 
-
+/// Create a copy of DebtorsPage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$PendingSettlementCopyWith<$Res> get pendingSettlement {
+  
+  return $PendingSettlementCopyWith<$Res>(_self.pendingSettlement, (value) {
+    return _then(_self.copyWith(pendingSettlement: value));
+  });
+}
 }
 
 
@@ -852,7 +1141,11 @@ mixin _$ReceivableTitle {
 
  String get id;/// 'os' | 'sale' — decide qual tela abrir no drill-down.
  String get origin; String get number;@JsonKey(name: 'createdAt') String? get createdAt; num get total; num get paid; num get balance;/// 'a_receber' | 'parcial'
- String get status; List<ReceivableItem> get items;
+ String get status; List<ReceivableItem> get items;/// Dono da dívida. Só vem na listagem ACHATADA
+/// (`ReceivablesRepository.listOpenTitles`), que precisa dizer de quem é
+/// cada título; no drill-down por cliente é redundante e o servidor não
+/// manda. `customerId` nulo = venda de balcão sem cliente identificado.
+@JsonKey(name: 'customerId') String? get customerId;@JsonKey(name: 'customerName') String? get customerName;
 /// Create a copy of ReceivableTitle
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -865,16 +1158,16 @@ $ReceivableTitleCopyWith<ReceivableTitle> get copyWith => _$ReceivableTitleCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReceivableTitle&&(identical(other.id, id) || other.id == id)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.number, number) || other.number == number)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.items, items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReceivableTitle&&(identical(other.id, id) || other.id == id)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.number, number) || other.number == number)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,origin,number,createdAt,total,paid,balance,status,const DeepCollectionEquality().hash(items));
+int get hashCode => Object.hash(runtimeType,id,origin,number,createdAt,total,paid,balance,status,const DeepCollectionEquality().hash(items),customerId,customerName);
 
 @override
 String toString() {
-  return 'ReceivableTitle(id: $id, origin: $origin, number: $number, createdAt: $createdAt, total: $total, paid: $paid, balance: $balance, status: $status, items: $items)';
+  return 'ReceivableTitle(id: $id, origin: $origin, number: $number, createdAt: $createdAt, total: $total, paid: $paid, balance: $balance, status: $status, items: $items, customerId: $customerId, customerName: $customerName)';
 }
 
 
@@ -885,7 +1178,7 @@ abstract mixin class $ReceivableTitleCopyWith<$Res>  {
   factory $ReceivableTitleCopyWith(ReceivableTitle value, $Res Function(ReceivableTitle) _then) = _$ReceivableTitleCopyWithImpl;
 @useResult
 $Res call({
- String id, String origin, String number,@JsonKey(name: 'createdAt') String? createdAt, num total, num paid, num balance, String status, List<ReceivableItem> items
+ String id, String origin, String number,@JsonKey(name: 'createdAt') String? createdAt, num total, num paid, num balance, String status, List<ReceivableItem> items,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName
 });
 
 
@@ -902,7 +1195,7 @@ class _$ReceivableTitleCopyWithImpl<$Res>
 
 /// Create a copy of ReceivableTitle
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? origin = null,Object? number = null,Object? createdAt = freezed,Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? items = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? origin = null,Object? number = null,Object? createdAt = freezed,Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? items = null,Object? customerId = freezed,Object? customerName = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,origin: null == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
@@ -913,7 +1206,9 @@ as num,paid: null == paid ? _self.paid : paid // ignore: cast_nullable_to_non_nu
 as num,balance: null == balance ? _self.balance : balance // ignore: cast_nullable_to_non_nullable
 as num,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<ReceivableItem>,
+as List<ReceivableItem>,customerId: freezed == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
+as String?,customerName: freezed == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -998,10 +1293,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ReceivableTitle() when $default != null:
-return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items);case _:
+return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items,_that.customerId,_that.customerName);case _:
   return orElse();
 
 }
@@ -1019,10 +1314,10 @@ return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName)  $default,) {final _that = this;
 switch (_that) {
 case _ReceivableTitle():
-return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items);case _:
+return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items,_that.customerId,_that.customerName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1039,10 +1334,10 @@ return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String origin,  String number, @JsonKey(name: 'createdAt')  String? createdAt,  num total,  num paid,  num balance,  String status,  List<ReceivableItem> items, @JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String? customerName)?  $default,) {final _that = this;
 switch (_that) {
 case _ReceivableTitle() when $default != null:
-return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items);case _:
+return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_that.paid,_that.balance,_that.status,_that.items,_that.customerId,_that.customerName);case _:
   return null;
 
 }
@@ -1054,7 +1349,7 @@ return $default(_that.id,_that.origin,_that.number,_that.createdAt,_that.total,_
 @JsonSerializable()
 
 class _ReceivableTitle implements ReceivableTitle {
-  const _ReceivableTitle({required this.id, this.origin = 'sale', this.number = '', @JsonKey(name: 'createdAt') this.createdAt, this.total = 0, this.paid = 0, this.balance = 0, this.status = 'a_receber', final  List<ReceivableItem> items = const <ReceivableItem>[]}): _items = items;
+  const _ReceivableTitle({required this.id, this.origin = 'sale', this.number = '', @JsonKey(name: 'createdAt') this.createdAt, this.total = 0, this.paid = 0, this.balance = 0, this.status = 'a_receber', final  List<ReceivableItem> items = const <ReceivableItem>[], @JsonKey(name: 'customerId') this.customerId, @JsonKey(name: 'customerName') this.customerName}): _items = items;
   factory _ReceivableTitle.fromJson(Map<String, dynamic> json) => _$ReceivableTitleFromJson(json);
 
 @override final  String id;
@@ -1074,6 +1369,12 @@ class _ReceivableTitle implements ReceivableTitle {
   return EqualUnmodifiableListView(_items);
 }
 
+/// Dono da dívida. Só vem na listagem ACHATADA
+/// (`ReceivablesRepository.listOpenTitles`), que precisa dizer de quem é
+/// cada título; no drill-down por cliente é redundante e o servidor não
+/// manda. `customerId` nulo = venda de balcão sem cliente identificado.
+@override@JsonKey(name: 'customerId') final  String? customerId;
+@override@JsonKey(name: 'customerName') final  String? customerName;
 
 /// Create a copy of ReceivableTitle
 /// with the given fields replaced by the non-null parameter values.
@@ -1088,16 +1389,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReceivableTitle&&(identical(other.id, id) || other.id == id)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.number, number) || other.number == number)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._items, _items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReceivableTitle&&(identical(other.id, id) || other.id == id)&&(identical(other.origin, origin) || other.origin == origin)&&(identical(other.number, number) || other.number == number)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,origin,number,createdAt,total,paid,balance,status,const DeepCollectionEquality().hash(_items));
+int get hashCode => Object.hash(runtimeType,id,origin,number,createdAt,total,paid,balance,status,const DeepCollectionEquality().hash(_items),customerId,customerName);
 
 @override
 String toString() {
-  return 'ReceivableTitle(id: $id, origin: $origin, number: $number, createdAt: $createdAt, total: $total, paid: $paid, balance: $balance, status: $status, items: $items)';
+  return 'ReceivableTitle(id: $id, origin: $origin, number: $number, createdAt: $createdAt, total: $total, paid: $paid, balance: $balance, status: $status, items: $items, customerId: $customerId, customerName: $customerName)';
 }
 
 
@@ -1108,7 +1409,7 @@ abstract mixin class _$ReceivableTitleCopyWith<$Res> implements $ReceivableTitle
   factory _$ReceivableTitleCopyWith(_ReceivableTitle value, $Res Function(_ReceivableTitle) _then) = __$ReceivableTitleCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String origin, String number,@JsonKey(name: 'createdAt') String? createdAt, num total, num paid, num balance, String status, List<ReceivableItem> items
+ String id, String origin, String number,@JsonKey(name: 'createdAt') String? createdAt, num total, num paid, num balance, String status, List<ReceivableItem> items,@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String? customerName
 });
 
 
@@ -1125,7 +1426,7 @@ class __$ReceivableTitleCopyWithImpl<$Res>
 
 /// Create a copy of ReceivableTitle
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? origin = null,Object? number = null,Object? createdAt = freezed,Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? items = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? origin = null,Object? number = null,Object? createdAt = freezed,Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? items = null,Object? customerId = freezed,Object? customerName = freezed,}) {
   return _then(_ReceivableTitle(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,origin: null == origin ? _self.origin : origin // ignore: cast_nullable_to_non_nullable
@@ -1136,7 +1437,286 @@ as num,paid: null == paid ? _self.paid : paid // ignore: cast_nullable_to_non_nu
 as num,balance: null == balance ? _self.balance : balance // ignore: cast_nullable_to_non_nullable
 as num,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<ReceivableItem>,
+as List<ReceivableItem>,customerId: freezed == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
+as String?,customerName: freezed == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$OpenTitlesPage {
+
+ List<ReceivableTitle> get items;@JsonKey(name: 'totalDue') num get totalDue;/// A varredura bateu no teto do servidor: há dívida não listada.
+ bool get truncated;
+/// Create a copy of OpenTitlesPage
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$OpenTitlesPageCopyWith<OpenTitlesPage> get copyWith => _$OpenTitlesPageCopyWithImpl<OpenTitlesPage>(this as OpenTitlesPage, _$identity);
+
+  /// Serializes this OpenTitlesPage to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OpenTitlesPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,truncated);
+
+@override
+String toString() {
+  return 'OpenTitlesPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $OpenTitlesPageCopyWith<$Res>  {
+  factory $OpenTitlesPageCopyWith(OpenTitlesPage value, $Res Function(OpenTitlesPage) _then) = _$OpenTitlesPageCopyWithImpl;
+@useResult
+$Res call({
+ List<ReceivableTitle> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+});
+
+
+
+
+}
+/// @nodoc
+class _$OpenTitlesPageCopyWithImpl<$Res>
+    implements $OpenTitlesPageCopyWith<$Res> {
+  _$OpenTitlesPageCopyWithImpl(this._self, this._then);
+
+  final OpenTitlesPage _self;
+  final $Res Function(OpenTitlesPage) _then;
+
+/// Create a copy of OpenTitlesPage
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+  return _then(_self.copyWith(
+items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
+as List<ReceivableTitle>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
+as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [OpenTitlesPage].
+extension OpenTitlesPagePatterns on OpenTitlesPage {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _OpenTitlesPage value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _OpenTitlesPage() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _OpenTitlesPage value)  $default,){
+final _that = this;
+switch (_that) {
+case _OpenTitlesPage():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _OpenTitlesPage value)?  $default,){
+final _that = this;
+switch (_that) {
+case _OpenTitlesPage() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ReceivableTitle> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _OpenTitlesPage() when $default != null:
+return $default(_that.items,_that.totalDue,_that.truncated);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ReceivableTitle> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)  $default,) {final _that = this;
+switch (_that) {
+case _OpenTitlesPage():
+return $default(_that.items,_that.totalDue,_that.truncated);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ReceivableTitle> items, @JsonKey(name: 'totalDue')  num totalDue,  bool truncated)?  $default,) {final _that = this;
+switch (_that) {
+case _OpenTitlesPage() when $default != null:
+return $default(_that.items,_that.totalDue,_that.truncated);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _OpenTitlesPage implements OpenTitlesPage {
+  const _OpenTitlesPage({final  List<ReceivableTitle> items = const <ReceivableTitle>[], @JsonKey(name: 'totalDue') this.totalDue = 0, this.truncated = false}): _items = items;
+  factory _OpenTitlesPage.fromJson(Map<String, dynamic> json) => _$OpenTitlesPageFromJson(json);
+
+ final  List<ReceivableTitle> _items;
+@override@JsonKey() List<ReceivableTitle> get items {
+  if (_items is EqualUnmodifiableListView) return _items;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_items);
+}
+
+@override@JsonKey(name: 'totalDue') final  num totalDue;
+/// A varredura bateu no teto do servidor: há dívida não listada.
+@override@JsonKey() final  bool truncated;
+
+/// Create a copy of OpenTitlesPage
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$OpenTitlesPageCopyWith<_OpenTitlesPage> get copyWith => __$OpenTitlesPageCopyWithImpl<_OpenTitlesPage>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$OpenTitlesPageToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OpenTitlesPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,truncated);
+
+@override
+String toString() {
+  return 'OpenTitlesPage(items: $items, totalDue: $totalDue, truncated: $truncated)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$OpenTitlesPageCopyWith<$Res> implements $OpenTitlesPageCopyWith<$Res> {
+  factory _$OpenTitlesPageCopyWith(_OpenTitlesPage value, $Res Function(_OpenTitlesPage) _then) = __$OpenTitlesPageCopyWithImpl;
+@override @useResult
+$Res call({
+ List<ReceivableTitle> items,@JsonKey(name: 'totalDue') num totalDue, bool truncated
+});
+
+
+
+
+}
+/// @nodoc
+class __$OpenTitlesPageCopyWithImpl<$Res>
+    implements _$OpenTitlesPageCopyWith<$Res> {
+  __$OpenTitlesPageCopyWithImpl(this._self, this._then);
+
+  final _OpenTitlesPage _self;
+  final $Res Function(_OpenTitlesPage) _then;
+
+/// Create a copy of OpenTitlesPage
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? truncated = null,}) {
+  return _then(_OpenTitlesPage(
+items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
+as List<ReceivableTitle>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
+as num,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

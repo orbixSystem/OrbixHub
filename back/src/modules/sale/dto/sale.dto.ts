@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -43,6 +44,20 @@ export class CreateSaleDto {
   @IsOptional() @IsUUID() customerId?: string;
   /** Desconto em valor sobre o total da venda (≥ 0). O service clampa ao bruto. */
   @IsOptional() @IsNumber() @Min(0) discount?: number;
+  /**
+   * Observação livre do balcão ("bateria p/ o rapaz da Hilux", placa, nº do
+   * trator). Sai no comprovante — é o que identifica a venda quando o comprador
+   * não é cliente cadastrado.
+   */
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  /**
+   * A venda já nasce declarada como FIADO. O front manda `true` quando o
+   * operador confirma o modal "Registrar como fiado?" (recebeu menos que o
+   * total). Vem junto da criação — e não numa segunda chamada — para que
+   * offline seja UMA mutação: duas em ordem poderiam chegar pela metade e a
+   * venda ficaria fora da carteira de cobrança.
+   */
+  @IsOptional() @IsBoolean() fiado?: boolean;
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -73,6 +88,12 @@ export class UpdateSaleDto {
   @IsOptional() @IsUUID() customerId?: string | null;
   /** Desconto em valor sobre o total (≥ 0). O service clampa ao bruto. */
   @IsOptional() @IsNumber() @Min(0) discount?: number;
+  /**
+   * Observação livre do balcão. String vazia APAGA a observação — corrigir um
+   * texto errado é tão legítimo quanto escrevê-lo, e omitir a chave continua
+   * significando "não mexe".
+   */
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
   /** Lista COMPLETA de itens da venda (substitui a atual). */
   @IsOptional()
   @IsArray()

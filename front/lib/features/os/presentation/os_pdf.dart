@@ -58,10 +58,15 @@ Future<Uint8List> buildOsPdf(
         _tituloDocumento(order),
         pw.SizedBox(height: 8),
         _faixaIdentificacao(order, agora),
-        pw.SizedBox(height: 6),
-        pdfSectionBand('Cliente e veículo'),
-        pw.SizedBox(height: 4),
-        _blocoClienteVeiculo(order),
+        // Seção inteira some quando não há cliente NEM veículo NEM previsão:
+        // uma faixa de título sobre o nada é pior que a ausência dela.
+        if (_linhasClienteVeiculo(order) case final linhas
+            when linhas.isNotEmpty) ...[
+          pw.SizedBox(height: 6),
+          pdfSectionBand('Cliente e veículo'),
+          pw.SizedBox(height: 4),
+          pdfStack(linhas),
+        ],
         if ((order.complaint ?? '').trim().isNotEmpty ||
             (order.diagnosis ?? '').trim().isNotEmpty) ...[
           pw.SizedBox(height: 8),
@@ -174,7 +179,7 @@ pw.Widget _faixaIdentificacao(ServiceOrder order, DateTime agora) {
       pw.TableRow(
         children: [
           _celula('OS Nº:', order.number),
-          _celula('Abertura:', abertura == null ? '-' : _data(abertura)),
+          if (abertura != null) _celula('Abertura:', _data(abertura)),
           if (responsavel.isNotEmpty) _celula('Responsável:', responsavel),
           _celula('Emissão:', _dataHora(agora)),
         ],
@@ -205,55 +210,62 @@ pw.Widget _celula(String rotulo, String valor) => pw.Padding(
       ),
     );
 
-pw.Widget _blocoClienteVeiculo(ServiceOrder order) {
+/// Rótulo+valor das linhas do bloco "Cliente e veículo" que TÊM valor —
+/// `dados` ocupam a linha inteira, `previsoes` saem lado a lado.
+///
+/// Campo não preenchido não vira "Previsão fim: -": a cliente reclamou de o
+/// papel sair salpicado de traços em campos que ela nunca usa, e um rótulo sem
+/// valor faz o documento parecer formulário abandonado no meio. Quando as duas
+/// listas vêm vazias, o chamador suprime até a faixa da seção.
+///
+/// Pública e PURA de propósito: é aqui que mora a regra reclamada, e widget de
+/// PDF não se inspeciona em teste — a lista, sim.
+({List<(String, String)> dados, List<(String, String)> previsoes})
+    osClienteVeiculoLinhas(ServiceOrder order) {
   final cliente = (order.customerName ?? '').trim();
   final veiculo = (order.subjectLabel ?? '').trim();
   final previsaoInicio = DateTime.tryParse(order.scheduledStart ?? '')?.toLocal();
   final previsaoFim = DateTime.tryParse(order.scheduledEnd ?? '')?.toLocal();
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pdfLabelValue(
-        'Cliente:',
-        cliente.isEmpty ? 'Não identificado' : cliente,
-      ),
-      pw.SizedBox(height: 2),
-      pdfLabelValue('Veículo:', veiculo),
-      if (previsaoInicio != null || previsaoFim != null) ...[
-        pw.SizedBox(height: 2),
-        pw.Row(
-          children: [
-            pw.Expanded(
-              flex: 3,
-              child: pdfLabelValue(
-                'Previsão início:',
-                previsaoInicio == null ? '' : _data(previsaoInicio),
-              ),
-            ),
-            pw.Expanded(
-              flex: 3,
-              child: pdfLabelValue(
-                'Previsão fim:',
-                previsaoFim == null ? '' : _data(previsaoFim),
-              ),
-            ),
-          ],
-        ),
-      ],
+
+  return (
+    dados: [
+      if (cliente.isNotEmpty) ('Cliente:', cliente),
+      if (veiculo.isNotEmpty) ('Veículo:', veiculo),
+    ],
+    previsoes: [
+      if (previsaoInicio != null) ('Previsão início:', _data(previsaoInicio)),
+      if (previsaoFim != null) ('Previsão fim:', _data(previsaoFim)),
     ],
   );
+}
+
+List<pw.Widget> _linhasClienteVeiculo(ServiceOrder order) {
+  final linhas = osClienteVeiculoLinhas(order);
+  return [
+    for (final (rotulo, valor) in linhas.dados) pdfLabelValue(rotulo, valor),
+    if (linhas.previsoes.isNotEmpty)
+      pw.Row(
+        children: [
+          for (final (rotulo, valor) in linhas.previsoes)
+            pw.Expanded(flex: 3, child: pdfLabelValue(rotulo, valor)),
+          // Com uma previsão só, o vão da outra é mantido: sem ele a data se
+          // esticaria pela folha inteira e o bloco desalinharia das demais OS.
+          if (linhas.previsoes.length == 1)
+            pw.Expanded(flex: 3, child: pw.SizedBox()),
+        ],
+      ),
+  ];
 }
 
 pw.Widget _blocoRelatoDiagnostico(ServiceOrder order) {
   final relato = (order.complaint ?? '').trim();
   final diagnostico = (order.diagnosis ?? '').trim();
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
+  return pdfStack(
+    [
       if (relato.isNotEmpty) pdfLabelValue('Relato:', relato),
-      if (relato.isNotEmpty && diagnostico.isNotEmpty) pw.SizedBox(height: 3),
       if (diagnostico.isNotEmpty) pdfLabelValue('Diagnóstico:', diagnostico),
     ],
+    gap: 3,
   );
 }
 
@@ -337,6 +349,24 @@ pw.Widget _tabelaItens(List<OrderItem> itens) {
   );
 }
 
+/// Linhas do quadro de totais que TÊM o que dizer.
+///
+/// "Desconto: R$ 0,00" é a ausência de desconto, não um dado — e é exatamente o
+/// tipo de linha vazia que a cliente pediu para sumir do papel. Pura e pública
+/// para ser testada direto.
+List<(String, String)> osTotaisLinhas({
+  required double qtdTotal,
+  required double somaItens,
+  required double desconto,
+  required double total,
+}) =>
+    [
+      ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
+      ('Valor das peças/serviços', formatMoney(somaItens)),
+      if (desconto > 0.005) ('Desconto', formatMoney(desconto)),
+      ('Valor total', formatMoney(total)),
+    ];
+
 pw.Widget _blocoTotais({
   required double qtdTotal,
   required double somaItens,
@@ -344,12 +374,12 @@ pw.Widget _blocoTotais({
   required double total,
   required String paymentStatus,
 }) {
-  final linhas = <(String, String)>[
-    ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
-    ('Valor das peças/serviços', formatMoney(somaItens)),
-    ('Desconto', formatMoney(desconto)),
-    ('Valor total', formatMoney(total)),
-  ];
+  final linhas = osTotaisLinhas(
+    qtdTotal: qtdTotal,
+    somaItens: somaItens,
+    desconto: desconto,
+    total: total,
+  );
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
     children: [

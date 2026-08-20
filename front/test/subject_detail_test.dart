@@ -30,6 +30,12 @@ class _FakeSession extends SessionController {
       role: 'owner',
       permissions: ['subject.read', 'subject.write', 'customer.read', 'os.read'],
       modules: ['customers', 'os'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
     ),
   );
 }
@@ -107,7 +113,7 @@ void main() {
         find.byKey(const Key('subjectField-identifier')),
         'ABC1D23',
       );
-      await tester.tap(find.byTooltip('Buscar dados do veículo pela placa'));
+      await tester.tap(find.byTooltip('Consultar Placa'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Salvar'));

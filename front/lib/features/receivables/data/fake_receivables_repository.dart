@@ -7,12 +7,22 @@ import '../domain/receivables_repository.dart';
 /// saldo em aberto, ordena do maior devedor para o menor e mantém os títulos do
 /// mais antigo para o mais novo (a ordem em que se cobra).
 class FakeReceivablesRepository implements ReceivablesRepository {
-  FakeReceivablesRepository({List<ReceivableTitle>? titulos, this.truncated = false})
-      : _titulos = titulos ?? _exemplo;
+  FakeReceivablesRepository({
+    List<ReceivableTitle>? titulos,
+    this.truncated = false,
+    this.pendingSettlement = const PendingSettlement(),
+    this.pendingTitles = const [],
+  }) : _titulos = titulos ?? _exemplo;
 
   /// Título → cliente. `null` = venda de balcão sem cliente.
   final List<ReceivableTitle> _titulos;
   final bool truncated;
+
+  /// Entregues e nunca acertados no caixa — o aviso do topo da aba Fiado.
+  final PendingSettlement pendingSettlement;
+
+  /// Os títulos por trás do aviso (o drill-down de "quais são?").
+  final List<ReceivableTitle> pendingTitles;
 
   /// Mapa título→(clienteId, nome). Mantido fora do modelo porque o servidor só
   /// devolve o dono no agregado, não em cada título.
@@ -114,7 +124,39 @@ class FakeReceivablesRepository implements ReceivablesRepository {
     return DebtorsPage(
       items: items,
       totalDue: items.fold<num>(0, (acc, d) => acc + d.totalDue),
+      pendingSettlement: pendingSettlement,
       truncated: truncated,
+    );
+  }
+
+  @override
+  Future<OpenTitlesPage> listOpenTitles() async {
+    final items = [
+      for (final t in _titulos)
+        t.copyWith(
+          customerId: _donos[t.id]?.$1,
+          customerName: _donos[t.id]?.$2 ?? 'Sem cliente',
+        ),
+    ]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    return OpenTitlesPage(
+      items: items,
+      totalDue: items.fold<num>(0, (acc, t) => acc + t.balance),
+      truncated: truncated,
+    );
+  }
+
+  @override
+  Future<OpenTitlesPage> listPendingSettlement() async {
+    final items = [
+      for (final t in pendingTitles)
+        t.copyWith(
+          customerId: _donos[t.id]?.$1,
+          customerName: _donos[t.id]?.$2 ?? 'Sem cliente',
+        ),
+    ];
+    return OpenTitlesPage(
+      items: items,
+      totalDue: items.fold<num>(0, (acc, t) => acc + t.balance),
     );
   }
 

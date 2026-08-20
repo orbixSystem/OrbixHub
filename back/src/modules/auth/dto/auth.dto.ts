@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsOptional,
+  MaxLength,
   IsString,
   IsUUID,
   MinLength,
@@ -16,6 +17,12 @@ export class RegisterDto {
   @IsString() @MinLength(2) fullName!: string;
   @IsEmail() email!: string;
   @IsString() @MinLength(8) password!: string;
+  /**
+   * Nicho escolhido no cadastro ('veiculos' | 'equipamentos' | ...).
+   * Opcional: ausente = pacote padrão. Validado contra o VerticalRegistry no
+   * service — chave inventada é recusada, não gravada.
+   */
+  @IsOptional() @IsString() @MaxLength(64) vertical?: string;
 }
 
 export class CnpjLookupDto {

@@ -11,6 +11,9 @@ import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
+import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 
 /// Conectividade fixa em ONLINE: sem isto o controller real reporta offline no
 /// ambiente de teste e a consulta de placa fica (corretamente) inerte.
@@ -85,6 +88,29 @@ class _TokenOsRepo extends _CapturingOsRepo {
 }
 
 /// Abre o dialog num app mínimo e devolve o id resolvido pelo Navigator.pop.
+/// Sessão de uma OFICINA. O diálogo de OS só existe para usuário logado, e o
+/// botão de consulta do identificador depende de uma CAPACIDADE do tenant —
+/// então o teste precisa dizer qual tenant é este. Sem isso o botão nem é
+/// desenhado, que é justamente o comportamento correto para um nicho sem base
+/// externa.
+class _OficinaSession extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
+          role: 'owner',
+          permissions: ['os.write', 'subject.read', 'subject.write'],
+          modules: ['os', 'customers'],
+          vertical: 'veiculos',
+          features: [
+            'customers.identifierLookup',
+            'customers.atributosCascata',
+            'os.trackingLink',
+          ],
+        ),
+      );
+}
+
 Future<String?> _openDialog(
   WidgetTester tester,
   FakeOsRepository fake, {
@@ -95,6 +121,7 @@ Future<String?> _openDialog(
     ProviderScope(
       overrides: [
         osRepositoryProvider.overrideWithValue(fake),
+        sessionControllerProvider.overrideWith(_OficinaSession.new),
         ...extra,
       ],
       child: MaterialApp(
@@ -226,9 +253,11 @@ void main() {
     await tester.pump();
     await _next(tester);
 
-    // Passo 3 — Detalhes: relato + responsável (obrigatórios).
+    // Passo 3 — Detalhes: o relato é OPCIONAL (nem toda OS nasce de uma
+    // queixa); só o responsável é obrigatório. Preenchemos os dois porque é o
+    // caminho comum da oficina.
     await tester.enterText(
-        _fieldByLabel('Relato do cliente *'), 'Barulho no motor');
+        _fieldByLabel('Relato do cliente (opcional)'), 'Barulho no motor');
     await tester.pump();
     await _selectResponsavel(tester);
 
@@ -274,9 +303,9 @@ void main() {
     // Passo 2 — Veículo: cliente sem veículos cadastrados; segue direto.
     await _next(tester);
 
-    // Passo 3 — Detalhes: relato e responsável são obrigatórios.
+    // Passo 3 — Detalhes: só o responsável é obrigatório; o relato é opcional.
     await tester.enterText(
-        _fieldByLabel('Relato do cliente *'), 'Revisão geral');
+        _fieldByLabel('Relato do cliente (opcional)'), 'Revisão geral');
     await tester.pump();
     await _selectResponsavel(tester);
 
@@ -323,6 +352,7 @@ void main() {
     final fake = _CapturingOsRepo(
       customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
     );
+    // O rótulo vem da config que o FakeOsRepository devolve (fake de oficina).
     await _openDialog(tester, fake);
 
     await tester.enterText(_fieldByLabel('Cliente *'), 'João');
@@ -331,7 +361,7 @@ void main() {
     await tester.pumpAndSettle();
     await _next(tester);
 
-    // Passo do veículo: em vez de só avisar que não há nenhum, oferece cadastrar.
+    // Passo do objeto: em vez de só avisar que não há nenhum, oferece cadastrar.
     expect(find.textContaining('Nenhum veículo cadastrado'), findsOneWidget);
     await tester.tap(find.widgetWithText(NeuButton, 'Cadastrar Veículo'));
     await tester.pumpAndSettle();
@@ -343,7 +373,7 @@ void main() {
     await _next(tester);
 
     await tester.enterText(
-        _fieldByLabel('Relato do cliente *'), 'Revisão geral');
+        _fieldByLabel('Relato do cliente (opcional)'), 'Revisão geral');
     await tester.pump();
     await _selectResponsavel(tester);
     await tester.tap(find.widgetWithText(NeuButton, 'Criar OS'));
@@ -384,7 +414,7 @@ void main() {
     await tester.enterText(
         _fieldByLabel('Placa / Identificação *'), 'ABC1D23');
     await tester.pump();
-    await tester.tap(find.byTooltip('Buscar dados do veículo pela placa'));
+    await tester.tap(find.byTooltip('Consultar Placa / Identificação'));
     await tester.pumpAndSettle();
 
     // Marca vem do equivalente FIPE (valor canônico), não da sigla do registro.
@@ -393,7 +423,7 @@ void main() {
     await _next(tester);
 
     await tester.enterText(
-        _fieldByLabel('Relato do cliente *'), 'Barulho no motor');
+        _fieldByLabel('Relato do cliente (opcional)'), 'Barulho no motor');
     await tester.pump();
     await _selectResponsavel(tester);
     await tester.tap(find.widgetWithText(NeuButton, 'Criar OS'));
@@ -426,7 +456,7 @@ void main() {
     await _openDialog(tester, fake);
     await _ateDetalhes(tester);
 
-    await _fill(tester, 'Relato do cliente *', 'Revisão dos 10 mil');
+    await _fill(tester, 'Relato do cliente (opcional)', 'Revisão dos 10 mil');
     await _selectResponsavel(tester);
     await _fill(tester, 'Diagnóstico (opcional)', 'Correia gasta');
 
@@ -480,6 +510,28 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
   });
 
+  // Uma cliente travou aqui: precisava abrir OS de uma venda para a prefeitura
+  // (a placa é obrigatória lá, e só a OS tem placa) e não havia "problema
+  // relatado" nenhum para escrever. Sem relato ela não conseguia criar a OS, e
+  // acabou fazendo a venda em outro sistema.
+  testWidgets('cria a OS SEM relato — o campo é opcional', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fake = _CapturingOsRepo(
+      customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
+    );
+    await _openDialog(tester, fake);
+    await _ateDetalhes(tester);
+    // Nada de relato — só o responsável, que segue obrigatório.
+    await _selectResponsavel(tester);
+    await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
+
+    expect((await fake.listOrders()).items, hasLength(1));
+    expect(find.text('Informe o relato do cliente'), findsNothing);
+  });
+
   testWidgets('salvar como template guarda o pacote montado, com o nome à vista',
       (tester) async {
     tester.view.physicalSize = const Size(1100, 2400);
@@ -491,7 +543,7 @@ void main() {
     );
     await _openDialog(tester, fake);
     await _ateDetalhes(tester);
-    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _fill(tester, 'Relato do cliente (opcional)', 'Revisão');
     await _selectResponsavel(tester);
     await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
 
@@ -518,7 +570,7 @@ void main() {
     );
     await _openDialog(tester, fake);
     await _ateDetalhes(tester);
-    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _fill(tester, 'Relato do cliente (opcional)', 'Revisão');
     await _selectResponsavel(tester);
     await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
 
@@ -549,7 +601,7 @@ void main() {
 
     await _openDialog(tester, fake);
     await _ateDetalhes(tester);
-    await _fill(tester, 'Relato do cliente *', 'Revisão');
+    await _fill(tester, 'Relato do cliente (opcional)', 'Revisão');
     await _selectResponsavel(tester);
     await _addItemAvulso(tester, descricao: 'Mão de obra', preco: '100');
     await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
@@ -598,7 +650,7 @@ void main() {
 
     await _ateDetalhes(tester);
     await tester.enterText(
-        _fieldByLabel('Relato do cliente *'), 'Revisão geral');
+        _fieldByLabel('Relato do cliente (opcional)'), 'Revisão geral');
     await tester.pump();
     await _selectResponsavel(tester);
     await _tap(tester, find.widgetWithText(NeuButton, 'Criar OS'));
