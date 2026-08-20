@@ -65,7 +65,7 @@ class SubjectDetailScreen extends ConsumerWidget {
         if (subject == null) {
           return Center(
             child: NeuEmptyState(
-              icon: Icons.directions_car_outlined,
+              icon: ref.watch(objetoIconProvider),
               title: '${config.subjectLabel.singular} não encontrado',
               message: 'Ele pode ter sido excluído ou pertence a outro cliente.',
               actionLabel: 'Voltar ao cliente',
@@ -138,7 +138,7 @@ class _Body extends ConsumerWidget {
               child: Row(
                 children: [
                   NeuIconChip.glyph(context,
-                      icon: Icons.directions_car_rounded, index: 1, size: 46),
+                      icon: ref.watch(objetoIconCheioProvider), index: 1, size: 46),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -600,6 +600,7 @@ class _OrdemTileState extends ConsumerState<_OrdemTile> {
         order,
         PdfPageFormat.a4,
         company: company,
+        objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',
       );
       final nome =
           'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';

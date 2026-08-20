@@ -21,6 +21,10 @@ export const VEICULOS: PacoteVertical = {
     'objeto.singular': 'Veículo',
     'objeto.plural': 'Veículos',
     'objeto.identificador': 'Placa',
+    // Nome do ÍCONE, não o ícone: o backend guarda a escolha e a UI mapeia —
+    // mesmo padrão do tema. Um carro desenhado na tela de uma clínica é tão
+    // errado quanto a palavra "Veículo".
+    'objeto.icone': 'veiculo',
     'os.status.entregue': 'Veículo entregue',
   },
 

@@ -437,7 +437,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
                 Row(
                   children: [
                     NeuIconChip.glyph(context,
-                        icon: Icons.directions_car_rounded,
+                        icon: ref.watch(objetoIconCheioProvider),
                         index: 1,
                         size: 42),
                     const SizedBox(width: 12),

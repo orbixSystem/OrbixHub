@@ -22,6 +22,10 @@ Future<Uint8List> buildOsPdf(
   ServiceOrder order,
   PdfPageFormat format, {
   DocumentCompany? company,
+  /// Rótulo do objeto atendido, vindo do nicho ("Veículo", "Equipamento").
+  /// O PDF é gerado fora da árvore de widgets e não tem sessão para consultar,
+  /// então o chamador passa. Default genérico para quem não passar.
+  String objetoLabel = 'Objeto',
 }) async {
   final doc = pw.Document();
   final agora = DateTime.now();
@@ -58,12 +62,12 @@ Future<Uint8List> buildOsPdf(
         _tituloDocumento(order),
         pw.SizedBox(height: 8),
         _faixaIdentificacao(order, agora),
-        // Seção inteira some quando não há cliente NEM veículo NEM previsão:
+        // Seção inteira some quando não há cliente NEM objeto NEM previsão:
         // uma faixa de título sobre o nada é pior que a ausência dela.
-        if (_linhasClienteVeiculo(order) case final linhas
+        if (_linhasClienteVeiculo(order, objetoLabel) case final linhas
             when linhas.isNotEmpty) ...[
           pw.SizedBox(height: 6),
-          pdfSectionBand('Cliente e veículo'),
+          pdfSectionBand('Cliente e ${objetoLabel.toLowerCase()}'),
           pw.SizedBox(height: 4),
           pdfStack(linhas),
         ],
@@ -221,7 +225,7 @@ pw.Widget _celula(String rotulo, String valor) => pw.Padding(
 /// Pública e PURA de propósito: é aqui que mora a regra reclamada, e widget de
 /// PDF não se inspeciona em teste — a lista, sim.
 ({List<(String, String)> dados, List<(String, String)> previsoes})
-    osClienteVeiculoLinhas(ServiceOrder order) {
+    osClienteVeiculoLinhas(ServiceOrder order, [String objetoLabel = 'Objeto']) {
   final cliente = (order.customerName ?? '').trim();
   final veiculo = (order.subjectLabel ?? '').trim();
   final previsaoInicio = DateTime.tryParse(order.scheduledStart ?? '')?.toLocal();
@@ -230,7 +234,7 @@ pw.Widget _celula(String rotulo, String valor) => pw.Padding(
   return (
     dados: [
       if (cliente.isNotEmpty) ('Cliente:', cliente),
-      if (veiculo.isNotEmpty) ('Veículo:', veiculo),
+      if (veiculo.isNotEmpty) ('$objetoLabel:', veiculo),
     ],
     previsoes: [
       if (previsaoInicio != null) ('Previsão início:', _data(previsaoInicio)),
@@ -239,8 +243,8 @@ pw.Widget _celula(String rotulo, String valor) => pw.Padding(
   );
 }
 
-List<pw.Widget> _linhasClienteVeiculo(ServiceOrder order) {
-  final linhas = osClienteVeiculoLinhas(order);
+List<pw.Widget> _linhasClienteVeiculo(ServiceOrder order, String objetoLabel) {
+  final linhas = osClienteVeiculoLinhas(order, objetoLabel);
   return [
     for (final (rotulo, valor) in linhas.dados) pdfLabelValue(rotulo, valor),
     if (linhas.previsoes.isNotEmpty)

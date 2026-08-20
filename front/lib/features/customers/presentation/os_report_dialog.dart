@@ -111,9 +111,7 @@ class _OsReport extends ConsumerWidget {
           facts: [
             (Icons.person_outline, 'Cliente', order.customerName),
             (
-              ref.watch(hasFeatureProvider(Features.identifierLookup))
-                  ? Icons.directions_car_outlined
-                  : Icons.inventory_2_outlined,
+              ref.watch(objetoIconProvider),
               ref.watch(vocabProvider)['objeto.singular'] ?? 'Objeto',
               order.subjectLabel,
             ),

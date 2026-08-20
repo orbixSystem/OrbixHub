@@ -1034,7 +1034,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           _labeledDropdown(
             label: '$_subjectLabelSingular (opcional)',
             value: _subject?.id,
-            icon: Icons.directions_car_outlined,
+            icon: ref.watch(objetoIconProvider),
             items: [
               const DropdownMenuItem<String?>(
                 value: null,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pdf/pdf.dart';
@@ -399,7 +400,8 @@ Future<void> exportOsPdfById(
   try {
     final order = await ref.read(osRepositoryProvider).getOrder(orderId);
     final company = await _companyForPdf(ref);
-    final bytes = await buildOsPdf(order, PdfPageFormat.a4, company: company);
+    final bytes = await buildOsPdf(order, PdfPageFormat.a4,
+        company: company, objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',);
     final nome =
         'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';
     await downloadBytes(bytes, nome, 'application/pdf');

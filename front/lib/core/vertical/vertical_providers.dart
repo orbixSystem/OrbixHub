@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/domain/auth_models.dart';
@@ -67,3 +68,35 @@ extension VocabRef on WidgetRef {
 extension MeVocab on Me {
   String vocabOr(String key, String fallback) => vocab[key] ?? fallback;
 }
+
+/// Ícone do objeto atendido, escolhido pelo NICHO.
+///
+/// O servidor manda o NOME do ícone (`objeto.icone`), não o ícone — `IconData`
+/// não é serializável, e é o mesmo padrão que o tema já usa (o back guarda a
+/// escolha, a UI mapeia). Nome desconhecido cai no genérico, então um pacote
+/// novo nunca deixa a tela sem ícone.
+IconData iconeDoObjeto(Map<String, String> vocab) =>
+    switch (vocab['objeto.icone']) {
+      'veiculo' => Icons.directions_car_outlined,
+      'moto' => Icons.two_wheeler_outlined,
+      'pet' => Icons.pets_outlined,
+      'pessoa' => Icons.person_outline,
+      _ => Icons.inventory_2_outlined,
+    };
+
+/// Versão preenchida/arredondada, para os pontos que usavam `*_rounded`.
+IconData iconeDoObjetoCheio(Map<String, String> vocab) =>
+    switch (vocab['objeto.icone']) {
+      'veiculo' => Icons.directions_car_rounded,
+      'moto' => Icons.two_wheeler_rounded,
+      'pet' => Icons.pets_rounded,
+      'pessoa' => Icons.person_rounded,
+      _ => Icons.inventory_2_rounded,
+    };
+
+/// Ícone do objeto a partir da sessão.
+final objetoIconProvider =
+    Provider<IconData>((ref) => iconeDoObjeto(ref.watch(vocabProvider)));
+
+final objetoIconCheioProvider =
+    Provider<IconData>((ref) => iconeDoObjetoCheio(ref.watch(vocabProvider)));

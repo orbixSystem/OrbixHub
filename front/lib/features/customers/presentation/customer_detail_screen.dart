@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +28,7 @@ IconData _fieldIcon(String chave) {
     case 'marca':
       return Icons.sell_outlined;
     case 'modelo':
-      return Icons.directions_car_outlined;
+      return Icons.inventory_2_outlined;
     case 'ano':
       return Icons.event_outlined;
     case 'cor':
@@ -132,8 +133,8 @@ class CustomerDetailScreen extends ConsumerWidget {
                             tabs: [
                               if (usaSubjects)
                                 Tab(
-                                  icon: const Icon(
-                                    Icons.directions_car_outlined,
+                                  icon: Icon(
+                                    ref.watch(objetoIconProvider),
                                     size: 18,
                                   ),
                                   text: config.subjectLabel.plural,
@@ -420,7 +421,7 @@ class _VehiclesTab extends ConsumerWidget {
           children: [
             if (page.items.isEmpty)
               _EmptyBox(
-                icon: Icons.directions_car_outlined,
+                icon: ref.watch(objetoIconProvider),
                 text: 'Nenhum ${singular.toLowerCase()} cadastrado ainda.',
               )
             else
