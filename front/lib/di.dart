@@ -27,6 +27,9 @@ import 'core/theme/theme_controller.dart';
 import 'features/auth/data/auth_repository_impl.dart';
 import 'features/auth/domain/auth_repository.dart';
 import 'features/auth/presentation/session_controller.dart';
+import 'features/support/data/support_repository_impl.dart';
+import 'features/support/domain/support_repository.dart';
+import 'features/support/domain/support_models.dart';
 import 'features/auth/presentation/session_state.dart';
 import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
@@ -482,3 +485,20 @@ final invoiceConfigControllerProvider =
     AsyncNotifierProvider<InvoiceConfigController, InvoiceFiscalConfig>(
   InvoiceConfigController.new,
 );
+
+/// Suporte: conversa do ambiente com a Orbix. Uma thread por empresa.
+final supportRepositoryProvider = Provider<SupportRepository>((ref) {
+  return SupportRepositoryImpl(ref.watch(dioProvider));
+});
+
+/// Thread do suporte. Buscar JÁ marca as respostas da Orbix como lidas no
+/// servidor — abrir a tela é a leitura, e exigir um clique a mais só faria o
+/// contador mentir.
+final supportThreadProvider = FutureProvider<List<SupportMessage>>((ref) {
+  return ref.watch(supportRepositoryProvider).thread();
+});
+
+/// Respostas não lidas — alimenta o ponto discreto na entrada de Suporte.
+final supportUnreadProvider = FutureProvider<int>((ref) {
+  return ref.watch(supportRepositoryProvider).unread();
+});

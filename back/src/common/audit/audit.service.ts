@@ -17,6 +17,8 @@ export type AuditAction =
   // quem ligou o quê e quando.
   | 'module_toggle'
   | 'feature_toggle'
+  // Cliente escreveu para o suporte da Orbix.
+  | 'support_message'
   | 'customer_delete'
   | 'subject_delete'
   | 'inventory_item_create'

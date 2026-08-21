@@ -7,6 +7,7 @@ import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../support/presentation/support_section.dart';
 import 'appearance_section.dart';
 import 'company_form.dart';
 import 'dynamic_section.dart';
@@ -149,6 +150,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             glyphIndex: nextGlyph(),
             builder: (_) =>
                 AppearanceSection(company: bundle.company, embedded: true),
+          ),
+          // Suporte fica fora do `canManage`: pedir ajuda não é privilégio de
+          // cargo, e quem tropeça no sistema costuma ser quem opera, não o dono.
+          _Category(
+            title: 'Suporte',
+            subtitle: 'Falar com a equipe da Orbix',
+            icon: Icons.support_agent_outlined,
+            glyphIndex: nextGlyph(),
+            builder: (_) => const SupportSection(),
           ),
           if (canManage)
             for (final section in moduleSections)

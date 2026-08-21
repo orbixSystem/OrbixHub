@@ -31,6 +31,10 @@ export const envSchema = z.object({
     .string()
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
+  // Para onde vai o aviso quando um cliente escreve no suporte. Ponte
+  // provisoria ate o sistema de admin existir: sem ela a mensagem e gravada do
+  // mesmo jeito, so nao avisa ninguem.
+  SUPPORT_EMAIL: z.string().email().optional(),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
   DEV_TOOLS_ENABLED: z
     .string()

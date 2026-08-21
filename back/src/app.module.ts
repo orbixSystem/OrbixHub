@@ -19,6 +19,7 @@ import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { HealthController } from './common/observability/health.controller';
 import { CnpjModule } from './common/cnpj/cnpj.module';
+import { SupportModule } from './modules/support/support.module';
 import { VerticalsModule } from './verticals/verticals.module';
 import { VeiculosVerticalModule } from './verticals/veiculos/veiculos.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -59,6 +60,7 @@ import { DevtoolsModule } from './modules/devtools/devtools.module';
     CnpjModule,
     AuthModule,
     IamModule,
+    SupportModule,
     VerticalsModule,
 
     VeiculosVerticalModule,

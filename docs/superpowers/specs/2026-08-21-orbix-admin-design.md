@@ -258,6 +258,33 @@ Vale para o desenvolvimento E para o teste automatizado das agregações.
 
 **O webhook de cobrança não muda.**
 
+## 10.1 Canal de suporte (JÁ IMPLEMENTADO no Hub)
+
+Feito em 21/08, antes do admin existir. Tabela `support_message` no Hub
+(tenant-scoped, RLS + FORCE), uma thread por tenant, com:
+
+| Rota | Quem usa |
+|---|---|
+| `GET /support/messages` | cliente — ler marca as respostas da Orbix como lidas |
+| `GET /support/unread` | cliente — badge discreto |
+| `POST /support/messages` | cliente — escreve para a Orbix |
+
+Entrada no app: **Configurações → Suporte**, disponível para QUALQUER usuário do
+ambiente. Sem `@Permissions` e sem `@RequiresModule` de propósito: pedir ajuda
+não é privilégio de cargo nem funcionalidade contratada, e um canal de suporte
+que o plano vencido derruba falha exatamente na hora em que é necessário.
+
+**Ponte provisória:** quando o cliente escreve, o Hub avisa por e-mail
+(`SUPPORT_EMAIL`), com `replyTo` no e-mail da empresa — responder do próprio
+cliente de e-mail chega em quem pediu ajuda. Gravação vem ANTES do envio: se o
+SMTP cair, a mensagem não se perde (há teste para isso).
+
+**O que falta no admin (Fase C ou D):**
+- `GET /admin/tenants/:id/support` — ler a thread
+- `POST /admin/tenants/:id/support` — responder (`from_orbix = true`)
+- fila de "não respondidos", usando o índice parcial que já existe
+  (`idx_support_message_unread`)
+
 ## 11. Modelo de dados do admin (banco próprio)
 
 ```
