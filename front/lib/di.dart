@@ -486,19 +486,25 @@ final invoiceConfigControllerProvider =
   InvoiceConfigController.new,
 );
 
-/// Suporte: conversa do ambiente com a Orbix. Uma thread por empresa.
+/// Suporte: chamados do ambiente com a Orbix.
 final supportRepositoryProvider = Provider<SupportRepository>((ref) {
   return SupportRepositoryImpl(ref.watch(dioProvider));
 });
 
-/// Thread do suporte. Buscar JÁ marca as respostas da Orbix como lidas no
-/// servidor — abrir a tela é a leitura, e exigir um clique a mais só faria o
-/// contador mentir.
-final supportThreadProvider = FutureProvider<List<SupportMessage>>((ref) {
-  return ref.watch(supportRepositoryProvider).thread();
+/// Lista de chamados, o de movimento mais recente primeiro.
+final supportTicketsProvider = FutureProvider<List<SupportTicket>>((ref) {
+  return ref.watch(supportRepositoryProvider).tickets();
 });
 
-/// Respostas não lidas — alimenta o ponto discreto na entrada de Suporte.
+/// Mensagens de um chamado. Buscar JÁ marca as respostas da Orbix como lidas no
+/// servidor — abrir o chamado é a leitura, e exigir um clique a mais faria o
+/// ponto de não lida mentir.
+final supportThreadProvider =
+    FutureProvider.family<List<SupportMessage>, String>((ref, ticketId) {
+  return ref.watch(supportRepositoryProvider).mensagens(ticketId);
+});
+
+/// Respostas não lidas somando os chamados — alimenta o ponto discreto.
 final supportUnreadProvider = FutureProvider<int>((ref) {
   return ref.watch(supportRepositoryProvider).unread();
 });

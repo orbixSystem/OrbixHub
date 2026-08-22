@@ -20,3 +20,26 @@ abstract class SupportMessage with _$SupportMessage {
   factory SupportMessage.fromJson(Map<String, dynamic> json) =>
       _$SupportMessageFromJson(json);
 }
+
+/// Um chamado aberto pelo cliente. Assunto e status próprios, para que dois
+/// problemas simultâneos não se atropelem numa conversa só.
+@freezed
+abstract class SupportTicket with _$SupportTicket {
+  const SupportTicket._();
+
+  const factory SupportTicket({
+    required String id,
+    required String subject,
+    /// 'aberto' | 'resolvido'
+    @Default('aberto') String status,
+    required DateTime lastMessageAt,
+    required DateTime createdAt,
+    /// Respostas da Orbix ainda não lidas neste chamado.
+    @Default(0) int naoLidas,
+  }) = _SupportTicket;
+
+  factory SupportTicket.fromJson(Map<String, dynamic> json) =>
+      _$SupportTicketFromJson(json);
+
+  bool get resolvido => status == 'resolvido';
+}

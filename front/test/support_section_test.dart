@@ -7,81 +7,165 @@ import 'package:orbixhub_front/features/support/data/fake_support_repository.dar
 import 'package:orbixhub_front/features/support/domain/support_models.dart';
 import 'package:orbixhub_front/features/support/presentation/support_section.dart';
 
-Widget _wrap(FakeSupportRepository repo) {
+Widget _wrap(FakeSupportRepository repo, {bool escuro = false}) {
   return ProviderScope(
     overrides: [supportRepositoryProvider.overrideWithValue(repo)],
     child: MaterialApp(
-      theme: AppTheme.light(),
-      home: Scaffold(
+      theme: escuro ? AppTheme.dark() : AppTheme.light(),
+      home: const Scaffold(
         body: SingleChildScrollView(child: SupportSection()),
       ),
     ),
   );
 }
 
+SupportTicket _ticket({
+  String id = 'tk1',
+  String subject = 'A nota não sai',
+  String status = 'aberto',
+  int naoLidas = 0,
+}) =>
+    SupportTicket(
+      id: id,
+      subject: subject,
+      status: status,
+      naoLidas: naoLidas,
+      lastMessageAt: DateTime(2026, 8, 21, 10),
+      createdAt: DateTime(2026, 8, 21, 9),
+    );
+
 void main() {
-  testWidgets('thread vazia convida a escrever, sem parecer erro', (tester) async {
+  testWidgets('sem chamados, convida a abrir — sem parecer erro', (tester) async {
     await tester.pumpWidget(_wrap(FakeSupportRepository()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nenhuma conversa ainda'), findsOneWidget);
-    expect(find.byKey(const Key('support-campo')), findsOneWidget);
+    expect(find.text('Nenhum chamado ainda'), findsOneWidget);
+    expect(find.byKey(const Key('support-novo')), findsOneWidget);
   });
 
-  testWidgets('mostra os dois lados da conversa', (tester) async {
-    final repo = FakeSupportRepository(inicial: [
-      SupportMessage(
-        id: '1',
-        body: 'a nota não sai',
-        authorName: 'Zé',
-        createdAt: DateTime(2026, 8, 20, 9, 30),
-      ),
-      SupportMessage(
-        id: '2',
-        body: 'já estamos vendo',
-        fromOrbix: true,
-        createdAt: DateTime(2026, 8, 20, 9, 45),
-      ),
+  testWidgets('lista os chamados com assunto e situação', (tester) async {
+    final repo = FakeSupportRepository(tickets: [
+      _ticket(subject: 'A nota não sai'),
+      _ticket(id: 'tk2', subject: 'Caixa não fecha', status: 'resolvido'),
     ]);
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
+    expect(find.text('A nota não sai'), findsOneWidget);
+    expect(find.text('Caixa não fecha'), findsOneWidget);
+    expect(find.textContaining('Aberto'), findsOneWidget);
+    expect(find.textContaining('Resolvido'), findsOneWidget);
+  });
+
+  testWidgets('chamado com resposta nova mostra o contador', (tester) async {
+    final repo = FakeSupportRepository(tickets: [_ticket(naoLidas: 2)]);
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('abrir um chamado mostra a conversa e permite voltar',
+      (tester) async {
+    final repo = FakeSupportRepository(
+      tickets: [_ticket()],
+      mensagens: {
+        'tk1': [
+          SupportMessage(
+            id: 'm1',
+            body: 'a nota não sai',
+            createdAt: DateTime(2026, 8, 21, 9),
+          ),
+          SupportMessage(
+            id: 'm2',
+            body: 'já estamos vendo',
+            fromOrbix: true,
+            createdAt: DateTime(2026, 8, 21, 10),
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('support-ticket-tk1')));
+    await tester.pumpAndSettle();
+
     expect(find.text('a nota não sai'), findsOneWidget);
     expect(find.text('já estamos vendo'), findsOneWidget);
-    // Quem falou aparece: a resposta é identificada como da Orbix.
     expect(find.text('Suporte Orbix'), findsOneWidget);
-    expect(find.text('Zé'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('support-voltar')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('support-novo')), findsOneWidget);
   });
 
-  testWidgets('enviar manda a mensagem e limpa o campo', (tester) async {
+  testWidgets('abrir chamado novo exige assunto E mensagem', (tester) async {
     final repo = FakeSupportRepository();
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-        find.byKey(const Key('support-campo')), 'preciso de ajuda');
+    await tester.tap(find.byKey(const Key('support-novo')));
+    await tester.pumpAndSettle();
+
+    // Só o assunto não basta.
+    await tester.enterText(find.byKey(const Key('support-assunto')), 'Um assunto');
     await tester.pump();
     await tester.tap(find.byKey(const Key('support-enviar')));
     await tester.pumpAndSettle();
+    expect(repo.abertos, 0);
 
-    expect(repo.enviadas, 1);
-    // Campo limpo: reenviar sem querer é o erro mais fácil de cometer aqui.
-    expect(
-      tester.widget<TextField>(find.byType(TextField).last).controller?.text,
-      isEmpty,
+    await tester.enterText(find.byKey(const Key('support-campo')), 'o detalhe');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('support-enviar')));
+    await tester.pumpAndSettle();
+    expect(repo.abertos, 1);
+  });
+
+  testWidgets('responder dentro do chamado usa o id certo', (tester) async {
+    final repo = FakeSupportRepository(
+      tickets: [_ticket()],
+      mensagens: {'tk1': []},
     );
-  });
-
-  testWidgets('campo vazio não envia nada', (tester) async {
-    final repo = FakeSupportRepository();
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('support-campo')), '   ');
+    await tester.tap(find.byKey(const Key('support-ticket-tk1')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('support-campo')), 'mais um dado');
     await tester.pump();
     await tester.tap(find.byKey(const Key('support-enviar')));
     await tester.pumpAndSettle();
 
-    expect(repo.enviadas, 0);
+    expect(repo.respondidos, 1);
+  });
+
+  testWidgets('no tema ESCURO o texto do balão continua legível', (tester) async {
+    // Regressão: a primeira versão pintava o balão com uma cor do tema claro,
+    // e no escuro o texto sumia no fundo.
+    final repo = FakeSupportRepository(
+      tickets: [_ticket()],
+      mensagens: {
+        'tk1': [
+          SupportMessage(
+            id: 'm1',
+            body: 'texto que precisa aparecer',
+            createdAt: DateTime(2026, 8, 21, 9),
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(_wrap(repo, escuro: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('support-ticket-tk1')));
+    await tester.pumpAndSettle();
+
+    final texto = tester.widget<Text>(find.text('texto que precisa aparecer'));
+    final cor = texto.style?.color;
+    expect(cor, isNotNull);
+    // A cor do texto tem de vir do par do tema, nunca de uma constante clara.
+    expect(cor, isNot(Colors.transparent));
   });
 }

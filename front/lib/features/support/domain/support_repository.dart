@@ -1,13 +1,21 @@
 import 'support_models.dart';
 
-/// Conversa do ambiente com o suporte da Orbix. Uma thread por empresa.
+/// Chamados de suporte do ambiente com a Orbix.
 abstract interface class SupportRepository {
-  /// Thread inteira, mais antiga primeiro. Ler marca as respostas da Orbix
-  /// como lidas no servidor — abrir a tela É a leitura.
-  Future<List<SupportMessage>> thread();
+  /// Chamados do tenant, o de movimento mais recente primeiro.
+  Future<List<SupportTicket>> tickets();
 
-  /// Quantas respostas da Orbix ainda não foram lidas.
+  /// Mensagens de um chamado. Buscar marca as respostas da Orbix como lidas —
+  /// abrir o chamado É a leitura.
+  Future<List<SupportMessage>> mensagens(String ticketId);
+
+  /// Abre um chamado com a primeira mensagem.
+  Future<SupportTicket> abrir(String subject, String body);
+
+  Future<SupportMessage> responder(String ticketId, String body);
+
+  Future<void> resolver(String ticketId);
+
+  /// Total de respostas não lidas, somando os chamados.
   Future<int> unread();
-
-  Future<SupportMessage> enviar(String body);
 }
