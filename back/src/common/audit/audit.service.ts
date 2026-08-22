@@ -19,6 +19,8 @@ export type AuditAction =
   | 'feature_toggle'
   // Cliente escreveu para o suporte da Orbix.
   | 'support_message'
+  // Ambiente criado pelo sistema de admin, nao pelo cadastro self-service.
+  | 'tenant_provision'
   | 'customer_delete'
   | 'subject_delete'
   | 'inventory_item_create'

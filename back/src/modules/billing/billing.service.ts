@@ -131,6 +131,18 @@ export class BillingService {
     });
   }
 
+  /**
+   * Status da assinatura de um tenant explícito. Billing é dono de
+   * `subscription`; quem precisa do status (a API administrativa, por exemplo)
+   * pergunta por aqui em vez de ler a tabela.
+   */
+  async getSubscriptionStatus(tenantId: string): Promise<string | null> {
+    const sub = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.getSubscription(),
+    );
+    return sub?.status ?? null;
+  }
+
   /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */
   listTenantModules(tenantId: string) {
     return this.tenant.runWithTenant(tenantId, () => this.repo.listTenantModules());
