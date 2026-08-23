@@ -2535,11 +2535,16 @@ CREATE TABLE IF NOT EXISTS support_ticket (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'support_ticket_status_chk') THEN
-    ALTER TABLE support_ticket ADD CONSTRAINT support_ticket_status_chk
-      CHECK (status IN ('aberto','resolvido'));
+-- Ver 0053: `reabertura_solicitada` é o pedido do cliente para voltar a um
+-- chamado fechado. Reabrir de fato continua sendo decisão da Orbix.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'support_ticket_status_chk') THEN
+    ALTER TABLE support_ticket DROP CONSTRAINT support_ticket_status_chk;
   END IF;
+
+  ALTER TABLE support_ticket ADD CONSTRAINT support_ticket_status_chk
+    CHECK (status IN ('aberto','resolvido','reabertura_solicitada'));
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_support_ticket_tenant_mov
@@ -2584,3 +2589,22 @@ BEGIN
      WHERE tenant_id = t.tenant_id AND ticket_id IS NULL;
   END LOOP;
 END $$;
+
+-- ============================================================
+-- 0052 — Módulo aposentado sai do catálogo
+-- ============================================================
+-- Ver prisma/migrations/0052_module_retired_at. `retired_at` preenchido some
+-- das listas e trava o religamento; a linha fica, porque tenant_module aponta
+-- para ela e o histórico importa.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'module' AND column_name = 'retired_at'
+  ) THEN
+    ALTER TABLE module ADD COLUMN retired_at timestamptz;
+  END IF;
+END $$;
+
+UPDATE module SET retired_at = now() WHERE key = 'sales' AND retired_at IS NULL;

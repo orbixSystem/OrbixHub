@@ -53,3 +53,10 @@ export class ResetPasswordDto {
 export class SwitchTenantDto {
   @IsUUID() tenantId!: string;
 }
+
+export class SupportSessionDto {
+  @IsString()
+  @MinLength(20)
+  @MaxLength(200)
+  code!: string;
+}

@@ -109,6 +109,13 @@ class AuthRepositoryImpl implements AuthRepository {
       });
 
   @override
+  Future<String> supportSession(String code) => _guard(() async {
+        final res = await _dio
+            .post<Object?>('/auth/support-session', data: {'code': code});
+        return _asMap(res.data)['accessToken'] as String;
+      });
+
+  @override
   Future<Tokens> switchTenant(String tenantId) => _guard(() async {
         final res = await _dio
             .post<Object?>('/auth/switch-tenant', data: {'tenantId': tenantId});

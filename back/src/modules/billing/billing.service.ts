@@ -26,6 +26,13 @@ export interface ModuleAccessView {
   /** Módulo de núcleo: ignora o flag `enabled` (mas respeita o status). */
   isCore: boolean;
 }
+/** A mesma assinatura, com o que o painel administrativo precisa mostrar. */
+export interface AssinaturaDetalhada extends SubscriptionView {
+  planName: string;
+  planPriceCents: number;
+  billingPeriod: string;
+}
+
 export interface SubscriptionView {
   planKey: string;
   status: string;
@@ -85,6 +92,29 @@ export class BillingService {
       if (!sub) return null;
       return {
         planKey: sub.plan.key,
+        status: sub.status,
+        trialEndsAt: sub.trial_ends_at,
+        currentPeriodStart: sub.current_period_start,
+        currentPeriodEnd: sub.current_period_end,
+        canceledAt: sub.canceled_at,
+      };
+    });
+  }
+
+  /**
+   * Assinatura de UM tenant, por id — para o painel da Orbix, que não tem
+   * contexto de request de tenant. Traz o plano junto porque a pergunta do
+   * atendente é sempre "qual plano, quanto custa e até quando está pago".
+   */
+  async assinaturaDoTenant(tenantId: string): Promise<AssinaturaDetalhada | null> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const sub = await this.repo.getSubscription();
+      if (!sub) return null;
+      return {
+        planKey: sub.plan.key,
+        planName: sub.plan.name,
+        planPriceCents: sub.plan.price_cents,
+        billingPeriod: sub.plan.billing_period,
         status: sub.status,
         trialEndsAt: sub.trial_ends_at,
         currentPeriodStart: sub.current_period_start,
@@ -155,7 +185,10 @@ export class BillingService {
    */
   async setModuleEnabled(
     tenantId: string,
-    actorUserId: string,
+    // `null` quando quem mexeu não é usuário DESTE tenant (painel da Orbix).
+    // `audit_log.actor_user_id` referencia `users`: passar o id do tenant aqui
+    // violava a FK e o toggle gravava e devolvia 500 — meio aplicado.
+    actorUserId: string | null,
     moduleKey: string,
     enabled: boolean,
   ): Promise<void> {

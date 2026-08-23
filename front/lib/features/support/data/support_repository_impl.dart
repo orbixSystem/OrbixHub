@@ -40,6 +40,15 @@ class SupportRepositoryImpl implements SupportRepository {
   }
 
   @override
+  Future<SupportTicket> solicitarReabertura(String ticketId, String body) async {
+    final res = await _dio.post<Object?>(
+      '/support/tickets/$ticketId/reopen-request',
+      data: {'body': body},
+    );
+    return SupportTicket.fromJson((res.data as Map).cast<String, dynamic>());
+  }
+
+  @override
   Future<void> resolver(String ticketId) async {
     await _dio.post<Object?>('/support/tickets/$ticketId/resolve');
   }

@@ -22,8 +22,12 @@ export class SupportRepository {
    * Chamados do tenant, o de movimento mais recente primeiro — e não o mais
    * novo: um chamado antigo que acabou de receber resposta é o que interessa.
    * Traz a contagem de não lidas para o ponto na lista.
+   *
+   * `paraOrbix` diz de QUEM é o ponto vermelho: o cliente conta as respostas da
+   * Orbix que ainda não leu; a Orbix conta as mensagens do cliente. É a mesma
+   * lista vista dos dois lados do balcão.
    */
-  async listarTickets(tenantId: string) {
+  async listarTickets(tenantId: string, paraOrbix = false) {
     return this.tenant.runWithTenant(tenantId, async () => {
       const db = this.tenant.getClient();
       const tickets = await db.support_ticket.findMany({
@@ -31,7 +35,7 @@ export class SupportRepository {
       });
       const naoLidas = await db.support_message.groupBy({
         by: ['ticket_id'],
-        where: { from_orbix: true, read_at: null },
+        where: { from_orbix: !paraOrbix, read_at: null },
         _count: { _all: true },
       });
       const porTicket = new Map(
@@ -74,9 +78,13 @@ export class SupportRepository {
   }
 
   /**
-   * Grava a mensagem e mexe o chamado na mesma transação: `last_message_at`
-   * reordena a lista, e mensagem do cliente REABRE um chamado resolvido —
-   * quem volta a escrever está dizendo que não estava resolvido.
+   * Grava a mensagem e mexe `last_message_at` na mesma transação — é o que
+   * reordena a lista.
+   *
+   * NÃO mexe em `status`: quem decide abrir e fechar é o SERVICE, e antes daqui
+   * uma mensagem do cliente reabria o chamado sozinha. Isso tirava da Orbix o
+   * controle sobre o que estava fechado — hoje o caminho é um pedido explícito
+   * de reabertura.
    */
   async criarMensagem(tenantId: string, msg: NovaMensagem) {
     return this.tenant.runWithTenant(tenantId, async () => {
@@ -96,7 +104,6 @@ export class SupportRepository {
         data: {
           last_message_at: criada.created_at,
           updated_at: new Date(),
-          ...(msg.fromOrbix ? {} : { status: 'aberto' }),
         },
       });
       return criada;

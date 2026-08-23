@@ -125,6 +125,18 @@ class FakeAuthRepository implements AuthRepository {
       const Tokens(accessToken: 'fake-access', refreshToken: 'fake-refresh');
 
   @override
+  Future<String> supportSession(String code) async {
+    if (code.isEmpty) {
+      throw const AppException(
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Link de suporte inválido ou expirado.',
+      );
+    }
+    return 'fake-support-access';
+  }
+
+  @override
   Future<Tokens> switchTenant(String tenantId) async {
     if (failSwitchTenant) {
       throw const AppException(

@@ -58,6 +58,20 @@ class FakeSupportRepository implements SupportRepository {
   @override
   Future<void> resolver(String ticketId) async => resolvido = ticketId;
 
+  /// Guarda o último pedido de reabertura, para o teste conferir o que foi enviado.
+  String? reaberturaPedidaDe;
+  String? motivoDaReabertura;
+
+  @override
+  Future<SupportTicket> solicitarReabertura(String ticketId, String body) async {
+    reaberturaPedidaDe = ticketId;
+    motivoDaReabertura = body;
+    final i = _tickets.indexWhere((t) => t.id == ticketId);
+    final atualizado = _tickets[i].copyWith(status: 'reabertura_solicitada');
+    _tickets[i] = atualizado;
+    return atualizado;
+  }
+
   @override
   Future<int> unread() async =>
       _tickets.fold<int>(0, (a, t) => a + t.naoLidas);

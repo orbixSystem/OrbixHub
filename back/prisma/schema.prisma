@@ -642,6 +642,8 @@ model module {
   key           String          @unique
   name          String
   is_core       Boolean         @default(false)
+  /// Preenchido = aposentado: some das listas e nao pode ser religado.
+  retired_at    DateTime?       @db.Timestamptz(6)
   plan_module   plan_module[]
   tenant_module tenant_module[]
 }

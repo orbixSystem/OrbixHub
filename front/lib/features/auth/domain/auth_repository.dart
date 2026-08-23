@@ -45,6 +45,12 @@ abstract interface class AuthRepository {
     required String password,
   });
 
+  /// Troca o código do link de suporte da Orbix por um token de acesso.
+  ///
+  /// Devolve SÓ o access token — a sessão de suporte não tem refresh de
+  /// propósito: expira em 15 minutos e não deixa credencial guardada.
+  Future<String> supportSession(String code);
+
   Future<Tokens> switchTenant(String tenantId);
 
   /// Exchanges a refresh token for a new pair. Used by bootstrap and by the

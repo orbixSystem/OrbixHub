@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthRepository } from '../auth/auth.repository';
@@ -29,6 +30,40 @@ export interface TenantResumo {
   vertical: string | null;
   createdAt: Date;
   subscriptionStatus: string | null;
+}
+
+export interface FiltroTenants {
+  /** Busca por nome, slug ou CNPJ. */
+  q?: string;
+  /** Ids específicos — usado pela carteira do admin, que já sabe quais quer. */
+  ids?: string[];
+  vertical?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginaTenants {
+  total: number;
+  items: TenantResumo[];
+}
+
+function montarWhere(f: FiltroTenants): Prisma.tenantWhereInput {
+  const where: Prisma.tenantWhereInput = {};
+  if (f.ids?.length) where.id = { in: f.ids };
+  if (f.vertical) where.vertical = f.vertical;
+
+  const termo = f.q?.trim();
+  if (termo) {
+    // CNPJ é guardado só com dígitos; quem busca digita com máscara.
+    const digitos = termo.replace(/\D/g, '');
+    where.OR = [
+      { name: { contains: termo, mode: 'insensitive' } },
+      { slug: { contains: termo, mode: 'insensitive' } },
+      { legal_name: { contains: termo, mode: 'insensitive' } },
+      ...(digitos ? [{ cnpj: { contains: digitos } }] : []),
+    ];
+  }
+  return where;
 }
 
 /**
@@ -106,15 +141,31 @@ export class AdminService {
   }
 
   /**
-   * Todos os ambientes, com o status da assinatura. `tenant` é tabela global
-   * (sem RLS), então a leitura é direta; a assinatura vem pelo service público
-   * do billing, que é o dono dela.
+   * Ambientes com o status da assinatura. `tenant` é tabela global (sem RLS),
+   * então a leitura é direta; a assinatura vem pelo service público do billing,
+   * que é o dono dela.
+   *
+   * PAGINADO de propósito. O status da assinatura custa uma consulta POR
+   * ambiente: devolver a base inteira eram 4.350 consultas e 890 KB numa
+   * resposta só — a página do painel não aguentaria crescer.
    */
-  async listarTenants(): Promise<TenantResumo[]> {
-    const tenants = await this.prisma.tenant.findMany({
-      orderBy: { created_at: 'desc' },
-    });
-    return Promise.all(tenants.map((t) => this.comAssinatura(t)));
+  async listarTenants(filtro: FiltroTenants = {}): Promise<PaginaTenants> {
+    const where = montarWhere(filtro);
+    const limite = Math.min(Math.max(filtro.limit ?? 50, 1), 200);
+
+    const [total, tenants] = await Promise.all([
+      this.prisma.tenant.count({ where }),
+      this.prisma.tenant.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        take: limite,
+        skip: Math.max(filtro.offset ?? 0, 0),
+      }),
+    ]);
+
+    // A assinatura é buscada só para a PÁGINA — nunca para a base inteira.
+    const items = await Promise.all(tenants.map((t) => this.comAssinatura(t)));
+    return { total, items };
   }
 
   async tenant(tenantId: string): Promise<TenantResumo> {

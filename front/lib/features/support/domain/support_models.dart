@@ -30,7 +30,7 @@ abstract class SupportTicket with _$SupportTicket {
   const factory SupportTicket({
     required String id,
     required String subject,
-    /// 'aberto' | 'resolvido'
+    /// 'aberto' | 'resolvido' | 'reabertura_solicitada'
     @Default('aberto') String status,
     required DateTime lastMessageAt,
     required DateTime createdAt,
@@ -38,8 +38,12 @@ abstract class SupportTicket with _$SupportTicket {
     @Default(0) int naoLidas,
   }) = _SupportTicket;
 
+  /// Fechado pela Orbix: o cliente não escreve, só pede reabertura.
+  bool get resolvido => status == 'resolvido';
+
+  /// Já pediu para reabrir e aguarda a Orbix.
+  bool get reaberturaPedida => status == 'reabertura_solicitada';
+
   factory SupportTicket.fromJson(Map<String, dynamic> json) =>
       _$SupportTicketFromJson(json);
-
-  bool get resolvido => status == 'resolvido';
 }

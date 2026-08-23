@@ -4,6 +4,7 @@ import type { SupportRepository } from './support.repository';
 import type { MailerService } from '../../common/mailer/mailer.service';
 import type { TenancyService } from '../tenancy/tenancy.service';
 import type { AuditService } from '../../common/audit/audit.service';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Env } from '../../common/config/env.schema';
 import type { AuthUser } from '../../common/auth/auth.types';
 
@@ -54,13 +55,15 @@ function make(
     })),
   } as unknown as TenancyService;
   const audit = { log: jest.fn(async () => undefined) } as unknown as AuditService;
+  const events = { emit: jest.fn() } as unknown as EventEmitter2;
   const env = { SUPPORT_EMAIL: over.supportEmail } as unknown as Env;
 
   return {
-    svc: new SupportService(repo, mailer, tenancy, audit, env),
+    svc: new SupportService(repo, mailer, tenancy, audit, events, env),
     repo,
     sendMessage,
     audit,
+    events,
   };
 }
 
@@ -186,5 +189,155 @@ describe('SupportService.resolver', () => {
     const { svc, repo } = make();
     await svc.resolver(user, 'tk1');
     expect(repo.definirStatus).toHaveBeenCalledWith('t1', 'tk1', 'resolvido');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lado da Orbix (painel administrativo). O que importa aqui é que os dois lados
+// do balcão NÃO se confundam: quem lê, quem escreve, e de quem é o ponto de
+// não lida.
+// ---------------------------------------------------------------------------
+
+describe('SupportService — lado da Orbix', () => {
+  it('lista os chamados contando as mensagens DO CLIENTE como não lidas', async () => {
+    const { svc, repo } = make();
+    await svc.ticketsDoTenant('t1');
+    // `true` = ponto de vista da Orbix. Com `false` o painel mostraria as
+    // próprias respostas como pendentes.
+    expect(repo.listarTickets).toHaveBeenCalledWith('t1', true);
+  });
+
+  it('abrir a conversa no painel marca as mensagens do cliente como lidas', async () => {
+    const { svc, repo } = make();
+    await svc.mensagensParaOrbix('t1', 'tk1');
+    expect(repo.marcarLidas).toHaveBeenCalledWith('t1', 'tk1', false);
+  });
+
+  it('404 em chamado que não é do tenant informado', async () => {
+    const { svc } = make({ ticket: null });
+    await expect(svc.mensagensParaOrbix('t1', 'sumiu')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(svc.responderComoOrbix('t1', 'sumiu', 'oi', 'Ana')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('a resposta vai assinada e SEM author_user_id', async () => {
+    const { svc, repo } = make();
+    await svc.responderComoOrbix('t1', 'tk1', '  já resolvemos  ', 'Ana do Suporte');
+    expect(repo.criarMensagem).toHaveBeenCalledWith('t1', {
+      ticketId: 'tk1',
+      body: 'já resolvemos',
+      fromOrbix: true,
+      // Quem responde não é usuário DESTE tenant: apontar para um id de lá
+      // seria mentira, e a auditoria do admin é que guarda quem foi.
+      authorUserId: null,
+      authorName: 'Ana do Suporte',
+    });
+  });
+
+  it('recusa resposta vazia', async () => {
+    const { svc } = make();
+    await expect(svc.responderComoOrbix('t1', 'tk1', '   ', 'Ana')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('resolver pelo painel encerra e audita como orbix-admin', async () => {
+    const { svc, repo, audit } = make();
+    await svc.resolverComoOrbix('t1', 'tk1');
+    expect(repo.definirStatus).toHaveBeenCalledWith('t1', 'tk1', 'resolvido');
+    expect(audit.log).toHaveBeenCalledWith(
+      't1',
+      null,
+      'support_message',
+      'tk1',
+      expect.objectContaining({ por: 'orbix-admin' }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fechar é decisão da Orbix. Antes, uma mensagem do cliente num chamado
+// resolvido o reabria sozinha — e quem fechou perdia o controle do que estava
+// fechado. Hoje o cliente PEDE, e o pedido é uma pendência visível.
+// ---------------------------------------------------------------------------
+
+const FECHADO = { ...TICKET, status: 'resolvido' };
+
+describe('SupportService — reabertura', () => {
+  it('responder num chamado FECHADO é recusado', async () => {
+    const { svc, repo } = make({ ticket: FECHADO });
+    await expect(svc.responder(user, 'tk1', 'oi')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(repo.criarMensagem).not.toHaveBeenCalled();
+  });
+
+  it('pedido de reabertura grava a mensagem e marca a pendência', async () => {
+    const { svc, repo } = make({ ticket: FECHADO });
+    await svc.solicitarReabertura(user, 'tk1', '  voltou a dar erro  ');
+
+    expect(repo.criarMensagem).toHaveBeenCalledWith('t1', {
+      ticketId: 'tk1',
+      body: 'voltou a dar erro',
+      fromOrbix: false,
+      authorUserId: 'u1',
+    });
+    expect(repo.definirStatus).toHaveBeenCalledWith(
+      't1',
+      'tk1',
+      'reabertura_solicitada',
+    );
+  });
+
+  it('não deixa pedir reabertura do que já está aberto', async () => {
+    const { svc } = make();
+    await expect(
+      svc.solicitarReabertura(user, 'tk1', 'oi'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('pedido vazio é recusado — reabrir sem dizer por quê não ajuda ninguém', async () => {
+    const { svc } = make({ ticket: FECHADO });
+    await expect(
+      svc.solicitarReabertura(user, 'tk1', '   '),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('SupportService — aviso em tempo real', () => {
+  it('mensagem do cliente avisa as telas abertas', async () => {
+    const { svc, events } = make();
+    await svc.responder(user, 'tk1', 'oi');
+    expect(events.emit).toHaveBeenCalledWith('support.changed', {
+      tenantId: 't1',
+      ticketId: 'tk1',
+      kind: 'mensagem',
+      daOrbix: false,
+    });
+  });
+
+  it('resposta da Orbix avisa marcada como nossa', async () => {
+    const { svc, events } = make();
+    await svc.responderComoOrbix('t1', 'tk1', 'já vimos', 'Ana');
+    expect(events.emit).toHaveBeenCalledWith('support.changed', {
+      tenantId: 't1',
+      ticketId: 'tk1',
+      kind: 'mensagem',
+      daOrbix: true,
+    });
+  });
+
+  it('fechar pelo painel avisa mudança de status', async () => {
+    const { svc, events } = make();
+    await svc.resolverComoOrbix('t1', 'tk1');
+    expect(events.emit).toHaveBeenCalledWith('support.changed', {
+      tenantId: 't1',
+      ticketId: 'tk1',
+      kind: 'status',
+      daOrbix: true,
+    });
   });
 });

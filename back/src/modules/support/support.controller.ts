@@ -52,6 +52,20 @@ export class SupportController {
     return this.support.responder(user, id, dto.body);
   }
 
+  /**
+   * Pede a reabertura de um chamado fechado, com o motivo. Quem reabre de fato
+   * é a Orbix — aqui fica registrado o pedido.
+   */
+  @Post('tickets/:id/reopen-request')
+  @HttpCode(200)
+  solicitarReabertura(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: ResponderDto,
+  ) {
+    return this.support.solicitarReabertura(user, id, dto.body);
+  }
+
   @Post('tickets/:id/resolve')
   @HttpCode(200)
   async resolver(@CurrentUser() user: AuthUser, @Param('id') id: string) {

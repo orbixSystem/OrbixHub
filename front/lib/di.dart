@@ -361,6 +361,11 @@ final sessionControllerProvider =
 final offlineNoticeProvider =
     NotifierProvider<OfflineNotice, String?>(OfflineNotice.new);
 
+/// `true` enquanto a sessão veio de um link de suporte da Orbix. O shell
+/// mostra uma faixa fixa avisando — ver [ModoSuporte].
+final modoSuporteProvider =
+    NotifierProvider<ModoSuporte, bool>(ModoSuporte.new);
+
 /// S4 — hasher argon2id (64 MB / 3 iterações) do login offline.
 final passwordHasherProvider =
     Provider<PasswordHasher>((ref) => const PasswordHasher());

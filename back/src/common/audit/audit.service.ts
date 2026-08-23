@@ -19,6 +19,9 @@ export type AuditAction =
   | 'feature_toggle'
   // Cliente escreveu para o suporte da Orbix.
   | 'support_message'
+  // A Orbix entrou no ambiente do cliente (link de suporte gerado/consumido).
+  // Fica no audit DO TENANT de propósito: o cliente pode perguntar quem entrou.
+  | 'support_session'
   // Ambiente criado pelo sistema de admin, nao pelo cadastro self-service.
   | 'tenant_provision'
   | 'customer_delete'

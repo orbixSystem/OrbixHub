@@ -14,6 +14,10 @@ abstract interface class SupportRepository {
 
   Future<SupportMessage> responder(String ticketId, String body);
 
+  /// Pede a reabertura de um chamado fechado, dizendo o motivo. Quem reabre de
+  /// fato é a Orbix — aqui o pedido fica registrado e visível para ela.
+  Future<SupportTicket> solicitarReabertura(String ticketId, String body);
+
   Future<void> resolver(String ticketId);
 
   /// Total de respostas não lidas, somando os chamados.
