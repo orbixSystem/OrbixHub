@@ -117,13 +117,17 @@ export class BillingRepository {
    * Todos os módulos do catálogo com o estado no tenant — alimenta a tela
    * "Módulos e funcionalidades". Módulo nunca provisionado aparece como
    * desabilitado, e não some da lista: o dono precisa ver o que existe.
+   *
+   * APOSENTADO (`retired_at`) é a exceção: some. Toggle de um módulo sem rota
+   * nem tela não é informação, é armadilha — quem clicasse religaria algo que
+   * a 0046 desligou de propósito.
    */
   async listTenantModules(): Promise<
     Array<{ key: string; name: string; enabled: boolean; isCore: boolean; source: string | null }>
   > {
     const db = this.tenant.getClient();
     const [mods, tms] = await Promise.all([
-      db.module.findMany({ orderBy: { name: 'asc' } }),
+      db.module.findMany({ where: { retired_at: null }, orderBy: { name: 'asc' } }),
       db.tenant_module.findMany(),
     ]);
     const byModuleId = new Map(tms.map((t) => [t.module_id, t] as const));
@@ -155,7 +159,11 @@ export class BillingRepository {
     enabled: boolean,
   ): Promise<boolean> {
     const db = this.tenant.getClient();
-    const mod = await db.module.findFirst({ where: { key: moduleKey } });
+    // Aposentado conta como inexistente para LIGAR — desligar continua valendo,
+    // porque pode haver linha antiga ligada de antes da aposentadoria.
+    const mod = await db.module.findFirst({
+      where: enabled ? { key: moduleKey, retired_at: null } : { key: moduleKey },
+    });
     if (!mod) return false;
     await db.tenant_module.upsert({
       where: { tenant_id_module_id: { tenant_id: tenantId, module_id: mod.id } },

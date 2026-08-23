@@ -11,8 +11,15 @@ import { VEICULOS } from './packs/veiculos.pack';
 @Injectable()
 export class VerticalRegistry {
   private readonly packs = new Map<string, PacoteVertical>();
-  /** Capacidades que ganharam implementação de alguma vertical (Fase 2). */
-  private readonly implementacoes = new Set<string>();
+  /**
+   * Capacidade → verticais que a implementam.
+   *
+   * É um mapa, e não um conjunto de chaves, porque implementação PERTENCE a um
+   * nicho. Guardar só a chave tornava a capacidade disponível para todo mundo
+   * assim que qualquer vertical a registrasse: bastava a pasta `veiculos/`
+   * existir no processo para a clínica poder ligar consulta de placa.
+   */
+  private readonly implementacoes = new Map<string, Set<string>>();
 
   constructor() {
     for (const p of [EQUIPAMENTOS, VEICULOS]) this.registrar(p);
@@ -28,12 +35,19 @@ export class VerticalRegistry {
    * `requerImplementacao` fica indisponível — é a trava estrutural que impede a
    * clínica de ligar a consulta por placa.
    */
-  registrarImplementacao(featureKey: string): void {
-    this.implementacoes.add(featureKey);
+  registrarImplementacao(featureKey: string, verticalKey: string): void {
+    const verticais = this.implementacoes.get(featureKey) ?? new Set<string>();
+    verticais.add(verticalKey);
+    this.implementacoes.set(featureKey, verticais);
   }
 
-  comImplementacao(): Set<string> {
+  comImplementacao(): ReadonlyMap<string, ReadonlySet<string>> {
     return this.implementacoes;
+  }
+
+  /** Nicho de quem foi criado sem escolher um. */
+  chavePadrao(): string | null {
+    return this.pacotes().find((p) => p.isDefault)?.key ?? null;
   }
 
   pacotes(): PacoteVertical[] {

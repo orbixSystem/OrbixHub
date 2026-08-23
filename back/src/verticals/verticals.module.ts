@@ -3,6 +3,7 @@ import { FeatureCatalog, VerticalRegistry } from './vertical.registry';
 import { TenantFeatureRepository } from './tenant-feature.repository';
 import { VocabularyService } from './vocabulary.service';
 import { FeatureService } from './feature.service';
+import { TenantSettingsService } from './tenant-settings.service';
 import { FeatureAccessGuard } from './feature-access.guard';
 import { VerticalsController } from './verticals.controller';
 import { BillingModule } from '../modules/billing/billing.module';
@@ -30,6 +31,7 @@ import { TenancyModule } from '../modules/tenancy/tenancy.module';
     TenantFeatureRepository,
     VocabularyService,
     FeatureService,
+    TenantSettingsService,
     FeatureAccessGuard,
   ],
   exports: [
@@ -37,6 +39,7 @@ import { TenancyModule } from '../modules/tenancy/tenancy.module';
     FeatureCatalog,
     VocabularyService,
     FeatureService,
+    TenantSettingsService,
     FeatureAccessGuard,
   ],
 })

@@ -62,8 +62,8 @@ export function resolverCampos(
 export interface ContextoFeature {
   /** Módulos habilitados no tenant (vem do billing, pelo chamador). */
   modulosHabilitados: string[];
-  /** Chaves com implementação registrada por alguma vertical (Fase 2). */
-  comImplementacao: Set<string>;
+  /** Capacidade → verticais que a implementam. */
+  comImplementacao: ReadonlyMap<string, ReadonlySet<string>>;
   /** Toggles explícitos do tenant (linha em tenant_feature). */
   toggles: Map<string, boolean>;
   /** Pacote da vertical do tenant. */
@@ -72,15 +72,23 @@ export interface ContextoFeature {
 
 /**
  * Uma capacidade é DISPONÍVEL quando o módulo dono está habilitado e, se ela
- * exige implementação, alguma vertical registrou uma. Indisponível não é
+ * exige implementação, o NICHO DESTE TENANT tem uma. Indisponível não é
  * "desligada": não aparece nem como toggle, porque ligar não faria efeito.
+ *
+ * Casar com o nicho (e não só com "alguém implementou") é o que impede a
+ * clínica de ligar consulta de placa só porque a vertical veículos existe no
+ * mesmo processo — e o `FeatureAccessGuard`, que confia nesta função, liberar
+ * a rota em seguida.
  *
  * É aqui que `plan_feature` entra como mais um `&&` quando houver cobrança —
  * e o front não muda, porque continua lendo a lista pronta do /me.
  */
 export function featureDisponivel(def: DefinicaoFeature, ctx: ContextoFeature): boolean {
   if (!ctx.modulosHabilitados.includes(def.moduleKey)) return false;
-  if (def.requerImplementacao && !ctx.comImplementacao.has(def.key)) return false;
+  if (def.requerImplementacao) {
+    const verticais = ctx.comImplementacao.get(def.key);
+    if (!ctx.verticalKey || !verticais?.has(ctx.verticalKey)) return false;
+  }
   return true;
 }
 

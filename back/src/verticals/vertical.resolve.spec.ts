@@ -24,7 +24,7 @@ const def = (over: Partial<DefinicaoFeature> = {}): DefinicaoFeature => ({
 
 const ctx = (over: Partial<ContextoFeature> = {}): ContextoFeature => ({
   modulosHabilitados: ['customers', 'os'],
-  comImplementacao: new Set<string>(),
+  comImplementacao: new Map<string, Set<string>>(),
   toggles: new Map<string, boolean>(),
   verticalKey: 'veiculos',
   ...over,
@@ -132,9 +132,29 @@ describe('featureDisponivel', () => {
     expect(featureDisponivel(def({ requerImplementacao: true }), ctx())).toBe(false);
   });
 
-  it('exige implementação e alguma vertical registrou: disponível', () => {
-    const c = ctx({ comImplementacao: new Set(['customers.identifierLookup']) });
+  it('exige implementação e a vertical DO TENANT registrou: disponível', () => {
+    const c = ctx({
+      comImplementacao: new Map([['customers.identifierLookup', new Set(['veiculos'])]]),
+    });
     expect(featureDisponivel(def({ requerImplementacao: true }), c)).toBe(true);
+  });
+
+  it('implementada por OUTRA vertical não vale para este tenant', () => {
+    // Regressão: bastava a pasta `veiculos/` existir no processo para a
+    // clínica ver — e poder ligar — a consulta por placa.
+    const c = ctx({
+      verticalKey: 'equipamentos',
+      comImplementacao: new Map([['customers.identifierLookup', new Set(['veiculos'])]]),
+    });
+    expect(featureDisponivel(def({ requerImplementacao: true }), c)).toBe(false);
+  });
+
+  it('tenant sem nicho não alcança capacidade que exige implementação', () => {
+    const c = ctx({
+      verticalKey: null,
+      comImplementacao: new Map([['customers.identifierLookup', new Set(['veiculos'])]]),
+    });
+    expect(featureDisponivel(def({ requerImplementacao: true }), c)).toBe(false);
   });
 });
 

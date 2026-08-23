@@ -44,7 +44,9 @@ export class FeatureService {
       modulosHabilitados,
       comImplementacao: this.registry.comImplementacao(),
       toggles: await this.repo.toggles(tenantId),
-      verticalKey,
+      // Tenant sem nicho escolhido está no pacote padrão — resolver aqui evita
+      // que `null` escape como "nicho nenhum" na checagem de implementação.
+      verticalKey: verticalKey ?? this.registry.chavePadrao(),
     };
   }
 

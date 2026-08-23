@@ -114,8 +114,8 @@ export class VeiculosVerticalModule implements OnModuleInit {
    * base externa para o objeto dele, e ligar não faria efeito nenhum.
    */
   private registrarImplementacoes(): void {
-    this.verticais.registrarImplementacao('customers.identifierLookup');
-    this.verticais.registrarImplementacao('customers.atributosCascata');
-    this.verticais.registrarImplementacao('customers.fichaTecnica');
+    this.verticais.registrarImplementacao('customers.identifierLookup', 'veiculos');
+    this.verticais.registrarImplementacao('customers.atributosCascata', 'veiculos');
+    this.verticais.registrarImplementacao('customers.fichaTecnica', 'veiculos');
   }
 }

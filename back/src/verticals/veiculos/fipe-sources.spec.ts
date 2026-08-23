@@ -85,10 +85,14 @@ describe('vertical veículos — registro no ponto de extensão', () => {
     // ficam indisponíveis — é a trava que impede um nicho genérico de ligar a
     // consulta por placa.
     const { verticais } = montar();
-    expect([...verticais.comImplementacao()].sort()).toEqual([
-      'customers.atributosCascata',
-      'customers.fichaTecnica',
-      'customers.identifierLookup',
+    const registrado = [...verticais.comImplementacao()]
+      .map(([chave, verticais]) => `${chave}@${[...verticais].sort().join(',')}`)
+      .sort();
+    // A vertical vai JUNTO da chave: implementação pertence a um nicho.
+    expect(registrado).toEqual([
+      'customers.atributosCascata@veiculos',
+      'customers.fichaTecnica@veiculos',
+      'customers.identifierLookup@veiculos',
     ]);
   });
 });
