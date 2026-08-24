@@ -760,7 +760,7 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        _explicacaoStatus(atual),
+                        _explicacaoStatus(atual, t.vocab.objeto.toLowerCase()),
                         style: TextStyle(
                           color: _neu.inkMuted,
                           fontSize: 14,
@@ -783,12 +783,16 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
   }
 
   /// O que o status significa PARA O CLIENTE — o rótulo sozinho ("Em
-  /// execução") descreve a oficina, não responde "e o meu carro?".
-  String _explicacaoStatus(OsSimpleStatus s) => switch (s) {
+  /// execução") descreve a empresa, não responde "e a minha coisa?".
+  ///
+  /// [objeto] vem do nicho, pelo payload público: "veículo" na oficina,
+  /// "equipamento" numa assistência. Antes era "Seu veículo" para todo mundo,
+  /// inclusive para o paciente de uma clínica.
+  String _explicacaoStatus(OsSimpleStatus s, String objeto) => switch (s) {
         OsSimpleStatus.emAndamento =>
-          'Seu veículo está com a equipe. Avisamos aqui a cada passo.',
+          'Seu $objeto está com a equipe. Avisamos aqui a cada passo.',
         OsSimpleStatus.finalizada =>
-          'Serviço concluído. Combine a retirada com a oficina.',
+          'Serviço concluído. Combine a retirada com a empresa.',
         OsSimpleStatus.cancelada => 'Este serviço não será executado.',
       };
 

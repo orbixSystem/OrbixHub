@@ -38,6 +38,10 @@ function makeService() {
     cashier as never,
     {} as never, // storage
     { emit: () => true } as never,
+      // VocabularyService real seria puro, mas o rótulo do status não é o que
+      // estes testes observam — fake devolvendo undefined cai no fallback.
+      { texto: () => undefined } as never,
+      { getTenantVertical: async () => 'veiculos' } as never,
   );
   return { svc, repo };
 }

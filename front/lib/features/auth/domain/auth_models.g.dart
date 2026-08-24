@@ -65,6 +65,15 @@ _Me _$MeFromJson(Map<String, dynamic> json) => _Me(
   modules:
       (json['modules'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const <String>[],
+  vertical: json['vertical'] as String?,
+  vocab:
+      (json['vocab'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      const <String, String>{},
+  features:
+      (json['features'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const <String>[],
   memberships:
       (json['memberships'] as List<dynamic>?)
           ?.map((e) => Membership.fromJson(e as Map<String, dynamic>))
@@ -78,6 +87,9 @@ Map<String, dynamic> _$MeToJson(_Me instance) => <String, dynamic>{
   'role': instance.role,
   'permissions': instance.permissions,
   'modules': instance.modules,
+  'vertical': instance.vertical,
+  'vocab': instance.vocab,
+  'features': instance.features,
   'memberships': instance.memberships.map((e) => e.toJson()).toList(),
 };
 
@@ -145,4 +157,18 @@ Map<String, dynamic> _$RegisterResultToJson(_RegisterResult instance) =>
       'refreshToken': instance.refreshToken,
       'user': instance.user.toJson(),
       'tenant': instance.tenant.toJson(),
+    };
+
+_VerticalOption _$VerticalOptionFromJson(Map<String, dynamic> json) =>
+    _VerticalOption(
+      key: json['key'] as String,
+      nome: json['nome'] as String,
+      isDefault: json['isDefault'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$VerticalOptionToJson(_VerticalOption instance) =>
+    <String, dynamic>{
+      'key': instance.key,
+      'nome': instance.nome,
+      'isDefault': instance.isDefault,
     };

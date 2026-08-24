@@ -1,4 +1,5 @@
 import { AuthService } from './auth.service';
+import { VerticalRegistry } from '../../verticals/vertical.registry';
 import { UnauthorizedException } from '@nestjs/common';
 import type { AuthRepository } from './auth.repository';
 import type { RefreshService } from './refresh.service';
@@ -48,6 +49,9 @@ function deps(overrides: Overrides = {}) {
     accessTokens as unknown as AccessTokenService,
     mailer as unknown as MailerService,
     billing as unknown as BillingService,
+    // VerticalRegistry REAL: é puro (pacotes em código, sem banco), então o
+    // teste valida a rejeição de nicho inventado de verdade, não contra um mock.
+    new VerticalRegistry(),
     audit as unknown as AuditService,
   );
   return { svc, repo, passwords, refresh };
@@ -114,5 +118,59 @@ describe('AuthService.login', () => {
     const res = await svc.login({ email: 'u@x.z', password: 'pw' });
     expect(res.accessToken).toBe('access');
     expect(res.memberships).toHaveLength(1);
+  });
+});
+
+describe('AuthService.register — nicho escolhido no cadastro', () => {
+  const dtoBase = {
+    tenantName: 'Oficina do Zé',
+    slug: 'oficina-do-ze',
+    cnpj: '11.222.333/0001-81',
+    legalName: 'Oficina do Zé LTDA',
+    fullName: 'Zé',
+    email: 'ze@oficina.com',
+    password: 'senha12345',
+  };
+
+  function comRegister() {
+    const criado = jest.fn(
+      async (_p: { vertical: string | null }) => ({
+        userId: 'u1',
+        tenantId: 't1',
+      }),
+    );
+    const { svc, repo } = deps({
+      repo: {
+        createTenantWithOwner: criado,
+        findUserMemberships: jest.fn(async () => []),
+        // Caminho feliz: e-mail e CNPJ livres.
+        findUserByEmail: jest.fn(async () => null),
+        findTenantByCnpj: jest.fn(async () => null),
+        // Pós-commit: token de verificação de e-mail (I/O externo fora da tx).
+        createOneTimeToken: jest.fn(async () => undefined),
+        findUserById: jest.fn(async () => ({ id: 'u1', full_name: 'Zé' })),
+      },
+    });
+    return { svc, repo, criado };
+  }
+
+  it('grava a vertical escolhida', async () => {
+    const { svc, criado } = comRegister();
+    await svc.register({ ...dtoBase, vertical: 'veiculos' } as never);
+    expect(criado.mock.calls[0][0]).toMatchObject({ vertical: 'veiculos' });
+  });
+
+  it('sem escolha, grava null — o servidor aplica o pacote padrão', async () => {
+    const { svc, criado } = comRegister();
+    await svc.register(dtoBase as never);
+    expect(criado.mock.calls[0][0]).toMatchObject({ vertical: null });
+  });
+
+  it('nicho inventado pelo cliente vira null, não suja a coluna', async () => {
+    // O front lista as opções por GET /verticals; isto é a rede de proteção
+    // para quem chama a API direto.
+    const { svc, criado } = comRegister();
+    await svc.register({ ...dtoBase, vertical: 'nao-existe' } as never);
+    expect(criado.mock.calls[0][0]).toMatchObject({ vertical: null });
   });
 });

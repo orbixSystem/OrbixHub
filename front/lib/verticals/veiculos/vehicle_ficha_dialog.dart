@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../../../core/network/media_url.dart';
-import '../../../core/ui/ui.dart';
-import '../domain/customers_models.dart';
+import '../../core/network/media_url.dart';
+import '../../core/ui/ui.dart';
+import '../../features/customers/domain/customers_models.dart';
 import 'plate_labels.dart';
-import '../../../core/pdf/document_company.dart';
+import '../../core/pdf/document_company.dart';
 import 'vehicle_ficha_pdf.dart';
 
 /// Ficha do veículo montada a partir da consulta por placa: mostra na tela

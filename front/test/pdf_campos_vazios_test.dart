@@ -38,13 +38,28 @@ void main() {
         scheduledEnd: fim,
       );
 
-  group('OS — bloco cliente e veículo', () {
+  group('OS — bloco cliente e objeto', () {
     test('previsão não preenchida some (não vira "Previsão fim: -")', () {
-      final linhas = osClienteVeiculoLinhas(os());
+      final linhas = osClienteVeiculoLinhas(os(), 'Veículo');
       expect(linhas.previsoes, isEmpty);
       expect(
         linhas.dados.map((l) => l.$1),
         ['Cliente:', 'Veículo:'],
+      );
+    });
+
+    test('o rótulo do objeto vem do NICHO, não do PDF', () {
+      // O mesmo documento sai "Veículo:" numa oficina e "Equipamento:" numa
+      // clínica. O gerador roda fora da árvore de widgets e não tem sessão para
+      // consultar, então quem chama passa o rótulo.
+      expect(
+        osClienteVeiculoLinhas(os(), 'Equipamento').dados.map((l) => l.$1),
+        ['Cliente:', 'Equipamento:'],
+      );
+      // Sem rótulo informado, cai no genérico — nunca em "Veículo".
+      expect(
+        osClienteVeiculoLinhas(os()).dados.map((l) => l.$1),
+        ['Cliente:', 'Objeto:'],
       );
     });
 
@@ -55,15 +70,16 @@ void main() {
       expect(linhas.previsoes.map((l) => l.$1), ['Previsão fim:']);
     });
 
-    test('veículo em branco não ocupa linha', () {
-      final linhas = osClienteVeiculoLinhas(os(veiculo: ''));
+    test('objeto em branco não ocupa linha', () {
+      final linhas = osClienteVeiculoLinhas(os(veiculo: ''), 'Veículo');
       expect(linhas.dados.map((l) => l.$1), ['Cliente:']);
     });
 
     test('sem nada preenchido a seção inteira fica vazia', () {
-      // O gerador usa isto para suprimir até a faixa "Cliente e veículo": uma
+      // O gerador usa isto para suprimir até a faixa "Cliente e {objeto}": uma
       // faixa de título sobre o nada é pior que a ausência dela.
-      final linhas = osClienteVeiculoLinhas(os(cliente: null, veiculo: null));
+      final linhas =
+          osClienteVeiculoLinhas(os(cliente: null, veiculo: null), 'Veículo');
       expect(linhas.dados, isEmpty);
       expect(linhas.previsoes, isEmpty);
     });

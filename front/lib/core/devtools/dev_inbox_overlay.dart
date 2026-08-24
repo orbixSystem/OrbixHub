@@ -8,6 +8,7 @@ import '../../features/auth/presentation/session_state.dart';
 import '../../features/notifications/presentation/notifications_bell.dart';
 import '../ui/ui.dart';
 import '../../features/shell/presentation/screen_tutorials.dart';
+import '../../features/support/presentation/support_button.dart';
 import 'dev_flag.dart';
 import 'dev_inbox_modal.dart';
 
@@ -59,7 +60,8 @@ class GlobalControls extends ConsumerWidget {
   Widget _buildControls(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final mode = ref.watch(themeControllerProvider);
-    final isDark = mode == ThemeMode.dark ||
+    final isDark =
+        mode == ThemeMode.dark ||
         (mode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
@@ -86,7 +88,14 @@ class GlobalControls extends ConsumerWidget {
                 // "?" do tutorial À ESQUERDA do sino: ajuda mora sempre no mesmo
                 // canto, em todas as telas, em vez de um botão diferente por
                 // tela. Some sozinho onde a rota não tem tutorial.
-                if (!isMobile) const _BotaoTutorial(),
+                if (!isMobile) ...[
+                  const _BotaoTutorial(),
+                  // Suporte ao lado do sino: as duas coisas que CHEGAM até você
+                  // ficam juntas, no mesmo canto. No CELULAR ele muda de lado
+                  // (vai com o "?", à esquerda do "+") — quatro botões deste
+                  // lado passariam por cima do "+".
+                  const SupportButton(),
+                ],
                 const NotificationsBell(),
                 const SizedBox(width: 8),
                 // Sair só aparece no CELULAR: lá não há sidebar nem drawer
@@ -130,7 +139,15 @@ class GlobalControls extends ConsumerWidget {
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(top: 8, left: 8),
-              child: const _BotaoTutorial(comFolgaDireita: false),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // No celular a ajuda mora toda deste lado: o "?" da tela e o
+                  // suporte da Orbix, um ao lado do outro.
+                  _BotaoTutorial(),
+                  SupportButton(),
+                ],
+              ),
             ),
           ),
         ),
@@ -165,9 +182,8 @@ class DevBeetleControl extends ConsumerWidget {
         if (_isPublicTrackingRoute(ref)) return const SizedBox.shrink();
         return ValueListenableBuilder<int>(
           valueListenable: modalRouteObserver.depth,
-          builder: (context, modals, _) => modals > 0
-              ? const SizedBox.shrink()
-              : _buildBeetle(context, ref),
+          builder: (context, modals, _) =>
+              modals > 0 ? const SizedBox.shrink() : _buildBeetle(context, ref),
         );
       },
     );
@@ -240,18 +256,13 @@ class _CircleButton extends StatelessWidget {
   }
 }
 
-
 /// "?" que reabre o tutorial da tela atual, ignorando o "já visto" — quem
 /// esqueceu como o fiado funciona não deveria ter de limpar dados do app.
 ///
 /// Vive no chrome global (e não em cada tela) para a ajuda ficar sempre no mesmo
 /// lugar, em desktop e mobile.
 class _BotaoTutorial extends ConsumerWidget {
-  const _BotaoTutorial({this.comFolgaDireita = true});
-
-  /// Folga à direita para separar do vizinho (o sino). Desligada quando o botão
-  /// é o único do seu canto — aí a folga só empurraria o ícone para dentro.
-  final bool comFolgaDireita;
+  const _BotaoTutorial();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -268,7 +279,8 @@ class _BotaoTutorial extends ConsumerWidget {
         if (tut == null) return const SizedBox.shrink();
         final scheme = Theme.of(context).colorScheme;
         return Padding(
-          padding: EdgeInsets.only(right: comFolgaDireita ? 8 : 0),
+          // Folga à direita para separar do vizinho (o suporte, e depois o sino).
+          padding: const EdgeInsets.only(right: 8),
           child: _CircleButton(
             icon: Icons.help_outline_rounded,
             label: 'Como funciona: ${tut.titulo}',

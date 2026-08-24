@@ -21,6 +21,12 @@ class _FakeSession extends SessionController {
           role: 'owner',
           permissions: ['invoice.config'],
           modules: ['invoice'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }

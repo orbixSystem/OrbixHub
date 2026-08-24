@@ -26,8 +26,11 @@ import {
   CUSTOMERS_CONFIG_KEY,
   CUSTOMERS_MODULE_KEY,
   CustomersConfig,
+  DEFAULT_CUSTOMERS_CONFIG,
   mergeCustomersConfig,
 } from './customers.config';
+import { VocabularyService } from '../../verticals/vocabulary.service';
+import { TenancyService } from '../tenancy/tenancy.service';
 import {
   CreateCustomerDto,
   ListCustomersQueryDto,
@@ -61,9 +64,11 @@ export class CustomersService {
     private readonly history: SubjectHistoryProvider,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly cnpj: CnpjGateway,
+    private readonly vocabulary: VocabularyService,
+    private readonly tenancy: TenancyService,
   ) {}
 
-  /** Limite de tamanho do upload da foto do veículo (~8 MB). */
+  /** Limite de tamanho do upload da foto do objeto (~8 MB). */
   static readonly MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
   /**
@@ -83,7 +88,15 @@ export class CustomersService {
 
   // ===================== Config =====================
 
-  /** Config efetiva (defaults ∪ o que estiver salvo em tenant_module.settings). */
+  /**
+   * Config efetiva do módulo, na cascata do design:
+   *
+   *   base genérica  →  pacote da vertical  →  o que o tenant salvou
+   *
+   * O rótulo do objeto e os campos do formulário vêm do PACOTE (código), não de
+   * um default de oficina cravado aqui. O nicho quem informa é a Tenancy, dona
+   * da tabela `tenant` — este módulo não lê a coluna direto.
+   */
   async getConfig(tenantId: string): Promise<CustomersConfig> {
     const settings = await this.billing.getModuleSettings(
       tenantId,
@@ -92,7 +105,20 @@ export class CustomersService {
     const saved = settings[CUSTOMERS_CONFIG_KEY] as
       | Partial<CustomersConfig>
       | undefined;
-    return mergeCustomersConfig(saved);
+
+    const vertical = await this.tenancy.getTenantVertical(tenantId);
+    const base: Partial<CustomersConfig> = {
+      subjectLabel: {
+        singular:
+          this.vocabulary.texto(vertical, 'objeto.singular') ??
+          DEFAULT_CUSTOMERS_CONFIG.subjectLabel.singular,
+        plural:
+          this.vocabulary.texto(vertical, 'objeto.plural') ??
+          DEFAULT_CUSTOMERS_CONFIG.subjectLabel.plural,
+      },
+      subjectFields: this.vocabulary.campos(vertical),
+    };
+    return mergeCustomersConfig(base, saved);
   }
 
   async updateConfig(

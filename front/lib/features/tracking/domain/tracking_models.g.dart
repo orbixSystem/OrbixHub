@@ -100,6 +100,9 @@ _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
   company: json['company'] == null
       ? const PublicCompany()
       : PublicCompany.fromJson(json['company'] as Map<String, dynamic>),
+  vocab: json['vocab'] == null
+      ? const PublicVocab()
+      : PublicVocab.fromJson(json['vocab'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
@@ -114,6 +117,18 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
       'photos': instance.photos.map((e) => e.toJson()).toList(),
       'timeline': instance.timeline.map((e) => e.toJson()).toList(),
       'company': instance.company.toJson(),
+      'vocab': instance.vocab.toJson(),
+    };
+
+_PublicVocab _$PublicVocabFromJson(Map<String, dynamic> json) => _PublicVocab(
+  objeto: json['objeto'] as String? ?? 'item',
+  objetoPlural: json['objetoPlural'] as String? ?? 'itens',
+);
+
+Map<String, dynamic> _$PublicVocabToJson(_PublicVocab instance) =>
+    <String, dynamic>{
+      'objeto': instance.objeto,
+      'objetoPlural': instance.objetoPlural,
     };
 
 _PublicMessage _$PublicMessageFromJson(Map<String, dynamic> json) =>

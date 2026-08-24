@@ -834,7 +834,12 @@ as String,
 /// @nodoc
 mixin _$Me {
 
- User get user; Tenant? get activeTenant; String get role; List<String> get permissions; List<String> get modules; List<Membership> get memberships;
+ User get user; Tenant? get activeTenant; String get role; List<String> get permissions; List<String> get modules;/// Nicho do tenant ('veiculos', 'equipamentos'). Manda só no vocabulário.
+ String? get vertical;/// Textos do nicho por chave ('objeto.singular', 'os.status.entregue').
+/// Vem resolvido do backend: pacote padrão → pacote da vertical → override.
+ Map<String, String> get vocab;/// Capacidades ligadas. Gateia a UI do mesmo jeito que [modules], porém
+/// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
+ List<String> get features; List<Membership> get memberships;
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -847,16 +852,16 @@ $MeCopyWith<Me> get copyWith => _$MeCopyWithImpl<Me>(this as Me, _$identity);
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.permissions, permissions)&&const DeepCollectionEquality().equals(other.modules, modules)&&const DeepCollectionEquality().equals(other.memberships, memberships));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.permissions, permissions)&&const DeepCollectionEquality().equals(other.modules, modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other.vocab, vocab)&&const DeepCollectionEquality().equals(other.features, features)&&const DeepCollectionEquality().equals(other.memberships, memberships));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(permissions),const DeepCollectionEquality().hash(modules),const DeepCollectionEquality().hash(memberships));
+int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(permissions),const DeepCollectionEquality().hash(modules),vertical,const DeepCollectionEquality().hash(vocab),const DeepCollectionEquality().hash(features),const DeepCollectionEquality().hash(memberships));
 
 @override
 String toString() {
-  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, memberships: $memberships)';
+  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships)';
 }
 
 
@@ -867,7 +872,7 @@ abstract mixin class $MeCopyWith<$Res>  {
   factory $MeCopyWith(Me value, $Res Function(Me) _then) = _$MeCopyWithImpl;
 @useResult
 $Res call({
- User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, List<Membership> memberships
+ User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships
 });
 
 
@@ -884,13 +889,16 @@ class _$MeCopyWithImpl<$Res>
 
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? memberships = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,}) {
   return _then(_self.copyWith(
 user: null == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User,activeTenant: freezed == activeTenant ? _self.activeTenant : activeTenant // ignore: cast_nullable_to_non_nullable
 as Tenant?,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as String,permissions: null == permissions ? _self.permissions : permissions // ignore: cast_nullable_to_non_nullable
 as List<String>,modules: null == modules ? _self.modules : modules // ignore: cast_nullable_to_non_nullable
+as List<String>,vertical: freezed == vertical ? _self.vertical : vertical // ignore: cast_nullable_to_non_nullable
+as String?,vocab: null == vocab ? _self.vocab : vocab // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,features: null == features ? _self.features : features // ignore: cast_nullable_to_non_nullable
 as List<String>,memberships: null == memberships ? _self.memberships : memberships // ignore: cast_nullable_to_non_nullable
 as List<Membership>,
   ));
@@ -998,10 +1006,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  List<Membership> memberships)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Me() when $default != null:
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
   return orElse();
 
 }
@@ -1019,10 +1027,10 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  List<Membership> memberships)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)  $default,) {final _that = this;
 switch (_that) {
 case _Me():
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1039,10 +1047,10 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  List<Membership> memberships)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)?  $default,) {final _that = this;
 switch (_that) {
 case _Me() when $default != null:
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
   return null;
 
 }
@@ -1054,7 +1062,7 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 @JsonSerializable()
 
 class _Me extends Me {
-  const _Me({required this.user, this.activeTenant, required this.role, final  List<String> permissions = const <String>[], final  List<String> modules = const <String>[], final  List<Membership> memberships = const <Membership>[]}): _permissions = permissions,_modules = modules,_memberships = memberships,super._();
+  const _Me({required this.user, this.activeTenant, required this.role, final  List<String> permissions = const <String>[], final  List<String> modules = const <String>[], this.vertical, final  Map<String, String> vocab = const <String, String>{}, final  List<String> features = const <String>[], final  List<Membership> memberships = const <Membership>[]}): _permissions = permissions,_modules = modules,_vocab = vocab,_features = features,_memberships = memberships,super._();
   factory _Me.fromJson(Map<String, dynamic> json) => _$MeFromJson(json);
 
 @override final  User user;
@@ -1072,6 +1080,30 @@ class _Me extends Me {
   if (_modules is EqualUnmodifiableListView) return _modules;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_modules);
+}
+
+/// Nicho do tenant ('veiculos', 'equipamentos'). Manda só no vocabulário.
+@override final  String? vertical;
+/// Textos do nicho por chave ('objeto.singular', 'os.status.entregue').
+/// Vem resolvido do backend: pacote padrão → pacote da vertical → override.
+ final  Map<String, String> _vocab;
+/// Textos do nicho por chave ('objeto.singular', 'os.status.entregue').
+/// Vem resolvido do backend: pacote padrão → pacote da vertical → override.
+@override@JsonKey() Map<String, String> get vocab {
+  if (_vocab is EqualUnmodifiableMapView) return _vocab;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_vocab);
+}
+
+/// Capacidades ligadas. Gateia a UI do mesmo jeito que [modules], porém
+/// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
+ final  List<String> _features;
+/// Capacidades ligadas. Gateia a UI do mesmo jeito que [modules], porém
+/// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
+@override@JsonKey() List<String> get features {
+  if (_features is EqualUnmodifiableListView) return _features;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_features);
 }
 
  final  List<Membership> _memberships;
@@ -1095,16 +1127,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._permissions, _permissions)&&const DeepCollectionEquality().equals(other._modules, _modules)&&const DeepCollectionEquality().equals(other._memberships, _memberships));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._permissions, _permissions)&&const DeepCollectionEquality().equals(other._modules, _modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other._vocab, _vocab)&&const DeepCollectionEquality().equals(other._features, _features)&&const DeepCollectionEquality().equals(other._memberships, _memberships));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(_permissions),const DeepCollectionEquality().hash(_modules),const DeepCollectionEquality().hash(_memberships));
+int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(_permissions),const DeepCollectionEquality().hash(_modules),vertical,const DeepCollectionEquality().hash(_vocab),const DeepCollectionEquality().hash(_features),const DeepCollectionEquality().hash(_memberships));
 
 @override
 String toString() {
-  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, memberships: $memberships)';
+  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships)';
 }
 
 
@@ -1115,7 +1147,7 @@ abstract mixin class _$MeCopyWith<$Res> implements $MeCopyWith<$Res> {
   factory _$MeCopyWith(_Me value, $Res Function(_Me) _then) = __$MeCopyWithImpl;
 @override @useResult
 $Res call({
- User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, List<Membership> memberships
+ User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships
 });
 
 
@@ -1132,13 +1164,16 @@ class __$MeCopyWithImpl<$Res>
 
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? memberships = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,}) {
   return _then(_Me(
 user: null == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User,activeTenant: freezed == activeTenant ? _self.activeTenant : activeTenant // ignore: cast_nullable_to_non_nullable
 as Tenant?,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as String,permissions: null == permissions ? _self._permissions : permissions // ignore: cast_nullable_to_non_nullable
 as List<String>,modules: null == modules ? _self._modules : modules // ignore: cast_nullable_to_non_nullable
+as List<String>,vertical: freezed == vertical ? _self.vertical : vertical // ignore: cast_nullable_to_non_nullable
+as String?,vocab: null == vocab ? _self._vocab : vocab // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,features: null == features ? _self._features : features // ignore: cast_nullable_to_non_nullable
 as List<String>,memberships: null == memberships ? _self._memberships : memberships // ignore: cast_nullable_to_non_nullable
 as List<Membership>,
   ));
@@ -2317,6 +2352,275 @@ $TenantCopyWith<$Res> get tenant {
     return _then(_self.copyWith(tenant: value));
   });
 }
+}
+
+
+/// @nodoc
+mixin _$VerticalOption {
+
+ String get key; String get nome; bool get isDefault;
+/// Create a copy of VerticalOption
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$VerticalOptionCopyWith<VerticalOption> get copyWith => _$VerticalOptionCopyWithImpl<VerticalOption>(this as VerticalOption, _$identity);
+
+  /// Serializes this VerticalOption to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VerticalOption&&(identical(other.key, key) || other.key == key)&&(identical(other.nome, nome) || other.nome == nome)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,key,nome,isDefault);
+
+@override
+String toString() {
+  return 'VerticalOption(key: $key, nome: $nome, isDefault: $isDefault)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $VerticalOptionCopyWith<$Res>  {
+  factory $VerticalOptionCopyWith(VerticalOption value, $Res Function(VerticalOption) _then) = _$VerticalOptionCopyWithImpl;
+@useResult
+$Res call({
+ String key, String nome, bool isDefault
+});
+
+
+
+
+}
+/// @nodoc
+class _$VerticalOptionCopyWithImpl<$Res>
+    implements $VerticalOptionCopyWith<$Res> {
+  _$VerticalOptionCopyWithImpl(this._self, this._then);
+
+  final VerticalOption _self;
+  final $Res Function(VerticalOption) _then;
+
+/// Create a copy of VerticalOption
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? nome = null,Object? isDefault = null,}) {
+  return _then(_self.copyWith(
+key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
+as String,nome: null == nome ? _self.nome : nome // ignore: cast_nullable_to_non_nullable
+as String,isDefault: null == isDefault ? _self.isDefault : isDefault // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [VerticalOption].
+extension VerticalOptionPatterns on VerticalOption {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _VerticalOption value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _VerticalOption() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _VerticalOption value)  $default,){
+final _that = this;
+switch (_that) {
+case _VerticalOption():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _VerticalOption value)?  $default,){
+final _that = this;
+switch (_that) {
+case _VerticalOption() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String key,  String nome,  bool isDefault)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _VerticalOption() when $default != null:
+return $default(_that.key,_that.nome,_that.isDefault);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String key,  String nome,  bool isDefault)  $default,) {final _that = this;
+switch (_that) {
+case _VerticalOption():
+return $default(_that.key,_that.nome,_that.isDefault);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String key,  String nome,  bool isDefault)?  $default,) {final _that = this;
+switch (_that) {
+case _VerticalOption() when $default != null:
+return $default(_that.key,_that.nome,_that.isDefault);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _VerticalOption implements VerticalOption {
+  const _VerticalOption({required this.key, required this.nome, this.isDefault = false});
+  factory _VerticalOption.fromJson(Map<String, dynamic> json) => _$VerticalOptionFromJson(json);
+
+@override final  String key;
+@override final  String nome;
+@override@JsonKey() final  bool isDefault;
+
+/// Create a copy of VerticalOption
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$VerticalOptionCopyWith<_VerticalOption> get copyWith => __$VerticalOptionCopyWithImpl<_VerticalOption>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$VerticalOptionToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VerticalOption&&(identical(other.key, key) || other.key == key)&&(identical(other.nome, nome) || other.nome == nome)&&(identical(other.isDefault, isDefault) || other.isDefault == isDefault));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,key,nome,isDefault);
+
+@override
+String toString() {
+  return 'VerticalOption(key: $key, nome: $nome, isDefault: $isDefault)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$VerticalOptionCopyWith<$Res> implements $VerticalOptionCopyWith<$Res> {
+  factory _$VerticalOptionCopyWith(_VerticalOption value, $Res Function(_VerticalOption) _then) = __$VerticalOptionCopyWithImpl;
+@override @useResult
+$Res call({
+ String key, String nome, bool isDefault
+});
+
+
+
+
+}
+/// @nodoc
+class __$VerticalOptionCopyWithImpl<$Res>
+    implements _$VerticalOptionCopyWith<$Res> {
+  __$VerticalOptionCopyWithImpl(this._self, this._then);
+
+  final _VerticalOption _self;
+  final $Res Function(_VerticalOption) _then;
+
+/// Create a copy of VerticalOption
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? key = null,Object? nome = null,Object? isDefault = null,}) {
+  return _then(_VerticalOption(
+key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
+as String,nome: null == nome ? _self.nome : nome // ignore: cast_nullable_to_non_nullable
+as String,isDefault: null == isDefault ? _self.isDefault : isDefault // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
 }
 
 // dart format on

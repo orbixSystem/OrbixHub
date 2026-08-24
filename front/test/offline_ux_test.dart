@@ -61,6 +61,12 @@ class _FakeSession extends SessionController {
         'cashier.manage',
       ],
       modules: ['os', 'invoice', 'inventory', 'customers', 'cashier'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
     ),
   );
 }

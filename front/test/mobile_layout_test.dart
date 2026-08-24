@@ -63,6 +63,12 @@ class _FakeSession extends SessionController {
         'report.read',
       ],
       modules: ['os', 'customers', 'inventory', 'cashier'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
       activeTenant: Tenant(
         id: 't1',
         name: 'Oficina do Gabriel Automóveis e Serviços',

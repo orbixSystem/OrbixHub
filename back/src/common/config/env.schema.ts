@@ -31,6 +31,17 @@ export const envSchema = z.object({
     .string()
     .default('false')
     .transform((s) => s.toLowerCase() === 'true'),
+  // Para onde vai o aviso quando um cliente escreve no suporte. Ponte
+  // provisoria ate o sistema de admin existir: sem ela a mensagem e gravada do
+  // mesmo jeito, so nao avisa ninguem.
+  // Token de servico do sistema de admin (Orbix Admin). Ausente = API
+  // administrativa FECHADA; ausencia de segredo nao pode virar porta aberta.
+  // 32 caracteres, nao 24: este token sozinho provisiona tenant, liga modulo de
+  // qualquer cliente, le todo chamado e abre sessao de dono em QUALQUER
+  // ambiente. 24 caracteres escolhidos por gente sao adivinhaveis; gere com
+  // `openssl rand -base64 32`.
+  ADMIN_API_TOKEN: z.string().min(32).optional(),
+  SUPPORT_EMAIL: z.string().email().optional(),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
   DEV_TOOLS_ENABLED: z
     .string()

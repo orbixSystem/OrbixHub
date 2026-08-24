@@ -65,8 +65,8 @@ extension SubjectPlateData on Subject {
 @freezed
 abstract class SubjectLabel with _$SubjectLabel {
   const factory SubjectLabel({
-    @Default('Veículo') String singular,
-    @Default('Veículos') String plural,
+    @Default('Objeto') String singular,
+    @Default('Objetos') String plural,
   }) = _SubjectLabel;
 
   factory SubjectLabel.fromJson(Map<String, dynamic> json) =>

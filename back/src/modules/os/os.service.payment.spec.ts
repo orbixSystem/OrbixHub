@@ -105,6 +105,10 @@ function makeService(over: {
       // EventEmitter2 do push em tempo real: o teste não observa socket,
       // então um emit no-op basta.
       { emit: () => true } as never,
+      // VocabularyService real seria puro, mas o rótulo do status não é o que
+      // estes testes observam — fake devolvendo undefined cai no fallback.
+      { texto: () => undefined } as never,
+      { getTenantVertical: async () => 'veiculos' } as never,
     );
   return { svc, repo, audit };
 }

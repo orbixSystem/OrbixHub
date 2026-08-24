@@ -1,4 +1,4 @@
-import { forwardRef, Module, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { OsModule } from '../os/os.module';
 import { OsSubjectHistoryProvider } from '../os/os-subject-history.provider';
@@ -6,7 +6,7 @@ import { SaleModule } from '../sale/sale.module';
 import { SaleSubjectHistoryProvider } from '../sale/sale-subject-history.provider';
 import { CompositeSubjectHistoryProvider } from './composite-subject-history.provider';
 import { SettingsModule } from '../settings/settings.module';
-import { SettingsSectionRegistry } from '../settings/settings.section-registry';
+import { TenancyModule } from '../tenancy/tenancy.module';
 import { CustomersController } from './customers.controller';
 import { SubjectsController } from './subjects.controller';
 import { CustomersService } from './customers.service';
@@ -14,25 +14,25 @@ import { CustomersMetricsService } from './customers-metrics.service';
 import { CustomersRepository } from './customers.repository';
 import { SubjectHistoryProvider } from './subject-history.provider';
 import { SubjectLookupService } from './subject-lookup.service';
-import { FIPE_CLIENT, HttpFipeClient } from './fipe.client';
-import { ENV } from '../../common/config/config.module';
-import type { Env } from '../../common/config/env.schema';
-import { NoopPlateProvider, PLATE_PROVIDER } from './plates/plate.provider';
-import { WdapiPlateProvider } from './plates/wdapi-plate.provider';
-import { PlateCacheStore } from './plates/plate-cache.store';
-import { PlateQuotaStore } from './plates/plate-quota.store';
-import { PlateLookupService } from './plates/plate-lookup.service';
-import { PlateFipeMatcher } from './plates/plate-fipe-matcher.service';
+import { SubjectLookupRegistry } from './subject-lookup.registry';
 
 /**
- * Módulo Clientes & Veículos — núcleo de cadastros-base (genérico/multi-vertical).
- * Importa BillingModule (config em `tenant_module.settings` + ModuleAccessGuard)
- * e SettingsModule (registra a própria seção de config no host).
+ * Módulo Clientes & Objetos — cadastros-base, GENÉRICO de verdade.
+ *
+ * Não há mais nada de veículo aqui: o cliente FIPE, a consulta de placa e as
+ * fontes de autocomplete da cascata moraram neste módulo até 17/08/2026 e agora
+ * vivem em `src/verticals/veiculos/`, que se registra nos pontos de extensão
+ * daqui (`SubjectLookupRegistry`). A seta aponta numa direção só: a vertical
+ * importa este módulo, este módulo não sabe que ela existe.
+ *
+ * Importa TenancyModule para perguntar o nicho do tenant (`tenant.vertical`) —
+ * a tabela é da Tenancy, então se pergunta a ela em vez de ler a coluna.
  */
 @Module({
   imports: [
     BillingModule,
     SettingsModule,
+    TenancyModule,
     forwardRef(() => OsModule),
     forwardRef(() => SaleModule),
   ],
@@ -54,36 +54,16 @@ import { PlateFipeMatcher } from './plates/plate-fipe-matcher.service';
       inject: [OsSubjectHistoryProvider, SaleSubjectHistoryProvider],
     },
     SubjectLookupService,
-    { provide: FIPE_CLIENT, useFactory: () => new HttpFipeClient() },
-    // Consulta de placa (API Placas): cache global + cota mensal + provider real
-    // só quando habilitado por env (senão Noop — nunca chama fora).
-    PlateCacheStore,
-    PlateQuotaStore,
-    PlateFipeMatcher,
-    PlateLookupService,
-    {
-      provide: PLATE_PROVIDER,
-      inject: [ENV],
-      useFactory: (env: Env) =>
-        env.PLACAS_ENABLED && env.PLACAS_TOKEN
-          ? new WdapiPlateProvider(env)
-          : new NoopPlateProvider(),
-    },
+    SubjectLookupRegistry,
   ],
-  exports: [CustomersService, CustomersMetricsService],
+  // Exportados para a VERTICAL: o registry para ela registrar as fontes dela, e
+  // o service porque o casador de placa↔FIPE (que vive na vertical) consulta o
+  // autocomplete genérico para achar o modelo correspondente.
+  exports: [
+    CustomersService,
+    CustomersMetricsService,
+    SubjectLookupRegistry,
+    SubjectLookupService,
+  ],
 })
-export class CustomersModule implements OnModuleInit {
-  constructor(
-    private readonly registry: SettingsSectionRegistry,
-    private readonly customersService: CustomersService,
-  ) {}
-
-  onModuleInit(): void {
-    // Seção aparece em GET /settings apenas se o módulo `customers` estiver
-    // habilitado no tenant. Campos ricos (subjectFields) são geridos pelos
-    // Seção de Configurações REMOVIDA (era "Clientes"). Não é config que a
-    // oficina use hoje, e cartão que ninguém abre é ruído na tela. As chaves
-    // seguem na config interna do módulo (GET/PATCH /customers/config) — só
-    // deixaram de ser administráveis pela tela de Configurações.
-  }
-}
+export class CustomersModule {}

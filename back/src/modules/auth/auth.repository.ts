@@ -127,6 +127,23 @@ export class AuthRepository {
       },
     });
   }
+  /**
+   * Acha o código pelo HASH, com o propósito por PREFIXO.
+   *
+   * Existe para o link de suporte, cujo propósito carrega o tenant de destino
+   * (`support_session:<uuid>`): quem consome só tem o código na mão e precisa
+   * descobrir o resto pelo banco — o destino nunca vem do cliente.
+   */
+  findOneTimeTokenByPurposePrefix(tokenHash: string, prefix: string) {
+    return this.prisma.one_time_token.findFirst({
+      where: {
+        token_hash: tokenHash,
+        purpose: { startsWith: prefix },
+        consumed_at: null,
+        expires_at: { gt: new Date() },
+      },
+    });
+  }
   async consumeOneTimeToken(id: string) {
     await this.prisma.one_time_token.update({
       where: { id },
@@ -191,6 +208,8 @@ export class AuthRepository {
     fullName: string;
     emailNormalized: string;
     passwordHash: string;
+    /** Nicho escolhido no cadastro; null = pacote padrão. */
+    vertical: string | null;
     createTrial: (tenantId: string) => Promise<void>;
   }): Promise<{ userId: string; tenantId: string }> {
     return this.prisma.$transaction(
@@ -202,6 +221,7 @@ export class AuthRepository {
             cnpj: params.cnpj,
             legal_name: params.legalName,
             trade_name: params.tradeName,
+            vertical: params.vertical,
           },
         });
         const user = await tx.users.create({

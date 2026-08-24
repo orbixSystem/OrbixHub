@@ -46,22 +46,22 @@ model customer {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model subject {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id         String   @db.Uuid
-  customer_id       String   @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  customer_id       String    @db.Uuid
   label             String?
   identifier        String?
   attributes        Json?
   photo_url         String?
   photo_storage_key String?
-  status            String   @default("active")
+  status            String    @default("active")
   /// Retorno completo da consulta por placa (exclusivo dela; nullable).
   plate_data        Json?
   plate_data_at     DateTime? @db.Timestamptz(6)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime @default(now()) @db.Timestamptz(6)
-  customer    customer @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  customer          customer  @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, identifier], map: "idx_subject_tenant_identifier")
   @@index([tenant_id, customer_id], map: "idx_subject_tenant_customer")
@@ -69,8 +69,8 @@ model subject {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model inventory_item {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id         String   @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
   name              String
   sku               String?
   manufacturer_code String?
@@ -80,25 +80,25 @@ model inventory_item {
   unit              String?
   /// 0044: observação livre — coluna do núcleo, não `attributes`.
   description       String?
-  sale_price        Decimal? @db.Decimal(14, 2)
-  cost_price        Decimal? @db.Decimal(14, 2)
-  margin_pct        Decimal? @db.Decimal(7, 2)
-  current_stock     Decimal  @default(0) @db.Decimal(14, 3)
-  min_stock         Decimal? @db.Decimal(14, 3)
-  attributes        Json     @default(dbgenerated("'{}'::jsonb"))
-  is_active         Boolean  @default(true)
+  sale_price        Decimal?  @db.Decimal(14, 2)
+  cost_price        Decimal?  @db.Decimal(14, 2)
+  margin_pct        Decimal?  @db.Decimal(7, 2)
+  current_stock     Decimal   @default(0) @db.Decimal(14, 3)
+  min_stock         Decimal?  @db.Decimal(14, 3)
+  attributes        Json      @default(dbgenerated("'{}'::jsonb"))
+  is_active         Boolean   @default(true)
   deleted_at        DateTime? @db.Timestamptz(6)
-  kind              String   @default("product")
+  kind              String    @default("product")
   duration_minutes  Int?
   ncm               String?
   cfop              String?
   origem            String?
   gtin              String?
   codigo_servico    String?
-  aliquota_iss      Decimal? @db.Decimal(7, 2)
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime @default(now()) @db.Timestamptz(6)
-  tenant            tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  aliquota_iss      Decimal?  @db.Decimal(7, 2)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  tenant            tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, barcode], map: "idx_inventory_item_tenant_barcode")
   @@index([tenant_id, manufacturer_code], map: "idx_inventory_item_tenant_mfrcode")
@@ -150,25 +150,25 @@ model cash_session {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model cash_entry {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id       String       @db.Uuid
-  cash_session_id String       @db.Uuid
-  direction       String
-  amount          Decimal      @db.Decimal(14, 2)
-  method          String
-  category        String
-  sale_kind       String?
-  sale_id         String?      @db.Uuid
-  description     String?
-  reversed_at     DateTime?    @db.Timestamptz(6)
-  reversed_by     String?      @db.Uuid
-  reversal_reason String?
-  created_by      String       @db.Uuid
-  created_at      DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime     @default(now()) @db.Timestamptz(6)
-  cash_session                  cash_session            @relation(fields: [cash_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenant                        tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  receivable_installments       receivable_installment[]
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String                   @db.Uuid
+  cash_session_id         String                   @db.Uuid
+  direction               String
+  amount                  Decimal                  @db.Decimal(14, 2)
+  method                  String
+  category                String
+  sale_kind               String?
+  sale_id                 String?                  @db.Uuid
+  description             String?
+  reversed_at             DateTime?                @db.Timestamptz(6)
+  reversed_by             String?                  @db.Uuid
+  reversal_reason         String?
+  created_by              String                   @db.Uuid
+  created_at              DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                 @default(now()) @db.Timestamptz(6)
+  cash_session            cash_session             @relation(fields: [cash_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant                  tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  receivable_installments receivable_installment[]
 
   @@index([tenant_id, cash_session_id], map: "idx_cash_entry_tenant_session")
   @@index([tenant_id, sale_kind, sale_id], map: "idx_cash_entry_tenant_sale")
@@ -197,11 +197,11 @@ model cash_expense_template {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model expense_category {
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String               @db.Uuid
-  name               String
-  icon               String               @default("outros")
-  color              String               @default("#6B7280")
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String  @db.Uuid
+  name            String
+  icon            String  @default("outros")
+  color           String  @default("#6B7280")
   /// 0041: categoria tem FORNECEDOR do outro lado? Decide se o cadastro
   /// de despesa oferece o campo.
   tracks_supplier Boolean @default(false)
@@ -245,18 +245,18 @@ model expense_recurrence {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model expense {
-  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id     String              @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String    @db.Uuid
   description   String
-  amount        Decimal             @default(0) @db.Decimal(14, 2)
-  due_date      DateTime            @db.Date
-  category_id   String?             @db.Uuid
-  recurrence_id String?             @db.Uuid
-  occurrence_on DateTime?           @db.Date
-  paid_at       DateTime?           @db.Timestamptz(6)
-  paid_amount   Decimal?            @db.Decimal(14, 2)
+  amount        Decimal   @default(0) @db.Decimal(14, 2)
+  due_date      DateTime  @db.Date
+  category_id   String?   @db.Uuid
+  recurrence_id String?   @db.Uuid
+  occurrence_on DateTime? @db.Date
+  paid_at       DateTime? @db.Timestamptz(6)
+  paid_amount   Decimal?  @db.Decimal(14, 2)
   paid_method   String?
-  cash_entry_id String?             @db.Uuid
+  cash_entry_id String?   @db.Uuid
   notes         String?
 
   /// Parcelamento (0040): uma dívida, N vencimentos. As três andam juntas (CHECK)
@@ -271,13 +271,13 @@ model expense {
   supplier_name String?
   supplier_doc  String?
 
-  status        String              @default("active")
-  created_by    String              @db.Uuid
-  created_at    DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime            @default(now()) @db.Timestamptz(6)
-  tenant        tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  category      expense_category?   @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  recurrence    expense_recurrence? @relation(fields: [recurrence_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  status     String              @default("active")
+  created_by String              @db.Uuid
+  created_at DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at DateTime            @default(now()) @db.Timestamptz(6)
+  tenant     tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  category   expense_category?   @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  recurrence expense_recurrence? @relation(fields: [recurrence_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([tenant_id, due_date], map: "idx_expense_tenant_due")
   @@index([tenant_id, category_id], map: "idx_expense_tenant_category")
@@ -311,10 +311,10 @@ model sale {
   tenant             tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   items              sale_item[]
 
+  @@unique([tenant_id, number], map: "uq_sale_tenant_number")
   @@index([tenant_id, status], map: "idx_sale_tenant_status")
   @@index([tenant_id, customer_id], map: "idx_sale_tenant_customer")
   @@index([tenant_id, created_at], map: "idx_sale_tenant_created")
-  @@unique([tenant_id, number], map: "uq_sale_tenant_number")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -339,17 +339,17 @@ model sale_item {
 /// (client_mutation_id) só é aplicada uma vez por (tenant, autor).
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sync_mutation {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String   @db.Uuid
-  author_user_id      String   @db.Uuid
-  client_mutation_id  String   @db.Uuid
-  entity              String
-  op                  String
-  result              String
-  error_message       String?
-  entity_id           String?  @db.Uuid
-  applied_at          DateTime @default(now()) @db.Timestamptz(6)
-  tenant              tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  author_user_id     String   @db.Uuid
+  client_mutation_id String   @db.Uuid
+  entity             String
+  op                 String
+  result             String
+  error_message      String?
+  entity_id          String?  @db.Uuid
+  applied_at         DateTime @default(now()) @db.Timestamptz(6)
+  tenant             tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([tenant_id, author_user_id, client_mutation_id], map: "uq_sync_mutation")
   @@index([tenant_id], map: "idx_sync_mutation_tenant")
@@ -357,70 +357,70 @@ model sync_mutation {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model service_order {
-  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id       String               @db.Uuid
-  number          String
-  customer_id     String               @db.Uuid
-  customer_name   String
-  subject_id      String?              @db.Uuid
-  subject_label   String?
-  status          String               @default("aberta")
-  assigned_to     String?              @db.Uuid
-  opened_by       String?              @db.Uuid
-  complaint       String?
-  diagnosis       String?
-  scheduled_start DateTime?            @db.Timestamptz(6)
-  scheduled_end   DateTime?            @db.Timestamptz(6)
-  started_at      DateTime?            @db.Timestamptz(6)
-  finished_at     DateTime?            @db.Timestamptz(6)
-  opened_at       DateTime             @default(now()) @db.Timestamptz(6)
-  closed_at       DateTime?            @db.Timestamptz(6)
-  discount        Decimal              @default(0) @db.Decimal(14, 2)
-  total           Decimal              @default(0) @db.Decimal(14, 2)
-  stock_applied   Boolean              @default(false)
-  public_token    String               @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fiscal_status      String?           // snapshot do status fiscal (Fiscal é dono)
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                @db.Uuid
+  number             String
+  customer_id        String                @db.Uuid
+  customer_name      String
+  subject_id         String?               @db.Uuid
+  subject_label      String?
+  status             String                @default("aberta")
+  assigned_to        String?               @db.Uuid
+  opened_by          String?               @db.Uuid
+  complaint          String?
+  diagnosis          String?
+  scheduled_start    DateTime?             @db.Timestamptz(6)
+  scheduled_end      DateTime?             @db.Timestamptz(6)
+  started_at         DateTime?             @db.Timestamptz(6)
+  finished_at        DateTime?             @db.Timestamptz(6)
+  opened_at          DateTime              @default(now()) @db.Timestamptz(6)
+  closed_at          DateTime?             @db.Timestamptz(6)
+  discount           Decimal               @default(0) @db.Decimal(14, 2)
+  total              Decimal               @default(0) @db.Decimal(14, 2)
+  stock_applied      Boolean               @default(false)
+  public_token       String                @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiscal_status      String? // snapshot do status fiscal (Fiscal é dono)
   fiscal_external_id String?
-  fiscal_emitted_at  DateTime?         @db.Timestamptz(6)
-  deleted_at      DateTime?            @db.Timestamptz(6)
+  fiscal_emitted_at  DateTime?             @db.Timestamptz(6)
+  deleted_at         DateTime?             @db.Timestamptz(6)
   fiado_at           DateTime?             @db.Timestamptz(6)
-  created_at      DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime             @default(now()) @db.Timestamptz(6)
-  tenant          tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  items           service_order_item[]
-  events          service_order_event[]
-  photos          service_order_photo[]
+  created_at         DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime              @default(now()) @db.Timestamptz(6)
+  tenant             tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items              service_order_item[]
+  events             service_order_event[]
+  photos             service_order_photo[]
 
+  @@unique([tenant_id, number], map: "uq_service_order_tenant_number")
+  @@unique([public_token], map: "uq_service_order_public_token")
   @@index([tenant_id, status], map: "idx_service_order_tenant_status")
   @@index([tenant_id, customer_id], map: "idx_service_order_tenant_customer")
   @@index([tenant_id, subject_id], map: "idx_service_order_tenant_subject")
   @@index([tenant_id, assigned_to], map: "idx_service_order_tenant_assigned")
   @@index([tenant_id, opened_at], map: "idx_service_order_tenant_opened")
-  @@unique([tenant_id, number], map: "uq_service_order_tenant_number")
-  @@unique([public_token], map: "uq_service_order_public_token")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model service_order_item {
-  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String        @db.Uuid
-  order_id             String        @db.Uuid
-  kind                 String
-  inventory_item_id    String?       @db.Uuid
-  name                 String
-  quantity             Decimal       @default(1) @db.Decimal(14, 3)
-  unit_price           Decimal       @default(0) @db.Decimal(14, 2)
-  discount             Decimal       @default(0) @db.Decimal(14, 2)
-  total                Decimal       @default(0) @db.Decimal(14, 2)
-  assigned_to          String?       @db.Uuid
-  scheduled_start      DateTime?     @db.Timestamptz(6)
-  estimated_duration   Int?          // minutos, múltiplos de 30
-  scheduled_end        DateTime?     @db.Timestamptz(6)
-  created_at           DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime      @default(now()) @db.Timestamptz(6)
-  order                service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tenant               tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  assigned_user        users?        @relation("item_assigned_user", fields: [assigned_to], references: [id], onUpdate: NoAction)
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String        @db.Uuid
+  order_id           String        @db.Uuid
+  kind               String
+  inventory_item_id  String?       @db.Uuid
+  name               String
+  quantity           Decimal       @default(1) @db.Decimal(14, 3)
+  unit_price         Decimal       @default(0) @db.Decimal(14, 2)
+  discount           Decimal       @default(0) @db.Decimal(14, 2)
+  total              Decimal       @default(0) @db.Decimal(14, 2)
+  assigned_to        String?       @db.Uuid
+  scheduled_start    DateTime?     @db.Timestamptz(6)
+  estimated_duration Int? // minutos, múltiplos de 30
+  scheduled_end      DateTime?     @db.Timestamptz(6)
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime      @default(now()) @db.Timestamptz(6)
+  order              service_order @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant             tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assigned_user      users?        @relation("item_assigned_user", fields: [assigned_to], references: [id], onUpdate: NoAction)
 
   @@index([tenant_id, order_id], map: "idx_service_order_item_tenant_order")
   @@index([tenant_id, assigned_to, scheduled_start, scheduled_end], map: "idx_soi_assigned_schedule")
@@ -547,7 +547,6 @@ model service_order_photo_comment {
   @@index([tenant_id, photo_id, created_at], map: "idx_sopc_tenant_photo")
 }
 
-
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model notification {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -591,20 +590,20 @@ model plate_lookup_usage {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invite {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String    @db.Uuid
-  email_normalized String
-  role_id          String    @db.Uuid
-  token_hash       String    @unique
-  invited_by       String?   @db.Uuid
-  accepted_at      DateTime? @db.Timestamptz(6)
-  expires_at       DateTime? @db.Timestamptz(6)
-  canceled_at      DateTime? @db.Timestamptz(6)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  email_normalized  String
+  role_id           String    @db.Uuid
+  token_hash        String    @unique
+  invited_by        String?   @db.Uuid
+  accepted_at       DateTime? @db.Timestamptz(6)
+  expires_at        DateTime? @db.Timestamptz(6)
+  canceled_at       DateTime? @db.Timestamptz(6)
   access_expires_at DateTime? @db.Timestamptz(6)
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  users            users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
-  role             role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tenant           tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  users             users?    @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
+  role              role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant            tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id], map: "idx_invite_tenant")
 }
@@ -623,16 +622,16 @@ model login_attempt {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model membership {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id  String   @db.Uuid
-  user_id    String   @db.Uuid
-  role_id    String   @db.Uuid
-  status     String   @default("active")
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  user_id           String    @db.Uuid
+  role_id           String    @db.Uuid
+  status            String    @default("active")
   access_expires_at DateTime? @db.Timestamptz(6)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  role       role     @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tenant     tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  role              role      @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant            tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([tenant_id, user_id])
   @@index([user_id], map: "idx_membership_user")
@@ -643,6 +642,8 @@ model module {
   key           String          @unique
   name          String
   is_core       Boolean         @default(false)
+  /// Preenchido = aposentado: some das listas e nao pode ser religado.
+  retired_at    DateTime?       @db.Timestamptz(6)
   plan_module   plan_module[]
   tenant_module tenant_module[]
 }
@@ -741,45 +742,52 @@ model subscription {
 }
 
 model tenant {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  slug          String          @unique
-  cnpj          String?         @unique
-  legal_name    String?
-  trade_name    String?
-  settings      Json            @default("{}")
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  audit_log             audit_log[]
-  cash_entry                    cash_entry[]
-  cash_expense_template         cash_expense_template[]
-  cash_session                  cash_session[]
-  receivable_installments       receivable_installment[]
-  conversation       conversation[]
-  customer           customer[]
-  expense               expense[]
-  expense_category      expense_category[]
-  expense_recurrence    expense_recurrence[]
-  inventory_item     inventory_item[]
-  invite             invite[]
-  membership         membership[]
-  message            message[]
-  notification       notification[]
-  refresh_token      refresh_token[]
-  sale                sale[]
-  sale_item           sale_item[]
-  service_order       service_order[]
-  service_order_event service_order_event[]
-  service_order_item  service_order_item[]
-  service_order_photo service_order_photo[]
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                        String
+  slug                        String                        @unique
+  cnpj                        String?                       @unique
+  legal_name                  String?
+  trade_name                  String?
+  settings                    Json                          @default("{}")
+  /// Nicho do tenant: aponta o pacote de vocabulário em back/src/verticals/.
+  /// Manda SÓ nos textos e campos — comportamento é decidido por tenant_feature.
+  /// null = pacote padrão ('equipamentos').
+  vertical                    String?
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  audit_log                   audit_log[]
+  tenant_feature              tenant_feature[]
+  support_message             support_message[]
+  support_ticket              support_ticket[]
+  cash_entry                  cash_entry[]
+  cash_expense_template       cash_expense_template[]
+  cash_session                cash_session[]
+  receivable_installments     receivable_installment[]
+  conversation                conversation[]
+  customer                    customer[]
+  expense                     expense[]
+  expense_category            expense_category[]
+  expense_recurrence          expense_recurrence[]
+  inventory_item              inventory_item[]
+  invite                      invite[]
+  membership                  membership[]
+  message                     message[]
+  notification                notification[]
+  refresh_token               refresh_token[]
+  sale                        sale[]
+  sale_item                   sale_item[]
+  service_order               service_order[]
+  service_order_event         service_order_event[]
+  service_order_item          service_order_item[]
+  service_order_photo         service_order_photo[]
   service_order_template      service_order_template[]
   service_order_template_item service_order_template_item[]
-  stock_movement     stock_movement[]
-  subject            subject[]
-  subscription       subscription?
-  sync_mutation      sync_mutation[]
-  tenant_module      tenant_module[]
-  users              users[]
-  business_hours     business_hours[]
+  stock_movement              stock_movement[]
+  subject                     subject[]
+  subscription                subscription?
+  sync_mutation               sync_mutation[]
+  tenant_module               tenant_module[]
+  users                       users[]
+  business_hours              business_hours[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -798,15 +806,15 @@ model tenant_module {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model business_hours {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id    String   @db.Uuid
-  day_of_week  Int      @db.SmallInt // 0=Dom, 1=Seg … 6=Sáb
-  is_open      Boolean  @default(true)
-  open_time    String   // "HH:MM"
-  close_time   String   // "HH:MM"
-  created_at   DateTime @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime @default(now()) @db.Timestamptz(6)
-  tenant       tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  day_of_week Int      @db.SmallInt // 0=Dom, 1=Seg … 6=Sáb
+  is_open     Boolean  @default(true)
+  open_time   String // "HH:MM"
+  close_time  String // "HH:MM"
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([tenant_id, day_of_week])
   @@index([tenant_id], map: "idx_business_hours_tenant")
@@ -880,15 +888,15 @@ model invoice {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invoice_line {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id  String   @db.Uuid
-  invoice_id String   @db.Uuid
-  kind       String
-  name       String
-  quantity   Decimal  @default(1) @db.Decimal(14, 3)
-  unit_price Decimal  @default(0) @db.Decimal(14, 2)
-  total      Decimal  @default(0) @db.Decimal(14, 2)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  invoice_id     String   @db.Uuid
+  kind           String
+  name           String
+  quantity       Decimal  @default(1) @db.Decimal(14, 3)
+  unit_price     Decimal  @default(0) @db.Decimal(14, 2)
+  total          Decimal  @default(0) @db.Decimal(14, 2)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
   ncm            String?
   cfop           String?
   unidade        String?
@@ -896,7 +904,7 @@ model invoice_line {
   codigo_servico String?
   origem         String?
   aliquota_iss   Decimal? @db.Decimal(7, 2)
-  invoice    invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  invoice        invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, invoice_id], map: "idx_invoice_line_tenant_invoice")
 }
@@ -925,24 +933,79 @@ model invoice_webhook_event {
 }
 
 model users {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email_normalized   String           @unique
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email_normalized   String               @unique
   full_name          String
   password_hash      String
-  email_verified_at  DateTime?        @db.Timestamptz(6)
-  failed_login_count Int              @default(0)
-  locked_until       DateTime?        @db.Timestamptz(6)
-  last_tenant_id     String?          @db.Uuid
+  email_verified_at  DateTime?            @db.Timestamptz(6)
+  failed_login_count Int                  @default(0)
+  locked_until       DateTime?            @db.Timestamptz(6)
+  last_tenant_id     String?              @db.Uuid
   mfa_secret         String?
-  mfa_enabled        Boolean          @default(false)
-  created_at         DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
-  audit_log               audit_log[]
-  invite                  invite[]
-  login_attempt           login_attempt[]
-  membership              membership[]
-  one_time_token          one_time_token[]
-  refresh_token           refresh_token[]
-  tenant                  tenant?              @relation(fields: [last_tenant_id], references: [id], onUpdate: NoAction)
-  assigned_items          service_order_item[] @relation("item_assigned_user")
+  mfa_enabled        Boolean              @default(false)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  audit_log          audit_log[]
+  invite             invite[]
+  login_attempt      login_attempt[]
+  membership         membership[]
+  one_time_token     one_time_token[]
+  refresh_token      refresh_token[]
+  tenant             tenant?              @relation(fields: [last_tenant_id], references: [id], onUpdate: NoAction)
+  assigned_items     service_order_item[] @relation("item_assigned_user")
+  support_message    support_message[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// Toggle de funcionalidade por tenant. A linha só existe quando o dono mexeu no
+/// toggle; ausência = herda o pacote da vertical. `feature_key` é texto porque o
+/// catálogo de capacidades vive no código (validado contra ele na escrita).
+model tenant_feature {
+  tenant_id   String   @db.Uuid
+  feature_key String
+  enabled     Boolean
+  source      String   @default("manual")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+  tenant      tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([tenant_id, feature_key])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// Canal de suporte do tenant com a Orbix. Uma thread por tenant.
+/// `from_orbix` false = o cliente escreveu; true = o suporte respondeu.
+model support_ticket {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String            @db.Uuid
+  subject         String
+  /// 'aberto' | 'resolvido'
+  status          String            @default("aberto")
+  created_by      String?           @db.Uuid
+  last_message_at DateTime          @default(now()) @db.Timestamptz(6)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  tenant          tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages        support_message[]
+
+  @@index([tenant_id, last_message_at], map: "idx_support_ticket_tenant_mov")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model support_message {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String          @db.Uuid
+  body           String
+  from_orbix     Boolean         @default(false)
+  author_user_id String?         @db.Uuid
+  /// Snapshot do nome: a conversa segue legivel se a pessoa sair da empresa.
+  author_name    String?
+  read_at        DateTime?       @db.Timestamptz(6)
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  ticket_id      String?         @db.Uuid
+  tenant         tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users?          @relation(fields: [author_user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  ticket         support_ticket? @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id, created_at], map: "idx_support_message_tenant_time")
 }

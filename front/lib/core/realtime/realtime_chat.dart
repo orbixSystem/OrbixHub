@@ -40,6 +40,11 @@ class RealtimeChat {
     /// Opcional para não obrigar as telas de mensagem a tratar um evento que não
     /// é delas: a sala do tenant é a mesma, mas cada tela escuta o que lhe importa.
     void Function(Map<String, dynamic> evt)? onOsChanged,
+    /// Chamado de suporte com a Orbix mudou (`{ticketId, kind, daOrbix}`).
+    ///
+    /// Mesma sala do tenant, mesmo motivo do `onOsChanged`: opcional para que a
+    /// tela de mensagens não precise saber de suporte, e vice-versa.
+    void Function(Map<String, dynamic> evt)? onSupportChanged,
   }) {
     _connect(
       onMessage,
@@ -48,6 +53,7 @@ class RealtimeChat {
         'conversationId': ?conversationId,
       }),
       onOsChanged: onOsChanged,
+      onSupportChanged: onSupportChanged,
     );
   }
 
@@ -55,6 +61,7 @@ class RealtimeChat {
     void Function(Map<String, dynamic>) onMessage,
     void Function(io.Socket socket) subscribe, {
     void Function(Map<String, dynamic>)? onOsChanged,
+    void Function(Map<String, dynamic>)? onSupportChanged,
   }) {
     final socket = io.io(
       _wsBaseUrl(),
@@ -82,6 +89,12 @@ class RealtimeChat {
       socket.on('os', (data) {
         if (_disposed) return;
         if (data is Map) onOsChanged(data.cast<String, dynamic>());
+      });
+    }
+    if (onSupportChanged != null) {
+      socket.on('support', (data) {
+        if (_disposed) return;
+        if (data is Map) onSupportChanged(data.cast<String, dynamic>());
       });
     }
   }

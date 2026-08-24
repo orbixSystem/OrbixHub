@@ -57,6 +57,14 @@ abstract class Me with _$Me {
     required String role,
     @Default(<String>[]) List<String> permissions,
     @Default(<String>[]) List<String> modules,
+    /// Nicho do tenant ('veiculos', 'equipamentos'). Manda só no vocabulário.
+    String? vertical,
+    /// Textos do nicho por chave ('objeto.singular', 'os.status.entregue').
+    /// Vem resolvido do backend: pacote padrão → pacote da vertical → override.
+    @Default(<String, String>{}) Map<String, String> vocab,
+    /// Capacidades ligadas. Gateia a UI do mesmo jeito que [modules], porém
+    /// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
+    @Default(<String>[]) List<String> features,
     @Default(<Membership>[]) List<Membership> memberships,
   }) = _Me;
 
@@ -64,7 +72,17 @@ abstract class Me with _$Me {
 
   bool hasModule(String key) => modules.contains(key);
   bool hasPermission(String key) => permissions.contains(key);
+  bool hasFeature(String key) => features.contains(key);
   bool get hasMultipleTenants => memberships.length > 1;
+
+  /// Texto do nicho. [fallback] cobre o caso de o backend não conhecer a chave
+  /// — a tela nunca deve mostrar a chave crua para o usuario.
+  String t(String key, String fallback) => vocab[key] ?? fallback;
+
+  /// Rótulo do objeto atendido: "Veículo" na oficina, "Equipamento" no genérico.
+  String get objeto => t('objeto.singular', 'Objeto');
+  String get objetos => t('objeto.plural', 'Objetos');
+  String get objetoIdentificador => t('objeto.identificador', 'Identificação');
 }
 
 /// A token pair. `switch-tenant` and `refresh` return exactly this.
@@ -123,4 +141,17 @@ abstract class RegisterResult with _$RegisterResult {
 
   factory RegisterResult.fromJson(Map<String, dynamic> json) =>
       _$RegisterResultFromJson(json);
+}
+
+/// Um nicho do catálogo, para o seletor da tela de cadastro.
+@freezed
+abstract class VerticalOption with _$VerticalOption {
+  const factory VerticalOption({
+    required String key,
+    required String nome,
+    @Default(false) bool isDefault,
+  }) = _VerticalOption;
+
+  factory VerticalOption.fromJson(Map<String, dynamic> json) =>
+      _$VerticalOptionFromJson(json);
 }

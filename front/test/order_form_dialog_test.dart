@@ -11,6 +11,9 @@ import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
+import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 
 /// Conectividade fixa em ONLINE: sem isto o controller real reporta offline no
 /// ambiente de teste e a consulta de placa fica (corretamente) inerte.
@@ -85,6 +88,29 @@ class _TokenOsRepo extends _CapturingOsRepo {
 }
 
 /// Abre o dialog num app mínimo e devolve o id resolvido pelo Navigator.pop.
+/// Sessão de uma OFICINA. O diálogo de OS só existe para usuário logado, e o
+/// botão de consulta do identificador depende de uma CAPACIDADE do tenant —
+/// então o teste precisa dizer qual tenant é este. Sem isso o botão nem é
+/// desenhado, que é justamente o comportamento correto para um nicho sem base
+/// externa.
+class _OficinaSession extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
+          role: 'owner',
+          permissions: ['os.write', 'subject.read', 'subject.write'],
+          modules: ['os', 'customers'],
+          vertical: 'veiculos',
+          features: [
+            'customers.identifierLookup',
+            'customers.atributosCascata',
+            'os.trackingLink',
+          ],
+        ),
+      );
+}
+
 Future<String?> _openDialog(
   WidgetTester tester,
   FakeOsRepository fake, {
@@ -95,6 +121,7 @@ Future<String?> _openDialog(
     ProviderScope(
       overrides: [
         osRepositoryProvider.overrideWithValue(fake),
+        sessionControllerProvider.overrideWith(_OficinaSession.new),
         ...extra,
       ],
       child: MaterialApp(
@@ -325,6 +352,7 @@ void main() {
     final fake = _CapturingOsRepo(
       customers: const [CustomerOption(id: 'c1', name: 'João da Silva')],
     );
+    // O rótulo vem da config que o FakeOsRepository devolve (fake de oficina).
     await _openDialog(tester, fake);
 
     await tester.enterText(_fieldByLabel('Cliente *'), 'João');
@@ -333,7 +361,7 @@ void main() {
     await tester.pumpAndSettle();
     await _next(tester);
 
-    // Passo do veículo: em vez de só avisar que não há nenhum, oferece cadastrar.
+    // Passo do objeto: em vez de só avisar que não há nenhum, oferece cadastrar.
     expect(find.textContaining('Nenhum veículo cadastrado'), findsOneWidget);
     await tester.tap(find.widgetWithText(NeuButton, 'Cadastrar Veículo'));
     await tester.pumpAndSettle();
@@ -386,7 +414,7 @@ void main() {
     await tester.enterText(
         _fieldByLabel('Placa / Identificação *'), 'ABC1D23');
     await tester.pump();
-    await tester.tap(find.byTooltip('Buscar dados do veículo pela placa'));
+    await tester.tap(find.byTooltip('Consultar Placa / Identificação'));
     await tester.pumpAndSettle();
 
     // Marca vem do equivalente FIPE (valor canônico), não da sigla do registro.

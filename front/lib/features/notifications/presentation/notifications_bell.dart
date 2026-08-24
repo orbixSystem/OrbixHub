@@ -37,6 +37,7 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
   final OverlayPortalController _portal = OverlayPortalController();
   final LayerLink _link = LayerLink();
   int? _lastUnread;
+  int? _lastSuporte;
   final RealtimeChat _rt = RealtimeChat();
 
   @override
@@ -58,6 +59,15 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
             // subir o não-lido) cobre o poll de 15s caso o WS não entregue.
             ref.invalidate(conversationsProvider);
           }
+        },
+        // Resposta da Orbix no suporte: mesma sala, outro assunto. Recarrega o
+        // não-lido do suporte; quem avisa é o bloco no build, quando o número
+        // SOBE — a mesma régua das mensagens, para não tocar duas vezes pelo
+        // mesmo evento nem tocar por algo que já estava lá.
+        onSupportChanged: (_) {
+          if (!mounted) return;
+          ref.invalidate(supportUnreadProvider);
+          ref.invalidate(supportTicketsProvider);
         },
       );
     }
@@ -85,6 +95,15 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
     final anterior = _lastUnread;
     if (unread != null) _lastUnread = unread;
 
+    // Mesmo mecanismo para o suporte: a primeira contagem conhecida calibra,
+    // as seguintes é que avisam.
+    final suporte = ref.watch(supportUnreadProvider).maybeWhen(
+      data: (n) => n,
+      orElse: () => null,
+    );
+    final suporteAntes = _lastSuporte;
+    if (suporte != null) _lastSuporte = suporte;
+
     // Em mobile, oculta o sino enquanto a página de notificações está aberta
     // para evitar que o usuário abra várias instâncias empilhadas. O watch acima
     // já aconteceu, então o provider continua vivo e o baseline não se perde.
@@ -105,6 +124,13 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
         // o único ouvinte sempre montado, e este gatilho cobre tanto o push do WS
         // quanto o poll de 15s — sem isto o badge só atualizava após F5.
         if (mounted) ref.invalidate(conversationsProvider);
+      });
+    }
+
+    if (suporteAntes != null && suporte != null && suporte > suporteAntes) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _toastSuporte();
+        unawaited(NotificationSound.play());
       });
     }
 
@@ -293,6 +319,25 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
       builder: (_) => _NotificationToast(
         message: title,
         body: (body != null && body.isNotEmpty) ? body : null,
+        onDismissed: () {
+          if (entry.mounted) entry.remove();
+        },
+      ),
+    );
+    overlay.insert(entry);
+  }
+
+  /// Toast da resposta do suporte. Texto próprio: "nova mensagem do cliente" na
+  /// tela do cliente seria exatamente o contrário do que aconteceu.
+  void _toastSuporte() {
+    if (!mounted) return;
+    final overlay = rootNavigatorKey.currentState?.overlay;
+    if (overlay == null) return;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _NotificationToast(
+        message: 'Suporte Orbix respondeu',
+        body: 'Toque no fone de suporte, no topo da tela, para ver.',
         onDismissed: () {
           if (entry.mounted) entry.remove();
         },

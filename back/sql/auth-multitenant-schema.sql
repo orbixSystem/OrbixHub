@@ -2282,6 +2282,69 @@ FROM module m
 WHERE m.id = tm.module_id AND m.key = 'sales' AND tm.enabled;
 
 -- ============================================================
+-- 0047 — Verticais (nicho) e funcionalidades por tenant — aditivo, idempotente
+-- ============================================================
+-- Design: docs/superpowers/specs/2026-08-17-verticais-nicho-features-design.md
+--
+-- Dois eixos ORTOGONAIS:
+--   * NICHO manda só no VOCABULÁRIO. `tenant.vertical` aponta o pacote
+--     ('veiculos' | 'equipamentos'); os textos e os campos do formulário vivem
+--     no CÓDIGO (back/src/verticals/<key>/), não aqui.
+--   * FUNCIONALIDADE é capacidade que liga/desliga POR MÓDULO: `tenant_feature`.
+--
+-- O catálogo fica no código porque só muda com deploy; em tabela, cada texto
+-- novo viraria migration em vez de objeto tipado com type-check e teste. Por
+-- isso `feature_key` é TEXTO, não FK — validado contra o catálogo na escrita.
+--
+-- REGRA INVARIANTE: linha em `tenant_feature` só existe quando o dono mexeu no
+-- toggle. Ausência = herda do pacote da vertical — é o que impede o retorno do
+-- snapshot congelado que quebrou o autocomplete FIPE em 11 de 18 tenants.
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'tenant' AND column_name = 'vertical'
+  ) THEN
+    ALTER TABLE tenant ADD COLUMN vertical text;
+    -- Backfill DENTRO do guard: roda uma vez só, quando a coluna nasce. Numa
+    -- reaplicação do baseline não mexe em ninguém (senão um tenant genérico
+    -- criado depois viraria oficina). Todo tenant que já existia é oficina.
+    UPDATE tenant SET vertical = 'veiculos';
+  END IF;
+END $$;
+
+-- Sem índice extra em (tenant_id): a PK (tenant_id, feature_key) já atende as
+-- buscas por tenant pelo prefixo.
+CREATE TABLE IF NOT EXISTS tenant_feature (
+  tenant_id   uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  feature_key text NOT NULL,
+  enabled     boolean NOT NULL,
+  source      text NOT NULL DEFAULT 'manual',
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, feature_key)
+);
+
+ALTER TABLE tenant_feature ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_feature FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'tenant_feature' AND policyname = 'tenant_isolation'
+  ) THEN
+    CREATE POLICY tenant_isolation ON tenant_feature
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+
+-- DELETE concedido de propósito, ao contrário das tabelas de negócio: apagar a
+-- linha é o dono dizendo "volta ao padrão do meu nicho", e preferência de toggle
+-- não é registro histórico. A regra "sem hard delete" protege dado de negócio.
+GRANT SELECT, INSERT, UPDATE, DELETE ON tenant_feature TO app_user;
+
+-- ============================================================
 -- 0048 — Descrição livre da venda de balcão — aditivo, idempotente
 -- ============================================================
 -- A tela de venda já pedia uma "descrição da venda", mas o texto morria no
@@ -2387,3 +2450,161 @@ UPDATE sale s
             AND i.sale_kind = 'sale'
             AND i.sale_id   = s.id
        );
+
+-- ============================================================
+-- 0050 — Canal de suporte do tenant com a Orbix — aditivo
+-- ============================================================
+-- Uma thread por tenant: o cliente escreve para o suporte da Orbix e o suporte
+-- responde. Enquanto o sistema de admin não existe, a chegada é notificada por
+-- e-mail (SUPPORT_EMAIL); depois, o admin lê por `/admin/...`.
+--
+-- POR QUE TABELA PRÓPRIA e não o módulo `messages`:
+--   lá o remetente é 'customer' | 'staff', com o sentido do chat da OS — nele
+--   "staff" é a oficina e "customer" é o cliente final dela. No suporte os
+--   papéis invertem (a oficina é quem pede ajuda), e a thread apareceria
+--   misturada no inbox de Mensagens do cliente, junto das conversas de OS.
+--   Reaproveitar sairia mais barato hoje e mais confuso para sempre.
+--
+-- `from_orbix` em vez de um enum de remetente: só existem dois lados, e um
+-- booleano não admite terceiro estado inválido.
+
+CREATE TABLE IF NOT EXISTS support_message (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id      uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  body           text NOT NULL,
+  -- false = o cliente escreveu; true = o suporte da Orbix respondeu.
+  from_orbix     boolean NOT NULL DEFAULT false,
+  -- Quem escreveu do lado do tenant. Nulo quando a mensagem é da Orbix.
+  author_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  -- Snapshot do nome no momento do envio: se a pessoa sair da empresa, a
+  -- conversa continua legível (mesma razão do snapshot da OS).
+  author_name    text,
+  -- Quando o OUTRO lado leu. Cliente lendo marca as da Orbix; o admin lendo
+  -- marca as do cliente.
+  read_at        timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_message_tenant_time
+  ON support_message(tenant_id, created_at);
+
+-- Não lidas do cliente (o que o suporte ainda não viu) — a consulta que o
+-- admin vai fazer para montar a fila de atendimento.
+CREATE INDEX IF NOT EXISTS idx_support_message_unread
+  ON support_message(tenant_id) WHERE read_at IS NULL AND from_orbix = false;
+
+ALTER TABLE support_message ENABLE ROW LEVEL SECURITY;
+ALTER TABLE support_message FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'support_message' AND policyname = 'tenant_isolation'
+  ) THEN
+    CREATE POLICY tenant_isolation ON support_message
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+
+-- Sem DELETE: conversa de suporte é histórico de atendimento.
+GRANT SELECT, INSERT, UPDATE ON support_message TO app_user;
+
+-- ============================================================
+-- 0051 — Suporte por CHAMADO, não thread única — aditivo
+-- ============================================================
+-- A 0050 criou uma conversa só por tenant. Na prática o cliente tem assuntos
+-- distintos ao mesmo tempo ("a nota não sai" e "o caixa não fecha"), e numa
+-- thread única eles se atropelam: ninguém sabe qual pergunta a resposta
+-- responde, e nada pode ser dado por encerrado sem encerrar o resto.
+--
+-- Cada chamado tem assunto e status próprios. `support_message` passa a
+-- pertencer a um chamado.
+
+CREATE TABLE IF NOT EXISTS support_ticket (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+  subject         text NOT NULL,
+  -- 'aberto' | 'resolvido'. Sem "em andamento": estado que ninguém consegue
+  -- explicar a diferença vira ruído na lista.
+  status          text NOT NULL DEFAULT 'aberto',
+  created_by      uuid REFERENCES users(id) ON DELETE SET NULL,
+  -- Ordena a lista pelo que teve movimento, não pelo que foi aberto primeiro.
+  last_message_at timestamptz NOT NULL DEFAULT now(),
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- Ver 0053: `reabertura_solicitada` é o pedido do cliente para voltar a um
+-- chamado fechado. Reabrir de fato continua sendo decisão da Orbix.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'support_ticket_status_chk') THEN
+    ALTER TABLE support_ticket DROP CONSTRAINT support_ticket_status_chk;
+  END IF;
+
+  ALTER TABLE support_ticket ADD CONSTRAINT support_ticket_status_chk
+    CHECK (status IN ('aberto','resolvido','reabertura_solicitada'));
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_support_ticket_tenant_mov
+  ON support_ticket(tenant_id, last_message_at DESC);
+
+ALTER TABLE support_ticket ENABLE ROW LEVEL SECURITY;
+ALTER TABLE support_ticket FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'support_ticket' AND policyname = 'tenant_isolation'
+  ) THEN
+    CREATE POLICY tenant_isolation ON support_ticket
+    USING (tenant_id = current_tenant_id())
+    WITH CHECK (tenant_id = current_tenant_id());
+  END IF;
+END $$;
+
+GRANT SELECT, INSERT, UPDATE ON support_ticket TO app_user;
+
+-- ---- mensagem passa a pertencer a um chamado ----
+ALTER TABLE support_message
+  ADD COLUMN IF NOT EXISTS ticket_id uuid REFERENCES support_ticket(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_support_message_ticket
+  ON support_message(ticket_id, created_at);
+
+-- Backfill: mensagens da 0050 (thread solta) viram um chamado por tenant. Num
+-- banco novo não há linha nenhuma e o bloco não faz nada.
+DO $$
+DECLARE t record; novo uuid;
+BEGIN
+  FOR t IN SELECT DISTINCT tenant_id FROM support_message WHERE ticket_id IS NULL
+  LOOP
+    INSERT INTO support_ticket (tenant_id, subject, last_message_at)
+    SELECT t.tenant_id, 'Atendimento anterior', COALESCE(max(created_at), now())
+      FROM support_message WHERE tenant_id = t.tenant_id AND ticket_id IS NULL
+    RETURNING id INTO novo;
+
+    UPDATE support_message SET ticket_id = novo
+     WHERE tenant_id = t.tenant_id AND ticket_id IS NULL;
+  END LOOP;
+END $$;
+
+-- ============================================================
+-- 0052 — Módulo aposentado sai do catálogo
+-- ============================================================
+-- Ver prisma/migrations/0052_module_retired_at. `retired_at` preenchido some
+-- das listas e trava o religamento; a linha fica, porque tenant_module aponta
+-- para ela e o histórico importa.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'module' AND column_name = 'retired_at'
+  ) THEN
+    ALTER TABLE module ADD COLUMN retired_at timestamptz;
+  END IF;
+END $$;
+
+UPDATE module SET retired_at = now() WHERE key = 'sales' AND retired_at IS NULL;

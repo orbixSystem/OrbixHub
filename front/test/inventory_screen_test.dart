@@ -20,6 +20,12 @@ class _FakeSession extends SessionController {
           role: 'owner',
           permissions: ['inventory.write'],
           modules: ['inventory'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }

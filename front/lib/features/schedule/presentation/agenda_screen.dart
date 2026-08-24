@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -785,7 +786,7 @@ class _EventsList extends StatelessWidget {
 
 // ─── Card de evento ───────────────────────────────────────────────────────────
 
-class _EventCard extends StatelessWidget {
+class _EventCard extends ConsumerWidget {
   const _EventCard({
     required this.item,
     required this.index,
@@ -824,7 +825,7 @@ class _EventCard extends StatelessWidget {
       };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final start = item.scheduledStart != null
         ? DateTime.tryParse(item.scheduledStart!)?.toLocal()
@@ -911,12 +912,12 @@ class _EventCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          // Cliente e veículo numa linha só: juntos IDENTIFICAM o carro, e
-          // separados em duas linhas com ícone cada só alongavam o card.
+          // Cliente e objeto numa linha só: juntos IDENTIFICAM o atendimento,
+          // e separados em duas linhas com ícone cada só alongavam o card.
           if (identidade.isNotEmpty) ...[
             const SizedBox(height: 8),
             _InfoRow(
-              icon: Icons.directions_car_outlined,
+              icon: ref.watch(objetoIconProvider),
               value: identidade,
             ),
           ],

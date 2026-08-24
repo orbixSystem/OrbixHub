@@ -22,6 +22,12 @@ class _FakeSession extends SessionController {
           role: 'owner',
           permissions: ['settings.manage', 'billing.manage', 'users.manage'],
           modules: [],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }
@@ -36,6 +42,12 @@ class _FakeSessionNoAccess extends SessionController {
           role: 'mechanic',
           permissions: ['os.read'],
           modules: [],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }

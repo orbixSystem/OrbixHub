@@ -19,6 +19,12 @@ class _AuthedSession extends SessionController {
           role: 'owner',
           permissions: [],
           modules: ['os'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }

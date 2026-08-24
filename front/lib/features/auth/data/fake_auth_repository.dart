@@ -77,6 +77,7 @@ class FakeAuthRepository implements AuthRepository {
     required String fullName,
     required String email,
     required String password,
+    String? vertical,
   }) async {
     return RegisterResult(
       accessToken: 'fake-access',
@@ -85,6 +86,13 @@ class FakeAuthRepository implements AuthRepository {
       tenant: Tenant(id: 't-new', slug: slug, name: tenantName),
     );
   }
+
+  @override
+  Future<List<VerticalOption>> listVerticals() async => const [
+        VerticalOption(
+            key: 'equipamentos', nome: 'Equipamentos e serviços', isDefault: true),
+        VerticalOption(key: 'veiculos', nome: 'Oficina / veículos'),
+      ];
 
   @override
   Future<CnpjCompany> lookupCnpj(String cnpj) async => CnpjCompany(
@@ -115,6 +123,18 @@ class FakeAuthRepository implements AuthRepository {
     required String password,
   }) async =>
       const Tokens(accessToken: 'fake-access', refreshToken: 'fake-refresh');
+
+  @override
+  Future<String> supportSession(String code) async {
+    if (code.isEmpty) {
+      throw const AppException(
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Link de suporte inválido ou expirado.',
+      );
+    }
+    return 'fake-support-access';
+  }
 
   @override
   Future<Tokens> switchTenant(String tenantId) async {
