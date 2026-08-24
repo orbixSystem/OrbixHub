@@ -93,6 +93,7 @@ class SaleItemDraft {
 class SaleDraft {
   const SaleDraft({
     this.customerId,
+    this.customerNote,
     required this.items,
     this.discount,
     this.description,
@@ -100,6 +101,11 @@ class SaleDraft {
   });
 
   final String? customerId;
+
+  /// Apelido/observação livre para venda sem cliente cadastrado (ex.: "Macarrão").
+  /// Ignorado pelo backend quando [customerId] for fornecido.
+  final String? customerNote;
+
   final List<SaleItemDraft> items;
 
   /// Desconto em valor sobre o total. O backend clampa ao bruto.
@@ -116,6 +122,10 @@ class SaleDraft {
 
   Map<String, dynamic> toJson() => {
         if (customerId != null) 'customerId': customerId,
+        if (customerId == null &&
+            customerNote != null &&
+            customerNote!.isNotEmpty)
+          'customerNote': customerNote,
         'items': items.map((i) => i.toJson()).toList(),
         if (discount != null && discount! > 0) 'discount': discount,
         if (description != null && description!.isNotEmpty)

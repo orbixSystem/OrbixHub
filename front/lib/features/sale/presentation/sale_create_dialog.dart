@@ -108,6 +108,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   String? _customerId;
   String? _customerName;
 
+  /// Apelido/observação livre para quando não há cliente cadastrado.
+  final _customerNoteCtrl = TextEditingController();
+
   // pagamento (parte do fluxo único)
   String _method = 'dinheiro';
   bool _emitInvoice = false;
@@ -197,6 +200,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     _descCtrl.dispose();
     _receivedCtrl.dispose();
     _descontoCtrl.dispose();
+    _customerNoteCtrl.dispose();
     super.dispose();
   }
 
@@ -240,6 +244,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// caso em que a dívida cai no balde "sem cliente" e é quase incobrável.
   Future<bool> _confirmarFiado() async {
     final semCliente = _customerId == null;
+    final apelido = _customerNoteCtrl.text.trim();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => NeuDialog(
@@ -265,16 +270,20 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             _LinhaResumo(rotulo: 'Fica a receber', valor: _falta, destaque: true),
             const SizedBox(height: 14),
             Text(
-              semCliente
-                  ? 'Sem cliente identificado, esta dívida vai para "Sem '
-                      'cliente" no Fiado — e fica difícil cobrar. Considere '
-                      'voltar e escolher o cliente.'
-                  : 'A dívida de ${_customerName ?? 'cliente'} aparecerá em '
-                      'Caixa › Fiado, onde você pode receber depois.',
+              !semCliente
+                  ? 'A dívida de ${_customerName ?? 'cliente'} aparecerá em '
+                      'Caixa › Fiado, onde você pode receber depois.'
+                  : apelido.isNotEmpty
+                      ? 'A dívida ficará registrada como "$apelido" no Fiado. '
+                          'Como não é um cliente cadastrado, lembre-se de '
+                          'cobrar manualmente.'
+                      : 'Sem cliente identificado, esta dívida vai para "Sem '
+                          'cliente" no Fiado — e fica difícil cobrar. Considere '
+                          'voltar e escolher o cliente.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.35,
-                color: semCliente
+                color: semCliente && apelido.isEmpty
                     ? Theme.of(ctx).colorScheme.error
                     : Theme.of(ctx).colorScheme.onSurfaceVariant,
               ),
@@ -354,8 +363,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     setState(() => _submitting = true);
     try {
       // 1) cria a venda (baixa de estoque) — backend `sale`.
+      final note = _customerNoteCtrl.text.trim();
       final draft = SaleDraft(
         customerId: _customerId,
+        customerNote: note.isEmpty ? null : note,
         discount: _desconto > 0 ? _desconto : null,
         description: _descCtrl.text.trim(),
         // Nasce declarada: fiado agora é DECISÃO registrada, não algo derivado
@@ -521,6 +532,23 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 ),
               ],
             ),
+            // Campo de apelido/observação — visível apenas quando sem cliente cadastrado.
+            if (_customerId == null) ...[
+              const SizedBox(height: 6),
+              TextField(
+                controller: _customerNoteCtrl,
+                maxLength: 100,
+                decoration: const InputDecoration(
+                  hintText: 'Apelido ou observação (ex.: Macarrão)',
+                  helperText:
+                      'Opcional — identifica a venda sem cadastrar o cliente',
+                  counterText: '',
+                  isDense: true,
+                ),
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
             const Divider(height: 24),
             // busca de produto (SELECT flutuante — não empurra o layout).
             _ProductPicker(onPick: _addFromItem),
