@@ -1,0 +1,49 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'support_models.freezed.dart';
+part 'support_models.g.dart';
+
+/// Uma mensagem da conversa com o suporte da Orbix.
+///
+/// `fromOrbix` distingue os dois lados. Só existem dois, então é booleano e não
+/// um enum de remetente — não admite terceiro estado inválido.
+@freezed
+abstract class SupportMessage with _$SupportMessage {
+  const factory SupportMessage({
+    required String id,
+    required String body,
+    @Default(false) bool fromOrbix,
+    String? authorName,
+    required DateTime createdAt,
+  }) = _SupportMessage;
+
+  factory SupportMessage.fromJson(Map<String, dynamic> json) =>
+      _$SupportMessageFromJson(json);
+}
+
+/// Um chamado aberto pelo cliente. Assunto e status próprios, para que dois
+/// problemas simultâneos não se atropelem numa conversa só.
+@freezed
+abstract class SupportTicket with _$SupportTicket {
+  const SupportTicket._();
+
+  const factory SupportTicket({
+    required String id,
+    required String subject,
+    /// 'aberto' | 'resolvido' | 'reabertura_solicitada'
+    @Default('aberto') String status,
+    required DateTime lastMessageAt,
+    required DateTime createdAt,
+    /// Respostas da Orbix ainda não lidas neste chamado.
+    @Default(0) int naoLidas,
+  }) = _SupportTicket;
+
+  /// Fechado pela Orbix: o cliente não escreve, só pede reabertura.
+  bool get resolvido => status == 'resolvido';
+
+  /// Já pediu para reabrir e aguarda a Orbix.
+  bool get reaberturaPedida => status == 'reabertura_solicitada';
+
+  factory SupportTicket.fromJson(Map<String, dynamic> json) =>
+      _$SupportTicketFromJson(json);
+}

@@ -90,10 +90,26 @@ abstract class PublicTrack with _$PublicTrack {
     @Default(<PublicPhoto>[]) List<PublicPhoto> photos,
     @Default(<PublicEvent>[]) List<PublicEvent> timeline,
     @Default(PublicCompany()) PublicCompany company,
+    /// Vocabulário do nicho, resolvido pelo servidor. A página é pública (sem
+    /// sessão), então não tem como resolver isso sozinha — e é aqui que mais
+    /// importa: quem lê é o cliente final da empresa.
+    @Default(PublicVocab()) PublicVocab vocab,
   }) = _PublicTrack;
 
   factory PublicTrack.fromJson(Map<String, dynamic> json) =>
       _$PublicTrackFromJson(json);
+}
+
+/// Palavras do nicho usadas na página pública.
+@freezed
+abstract class PublicVocab with _$PublicVocab {
+  const factory PublicVocab({
+    @Default('item') String objeto,
+    @Default('itens') String objetoPlural,
+  }) = _PublicVocab;
+
+  factory PublicVocab.fromJson(Map<String, dynamic> json) =>
+      _$PublicVocabFromJson(json);
 }
 
 /// Mensagem do chat público. `sender` ∈ customer|staff (staff = oficina).

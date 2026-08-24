@@ -18,6 +18,8 @@ import {
   StorageProvider,
 } from '../../common/storage/storage.provider';
 import { CustomersService } from '../customers/customers.service';
+import { VocabularyService } from '../../verticals/vocabulary.service';
+import { TenancyService } from '../tenancy/tenancy.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
 import { IamService } from '../iam/iam.service';
@@ -64,16 +66,27 @@ export interface UploadedImage {
   originalname?: string;
 }
 
-/** Rótulos PT-BR dos status (mensagem legível nos eventos de timeline). */
-const STATUS_LABELS: Record<OsStatus, string> = {
+/**
+ * Rótulos de status: PISO, não fonte de verdade.
+ *
+ * O texto real vem do pacote da vertical do tenant (`vocab('os.status.*')`) —
+ * é por isso que a oficina lê "Veículo entregue" e a clínica lê "Serviço
+ * entregue" sem nenhum `if` de nicho aqui. Este mapa só cobre o caso de o
+ * vocabulário não responder por uma chave, para a timeline nunca ficar com o
+ * status cru na tela.
+ */
+const STATUS_LABELS_FALLBACK: Record<OsStatus, string> = {
   aberta: 'OS aberta',
   aguardando_aprovacao: 'Aguardando aprovação',
   aprovada: 'Orçamento aprovado',
   em_execucao: 'Em execução',
   concluida: 'Serviço concluído',
-  entregue: 'Veículo entregue',
+  entregue: 'Serviço entregue',
   cancelada: 'OS cancelada',
 };
+
+/** Chave do status no vocabulário da vertical. */
+export const statusVocabKey = (status: string): string => `os.status.${status}`;
 
 const toNum = (d: Prisma.Decimal | number | null | undefined): number =>
   d == null ? 0 : typeof d === 'number' ? d : d.toNumber();
@@ -136,7 +149,23 @@ export class OsService {
     private readonly cashier: CashierService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly events: EventEmitter2,
+    // Vocabulário do nicho: o rótulo do status muda por vertical. O nicho vem da
+    // Tenancy (dona da tabela `tenant`), o texto vem do pacote.
+    private readonly vocabulary: VocabularyService,
+    private readonly tenancy: TenancyService,
   ) {}
+
+  /**
+   * Rótulo do status na língua do nicho do tenant. Resolvido FORA de qualquer
+   * transação — quem chama já traz o texto pronto para dentro dela.
+   */
+  private async statusLabel(tenantId: string, status: OsStatus): Promise<string> {
+    const vertical = await this.tenancy.getTenantVertical(tenantId);
+    return (
+      this.vocabulary.texto(vertical, statusVocabKey(status)) ??
+      STATUS_LABELS_FALLBACK[status]
+    );
+  }
 
   /**
    * Avisa que a OS mudou (push em tempo real). Chamar SEMPRE fora de transação —
@@ -736,13 +765,16 @@ export class OsService {
     if (to === 'concluida') fields.finished_at = new Date();
     if (to === 'entregue') fields.closed_at = new Date();
 
+    // Resolve o texto ANTES de abrir a transação: dentro dela só entra escrita.
+    const label = isReopen ? 'OS reaberta' : await this.statusLabel(user.tenantId, to);
+
     await this.tenant.withTenantTx(async () => {
       await this.repo.setStatusFields(id, fields);
       // Evento de mudança de status — mesma tx (visível na página pública).
       await this.repo.createEvent(user.tenantId, id, {
         kind: 'status_change',
         statusSnapshot: to,
-        message: isReopen ? 'OS reaberta' : STATUS_LABELS[to],
+        message: label,
         visiblePublic: true,
         createdBy: user.userId,
       });

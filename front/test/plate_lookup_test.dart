@@ -9,9 +9,9 @@ import 'package:orbixhub_front/features/auth/presentation/session_controller.dar
 import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
-import 'package:orbixhub_front/features/customers/presentation/plate_labels.dart';
+import 'package:orbixhub_front/verticals/veiculos/plate_labels.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
-import 'package:orbixhub_front/features/customers/presentation/vehicle_ficha_dialog.dart';
+import 'package:orbixhub_front/verticals/veiculos/vehicle_ficha_dialog.dart';
 
 /// Consulta de placa (API Placas via backend): models, fake e autofill no
 /// formulário de veículo, incluindo o contador de cota e o modo offline.
@@ -32,6 +32,12 @@ class _FakeSession extends SessionController {
       role: 'owner',
       permissions: ['customers.write', 'subject.read', 'subject.write'],
       modules: ['customers'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
     ),
   );
 }
@@ -188,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // O botão de busca existe (o rótulo do identifier é "Placa").
-      final button = find.byTooltip('Buscar dados do veículo pela placa');
+      final button = find.byTooltip('Consultar Placa');
       expect(button, findsOneWidget);
 
       // Placa inválida → aviso, nada preenchido.

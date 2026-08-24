@@ -13,8 +13,8 @@ import {
 } from '../src/common/mailer/mailer.service';
 import { TenantContext } from '../src/common/database/tenant-context';
 import type { TxClient } from '../src/common/database/tenant-context';
-import { FIPE_CLIENT } from '../src/modules/customers/fipe.client';
-import type { FipeClient } from '../src/modules/customers/fipe.client';
+import { FIPE_CLIENT } from '../src/verticals/veiculos/fipe.client';
+import type { FipeClient } from '../src/verticals/veiculos/fipe.client';
 
 class CountingFipe implements FipeClient {
   public brandCalls = 0;

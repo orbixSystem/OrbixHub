@@ -11,6 +11,7 @@ import { PasswordService } from '../../common/crypto/password.service';
 import { AccessTokenService } from '../../common/auth/jwt.service';
 import { MailerService } from '../../common/mailer/mailer.service';
 import { BillingService } from '../billing/billing.service';
+import { VerticalRegistry } from '../../verticals/vertical.registry';
 import { AuditService } from '../../common/audit/audit.service';
 import { generateOpaqueToken, hashToken } from '../../common/crypto/tokens';
 import { normalizeEmail } from './email';
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly accessTokens: AccessTokenService,
     private readonly mailer: MailerService,
     private readonly billing: BillingService,
+    private readonly verticais: VerticalRegistry,
     private readonly audit: AuditService,
   ) {}
 
@@ -80,6 +82,13 @@ export class AuthService {
         fullName: dto.fullName,
         emailNormalized: email,
         passwordHash,
+        // Nicho validado contra o catálogo em código: chave inventada pelo
+        // cliente vira null (pacote padrão) em vez de sujar a coluna. O front
+        // lista as opções por GET /verticals, então isto é rede de proteção.
+        vertical:
+          dto.vertical && this.verticais.existe(dto.vertical)
+            ? dto.vertical
+            : null,
         createTrial: (tenantId) => this.billing.createTrial(tenantId),
       });
     } catch (e) {

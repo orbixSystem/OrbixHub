@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/ui/ui.dart';
@@ -48,13 +49,13 @@ class _OsReportBody extends ConsumerWidget {
   }
 }
 
-class _OsReport extends StatelessWidget {
+class _OsReport extends ConsumerWidget {
   const _OsReport({required this.order});
 
   final ServiceOrder order;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final diagnosis = order.diagnosis?.trim();
     final scheduled = _scheduledLabel(order);
@@ -103,11 +104,17 @@ class _OsReport extends StatelessWidget {
         ],
         const SizedBox(height: 20),
 
-        // Blocos: cliente / veículo / responsável.
+        // Blocos: cliente / objeto / responsável. O rótulo e o ícone do objeto
+        // vêm do nicho — um carro desenhado no relatório de uma clínica é tão
+        // errado quanto a palavra "Veículo".
         _FactsWrap(
           facts: [
             (Icons.person_outline, 'Cliente', order.customerName),
-            (Icons.directions_car_outlined, 'Veículo', order.subjectLabel),
+            (
+              ref.watch(objetoIconProvider),
+              ref.watch(vocabProvider)['objeto.singular'] ?? 'Objeto',
+              order.subjectLabel,
+            ),
             (Icons.engineering_outlined, 'Responsável', order.assignedTo),
           ],
         ),

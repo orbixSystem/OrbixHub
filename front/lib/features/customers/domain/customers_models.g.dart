@@ -57,8 +57,8 @@ Map<String, dynamic> _$SubjectToJson(_Subject instance) => <String, dynamic>{
 
 _SubjectLabel _$SubjectLabelFromJson(Map<String, dynamic> json) =>
     _SubjectLabel(
-      singular: json['singular'] as String? ?? 'Veículo',
-      plural: json['plural'] as String? ?? 'Veículos',
+      singular: json['singular'] as String? ?? 'Objeto',
+      plural: json['plural'] as String? ?? 'Objetos',
     );
 
 Map<String, dynamic> _$SubjectLabelToJson(_SubjectLabel instance) =>

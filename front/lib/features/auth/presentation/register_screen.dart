@@ -119,6 +119,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  /// Nicho escolhido. null enquanto a lista não chegou; ao chegar, assume o
+  /// pacote padrão que o servidor marcou — o dono só mexe se quiser outro.
+  String? _vertical;
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -134,6 +138,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             fullName: _fullName.text.trim(),
             email: _email.text.trim(),
             password: _password.text,
+            vertical: _vertical,
           );
       if (mounted) context.go('/');
     } on AppException catch (e) {
@@ -317,6 +322,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               autofillHints: const [AutofillHints.newPassword],
               validator: (v) => v != _password.text ? 'As senhas não coincidem' : null,
             ),
+            VerticalPicker(
+              selecionado: _vertical,
+              onChanged: (v) => setState(() => _vertical = v),
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _loading ? null : _submit,
@@ -337,5 +346,106 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Provider da lista de nichos (rota pública `/verticals`).
+///
+/// A lista NÃO é escrita no Flutter: vem do catálogo do servidor, como planos e
+/// módulos. Um nicho novo aparece aqui sozinho, sem release do app.
+final verticalOptionsProvider = FutureProvider<List<VerticalOption>>((ref) {
+  return ref.read(authRepositoryProvider).listVerticals();
+});
+
+/// Seletor do ramo da empresa no cadastro.
+///
+/// Falha graciosa por design: se a rota não responder, o seletor some e o
+/// cadastro segue sem escolha — o servidor aplica o pacote padrão. Bloquear a
+/// criação de conta por causa de um rótulo seria desproporcional.
+class VerticalPicker extends ConsumerWidget {
+  const VerticalPicker({
+    super.key,
+    required this.selecionado,
+    required this.onChanged,
+  });
+
+  final String? selecionado;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final async = ref.watch(verticalOptionsProvider);
+
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (opcoes) {
+        if (opcoes.length < 2) return const SizedBox.shrink();
+
+        // Assume o padrão do servidor na primeira renderização.
+        final atual = selecionado ??
+            opcoes.firstWhere(
+              (o) => o.isDefault,
+              orElse: () => opcoes.first,
+            ).key;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 16),
+            Text('Ramo da empresa', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Define os termos que o sistema usa — e dá para mudar depois.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.hintColor),
+            ),
+            const SizedBox(height: 10),
+            for (final o in opcoes) ...[
+              // ListTile selecionável em vez de RadioListTile: a API de grupo do
+              // Radio está depreciada nesta versão do Flutter, e o projeto exige
+              // `flutter analyze` sem nenhum issue.
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 0,
+                color: o.key == atual
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surfaceContainerHighest,
+                child: ListTile(
+                  key: Key('vertical-${o.key}'),
+                  selected: o.key == atual,
+                  onTap: () => onChanged(o.key),
+                  title: Text(o.nome),
+                  subtitle: Text(_descricao(o.key)),
+                  trailing: Icon(
+                    o.key == atual
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    color: o.key == atual
+                        ? theme.colorScheme.primary
+                        : theme.hintColor,
+                  ),
+                  dense: true,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// Explicação curta do que muda ao escolher. Texto de APOIO — o que vale é o
+  /// `nome` que veio do servidor; isto só ajuda quem está decidindo.
+  static String _descricao(String key) {
+    switch (key) {
+      case 'veiculos':
+        return 'Fala em veículo e placa, com consulta da placa e marca/modelo.';
+      case 'equipamentos':
+        return 'Termos neutros, para serviços e equipamentos em geral.';
+      default:
+        return 'Ajusta os termos do sistema para este ramo.';
+    }
   }
 }

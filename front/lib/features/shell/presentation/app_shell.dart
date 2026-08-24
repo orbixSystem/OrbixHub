@@ -45,9 +45,16 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// Abre o tutorial da rota, se houver e se o usuário nunca o viu.
   void _talvezTutorial(String location) {
-    final tut = tutorialForRoute(location);
-    if (tut == null || _tutorialDisparado == tut.id) return;
-    _tutorialDisparado = tut.id;
+    final bruto = tutorialForRoute(location);
+    if (bruto == null || _tutorialDisparado == bruto.id) return;
+    _tutorialDisparado = bruto.id;
+    // O texto do tutorial fala do objeto atendido; a palavra vem do nicho.
+    final me = ref.read(sessionControllerProvider).meOrNull;
+    final tut = aplicarVocabulario(
+      bruto,
+      objeto: me?.objeto ?? 'objeto',
+      objetos: me?.objetos ?? 'objetos',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       CoachMark.maybeStart(context, id: tut.id, steps: tut.steps);
@@ -169,7 +176,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                       Column(
                         children: [
                           _ContentHeader(
-                            title: items[selected].label,
+                            title:
+                                _tituloForaDoMenu(location) ??
+                                items[selected].label,
                             showMenu: !isDesktop && !isMobile,
                           ),
                           // Banner de transição de conectividade (offline/syncing/
@@ -178,6 +187,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                           // Antes ficava acima do header e corria sob os ícones de
                           // bateria/rede. O header/FAB seguem no topo do Stack, então
                           // a matemática do notch não muda.
+                          // Sessão de suporte da Orbix: faixa fixa e impossível
+                          // de fechar. Quem está dentro do ambiente de OUTRA
+                          // empresa precisa ver isso o tempo todo — descobrir
+                          // depois de apagar algo é tarde.
+                          const _FaixaDeSuporte(),
                           const ConnectionBanner(),
                           // Versão nova disponível (adiável). A obrigatória não
                           // chega aqui — ela substitui a casca inteira.
@@ -217,6 +231,16 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
+/// Título de telas que existem sem item de menu (Suporte, Planos).
+///
+/// Sem isto o header cai no item selecionado da sidebar — que, numa rota fora
+/// do menu, é o "Início". A tela abria com o nome errado em cima.
+String? _tituloForaDoMenu(String location) {
+  if (location.startsWith('/suporte')) return 'Suporte';
+  if (location.startsWith('/billing')) return 'Planos';
+  return null;
+}
+
 class _ContentHeader extends StatelessWidget {
   const _ContentHeader({required this.title, required this.showMenu});
 
@@ -251,8 +275,8 @@ class _ContentHeader extends StatelessWidget {
                   left: showMenu
                       ? 8
                       : context.isMobile
-                          ? 54
-                          : 28,
+                      ? 54
+                      : 28,
                   right: 20,
                   bottom: 16,
                 ),
@@ -755,4 +779,54 @@ class QuickAction {
   final IconData icon;
   final int glyph;
   final String label;
+}
+
+/// Faixa fixa enquanto a sessão veio de um link de suporte da Orbix.
+class _FaixaDeSuporte extends ConsumerWidget {
+  const _FaixaDeSuporte();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(modoSuporteProvider)) return const SizedBox.shrink();
+
+    final empresa = ref
+        .watch(sessionControllerProvider)
+        .meOrNull
+        ?.activeTenant
+        ?.name;
+
+    return Material(
+      color: const Color(0xFFF26A1B),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.support_agent, size: 18, color: Color(0xFF16181C)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                empresa == null
+                    ? 'Sessão de suporte Orbix — você está no ambiente de um cliente.'
+                    : 'Sessão de suporte Orbix — ambiente de $empresa.',
+                style: const TextStyle(
+                  color: Color(0xFF16181C),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.read(sessionControllerProvider.notifier).logout(),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF16181C),
+                minimumSize: const Size(64, 32),
+              ),
+              child: const Text('Sair'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

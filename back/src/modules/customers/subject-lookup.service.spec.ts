@@ -1,49 +1,17 @@
 import { NotFoundException } from '@nestjs/common';
 import { SubjectLookupService } from './subject-lookup.service';
-import type {
-  FipeClient,
-  FipeBrand,
-  FipeModel,
-  FipeYear,
-} from './fipe.client';
+import { SubjectLookupRegistry, type LookupSource } from './subject-lookup.registry';
 
-class FakeFipe implements FipeClient {
-  public brandCalls = 0;
-  constructor(
-    private readonly _brands: FipeBrand[] = [
-      { code: '22', name: 'Ford' },
-      { code: '23', name: 'Fiat' },
-    ],
-    private readonly _models: FipeModel[] = [
-      { code: '1', name: 'Ka' },
-      { code: '2', name: 'Fiesta' },
-    ],
-    private readonly _years: FipeYear[] = [
-      { code: '32000-1', name: '32000 Gasolina' },
-      { code: '2024-1', name: '2024 Gasolina' },
-      { code: '2024-2', name: '2024 Diesel' },
-      { code: '2023-1', name: '2023 Gasolina' },
-    ],
-  ) {}
-  async brands() {
-    this.brandCalls++;
-    return this._brands;
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async models(_brandCode: string) {
-    return this._models;
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async years(_brandCode: string, _modelCode: string) {
-    return this._years;
-  }
-}
+/**
+ * Testa o que é GENÉRICO: cache, filtro, cascata e degradação. O mapeamento da
+ * FIPE (marca/modelo/ano, "32000" → "0 km") saiu daqui junto com o código e é
+ * testado em `verticals/veiculos/fipe-sources.spec.ts`. Este service não sabe
+ * mais o que é FIPE — a fonte chega registrada.
+ */
 
 /** Redis mínimo em memória (get/set com EX ignorado). */
 function fakeRedis() {
   const store = new Map<string, string>();
-  // Cast to unknown then to the injected type so the fake satisfies DI without
-  // pulling the full ioredis Redis type into the spec.
   return {
     store,
     get: async (k: string) => store.get(k) ?? null,
@@ -54,71 +22,101 @@ function fakeRedis() {
   } as unknown as import('ioredis').Redis;
 }
 
+function makeSvc(sources: LookupSource[]) {
+  const registry = new SubjectLookupRegistry();
+  for (const s of sources) registry.registrar(s);
+  return new SubjectLookupService(fakeRedis(), registry);
+}
+
+const contador = { n: 0 };
+const fonteSimples = (): LookupSource => ({
+  key: 'teste.itens',
+  buscar: async () => {
+    contador.n++;
+    return [
+      { value: 'Ford', label: 'Ford' },
+      { value: 'Fiat', label: 'Fiat' },
+    ];
+  },
+});
+
+beforeEach(() => {
+  contador.n = 0;
+});
+
 describe('SubjectLookupService', () => {
-  it('rejects an unknown source', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    await expect(svc.lookup('fipe.cor', {})).rejects.toBeInstanceOf(
+  it('recusa fonte não registrada', async () => {
+    const svc = makeSvc([]);
+    await expect(svc.lookup('nao.existe', {})).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
-  it('maps marcas with the FIPE code and a logo url in meta', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    const out = await svc.lookup('fipe.marcas', {});
-    const ford = out.find((o) => o.value === 'Ford');
-    expect(ford?.meta?.codigo).toBe('22');
-    expect(ford?.meta?.logoUrl).toContain('/ford.png');
+  it('devolve as opções da fonte registrada', async () => {
+    const svc = makeSvc([fonteSimples()]);
+    expect((await svc.lookup('teste.itens', {})).map((o) => o.value)).toEqual([
+      'Ford',
+      'Fiat',
+    ]);
   });
 
-  it('maps modelos with the FIPE code in meta (feeds the anos cascade)', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    const out = await svc.lookup('fipe.modelos', { marca: '22' });
-    expect(out.find((o) => o.value === 'Ka')?.meta?.codigo).toBe('1');
-  });
-
-  it('returns [] for anos without marca+modelo', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    expect(await svc.lookup('fipe.anos', { marca: '22' })).toEqual([]);
-  });
-
-  it('anos: só o ano, deduplicado entre combustíveis; 32000 vira "0 km"', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    const out = await svc.lookup('fipe.anos', { marca: '22', modelo: '1' });
-    expect(out.map((o) => o.value)).toEqual(['0 km', '2024', '2023']);
-  });
-
-  it('filters by q (case-insensitive contains)', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    const out = await svc.lookup('fipe.marcas', { q: 'fia' });
+  it('filtra por q (contains, sem diferenciar maiúscula)', async () => {
+    const svc = makeSvc([fonteSimples()]);
+    const out = await svc.lookup('teste.itens', { q: 'fia' });
     expect(out.map((o) => o.value)).toEqual(['Fiat']);
   });
 
-  it('returns [] for modelos without a marca code', async () => {
-    const svc = new SubjectLookupService(fakeRedis(), new FakeFipe());
-    expect(await svc.lookup('fipe.modelos', {})).toEqual([]);
+  it('a segunda chamada vem do cache (não bate na fonte de novo)', async () => {
+    const svc = makeSvc([fonteSimples()]);
+    await svc.lookup('teste.itens', {});
+    await svc.lookup('teste.itens', { q: 'for' });
+    expect(contador.n).toBe(1);
   });
 
-  it('serves the second call from cache (no second FIPE hit)', async () => {
-    const fipe = new FakeFipe();
-    const svc = new SubjectLookupService(fakeRedis(), fipe);
-    await svc.lookup('fipe.marcas', {});
-    await svc.lookup('fipe.marcas', { q: 'for' });
-    expect(fipe.brandCalls).toBe(1);
-  });
-
-  it('degrades to [] when the FIPE client throws', async () => {
-    const broken: FipeClient = {
-      brands: async () => {
-        throw new Error('boom');
-      },
-      models: async () => {
-        throw new Error('boom');
-      },
-      years: async () => {
-        throw new Error('boom');
+  describe('cascata declarada pela fonte', () => {
+    const comMarca: LookupSource = {
+      key: 'teste.modelos',
+      requer: ['marca'],
+      buscar: async () => {
+        contador.n++;
+        return [{ value: 'Ka', label: 'Ka' }];
       },
     };
-    const svc = new SubjectLookupService(fakeRedis(), broken);
-    expect(await svc.lookup('fipe.marcas', {})).toEqual([]);
+    const comMarcaEModelo: LookupSource = {
+      key: 'teste.anos',
+      requer: ['marca', 'modelo'],
+      buscar: async () => [{ value: '2024', label: '2024' }],
+    };
+
+    it('sem o ancestral, devolve [] sem nem chamar a fonte', async () => {
+      const svc = makeSvc([comMarca]);
+      expect(await svc.lookup('teste.modelos', {})).toEqual([]);
+      expect(contador.n).toBe(0); // não gasta chamada externa para descobrir
+    });
+
+    it('com o ancestral, busca normalmente', async () => {
+      const svc = makeSvc([comMarca]);
+      expect(await svc.lookup('teste.modelos', { marca: '22' })).toHaveLength(1);
+    });
+
+    it('exige TODOS os ancestrais declarados', async () => {
+      const svc = makeSvc([comMarcaEModelo]);
+      expect(await svc.lookup('teste.anos', { marca: '22' })).toEqual([]);
+      expect(
+        await svc.lookup('teste.anos', { marca: '22', modelo: '1' }),
+      ).toHaveLength(1);
+    });
+  });
+
+  it('degrada para [] quando a fonte lança — o campo segue como texto livre', async () => {
+    const svc = makeSvc([
+      {
+        key: 'teste.quebrada',
+        buscar: async () => {
+          throw new Error('boom');
+        },
+      },
+    ]);
+    expect(await svc.lookup('teste.quebrada', {})).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/vertical/vertical_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pdf/pdf.dart';
@@ -384,6 +385,7 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         widget.order,
         PdfPageFormat.a4,
         company: company,
+        objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',
       );
       final numero =
           widget.order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');

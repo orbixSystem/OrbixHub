@@ -41,6 +41,12 @@ class _Dono extends SessionController {
             'sale.write',
           ],
           modules: ['cashier', 'sale'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
         ),
       );
 }

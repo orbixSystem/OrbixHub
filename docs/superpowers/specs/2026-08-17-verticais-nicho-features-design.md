@@ -338,3 +338,29 @@ oficina.*
   faria o módulo genérico conhecer nichos. Quem declara é a vertical.
 - **Preset expandido no cadastro (copiar valores)** — descartado: é exatamente o
   mecanismo que causou o bug do snapshot congelado.
+
+## 12. Ajustes descobertos na implementação (17–20/08)
+
+Coisas que o desenho não previa e que só apareceram ao construir:
+
+- **Guard de capacidade (`@RequiresFeature` + `FeatureAccessGuard`).** A spec
+  tratava features como gate de UI. Ao testar, um tenant de nicho genérico ainda
+  alcançava `GET /customers/plates/*` chamando a API direto: o app escondia o
+  botão, o servidor não barrava. Entrou um guard que roda a mesma resolução do
+  `/me` e devolve 403 — esconder ≠ proteger.
+- **`SubjectLookupService` precisa ser exportado**, não só o registry: o
+  `PlateFipeMatcher`, que vive na vertical, consulta o autocomplete genérico
+  para casar placa↔FIPE. Sem o export a aplicação não sobe.
+- **A vertical importa `TenancyModule`.** O guard resolve o nicho pela Tenancy, e
+  ele é instanciado no contexto do módulo que declara o controller.
+- **Heurística removida do front.** O botão de consulta aparecia quando o rótulo
+  do campo continha a palavra "placa" (`rotulo.toLowerCase().contains('placa')`).
+  Renomear o campo mudava comportamento e nenhum nicho novo conseguia habilitar a
+  capacidade. Agora é `me.features`.
+- **Tooltip por concordância.** "Buscar dados pelo/pela ${rótulo}" não funciona
+  para os dois gêneros; virou "Consultar ${rótulo}" — serve "Placa" e
+  "Número de série".
+- **Fakes de teste passam a declarar a config do nicho.** Vários testes
+  dependiam de o DEFAULT do app ser "Veículo". Com a base genérica, eles passam a
+  declarar a config de oficina — e assim provam o que interessa: o vocabulário é
+  que escreve a tela.

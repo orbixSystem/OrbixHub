@@ -34,6 +34,18 @@ class OfflineNotice extends Notifier<String?> {
   void clear() => state = null;
 }
 
+/// Marca que a sessão atual veio de um LINK DE SUPORTE da Orbix, e não de um
+/// login do cliente. O shell mostra uma faixa fixa enquanto isto for `true` —
+/// quem está mexendo no ambiente de outra empresa precisa ver isso o tempo
+/// todo, não descobrir depois de apagar algo.
+class ModoSuporte extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void ligar() => state = true;
+  void desligar() => state = false;
+}
+
 /// Owns the session lifecycle. After login / register / refresh / switch-tenant
 /// it fetches `/me` and publishes [SessionAuthenticated]. The access token lives
 /// in memory ([AccessTokenStore]); the refresh token in secure storage.
@@ -392,6 +404,7 @@ class SessionController extends Notifier<SessionState> {
     required String fullName,
     required String email,
     required String password,
+    String? vertical,
   }) async {
     final res = await _auth.register(
       tenantName: tenantName,
@@ -402,6 +415,7 @@ class SessionController extends Notifier<SessionState> {
       fullName: fullName,
       email: email,
       password: password,
+      vertical: vertical,
     );
     // Criação de conta: mantém conectado (persiste).
     await _applyTokens(res.accessToken, res.refreshToken, remember: true);
@@ -426,6 +440,19 @@ class SessionController extends Notifier<SessionState> {
 
   /// Switches active workshop and reloads `/me` (new role/modules). Preserva a
   /// preferência de "manter conectado" da sessão atual.
+  /// Entra no ambiente do cliente pelo link de suporte da Orbix.
+  ///
+  /// O token fica SÓ na memória: `remember: false` e refresh vazio garantem que
+  /// nada é gravado no secure storage. Quando o access token expira (15 min), o
+  /// interceptor tenta renovar, não consegue, e a sessão cai — que é o
+  /// comportamento desejado para um acesso de suporte.
+  Future<void> entrarPorSuporte(String code) async {
+    final accessToken = await _auth.supportSession(code);
+    await _applyTokens(accessToken, '', remember: false);
+    await _loadMe();
+    ref.read(modoSuporteProvider.notifier).ligar();
+  }
+
   Future<void> switchTenant(String tenantId) async {
     final previousTenantId = state.meOrNull?.activeTenant?.id;
     // B7 — para o SyncEngine do tenant anterior (aguardando a rodada em voo),
@@ -459,6 +486,7 @@ class SessionController extends Notifier<SessionState> {
   }
 
   Future<void> logout() async {
+    ref.read(modoSuporteProvider.notifier).desligar();
     // Refresh vem da memória (a sessão pode não estar persistida no secure).
     final refreshToken = _refresh.token ?? await _secure.readRefreshToken();
     if (refreshToken != null) {

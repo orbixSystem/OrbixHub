@@ -17,6 +17,12 @@ const _me = Me(
   role: 'owner',
   permissions: ['users.manage'],
   modules: ['os'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
   memberships: [Membership(tenantId: 't1', tenantSlug: 's1', role: 'owner')],
 );
 

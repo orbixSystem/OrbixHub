@@ -10,6 +10,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { CnpjLookupService } from './cnpj-lookup.service';
+import { SupportSessionService } from './support-session.service';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
 import { Public, CurrentUser } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
@@ -23,6 +24,7 @@ import {
   ResetPasswordDto,
   SwitchTenantDto,
   CnpjLookupDto,
+  SupportSessionDto,
 } from './dto/auth.dto';
 
 // Strict 5/min per IP+account. Targets the named `auth` throttler so only the
@@ -34,7 +36,22 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly cnpjLookup: CnpjLookupService,
+    private readonly suporte: SupportSessionService,
   ) {}
+
+  /**
+   * Troca o código do link de suporte por uma sessão. Público porque quem
+   * chega aqui ainda não tem sessão nenhuma — o que autentica é o próprio
+   * código, de uso único e 5 minutos de vida. Throttled como o resto do /auth.
+   */
+  @Public()
+  @Post('support-session')
+  @HttpCode(200)
+  @UseGuards(AuthThrottlerGuard)
+  @Throttle(STRICT)
+  consumirSessaoDeSuporte(@Body() dto: SupportSessionDto) {
+    return this.suporte.consumir(dto.code);
+  }
 
   @Public()
   @Post('register')

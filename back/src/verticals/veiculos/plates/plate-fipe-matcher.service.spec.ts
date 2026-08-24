@@ -1,4 +1,4 @@
-import type { LookupOption, SubjectLookupService } from '../subject-lookup.service';
+import type { LookupOption, SubjectLookupService } from '../../../modules/customers/subject-lookup.service';
 import { bestMatch, PlateFipeMatcher } from './plate-fipe-matcher.service';
 import type { PlateHit } from './plate.provider';
 

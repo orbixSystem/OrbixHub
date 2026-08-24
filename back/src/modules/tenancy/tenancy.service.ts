@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TenancyRepository } from './tenancy.repository';
 import { AuthRepository } from '../auth/auth.repository';
 import { BillingService } from '../billing/billing.service';
+import { VocabularyService } from '../../verticals/vocabulary.service';
+import { FeatureService } from '../../verticals/feature.service';
 import type { AuthUser } from '../../common/auth/auth.types';
 
 @Injectable()
@@ -10,6 +12,8 @@ export class TenancyService {
     private readonly repo: TenancyRepository,
     private readonly authRepo: AuthRepository,
     private readonly billing: BillingService,
+    private readonly vocabulary: VocabularyService,
+    private readonly features: FeatureService,
   ) {}
 
   async me(user: AuthUser) {
@@ -25,6 +29,18 @@ export class TenancyService {
     const permissions = await this.repo.permissionsForRole(user.role);
     const modules = await this.billing.getEnabledModules(user.tenantId);
     const memberships = await this.authRepo.findUserMemberships(user.userId);
+
+    // Nicho e capacidades. A Tenancy é dona da tabela `tenant`, então o
+    // `vertical` e os overrides saem daqui e são PASSADOS para o módulo de
+    // verticais — ele não lê tabela alheia e a dependência não vira ciclo.
+    // `vocab` dirige os textos da UI; `features` gateia o que ela mostra, do
+    // mesmo jeito que `modules` já faz — nada hardcoded no front.
+    const vertical = tenant?.vertical ?? null;
+    const vocabOverrides = (tenant?.settings as Record<string, unknown> | null)
+      ?.vocabOverrides as Record<string, unknown> | undefined;
+    const vocab = this.vocabulary.vocab(vertical, vocabOverrides);
+    const features = await this.features.ligadas(user.tenantId, vertical, modules);
+
     return {
       user: {
         id: u?.id,
@@ -45,12 +61,27 @@ export class TenancyService {
       role: user.role,
       permissions,
       modules,
+      vertical,
+      vocab,
+      features,
       memberships: memberships.map((m) => ({
         tenantId: m.tenant_id,
         tenantSlug: m.tenant_slug,
         role: m.role_key,
       })),
     };
+  }
+
+  /**
+   * Nicho do tenant (coluna `tenant.vertical`), ou null.
+   *
+   * A Tenancy é dona da tabela `tenant`, então quem precisa do nicho para
+   * resolver vocabulário — `customers`, e na Fase 2 o `os` — pede por aqui em
+   * vez de ler a coluna. "Aponta, não invade".
+   */
+  async getTenantVertical(tenantId: string): Promise<string | null> {
+    const t = await this.repo.getTenant(tenantId);
+    return t?.vertical ?? null;
   }
 
   /**

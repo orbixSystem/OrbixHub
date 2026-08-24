@@ -25,10 +25,12 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/reset_screen.dart';
 import '../../features/auth/presentation/session_state.dart';
+import '../../features/auth/presentation/support_session_screen.dart';
 import '../../features/auth/presentation/tenant_picker_screen.dart';
 import '../../features/auth/presentation/verify_screen.dart';
 import '../../features/billing/presentation/plans_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/support/presentation/support_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/dashboard_screen.dart';
 import '../../features/shell/presentation/module_placeholder_screen.dart';
@@ -60,6 +62,10 @@ bool _isPublic(String location) =>
 bool _isPublicContent(String location) =>
     location.startsWith('/t/') ||
     location.startsWith('/convite/') ||
+    // Link de suporte da Orbix: precisa passar SEM sessão (é ele que cria uma)
+    // e sem parar no splash, senão o redirect manda para /login antes de a
+    // tela conseguir trocar o código.
+    location.startsWith('/suporte-orbix') ||
     // Vitrine do design system — só existe em dev (kDevTools).
     (kDevTools && location == '/dev/ui');
 
@@ -178,6 +184,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/suporte-orbix',
+        pageBuilder: (_, s) => neuPage(
+          s,
+          SupportSessionScreen(code: s.uri.queryParameters['code'] ?? ''),
+        ),
+      ),
+      GoRoute(
         path: '/convite/:token',
         pageBuilder: (_, s) => neuPage(
           s,
@@ -215,6 +228,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/configuracoes',
             pageBuilder: (_, s) => neuPage(s, const SettingsScreen()),
           ),
+          // Suporte da Orbix — tela própria, alcançada pelo fone da barra
+          // superior. Saiu de dentro de Configurações: pedir ajuda não é
+          // ajustar preferência.
+          GoRoute(
+            path: '/suporte',
+            pageBuilder: (_, s) => neuPage(s, const SupportScreen()),
+          ),
           // Mensagens — genérico (não é módulo de tenant), fora de /m/. Gated
           // só por autenticação (já está dentro da shell autenticada).
           // Agenda — gated por os.read (verificação na nav_items + backend).
@@ -234,9 +254,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/mensagens/:id',
             pageBuilder: (_, s) => neuPage(
               s,
-              MessageThreadScreen(
-                conversationId: s.pathParameters['id'] ?? '',
-              ),
+              MessageThreadScreen(conversationId: s.pathParameters['id'] ?? ''),
             ),
           ),
           // Customers module — literal routes declared before the generic

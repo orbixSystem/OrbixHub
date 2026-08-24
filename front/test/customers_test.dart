@@ -9,7 +9,7 @@ import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/customers/data/fake_customers_repository.dart';
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
-import 'package:orbixhub_front/features/customers/presentation/brand_logo.dart';
+import 'package:orbixhub_front/verticals/veiculos/brand_logo.dart';
 import 'package:orbixhub_front/features/customers/presentation/customer_detail_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/customers_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
@@ -22,6 +22,12 @@ const _me = Me(
   role: 'owner',
   permissions: ['customer.read', 'customer.write', 'subject.read', 'subject.write'],
   modules: ['customers'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
   memberships: [Membership(tenantId: 't1', tenantSlug: 's1', role: 'owner')],
 );
 
@@ -159,6 +165,13 @@ void main() {
     addTearDown(tester.view.reset);
 
     final repo = FakeCustomersRepository(
+      // Config de OFICINA explícita. Antes o teste dependia do default do app
+      // ser "Veículo" — o que deixou de ser verdade quando a casca de vertical
+      // saiu do módulo genérico. Passando a config, o teste passa a provar o que
+      // interessa de fato: o VOCABULÁRIO é que manda no rótulo da tela.
+      config: const CustomersConfig(
+        subjectLabel: SubjectLabel(singular: 'Veículo', plural: 'Veículos'),
+      ),
       customers: const [Customer(id: 'c1', name: 'João Silva', phone: '119')],
       subjects: const [
         Subject(id: 's1', customerId: 'c1', identifier: 'ABC1D23'),
@@ -184,7 +197,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('João Silva'), findsOneWidget);
-    // default config plural label
+    // Rótulo plural vindo da config acima.
     expect(find.text('Veículos'), findsOneWidget);
     expect(find.text('ABC1D23'), findsWidgets);
   });

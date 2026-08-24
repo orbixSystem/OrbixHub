@@ -13,7 +13,7 @@ import 'package:orbixhub_front/features/customers/data/fake_customers_repository
 import 'package:orbixhub_front/features/customers/domain/customers_models.dart';
 import 'package:orbixhub_front/features/customers/presentation/customer_detail_screen.dart';
 import 'package:orbixhub_front/features/customers/presentation/subject_form_dialog.dart';
-import 'package:orbixhub_front/features/customers/presentation/vehicle_ficha_pdf.dart';
+import 'package:orbixhub_front/verticals/veiculos/vehicle_ficha_pdf.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -32,6 +32,12 @@ class _FakeSession extends SessionController {
       role: 'owner',
       permissions: ['subject.read', 'subject.write'],
       modules: ['customers'],
+      features: [
+        'customers.identifierLookup',
+        'customers.atributosCascata',
+        'customers.fichaTecnica',
+        'os.trackingLink',
+      ],
     ),
   );
 }

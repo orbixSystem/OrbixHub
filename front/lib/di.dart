@@ -27,6 +27,9 @@ import 'core/theme/theme_controller.dart';
 import 'features/auth/data/auth_repository_impl.dart';
 import 'features/auth/domain/auth_repository.dart';
 import 'features/auth/presentation/session_controller.dart';
+import 'features/support/data/support_repository_impl.dart';
+import 'features/support/domain/support_repository.dart';
+import 'features/support/domain/support_models.dart';
 import 'features/auth/presentation/session_state.dart';
 import 'features/billing/data/billing_repository_impl.dart';
 import 'features/billing/domain/billing_repository.dart';
@@ -358,6 +361,11 @@ final sessionControllerProvider =
 final offlineNoticeProvider =
     NotifierProvider<OfflineNotice, String?>(OfflineNotice.new);
 
+/// `true` enquanto a sessão veio de um link de suporte da Orbix. O shell
+/// mostra uma faixa fixa avisando — ver [ModoSuporte].
+final modoSuporteProvider =
+    NotifierProvider<ModoSuporte, bool>(ModoSuporte.new);
+
 /// S4 — hasher argon2id (64 MB / 3 iterações) do login offline.
 final passwordHasherProvider =
     Provider<PasswordHasher>((ref) => const PasswordHasher());
@@ -482,3 +490,26 @@ final invoiceConfigControllerProvider =
     AsyncNotifierProvider<InvoiceConfigController, InvoiceFiscalConfig>(
   InvoiceConfigController.new,
 );
+
+/// Suporte: chamados do ambiente com a Orbix.
+final supportRepositoryProvider = Provider<SupportRepository>((ref) {
+  return SupportRepositoryImpl(ref.watch(dioProvider));
+});
+
+/// Lista de chamados, o de movimento mais recente primeiro.
+final supportTicketsProvider = FutureProvider<List<SupportTicket>>((ref) {
+  return ref.watch(supportRepositoryProvider).tickets();
+});
+
+/// Mensagens de um chamado. Buscar JÁ marca as respostas da Orbix como lidas no
+/// servidor — abrir o chamado é a leitura, e exigir um clique a mais faria o
+/// ponto de não lida mentir.
+final supportThreadProvider =
+    FutureProvider.family<List<SupportMessage>, String>((ref, ticketId) {
+  return ref.watch(supportRepositoryProvider).mensagens(ticketId);
+});
+
+/// Respostas não lidas somando os chamados — alimenta o ponto discreto.
+final supportUnreadProvider = FutureProvider<int>((ref) {
+  return ref.watch(supportRepositoryProvider).unread();
+});

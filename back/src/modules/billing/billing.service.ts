@@ -26,6 +26,13 @@ export interface ModuleAccessView {
   /** Módulo de núcleo: ignora o flag `enabled` (mas respeita o status). */
   isCore: boolean;
 }
+/** A mesma assinatura, com o que o painel administrativo precisa mostrar. */
+export interface AssinaturaDetalhada extends SubscriptionView {
+  planName: string;
+  planPriceCents: number;
+  billingPeriod: string;
+}
+
 export interface SubscriptionView {
   planKey: string;
   status: string;
@@ -94,6 +101,29 @@ export class BillingService {
     });
   }
 
+  /**
+   * Assinatura de UM tenant, por id — para o painel da Orbix, que não tem
+   * contexto de request de tenant. Traz o plano junto porque a pergunta do
+   * atendente é sempre "qual plano, quanto custa e até quando está pago".
+   */
+  async assinaturaDoTenant(tenantId: string): Promise<AssinaturaDetalhada | null> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const sub = await this.repo.getSubscription();
+      if (!sub) return null;
+      return {
+        planKey: sub.plan.key,
+        planName: sub.plan.name,
+        planPriceCents: sub.plan.price_cents,
+        billingPeriod: sub.plan.billing_period,
+        status: sub.status,
+        trialEndsAt: sub.trial_ends_at,
+        currentPeriodStart: sub.current_period_start,
+        currentPeriodEnd: sub.current_period_end,
+        canceledAt: sub.canceled_at,
+      };
+    });
+  }
+
   /** Enabled module keys for a server-resolved tenant. Used by /me and the guard path. */
   async getEnabledModules(tenantId: string): Promise<string[]> {
     return this.tenant.runWithTenant(tenantId, async () => {
@@ -128,6 +158,50 @@ export class BillingService {
         enabled: tm?.enabled ?? false,
         isCore: tm?.module?.is_core ?? false,
       };
+    });
+  }
+
+  /**
+   * Status da assinatura de um tenant explícito. Billing é dono de
+   * `subscription`; quem precisa do status (a API administrativa, por exemplo)
+   * pergunta por aqui em vez de ler a tabela.
+   */
+  async getSubscriptionStatus(tenantId: string): Promise<string | null> {
+    const sub = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.getSubscription(),
+    );
+    return sub?.status ?? null;
+  }
+
+  /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */
+  listTenantModules(tenantId: string) {
+    return this.tenant.runWithTenant(tenantId, () => this.repo.listTenantModules());
+  }
+
+  /**
+   * Liga/desliga um módulo por decisão do dono. Grava `source='manual'`, que é
+   * o que faz a escolha sobreviver à próxima troca de plano — ver o comentário
+   * no repositório. Núcleo (`is_core`) não é desligável: ele sustenta o resto.
+   */
+  async setModuleEnabled(
+    tenantId: string,
+    // `null` quando quem mexeu não é usuário DESTE tenant (painel da Orbix).
+    // `audit_log.actor_user_id` referencia `users`: passar o id do tenant aqui
+    // violava a FK e o toggle gravava e devolvia 500 — meio aplicado.
+    actorUserId: string | null,
+    moduleKey: string,
+    enabled: boolean,
+  ): Promise<void> {
+    const info = await this.getModuleAccess(tenantId, moduleKey);
+    if (info.isCore && !enabled) {
+      throw new BadRequestException('Módulo de núcleo não pode ser desativado.');
+    }
+    const ok = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.setModuleEnabled(tenantId, moduleKey, enabled),
+    );
+    if (!ok) throw new BadRequestException(`Módulo desconhecido: ${moduleKey}`);
+    await this.audit.log(tenantId, actorUserId, 'module_toggle', moduleKey, {
+      enabled,
     });
   }
 

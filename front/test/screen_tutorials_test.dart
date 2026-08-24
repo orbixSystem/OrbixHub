@@ -43,7 +43,33 @@ void main() {
     // diferentes da lista, então cada um tem o seu.
     expect(tutorialForRoute('/m/os/abc-123')?.titulo, 'Ordem de serviço');
     expect(tutorialForRoute('/m/customers/xyz')?.titulo, 'Ficha do cliente');
-    expect(tutorialForRoute('/m/customers/xyz/veiculo/v1')?.titulo, 'Veículo');
+    // O título traz o MARCADOR: a palavra do nicho entra na renderização.
+    expect(tutorialForRoute('/m/customers/xyz/veiculo/v1')?.titulo, '{Objeto}');
+  });
+
+  test('o vocabulário do nicho substitui os marcadores do tutorial', () {
+    final bruto = tutorialForRoute('/m/customers/xyz/veiculo/v1')!;
+
+    final oficina =
+        aplicarVocabulario(bruto, objeto: 'Veículo', objetos: 'Veículos');
+    expect(oficina.titulo, 'Veículo');
+    expect(
+      oficina.steps.any((s) => s.text.contains('veículo')),
+      isTrue,
+      reason: 'o corpo do tutorial também fala a língua do nicho',
+    );
+
+    final clinica =
+        aplicarVocabulario(bruto, objeto: 'Equipamento', objetos: 'Equipamentos');
+    expect(clinica.titulo, 'Equipamento');
+    expect(
+      clinica.steps.any((s) => s.text.toLowerCase().contains('veícul')),
+      isFalse,
+      reason: 'nenhum resquício de veículo sobra para um nicho genérico',
+    );
+    // Marcador não pode vazar cru para a tela.
+    expect(clinica.titulo.contains('{'), isFalse);
+    expect(clinica.steps.every((s) => !s.text.contains('{objeto')), isTrue);
   });
 
   test('o Início TAMBÉM está no registro (ajuda padronizada)', () {

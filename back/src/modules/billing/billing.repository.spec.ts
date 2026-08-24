@@ -74,6 +74,30 @@ describe('BillingRepository.reconcile', () => {
     expect(byId['inventory']).toMatchObject({ enabled: true, source: 'addon' }); // untouched
   });
 
+  /**
+   * O BUG: um módulo desligado pelo dono ficava com `source='plan'`, e a
+   * próxima troca de plano o religava (`update: { enabled: true }`). Ele
+   * reaparecia em /me e na sidebar do cliente sem ninguém ter mexido.
+   *
+   * A correção não está aqui — está em `setModuleEnabled`, que grava
+   * `source='manual'`. Este teste trava o outro lado: o reconcile tem de
+   * RESPEITAR essa marca, inclusive quando o módulo está no plano novo.
+   */
+  it('não religa módulo desligado à mão, mesmo estando no plano', async () => {
+    const { repo, rows } = makeFakes({
+      planModuleIds: ['os', 'inventory'],
+      coreModuleIds: [],
+      existing: [
+        { module_id: 'os', enabled: true, source: 'plan' },
+        { module_id: 'inventory', enabled: false, source: 'manual' },
+      ],
+    });
+    await repo.reconcile('t1', 'plan-pro');
+    const byId = Object.fromEntries(rows.map((r) => [r.module_id, r]));
+    expect(byId['os'].enabled).toBe(true);
+    expect(byId['inventory']).toMatchObject({ enabled: false, source: 'manual' });
+  });
+
   it('is idempotent', async () => {
     const { repo, rows } = makeFakes({
       planModuleIds: ['os'],

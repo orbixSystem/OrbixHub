@@ -31,6 +31,41 @@ class ScreenTutorial {
   final List<CoachStep> steps;
 }
 
+/// Aplica o vocabulário do nicho aos textos do tutorial.
+///
+/// Os textos são escritos com marcadores (`{objeto}`, `{objetos}` e as versões
+/// capitalizadas) em vez da palavra do nicho. Antes eles diziam "veículo" para
+/// todo mundo — inclusive para uma clínica, que lia sobre carros no próprio
+/// onboarding. Substituir na renderização mantém a prosa num lugar só, que é o
+/// que permite revisá-la como documentação.
+ScreenTutorial aplicarVocabulario(
+  ScreenTutorial t, {
+  required String objeto,
+  required String objetos,
+}) {
+  String sub(String v) => v
+      .replaceAll('{objeto}', objeto.toLowerCase())
+      .replaceAll('{objetos}', objetos.toLowerCase())
+      .replaceAll('{Objeto}', objeto)
+      .replaceAll('{Objetos}', objetos);
+
+  return ScreenTutorial(
+    id: t.id,
+    titulo: sub(t.titulo),
+    steps: [
+      for (final st in t.steps)
+        CoachStep(
+          title: sub(st.title),
+          text: sub(st.text),
+          targetKey: st.targetKey,
+          targetName: st.targetName,
+          radius: st.radius,
+          padding: st.padding,
+        ),
+    ],
+  );
+}
+
 /// Tutorial da rota, ou `null` se ela não tem um.
 ///
 /// Casa por PADRÃO de rota (`:id` casa um segmento qualquer), na ordem do mapa —
@@ -179,15 +214,15 @@ const _clienteDetalhe = ScreenTutorial(
   steps: [
     CoachStep(
       title: 'Tudo sobre este cliente num lugar',
-      text: 'Dados de contato, os veículos dele e o histórico. É a tela para '
+      text: 'Dados de contato, os {objetos} dele e o histórico. É a tela para '
           'responder "quem é essa pessoa e o que já fizemos para ela".',
     ),
     CoachStep(
       targetName: 'cliente.abas',
-      title: 'Veículos e histórico, em abas',
+      title: '{Objetos} e histórico, em abas',
       text: 'Ordem de serviço E venda de balcão, em ordem cronológica. Filtrar '
-          'por veículo mostra só as OS daquele carro — venda de balcão não '
-          'pertence a um veículo, então ela sai do filtro.',
+          'por {objeto} mostra só as OS daquele {objeto} — venda de balcão não '
+          'pertence a um {objeto}, então ela sai do filtro.',
     ),
     CoachStep(
       targetName: 'cliente.conteudo',
@@ -206,11 +241,11 @@ const _clienteDetalhe = ScreenTutorial(
 
 const _veiculo = ScreenTutorial(
   id: 'tut_veiculo_v1',
-  titulo: 'Veículo',
+  titulo: '{Objeto}',
   steps: [
     CoachStep(
       title: 'O histórico é do CARRO, não do dono',
-      text: 'Aqui ficam só as ordens de serviço deste veículo. É o que responde '
+      text: 'Aqui ficam só as ordens de serviço deste {objeto}. É o que responde '
           '"quando trocamos a correia dele?" mesmo que a família tenha três '
           'carros na mesma ficha.',
     ),
@@ -230,7 +265,7 @@ const _veiculo = ScreenTutorial(
     ),
     CoachStep(
       title: 'Campos extras dependem do seu ramo',
-      text: 'Os campos do veículo são configuráveis em Configurações › Clientes: '
+      text: 'Os campos do {objeto} são configuráveis em Configurações › Clientes: '
           'o sistema serve oficina, mas também petshop ou clínica — e cada ramo '
           'chama esse cadastro de outra coisa.',
     ),
@@ -450,13 +485,13 @@ const _os = ScreenTutorial(
     CoachStep(
       targetName: 'os.lista',
       title: 'Cada linha é um trabalho',
-      text: 'Mostra número, cliente, veículo, situação e a tag de pagamento — '
+      text: 'Mostra número, cliente, {objeto}, situação e a tag de pagamento — '
           'que vem do CAIXA, não da OS (é por isso que ela muda sozinha quando '
           'você recebe). Toque para abrir e ver itens, fotos e a linha do tempo.',
     ),
     CoachStep(
       title: 'Abrir agora, completar depois',
-      text: 'Cliente e veículo são opcionais no começo: dá para registrar o '
+      text: 'Cliente e {objeto} são opcionais no começo: dá para registrar o '
           'serviço com o carro já no elevador e completar o cadastro depois, sem '
           'travar o atendimento.',
     ),
@@ -501,7 +536,7 @@ const _clientes = ScreenTutorial(
     CoachStep(
       targetName: 'clientes.lista',
       title: 'Cada linha é um cliente',
-      text: 'Toque para abrir a ficha: dados, veículos e o histórico completo — '
+      text: 'Toque para abrir a ficha: dados, {objetos} e o histórico completo — '
           'ordens de serviço E vendas de balcão, em ordem cronológica.',
     ),
     CoachStep(

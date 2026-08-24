@@ -485,6 +485,11 @@ class FakeOsRepository implements OsRepository {
 
   @override
   Future<CustomersConfig> customersConfig() async => const CustomersConfig(
+        // Fake de OFICINA: os campos abaixo são de veículo, então o rótulo do
+        // objeto tem de acompanhar. Sem isto o fake ficaria incoerente — campos
+        // de carro sob o rótulo genérico "Objeto" — desde que a casca de
+        // vertical saiu do módulo de clientes e o default virou neutro.
+        subjectLabel: SubjectLabel(singular: 'Veículo', plural: 'Veículos'),
         subjectFields: [
           SubjectFieldConfig(
               chave: 'identifier', rotulo: 'Placa / Identificação'),

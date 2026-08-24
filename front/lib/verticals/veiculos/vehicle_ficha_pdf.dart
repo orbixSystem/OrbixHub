@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../../../core/pdf/document_company.dart';
-import '../../../core/pdf/pdf_theme.dart';
-import '../domain/customers_models.dart';
+import '../../core/pdf/document_company.dart';
+import '../../core/pdf/pdf_theme.dart';
+import '../../features/customers/domain/customers_models.dart';
 import 'plate_labels.dart';
 
 /// Identificação da empresa (tenant) impressa no topo da ficha.
