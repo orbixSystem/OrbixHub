@@ -138,21 +138,33 @@ class _Corpo extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // O CLIENTE e o titulo. Quem abre o historico procura "de
+                  // quem e isto" — o numero do documento e identificacao
+                  // burocratica, util depois de achar, nao para achar. Antes o
+                  // nome vinha espremido em 12px cinza, junto com a data.
                   Text(
-                    sale.number.isEmpty ? 'Venda' : 'Venda ${sale.number}',
+                    (sale.customerName ?? '').trim().isEmpty
+                        ? 'Sem cliente'
+                        : sale.customerName!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: neu.ink,
-                      fontSize: 18,
+                      color: (sale.customerName ?? '').trim().isEmpty
+                          ? neu.inkMuted
+                          : neu.ink,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      height: 1.15,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     [
+                      sale.number.isEmpty ? 'Venda' : 'Venda ${sale.number}',
                       ?_fmtData(sale.createdAt),
-                      sale.customerName ?? 'Sem cliente',
                     ].join(' · '),
-                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 14),
                   ),
                 ],
               ),

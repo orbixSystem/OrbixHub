@@ -35,9 +35,16 @@ jobs:
         run: |
           # `od -An -tx1` separa os bytes com 1 espaco no GNU e 2 no BSD, entao
           # o espaco e removido antes de comparar — o teste vale nos dois.
+          # `if/fi` em vez de `[ ... ] && echo`: o `&&` deixava o loop terminar
+          # com status 1 sempre que o ULTIMO .sql varrido nao tinha BOM (o caso
+          # normal). Como o runner roda `bash -e`, a atribuicao `bom=$(...)`
+          # herdava esse 1 e matava o passo ANTES do teste abaixo — o guard
+          # reprovava todo PR e nunca chegava a imprimir o ::error::.
           bom=$(find . -name '*.sql' -not -path './node_modules/*' -print0 \
             | while IFS= read -r -d '' f; do
-                [ "$(head -c3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ] && echo "$f"
+                if [ "$(head -c3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
+                  echo "$f"
+                fi
               done)
           if [ -n "$bom" ]; then
             echo "::error::arquivo .sql com BOM (quebra o psql/prisma):"

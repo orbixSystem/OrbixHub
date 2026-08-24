@@ -123,8 +123,22 @@ void main() {
     testWidgets('mostra número, cliente e total', (tester) async {
       await _abrir(tester);
 
-      expect(find.text('Venda VND-0007'), findsOneWidget);
-      expect(find.textContaining('Maria Souza'), findsOneWidget);
+      // O numero agora divide a linha secundaria com a data, entao a busca e
+      // por conteudo — o exato passou a ser o NOME DO CLIENTE, que virou titulo.
+      expect(find.textContaining('Venda VND-0007'), findsOneWidget);
+      expect(find.text('Maria Souza'), findsOneWidget);
+
+      // Requisito: no historico o cliente tem que saltar aos olhos. Travado
+      // como relacao, nao como numero magico: o nome e maior que o numero.
+      final nome = tester.widget<Text>(find.text('Maria Souza'));
+      final linhaNumero =
+          tester.widget<Text>(find.textContaining('Venda VND-0007'));
+      expect(
+        nome.style!.fontSize!,
+        greaterThan(linhaNumero.style!.fontSize!),
+        reason: 'o nome do cliente deve ser maior que o numero da venda',
+      );
+      expect(nome.style!.fontWeight, FontWeight.w800);
       expect(find.text('Total'), findsOneWidget);
       // 270 aparece duas vezes e as duas estão certas: é o total dos itens e,
       // como nada foi recebido, também o saldo a receber.
