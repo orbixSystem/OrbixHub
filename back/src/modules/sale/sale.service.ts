@@ -89,6 +89,9 @@ export class SaleService {
       const customer = await this.customers.getCustomer(user, dto.customerId);
       customerId = customer.id;
       customerName = customer.name;
+    } else if (dto.customerNote?.trim()) {
+      // Apelido/observação livre informado pelo operador para venda sem cadastro.
+      customerName = dto.customerNote.trim();
     }
 
     const resolved = await this.resolveItems(dto.items);
