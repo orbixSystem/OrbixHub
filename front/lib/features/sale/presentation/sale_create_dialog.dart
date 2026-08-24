@@ -539,7 +539,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 controller: _customerNoteCtrl,
                 maxLength: 100,
                 decoration: const InputDecoration(
-                  hintText: 'Apelido ou observação (ex.: Macarrão)',
+                  hintText: 'Apelido ou Observação (ex: João)',
                   helperText:
                       'Opcional — identifica a venda sem cadastrar o cliente',
                   counterText: '',

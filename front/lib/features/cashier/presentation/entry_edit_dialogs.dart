@@ -467,7 +467,7 @@ class _ValorTravado extends StatelessWidget {
             child: Text(
               'Valor ${isIn ? 'recebido' : 'pago'}: ${formatMoney(entry.amount)}'
               ' · para mudar o valor, use Corrigir',
-              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.3),
+              style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.3),
             ),
           ),
         ],
@@ -498,7 +498,7 @@ class _AvisoCorrecao extends StatelessWidget {
               'O lançamento de ${formatMoney(valorAtual)} será estornado e um '
               'novo será criado com o valor corrigido. Os dois ficam no '
               'histórico — é assim que o caixa fecha.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.35),
+              style: TextStyle(color: neu.inkMuted, fontSize: 12, height: 1.35),
             ),
           ),
         ],

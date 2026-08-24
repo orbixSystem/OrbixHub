@@ -37,7 +37,7 @@ class CashierFieldShell extends StatelessWidget {
             label,
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -66,14 +66,14 @@ class CashierBalanceLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 12)),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 11)),
               const SizedBox(height: 2),
               Text(
                 formatMoney(value),
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w700,
-                  fontSize: 14,
+                  fontSize: 13.5,
                 ),
               ),
             ],
@@ -344,7 +344,7 @@ class _OsSearchField extends StatelessWidget {
             'OS — busque por nº, cliente ou responsável',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -382,7 +382,7 @@ class _OsSearchField extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, top: 6),
           child: Text(
             'Aponta para a OS selecionada',
-            style: TextStyle(color: neu.inkFaint, fontSize: 14),
+            style: TextStyle(color: neu.inkFaint, fontSize: 12.5),
           ),
         ),
       ],

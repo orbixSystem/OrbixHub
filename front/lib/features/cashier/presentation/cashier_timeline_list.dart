@@ -18,12 +18,10 @@ import 'entry_edit_dialogs.dart';
 
 /// Histórico do caixa: UMA lista com tudo que aconteceu, cada linha detalhada.
 ///
-/// Sem abas e sem escolher lente — venda, OS, despesa, sangria, suprimento e
+/// Sem abas e sem escolher lente — venda, despesa, sangria, suprimento e
 /// recebimento convivem na mesma ordem cronológica, porque é assim que o dia
 /// aconteceu. Venda em fiado aparece aqui mesmo não tendo movido o caixa: era
-/// justamente o que um extrato de lançamentos escondia. **OS em fiado também**
-/// — ela aparecia só na aba Fiado, e quem ia cobrar tinha de olhar em duas
-/// telas para saber o que estava em aberto.
+/// justamente o que um extrato de lançamentos escondia.
 class CashierTimelineList extends ConsumerWidget {
   const CashierTimelineList({
     super.key,
@@ -73,147 +71,7 @@ class _EventCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return switch (event.kind) {
-      CashierEventKind.venda => _venda(context, ref),
-      CashierEventKind.osFiado => _osFiado(context, ref),
-      CashierEventKind.lancamento => _lancamento(context, ref),
-    };
-  }
-
-  /// Recebimento de uma OS — o MESMO diálogo do fiado e da venda. Receber é
-  /// operação do caixa e só dele: a ficha da OS não tem mais botão de cobrar,
-  /// justamente para que exista um lugar só por onde dinheiro entra.
-  Future<void> _receberOs(
-    BuildContext context,
-    WidgetRef ref,
-    ReceivableTitle t,
-  ) async {
-    final CashierConfig config;
-    try {
-      config = (await ref.read(cashierControllerProvider.future)).config;
-    } on Object catch (e) {
-      if (context.mounted) {
-        showNeuErrorSnackBar(context, 'Não foi possível abrir o caixa: $e');
-      }
-      return;
-    }
-    if (!context.mounted) return;
-    // O título já vem do servidor com total/pago/saldo frescos (é derivado do
-    // caixa na hora da leitura) — diferente da `Sale` do histórico, que só traz
-    // `total` e por isso precisa de um `paymentSummary` extra.
-    await showReceiveTitleDialog(context, ref, config: config, title: t);
-    if (!context.mounted) return;
-    ref.invalidate(cashierHistoryProvider);
-  }
-
-  // -------------------------------------------------------------- OS fiada
-  Widget _osFiado(BuildContext context, WidgetRef ref) {
-    final neu = context.neu;
-    final t = event.title!;
-    final itens = t.items
-        .map((i) => i.name)
-        .where((n) => n.isNotEmpty)
-        .take(2)
-        .join(', ');
-    return NeuCard(
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(NeuTokens.rCard),
-        onTap: () => showOsDetailDialog(context, orderId: t.id),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _glifo(neu, Icons.build_outlined, neu.warning),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            cashierEventTitle(event),
-                            style: TextStyle(
-                              color: neu.ink,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          formatMoney(t.balance.toString()),
-                          style: TextStyle(
-                            color: neu.ink,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      (t.customerName ?? '').trim().isEmpty
-                          ? 'Sem cliente'
-                          : t.customerName!.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: neu.ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        ?fmtDataHora(t.createdAt),
-                        if (t.number.isNotEmpty) t.number,
-                      ].join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
-                    ),
-                    if (itens.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        itens,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: neu.inkFaint,
-                          fontSize: 12,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 7),
-                    Row(
-                      children: [
-                        PaymentTag(status: t.status, dense: true),
-                        const Spacer(),
-                        if (canManage)
-                          NeuButton(
-                            label: 'Receber',
-                            icon: Icons.payments_outlined,
-                            kind: NeuButtonKind.secondary,
-                            onPressed: () => _receberOs(context, ref, t),
-                          )
-                        else
-                          Icon(Icons.chevron_right_rounded,
-                              size: 18, color: neu.inkFaint),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return event.ehVenda ? _venda(context, ref) : _lancamento(context, ref);
   }
 
   /// Recebimento: abre o MESMO diálogo que a aba Fiado usa — busca o saldo
@@ -294,7 +152,7 @@ class _EventCard extends ConsumerWidget {
                             cashierEventTitle(event),
                             style: TextStyle(
                               color: cancelada ? neu.inkMuted : neu.ink,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                               decoration: risco,
                             ),
@@ -311,28 +169,13 @@ class _EventCard extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    // PARA QUEM — linha própria, e não mais espremido num
-                    // "nome · data · número" que o `ellipsis` cortava justo no
-                    // nome. É por ele que se procura uma venda ("cadê a do
-                    // João?"), então ele tem peso de conteúdo, não de legenda.
-                    Text(
-                      s.customerName?.isNotEmpty == true
-                          ? s.customerName!
-                          : 'Balcão',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: cancelada ? neu.inkMuted : neu.ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        decoration: risco,
-                      ),
-                    ),
-                    // Quando · número — contexto, abaixo do nome.
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
+                    // Para quem · quando · número
                     Text(
                       [
+                        s.customerName?.isNotEmpty == true
+                            ? s.customerName!
+                            : 'Balcão',
                         ?fmtDataHora(s.createdAt),
                         if (s.number.isNotEmpty) s.number,
                       ].join(' · '),
@@ -340,22 +183,6 @@ class _EventCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: neu.inkMuted, fontSize: 12),
                     ),
-                    // A observação do balcão ("placa AAA-1234", "modelo do
-                    // carro") — é o que identifica a venda quando o comprador
-                    // não é cliente cadastrado.
-                    if ((s.description ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        s.description!.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: neu.inkMuted,
-                          fontSize: 12,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
                     // O que foi vendido
                     if (s.items.isNotEmpty) ...[
                       const SizedBox(height: 3),
@@ -365,7 +192,7 @@ class _EventCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: neu.inkFaint,
-                          fontSize: 12,
+                          fontSize: 11.5,
                           height: 1.3,
                         ),
                       ),
@@ -444,7 +271,7 @@ class _EventCard extends ConsumerWidget {
                         cashierEventTitle(event),
                         style: TextStyle(
                           color: estornado ? neu.inkMuted : neu.ink,
-                          fontSize: 14,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           decoration: risco,
                         ),
