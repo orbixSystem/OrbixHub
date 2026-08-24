@@ -136,11 +136,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: () => context.go('/forgot'),
               child: const Text('Esqueci minha senha'),
             ),
-            const Divider(height: 24),
-            TextButton(
-              onPressed: () => context.go('/register'),
-              child: const Text('Criar uma oficina'),
-            ),
             if (kDevTools) _DevQuickLogin(onPick: _fillSeed),
           ],
         ),

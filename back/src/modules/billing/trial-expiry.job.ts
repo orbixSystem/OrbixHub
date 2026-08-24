@@ -6,6 +6,13 @@ import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository } from './billing.repository';
 
+/**
+ * O que vence, todo dia à meia-noite: teste acabado e acesso fora do prazo.
+ *
+ * Os dois viram `past_due`, que é "continua vendo o que é dele, não escreve
+ * mais" — e não `canceled`. Cancelar por vencimento tiraria do cliente até a
+ * consulta ao próprio histórico por causa de um boleto atrasado.
+ */
 @Injectable()
 export class TrialExpiryJob {
   private readonly logger = new Logger(TrialExpiryJob.name);
@@ -24,14 +31,27 @@ export class TrialExpiryJob {
     // assinatura existir e `BILLING_ENFORCE_SUBSCRIPTION` for ligado.
     if (!this.env.BILLING_ENFORCE_SUBSCRIPTION) return;
 
-    const expired = await this.repo.findExpiredTrials();
-    if (expired.length === 0) return;
-    this.logger.log(`Expiring ${expired.length} trial(s)`);
-    for (const { tenant_id, subscription_id } of expired) {
+    await this.vencer(await this.repo.findExpiredTrials(), 'trial_expired', 'trial(s)');
+    await this.vencer(
+      await this.repo.findExpiredAccess(),
+      'access_expired',
+      'acesso(s) fora do prazo',
+    );
+  }
+
+  private async vencer(
+    vencidos: Array<{ tenant_id: string; subscription_id: string }>,
+    motivo: 'trial_expired' | 'access_expired',
+    rotulo: string,
+  ): Promise<void> {
+    if (vencidos.length === 0) return;
+    this.logger.log(`Expiring ${vencidos.length} ${rotulo}`);
+
+    for (const { tenant_id, subscription_id } of vencidos) {
       await this.tenant.runWithTenant(tenant_id, () =>
         this.repo.updateSubscriptionStatus({ status: 'past_due' }),
       );
-      await this.audit.log(tenant_id, null, 'subscription_change', 'trial_expired', {
+      await this.audit.log(tenant_id, null, 'subscription_change', motivo, {
         subscriptionId: subscription_id,
       });
     }

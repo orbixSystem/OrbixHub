@@ -174,6 +174,46 @@ export class AdminService {
     return this.comAssinatura(t);
   }
 
+  /**
+   * Troca o nicho do ambiente.
+   *
+   * O nicho manda no VOCABULÁRIO (o que a tela chama de "veículo" ou
+   * "equipamento") e no conjunto de capacidades que o pacote liga por padrão.
+   * Não mexe em dado nenhum já gravado: uma OS aberta como "veículo" continua
+   * lá, e é por isso que trocar é seguro depois do ambiente estar em uso.
+   *
+   * O que NÃO acontece de propósito: as funcionalidades já ligadas à mão neste
+   * ambiente ficam como estão. Religá-las conforme o pacote novo desfaria, sem
+   * avisar, escolhas que alguém fez de caso pensado — quem quiser o padrão do
+   * nicho novo liga uma a uma, que é onde a decisão fica visível.
+   */
+  async alterarNicho(tenantId: string, vertical: string | null) {
+    const t = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!t) throw new NotFoundException('Ambiente não encontrado.');
+
+    // `null` é legítimo: significa "pacote padrão". Chave desconhecida não —
+    // gravaria um nicho que nenhum pacote atende, e as telas cairiam no padrão
+    // sem ninguém entender por quê.
+    if (vertical !== null && !this.verticais.existe(vertical)) {
+      throw new BadRequestException('Nicho desconhecido.');
+    }
+    if (t.vertical === vertical) return this.tenant(tenantId);
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { vertical },
+    });
+
+    // Ator nulo: quem mexeu foi a Orbix pelo painel administrativo, não um
+    // usuário do tenant — e a FK de ator aponta para `users` deste tenant.
+    await this.audit.log(tenantId, null, 'tenant_vertical_changed', tenantId, {
+      de: t.vertical,
+      para: vertical,
+    });
+
+    return this.tenant(tenantId);
+  }
+
   private async comAssinatura(t: {
     id: string;
     name: string;

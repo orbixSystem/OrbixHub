@@ -22,7 +22,6 @@ import '../../features/report/presentation/report_screen.dart';
 import '../../features/auth/presentation/accept_invite_screen.dart';
 import '../../features/auth/presentation/forgot_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/reset_screen.dart';
 import '../../features/auth/presentation/session_state.dart';
 import '../../features/auth/presentation/support_session_screen.dart';
@@ -46,7 +45,8 @@ import '../widgets/splash_screen.dart';
 import 'navigator_key.dart';
 
 /// Routes that never require authentication.
-const _authRoutes = {'/login', '/register', '/verify', '/forgot', '/reset'};
+// Sem '/register': o ambiente nasce pelo Orbix Admin, não por autocadastro.
+const _authRoutes = {'/login', '/verify', '/forgot', '/reset'};
 
 bool _isPublic(String location) =>
     _authRoutes.contains(location) || _isPublicContent(location);
@@ -155,10 +155,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         pageBuilder: (_, s) => neuPage(s, const LoginScreen()),
-      ),
-      GoRoute(
-        path: '/register',
-        pageBuilder: (_, s) => neuPage(s, const RegisterScreen()),
       ),
       GoRoute(
         path: '/verify',

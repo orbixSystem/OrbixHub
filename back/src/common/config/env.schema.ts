@@ -43,6 +43,17 @@ export const envSchema = z.object({
   ADMIN_API_TOKEN: z.string().min(32).optional(),
   SUPPORT_EMAIL: z.string().email().optional(),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
+  // Autocadastro de ambiente (`POST /auth/register`). Default FALSE: o ambiente
+  // nasce pelo Orbix Admin, com CNPJ conferido e cadastro comercial junto.
+  // Deixar aberto significa que qualquer um cria um tenant na base de produção
+  // — e a tela que levava a isso já não existe mais no app.
+  // Continua existindo porque as suítes e2e usam este caminho como fixture:
+  // apagá-lo trocaria 21 arquivos de teste por uma dependência do token de
+  // serviço do admin em todos eles.
+  SELF_SIGNUP_ENABLED: z
+    .string()
+    .default('false')
+    .transform((s) => s.toLowerCase() === 'true'),
   DEV_TOOLS_ENABLED: z
     .string()
     .default('false')

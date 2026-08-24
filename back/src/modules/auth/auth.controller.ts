@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   HttpCode,
+  Inject,
   Post,
   Req,
   UseGuards,
@@ -13,6 +15,8 @@ import { CnpjLookupService } from './cnpj-lookup.service';
 import { SupportSessionService } from './support-session.service';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
 import { Public, CurrentUser } from '../../common/auth/decorators';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import type { AuthUser } from '../../common/auth/auth.types';
 import {
   RegisterDto,
@@ -37,6 +41,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly cnpjLookup: CnpjLookupService,
     private readonly suporte: SupportSessionService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   /**
@@ -53,12 +58,24 @@ export class AuthController {
     return this.suporte.consumir(dto.code);
   }
 
+  /**
+   * Autocadastro de ambiente — DESLIGADO por padrão.
+   *
+   * O ambiente nasce pelo Orbix Admin, com CNPJ conferido e cadastro comercial
+   * junto; a tela que levava aqui saiu do app. A rota continua para as suítes
+   * e2e, que a usam como fixture, e é liberada por `SELF_SIGNUP_ENABLED`.
+   */
   @Public()
   @Post('register')
   @HttpCode(201)
   @UseGuards(AuthThrottlerGuard)
   @Throttle(STRICT)
   register(@Body() dto: RegisterDto) {
+    if (!this.env.SELF_SIGNUP_ENABLED) {
+      throw new ForbiddenException(
+        'O cadastro de novas empresas é feito pela Orbix. Fale com o suporte.',
+      );
+    }
     return this.auth.register(dto);
   }
 

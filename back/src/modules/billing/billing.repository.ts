@@ -49,6 +49,39 @@ export class BillingRepository {
     });
   }
 
+  /**
+   * Ajuste manual das datas da assinatura, feito pela Orbix no painel
+   * administrativo. Só toca o que veio preenchido — `undefined` é "não mexe",
+   * e `null` é "apaga a data", que são coisas diferentes.
+   */
+  async ajustarAssinatura(data: {
+    status?: SubscriptionStatus;
+    trial_ends_at?: Date | null;
+    current_period_end?: Date | null;
+  }) {
+    const db = this.tenant.getClient();
+    const sub = await db.subscription.findFirst();
+    if (!sub) return null;
+    return db.subscription.update({
+      where: { id: sub.id },
+      data: { ...data, updated_at: new Date() },
+      include: { plan: true },
+    });
+  }
+
+  /**
+   * Assinaturas cujo acesso venceu: passou do fim do período e ninguém renovou.
+   *
+   * Companheira de `findExpiredTrials`. Sem ela, a data que o painel deixa
+   * editar seria enfeite — o acesso só caía quando o TESTE vencia, e um
+   * contrato que terminou seguia valendo para sempre.
+   */
+  findExpiredAccess() {
+    return this.prisma.$queryRaw<Array<{ tenant_id: string; subscription_id: string }>>`
+      SELECT tenant_id, subscription_id FROM billing_find_expired_access()
+    `;
+  }
+
   async updateSubscriptionStatus(
     data: {
       status: SubscriptionStatus;

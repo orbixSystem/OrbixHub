@@ -127,6 +127,9 @@ cd back && \
 
 Auth (`back/src/modules/auth`):
 - `POST /api/auth/register` — create tenant + owner user + membership + trial subscription (atomic); returns access + refresh tokens.
+  **DESLIGADO por padrão** (`SELF_SIGNUP_ENABLED=false`): o ambiente nasce pelo Orbix Admin,
+  com CNPJ conferido e cadastro comercial junto. A rota continua porque as suítes e2e a usam
+  como fixture — `test/env.e2e.ts` liga só lá. Com o flag desligado, responde 403.
 - `POST /api/auth/verify-email` — consume an email-verify one-time token.
 - `POST /api/auth/login` — authenticate; generic error (does not reveal whether an email exists); rate-limited.
 - `POST /api/auth/refresh` — rotate the refresh token (reuse outside tolerance revokes the family).

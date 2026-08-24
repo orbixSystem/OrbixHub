@@ -2,12 +2,13 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
-import { BillingRepository } from './billing.repository';
+import { BillingRepository, type SubscriptionStatus } from './billing.repository';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment/payment-gateway';
 
 export interface PlanView {
@@ -120,6 +121,79 @@ export class BillingService {
         currentPeriodStart: sub.current_period_start,
         currentPeriodEnd: sub.current_period_end,
         canceledAt: sub.canceled_at,
+      };
+    });
+  }
+
+  /**
+   * Ajuste manual da assinatura, feito pela Orbix no painel administrativo.
+   *
+   * Existe para o que a cobrança automática ainda não cobre: estender um teste
+   * que acabou, dar prazo a quem prometeu pagar amanhã, encerrar um contrato.
+   * Enquanto o Mercado Pago não estiver integrado, é o único jeito de mexer
+   * nessas datas sem SQL na mão em produção.
+   *
+   * A situação se ajusta sozinha quando a data volta a fazer sentido: estender
+   * o teste de quem já tinha caído devolve `trialing`, e dar prazo novo a um
+   * inadimplente devolve `active`. Sem isso, editar a data não destravava nada
+   * — o acesso é decidido pelo STATUS, e ele tinha ficado para trás.
+   */
+  async ajustarAssinatura(
+    tenantId: string,
+    ajuste: {
+      trialEndsAt?: Date | null;
+      accessEndsAt?: Date | null;
+      status?: SubscriptionStatus;
+    },
+  ): Promise<AssinaturaDetalhada | null> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const atual = await this.repo.getSubscription();
+      if (!atual) throw new NotFoundException('Este ambiente não tem assinatura.');
+
+      const agora = new Date();
+      const futuro = (d?: Date | null) => d instanceof Date && d > agora;
+
+      let status = ajuste.status ?? (atual.status as SubscriptionStatus);
+      if (!ajuste.status) {
+        if (futuro(ajuste.trialEndsAt)) status = 'trialing';
+        else if (futuro(ajuste.accessEndsAt) && atual.status === 'past_due') {
+          status = 'active';
+        }
+      }
+
+      const salvo = await this.repo.ajustarAssinatura({
+        status,
+        ...(ajuste.trialEndsAt !== undefined ? { trial_ends_at: ajuste.trialEndsAt } : {}),
+        ...(ajuste.accessEndsAt !== undefined
+          ? { current_period_end: ajuste.accessEndsAt }
+          : {}),
+      });
+      if (!salvo) return null;
+
+      await this.audit.log(tenantId, null, 'subscription_change', 'ajuste_manual', {
+        por: 'orbix-admin',
+        de: {
+          status: atual.status,
+          trialEndsAt: atual.trial_ends_at,
+          accessEndsAt: atual.current_period_end,
+        },
+        para: {
+          status: salvo.status,
+          trialEndsAt: salvo.trial_ends_at,
+          accessEndsAt: salvo.current_period_end,
+        },
+      });
+
+      return {
+        planKey: salvo.plan.key,
+        planName: salvo.plan.name,
+        planPriceCents: salvo.plan.price_cents,
+        billingPeriod: salvo.plan.billing_period,
+        status: salvo.status,
+        trialEndsAt: salvo.trial_ends_at,
+        currentPeriodStart: salvo.current_period_start,
+        currentPeriodEnd: salvo.current_period_end,
+        canceledAt: salvo.canceled_at,
       };
     });
   }
