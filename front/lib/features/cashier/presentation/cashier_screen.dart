@@ -372,7 +372,7 @@ class _AcaoCard extends StatelessWidget {
                   maxLines: 2,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
@@ -697,7 +697,6 @@ class _CashierHistory extends ConsumerWidget {
                       final todos = buildCashierTimeline(
                         entries: data.entries,
                         sales: data.sales,
-                        osTitles: data.osTitles,
                       );
                       // Servidor já recortou; aqui fica só a coerência entre as
                       // duas fontes (venda em fiado não é entrada de caixa).
@@ -718,7 +717,7 @@ class _CashierHistory extends ConsumerWidget {
                                         '${todos.length == 1 ? "registro" : "registros"}'
                                     : '${visiveis.length} de ${todos.length}',
                                 style: TextStyle(
-                                    color: neu.inkFaint, fontSize: 12),
+                                    color: neu.inkFaint, fontSize: 11.5),
                               ),
                             ),
                           // O Histórico é aba de gestão (só aparece com
@@ -828,21 +827,12 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
           ),
         ),
         const SizedBox(height: 2),
-        if (widget.filtro == CashierFilter.fiado)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Vendas e OS com saldo em aberto no período. A carteira inteira '
-              '(inclusive de antes) fica no fiado, na aba Caixa.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 14),
-            ),
-          ),
         if (widget.filtro == CashierFilter.entradas)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               'Venda em fiado não conta como entrada — nada entrou no caixa.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 14),
+              style: TextStyle(color: neu.inkFaint, fontSize: 11),
             ),
           ),
         // Cancelar a venda devolve o estoque, mas NÃO desfaz o recebimento: o
@@ -854,7 +844,7 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
             child: Text(
               'Cancelar devolve o estoque, mas o dinheiro já recebido segue no '
               'caixa até o lançamento ser estornado.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 14),
+              style: TextStyle(color: neu.inkFaint, fontSize: 11),
             ),
           ),
       ],
@@ -893,7 +883,7 @@ class _ChoicePill extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? neu.onNavy : neu.inkMuted,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
