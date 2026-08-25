@@ -51,6 +51,10 @@ model subject {
   customer_id       String    @db.Uuid
   label             String?
   identifier        String?
+  tipo              String?
+  marca             String?
+  modelo            String?
+  numero_serie      String?
   attributes        Json?
   photo_url         String?
   photo_storage_key String?

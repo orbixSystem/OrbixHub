@@ -17,6 +17,11 @@ export class CreateSubjectDto {
   @IsOptional() @IsString() @MaxLength(200) label?: string;
   /** Genérico/indexado — é a placa na oficina. */
   @IsOptional() @IsString() @MaxLength(120) identifier?: string;
+  @IsOptional() @IsString() @MaxLength(100) tipo?: string;
+  @IsOptional() @IsString() @MaxLength(120) marca?: string;
+  @IsOptional() @IsString() @MaxLength(120) modelo?: string;
+  /** Número de série ou IMEI. */
+  @IsOptional() @IsString() @MaxLength(120) numeroSerie?: string;
   /** Específico do vertical (marca/modelo/ano/cor/km na oficina). */
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
   /**
@@ -29,6 +34,11 @@ export class CreateSubjectDto {
 export class UpdateSubjectDto {
   @IsOptional() @IsString() @MaxLength(200) label?: string;
   @IsOptional() @IsString() @MaxLength(120) identifier?: string;
+  @IsOptional() @IsString() @MaxLength(100) tipo?: string;
+  @IsOptional() @IsString() @MaxLength(120) marca?: string;
+  @IsOptional() @IsString() @MaxLength(120) modelo?: string;
+  /** Número de série ou IMEI. */
+  @IsOptional() @IsString() @MaxLength(120) numeroSerie?: string;
   @IsOptional() @IsObject() attributes?: Record<string, unknown>;
   @IsOptional() @IsObject() plateData?: Record<string, unknown>;
 }

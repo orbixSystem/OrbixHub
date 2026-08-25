@@ -19,7 +19,7 @@ export const EQUIPAMENTOS: PacoteVertical = {
     // O "objeto" é a entidade `subject`: o que entra pra ser atendido.
     'objeto.singular': 'Equipamento',
     'objeto.plural': 'Equipamentos',
-    'objeto.identificador': 'Identificação',
+    'objeto.identificador': 'Nome',
     // Nome do ÍCONE, não o ícone: o backend guarda a escolha e a UI mapeia —
     // mesmo padrão do tema. Um carro desenhado na tela de uma clínica é tão
     // errado quanto a palavra "Veículo".
@@ -37,8 +37,11 @@ export const EQUIPAMENTOS: PacoteVertical = {
   },
 
   subjectFields: [
-    { chave: 'identifier', rotulo: 'Identificação', tipo: 'text', obrigatorio: false },
-    { chave: 'descricao', rotulo: 'Descrição', tipo: 'text', obrigatorio: false },
+    { chave: 'identifier', rotulo: 'Nome', tipo: 'text', obrigatorio: false },
+    { chave: 'tipo', rotulo: 'Tipo', tipo: 'text', obrigatorio: false },
+    { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false },
+    { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false },
+    { chave: 'numero_serie', rotulo: 'Número de série', tipo: 'text', obrigatorio: false },
   ],
 
   // Só o que serve qualquer nicho. Consulta em base externa e ficha técnica

@@ -351,14 +351,19 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     if (_mode == _CustomerMode.existing) {
       // Cliente existente pode vir com um veículo NOVO cadastrado aqui mesmo —
       // o backend cria o veículo para ele e já vincula na OS.
-      final (identifier, attrs) = _novoSubjetoParaExistente
+      final emptyFields = (identifier: null, tipo: null, marca: null, modelo: null, numeroSerie: null, attrs: null);
+      final fields = _novoSubjetoParaExistente
           ? _buildSubjectFields()
-          : (null, null);
+          : emptyFields;
       return OrderDraft(
         customerId: _customer!.id,
         subjectId: _subject?.id,
-        newSubjectIdentifier: identifier,
-        newSubjectAttributes: attrs,
+        newSubjectIdentifier: fields.identifier,
+        newSubjectTipo: fields.tipo,
+        newSubjectMarca: fields.marca,
+        newSubjectModelo: fields.modelo,
+        newSubjectNumeroSerie: fields.numeroSerie,
+        newSubjectAttributes: fields.attrs,
         newSubjectPlateData:
             _novoSubjetoParaExistente ? _plateInfo?.toJson() : null,
         complaint: complaint,
@@ -371,12 +376,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
     // Cliente novo: identifier (placa) + atributos do veículo a partir dos
     // campos dinâmicos da config.
-    final (identifier, attrs) = _buildSubjectFields();
+    final fields = _buildSubjectFields();
     return OrderDraft(
       newCustomerName: _newName.text.trim(),
       newCustomerPhone: _newPhone.text.trim(),
-      newSubjectIdentifier: identifier,
-      newSubjectAttributes: attrs,
+      newSubjectIdentifier: fields.identifier,
+      newSubjectTipo: fields.tipo,
+      newSubjectMarca: fields.marca,
+      newSubjectModelo: fields.modelo,
+      newSubjectNumeroSerie: fields.numeroSerie,
+      newSubjectAttributes: fields.attrs,
       newSubjectPlateData: _plateInfo?.toJson(),
       complaint: complaint,
       diagnosis: diagnosis,
@@ -387,22 +396,53 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     );
   }
 
-  /// Lê os campos dinâmicos do veículo: `identifier` (placa) sai separado; o
-  /// resto vira `attributes`. Vazio quando o tenant não usa veículos.
-  (String?, Map<String, dynamic>?) _buildSubjectFields() {
-    if (!_usaSubjects) return (null, null);
+  /// Lê os campos dinâmicos do equipamento: `identifier`/`tipo`/`marca`/`modelo`/
+  /// `numero_serie` saem como campos dedicados; o restante vai para `attributes`.
+  /// Vazio quando o tenant não usa subjects.
+  ({
+    String? identifier,
+    String? tipo,
+    String? marca,
+    String? modelo,
+    String? numeroSerie,
+    Map<String, dynamic>? attrs,
+  }) _buildSubjectFields() {
+    if (!_usaSubjects) {
+      return (identifier: null, tipo: null, marca: null, modelo: null, numeroSerie: null, attrs: null);
+    }
     final built = <String, dynamic>{};
     String? identifier;
+    String? tipo;
+    String? marca;
+    String? modelo;
+    String? numeroSerie;
     for (final f in _config.subjectFields) {
       final raw = _subjFields[f.chave]?.text.trim() ?? '';
-      if (f.chave == 'identifier') {
-        identifier = raw.isEmpty ? null : raw;
-        continue;
+      switch (f.chave) {
+        case 'identifier':
+          identifier = raw.isEmpty ? null : raw;
+        case 'tipo':
+          tipo = raw.isEmpty ? null : raw;
+        case 'marca':
+          marca = raw.isEmpty ? null : raw;
+        case 'modelo':
+          modelo = raw.isEmpty ? null : raw;
+        case 'numero_serie':
+          numeroSerie = raw.isEmpty ? null : raw;
+        default:
+          if (raw.isNotEmpty) {
+            built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
+          }
       }
-      if (raw.isEmpty) continue;
-      built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
     }
-    return (identifier, built.isEmpty ? null : built);
+    return (
+      identifier: identifier,
+      tipo: tipo,
+      marca: marca,
+      modelo: modelo,
+      numeroSerie: numeroSerie,
+      attrs: built.isEmpty ? null : built,
+    );
   }
 
   /// Cria a OS e, sobre ela, lança tudo que foi preenchido no wizard:
@@ -1122,11 +1162,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      // Identificação = placa: máscara Mercosul/antiga (MAIÚSCULO, 7 chars).
-      inputFormatters: isIdentifier ? [PlateInputFormatter()] : null,
+      hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
+      // Máscara de placa só quando a feature de consulta de placa está ativa.
+      inputFormatters:
+          (isIdentifier && _identifierIsPlate) ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
-              ? 'Informe a ${f.rotulo.toLowerCase()}'
+              ? 'Informe o ${f.rotulo.toLowerCase()}'
               : null
           : null,
     );

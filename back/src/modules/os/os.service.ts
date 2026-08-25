@@ -204,6 +204,10 @@ export class OsService {
     }
     const subject = await this.customers.createSubject(user, customerId, {
       identifier: dto.newSubjectIdentifier?.trim() || undefined,
+      tipo: dto.newSubjectTipo?.trim() || undefined,
+      marca: dto.newSubjectMarca?.trim() || undefined,
+      modelo: dto.newSubjectModelo?.trim() || undefined,
+      numeroSerie: dto.newSubjectNumeroSerie?.trim() || undefined,
       attributes: dto.newSubjectAttributes,
       plateData: dto.newSubjectPlateData,
     });
@@ -226,6 +230,10 @@ export class OsService {
     // cliente existente que ainda não tem nenhum cadastrado).
     const wantsSubject =
       !!dto.newSubjectIdentifier?.trim() ||
+      !!dto.newSubjectTipo?.trim() ||
+      !!dto.newSubjectMarca?.trim() ||
+      !!dto.newSubjectModelo?.trim() ||
+      !!dto.newSubjectNumeroSerie?.trim() ||
       (dto.newSubjectAttributes != null &&
         Object.keys(dto.newSubjectAttributes).length > 0);
 

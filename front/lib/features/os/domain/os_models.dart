@@ -273,6 +273,10 @@ class OrderDraft {
     this.newCustomerName,
     this.newCustomerPhone,
     this.newSubjectIdentifier,
+    this.newSubjectTipo,
+    this.newSubjectMarca,
+    this.newSubjectModelo,
+    this.newSubjectNumeroSerie,
     this.newSubjectAttributes,
     this.newSubjectPlateData,
     this.complaint,
@@ -288,6 +292,10 @@ class OrderDraft {
   final String? newCustomerName;
   final String? newCustomerPhone;
   final String? newSubjectIdentifier;
+  final String? newSubjectTipo;
+  final String? newSubjectMarca;
+  final String? newSubjectModelo;
+  final String? newSubjectNumeroSerie;
   final Map<String, dynamic>? newSubjectAttributes;
 
   /// Retorno da consulta por placa do veículo criado junto com a OS —
@@ -310,6 +318,11 @@ class OrderDraft {
         if (newCustomerPhone != null) 'newCustomerPhone': newCustomerPhone,
         if (newSubjectIdentifier != null)
           'newSubjectIdentifier': newSubjectIdentifier,
+        if (newSubjectTipo != null) 'newSubjectTipo': newSubjectTipo,
+        if (newSubjectMarca != null) 'newSubjectMarca': newSubjectMarca,
+        if (newSubjectModelo != null) 'newSubjectModelo': newSubjectModelo,
+        if (newSubjectNumeroSerie != null)
+          'newSubjectNumeroSerie': newSubjectNumeroSerie,
         if (newSubjectAttributes != null && newSubjectAttributes!.isNotEmpty)
           'newSubjectAttributes': newSubjectAttributes,
         if (newSubjectPlateData != null)

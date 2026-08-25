@@ -31,6 +31,10 @@ abstract class Subject with _$Subject {
     @JsonKey(name: 'customer_id') required String customerId,
     String? label,
     String? identifier,
+    String? tipo,
+    String? marca,
+    String? modelo,
+    @JsonKey(name: 'numero_serie') String? numeroSerie,
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
     @JsonKey(name: 'photo_url') String? photoUrl,
     @Default('active') String status,
@@ -185,12 +189,20 @@ class SubjectDraft {
   const SubjectDraft({
     this.label,
     this.identifier,
+    this.tipo,
+    this.marca,
+    this.modelo,
+    this.numeroSerie,
     this.attributes,
     this.plateData,
   });
 
   final String? label;
   final String? identifier;
+  final String? tipo;
+  final String? marca;
+  final String? modelo;
+  final String? numeroSerie;
   final Map<String, dynamic>? attributes;
 
   /// Retorno da consulta por placa a persistir (só quando houve consulta —
@@ -200,6 +212,10 @@ class SubjectDraft {
   Map<String, dynamic> toJson() => {
         if (label != null) 'label': label,
         if (identifier != null) 'identifier': identifier,
+        if (tipo != null) 'tipo': tipo,
+        if (marca != null) 'marca': marca,
+        if (modelo != null) 'modelo': modelo,
+        if (numeroSerie != null) 'numeroSerie': numeroSerie,
         if (attributes != null) 'attributes': attributes,
         if (plateData != null) 'plateData': plateData,
       };
