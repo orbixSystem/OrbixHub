@@ -379,6 +379,11 @@ INSERT INTO permission (key, name) VALUES
   ('tracking.manage','Gerenciar acompanhamento'),
   ('cashier.read','Ver caixa'), ('cashier.write','Operar caixa'),
   ('cashier.manage','Gerenciar caixa'),
+  -- 0055: conceder desconto na quitação não é o mesmo que registrar
+  -- recebimento. `caixa` recebe dinheiro; perdoar dívida exige alçada. Owner e
+  -- gerente herdam pelos seeds abaixo (que dão tudo / tudo menos billing);
+  -- `caixa` tem lista explícita e fica de fora por construção.
+  ('cashier.discount','Conceder desconto na quitação'),
   ('invoice.issue','Emitir nota'),
   ('finance.read','Ver financeiro'), ('finance.write','Editar financeiro'),
   ('report.read','Ver relatórios'),
@@ -1525,13 +1530,23 @@ CREATE TABLE IF NOT EXISTS cash_entry (
   sale_kind       text,                           -- 'os' | 'sale' (nullable) — venda recebida
   sale_id         uuid,                           -- id da venda apontada (nullable)
   description     text,
+  -- Desconto concedido na QUITAÇÃO (0055): distinto do desconto de documento
+  -- (sale.discount / service_order.discount), que abate o total na criação.
+  -- Aqui a dívida já existe e o documento fica intacto — o abatimento pertence
+  -- ao recebimento. A dívida fecha quando soma(amount + discount) cobre o saldo.
+  discount        numeric(14,2) NOT NULL DEFAULT 0,
+  discount_reason text,
   reversed_at     timestamptz,                    -- estorno lógico (fora dos somatórios)
   reversed_by     uuid,
   reversal_reason text,
   created_by      uuid NOT NULL,
   created_at      timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT cash_entry_direction_chk CHECK (direction IN ('in','out')),
-  CONSTRAINT cash_entry_amount_chk    CHECK (amount > 0),
+  -- amount = 0 é permitido SÓ quando há desconto: perdoar a dívida inteira é
+  -- caso real, e é justamente o que mais precisa ficar registrado. Lançamento
+  -- vazio (0 sem desconto) segue barrado — é erro de operação.
+  CONSTRAINT cash_entry_amount_chk    CHECK (amount >= 0 AND (amount > 0 OR discount > 0)),
+  CONSTRAINT cash_entry_discount_nonneg CHECK (discount >= 0),
   CONSTRAINT cash_entry_method_chk    CHECK (method IN ('pix','dinheiro','cartao_credito','cartao_debito','outro')),
   CONSTRAINT cash_entry_category_chk  CHECK (category IN ('os_payment','venda_avulsa','despesa','sangria','suprimento')),
   -- 'expense' entra na 0040: a baixa de uma conta a pagar marca a origem para o

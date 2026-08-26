@@ -46,6 +46,10 @@ abstract interface class CashierRepository {
     String? method,
     String? category,
     String? description,
+    /// Omitir HERDA o desconto original — corrigir só a forma de pagamento não
+    /// deve apagar em silêncio o abatimento que já havia sido concedido.
+    double? discount,
+    String? discountReason,
   });
 
   Future<EntryPage> listEntries({
@@ -99,5 +103,8 @@ abstract interface class CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    /// Desconto para fechar ESTA parcela — abate o saldo dela, não o do título.
+    double discount = 0,
+    String? discountReason,
   });
 }

@@ -16,8 +16,18 @@ export type PaymentStatus = 'a_receber' | 'parcial' | 'pago';
 export interface PaymentSummary {
   /** Total da venda (espelha o total da OS no momento da consulta). */
   total: number;
-  /** Soma recebida pelo caixa para esta venda. */
+  /**
+   * Quanto da dívida foi QUITADO: dinheiro recebido + desconto concedido.
+   *
+   * Não é "quanto entrou em caixa" — desconto fecha dívida sem entrar dinheiro.
+   * Confundir os dois é o erro que este comentário existe para evitar: o
+   * fechamento do caixa soma só `amount`; o saldo do documento soma os dois.
+   */
   paid: number;
+  /** Dinheiro que de fato entrou (subconjunto de [paid]). */
+  received: number;
+  /** Desconto concedido na quitação (o resto de [paid]). */
+  discount: number;
   /** Saldo a receber (>= 0). */
   balance: number;
   status: PaymentStatus;
@@ -36,15 +46,29 @@ export function derivePaymentStatus(total: number, paid: number): PaymentStatus 
   return 'parcial';
 }
 
-/** Monta um resumo coerente a partir de total + pago (balance >= 0). */
-export function buildPaymentSummary(total: number, paid: number): PaymentSummary {
+/**
+ * Monta um resumo coerente a partir de total, dinheiro recebido e desconto
+ * concedido (balance >= 0).
+ *
+ * `discount` é opcional para não quebrar chamador antigo: omitir equivale a
+ * "nenhum desconto", que é a verdade sobre todo recebimento anterior à 0055.
+ */
+export function buildPaymentSummary(
+  total: number,
+  received: number,
+  discount = 0,
+): PaymentSummary {
   const safeTotal = total > 0 ? total : 0;
-  const safePaid = paid > 0 ? paid : 0;
+  const safeReceived = received > 0 ? received : 0;
+  const safeDiscount = discount > 0 ? discount : 0;
+  const paid = safeReceived + safeDiscount;
   return {
     total: safeTotal,
-    paid: safePaid,
-    balance: Math.max(0, safeTotal - safePaid),
-    status: derivePaymentStatus(safeTotal, safePaid),
+    paid,
+    received: safeReceived,
+    discount: safeDiscount,
+    balance: Math.max(0, safeTotal - paid),
+    status: derivePaymentStatus(safeTotal, paid),
   };
 }
 
