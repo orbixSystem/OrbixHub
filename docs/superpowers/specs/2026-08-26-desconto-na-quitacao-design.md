@@ -119,11 +119,10 @@ O desconto abate **o saldo que está sendo quitado naquela operação**:
 
 A UI diz sobre o que o desconto incide, para o operador não descobrir depois.
 
-> **Assumido, não confirmado.** A pergunta "desconto em parcela abate a parcela
-> ou o título?" ficou sem resposta explícita. Esta é a generalização coerente
-> com `cash_entry.discount`: o desconto pertence ao recebimento, e o recebimento
-> tem um alvo. Se a regra desejada for outra (ex.: desconto sempre no título),
-> muda o cálculo de saldo e a UI — reabrir antes de implementar.
+**Confirmado pelo dono em 26/08.** Pagando a parcela 1 de 3x R$ 100 com R$ 10
+de desconto: a parcela fecha (90 + 10) e o saldo cai para R$ 200. Quitando o
+título inteiro com R$ 50 de desconto: entram R$ 250, desconto de R$ 50, saldo
+zero.
 
 ## 5. Alçada e teto
 
@@ -177,11 +176,19 @@ A receber ........ R$  90,00
 - 403 do backend tratado com elegância, não com stack trace.
 - Acesso via repository (interface no domain), models freezed, estado selado.
 
-**Fora de escopo, por decisão:**
+**Venda avulsa — os DOIS descontos.** Decisão do dono em 26/08, contra a
+recomendação registrada aqui de manter só o que existe. A tela passa a ter:
 
-- **Venda avulsa no ato** mantém o `sale.discount` que já existe. A venda está
-  sendo criada agora; reduzir o total é o comportamento certo e o comprovante
-  nasce coerente. Dois campos de desconto na mesma tela confundiriam.
+- **Desconto no preço** (`sale.discount`, já existente) — abate o total; o
+  comprovante nasce com o valor menor;
+- **Desconto na quitação** (`cash_entry.discount`, novo) — só aparece quando
+  sobra saldo, e perdoa esse saldo sem mexer no total.
+
+Os rótulos precisam dizer isso. Dois campos chamados "Desconto" na mesma tela,
+com efeitos diferentes sobre o comprovante, é erro de operação esperando
+acontecer — a mitigação é nomear, e o segundo só existir quando há saldo.
+
+**Fora de escopo, por decisão:**
 - **Lançamento avulso do caixa** sem documento por trás não tem saldo de que
   descontar — `amount` já é o que entrou. O campo só aparece quando o lançamento
   quita algo (`sale_id` preenchido ou parcela vinculada).
