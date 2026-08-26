@@ -120,9 +120,9 @@ describe('Billing (e2e)', () => {
     await request(app.getHttpServer()).post('/api/billing/subscribe').set('Authorization', `Bearer ${a.token}`).send({ planKey: 'pro' });
     const meB = await request(app.getHttpServer()).get('/api/me').set('Authorization', `Bearer ${b.token}`);
     // B continua com exatamente os módulos do trial (A assinar pro não vaza pra B).
-    // trial = os+customers+inventory+report+invoice+cashier+sale (todos habilitados no trial via plan_module).
+    // trial = cashier+customers+expenses+inventory+invoice+os+report+sale (plan_module seed).
     expect([...(meB.body.modules as string[])].sort()).toEqual(
-      ['cashier', 'customers', 'inventory', 'invoice', 'os', 'report', 'sale'],
+      ['cashier', 'customers', 'expenses', 'inventory', 'invoice', 'os', 'report', 'sale'],
     );
   });
 });

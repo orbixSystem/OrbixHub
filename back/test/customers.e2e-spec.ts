@@ -188,7 +188,7 @@ describe('Customers & Subjects (e2e)', () => {
       const o = await registerOwner();
       const created = await createCustomer(o.access, {
         name: 'João',
-        phone: '11999',
+        phone: '11999999999',
       });
       expect(created.status).toBe(201);
       const id = created.body.id as string;
@@ -380,30 +380,30 @@ describe('Customers & Subjects (e2e)', () => {
       return c.body.id as string;
     }
 
-    it('create under customer (required identifier), list by identifier, history empty', async () => {
+    it('create under customer (optional identifier), list by identifier, history empty', async () => {
       const o = await registerOwner();
       const customerId = await makeCustomer(o.access);
 
-      // default config requires `identifier` (placa) -> missing => 400
+      // no pack padrão (equipamentos) identifier é opcional → sem ele → 201
       const missing = await request(app.getHttpServer())
         .post(`/api/customers/${customerId}/subjects`)
         .set(auth(o.access))
-        .send({ label: 'sem placa' });
-      expect(missing.status).toBe(400);
+        .send({ label: 'sem nome' });
+      expect(missing.status).toBe(201);
 
       const created = await request(app.getHttpServer())
         .post(`/api/customers/${customerId}/subjects`)
         .set(auth(o.access))
         .send({
-          label: 'Gol do João',
-          identifier: 'ABC1D23',
-          attributes: { marca: 'VW', modelo: 'Gol' },
+          label: 'Notebook Dell',
+          identifier: 'DELL-ABC1D23',
+          attributes: { marca: 'Dell', modelo: 'Inspiron' },
         });
       expect(created.status).toBe(201);
       const subjectId = created.body.id as string;
 
       const byId = await request(app.getHttpServer())
-        .get('/api/subjects?q=ABC1D23')
+        .get('/api/subjects?q=DELL-ABC1D23')
         .set(auth(o.access));
       expect((byId.body.items as Array<{ id: string }>).map((s) => s.id)).toContain(subjectId);
 
@@ -552,14 +552,14 @@ describe('Customers & Subjects (e2e)', () => {
 
   // ---- config defaults -------------------------------------------------
   describe('config defaults', () => {
-    it('GET /customers/config returns generic defaults (Veículo label)', async () => {
+    it('GET /customers/config returns generic defaults (Equipamento label)', async () => {
       const o = await registerOwner();
       const res = await request(app.getHttpServer())
         .get('/api/customers/config')
         .set(auth(o.access));
       expect(res.status).toBe(200);
       expect(res.body.usaSubjects).toBe(true);
-      expect(res.body.subjectLabel.singular).toBe('Veículo');
+      expect(res.body.subjectLabel.singular).toBe('Equipamento');
       expect(Array.isArray(res.body.subjectFields)).toBe(true);
     });
   });

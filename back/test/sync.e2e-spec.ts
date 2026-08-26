@@ -270,7 +270,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const cId = randomUUID();
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: cId, name: 'Original' }),
+      mut('customer', 'create', { id: cId, name: 'Original', phone: '11999999999' }),
       mut('customer', 'update', { id: cId, name: 'Atualizado' }),
     ]);
     expect(res.status).toBe(201);
@@ -295,7 +295,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const uid = await myUserId(o.access);
     const cId = randomUUID();
     const batch = [
-      mut('customer', 'create', { id: cId, name: 'Uno' }),
+      mut('customer', 'create', { id: cId, name: 'Uno', phone: '11999999999' }),
       mut('customer', 'update', { id: cId, name: 'Dos' }),
     ];
 
@@ -324,7 +324,7 @@ describe('Sync — pull + push offline (e2e)', () => {
   it('S1: authorUserId diferente do usuário autenticado → 403', async () => {
     const o = await registerOwner();
     const res = await push(o.access, randomUUID(), [
-      mut('customer', 'create', { id: randomUUID(), name: 'X' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'X', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(403);
   });
@@ -364,7 +364,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((unknown.body.results as Array<{ status: string }>)[0].status).toBe('error');
 
     const extra = await push(o.access, uid, [
-      mut('customer', 'create', { id: randomUUID(), name: 'Y', bogus: 1 }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Y', phone: '11999999999', bogus: 1 }),
     ]);
     expect((extra.body.results as Array<{ status: string }>)[0].status).toBe('error');
 
@@ -409,7 +409,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((await createCustomer(o.access, { id: cId, name: 'Dono', phone: '11999999999' })).status).toBe(201);
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: cId, name: 'Intruso' }),
+      mut('customer', 'create', { id: cId, name: 'Intruso', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(201);
     const item = (res.body.results as Array<{ status: string; message?: string }>)[0];
@@ -425,7 +425,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const mutations = Array.from({ length: 101 }, () =>
-      mut('customer', 'create', { id: randomUUID(), name: 'Z' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Z', phone: '11999999999' }),
     );
     const res = await push(o.access, uid, mutations);
     expect(res.status).toBe(400);
@@ -580,7 +580,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const cId = randomUUID();
     const res = await push(o.access, uid, [
       mut('inventory_item', 'create', { id: randomUUID(), name: 'Filtro' }),
-      mut('customer', 'create', { id: cId, name: 'Cliente OK' }),
+      mut('customer', 'create', { id: cId, name: 'Cliente OK', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(201);
     const results = res.body.results as Array<{ status: string; message?: string }>;
@@ -601,7 +601,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((await pull(o.access, '?entity=customer&limit=10')).status).toBe(200);
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: randomUUID(), name: 'Não deve entrar' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Não deve entrar', phone: '11999999999' }),
     ]);
     const results = res.body.results as Array<{ status: string; message?: string }>;
     expect(results[0].status).toBe('error');

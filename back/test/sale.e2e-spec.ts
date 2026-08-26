@@ -141,7 +141,7 @@ describe('Sale — Venda avulsa (e2e)', () => {
   const cancelSale = (access: string, id: string, body: Record<string, unknown> = {}) =>
     request(srv()).post(`/api/sales/${id}/cancel`).set(auth(access)).send(body);
   const emitInvoice = (access: string, id: string) =>
-    request(srv()).post(`/api/sales/${id}/invoice`).set(auth(access)).send({});
+    request(srv()).post('/api/invoices').set(auth(access)).send({ saleId: id });
   const openSession = (access: string, body: Record<string, unknown> = {}) =>
     request(srv()).post('/api/cashier/sessions/open').set(auth(access)).send(body);
   const createEntry = (access: string, body: Record<string, unknown>) =>

@@ -311,14 +311,15 @@ describe('Cashier — Caixa (e2e)', () => {
       expect(res.status).toBe(400);
     });
 
-    it('lançar sem caixa aberto é rejeitado (400)', async () => {
+    it('lançar sem caixa aberto cria sessão implícita (requireOpenSession=false por padrão)', async () => {
       const o = await registerOwner();
       const res = await createEntry(o.access, {
         amount: 10,
         method: 'dinheiro',
         category: 'despesa',
       });
-      expect(res.status).toBe(400);
+      // requireOpenSession padrão é false: abre sessão implícita, entry aceita.
+      expect(res.status).toBe(201);
     });
   });
 
@@ -510,7 +511,7 @@ describe('Cashier — Caixa (e2e)', () => {
       const o = await registerOwner();
       const def = await getConfig(o.access);
       expect(def.status).toBe(200);
-      expect(def.body.requireOpenSession).toBe(true);
+      expect(def.body.requireOpenSession).toBe(false);
       expect(def.body.countCashOnly).toBe(true);
 
       const patched = await patchConfig(o.access, { countCashOnly: false });
