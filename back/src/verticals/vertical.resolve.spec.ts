@@ -83,7 +83,7 @@ describe('resolverCampos', () => {
 
   it('vertical nula usa os campos do padrão', () => {
     expect(resolverCampos(PACOTES, null).map((c) => c.chave)).toEqual([
-      'identifier', 'descricao',
+      'identifier', 'tipo', 'marca', 'modelo', 'numero_serie',
     ]);
   });
 });
