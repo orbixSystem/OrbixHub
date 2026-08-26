@@ -1,4 +1,5 @@
 import {
+  MaxLength,
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -47,4 +48,11 @@ export class PayInstallmentDto {
    * `PayExpenseDto.cashEntryId`.
    */
   @IsOptional() @IsUUID() cashEntryId?: string;
+  /**
+   * Desconto concedido para fechar ESTA parcela. Abate o saldo que está sendo
+   * quitado nesta operação — quitar o título inteiro é outra chamada, com o
+   * desconto do título. Exige `cashier.discount` e respeita o teto.
+   */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
 }
