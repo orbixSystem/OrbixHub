@@ -138,7 +138,7 @@ describe('OS — Ordens de Serviço (e2e)', () => {
     const res = await request(srv())
       .post('/api/customers')
       .set(auth(access))
-      .send({ name: `Cliente ${uniq()}` });
+      .send({ name: `Cliente ${uniq()}`, phone: '11999999999' });
     expect(res.status).toBe(201);
     return res.body.id as string;
   }

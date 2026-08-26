@@ -109,7 +109,7 @@ describe('OS — Acompanhamento público (e2e)', () => {
     const res = await request(srv())
       .post('/api/customers')
       .set(auth(access))
-      .send({ name });
+      .send({ name, phone: '11999999999' });
     expect(res.status).toBe(201);
     return { id: res.body.id as string, name };
   }
