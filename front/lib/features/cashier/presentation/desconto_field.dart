@@ -62,7 +62,11 @@ class DescontoField extends ConsumerWidget {
           label: label,
           controller: controller,
           hint: '0,00',
-          prefixIcon: Icons.local_offer_outlined,
+          // Mesma apresentação do campo de valor recebido: prefixo R$ e número
+          // à direita. Campo de dinheiro que não se parece com campo de
+          // dinheiro faz o operador digitar centavos onde queria reais.
+          prefixText: 'R\$ ',
+          textAlign: TextAlign.right,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: const [DecimalInputFormatter()],
           onChanged: (_) => onChanged(),

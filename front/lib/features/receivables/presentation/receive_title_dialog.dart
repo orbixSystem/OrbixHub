@@ -69,6 +69,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     // plano, ou o SALDO (não o total) quando não há.
     text: formatAmountForInput(_esperado),
   );
+  /// O operador tocou no valor? Enquanto não, ele acompanha o desconto: digitar
+  /// "10 de desconto" faz o esperado cair para 90, que é como se pensa no
+  /// balcão. Sem isto o valor ficava no saldo cheio e QUALQUER desconto
+  /// acusava "maior que o saldo" — o campo era inutilizável.
+  bool _valorTocado = false;
   final _descCtrl = TextEditingController();
   final _descontoCtrl = TextEditingController();
   final _motivoDescontoCtrl = TextEditingController();
@@ -89,7 +94,23 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
       double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
 
   /// Desconto concedido para fechar a conta. Não altera o total do documento.
-  double get _desconto => DescontoField.valorDe(_descontoCtrl);
+  double get _desconto {
+    final d = DescontoField.valorDe(_descontoCtrl);
+    return d > _esperado ? _esperado : d;
+  }
+
+  /// Quanto se espera em DINHEIRO depois do desconto.
+  double get _esperadoEmDinheiro {
+    final v = _esperado - _desconto;
+    return v > 0 ? v : 0;
+  }
+
+  /// Mantém o valor recebido colado no esperado enquanto o operador não o
+  /// editar à mão.
+  void _sincronizarValorComDesconto() {
+    if (_valorTocado) return;
+    _amountCtrl.text = formatAmountForInput(_esperadoEmDinheiro);
+  }
 
   /// Quanto continua pendente depois deste recebimento.
   ///
@@ -331,7 +352,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       // justamente o caso que o operador mais precisa
                       // registrar. Negativo/lixo continua barrado.
                       validator: Validators.nonNegativeNumber(field: 'Valor'),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(() => _valorTocado = true),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -342,7 +363,9 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Tudo',
                       tooltip: 'Preencher com o saldo total',
                       onTap: () => setState(() {
-                        _amountCtrl.text = formatAmountForInput(_saldo);
+                        _valorTocado = true;
+                        _amountCtrl.text =
+                            formatAmountForInput(_esperadoEmDinheiro);
                       }),
                     ),
                   ),
@@ -354,8 +377,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
               DescontoField(
                 controller: _descontoCtrl,
                 motivoController: _motivoDescontoCtrl,
-                saldo: _saldo - _digitado > 0 ? _saldo - _digitado : 0,
-                onChanged: () => setState(() {}),
+                // Saldo CHEIO: o teto do desconto é o que se deve, não o que
+                // sobrou depois do valor digitado (que nasce igual ao saldo e
+                // faria todo desconto parecer excessivo).
+                saldo: _esperado,
+                onChanged: () => setState(_sincronizarValorComDesconto),
               ),
               // A consequência do que foi digitado, dita em uma linha: é o que
               // torna "receber parcial" óbvio em vez de um efeito colateral.

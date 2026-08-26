@@ -154,15 +154,34 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// Quanto o cliente entregou. Vazio = zero (venda inteiramente fiada), o que é
   /// uma escolha legítima e confirmada no modal — não um erro a bloquear.
   double get _recebido {
-    if (!_receivedTouched) return _total;
+    // Sem toque, o esperado é o total MENOS o desconto na quitação: o operador
+    // que digita "10 de desconto" espera que o cliente pague 90, não que ele
+    // continue devendo 100 e o campo de desconto seja inútil.
+    if (!_receivedTouched) return _esperadoAposDesconto;
     final v = double.tryParse(_receivedCtrl.text.trim().replaceAll(',', '.'));
     return v == null || v < 0 ? 0 : v;
+  }
+
+  /// Desconto na QUITAÇÃO — perdoa saldo sem mexer no total da venda. Distinto
+  /// do `_desconto` acima, que abate o preço e sai no comprovante.
+  double get _descontoQuitacao {
+    final d = DescontoField.valorDe(_descontoQuitacaoCtrl);
+    // Nunca mais que o total: perdoar além da dívida criaria saldo negativo.
+    return d > _total ? _total : d;
+  }
+
+  double get _esperadoAposDesconto {
+    final v = _total - _descontoQuitacao;
+    return v > 0 ? v : 0;
   }
 
   /// A divisão do dinheiro (caixa / troco / fiado) — regra no domínio, testada
   /// por fora da UI: errar aqui não aparece na tela, aparece no fechamento.
   SalePaymentSplit get _split => SalePaymentSplit.of(
-        total: _total,
+        // O desconto QUITA sem entrar dinheiro: para a divisão do que sobra, é
+        // como se a dívida fosse menor. O total da venda segue intacto — quem
+        // muda é só o que ainda se cobra.
+        total: _esperadoAposDesconto,
         recebido: _recebido,
         dinheiro: _method == 'dinheiro',
       );
@@ -413,7 +432,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               saleKind: 'sale',
               saleId: sale.id,
               description: desc,
-              discount: DescontoField.valorDe(_descontoQuitacaoCtrl),
+              discount: _descontoQuitacao,
               discountReason: _motivoDescontoCtrl.text.trim(),
               saleTotal: _total,
             ));
@@ -643,19 +662,21 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 _receivedCtrl.text = formatAmountForInput(_total);
               }),
             ),
-            // Desconto na QUITAÇÃO — só faz sentido quando sobraria saldo. Não
-            // se confunde com "Desconto no preço" (acima, na composição do
-            // total): aquele muda o comprovante, este encerra o que ficaria
-            // fiado sem mexer no valor da venda.
-            if (_falta > 0.005) ...[
+            // Aparece sempre que HÁ venda — não só quando já sobra saldo.
+            // Antes ficava atrás de `_falta > 0`, e como o valor recebido nasce
+            // igual ao total, `_falta` era zero: o campo nunca aparecia, e
+            // descobri-lo exigia primeiro digitar um valor menor. O operador
+            // pensa ao contrário: "dou 10 de desconto, ele paga 90".
+            if (_total > 0.005) ...[
               const SizedBox(height: 16),
               DescontoField(
                 controller: _descontoQuitacaoCtrl,
                 motivoController: _motivoDescontoCtrl,
-                saldo: _falta,
+                saldo: _total,
                 label: 'Desconto na quitação',
-                ajuda: 'A venda continua valendo ${formatMoney(_total)}. O '
-                    'desconto encerra o que ficaria fiado.',
+                ajuda: 'A venda continua valendo ${formatMoney(_total)} no '
+                    'comprovante. O cliente paga '
+                    '${formatMoney(_esperadoAposDesconto)}.',
                 onChanged: () => setState(() {}),
               ),
             ],
