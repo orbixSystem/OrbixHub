@@ -230,7 +230,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const ids = [randomUUID(), randomUUID(), randomUUID()];
     for (const id of ids) {
-      expect((await createCustomer(o.access, { id, name: `C ${id.slice(0, 4)}` })).status).toBe(201);
+      expect((await createCustomer(o.access, { id, name: `C ${id.slice(0, 4)}`, phone: '11999999999' })).status).toBe(201);
     }
 
     const p1 = await pull(o.access, '?entity=customer&limit=2');
@@ -336,7 +336,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Base' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Base', phone: '11999999999' })).status).toBe(201);
     // escrita ONLINE (servidor) DEPOIS do timestamp do cliente → updated_at = agora
     expect((await patchCustomer(o.access, cId, { name: 'Servidor Vence' })).status).toBe(200);
 
@@ -406,7 +406,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Dono' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Dono', phone: '11999999999' })).status).toBe(201);
 
     const res = await push(o.access, uid, [
       mut('customer', 'create', { id: cId, name: 'Intruso' }),
@@ -459,7 +459,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const b = await registerOwner();
     const bId = await myUserId(b.access);
     const aCustomer = randomUUID();
-    expect((await createCustomer(a.access, { id: aCustomer, name: 'Cliente de A' })).status).toBe(201);
+    expect((await createCustomer(a.access, { id: aCustomer, name: 'Cliente de A', phone: '11999999999' })).status).toBe(201);
 
     // pull de B não enxerga o cliente de A
     const bPull = await pull(b.access, '?entity=customer&limit=100');
@@ -549,7 +549,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Arquivar' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Arquivar', phone: '11999999999' })).status).toBe(201);
 
     const res = await push(o.access, uid, [
       mut('customer', 'archive', { id: cId }),
@@ -621,7 +621,7 @@ describe('Sync — pull + push offline (e2e)', () => {
   it('pull incremental: com o cursor salvo nada é re-baixado; só a linha nova volta', async () => {
     const o = await registerOwner();
     const first = randomUUID();
-    expect((await createCustomer(o.access, { id: first, name: 'Primeiro' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: first, name: 'Primeiro', phone: '11999999999' })).status).toBe(201);
 
     const p1 = await pull(o.access, '?entity=customer&limit=500');
     expect(p1.body.rows).toHaveLength(1);
@@ -641,7 +641,7 @@ describe('Sync — pull + push offline (e2e)', () => {
 
     // só a linha NOVA volta na rodada seguinte
     const second = randomUUID();
-    expect((await createCustomer(o.access, { id: second, name: 'Segundo' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: second, name: 'Segundo', phone: '11999999999' })).status).toBe(201);
     const p3 = await pull(o.access, q(c));
     expect((p3.body.rows as Array<{ id: string }>).map((r) => r.id)).toEqual([second]);
     expect(p3.body.nextCursor).toBeTruthy();

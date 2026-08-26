@@ -157,7 +157,7 @@ describe('Sale — Venda avulsa (e2e)', () => {
     const cust = await request(srv())
       .post('/api/customers')
       .set(auth(access))
-      .send({ name: `Cliente ${uniq()}` });
+      .send({ name: `Cliente ${uniq()}`, phone: '11999999999' });
     expect(cust.status).toBe(201);
     const order = await request(srv())
       .post('/api/os/orders')

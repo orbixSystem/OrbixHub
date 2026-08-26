@@ -167,7 +167,7 @@ describe('Customers & Subjects (e2e)', () => {
       const a = await registerOwner();
       const b = await registerOwner();
 
-      const created = await createCustomer(a.access, { name: 'Cliente A' });
+      const created = await createCustomer(a.access, { name: 'Cliente A', phone: '11999999999' });
       expect(created.status).toBe(201);
       const id = created.body.id as string;
 
@@ -226,7 +226,7 @@ describe('Customers & Subjects (e2e)', () => {
   describe('soft delete', () => {
     it('DELETE removes from lists (incl. all) but keeps the row', async () => {
       const o = await registerOwner();
-      const created = await createCustomer(o.access, { name: 'Para excluir' });
+      const created = await createCustomer(o.access, { name: 'Para excluir', phone: '11999999999' });
       const id = created.body.id as string;
 
       const del = await request(app.getHttpServer())
@@ -259,7 +259,7 @@ describe('Customers & Subjects (e2e)', () => {
         document: '12345678900',
         phone: '11888777',
       });
-      await createCustomer(o.access, { name: 'Outro Cliente' });
+      await createCustomer(o.access, { name: 'Outro Cliente', phone: '11999999999' });
 
       const byName = await listCustomers(o.access, '?q=Fernanda');
       expect((byName.body.items as unknown[]).length).toBe(1);
@@ -275,14 +275,14 @@ describe('Customers & Subjects (e2e)', () => {
     it('document is optional; unique per tenant when present', async () => {
       const o = await registerOwner();
       // two customers without document are allowed (partial unique index)
-      expect((await createCustomer(o.access, { name: 'A' })).status).toBe(201);
-      expect((await createCustomer(o.access, { name: 'B' })).status).toBe(201);
+      expect((await createCustomer(o.access, { name: 'A', phone: '11999999999' })).status).toBe(201);
+      expect((await createCustomer(o.access, { name: 'B', phone: '11999999999' })).status).toBe(201);
       // first with document ok
       expect(
-        (await createCustomer(o.access, { name: 'C', document: 'DOC-1' })).status,
+        (await createCustomer(o.access, { name: 'C', document: 'DOC-1', phone: '11999999999' })).status,
       ).toBe(201);
       // duplicate document -> 409
-      const dup = await createCustomer(o.access, { name: 'D', document: 'DOC-1' });
+      const dup = await createCustomer(o.access, { name: 'D', document: 'DOC-1', phone: '11999999999' });
       expect(dup.status).toBe(409);
     });
 
@@ -290,10 +290,10 @@ describe('Customers & Subjects (e2e)', () => {
       const a = await registerOwner();
       const b = await registerOwner();
       expect(
-        (await createCustomer(a.access, { name: 'A', document: 'SHARED' })).status,
+        (await createCustomer(a.access, { name: 'A', document: 'SHARED', phone: '11999999999' })).status,
       ).toBe(201);
       expect(
-        (await createCustomer(b.access, { name: 'B', document: 'SHARED' })).status,
+        (await createCustomer(b.access, { name: 'B', document: 'SHARED', phone: '11999999999' })).status,
       ).toBe(201);
     });
   });
@@ -307,6 +307,7 @@ describe('Customers & Subjects (e2e)', () => {
       const created = await createCustomer(o.access, {
         name: 'Replay Offline',
         id: fixedId,
+        phone: '11999999999',
       });
       expect(created.status).toBe(201);
       expect(created.body.id).toBe(fixedId);
@@ -320,6 +321,7 @@ describe('Customers & Subjects (e2e)', () => {
       const dup = await createCustomer(o.access, {
         name: 'Replay Offline 2',
         id: fixedId,
+        phone: '11999999999',
       });
       expect(dup.status).toBe(409);
       expect(dup.body.message).toBe('Registro já existe (id duplicado).');
@@ -330,6 +332,7 @@ describe('Customers & Subjects (e2e)', () => {
       const first = await createCustomer(o.access, {
         name: 'Titular do doc',
         document: 'DOC-MIX-1',
+        phone: '11999999999',
       });
       expect(first.status).toBe(201);
 
@@ -339,6 +342,7 @@ describe('Customers & Subjects (e2e)', () => {
         name: 'Outro titular',
         document: 'DOC-MIX-1',
         id: randomUUID(),
+        phone: '11999999999',
       });
       expect(mixed.status).toBe(409);
       expect(mixed.body.message).toBe(
@@ -358,11 +362,12 @@ describe('Customers & Subjects (e2e)', () => {
       expect(patch.status).toBe(200);
       expect(patch.body.documentRequired).toBe(true);
 
-      const without = await createCustomer(o.access, { name: 'Sem doc' });
+      const without = await createCustomer(o.access, { name: 'Sem doc', phone: '11999999999' });
       expect(without.status).toBe(400);
       const withDoc = await createCustomer(o.access, {
         name: 'Com doc',
         document: 'D-1',
+        phone: '11999999999',
       });
       expect(withDoc.status).toBe(201);
     });
@@ -371,7 +376,7 @@ describe('Customers & Subjects (e2e)', () => {
   // ---- Criterion 1/2/5: subjects ---------------------------------------
   describe('subjects', () => {
     async function makeCustomer(access: string): Promise<string> {
-      const c = await createCustomer(access, { name: 'Dono do objeto' });
+      const c = await createCustomer(access, { name: 'Dono do objeto', phone: '11999999999' });
       return c.body.id as string;
     }
 
@@ -459,7 +464,7 @@ describe('Customers & Subjects (e2e)', () => {
   describe('customer history', () => {
     it('GET /customers/:id/history returns [] (and accepts ?subjectId=)', async () => {
       const o = await registerOwner();
-      const c = await createCustomer(o.access, { name: 'Com histórico' });
+      const c = await createCustomer(o.access, { name: 'Com histórico', phone: '11999999999' });
       const customerId = c.body.id as string;
       const sub = await request(app.getHttpServer())
         .post(`/api/customers/${customerId}/subjects`)
@@ -491,7 +496,7 @@ describe('Customers & Subjects (e2e)', () => {
   describe('usaSubjects=false', () => {
     it('disables subject endpoints (403)', async () => {
       const o = await registerOwner();
-      const c = await createCustomer(o.access, { name: 'C' });
+      const c = await createCustomer(o.access, { name: 'C', phone: '11999999999' });
       const customerId = c.body.id as string;
 
       await request(app.getHttpServer())
@@ -519,7 +524,7 @@ describe('Customers & Subjects (e2e)', () => {
       const o = await registerOwner();
       const mech = await inviteAccept(o, 'mechanic');
 
-      const create = await createCustomer(mech.access, { name: 'By mechanic' });
+      const create = await createCustomer(mech.access, { name: 'By mechanic', phone: '11999999999' });
       expect(create.status).toBe(201);
 
       const cfg = await request(app.getHttpServer())
