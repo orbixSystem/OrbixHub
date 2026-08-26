@@ -181,6 +181,8 @@ class FakeCashierRepository implements CashierRepository {
     String? method,
     String? category,
     String? description,
+    double? discount,
+    String? discountReason,
   }) async {
     // Espelha o servidor: estorna o original e cria um NOVO (nunca sobrescreve).
     final original = _entries.firstWhere((e) => e.id == id);
@@ -192,6 +194,10 @@ class FakeCashierRepository implements CashierRepository {
       saleKind: original.saleKind,
       saleId: original.saleId,
       description: description ?? original.description,
+      // Herda o desconto original quando não vier no patch — mesmo contrato do
+      // servidor.
+      discount: discount ?? double.tryParse(original.discount) ?? 0,
+      discountReason: discountReason ?? original.discountReason,
     ));
   }
 
@@ -362,6 +368,8 @@ class FakeCashierRepository implements CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    double discount = 0,
+    String? discountReason,
   }) async {
     throw UnimplementedError('payInstallment não implementado no fake.');
   }

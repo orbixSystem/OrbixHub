@@ -6,6 +6,7 @@ import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/presentation/desconto_selo.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/entry_edit_dialogs.dart';
@@ -263,6 +264,38 @@ class _Corpo extends ConsumerWidget {
                   ),
                 ),
               Divider(height: 14, color: neu.line),
+              // Desconto NO PREÇO — o que abate o total da venda. Até agora
+              // não aparecia em lugar nenhum do detalhe: quem dava desconto na
+              // criação abria o modal e não via sinal dele, o que parecia que
+              // não tinha sido registrado.
+              //
+              // O rótulo só ganha o "no preço" quando existe TAMBÉM um desconto
+              // de quitação (venda que virou fiado e foi quitada com
+              // abatimento). Qualificar sempre obrigaria o operador a distinguir
+              // duas coisas onde só há uma.
+              if (moneyToDouble(sale.discount) > 0.005) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (payment?.discount ?? 0) > 0
+                            ? 'Desconto no preço'
+                            : 'Desconto',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                      ),
+                    ),
+                    Text(
+                      '− ${formatMoney(moneyToDouble(sale.discount))}',
+                      style: TextStyle(
+                        color: neu.warning,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -527,6 +560,12 @@ class _Pagamentos extends StatelessWidget {
                   ),
                 ],
               ),
+              // Sem esta linha, uma venda de R$ 100 aparece quitada tendo
+              // entrado R$ 90 e quem confere não acha os R$ 10.
+              if (payment.discount > 0) ...[
+                const SizedBox(height: 10),
+                DescontoSelo(payment: payment, dense: true),
+              ],
               if (payment.entries.isNotEmpty) ...[
                 Divider(height: 16, color: neu.line),
                 for (final e in payment.entries)
@@ -662,7 +701,14 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         sale,
         PdfPageFormat.a4,
         company: company,
-        extras: SaleReceiptExtras(customer: cliente, pagamentos: pagamentos),
+        extras: SaleReceiptExtras(
+          customer: cliente,
+          pagamentos: pagamentos,
+          // O comprovante precisa explicar por que a venda encerrou tendo
+          // entrado menos dinheiro que o total — senão a conta não fecha na
+          // mão de quem confere o papel.
+          descontoQuitacao: (widget.payment?.discount ?? 0).toDouble(),
+        ),
       );
       final numero = sale.number.isEmpty
           ? sale.id.substring(0, 8)

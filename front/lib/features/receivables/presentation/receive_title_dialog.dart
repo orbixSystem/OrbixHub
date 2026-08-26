@@ -5,6 +5,7 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/presentation/desconto_field.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/domain/local_payment.dart';
 import '../../cashier/presentation/cashier_providers.dart';
@@ -68,7 +69,14 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     // plano, ou o SALDO (não o total) quando não há.
     text: formatAmountForInput(_esperado),
   );
+  /// O operador tocou no valor? Enquanto não, ele acompanha o desconto: digitar
+  /// "10 de desconto" faz o esperado cair para 90, que é como se pensa no
+  /// balcão. Sem isto o valor ficava no saldo cheio e QUALQUER desconto
+  /// acusava "maior que o saldo" — o campo era inutilizável.
+  bool _valorTocado = false;
   final _descCtrl = TextEditingController();
+  final _descontoCtrl = TextEditingController();
+  final _motivoDescontoCtrl = TextEditingController();
   late String _method = widget.config.paymentMethods.isNotEmpty
       ? widget.config.paymentMethods.first
       : 'pix';
@@ -85,8 +93,30 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
   double get _digitado =>
       double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
 
+  /// Desconto concedido para fechar a conta. Não altera o total do documento.
+  double get _desconto {
+    final d = DescontoField.valorDe(_descontoCtrl);
+    return d > _esperado ? _esperado : d;
+  }
+
+  /// Quanto se espera em DINHEIRO depois do desconto.
+  double get _esperadoEmDinheiro {
+    final v = _esperado - _desconto;
+    return v > 0 ? v : 0;
+  }
+
+  /// Mantém o valor recebido colado no esperado enquanto o operador não o
+  /// editar à mão.
+  void _sincronizarValorComDesconto() {
+    if (_valorTocado) return;
+    _amountCtrl.text = formatAmountForInput(_esperadoEmDinheiro);
+  }
+
   /// Quanto continua pendente depois deste recebimento.
-  double get _restante => round2Money(_saldo - _digitado);
+  ///
+  /// O desconto entra aqui: ele QUITA sem entrar dinheiro, então o que sobra é
+  /// o saldo menos o recebido menos o perdoado.
+  double get _restante => round2Money(_saldo - _digitado - _desconto);
 
   /// Recebeu ZERO: a ação deixa de ser "registrar dinheiro" e passa a ser
   /// "declarar fiado". Só existe no caminho livre — quitar PARCELA sempre move
@@ -118,6 +148,8 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
   void dispose() {
     _amountCtrl.dispose();
     _descCtrl.dispose();
+    _descontoCtrl.dispose();
+    _motivoDescontoCtrl.dispose();
     super.dispose();
   }
 
@@ -139,6 +171,14 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
         _snack('O valor é maior que o saldo de ${formatMoney(_saldo)}.');
         return;
       }
+      // Recebido + perdoado não pode passar do que se deve — senão o "troco"
+      // viraria desconto fantasma.
+      if (valor + _desconto > _saldo + paymentEps) {
+        _snack(
+          'Valor e desconto somam mais que o saldo de ${formatMoney(_saldo)}.',
+        );
+        return;
+      }
     }
     setState(() => _saving = true);
     final nota = _descCtrl.text.trim();
@@ -149,6 +189,8 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
               installmentId: parcela.id,
               method: _method,
               description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
+              discount: _desconto,
+              discountReason: _motivoDescontoCtrl.text.trim(),
             );
       } else if (_ehFiadoPuro) {
         // Nada recebido: não há dinheiro a lançar. O que se registra é a
@@ -170,6 +212,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                 saleId: widget.title.id,
                 // O extrato mostra de qual título veio o dinheiro.
                 description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
+                discount: _desconto,
+                discountReason: _motivoDescontoCtrl.text.trim(),
+                // O caixa não lê a tabela da OS/venda: sem o total informado
+                // aqui, o backend não tem denominador para o teto percentual.
+                saleTotal: widget.title.total.toDouble(),
               ),
             );
         // Programar o que sobrou, quando pedido — na mesma ação, para o
@@ -296,7 +343,12 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Valor recebido *',
                       controller: _amountCtrl,
                       hint: '0,00',
-                      prefixIcon: Icons.attach_money_rounded,
+                      // Mesma apresentação da venda e do campo de desconto ao
+                      // lado: prefixo R$ e número à direita. Ícone de cifrão
+                      // deixava os dois campos de dinheiro da MESMA tela com
+                      // aparências diferentes.
+                      prefixText: 'R\$ ',
+                      textAlign: TextAlign.right,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: const [DecimalInputFormatter()],
@@ -305,7 +357,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       // justamente o caso que o operador mais precisa
                       // registrar. Negativo/lixo continua barrado.
                       validator: Validators.nonNegativeNumber(field: 'Valor'),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(() => _valorTocado = true),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -316,11 +368,25 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Tudo',
                       tooltip: 'Preencher com o saldo total',
                       onTap: () => setState(() {
-                        _amountCtrl.text = formatAmountForInput(_saldo);
+                        _valorTocado = true;
+                        _amountCtrl.text =
+                            formatAmountForInput(_esperadoEmDinheiro);
                       }),
                     ),
                   ),
                 ],
+              ),
+              // Desconto vem ANTES da linha de consequência de propósito: ele
+              // muda o que sobra, e a consequência precisa já refletir isso.
+              const SizedBox(height: 12),
+              DescontoField(
+                controller: _descontoCtrl,
+                motivoController: _motivoDescontoCtrl,
+                // Saldo CHEIO: o teto do desconto é o que se deve, não o que
+                // sobrou depois do valor digitado (que nasce igual ao saldo e
+                // faria todo desconto parecer excessivo).
+                saldo: _esperado,
+                onChanged: () => setState(_sincronizarValorComDesconto),
               ),
               // A consequência do que foi digitado, dita em uma linha: é o que
               // torna "receber parcial" óbvio em vez de um efeito colateral.

@@ -290,7 +290,7 @@ as DateTime,
 /// @nodoc
 mixin _$SupportTicket {
 
- String get id; String get subject;/// 'aberto' | 'resolvido'
+ String get id; String get subject;/// 'aberto' | 'resolvido' | 'reabertura_solicitada'
  String get status; DateTime get lastMessageAt; DateTime get createdAt;/// Respostas da Orbix ainda não lidas neste chamado.
  int get naoLidas;
 /// Create a copy of SupportTicket
@@ -496,7 +496,7 @@ class _SupportTicket extends SupportTicket {
 
 @override final  String id;
 @override final  String subject;
-/// 'aberto' | 'resolvido'
+/// 'aberto' | 'resolvido' | 'reabertura_solicitada'
 @override@JsonKey() final  String status;
 @override final  DateTime lastMessageAt;
 @override final  DateTime createdAt;

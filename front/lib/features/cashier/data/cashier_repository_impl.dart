@@ -173,6 +173,8 @@ class CashierRepositoryImpl implements CashierRepository {
     String? method,
     String? category,
     String? description,
+    double? discount,
+    String? discountReason,
   }) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
@@ -183,6 +185,8 @@ class CashierRepositoryImpl implements CashierRepository {
             'method': ?method,
             'category': ?category,
             'description': ?description,
+            'discount': ?discount,
+            'discountReason': ?discountReason,
           },
         );
         // Devolve o lançamento NOVO (o original fica estornado no histórico).
@@ -320,6 +324,8 @@ class CashierRepositoryImpl implements CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    double discount = 0,
+    String? discountReason,
   }) =>
       _guard(() async {
         final res = await _dio.post<Object?>(
@@ -327,6 +333,9 @@ class CashierRepositoryImpl implements CashierRepository {
           data: {
             'method': method,
             'description': ?description,
+            if (discount > 0) 'discount': discount,
+            if (discount > 0 && (discountReason ?? '').isNotEmpty)
+              'discountReason': discountReason,
           },
         );
         return Installment.fromJson(_asMap(res.data));

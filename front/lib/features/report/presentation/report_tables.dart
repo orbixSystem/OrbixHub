@@ -265,6 +265,16 @@ ReportTable cashFlowTable(CashSummary s) => ReportTable(
           formatMoney(s.totalOut),
           formatMoney(s.net),
         ],
+        // Linha à parte, fora do TOTAL: desconto fecha dívida sem entrar
+        // dinheiro. Somá-lo à entrada faria a tabela acusar caixa que não
+        // existe; omiti-lo faria a receita não bater com o faturado.
+        if (s.totalDiscount > 0)
+          [
+            'Descontos concedidos',
+            formatMoney(s.totalDiscount),
+            '—',
+            '—',
+          ],
       ],
     );
 
