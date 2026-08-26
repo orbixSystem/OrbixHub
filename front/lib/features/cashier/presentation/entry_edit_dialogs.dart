@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../domain/cashier_format.dart';
+import 'desconto_field.dart';
 import '../domain/cashier_models.dart';
 import 'cashier_providers.dart';
 
@@ -280,6 +281,16 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
   late final _valorCtrl = TextEditingController(
       text: formatAmountForInput(moneyToDouble(widget.entry.amount)));
   final _motivoCtrl = TextEditingController();
+  /// Pré-preenchido com o desconto ATUAL: corrigir um recebimento tem de poder
+  /// corrigir o abatimento junto, e deixar o campo vazio faria a correção
+  /// apagar em silêncio um desconto já concedido.
+  late final _descontoCtrl = TextEditingController(
+    text: moneyToDouble(widget.entry.discount) > 0
+        ? formatAmountForInput(moneyToDouble(widget.entry.discount))
+        : '',
+  );
+  late final _motivoDescontoCtrl =
+      TextEditingController(text: widget.entry.discountReason ?? '');
   late String _metodo = widget.entry.method;
   bool _salvando = false;
   String? _erro;
@@ -288,6 +299,8 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
   void dispose() {
     _valorCtrl.dispose();
     _motivoCtrl.dispose();
+    _descontoCtrl.dispose();
+    _motivoDescontoCtrl.dispose();
     super.dispose();
   }
 
@@ -299,7 +312,10 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
       setState(() => _erro = 'Informe um motivo (mín. 3 caracteres).');
       return;
     }
-    if (valor <= 0) {
+    final desconto = DescontoField.valorDe(_descontoCtrl);
+    // Valor zero é legítimo QUANDO há desconto: é o perdão integral. Sem
+    // desconto continua sendo erro de digitação.
+    if (valor <= 0 && desconto <= 0) {
       setState(() => _erro = 'Informe um valor maior que zero.');
       return;
     }
@@ -313,6 +329,8 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
             reason: motivo,
             amount: valor,
             method: _metodo,
+            discount: desconto,
+            discountReason: _motivoDescontoCtrl.text.trim(),
           );
       // Guard depois do await: o widget pode ter sido descartado enquanto a
       // chamada estava em voo (sair da tela, fechar o diálogo, trocar de OS).
@@ -360,10 +378,25 @@ class _CorrectEntryDialogState extends ConsumerState<_CorrectEntryDialog> {
           _AvisoCorrecao(valorAtual: widget.entry.amount),
           const SizedBox(height: 14),
           NeuTextField(
-            label: 'Novo valor (R\$)',
+            label: 'Novo valor',
             controller: _valorCtrl,
+            prefixText: 'R\$ ',
+            textAlign: TextAlign.right,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: const [DecimalInputFormatter()],
+          ),
+          const SizedBox(height: 12),
+          DescontoField(
+            controller: _descontoCtrl,
+            motivoController: _motivoDescontoCtrl,
+            // O saldo aqui é o próprio valor sendo corrigido: o desconto faz
+            // parte do mesmo recebimento.
+            saldo: moneyToDouble(_valorCtrl.text) +
+                DescontoField.valorDe(_descontoCtrl),
+            label: 'Desconto na quitação',
+            ajuda: 'Corrige o abatimento junto com o valor. Deixar em branco '
+                'remove o desconto deste recebimento.',
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: 12),
           _Dropdown(

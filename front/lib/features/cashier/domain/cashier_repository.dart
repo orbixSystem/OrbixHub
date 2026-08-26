@@ -46,6 +46,10 @@ abstract interface class CashierRepository {
     String? method,
     String? category,
     String? description,
+    /// Omitir HERDA o desconto original — corrigir só a forma de pagamento não
+    /// deve apagar em silêncio o abatimento que já havia sido concedido.
+    double? discount,
+    String? discountReason,
   });
 
   Future<EntryPage> listEntries({

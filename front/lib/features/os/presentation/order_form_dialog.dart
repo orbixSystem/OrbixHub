@@ -1753,7 +1753,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           label: 'Desconto (opcional)',
           controller: _discount,
           hint: '0,00',
-          prefixIcon: Icons.discount_outlined,
+          // Sem formatador este campo aceitava qualquer texto e o valor era
+          // deduzido por `double.tryParse`, que devolve 0 em silêncio — digitar
+          // "1.2.3" ou "10,,5" zerava o desconto sem avisar. Agora tem a mesma
+          // apresentação e a mesma máscara dos demais campos de dinheiro.
+          prefixText: 'R\$ ',
+          textAlign: TextAlign.right,
+          inputFormatters: const [DecimalInputFormatter()],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           enabled: !_saving,
           onChanged: (_) => setState(() {}),

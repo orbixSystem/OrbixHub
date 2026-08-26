@@ -421,7 +421,13 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       // Agora o valor lançado é o recebido; o que falta permanece a receber e
       // aparece no Fiado, que é o único jeito de alguém cobrar aquilo depois.
       final aLancar = _aLancarNoCaixa;
-      if (aLancar > 0.005) {
+      // Perdoar a venda INTEIRA (desconto cobre tudo, nada em dinheiro) tem
+      // `aLancar` zero. Guardar só por `aLancar > 0` fazia o desconto sumir em
+      // silêncio — nada estourava, o registro simplesmente não nascia. É o caso
+      // que a constraint do banco foi alterada para aceitar; a tela precisava
+      // aceitar junto.
+      final descontoQuitacao = _descontoQuitacao;
+      if (aLancar > 0.005 || descontoQuitacao > 0.005) {
         // A descrição livre entra no extrato junto do nº ("VND-0001 · texto").
         final note = _descCtrl.text.trim();
         final desc = [sale.number, if (note.isNotEmpty) note].join(' · ');
@@ -432,7 +438,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               saleKind: 'sale',
               saleId: sale.id,
               description: desc,
-              discount: _descontoQuitacao,
+              discount: descontoQuitacao,
               discountReason: _motivoDescontoCtrl.text.trim(),
               saleTotal: _total,
             ));

@@ -636,6 +636,13 @@ export class CashierServiceImpl extends CashierService {
       saleId: original.sale_id ?? undefined,
       description:
         dto.description ?? (original.description ?? undefined),
+      // Corrigir um recebimento tem de poder corrigir o DESCONTO junto: quem
+      // errou o valor pode ter errado o abatimento. Omitir o campo HERDA o
+      // desconto original — corrigir só a forma de pagamento não deveria
+      // apagar em silêncio o desconto que já havia sido concedido.
+      discount: dto.discount ?? toNum(original.discount),
+      discountReason:
+        dto.discountReason ?? (original.discount_reason ?? undefined),
       deviceId: undefined,
     });
     await this.audit.log(
@@ -643,7 +650,14 @@ export class CashierServiceImpl extends CashierService {
       user.userId,
       'cashier_entry_correct',
       novo.id,
-      { corrigiu: id, motivo: dto.reason, de: toNum(original.amount), para: toNum(novo.amount) },
+      {
+        corrigiu: id,
+        motivo: dto.reason,
+        de: toNum(original.amount),
+        para: toNum(novo.amount),
+        descontoDe: toNum(original.discount),
+        descontoPara: toNum(novo.discount),
+      },
     );
     return novo;
   }

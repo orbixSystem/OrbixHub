@@ -451,6 +451,8 @@ class LocalFirstCashierRepository extends LocalFirstBase
     String? method,
     String? category,
     String? description,
+    double? discount,
+    String? discountReason,
   }) async {
     if (!await useLocal(_entries, id)) {
       final novo = await inner.correctEntry(
@@ -460,6 +462,8 @@ class LocalFirstCashierRepository extends LocalFirstBase
         method: method,
         category: category,
         description: description,
+        discount: discount,
+        discountReason: discountReason,
       );
       await putRow(_entries, novo.toJson());
       // O servidor estornou o original nesta mesma chamada. Refletir isso no
@@ -498,6 +502,8 @@ class LocalFirstCashierRepository extends LocalFirstBase
       'method': ?method,
       'category': ?category,
       'description': ?description,
+      'discount': ?discount,
+      'discountReason': ?discountReason,
     });
 
     // Espelho otimista: o original estornado + o novo lançamento.

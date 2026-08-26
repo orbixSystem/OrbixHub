@@ -343,7 +343,12 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Valor recebido *',
                       controller: _amountCtrl,
                       hint: '0,00',
-                      prefixIcon: Icons.attach_money_rounded,
+                      // Mesma apresentação da venda e do campo de desconto ao
+                      // lado: prefixo R$ e número à direita. Ícone de cifrão
+                      // deixava os dois campos de dinheiro da MESMA tela com
+                      // aparências diferentes.
+                      prefixText: 'R\$ ',
+                      textAlign: TextAlign.right,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: const [DecimalInputFormatter()],
