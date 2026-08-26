@@ -385,12 +385,12 @@ describe('Sync — pull + push offline (e2e)', () => {
     const idB = randomUUID();
 
     const resA = await push(o.access, ownerId, [
-      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idA, name: 'A' }, clientUpdatedAt: soon() },
+      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idA, name: 'A', phone: '11999999999' }, clientUpdatedAt: soon() },
     ]);
     expect((resA.body.results as Array<{ status: string }>)[0].status).toBe('applied');
 
     const resB = await push(b.access, b.userId, [
-      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idB, name: 'B' }, clientUpdatedAt: soon() },
+      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idB, name: 'B', phone: '11999999999' }, clientUpdatedAt: soon() },
     ]);
     expect((resB.body.results as Array<{ status: string }>)[0].status).toBe('applied');
 
@@ -486,7 +486,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const created = await request(srv())
       .post('/api/os/orders')
       .set(auth(o.access))
-      .send({ id: orderId, newCustomerName: 'Cliente da OS' });
+      .send({ id: orderId, newCustomerName: 'Cliente da OS', newCustomerPhone: '11999999999' });
     expect(created.status).toBe(201);
 
     // addItem: a OS-pai vai em `orderId` (chave estrutural). Antes, com `id`, o
