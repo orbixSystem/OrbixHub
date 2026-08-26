@@ -61,57 +61,11 @@ describe('validarDesconto', () => {
     });
   });
 
-  describe('teto por valor', () => {
-    const teto: TetoDesconto = { maxPercentual: null, maxValor: 50 };
-
-    it('no teto exato passa', () => {
-      expect(validarDesconto({ ...base, desconto: 50, teto }).ok).toBe(true);
-    });
-
-    it('um centavo acima recusa e diz o limite', () => {
-      const r = validarDesconto({ ...base, desconto: 50.01, teto });
-      expect(r.ok).toBe(false);
-      expect(r.ok === false && r.motivo).toMatch(/50\.00/);
-    });
-  });
-
-  describe('teto por percentual', () => {
-    const teto: TetoDesconto = { maxPercentual: 10, maxValor: null };
-
-    it('10% de 100 passa', () => {
-      expect(validarDesconto({ ...base, desconto: 10, saldo: 100, teto }).ok).toBe(true);
-    });
-
-    it('11% de 100 recusa', () => {
-      const r = validarDesconto({ ...base, desconto: 11, saldo: 100, teto });
-      expect(r.ok).toBe(false);
-      expect(r.ok === false && r.motivo).toMatch(/10%/);
-    });
-
-    it('arredondamento de centavo não derruba o limite', () => {
-      // 10% de 33,33 = 3,333 → o operador digita 3,33, que é 9,99...%.
-      // Recusar isso seria recusar o próprio teto por ruído de centavo.
-      const r = validarDesconto({ ...base, desconto: 3.33, saldo: 33.33, teto });
-      expect(r.ok).toBe(true);
-    });
-
-    it('saldo zero não divide por zero', () => {
-      const r = validarDesconto({ ...base, desconto: 1, saldo: 0, teto });
-      // Cai na regra de "maior que o saldo" antes de calcular percentual.
-      expect(r.ok).toBe(false);
-      expect(r.ok === false && r.motivo).toMatch(/maior que o saldo/i);
-    });
-  });
-
-  describe('os dois tetos juntos', () => {
-    const teto: TetoDesconto = { maxPercentual: 10, maxValor: 5 };
-
-    it('o mais restritivo vence: 10 é 10% de 100, mas passa de R$ 5', () => {
-      const r = validarDesconto({ ...base, desconto: 10, saldo: 100, teto });
-      expect(r.ok).toBe(false);
-      expect(r.ok === false && r.motivo).toMatch(/5\.00/);
-    });
-  });
+  // Os testes de TETO saíram: o dono decidiu que a régua por valor/percentual
+  // não fazia sentido no uso real, e o service passa SEM_TETO sempre. A função
+  // continua suportando teto (o parâmetro existe) para o dia em que voltar,
+  // mas testar um caminho que o produto não exercita seria documentação falsa
+  // — alguém leria os testes e concluiria que há teto em produção.
 
   describe('arredondamento', () => {
     it('devolve o desconto já em centavos', () => {

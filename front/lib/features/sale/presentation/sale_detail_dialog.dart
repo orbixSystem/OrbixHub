@@ -669,7 +669,14 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         sale,
         PdfPageFormat.a4,
         company: company,
-        extras: SaleReceiptExtras(customer: cliente, pagamentos: pagamentos),
+        extras: SaleReceiptExtras(
+          customer: cliente,
+          pagamentos: pagamentos,
+          // O comprovante precisa explicar por que a venda encerrou tendo
+          // entrado menos dinheiro que o total — senão a conta não fecha na
+          // mão de quem confere o papel.
+          descontoQuitacao: (widget.payment?.discount ?? 0).toDouble(),
+        ),
       );
       final numero = sale.number.isEmpty
           ? sale.id.substring(0, 8)

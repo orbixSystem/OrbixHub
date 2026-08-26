@@ -15,7 +15,7 @@ import {
   clampChangedSinceLimit,
   type ChangedSincePage,
 } from '../../common/database/changed-since';
-import { SEM_TETO, TetoDesconto, validarDesconto } from './cashier.discount';
+import { SEM_TETO, validarDesconto } from './cashier.discount';
 import {
   buildPaymentSummary,
   CashierService,
@@ -419,22 +419,6 @@ export class CashierServiceImpl extends CashierService {
 
   // ===================== Lançamentos =====================
   /**
-   * Teto de desconto aplicável a QUEM está operando. Owner não tem teto — a
-   * alçada máxima é dele por definição, e um dono limitado por configuração que
-   * ele mesmo edita seria teatro.
-   */
-  private async tetoDe(
-    user: AuthUser,
-    config: { discountMaxPercent: number | null; discountMaxAmount: number | null },
-  ): Promise<TetoDesconto> {
-    if (user.role === 'owner') return SEM_TETO;
-    return {
-      maxPercentual: config.discountMaxPercent,
-      maxValor: config.discountMaxAmount,
-    };
-  }
-
-  /**
    * Valida o desconto pedido e devolve o valor aprovado. Lança 403 com o motivo
    * quando a alçada não cobre — a UI esconde o campo de quem não pode, mas
    * esconder não é proteger: o backend é a verdade.
@@ -442,13 +426,16 @@ export class CashierServiceImpl extends CashierService {
   private async aprovarDesconto(
     user: AuthUser,
     entrada: { desconto: number; saldo: number; amount: number },
-    config: { discountMaxPercent: number | null; discountMaxAmount: number | null },
   ): Promise<number> {
     if (!entrada.desconto) return 0;
     const r = validarDesconto({
       ...entrada,
       podeConceder: await this.hasPermission(user.role, 'cashier.discount'),
-      teto: await this.tetoDe(user, config),
+      // Sem teto configurável — decisão do dono: a régua por valor/percentual
+      // não fazia sentido no uso real. A contenção é a PERMISSÃO (só owner e
+      // gerente concedem) mais a trava de "não se perdoa mais do que se deve",
+      // que continua valendo e é a que impede dinheiro fantasma.
+      teto: SEM_TETO,
     });
     if (!r.ok) throw new ForbiddenException(r.motivo);
     return r.desconto;
@@ -480,11 +467,9 @@ export class CashierServiceImpl extends CashierService {
     // chamador informa `saleTotal`, mesmo padrão de `getPaymentSummary(...,
     // fallbackTotal)`, que já existe justamente por essa fronteira.
     //
-    // Sem `saleTotal` o teto PERCENTUAL não tem denominador confiável e é
-    // omitido; o teto por VALOR continua valendo, porque não depende do total.
-    // Preferi perder um eixo de proteção a inventar um saldo — número fabricado
-    // numa checagem de alçada é pior que checagem ausente, porque parece que
-    // protege.
+    // `saleTotal` serve à trava de "não se perdoa mais do que se deve": sem o
+    // total, o caixa não sabe o saldo (ele pertence ao módulo dono) e a trava
+    // fica limitada ao que a própria operação declara.
     let desconto = 0;
     if (dto.discount) {
       if (!saleId) {
@@ -501,12 +486,11 @@ export class CashierServiceImpl extends CashierService {
         total !== null
           ? Math.max(0, round2(total - jaQuitado))
           : round2(dto.amount + dto.discount);
-      desconto = await this.aprovarDesconto(
-        user,
-        { desconto: dto.discount, saldo, amount: dto.amount },
-        // Sem total conhecido, neutraliza só o eixo percentual.
-        total !== null ? config : { ...config, discountMaxPercent: null },
-      );
+      desconto = await this.aprovarDesconto(user, {
+        desconto: dto.discount,
+        saldo,
+        amount: dto.amount,
+      });
     }
 
     const entry = await this.tenant.withTenantTx(async () => {
@@ -852,14 +836,15 @@ export class CashierServiceImpl extends CashierService {
   /** Totais por método/categoria/origem no período — base dos relatórios (recebido). */
   async getCashSummary(_user: AuthUser, query: SummaryQueryDto) {
     const p = { from: parseDate(query.from), to: parseDate(query.to) };
-    const [methodRows, categoryRows, originRows] = await this.tenant.withTenantTx(
-      () =>
+    const [methodRows, categoryRows, originRows, descontos] =
+      await this.tenant.withTenantTx(() =>
         Promise.all([
           this.repo.summaryByMethod(p),
           this.repo.summaryByCategory(p),
           this.repo.summaryByOrigin(p),
+          this.repo.sumDiscounts(p),
         ]),
-    );
+      );
     const byMethod = shapeMethodTotals(methodRows);
     const all = pickAll(byMethod);
     return {
@@ -869,6 +854,11 @@ export class CashierServiceImpl extends CashierService {
       totalIn: all.in,
       totalOut: all.out,
       net: round2(all.in - all.out),
+      // Desconto NÃO entra em totalIn nem em net: ele fecha dívida sem entrar
+      // dinheiro, e somá-lo faria o fechamento acusar caixa inexistente. Vem
+      // como número próprio, para o dono responder "quanto abri mão?" — que é
+      // a pergunta que só existe depois que o desconto passa a ser registrável.
+      totalDiscount: descontos,
     };
   }
 
@@ -1003,15 +993,11 @@ export class CashierServiceImpl extends CashierService {
       // o saldo é conhecido de verdade — diferente do lançamento genérico, onde
       // o total do documento vive no módulo dono.
       const valorParcela = round2(toNum(inst.amount));
-      const desconto = await this.aprovarDesconto(
-        user,
-        {
-          desconto: dto.discount ?? 0,
-          saldo: valorParcela,
-          amount: Math.max(0, round2(valorParcela - (dto.discount ?? 0))),
-        },
-        config,
-      );
+      const desconto = await this.aprovarDesconto(user, {
+        desconto: dto.discount ?? 0,
+        saldo: valorParcela,
+        amount: Math.max(0, round2(valorParcela - (dto.discount ?? 0))),
+      });
 
       // Cria o cash_entry — `id` do cliente (replay offline) evita duplicar o
       // lançamento se o push reenviar, mesmo idioma de `expense.pay`.

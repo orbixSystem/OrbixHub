@@ -261,7 +261,7 @@ class _Corpo extends ConsumerWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            _BotaoExportar(order: order),
+            _BotaoExportar(order: order, payment: payment),
             NeuButton(
               label: 'Abrir OS completa',
               icon: Icons.open_in_new_rounded,
@@ -375,9 +375,13 @@ class _TotalDestaque extends StatelessWidget {
 }
 
 class _BotaoExportar extends ConsumerStatefulWidget {
-  const _BotaoExportar({required this.order});
+  const _BotaoExportar({required this.order, this.payment});
 
   final ServiceOrder order;
+
+  /// Resumo do caixa — só o desconto interessa aqui, para o papel explicar a
+  /// diferença entre o total da OS e o dinheiro que entrou.
+  final PaymentDetail? payment;
 
   @override
   ConsumerState<_BotaoExportar> createState() => _BotaoExportarState();
@@ -396,6 +400,9 @@ class _BotaoExportarState extends ConsumerState<_BotaoExportar> {
         PdfPageFormat.a4,
         company: company,
         objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',
+        // O papel precisa explicar por que a OS encerrou tendo entrado menos
+        // dinheiro do que ela vale.
+        descontoQuitacao: (widget.payment?.discount ?? 0).toDouble(),
       );
       final numero =
           widget.order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '');

@@ -359,6 +359,22 @@ export class CashierRepository {
     };
   }
 
+  /**
+   * Σ dos descontos concedidos no período (entradas não estornadas).
+   *
+   * Fica FORA de `totalIn`: desconto não é dinheiro na gaveta, e somá-lo à
+   * entrada faria o fechamento acusar caixa que não existe. É número irmão, não
+   * parcela do mesmo número.
+   */
+  async sumDiscounts(p: { from?: Date; to?: Date }): Promise<number> {
+    const db = this.tenant.getClient();
+    const agg = await db.cash_entry.aggregate({
+      where: { ...this.periodWhere(p), direction: 'in' },
+      _sum: { discount: true },
+    });
+    return toNum(agg._sum.discount);
+  }
+
   summaryByMethod(p: { from?: Date; to?: Date }) {
     const db = this.tenant.getClient();
     return db.cash_entry.groupBy({

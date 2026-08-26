@@ -673,6 +673,13 @@ class _CashierHistory extends ConsumerWidget {
                             label: 'Saldo',
                             value: formatMoney(s.net),
                             color: neu.navy),
+                        // Só quando houve. Métrica de zero permanente vira
+                        // ruído e ensina o olho a ignorar o bloco inteiro.
+                        if (s.totalDiscount > 0)
+                          _Metric(
+                              label: 'Descontos',
+                              value: formatMoney(s.totalDiscount),
+                              color: neu.warning),
                       ],
                     ),
                   ),

@@ -74,40 +74,13 @@ export interface CashierConfig {
   requireOpenSession: boolean;
   /** Conferência de fechamento considera só dinheiro (default true). */
   countCashOnly: boolean;
-  /**
-   * Teto de desconto na quitação, por operação. `null` = sem limite naquele
-   * eixo. Owner ignora os dois (alçada máxima por definição).
-   *
-   * São dois eixos porque protegem de coisas diferentes: o percentual segura o
-   * desconto proporcional numa dívida grande, o valor segura o absoluto numa
-   * pequena. Quando os dois existem, vence o mais restritivo.
-   */
-  discountMaxPercent: number | null;
-  discountMaxAmount: number | null;
 }
 
 export const DEFAULT_CASHIER_CONFIG: CashierConfig = {
   paymentMethods: [...PAYMENT_METHODS],
   requireOpenSession: false,
   countCashOnly: true,
-  // Sem teto por padrão: quem acabou de habilitar o caixa não deveria descobrir
-  // um limite que nunca configurou. A contenção inicial é a PERMISSÃO — só
-  // owner e gerente concedem desconto.
-  discountMaxPercent: null,
-  discountMaxAmount: null,
 };
-
-/**
- * Normaliza um teto vindo do jsonb: só número finito e positivo vale. Nulo,
- * negativo, zero, texto ou NaN viram `null` (sem limite). Teto zero seria
- * "nenhum desconto permitido", que se expressa tirando a permissão, não
- * configurando um limite que ninguém entenderia ao ler a tela.
- */
-function normalizarTeto(v: unknown, max: number | null): number | null {
-  const n = typeof v === 'number' ? v : Number(v);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return max !== null && n > max ? max : n;
-}
 
 /** Merge raso e seguro de um patch parcial sobre os defaults/atual. */
 export function mergeCashierConfig(
@@ -130,16 +103,6 @@ export function mergeCashierConfig(
     // oficina presa numa tela de "abra o caixa" que não existe mais.
     requireOpenSession: false,
     countCashOnly: patch.countCashOnly ?? base.countCashOnly,
-    // Negativo não é teto, é erro de digitação: cai em null (sem limite) em vez
-    // de virar um limite impossível que bloquearia todo desconto.
-    discountMaxPercent: normalizarTeto(
-      patch.discountMaxPercent ?? base.discountMaxPercent,
-      100,
-    ),
-    discountMaxAmount: normalizarTeto(
-      patch.discountMaxAmount ?? base.discountMaxAmount,
-      null,
-    ),
   };
 }
 

@@ -169,6 +169,7 @@ _CashSummary _$CashSummaryFromJson(Map<String, dynamic> json) => _CashSummary(
   totalIn: json['totalIn'] as num? ?? 0,
   totalOut: json['totalOut'] as num? ?? 0,
   net: json['net'] as num? ?? 0,
+  totalDiscount: json['totalDiscount'] as num? ?? 0,
 );
 
 Map<String, dynamic> _$CashSummaryToJson(_CashSummary instance) =>
@@ -179,6 +180,7 @@ Map<String, dynamic> _$CashSummaryToJson(_CashSummary instance) =>
       'totalIn': instance.totalIn,
       'totalOut': instance.totalOut,
       'net': instance.net,
+      'totalDiscount': instance.totalDiscount,
     };
 
 _PaymentDetail _$PaymentDetailFromJson(Map<String, dynamic> json) =>

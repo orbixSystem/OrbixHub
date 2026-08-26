@@ -130,6 +130,9 @@ abstract class CashSummary with _$CashSummary {
     @Default(0) num totalIn,
     @Default(0) num totalOut,
     @Default(0) num net,
+    /// Desconto concedido no período. NÃO faz parte de [totalIn] nem de [net]:
+    /// fecha dívida sem entrar dinheiro. É número irmão, não parcela.
+    @JsonKey(name: 'totalDiscount') @Default(0) num totalDiscount,
   }) = _CashSummary;
 
   factory CashSummary.fromJson(Map<String, dynamic> json) =>
