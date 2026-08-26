@@ -53,7 +53,7 @@ class _TenantPickerScreenState extends ConsumerState<TenantPickerScreen> {
               children: [
                 const Center(child: BrandMark(size: 28)),
                 const SizedBox(height: 32),
-                Text('Escolha a oficina',
+                Text('Escolha a empresa',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 6),
                 const Text(

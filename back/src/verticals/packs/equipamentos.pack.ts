@@ -41,6 +41,14 @@ export const EQUIPAMENTOS: PacoteVertical = {
     'os.hint.template': 'ex.: Troca de tela, Limpeza geral',
     'os.hint.legenda_foto': 'ex.: condição na entrada',
     'os.hint.tipo_objeto': 'câmera, celular, computador',
+
+    // Hints do módulo de estoque
+    'inventory.hint.nome_produto': 'Tela LCD, Limpeza de placa, bateria…',
+    // Flag: exibe campo Modelo no cadastro rápido de item
+    'inventory.campos.modelo': '1',
+
+    // Hints do cadastro de subject
+    'subject.hint.apelido': 'Ex.: Notebook da empresa',
   },
 
   subjectFields: [

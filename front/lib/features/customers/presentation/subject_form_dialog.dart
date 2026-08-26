@@ -582,7 +582,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         NeuTextField(
           controller: _label,
           label: 'Apelido (opcional)',
-          hint: 'Ex.: Carro da esposa',
+          hint: ref.read(vocabProvider)['subject.hint.apelido'],
           maxLength: 120,
         ),
         for (final f in widget.config.subjectFields) ...[

@@ -13,11 +13,13 @@ class AuthScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.subtitle,
+    this.maxFormWidth = 440,
   });
 
   final String title;
   final String? subtitle;
   final Widget child;
+  final double maxFormWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +29,7 @@ class AuthScaffold extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       showBrand: !wide,
+      maxFormWidth: maxFormWidth,
       child: child,
     );
 
@@ -50,11 +53,13 @@ class _FormSide extends StatelessWidget {
     required this.subtitle,
     required this.showBrand,
     required this.child,
+    required this.maxFormWidth,
   });
 
   final String title;
   final String? subtitle;
   final bool showBrand;
+  final double maxFormWidth;
   final Widget child;
 
   @override
@@ -70,7 +75,7 @@ class _FormSide extends StatelessWidget {
           vertical: isMobile ? 24 : 48,
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
+          constraints: BoxConstraints(maxWidth: maxFormWidth),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
