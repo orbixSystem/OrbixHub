@@ -38,6 +38,13 @@ export class CreateEntryDto {
    */
   @IsOptional() @IsNumber() @Min(0) discount?: number;
   @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
+  /**
+   * Total do documento sendo quitado, informado por quem o conhece (o módulo
+   * dono). O caixa não lê a tabela da OS/venda — regra de independência de
+   * módulos —, então sem isto ele não tem denominador para o teto percentual.
+   * Ausente: só o teto por valor é aplicado.
+   */
+  @IsOptional() @IsNumber() @Min(0) saleTotal?: number;
   @IsIn(PAYMENT_METHODS as unknown as string[]) method!: PaymentMethod;
   @IsIn(ENTRY_CATEGORIES as unknown as string[]) category!: EntryCategory;
   @IsOptional() @IsIn(['os', 'sale']) saleKind?: 'os' | 'sale';

@@ -104,6 +104,10 @@ describe('SaleService — pagamento', () => {
     expect(result.payment).toEqual({
       total: 80,
       paid: 0,
+      // 0055: o resumo passa a distinguir dinheiro recebido de desconto
+      // concedido. Nada recebido e nada perdoado ⇒ ambos zero.
+      received: 0,
+      discount: 0,
       balance: 80,
       status: 'a_receber',
     });

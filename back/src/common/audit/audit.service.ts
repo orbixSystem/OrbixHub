@@ -90,6 +90,10 @@ export type AuditAction =
   | 'sync_overwrite'
   | 'plate_lookup'
   | 'installment_pay'
+  // Desconto na quitação (0055) tem evento PRÓPRIO, não fica embutido no
+  // lançamento: "quem perdoou esses R$ 300?" é a pergunta que se faz depois, e
+  // ela precisa de um evento filtrável.
+  | 'cashier_discount_grant'
   | 'installment_plan_create'
   // Declaração de fiado: o operador passou o título pelo caixa e recebeu ZERO.
   // É a única prova desse caso (não gera lançamento), então precisa de trilha.
