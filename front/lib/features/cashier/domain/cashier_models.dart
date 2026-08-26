@@ -345,6 +345,9 @@ class EntryDraft {
     this.saleKind,
     this.saleId,
     this.description,
+    this.discount = 0,
+    this.discountReason,
+    this.saleTotal,
   });
 
   final double amount;
@@ -354,6 +357,16 @@ class EntryDraft {
   final String? saleId;
   final String? description;
 
+  /// Desconto concedido na quitação. NÃO altera o total do documento — a dívida
+  /// fecha quando `amount + discount` cobre o saldo. O backend valida permissão
+  /// e teto; o front só oferece o campo a quem tem `cashier.discount`.
+  final double discount;
+  final String? discountReason;
+
+  /// Total do documento, informado por quem o conhece. O caixa não lê a tabela
+  /// da OS/venda, então sem isto o backend não aplica o teto percentual.
+  final double? saleTotal;
+
   Map<String, dynamic> toJson() => {
         'amount': amount,
         'method': method,
@@ -362,5 +375,11 @@ class EntryDraft {
         if (saleId != null) 'saleId': saleId,
         if (description != null && description!.isNotEmpty)
           'description': description,
+        if (discount > 0) 'discount': discount,
+        if (discount > 0 &&
+            discountReason != null &&
+            discountReason!.isNotEmpty)
+          'discountReason': discountReason,
+        if (saleTotal != null) 'saleTotal': saleTotal,
       };
 }

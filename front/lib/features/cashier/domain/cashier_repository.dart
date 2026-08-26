@@ -99,5 +99,8 @@ abstract interface class CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    /// Desconto para fechar ESTA parcela — abate o saldo dela, não o do título.
+    double discount = 0,
+    String? discountReason,
   });
 }

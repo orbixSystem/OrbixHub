@@ -362,6 +362,8 @@ class FakeCashierRepository implements CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    double discount = 0,
+    String? discountReason,
   }) async {
     throw UnimplementedError('payInstallment não implementado no fake.');
   }

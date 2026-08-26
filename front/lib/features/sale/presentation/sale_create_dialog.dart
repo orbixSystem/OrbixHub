@@ -18,6 +18,7 @@ import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../domain/sale_models.dart';
 import '../domain/sale_payment_split.dart';
+import '../../cashier/presentation/desconto_field.dart';
 import 'sale_providers.dart';
 
 /// Abre o fluxo ÚNICO de Venda avulsa (balcão): buscar itens (select do estoque)
@@ -131,6 +132,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   bool _receivedTouched = false;
   // Desconto em valor sobre o total da venda.
   final _descontoCtrl = TextEditingController();
+  /// Desconto na QUITAÇÃO — outro conceito do `_descontoCtrl` acima, que abate
+  /// o preço. Este perdoa o saldo que sobraria, sem mexer no total da venda.
+  final _descontoQuitacaoCtrl = TextEditingController();
+  final _motivoDescontoCtrl = TextEditingController();
 
   /// Soma dos itens, antes do desconto.
   double get _bruto => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
@@ -200,6 +205,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     _descCtrl.dispose();
     _receivedCtrl.dispose();
     _descontoCtrl.dispose();
+    _descontoQuitacaoCtrl.dispose();
+    _motivoDescontoCtrl.dispose();
     _customerNoteCtrl.dispose();
     super.dispose();
   }
@@ -406,6 +413,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               saleKind: 'sale',
               saleId: sale.id,
               description: desc,
+              discount: DescontoField.valorDe(_descontoQuitacaoCtrl),
+              discountReason: _motivoDescontoCtrl.text.trim(),
+              saleTotal: _total,
             ));
         ref.invalidate(cashierControllerProvider);
       }
@@ -633,6 +643,22 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 _receivedCtrl.text = formatAmountForInput(_total);
               }),
             ),
+            // Desconto na QUITAÇÃO — só faz sentido quando sobraria saldo. Não
+            // se confunde com "Desconto no preço" (acima, na composição do
+            // total): aquele muda o comprovante, este encerra o que ficaria
+            // fiado sem mexer no valor da venda.
+            if (_falta > 0.005) ...[
+              const SizedBox(height: 16),
+              DescontoField(
+                controller: _descontoQuitacaoCtrl,
+                motivoController: _motivoDescontoCtrl,
+                saldo: _falta,
+                label: 'Desconto na quitação',
+                ajuda: 'A venda continua valendo ${formatMoney(_total)}. O '
+                    'desconto encerra o que ficaria fiado.',
+                onChanged: () => setState(() {}),
+              ),
+            ],
                   ],
                 ),
               ),
@@ -1171,7 +1197,7 @@ class _DescontoRow extends StatelessWidget {
                 onChanged: (_) => onChanged(),
                 decoration: const InputDecoration(
                   isDense: true,
-                  labelText: 'Desconto',
+                  labelText: 'Desconto no preço',
                   prefixText: r'R$ ',
                 ),
               ),

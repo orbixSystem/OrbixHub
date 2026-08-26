@@ -918,12 +918,16 @@ class LocalFirstCashierRepository extends LocalFirstBase
     required String installmentId,
     required String method,
     String? description,
+    double discount = 0,
+    String? discountReason,
   }) async {
     if (!await useLocal(_installments, installmentId)) {
       final inst = await inner.payInstallment(
         installmentId: installmentId,
         method: method,
         description: description,
+        discount: discount,
+        discountReason: discountReason,
       );
       await putRow(_installments, inst.toJson());
       return inst;
@@ -952,17 +956,28 @@ class LocalFirstCashierRepository extends LocalFirstBase
     // `expense.pay`.
     final entryId = newId();
     final saleKind = row['sale_kind'] as String;
+    // O desconto pega carona no payload que JÁ vai na fila: nenhum verbo novo
+    // no outbox, nenhuma tabela local nova. O servidor revalida a alçada no
+    // replay — o cliente offline não é autoridade sobre quanto se pode perdoar.
     await enqueue(_installments, 'pay', {
       'id': installmentId,
       'method': method,
       'description': ?description,
       'cashEntryId': entryId,
+      if (discount > 0) 'discount': discount,
+      if (discount > 0 && (discountReason ?? '').isNotEmpty)
+        'discountReason': discountReason,
     });
+    final valorParcela = moneyToDouble((row['amount'] ?? '0').toString());
     await putRow(_entries, {
       'id': entryId,
       'cash_session_id': session['id'],
       'direction': 'in',
-      'amount': dec(moneyToDouble((row['amount'] ?? '0').toString())),
+      // Espelha o servidor: entra a parcela MENOS o desconto, e a parcela fecha
+      // porque amount + discount cobre o valor dela.
+      'amount': dec((valorParcela - discount).clamp(0, double.infinity)),
+      'discount': dec(discount),
+      'discount_reason': discount > 0 ? discountReason : null,
       'method': method,
       'category': saleKind == 'os' ? 'os_payment' : 'venda_avulsa',
       'sale_kind': saleKind,
