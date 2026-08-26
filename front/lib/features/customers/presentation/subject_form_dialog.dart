@@ -145,9 +145,14 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     _fields = {
       for (final f in widget.config.subjectFields)
         f.chave: TextEditingController(
-          text: f.chave == 'identifier'
-              ? (s?.identifier ?? '')
-              : (s?.attributes[f.chave]?.toString() ?? ''),
+          text: switch (f.chave) {
+            'identifier' => s?.identifier ?? '',
+            'tipo' => s?.tipo ?? '',
+            'marca' => s?.marca ?? '',
+            'modelo' => s?.modelo ?? '',
+            'numero_serie' => s?.numeroSerie ?? '',
+            _ => s?.attributes[f.chave]?.toString() ?? '',
+          },
         ),
     };
   }
@@ -332,21 +337,39 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     });
 
     String? identifier;
+    String? tipo;
+    String? marca;
+    String? modelo;
+    String? numeroSerie;
     final attributes = <String, dynamic>{};
     for (final f in widget.config.subjectFields) {
       final raw = _fields[f.chave]!.text.trim();
-      if (f.chave == 'identifier') {
-        identifier = raw.isEmpty ? null : raw;
-        continue;
+      switch (f.chave) {
+        case 'identifier':
+          identifier = raw.isEmpty ? null : raw;
+        case 'tipo':
+          tipo = raw.isEmpty ? null : raw;
+        case 'marca':
+          marca = raw.isEmpty ? null : raw;
+        case 'modelo':
+          modelo = raw.isEmpty ? null : raw;
+        case 'numero_serie':
+          numeroSerie = raw.isEmpty ? null : raw;
+        default:
+          if (raw.isNotEmpty) {
+            attributes[f.chave] =
+                f.tipo == 'number' ? num.tryParse(raw) ?? raw : raw;
+          }
       }
-      if (raw.isEmpty) continue;
-      attributes[f.chave] =
-          f.tipo == 'number' ? num.tryParse(raw) ?? raw : raw;
     }
 
     final draft = SubjectDraft(
       label: _label.text.trim().isEmpty ? null : _label.text.trim(),
       identifier: identifier,
+      tipo: tipo,
+      marca: marca,
+      modelo: modelo,
+      numeroSerie: numeroSerie,
       attributes: attributes,
       plateData: _plateInfo?.toJson(),
     );
@@ -522,7 +545,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   // `identifier` (placa) → máscara/validação de placa; `ano` → só 4 dígitos;
   // números → filtro numérico; demais → texto com teto razoável.
   List<TextInputFormatter>? _fieldFormatters(SubjectFieldConfig f) {
-    if (f.chave == 'identifier') return [PlateInputFormatter()];
+    if (f.chave == 'identifier' && _podeConsultarIdentificador) return [PlateInputFormatter()];
     if (f.chave == 'ano') return const [DigitsOnlyFormatter(4)];
     if (f.tipo == 'number') {
       return [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
@@ -559,7 +582,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         NeuTextField(
           controller: _label,
           label: 'Apelido (opcional)',
-          hint: 'Ex.: Carro da esposa',
+          hint: ref.read(vocabProvider)['subject.hint.apelido'],
           maxLength: 120,
         ),
         for (final f in widget.config.subjectFields) ...[
@@ -572,6 +595,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
               helper: 'Sem conexão — digite manualmente',
               keyboardType: _fieldKeyboard(f),
               inputFormatters: _fieldFormatters(f),
@@ -604,6 +628,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             NeuTextField(
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
               helper: _autoFilled.contains(f.chave)
                   ? 'Preenchido pela consulta da placa'
                   : null,

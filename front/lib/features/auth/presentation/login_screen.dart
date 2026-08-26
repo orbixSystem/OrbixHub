@@ -88,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             NeuTextField(
               label: 'E-mail',
               controller: _email,
-              hint: 'voce@oficina.com',
+              hint: 'voce@empresa.com',
               prefixIcon: Icons.mail_outline_rounded,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
@@ -139,7 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const Divider(height: 24),
             TextButton(
               onPressed: () => context.go('/register'),
-              child: const Text('Criar uma oficina'),
+              child: const Text('Criar uma empresa'),
             ),
             if (kDevTools) _DevQuickLogin(onPick: _fillSeed),
           ],

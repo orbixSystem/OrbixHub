@@ -524,6 +524,10 @@ CREATE TABLE IF NOT EXISTS subject (
   customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
   label       text,                          -- apelido (ex.: "Gol do João")
   identifier  text,                          -- genérico/indexado: placa na oficina
+  tipo        text,                          -- tipo de equipamento (ex.: celular, câmera)
+  marca       text,                          -- fabricante
+  modelo      text,                          -- modelo do equipamento
+  numero_serie text,                         -- número de série / IMEI
   attributes  jsonb,                         -- marca/modelo/ano/cor/km na oficina
   status      text NOT NULL DEFAULT 'active',-- 'active' | 'archived'
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -532,6 +536,21 @@ CREATE TABLE IF NOT EXISTS subject (
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subject_status_chk') THEN
     ALTER TABLE subject ADD CONSTRAINT subject_status_chk CHECK (status IN ('active','archived'));
+  END IF;
+END $$;
+-- Colunas de equipamento: adicionadas após o baseline inicial (migration 0054).
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='tipo' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN tipo text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='marca' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN marca text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='modelo' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN modelo text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='numero_serie' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN numero_serie text;
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_subject_tenant_identifier ON subject(tenant_id, identifier);

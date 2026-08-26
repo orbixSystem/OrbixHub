@@ -442,7 +442,7 @@ class _TemplateItemDialogState extends ConsumerState<_TemplateItemDialog> {
             controller: controller,
             focusNode: focusNode,
             decoration: const InputDecoration(
-              labelText: 'Produto ou serviço do estoque',
+              labelText: 'Serviço cadastrado ou Produto do estoque',
               prefixIcon: Icon(Icons.search),
             ),
           );

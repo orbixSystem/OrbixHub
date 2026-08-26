@@ -139,6 +139,10 @@ export class CustomersRepository {
       id?: string;
       label: string | null;
       identifier: string | null;
+      tipo: string | null;
+      marca: string | null;
+      modelo: string | null;
+      numeroSerie: string | null;
       attributes: Record<string, unknown> | undefined;
       /** Consulta por placa (opcional); carimba plate_data_at quando vem. */
       plateData?: Record<string, unknown>;
@@ -152,6 +156,10 @@ export class CustomersRepository {
         customer_id: customerId,
         label: data.label,
         identifier: data.identifier,
+        tipo: data.tipo,
+        marca: data.marca,
+        modelo: data.modelo,
+        numero_serie: data.numeroSerie,
         attributes: (data.attributes as Prisma.InputJsonValue) ?? undefined,
         ...(data.plateData !== undefined
           ? {
@@ -194,16 +202,21 @@ export class CustomersRepository {
     data: Partial<{
       label: string | null;
       identifier: string | null;
+      tipo: string | null;
+      marca: string | null;
+      modelo: string | null;
+      numeroSerie: string | null;
       attributes: Record<string, unknown>;
       plateData: Record<string, unknown>;
     }>,
   ) {
     const db = this.tenant.getClient();
-    const { attributes, plateData, ...rest } = data;
+    const { attributes, plateData, numeroSerie, ...rest } = data;
     return db.subject.update({
       where: { id },
       data: {
         ...rest,
+        ...(numeroSerie !== undefined ? { numero_serie: numeroSerie } : {}),
         ...(attributes !== undefined
           ? { attributes: attributes as Prisma.InputJsonValue }
           : {}),

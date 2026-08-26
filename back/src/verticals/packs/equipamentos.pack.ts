@@ -19,7 +19,7 @@ export const EQUIPAMENTOS: PacoteVertical = {
     // O "objeto" é a entidade `subject`: o que entra pra ser atendido.
     'objeto.singular': 'Equipamento',
     'objeto.plural': 'Equipamentos',
-    'objeto.identificador': 'Identificação',
+    'objeto.identificador': 'Nome',
     // Nome do ÍCONE, não o ícone: o backend guarda a escolha e a UI mapeia —
     // mesmo padrão do tema. Um carro desenhado na tela de uma clínica é tão
     // errado quanto a palavra "Veículo".
@@ -34,11 +34,29 @@ export const EQUIPAMENTOS: PacoteVertical = {
     'os.status.concluida': 'Serviço concluído',
     'os.status.entregue': 'Serviço entregue',
     'os.status.cancelada': 'OS cancelada',
+
+    // Hints contextuais para formulários de OS
+    'objeto.fallback_titulo': 'Equipamento',
+    'os.hint.fotos': 'Registre o estado do equipamento na entrada.',
+    'os.hint.template': 'ex.: Troca de tela, Limpeza geral',
+    'os.hint.legenda_foto': 'ex.: condição na entrada',
+    'os.hint.tipo_objeto': 'câmera, celular, computador',
+
+    // Hints do módulo de estoque
+    'inventory.hint.nome_produto': 'Tela LCD, Limpeza de placa, bateria…',
+    // Flag: exibe campo Modelo no cadastro rápido de item
+    'inventory.campos.modelo': '1',
+
+    // Hints do cadastro de subject
+    'subject.hint.apelido': 'Ex.: Notebook da empresa',
   },
 
   subjectFields: [
-    { chave: 'identifier', rotulo: 'Identificação', tipo: 'text', obrigatorio: false },
-    { chave: 'descricao', rotulo: 'Descrição', tipo: 'text', obrigatorio: false },
+    { chave: 'identifier', rotulo: 'Nome', tipo: 'text', obrigatorio: false },
+    { chave: 'tipo', rotulo: 'Tipo', tipo: 'text', obrigatorio: false },
+    { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false },
+    { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false },
+    { chave: 'numero_serie', rotulo: 'Número de série', tipo: 'text', obrigatorio: false },
   ],
 
   // Só o que serve qualquer nicho. Consulta em base externa e ficha técnica

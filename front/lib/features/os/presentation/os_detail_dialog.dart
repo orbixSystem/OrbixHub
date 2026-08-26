@@ -168,7 +168,10 @@ class _Corpo extends ConsumerWidget {
         const SizedBox(height: 14),
         // Quem e o quê — as duas perguntas que identificam a OS.
         if ((order.subjectLabel ?? '').isNotEmpty)
-          _Linha(rotulo: 'Veículo', valor: order.subjectLabel!),
+          _Linha(
+            rotulo: ref.watch(vocabProvider)['objeto.singular'] ?? 'Objeto',
+            valor: order.subjectLabel!,
+          ),
         if ((order.assignedToName ?? '').isNotEmpty)
           _Linha(rotulo: 'Responsável', valor: order.assignedToName!),
         if ((order.complaint ?? '').isNotEmpty)

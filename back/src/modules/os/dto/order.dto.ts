@@ -70,6 +70,14 @@ export class CreateOrderDto {
   newCustomerPhone!: string;
   /** Veículo novo: placa/identificação (genérico = identifier). */
   @IsOptional() @IsString() @MaxLength(120) newSubjectIdentifier?: string;
+  /** Equipamento novo: tipo (ex.: celular, câmera fotográfica). */
+  @IsOptional() @IsString() @MaxLength(100) newSubjectTipo?: string;
+  /** Equipamento novo: fabricante. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectMarca?: string;
+  /** Equipamento novo: modelo do equipamento. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectModelo?: string;
+  /** Equipamento novo: número de série / IMEI. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectNumeroSerie?: string;
   /** Veículo novo: atributos do vertical (ex.: { marca, modelo }). */
   @IsOptional() @IsObject() newSubjectAttributes?: Record<string, unknown>;
   /**

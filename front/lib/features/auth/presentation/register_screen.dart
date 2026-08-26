@@ -66,7 +66,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final digits = normalizeCnpj(_cnpj.text);
     if (digits == _lastLookedUp) return;
     if (!isValidCnpj(digits)) {
-      // Só sinaliza erro se o usuário digitou algo "completo" porém inválido.
       if (digits.length == 14) {
         setState(() {
           _cnpjError = 'CNPJ inválido — confira os números.';
@@ -92,7 +91,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         });
         return;
       }
-      // Autofill: razão social + nome de exibição (fantasia ou razão) + slug.
       _legalName.text = c.razaoSocial;
       final display = (c.nomeFantasia?.trim().isNotEmpty ?? false)
           ? c.nomeFantasia!.trim()
@@ -112,15 +110,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           _cnpjError = e.message;
           _cnpjInfo = null;
         });
-        _lastLookedUp = ''; // permite tentar de novo (ex.: fonte fora do ar)
+        _lastLookedUp = '';
       }
     } finally {
       if (mounted) setState(() => _lookingUp = false);
     }
   }
 
-  /// Nicho escolhido. null enquanto a lista não chegou; ao chegar, assume o
-  /// pacote padrão que o servidor marcou — o dono só mexe se quiser outro.
   String? _vertical;
 
   Future<void> _submit() async {
@@ -151,177 +147,102 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= 920;
+
     return AuthScaffold(
       title: 'Criar empresa',
       subtitle: 'Informe o CNPJ e a gente preenche o resto.',
+      maxFormWidth: wide ? 660 : 440,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_error != null) AuthErrorBanner(message: _error!),
-            TextFormField(
-              controller: _cnpj,
-              keyboardType: TextInputType.number,
-              inputFormatters: [CnpjInputFormatter()],
-              decoration: InputDecoration(
-                labelText: 'CNPJ',
-                hintText: '00.000.000/0000-00',
-                suffixIcon: _lookingUp
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        tooltip: 'Buscar dados da empresa',
-                        icon: const Icon(Icons.search),
-                        onPressed: _lookingUp ? null : _lookupCnpj,
-                      ),
-              ),
-              onChanged: (v) {
-                if (normalizeCnpj(v).length == 14) _lookupCnpj();
-              },
-              onEditingComplete: _lookupCnpj,
-              validator: (v) =>
-                  isValidCnpj(v) ? null : 'Informe um CNPJ válido',
-            ),
-            if (_cnpjError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  _cnpjError!,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
-                ),
-              ),
-            if (_cnpjInfo != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle,
-                        size: 16, color: theme.colorScheme.primary),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _cnpjInfo!,
-                        style: theme.textTheme.bodySmall,
-                      ),
+
+            // ── CNPJ + Razão social ──────────────────────────────────────
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _cnpjField(),
+                        if (_cnpjError != null) _cnpjErrorWidget(theme),
+                        if (_cnpjInfo != null) _cnpjInfoWidget(theme),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _legalName,
-              textCapitalization: TextCapitalization.words,
-              maxLength: 120,
-              decoration: const InputDecoration(
-                labelText: 'Razão social',
-                helperText: 'Preenchida automaticamente pelo CNPJ',
-                counterText: '',
-              ),
-              validator: Validators.required('Razão social'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _tenantName,
-              textCapitalization: TextCapitalization.words,
-              maxLength: 120,
-              decoration: const InputDecoration(
-                labelText: 'Nome de exibição',
-                hintText: 'ex.: nome fantasia',
-                counterText: '',
-              ),
-              validator: Validators.required('Nome de exibição'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _slug,
-              maxLength: 40,
-              decoration: const InputDecoration(
-                labelText: 'Identificador (slug)',
-                hintText: 'ex.: minha-empresa',
-                counterText: '',
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9-]')),
-              ],
-              validator: (v) => (v == null || !_slugPattern.hasMatch(v.trim()))
-                  ? 'Use letras minúsculas, números e hífens'
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _fullName,
-              textCapitalization: TextCapitalization.words,
-              maxLength: 120,
-              decoration: const InputDecoration(
-                labelText: 'Seu nome',
-                counterText: '',
-              ),
-              validator: Validators.required('Nome'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _email,
-              decoration: const InputDecoration(
-                labelText: 'E-mail',
-                counterText: '',
-              ),
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              maxLength: 160,
-              validator: Validators.email(optional: false),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _password,
-              decoration: InputDecoration(
-                labelText: 'Senha (mín. 8)',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
                   ),
-                  onPressed: () =>
-                      setState(() => _showPassword = !_showPassword),
-                  tooltip: _showPassword ? 'Ocultar senha' : 'Ver senha',
-                ),
-              ),
-              obscureText: !_showPassword,
-              autofillHints: const [AutofillHints.newPassword],
-              validator: Validators.combine([
-                Validators.required('Senha'),
-                Validators.minLength(8, 'Senha'),
-              ]),
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 6, child: _legalNameField()),
+                ],
+              )
+            else ...[
+              _cnpjField(),
+              if (_cnpjError != null) _cnpjErrorWidget(theme),
+              if (_cnpjInfo != null) _cnpjInfoWidget(theme),
+              const SizedBox(height: 12),
+              _legalNameField(),
+            ],
+
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirmPassword,
-              decoration: InputDecoration(
-                labelText: 'Confirmar senha',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _showConfirmPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
-                  onPressed: () => setState(
-                      () => _showConfirmPassword = !_showConfirmPassword),
-                  tooltip:
-                      _showConfirmPassword ? 'Ocultar senha' : 'Ver senha',
-                ),
-              ),
-              obscureText: !_showConfirmPassword,
-              autofillHints: const [AutofillHints.newPassword],
-              validator: (v) => v != _password.text ? 'As senhas não coincidem' : null,
-            ),
+
+            // ── Nome de exibição + Slug ──────────────────────────────────
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _tenantNameField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _slugField()),
+                ],
+              )
+            else ...[
+              _tenantNameField(),
+              const SizedBox(height: 12),
+              _slugField(),
+            ],
+
+            const SizedBox(height: 12),
+
+            // ── Seu nome + E-mail ────────────────────────────────────────
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _fullNameField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _emailField()),
+                ],
+              )
+            else ...[
+              _fullNameField(),
+              const SizedBox(height: 12),
+              _emailField(),
+            ],
+
+            const SizedBox(height: 12),
+
+            // ── Senha + Confirmar senha ──────────────────────────────────
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _passwordField()),
+                  const SizedBox(width: 12),
+                  Expanded(child: _confirmPasswordField()),
+                ],
+              )
+            else ...[
+              _passwordField(),
+              const SizedBox(height: 12),
+              _confirmPasswordField(),
+            ],
+
             VerticalPicker(
               selecionado: _vertical,
               onChanged: (v) => setState(() => _vertical = v),
@@ -347,6 +268,165 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
   }
+
+  // ── Campos individuais ───────────────────────────────────────────────────
+
+  Widget _cnpjField() => TextFormField(
+        controller: _cnpj,
+        keyboardType: TextInputType.number,
+        inputFormatters: [CnpjInputFormatter()],
+        decoration: InputDecoration(
+          labelText: 'CNPJ',
+          hintText: '00.000.000/0000-00',
+          suffixIcon: _lookingUp
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  tooltip: 'Buscar dados da empresa',
+                  icon: const Icon(Icons.search),
+                  onPressed: _lookingUp ? null : _lookupCnpj,
+                ),
+        ),
+        onChanged: (v) {
+          if (normalizeCnpj(v).length == 14) _lookupCnpj();
+        },
+        onEditingComplete: _lookupCnpj,
+        validator: (v) => isValidCnpj(v) ? null : 'Informe um CNPJ válido',
+      );
+
+  Widget _cnpjErrorWidget(ThemeData theme) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          _cnpjError!,
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.error),
+        ),
+      );
+
+  Widget _cnpjInfoWidget(ThemeData theme) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, size: 16, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(_cnpjInfo!, style: theme.textTheme.bodySmall),
+            ),
+          ],
+        ),
+      );
+
+  Widget _legalNameField() => TextFormField(
+        controller: _legalName,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 120,
+        decoration: const InputDecoration(
+          labelText: 'Razão social',
+          helperText: 'Preenchida automaticamente pelo CNPJ',
+          counterText: '',
+        ),
+        validator: Validators.required('Razão social'),
+      );
+
+  Widget _tenantNameField() => TextFormField(
+        controller: _tenantName,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 120,
+        decoration: const InputDecoration(
+          labelText: 'Nome de exibição',
+          hintText: 'ex.: nome fantasia',
+          counterText: '',
+        ),
+        validator: Validators.required('Nome de exibição'),
+      );
+
+  Widget _slugField() => TextFormField(
+        controller: _slug,
+        maxLength: 40,
+        decoration: const InputDecoration(
+          labelText: 'Identificador (slug)',
+          hintText: 'ex.: minha-empresa',
+          counterText: '',
+        ),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9-]')),
+        ],
+        validator: (v) => (v == null || !_slugPattern.hasMatch(v.trim()))
+            ? 'Use letras minúsculas, números e hífens'
+            : null,
+      );
+
+  Widget _fullNameField() => TextFormField(
+        controller: _fullName,
+        textCapitalization: TextCapitalization.words,
+        maxLength: 120,
+        decoration: const InputDecoration(
+          labelText: 'Seu nome',
+          counterText: '',
+        ),
+        validator: Validators.required('Nome'),
+      );
+
+  Widget _emailField() => TextFormField(
+        controller: _email,
+        decoration: const InputDecoration(
+          labelText: 'E-mail',
+          counterText: '',
+        ),
+        keyboardType: TextInputType.emailAddress,
+        autofillHints: const [AutofillHints.email],
+        maxLength: 160,
+        validator: Validators.email(optional: false),
+      );
+
+  Widget _passwordField() => TextFormField(
+        controller: _password,
+        decoration: InputDecoration(
+          labelText: 'Senha (mín. 8)',
+          suffixIcon: IconButton(
+            icon: Icon(
+              _showPassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            onPressed: () => setState(() => _showPassword = !_showPassword),
+            tooltip: _showPassword ? 'Ocultar senha' : 'Ver senha',
+          ),
+        ),
+        obscureText: !_showPassword,
+        autofillHints: const [AutofillHints.newPassword],
+        validator: Validators.combine([
+          Validators.required('Senha'),
+          Validators.minLength(8, 'Senha'),
+        ]),
+      );
+
+  Widget _confirmPasswordField() => TextFormField(
+        controller: _confirmPassword,
+        decoration: InputDecoration(
+          labelText: 'Confirmar senha',
+          suffixIcon: IconButton(
+            icon: Icon(
+              _showConfirmPassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            onPressed: () =>
+                setState(() => _showConfirmPassword = !_showConfirmPassword),
+            tooltip: _showConfirmPassword ? 'Ocultar senha' : 'Ver senha',
+          ),
+        ),
+        obscureText: !_showConfirmPassword,
+        autofillHints: const [AutofillHints.newPassword],
+        validator: (v) =>
+            v != _password.text ? 'As senhas não coincidem' : null,
+      );
 }
 
 /// Provider da lista de nichos (rota pública `/verticals`).
@@ -383,29 +463,33 @@ class VerticalPicker extends ConsumerWidget {
       data: (opcoes) {
         if (opcoes.length < 2) return const SizedBox.shrink();
 
-        // Assume o padrão do servidor na primeira renderização.
         final atual = selecionado ??
-            opcoes.firstWhere(
-              (o) => o.isDefault,
-              orElse: () => opcoes.first,
-            ).key;
+            opcoes
+                .firstWhere(
+                  (o) => o.isDefault,
+                  orElse: () => opcoes.first,
+                )
+                .key;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 16),
-            Text('Ramo da empresa', style: theme.textTheme.labelLarge),
+            Text(
+              'Segmento de atuação',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
-              'Define os termos que o sistema usa — e dá para mudar depois.',
+              'O sistema adapta os termos ao seu ramo.',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.hintColor),
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 10),
             for (final o in opcoes) ...[
-              // ListTile selecionável em vez de RadioListTile: a API de grupo do
-              // Radio está depreciada nesta versão do Flutter, e o projeto exige
-              // `flutter analyze` sem nenhum issue.
               Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 elevation: 0,
@@ -416,15 +500,26 @@ class VerticalPicker extends ConsumerWidget {
                   key: Key('vertical-${o.key}'),
                   selected: o.key == atual,
                   onTap: () => onChanged(o.key),
-                  title: Text(o.nome),
-                  subtitle: Text(_descricao(o.key)),
+                  title: Text(
+                    o.nome,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _descricao(o.key),
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   trailing: Icon(
                     o.key == atual
                         ? Icons.check_circle_rounded
                         : Icons.circle_outlined,
                     color: o.key == atual
                         ? theme.colorScheme.primary
-                        : theme.hintColor,
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                   dense: true,
                 ),
@@ -436,16 +531,14 @@ class VerticalPicker extends ConsumerWidget {
     );
   }
 
-  /// Explicação curta do que muda ao escolher. Texto de APOIO — o que vale é o
-  /// `nome` que veio do servidor; isto só ajuda quem está decidindo.
   static String _descricao(String key) {
     switch (key) {
       case 'veiculos':
-        return 'Fala em veículo e placa, com consulta da placa e marca/modelo.';
+        return 'Para oficinas e autocenters — OS por veículo, consulta de placa e histórico por proprietário.';
       case 'equipamentos':
-        return 'Termos neutros, para serviços e equipamentos em geral.';
+        return 'Para assistências técnicas — OS por equipamento, com número de série, marca e modelo.';
       default:
-        return 'Ajusta os termos do sistema para este ramo.';
+        return 'Vocabulário ajustado ao segmento da sua empresa.';
     }
   }
 }
