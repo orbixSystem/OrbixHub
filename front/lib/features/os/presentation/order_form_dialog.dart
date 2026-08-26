@@ -556,8 +556,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
   }
 
-  String _subjectTitle(SubjectOption s) =>
-      s.label?.isNotEmpty == true ? s.label! : (s.identifier ?? 'Veículo');
+  String _subjectTitle(SubjectOption s) => s.label?.isNotEmpty == true
+      ? s.label!
+      : (s.identifier ??
+          ref.read(vocabProvider)['objeto.singular'] ??
+          'Objeto');
 
   // ---------------------------------------------------------------------------
   // Navegação do wizard
@@ -1162,7 +1165,9 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
+      hint: f.chave == 'tipo'
+          ? ref.read(vocabProvider)['os.hint.tipo_objeto']
+          : null,
       // Máscara de placa só quando a feature de consulta de placa está ativa.
       inputFormatters:
           (isIdentifier && _identifierIsPlate) ? [PlateInputFormatter()] : null,
@@ -1382,7 +1387,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         _totaisSection(),
         _secao(
           'Fotos',
-          hint: 'Registre o estado do veículo na entrada.',
+          hint: ref.read(vocabProvider)['os.hint.fotos'],
         ),
         _fotosSection(),
       ],
@@ -1649,7 +1654,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           NeuTextField(
             label: 'Nome do template *',
             controller: _templateNome,
-            hint: 'ex.: Revisão simples',
+            hint: ref.read(vocabProvider)['os.hint.template'],
             prefixIcon: Icons.checklist_rounded,
             enabled: !_saving,
             maxLength: 120,
@@ -1857,7 +1862,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           NeuTextField(
             label: 'Legenda das fotos (opcional)',
             controller: _fotoLegenda,
-            hint: 'ex.: estado na entrada',
+            hint: ref.read(vocabProvider)['os.hint.legenda_foto'],
             prefixIcon: Icons.notes_outlined,
             enabled: !_saving,
             maxLength: 200,

@@ -34,6 +34,13 @@ export const EQUIPAMENTOS: PacoteVertical = {
     'os.status.concluida': 'Serviço concluído',
     'os.status.entregue': 'Serviço entregue',
     'os.status.cancelada': 'OS cancelada',
+
+    // Hints contextuais para formulários de OS
+    'objeto.fallback_titulo': 'Equipamento',
+    'os.hint.fotos': 'Registre o estado do equipamento na entrada.',
+    'os.hint.template': 'ex.: Troca de tela, Limpeza geral',
+    'os.hint.legenda_foto': 'ex.: condição na entrada',
+    'os.hint.tipo_objeto': 'câmera, celular, computador',
   },
 
   subjectFields: [

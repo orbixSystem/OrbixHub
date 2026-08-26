@@ -26,6 +26,11 @@ export const VEICULOS: PacoteVertical = {
     // errado quanto a palavra "Veículo".
     'objeto.icone': 'veiculo',
     'os.status.entregue': 'Veículo entregue',
+
+    // Hints contextuais para formulários de OS
+    'objeto.fallback_titulo': 'Veículo',
+    'os.hint.fotos': 'Registre o estado do veículo na entrada.',
+    'os.hint.template': 'ex.: Revisão simples',
   },
 
   subjectFields: [

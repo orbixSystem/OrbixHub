@@ -285,7 +285,7 @@ class _ItemPickerPanelState extends ConsumerState<ItemPickerPanel> {
             controller: controller,
             focusNode: focusNode,
             decoration: InputDecoration(
-              labelText: 'Produto ou serviço do estoque',
+              labelText: 'Serviço cadastrado ou Produto do estoque',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: IconButton(
                 tooltip: 'Criar produto/serviço',
