@@ -264,6 +264,32 @@ class _Corpo extends ConsumerWidget {
                   ),
                 ),
               Divider(height: 14, color: neu.line),
+              // Desconto NO PREÇO — o que abate o total da venda. É diferente
+              // do desconto na quitação (que perdoa saldo sem mexer no total) e
+              // até agora não aparecia em lugar nenhum do detalhe: quem dava
+              // desconto na criação abria o modal e não via sinal dele, o que
+              // parecia que não tinha sido registrado.
+              if (moneyToDouble(sale.discount) > 0.005) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Desconto no preço',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                      ),
+                    ),
+                    Text(
+                      '− ${formatMoney(moneyToDouble(sale.discount))}',
+                      style: TextStyle(
+                        color: neu.warning,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               Row(
                 children: [
                   Expanded(
