@@ -18,7 +18,6 @@ import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../domain/sale_models.dart';
 import '../domain/sale_payment_split.dart';
-import '../../cashier/presentation/desconto_field.dart';
 import 'sale_providers.dart';
 
 /// Abre o fluxo ÚNICO de Venda avulsa (balcão): buscar itens (select do estoque)
@@ -132,10 +131,6 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   bool _receivedTouched = false;
   // Desconto em valor sobre o total da venda.
   final _descontoCtrl = TextEditingController();
-  /// Desconto na QUITAÇÃO — outro conceito do `_descontoCtrl` acima, que abate
-  /// o preço. Este perdoa o saldo que sobraria, sem mexer no total da venda.
-  final _descontoQuitacaoCtrl = TextEditingController();
-  final _motivoDescontoCtrl = TextEditingController();
 
   /// Soma dos itens, antes do desconto.
   double get _bruto => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
@@ -154,34 +149,15 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// Quanto o cliente entregou. Vazio = zero (venda inteiramente fiada), o que é
   /// uma escolha legítima e confirmada no modal — não um erro a bloquear.
   double get _recebido {
-    // Sem toque, o esperado é o total MENOS o desconto na quitação: o operador
-    // que digita "10 de desconto" espera que o cliente pague 90, não que ele
-    // continue devendo 100 e o campo de desconto seja inútil.
-    if (!_receivedTouched) return _esperadoAposDesconto;
+    if (!_receivedTouched) return _total;
     final v = double.tryParse(_receivedCtrl.text.trim().replaceAll(',', '.'));
     return v == null || v < 0 ? 0 : v;
-  }
-
-  /// Desconto na QUITAÇÃO — perdoa saldo sem mexer no total da venda. Distinto
-  /// do `_desconto` acima, que abate o preço e sai no comprovante.
-  double get _descontoQuitacao {
-    final d = DescontoField.valorDe(_descontoQuitacaoCtrl);
-    // Nunca mais que o total: perdoar além da dívida criaria saldo negativo.
-    return d > _total ? _total : d;
-  }
-
-  double get _esperadoAposDesconto {
-    final v = _total - _descontoQuitacao;
-    return v > 0 ? v : 0;
   }
 
   /// A divisão do dinheiro (caixa / troco / fiado) — regra no domínio, testada
   /// por fora da UI: errar aqui não aparece na tela, aparece no fechamento.
   SalePaymentSplit get _split => SalePaymentSplit.of(
-        // O desconto QUITA sem entrar dinheiro: para a divisão do que sobra, é
-        // como se a dívida fosse menor. O total da venda segue intacto — quem
-        // muda é só o que ainda se cobra.
-        total: _esperadoAposDesconto,
+        total: _total,
         recebido: _recebido,
         dinheiro: _method == 'dinheiro',
       );
@@ -224,8 +200,6 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     _descCtrl.dispose();
     _receivedCtrl.dispose();
     _descontoCtrl.dispose();
-    _descontoQuitacaoCtrl.dispose();
-    _motivoDescontoCtrl.dispose();
     _customerNoteCtrl.dispose();
     super.dispose();
   }
@@ -421,13 +395,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       // Agora o valor lançado é o recebido; o que falta permanece a receber e
       // aparece no Fiado, que é o único jeito de alguém cobrar aquilo depois.
       final aLancar = _aLancarNoCaixa;
-      // Perdoar a venda INTEIRA (desconto cobre tudo, nada em dinheiro) tem
-      // `aLancar` zero. Guardar só por `aLancar > 0` fazia o desconto sumir em
-      // silêncio — nada estourava, o registro simplesmente não nascia. É o caso
-      // que a constraint do banco foi alterada para aceitar; a tela precisava
-      // aceitar junto.
-      final descontoQuitacao = _descontoQuitacao;
-      if (aLancar > 0.005 || descontoQuitacao > 0.005) {
+      if (aLancar > 0.005) {
         // A descrição livre entra no extrato junto do nº ("VND-0001 · texto").
         final note = _descCtrl.text.trim();
         final desc = [sale.number, if (note.isNotEmpty) note].join(' · ');
@@ -438,9 +406,6 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               saleKind: 'sale',
               saleId: sale.id,
               description: desc,
-              discount: descontoQuitacao,
-              discountReason: _motivoDescontoCtrl.text.trim(),
-              saleTotal: _total,
             ));
         ref.invalidate(cashierControllerProvider);
       }
@@ -668,24 +633,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 _receivedCtrl.text = formatAmountForInput(_total);
               }),
             ),
-            // Aparece sempre que HÁ venda — não só quando já sobra saldo.
-            // Antes ficava atrás de `_falta > 0`, e como o valor recebido nasce
-            // igual ao total, `_falta` era zero: o campo nunca aparecia, e
-            // descobri-lo exigia primeiro digitar um valor menor. O operador
-            // pensa ao contrário: "dou 10 de desconto, ele paga 90".
-            if (_total > 0.005) ...[
-              const SizedBox(height: 16),
-              DescontoField(
-                controller: _descontoQuitacaoCtrl,
-                motivoController: _motivoDescontoCtrl,
-                saldo: _total,
-                label: 'Desconto na quitação',
-                ajuda: 'A venda continua valendo ${formatMoney(_total)} no '
-                    'comprovante. O cliente paga '
-                    '${formatMoney(_esperadoAposDesconto)}.',
-                onChanged: () => setState(() {}),
-              ),
-            ],
+
                   ],
                 ),
               ),
@@ -1224,7 +1172,7 @@ class _DescontoRow extends StatelessWidget {
                 onChanged: (_) => onChanged(),
                 decoration: const InputDecoration(
                   isDense: true,
-                  labelText: 'Desconto no preço',
+                  labelText: 'Desconto',
                   prefixText: r'R$ ',
                 ),
               ),

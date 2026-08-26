@@ -264,17 +264,23 @@ class _Corpo extends ConsumerWidget {
                   ),
                 ),
               Divider(height: 14, color: neu.line),
-              // Desconto NO PREÇO — o que abate o total da venda. É diferente
-              // do desconto na quitação (que perdoa saldo sem mexer no total) e
-              // até agora não aparecia em lugar nenhum do detalhe: quem dava
-              // desconto na criação abria o modal e não via sinal dele, o que
-              // parecia que não tinha sido registrado.
+              // Desconto NO PREÇO — o que abate o total da venda. Até agora
+              // não aparecia em lugar nenhum do detalhe: quem dava desconto na
+              // criação abria o modal e não via sinal dele, o que parecia que
+              // não tinha sido registrado.
+              //
+              // O rótulo só ganha o "no preço" quando existe TAMBÉM um desconto
+              // de quitação (venda que virou fiado e foi quitada com
+              // abatimento). Qualificar sempre obrigaria o operador a distinguir
+              // duas coisas onde só há uma.
               if (moneyToDouble(sale.discount) > 0.005) ...[
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        'Desconto no preço',
+                        (payment?.discount ?? 0) > 0
+                            ? 'Desconto no preço'
+                            : 'Desconto',
                         style: TextStyle(color: neu.inkMuted, fontSize: 14),
                       ),
                     ),
