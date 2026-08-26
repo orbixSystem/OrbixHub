@@ -90,6 +90,8 @@ _CashEntry _$CashEntryFromJson(Map<String, dynamic> json) => _CashEntry(
   saleKind: json['sale_kind'] as String?,
   saleId: json['sale_id'] as String?,
   description: json['description'] as String?,
+  discount: json['discount'] as String? ?? '0',
+  discountReason: json['discount_reason'] as String?,
   reversedAt: json['reversed_at'] as String?,
   createdAt: json['created_at'] as String?,
 );
@@ -104,6 +106,8 @@ Map<String, dynamic> _$CashEntryToJson(_CashEntry instance) =>
       'sale_kind': instance.saleKind,
       'sale_id': instance.saleId,
       'description': instance.description,
+      'discount': instance.discount,
+      'discount_reason': instance.discountReason,
       'reversed_at': instance.reversedAt,
       'created_at': instance.createdAt,
     };
@@ -181,6 +185,8 @@ _PaymentDetail _$PaymentDetailFromJson(Map<String, dynamic> json) =>
     _PaymentDetail(
       total: json['total'] as num? ?? 0,
       paid: json['paid'] as num? ?? 0,
+      received: json['received'] as num? ?? 0,
+      discount: json['discount'] as num? ?? 0,
       balance: json['balance'] as num? ?? 0,
       status: json['status'] as String? ?? 'a_receber',
       entries:
@@ -194,6 +200,8 @@ Map<String, dynamic> _$PaymentDetailToJson(_PaymentDetail instance) =>
     <String, dynamic>{
       'total': instance.total,
       'paid': instance.paid,
+      'received': instance.received,
+      'discount': instance.discount,
       'balance': instance.balance,
       'status': instance.status,
       'entries': instance.entries.map((e) => e.toJson()).toList(),

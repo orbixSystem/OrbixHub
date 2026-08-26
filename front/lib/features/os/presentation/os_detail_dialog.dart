@@ -9,6 +9,7 @@ import '../../../core/pdf/company_document_provider.dart';
 import '../../../core/ui/ui.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/presentation/desconto_selo.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../domain/os_models.dart';
 import 'os_pdf.dart';
@@ -247,6 +248,12 @@ class _Corpo extends ConsumerWidget {
               valor: formatMoney(payment!.balance),
               destaque: true,
             ),
+          // A OS mantém o total; o desconto explica por que ela fechou com
+          // menos dinheiro do que vale.
+          if (payment!.discount > 0) ...[
+            const SizedBox(height: 10),
+            DescontoSelo(payment: payment!, dense: true),
+          ],
         ],
         const SizedBox(height: 20),
         Wrap(

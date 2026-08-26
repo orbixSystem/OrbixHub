@@ -1148,7 +1148,10 @@ as num,
 mixin _$CashEntry {
 
  String get id; String get direction;// 'in' | 'out'
- String get amount; String get method; String get category;@JsonKey(name: 'sale_kind') String? get saleKind;@JsonKey(name: 'sale_id') String? get saleId; String? get description;@JsonKey(name: 'reversed_at') String? get reversedAt;@JsonKey(name: 'created_at') String? get createdAt;
+ String get amount; String get method; String get category;@JsonKey(name: 'sale_kind') String? get saleKind;@JsonKey(name: 'sale_id') String? get saleId; String? get description;/// Desconto concedido na quitação. Vem como String (Decimal do Postgres,
+/// como `amount`). A dívida fechou por `amount + discount` — mostrar só o
+/// `amount` faria a conta não bater aos olhos de quem confere.
+ String get discount;@JsonKey(name: 'discount_reason') String? get discountReason;@JsonKey(name: 'reversed_at') String? get reversedAt;@JsonKey(name: 'created_at') String? get createdAt;
 /// Create a copy of CashEntry
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1161,16 +1164,16 @@ $CashEntryCopyWith<CashEntry> get copyWith => _$CashEntryCopyWithImpl<CashEntry>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CashEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.direction, direction) || other.direction == direction)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.method, method) || other.method == method)&&(identical(other.category, category) || other.category == category)&&(identical(other.saleKind, saleKind) || other.saleKind == saleKind)&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.description, description) || other.description == description)&&(identical(other.reversedAt, reversedAt) || other.reversedAt == reversedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CashEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.direction, direction) || other.direction == direction)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.method, method) || other.method == method)&&(identical(other.category, category) || other.category == category)&&(identical(other.saleKind, saleKind) || other.saleKind == saleKind)&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.description, description) || other.description == description)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.discountReason, discountReason) || other.discountReason == discountReason)&&(identical(other.reversedAt, reversedAt) || other.reversedAt == reversedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,direction,amount,method,category,saleKind,saleId,description,reversedAt,createdAt);
+int get hashCode => Object.hash(runtimeType,id,direction,amount,method,category,saleKind,saleId,description,discount,discountReason,reversedAt,createdAt);
 
 @override
 String toString() {
-  return 'CashEntry(id: $id, direction: $direction, amount: $amount, method: $method, category: $category, saleKind: $saleKind, saleId: $saleId, description: $description, reversedAt: $reversedAt, createdAt: $createdAt)';
+  return 'CashEntry(id: $id, direction: $direction, amount: $amount, method: $method, category: $category, saleKind: $saleKind, saleId: $saleId, description: $description, discount: $discount, discountReason: $discountReason, reversedAt: $reversedAt, createdAt: $createdAt)';
 }
 
 
@@ -1181,7 +1184,7 @@ abstract mixin class $CashEntryCopyWith<$Res>  {
   factory $CashEntryCopyWith(CashEntry value, $Res Function(CashEntry) _then) = _$CashEntryCopyWithImpl;
 @useResult
 $Res call({
- String id, String direction, String amount, String method, String category,@JsonKey(name: 'sale_kind') String? saleKind,@JsonKey(name: 'sale_id') String? saleId, String? description,@JsonKey(name: 'reversed_at') String? reversedAt,@JsonKey(name: 'created_at') String? createdAt
+ String id, String direction, String amount, String method, String category,@JsonKey(name: 'sale_kind') String? saleKind,@JsonKey(name: 'sale_id') String? saleId, String? description, String discount,@JsonKey(name: 'discount_reason') String? discountReason,@JsonKey(name: 'reversed_at') String? reversedAt,@JsonKey(name: 'created_at') String? createdAt
 });
 
 
@@ -1198,7 +1201,7 @@ class _$CashEntryCopyWithImpl<$Res>
 
 /// Create a copy of CashEntry
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? direction = null,Object? amount = null,Object? method = null,Object? category = null,Object? saleKind = freezed,Object? saleId = freezed,Object? description = freezed,Object? reversedAt = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? direction = null,Object? amount = null,Object? method = null,Object? category = null,Object? saleKind = freezed,Object? saleId = freezed,Object? description = freezed,Object? discount = null,Object? discountReason = freezed,Object? reversedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,direction: null == direction ? _self.direction : direction // ignore: cast_nullable_to_non_nullable
@@ -1208,6 +1211,8 @@ as String,category: null == category ? _self.category : category // ignore: cast
 as String,saleKind: freezed == saleKind ? _self.saleKind : saleKind // ignore: cast_nullable_to_non_nullable
 as String?,saleId: freezed == saleId ? _self.saleId : saleId // ignore: cast_nullable_to_non_nullable
 as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String?,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
+as String,discountReason: freezed == discountReason ? _self.discountReason : discountReason // ignore: cast_nullable_to_non_nullable
 as String?,reversedAt: freezed == reversedAt ? _self.reversedAt : reversedAt // ignore: cast_nullable_to_non_nullable
 as String?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
@@ -1295,10 +1300,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description,  String discount, @JsonKey(name: 'discount_reason')  String? discountReason, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CashEntry() when $default != null:
-return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.reversedAt,_that.createdAt);case _:
+return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.discount,_that.discountReason,_that.reversedAt,_that.createdAt);case _:
   return orElse();
 
 }
@@ -1316,10 +1321,10 @@ return $default(_that.id,_that.direction,_that.amount,_that.method,_that.categor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description,  String discount, @JsonKey(name: 'discount_reason')  String? discountReason, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _CashEntry():
-return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.reversedAt,_that.createdAt);case _:
+return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.discount,_that.discountReason,_that.reversedAt,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1336,10 +1341,10 @@ return $default(_that.id,_that.direction,_that.amount,_that.method,_that.categor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String direction,  String amount,  String method,  String category, @JsonKey(name: 'sale_kind')  String? saleKind, @JsonKey(name: 'sale_id')  String? saleId,  String? description,  String discount, @JsonKey(name: 'discount_reason')  String? discountReason, @JsonKey(name: 'reversed_at')  String? reversedAt, @JsonKey(name: 'created_at')  String? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _CashEntry() when $default != null:
-return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.reversedAt,_that.createdAt);case _:
+return $default(_that.id,_that.direction,_that.amount,_that.method,_that.category,_that.saleKind,_that.saleId,_that.description,_that.discount,_that.discountReason,_that.reversedAt,_that.createdAt);case _:
   return null;
 
 }
@@ -1351,7 +1356,7 @@ return $default(_that.id,_that.direction,_that.amount,_that.method,_that.categor
 @JsonSerializable()
 
 class _CashEntry implements CashEntry {
-  const _CashEntry({required this.id, required this.direction, this.amount = '0', required this.method, required this.category, @JsonKey(name: 'sale_kind') this.saleKind, @JsonKey(name: 'sale_id') this.saleId, this.description, @JsonKey(name: 'reversed_at') this.reversedAt, @JsonKey(name: 'created_at') this.createdAt});
+  const _CashEntry({required this.id, required this.direction, this.amount = '0', required this.method, required this.category, @JsonKey(name: 'sale_kind') this.saleKind, @JsonKey(name: 'sale_id') this.saleId, this.description, this.discount = '0', @JsonKey(name: 'discount_reason') this.discountReason, @JsonKey(name: 'reversed_at') this.reversedAt, @JsonKey(name: 'created_at') this.createdAt});
   factory _CashEntry.fromJson(Map<String, dynamic> json) => _$CashEntryFromJson(json);
 
 @override final  String id;
@@ -1363,6 +1368,11 @@ class _CashEntry implements CashEntry {
 @override@JsonKey(name: 'sale_kind') final  String? saleKind;
 @override@JsonKey(name: 'sale_id') final  String? saleId;
 @override final  String? description;
+/// Desconto concedido na quitação. Vem como String (Decimal do Postgres,
+/// como `amount`). A dívida fechou por `amount + discount` — mostrar só o
+/// `amount` faria a conta não bater aos olhos de quem confere.
+@override@JsonKey() final  String discount;
+@override@JsonKey(name: 'discount_reason') final  String? discountReason;
 @override@JsonKey(name: 'reversed_at') final  String? reversedAt;
 @override@JsonKey(name: 'created_at') final  String? createdAt;
 
@@ -1379,16 +1389,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CashEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.direction, direction) || other.direction == direction)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.method, method) || other.method == method)&&(identical(other.category, category) || other.category == category)&&(identical(other.saleKind, saleKind) || other.saleKind == saleKind)&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.description, description) || other.description == description)&&(identical(other.reversedAt, reversedAt) || other.reversedAt == reversedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CashEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.direction, direction) || other.direction == direction)&&(identical(other.amount, amount) || other.amount == amount)&&(identical(other.method, method) || other.method == method)&&(identical(other.category, category) || other.category == category)&&(identical(other.saleKind, saleKind) || other.saleKind == saleKind)&&(identical(other.saleId, saleId) || other.saleId == saleId)&&(identical(other.description, description) || other.description == description)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.discountReason, discountReason) || other.discountReason == discountReason)&&(identical(other.reversedAt, reversedAt) || other.reversedAt == reversedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,direction,amount,method,category,saleKind,saleId,description,reversedAt,createdAt);
+int get hashCode => Object.hash(runtimeType,id,direction,amount,method,category,saleKind,saleId,description,discount,discountReason,reversedAt,createdAt);
 
 @override
 String toString() {
-  return 'CashEntry(id: $id, direction: $direction, amount: $amount, method: $method, category: $category, saleKind: $saleKind, saleId: $saleId, description: $description, reversedAt: $reversedAt, createdAt: $createdAt)';
+  return 'CashEntry(id: $id, direction: $direction, amount: $amount, method: $method, category: $category, saleKind: $saleKind, saleId: $saleId, description: $description, discount: $discount, discountReason: $discountReason, reversedAt: $reversedAt, createdAt: $createdAt)';
 }
 
 
@@ -1399,7 +1409,7 @@ abstract mixin class _$CashEntryCopyWith<$Res> implements $CashEntryCopyWith<$Re
   factory _$CashEntryCopyWith(_CashEntry value, $Res Function(_CashEntry) _then) = __$CashEntryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String direction, String amount, String method, String category,@JsonKey(name: 'sale_kind') String? saleKind,@JsonKey(name: 'sale_id') String? saleId, String? description,@JsonKey(name: 'reversed_at') String? reversedAt,@JsonKey(name: 'created_at') String? createdAt
+ String id, String direction, String amount, String method, String category,@JsonKey(name: 'sale_kind') String? saleKind,@JsonKey(name: 'sale_id') String? saleId, String? description, String discount,@JsonKey(name: 'discount_reason') String? discountReason,@JsonKey(name: 'reversed_at') String? reversedAt,@JsonKey(name: 'created_at') String? createdAt
 });
 
 
@@ -1416,7 +1426,7 @@ class __$CashEntryCopyWithImpl<$Res>
 
 /// Create a copy of CashEntry
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? direction = null,Object? amount = null,Object? method = null,Object? category = null,Object? saleKind = freezed,Object? saleId = freezed,Object? description = freezed,Object? reversedAt = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? direction = null,Object? amount = null,Object? method = null,Object? category = null,Object? saleKind = freezed,Object? saleId = freezed,Object? description = freezed,Object? discount = null,Object? discountReason = freezed,Object? reversedAt = freezed,Object? createdAt = freezed,}) {
   return _then(_CashEntry(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,direction: null == direction ? _self.direction : direction // ignore: cast_nullable_to_non_nullable
@@ -1426,6 +1436,8 @@ as String,category: null == category ? _self.category : category // ignore: cast
 as String,saleKind: freezed == saleKind ? _self.saleKind : saleKind // ignore: cast_nullable_to_non_nullable
 as String?,saleId: freezed == saleId ? _self.saleId : saleId // ignore: cast_nullable_to_non_nullable
 as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
+as String?,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
+as String,discountReason: freezed == discountReason ? _self.discountReason : discountReason // ignore: cast_nullable_to_non_nullable
 as String?,reversedAt: freezed == reversedAt ? _self.reversedAt : reversedAt // ignore: cast_nullable_to_non_nullable
 as String?,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,
@@ -2291,7 +2303,10 @@ as num,
 /// @nodoc
 mixin _$PaymentDetail {
 
- num get total; num get paid; num get balance; String get status; List<CashEntry> get entries;
+ num get total;/// Quanto da DÍVIDA foi quitado: dinheiro recebido + desconto concedido.
+ num get paid;/// Dinheiro que de fato entrou (subconjunto de [paid]).
+ num get received;/// Desconto concedido na quitação (o resto de [paid]).
+ num get discount; num get balance; String get status; List<CashEntry> get entries;
 /// Create a copy of PaymentDetail
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2304,16 +2319,16 @@ $PaymentDetailCopyWith<PaymentDetail> get copyWith => _$PaymentDetailCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PaymentDetail&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.entries, entries));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PaymentDetail&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.received, received) || other.received == received)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.entries, entries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,total,paid,balance,status,const DeepCollectionEquality().hash(entries));
+int get hashCode => Object.hash(runtimeType,total,paid,received,discount,balance,status,const DeepCollectionEquality().hash(entries));
 
 @override
 String toString() {
-  return 'PaymentDetail(total: $total, paid: $paid, balance: $balance, status: $status, entries: $entries)';
+  return 'PaymentDetail(total: $total, paid: $paid, received: $received, discount: $discount, balance: $balance, status: $status, entries: $entries)';
 }
 
 
@@ -2324,7 +2339,7 @@ abstract mixin class $PaymentDetailCopyWith<$Res>  {
   factory $PaymentDetailCopyWith(PaymentDetail value, $Res Function(PaymentDetail) _then) = _$PaymentDetailCopyWithImpl;
 @useResult
 $Res call({
- num total, num paid, num balance, String status, List<CashEntry> entries
+ num total, num paid, num received, num discount, num balance, String status, List<CashEntry> entries
 });
 
 
@@ -2341,10 +2356,12 @@ class _$PaymentDetailCopyWithImpl<$Res>
 
 /// Create a copy of PaymentDetail
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? entries = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? total = null,Object? paid = null,Object? received = null,Object? discount = null,Object? balance = null,Object? status = null,Object? entries = null,}) {
   return _then(_self.copyWith(
 total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as num,paid: null == paid ? _self.paid : paid // ignore: cast_nullable_to_non_nullable
+as num,received: null == received ? _self.received : received // ignore: cast_nullable_to_non_nullable
+as num,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as num,balance: null == balance ? _self.balance : balance // ignore: cast_nullable_to_non_nullable
 as num,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,entries: null == entries ? _self.entries : entries // ignore: cast_nullable_to_non_nullable
@@ -2433,10 +2450,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( num total,  num paid,  num balance,  String status,  List<CashEntry> entries)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( num total,  num paid,  num received,  num discount,  num balance,  String status,  List<CashEntry> entries)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PaymentDetail() when $default != null:
-return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries);case _:
+return $default(_that.total,_that.paid,_that.received,_that.discount,_that.balance,_that.status,_that.entries);case _:
   return orElse();
 
 }
@@ -2454,10 +2471,10 @@ return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( num total,  num paid,  num balance,  String status,  List<CashEntry> entries)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( num total,  num paid,  num received,  num discount,  num balance,  String status,  List<CashEntry> entries)  $default,) {final _that = this;
 switch (_that) {
 case _PaymentDetail():
-return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries);case _:
+return $default(_that.total,_that.paid,_that.received,_that.discount,_that.balance,_that.status,_that.entries);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2474,10 +2491,10 @@ return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( num total,  num paid,  num balance,  String status,  List<CashEntry> entries)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( num total,  num paid,  num received,  num discount,  num balance,  String status,  List<CashEntry> entries)?  $default,) {final _that = this;
 switch (_that) {
 case _PaymentDetail() when $default != null:
-return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries);case _:
+return $default(_that.total,_that.paid,_that.received,_that.discount,_that.balance,_that.status,_that.entries);case _:
   return null;
 
 }
@@ -2489,11 +2506,16 @@ return $default(_that.total,_that.paid,_that.balance,_that.status,_that.entries)
 @JsonSerializable()
 
 class _PaymentDetail implements PaymentDetail {
-  const _PaymentDetail({this.total = 0, this.paid = 0, this.balance = 0, this.status = 'a_receber', final  List<CashEntry> entries = const <CashEntry>[]}): _entries = entries;
+  const _PaymentDetail({this.total = 0, this.paid = 0, this.received = 0, this.discount = 0, this.balance = 0, this.status = 'a_receber', final  List<CashEntry> entries = const <CashEntry>[]}): _entries = entries;
   factory _PaymentDetail.fromJson(Map<String, dynamic> json) => _$PaymentDetailFromJson(json);
 
 @override@JsonKey() final  num total;
+/// Quanto da DÍVIDA foi quitado: dinheiro recebido + desconto concedido.
 @override@JsonKey() final  num paid;
+/// Dinheiro que de fato entrou (subconjunto de [paid]).
+@override@JsonKey() final  num received;
+/// Desconto concedido na quitação (o resto de [paid]).
+@override@JsonKey() final  num discount;
 @override@JsonKey() final  num balance;
 @override@JsonKey() final  String status;
  final  List<CashEntry> _entries;
@@ -2517,16 +2539,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PaymentDetail&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._entries, _entries));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PaymentDetail&&(identical(other.total, total) || other.total == total)&&(identical(other.paid, paid) || other.paid == paid)&&(identical(other.received, received) || other.received == received)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.balance, balance) || other.balance == balance)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._entries, _entries));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,total,paid,balance,status,const DeepCollectionEquality().hash(_entries));
+int get hashCode => Object.hash(runtimeType,total,paid,received,discount,balance,status,const DeepCollectionEquality().hash(_entries));
 
 @override
 String toString() {
-  return 'PaymentDetail(total: $total, paid: $paid, balance: $balance, status: $status, entries: $entries)';
+  return 'PaymentDetail(total: $total, paid: $paid, received: $received, discount: $discount, balance: $balance, status: $status, entries: $entries)';
 }
 
 
@@ -2537,7 +2559,7 @@ abstract mixin class _$PaymentDetailCopyWith<$Res> implements $PaymentDetailCopy
   factory _$PaymentDetailCopyWith(_PaymentDetail value, $Res Function(_PaymentDetail) _then) = __$PaymentDetailCopyWithImpl;
 @override @useResult
 $Res call({
- num total, num paid, num balance, String status, List<CashEntry> entries
+ num total, num paid, num received, num discount, num balance, String status, List<CashEntry> entries
 });
 
 
@@ -2554,10 +2576,12 @@ class __$PaymentDetailCopyWithImpl<$Res>
 
 /// Create a copy of PaymentDetail
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? total = null,Object? paid = null,Object? balance = null,Object? status = null,Object? entries = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? total = null,Object? paid = null,Object? received = null,Object? discount = null,Object? balance = null,Object? status = null,Object? entries = null,}) {
   return _then(_PaymentDetail(
 total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as num,paid: null == paid ? _self.paid : paid // ignore: cast_nullable_to_non_nullable
+as num,received: null == received ? _self.received : received // ignore: cast_nullable_to_non_nullable
+as num,discount: null == discount ? _self.discount : discount // ignore: cast_nullable_to_non_nullable
 as num,balance: null == balance ? _self.balance : balance // ignore: cast_nullable_to_non_nullable
 as num,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,entries: null == entries ? _self._entries : entries // ignore: cast_nullable_to_non_nullable

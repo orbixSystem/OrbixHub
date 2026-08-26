@@ -79,6 +79,11 @@ abstract class CashEntry with _$CashEntry {
     @JsonKey(name: 'sale_kind') String? saleKind,
     @JsonKey(name: 'sale_id') String? saleId,
     String? description,
+    /// Desconto concedido na quitação. Vem como String (Decimal do Postgres,
+    /// como `amount`). A dívida fechou por `amount + discount` — mostrar só o
+    /// `amount` faria a conta não bater aos olhos de quem confere.
+    @Default('0') String discount,
+    @JsonKey(name: 'discount_reason') String? discountReason,
     @JsonKey(name: 'reversed_at') String? reversedAt,
     @JsonKey(name: 'created_at') String? createdAt,
   }) = _CashEntry;
@@ -136,7 +141,12 @@ abstract class CashSummary with _$CashSummary {
 abstract class PaymentDetail with _$PaymentDetail {
   const factory PaymentDetail({
     @Default(0) num total,
+    /// Quanto da DÍVIDA foi quitado: dinheiro recebido + desconto concedido.
     @Default(0) num paid,
+    /// Dinheiro que de fato entrou (subconjunto de [paid]).
+    @Default(0) num received,
+    /// Desconto concedido na quitação (o resto de [paid]).
+    @Default(0) num discount,
     @Default(0) num balance,
     @Default('a_receber') String status,
     @Default(<CashEntry>[]) List<CashEntry> entries,

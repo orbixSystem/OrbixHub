@@ -6,6 +6,7 @@ import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/presentation/desconto_selo.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/entry_edit_dialogs.dart';
@@ -527,6 +528,12 @@ class _Pagamentos extends StatelessWidget {
                   ),
                 ],
               ),
+              // Sem esta linha, uma venda de R$ 100 aparece quitada tendo
+              // entrado R$ 90 e quem confere não acha os R$ 10.
+              if (payment.discount > 0) ...[
+                const SizedBox(height: 10),
+                DescontoSelo(payment: payment, dense: true),
+              ],
               if (payment.entries.isNotEmpty) ...[
                 Divider(height: 16, color: neu.line),
                 for (final e in payment.entries)
