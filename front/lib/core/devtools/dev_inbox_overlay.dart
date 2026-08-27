@@ -28,6 +28,16 @@ bool _isPublicTrackingRoute(WidgetRef ref) {
 /// Navigator's overlay (NOT by wrapping the app in a Stack — that broke web
 /// focus traversal and left an unlaid-out `_RenderTheater`). Shows a theme
 /// toggle (always) and, only when [kDevTools], a "beetle" dev-inbox button.
+/// Largura da faixa que os controles do canto superior ESQUERDO ocupam no
+/// CELULAR: o "?" do tutorial e o botão de suporte, 48pt cada (padrão do
+/// IconButton) mais a margem da SafeArea.
+///
+/// Vive aqui, junto de quem desenha os botões, e o header do shell a consome
+/// para reservar a faixa. Já errei este número DUAS vezes tentando deduzi-lo
+/// do outro lado — primeiro contando um botão em vez de dois, depois usando
+/// 38pt em vez de 48. Uma constante com dois consumidores não desalinha.
+const double kControlesEsquerdaMobile = 110;
+
 class GlobalControls extends ConsumerWidget {
   const GlobalControls({super.key});
 
