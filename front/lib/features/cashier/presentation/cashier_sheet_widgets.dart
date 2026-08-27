@@ -66,7 +66,7 @@ class CashierBalanceLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: TextStyle(color: neu.inkMuted, fontSize: 11)),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12)),
               const SizedBox(height: 2),
               Text(
                 formatMoney(value),
