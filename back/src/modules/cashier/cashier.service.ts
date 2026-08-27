@@ -99,6 +99,20 @@ export abstract class CashierService {
    * o módulo `sync` — que só enxerga este token, nunca `CashierServiceImpl`
    * ("aponta, não invade") — conseguir chamá-lo.
    */
+  /**
+   * Σ do que ENTROU em dinheiro, agrupado por documento (`sale_id`), no
+   * período. Não inclui desconto: desconto fecha dívida sem entrar dinheiro, e
+   * quem pergunta "quanto este cliente já me pagou" quer o dinheiro.
+   *
+   * O caixa não sabe de CLIENTE — ele conhece `sale_id`. Quem cruza id →
+   * cliente é o `report`, perguntando aos módulos donos. É a costura que
+   * mantém a independência: nenhum dos três lê tabela do outro.
+   */
+  abstract receivedBySale(range?: {
+    from?: Date;
+    to?: Date;
+  }): Promise<Map<string, { recebido: number; desconto: number }>>;
+
   abstract listChangedSince(
     entity: string,
     cursor: { ts: string; id: string } | null,

@@ -50,6 +50,12 @@ abstract class ReportRepository {
   /// `GET /report/expenses` — despesas do período por categoria ("para onde vai
   /// o dinheiro"). Gated pelo módulo `expenses` no servidor: quem não contratou
   /// despesas recebe 404, não uma tabela vazia que pareceria "não gastei nada".
+  /// Melhores clientes do período, por dinheiro recebido e por recorrência.
+  Future<CustomersRanking> customersRanking({required ReportRange range});
+
+  /// Ciclo de vida de UM cliente — sem período: é o "desde sempre".
+  Future<ClienteRanqueado> customerLifetime(String customerId);
+
   Future<ExpensesReport> expensesReport({required ReportRange range});
 
   /// `GET /report/expenses.csv` — CSV do relatório (gerado no servidor; é o

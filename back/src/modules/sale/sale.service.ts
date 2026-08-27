@@ -80,6 +80,11 @@ export class SaleService {
   ) {}
 
   // ===================== Criação =====================
+  /** Vendas do período com o dono — ver [SaleRepository.documentosPorCliente]. */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    return this.tenant.withTenantTx(() => this.repo.documentosPorCliente(p));
+  }
+
   async createSale(user: AuthUser, dto: CreateSaleDto) {
     // Cliente OPCIONAL: se informado, ponteiro + snapshot via service público
     // (FORA da tx — getCustomer abre a própria; aninhar esgota o pool).

@@ -10,6 +10,10 @@ import type { AuthUser } from '../../common/auth/auth.types';
  * recebido ⇒ a_receber" usada pela derivação do status de pagamento.
  */
 class FakeCashierService extends CashierService {
+
+  async receivedBySale() {
+    return new Map<string, { recebido: number; desconto: number }>();
+  }
   getPaymentSummary(_t: string, _v: string, fallbackTotal = 0) {
     return Promise.resolve(buildPaymentSummary(fallbackTotal, 0));
   }

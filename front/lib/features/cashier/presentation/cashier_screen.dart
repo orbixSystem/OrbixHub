@@ -724,7 +724,7 @@ class _CashierHistory extends ConsumerWidget {
                                         '${todos.length == 1 ? "registro" : "registros"}'
                                     : '${visiveis.length} de ${todos.length}',
                                 style: TextStyle(
-                                    color: neu.inkFaint, fontSize: 11.5),
+                                    color: neu.inkFaint, fontSize: 12),
                               ),
                             ),
                           // O Histórico é aba de gestão (só aparece com
@@ -839,7 +839,7 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               'Venda em fiado não conta como entrada — nada entrou no caixa.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 11),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ),
         // Cancelar a venda devolve o estoque, mas NÃO desfaz o recebimento: o
@@ -851,7 +851,7 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
             child: Text(
               'Cancelar devolve o estoque, mas o dinheiro já recebido segue no '
               'caixa até o lançamento ser estornado.',
-              style: TextStyle(color: neu.inkFaint, fontSize: 11),
+              style: TextStyle(color: neu.inkFaint, fontSize: 14),
             ),
           ),
       ],

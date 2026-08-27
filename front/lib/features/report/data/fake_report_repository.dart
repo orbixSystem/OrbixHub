@@ -82,6 +82,14 @@ class FakeReportRepository implements ReportRepository {
       Uint8List.fromList(const [0x25, 0x50, 0x44, 0x46]); // "%PDF"
 
   @override
+  Future<CustomersRanking> customersRanking({required ReportRange range}) async =>
+      const CustomersRanking();
+
+  @override
+  Future<ClienteRanqueado> customerLifetime(String customerId) async =>
+      ClienteRanqueado(customerId: customerId);
+
+  @override
   Future<ExpensesReport> expensesReport({required ReportRange range}) async =>
       const ExpensesReport(
         rows: [
