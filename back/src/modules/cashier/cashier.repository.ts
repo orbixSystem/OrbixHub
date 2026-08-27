@@ -360,6 +360,29 @@ export class CashierRepository {
   }
 
   /**
+   * Σ recebido e descontado POR DOCUMENTO no período. Um `groupBy` só: a
+   * alternativa (pedir venda a venda) seria N+1 numa tela de ranking.
+   */
+  async receivedBySale(p: { from?: Date; to?: Date }) {
+    const db = this.tenant.getClient();
+    const rows = await db.cash_entry.groupBy({
+      by: ['sale_id'],
+      where: { ...this.periodWhere(p), direction: 'in', sale_id: { not: null } },
+      _sum: { amount: true, discount: true },
+    });
+    const map = new Map<string, { recebido: number; desconto: number }>();
+    for (const r of rows) {
+      if (r.sale_id) {
+        map.set(r.sale_id, {
+          recebido: toNum(r._sum.amount),
+          desconto: toNum(r._sum.discount),
+        });
+      }
+    }
+    return map;
+  }
+
+  /**
    * Σ dos descontos concedidos no período (entradas não estornadas).
    *
    * Fica FORA de `totalIn`: desconto não é dinheiro na gaveta, e somá-lo à

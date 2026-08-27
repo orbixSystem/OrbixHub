@@ -7,6 +7,10 @@ import type { AuthUser } from '../../common/auth/auth.types';
 
 /** Fake do contrato do Caixa: "nada recebido ⇒ a_receber" (caller-passes-total). */
 class FakeCashierService extends CashierService {
+
+  async receivedBySale() {
+    return new Map<string, { recebido: number; desconto: number }>();
+  }
   getPaymentSummary(_t: string, _v: string, fallbackTotal = 0) {
     return Promise.resolve(buildPaymentSummary(fallbackTotal, 0));
   }

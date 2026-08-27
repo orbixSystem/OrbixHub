@@ -373,8 +373,8 @@ void main() {
 
   group('integração no shell (header mobile)', () {
     testWidgets(
-        'chip com contagem enorme num telefone estreito não estoura o Row '
-        'do header (trunca com reticências)', (tester) async {
+        'chip com contagem enorme num telefone estreito não estoura o header '
+        '(no celular ele é só ícone)', (tester) async {
       tester.view.physicalSize = const Size(320, 690);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -411,10 +411,16 @@ void main() {
       await tester.pump();
 
       // A regressão exata da sidebar, no segundo ponto de integração: sem um
-      // Flexible NO HEADER o chip recebe largura ilimitada do Row e o
-      // Flexible interno nunca ativa → RenderFlex overflow.
+      // Flexible NO HEADER o chip recebia largura ilimitada do Row e o
+      // Flexible interno nunca ativava → RenderFlex overflow.
       expect(tester.takeException(), isNull);
-      expect(find.textContaining('Offline'), findsOneWidget);
+
+      // No CELULAR o chip virou ícone: o rótulo saiu porque a faixa esquerda
+      // tem DOIS botões de overlay (o "?" e o suporte) e o chip caía em cima
+      // deles. Sem texto não há o que truncar — a garantia ficou mais forte, e
+      // o estado segue legível pela cor/spinner e pelo tooltip.
+      expect(find.textContaining('Offline'), findsNothing);
+      expect(find.byType(Tooltip), findsWidgets);
     });
   });
 }

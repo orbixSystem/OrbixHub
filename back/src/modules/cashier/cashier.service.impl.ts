@@ -848,6 +848,12 @@ export class CashierServiceImpl extends CashierService {
   }
 
   /** Totais por método/categoria/origem no período — base dos relatórios (recebido). */
+  async receivedBySale(range?: { from?: Date; to?: Date }) {
+    return this.tenant.withTenantTx(() =>
+      this.repo.receivedBySale(range ?? {}),
+    );
+  }
+
   async getCashSummary(_user: AuthUser, query: SummaryQueryDto) {
     const p = { from: parseDate(query.from), to: parseDate(query.to) };
     const [methodRows, categoryRows, originRows, descontos] =

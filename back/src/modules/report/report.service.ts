@@ -27,6 +27,12 @@ import {
   buildCustomersCsv,
   buildCustomersPdf,
 } from './export/customers-export';
+import {
+  ClienteRanqueado,
+  porReceita,
+  porRecorrencia,
+  ranquearClientes,
+} from './customers-ranking';
 import type {
   CustomersMetricsParams,
   CustomersMetricsReportPage,
@@ -171,6 +177,68 @@ export class ReportService {
    * ao caixa; separa quando houver canal sem caixa (ex.: e-commerce)". Cada fonte
    * só entra se seu módulo estiver habilitado.
    */
+  /**
+   * Clientes cruzados com o que ENTROU em dinheiro. Três consultas agregadas —
+   * uma por módulo dono — e o cruzamento aqui, que é o papel do `report`.
+   *
+   * Sem varredura paginada e sem teto: OS e venda têm `customer_id` e o caixa
+   * agrupa por `sale_id`, então dá para perguntar direto. (O fiado varre em
+   * memória porque não tem tabela própria — aqui não é o caso, e herdar aquele
+   * limite seria escolher um problema que não temos.)
+   */
+  private async clientesComRecebido(range: {
+    from?: Date;
+    to?: Date;
+  }): Promise<ClienteRanqueado[]> {
+    const [os, vendas, recebido] = await Promise.all([
+      this.os.documentosPorCliente(range),
+      this.sales.documentosPorCliente(range),
+      this.cashier.receivedBySale(range),
+    ]);
+    return ranquearClientes(os, vendas, recebido);
+  }
+
+  /** Melhores clientes por dinheiro e por recorrência, no período. */
+  async customersRanking(
+    range: { from: Date; to: Date },
+    limit = 10,
+  ): Promise<{
+    range: { from: string; to: string };
+    porReceita: ClienteRanqueado[];
+    porRecorrencia: ClienteRanqueado[];
+    totalClientes: number;
+  }> {
+    const todos = await this.clientesComRecebido(range);
+    return {
+      range: { from: range.from.toISOString(), to: range.to.toISOString() },
+      porReceita: [...todos].sort(porReceita).slice(0, limit),
+      porRecorrencia: [...todos].sort(porRecorrencia).slice(0, limit),
+      totalClientes: todos.length,
+    };
+  }
+
+  /**
+   * Ciclo de vida de UM cliente: sem range, porque a pergunta é "quanto este
+   * cliente já me deixou desde sempre".
+   */
+  async customerLifetime(customerId: string): Promise<ClienteRanqueado> {
+    const todos = await this.clientesComRecebido({});
+    return (
+      todos.find((c) => c.customerId === customerId) ?? {
+        customerId,
+        customerName: 'Cliente',
+        recebido: 0,
+        desconto: 0,
+        atendimentos: 0,
+        osCount: 0,
+        saleCount: 0,
+        ticketMedio: 0,
+        primeiroEm: '',
+        ultimoEm: '',
+      }
+    );
+  }
+
   async revenue(tenantId: string, range: Range): Promise<RevenueSeries> {
     const enabled = await this.billing.getEnabledModules(tenantId);
     const hasOs = enabled.includes('os');

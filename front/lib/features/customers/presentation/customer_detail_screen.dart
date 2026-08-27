@@ -12,6 +12,7 @@ import '../../../di.dart';
 import '../domain/customers_models.dart';
 import '../../../verticals/veiculos/brand_logo.dart';
 import 'customer_form_dialog.dart';
+import 'customer_kpis.dart';
 import 'customers_providers.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -1081,6 +1082,12 @@ class _CustomerHistoryTabState extends ConsumerState<_CustomerHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Ciclo de vida ANTES do histórico: quem abre a ficha quer primeiro
+          // saber quanto o cliente vale, e depois o que aconteceu com ele.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),
+            child: CustomerKpis(customerId: widget.customerId),
+          ),
           if (widget.config.usaSubjects && subjects.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),
