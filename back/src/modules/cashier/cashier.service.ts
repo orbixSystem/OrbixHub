@@ -113,6 +113,21 @@ export abstract class CashierService {
     to?: Date;
   }): Promise<Map<string, { recebido: number; desconto: number }>>;
 
+  /**
+   * Quantas parcelas de fiado deste documento seguem EM ABERTO (não quitadas).
+   *
+   * Porta estreita para quem precisa saber se um documento pode SUMIR: excluir
+   * uma OS que deixou parcelas pendentes as tornaria cobranças órfãs — vivas em
+   * "a receber", apontando para uma OS que ninguém mais consegue abrir. O
+   * chamador não vê a parcela, só o número; o caixa segue sem saber o que é uma
+   * OS.
+   */
+  abstract contarParcelasEmAberto(
+    tenantId: string,
+    saleKind: string,
+    saleId: string,
+  ): Promise<number>;
+
   abstract listChangedSince(
     entity: string,
     cursor: { ts: string; id: string } | null,

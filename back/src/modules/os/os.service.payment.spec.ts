@@ -1,3 +1,4 @@
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsService } from './os.service';
 import {
   buildPaymentSummary,
@@ -13,6 +14,10 @@ class FakeCashierService extends CashierService {
 
   async receivedBySale() {
     return new Map<string, { recebido: number; desconto: number }>();
+  }
+
+  async contarParcelasEmAberto() {
+    return 0;
   }
   getPaymentSummary(_t: string, _v: string, fallbackTotal = 0) {
     return Promise.resolve(buildPaymentSummary(fallbackTotal, 0));
@@ -113,6 +118,8 @@ function makeService(over: {
       // estes testes observam — fake devolvendo undefined cai no fallback.
       { texto: () => undefined } as never,
       { getTenantVertical: async () => 'veiculos' } as never,
+      // OrderLockRegistry vazio: nenhum módulo registrou impedimento.
+      new OrderLockRegistry(),
     );
   return { svc, repo, audit };
 }

@@ -918,6 +918,20 @@ export class CashierServiceImpl extends CashierService {
     });
   }
 
+  /** Parcelas ainda não quitadas (contrato `CashierService`). */
+  contarParcelasEmAberto(
+    tenantId: string,
+    saleKind: string,
+    saleId: string,
+  ): Promise<number> {
+    return this.tenant.runWithTenant(tenantId, () => {
+      const db = this.tenant.getClient();
+      return db.receivable_installment.count({
+        where: { sale_kind: saleKind, sale_id: saleId, paid_at: null },
+      });
+    });
+  }
+
   /**
    * Cria um plano de parcelas para o saldo remanescente de uma venda/OS.
    * Divide o saldo atual igualmente (ajuste de centavos na última parcela).
