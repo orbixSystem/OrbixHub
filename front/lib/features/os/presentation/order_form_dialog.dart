@@ -1168,9 +1168,10 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       hint: f.chave == 'tipo'
           ? ref.read(vocabProvider)['os.hint.tipo_objeto']
           : null,
-      // Máscara de placa só quando a feature de consulta de placa está ativa.
-      inputFormatters:
-          (isIdentifier && _identifierIsPlate) ? [PlateInputFormatter()] : null,
+      // Máscara Mercosul/antiga só quando o NICHO diz que o campo é uma placa.
+      // Não vem da feature de consulta (capacidade ≠ formato: nº de série numa
+      // assistência técnica é consultável e não é placa).
+      inputFormatters: f.ehPlaca ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
               ? 'Informe o ${f.rotulo.toLowerCase()}'
