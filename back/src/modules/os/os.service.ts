@@ -24,6 +24,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
 import { IamService } from '../iam/iam.service';
 import { CashierService } from '../cashier/cashier.service';
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -112,23 +113,43 @@ const consumes = (status: string): boolean =>
 
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
- * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
- * "reabertura" (→ `aberta`), que é privilegiada (gated por `os.approve`).
+ * válidos. Nenhum estado é beco sem saída: todo estado fechado sai por
+ * **reabertura**, que é privilegiada (gated por `os.approve`) — `cancelada` volta
+ * para `aberta`, `concluida`/`entregue` voltam para `em_execucao`.
+ *
+ * Uma OS finalizada com erro (peça errada, valor errado, cliente errado) existia
+ * sem conserto até 31/08/2026: `entregue` não tinha destino nenhum. Corrigir
+ * exigia abrir OUTRA OS, o que dobra o histórico do carro e o faturamento.
  */
 const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
   aberta: ['aguardando_aprovacao', 'em_execucao', 'cancelada'],
   aguardando_aprovacao: ['aprovada', 'aberta', 'cancelada'],
   aprovada: ['em_execucao', 'cancelada'],
   em_execucao: ['concluida', 'cancelada'],
-  concluida: ['entregue'],
-  entregue: [],
+  concluida: ['entregue', 'em_execucao'],
+  entregue: ['em_execucao'],
   cancelada: ['aberta'],
 };
 
 /**
+ * Reabertura: volta de um estado fechado para o trabalho. Exige `os.approve` e,
+ * quando vem de uma OS finalizada, que nenhum outro módulo tenha documento
+ * amarrado a ela (ver `OrderLockRegistry`).
+ *
+ * `concluida`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
+ * propósito: os três consomem estoque (ver `CONSUMING_STATUSES`), então reabrir
+ * não devolve peça à prateleira nem tenta baixá-la de novo. Reabrir em `aberta`
+ * faria o estoque ir e voltar a cada correção, e uma peça vendida no meio do
+ * caminho deixaria a baixa de volta falhando em silêncio.
+ */
+const isReopen = (from: OsStatus, to: OsStatus): boolean =>
+  (from === 'cancelada' && to === 'aberta') ||
+  ((from === 'concluida' || from === 'entregue') && to === 'em_execucao');
+
+/**
  * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
- * cabeçalho). `cancelada` volta a ser editável reabrindo-a (→ `aberta`);
- * `entregue` é final.
+ * cabeçalho) enquanto estiver neles. Não são becos sem saída — os dois voltam a
+ * ser editáveis pela reabertura (ver [isReopen]).
  */
 const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue']);
 
@@ -153,6 +174,9 @@ export class OsService {
     // Tenancy (dona da tabela `tenant`), o texto vem do pacote.
     private readonly vocabulary: VocabularyService,
     private readonly tenancy: TenancyService,
+    // Impedimentos que OUTROS módulos têm sobre esta OS (hoje: nota fiscal
+    // ativa). A OS pergunta ao registro; nunca lê a tabela deles.
+    private readonly orderLocks: OrderLockRegistry,
   ) {}
 
   /**
@@ -543,14 +567,83 @@ export class OsService {
     return order;
   }
 
+  /**
+   * Exclui uma OS (soft delete — a linha continua no banco com `deleted_at`).
+   *
+   * Uma OS não é um rascunho: ela consome peça do estoque, gera recebimento no
+   * caixa e pode ter nota fiscal. Sumir com ela sem olhar para isso deixa
+   * rastro que ninguém consegue explicar depois — peça faltando na prateleira,
+   * dinheiro no extrato apontando para uma OS que não abre, cobrança viva em "a
+   * receber". Então:
+   *
+   * - exige `os.approve` (mesmo público que aprova e reabre — nunca o mecânico
+   *   com `os.write`), porque é destrutivo e mexe em faturamento apurado;
+   * - RECUSA enquanto houver documento de outro módulo amarrado (nota fiscal
+   *   ativa), pagamento lançado no caixa ou parcela de fiado em aberto — nos
+   *   dois últimos casos o caminho é estornar/quitar primeiro, no Caixa, onde a
+   *   baixa fica registrada em vez de desaparecer;
+   * - DEVOLVE ao estoque tudo que a OS tinha consumido, porque a peça que ela
+   *   baixou não foi usada em serviço nenhum se a OS não existe mais.
+   */
   async deleteOrder(user: AuthUser, id: string) {
-    const result = await this.tenant.withTenantTx(async () => {
-      const existing = await this.repo.findOrderById(id);
-      if (!existing || existing.deleted_at)
-        throw new NotFoundException('OS não encontrada.');
-      return this.repo.softDelete(id);
+    if (!(await this.userHasPermission(user, 'os.approve'))) {
+      throw new ForbiddenException('Sem permissão para excluir OS.');
+    }
+    // Carrega a OS inteira ANTES de excluir: depois do soft delete ela some das
+    // consultas, e os itens são justamente o que precisa voltar ao estoque.
+    const order = await this.getOrderOrThrow(id);
+
+    const impedimento = await this.orderLocks.primeiroImpedimento(id);
+    if (impedimento) throw new BadRequestException(impedimento);
+
+    // Dinheiro: quem sabe é o caixa, e a OS pergunta por id ("aponta, não
+    // invade"). `paid` cobre recebimento E desconto concedido — os dois são
+    // baixa da dívida e os dois viraram lançamento no livro caixa.
+    const pagamento = await this.cashier.getPaymentSummary(
+      user.tenantId,
+      id,
+      toNum(order.total),
+    );
+    if (pagamento.paid > 0) {
+      throw new BadRequestException(
+        'Esta OS já tem pagamento lançado no caixa. Estorne os lançamentos em ' +
+          'Pagamentos antes de excluí-la.',
+      );
+    }
+    const parcelas = await this.cashier.contarParcelasEmAberto(
+      user.tenantId,
+      'os',
+      id,
+    );
+    if (parcelas > 0) {
+      throw new BadRequestException(
+        `Esta OS tem ${parcelas} parcela(s) de fiado em aberto. Quite ou ` +
+          'cancele o parcelamento antes de excluí-la.',
+      );
+    }
+
+    const result = await this.tenant.withTenantTx(() => this.repo.softDelete(id));
+
+    // Estoque de volta à prateleira. FORA da tx (reconcile abre a própria) e
+    // best-effort, como nas demais reconciliações: a OS já foi excluída, e um
+    // erro de estoque num item não pode ressuscitá-la pela metade.
+    const linhasDeEstoque = order.items.filter(
+      (i) => i.kind === 'product' && i.inventory_item_id,
+    ).length;
+    if (linhasDeEstoque > 0) {
+      await this.reconcileOrderStock(user, order, { devolverTudo: true });
+    }
+    // Só houve devolução se a OS tinha de fato baixado a peça: numa OS que
+    // morreu antes de entrar em execução a reconciliação é um no-op, e dizer
+    // "devolvi 3 itens" na auditoria seria mentira.
+    const devolvidos = consumes(order.status) ? linhasDeEstoque : 0;
+
+    await this.audit.log(user.tenantId, user.userId, 'os_delete', id, {
+      status: order.status,
+      total: toNum(order.total),
+      itensDevolvidos: devolvidos,
     });
-    await this.audit.log(user.tenantId, user.userId, 'os_delete', id);
+    this.emitOsChanged(user.tenantId, id, 'status');
     return result;
   }
 
@@ -729,7 +822,8 @@ export class OsService {
 
   /**
    * Bloqueia edição de conteúdo quando a OS está num estado terminal
-   * (`cancelada`/`entregue`). Cancelada pode voltar a ser editável reabrindo-a.
+   * (`cancelada`/`entregue`). Os dois voltam a ser editáveis pela reabertura
+   * (ver [isReopen]) — daí a mensagem dizer o que fazer, e não só "não pode".
    */
   private assertEditable(order: { status: string }) {
     if (!TERMINAL_STATUSES.has(order.status as OsStatus)) return;
@@ -738,7 +832,9 @@ export class OsService {
         'OS cancelada não pode ser alterada. Reabra a OS para editá-la.',
       );
     }
-    throw new BadRequestException('OS entregue não pode ser alterada.');
+    throw new BadRequestException(
+      'OS entregue não pode ser alterada. Reabra a OS para editá-la.',
+    );
   }
 
   // ===================== Workflow =====================
@@ -757,24 +853,47 @@ export class OsService {
     if (to === 'aprovada' && !(await this.userHasPermission(user, 'os.approve'))) {
       throw new ForbiddenException('Sem permissão para aprovar OS.');
     }
-    // Reabrir (cancelada → aberta) é privilegiado — mesmo público de aprovar.
-    const isReopen = from === 'cancelada' && to === 'aberta';
-    if (isReopen && !(await this.userHasPermission(user, 'os.approve'))) {
+    // Reabrir é privilegiado — mesmo público de aprovar.
+    const reabrindo = isReopen(from, to);
+    if (reabrindo && !(await this.userHasPermission(user, 'os.approve'))) {
       throw new ForbiddenException('Sem permissão para reabrir OS.');
+    }
+    // Reabrir uma OS FINALIZADA destrava a edição de valores já fechados: se
+    // outro módulo tem documento amarrado a ela (nota fiscal ativa), não passa.
+    // OS cancelada nunca faturou nada — não precisa da consulta.
+    if (reabrindo && from !== 'cancelada') {
+      const impedimento = await this.orderLocks.primeiroImpedimento(id);
+      if (impedimento) throw new BadRequestException(impedimento);
     }
 
     const fields: {
       status: string;
       started_at?: Date;
       finished_at?: Date;
-      closed_at?: Date;
+      // Aceita null: reabrir uma OS entregue APAGA o carimbo de entrega.
+      closed_at?: Date | null;
     } = { status: to };
-    if (to === 'em_execucao') fields.started_at = new Date();
-    if (to === 'concluida') fields.finished_at = new Date();
+    // Carimbos de ciclo são gravados UMA vez, na primeira passagem. Reabrir e
+    // refinalizar uma OS é CORREÇÃO, não um serviço novo: a data em que o
+    // trabalho aconteceu não muda. Sobrescrevê-la mudaria de mês o faturamento
+    // já apurado, porque os relatórios agrupam por
+    // COALESCE(finished_at, closed_at) — a correção de uma OS de janeiro
+    // reapareceria como receita do mês em que alguém a corrigiu.
+    if (to === 'em_execucao' && !order.started_at) {
+      fields.started_at = new Date();
+    }
+    if (to === 'concluida' && !order.finished_at) {
+      fields.finished_at = new Date();
+    }
     if (to === 'entregue') fields.closed_at = new Date();
+    // Reaberta, a OS deixou de estar entregue — o carimbo de entrega sai e só
+    // volta quando ela for entregue de novo.
+    if (from === 'entregue') fields.closed_at = null;
 
     // Resolve o texto ANTES de abrir a transação: dentro dela só entra escrita.
-    const label = isReopen ? 'OS reaberta' : await this.statusLabel(user.tenantId, to);
+    const label = reabrindo
+      ? 'OS reaberta'
+      : await this.statusLabel(user.tenantId, to);
 
     await this.tenant.withTenantTx(async () => {
       await this.repo.setStatusFields(id, fields);
@@ -851,8 +970,11 @@ export class OsService {
         quantity: Prisma.Decimal | number;
       }>;
     },
+    opts: { devolverTudo?: boolean } = {},
   ): Promise<void> {
-    const target = consumes(order.status);
+    // `devolverTudo` zera o consumo independentemente do status — é o caso da
+    // OS excluída, que some do negócio mas cujo status ainda diz "entregue".
+    const target = !opts.devolverTudo && consumes(order.status);
     for (const item of order.items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
