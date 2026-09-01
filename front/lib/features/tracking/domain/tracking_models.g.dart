@@ -79,6 +79,26 @@ Map<String, dynamic> _$PublicEventToJson(_PublicEvent instance) =>
       'photoUrl': instance.photoUrl,
     };
 
+_PublicOrderItem _$PublicOrderItemFromJson(Map<String, dynamic> json) =>
+    _PublicOrderItem(
+      kind: json['kind'] as String? ?? 'service',
+      name: json['name'] as String? ?? '',
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
+      unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0,
+      discount: (json['discount'] as num?)?.toDouble() ?? 0,
+      total: (json['total'] as num?)?.toDouble() ?? 0,
+    );
+
+Map<String, dynamic> _$PublicOrderItemToJson(_PublicOrderItem instance) =>
+    <String, dynamic>{
+      'kind': instance.kind,
+      'name': instance.name,
+      'quantity': instance.quantity,
+      'unitPrice': instance.unitPrice,
+      'discount': instance.discount,
+      'total': instance.total,
+    };
+
 _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
   number: json['number'] as String? ?? '',
   status: json['status'] as String? ?? '',
@@ -87,6 +107,12 @@ _PublicTrack _$PublicTrackFromJson(Map<String, dynamic> json) => _PublicTrack(
   responsibleName: json['responsibleName'] as String?,
   scheduledEnd: json['scheduledEnd'] as String?,
   diagnosis: json['diagnosis'] as String?,
+  items:
+      (json['items'] as List<dynamic>?)
+          ?.map((e) => PublicOrderItem.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <PublicOrderItem>[],
+  total: (json['total'] as num?)?.toDouble() ?? 0,
   photos:
       (json['photos'] as List<dynamic>?)
           ?.map((e) => PublicPhoto.fromJson(e as Map<String, dynamic>))
@@ -114,6 +140,8 @@ Map<String, dynamic> _$PublicTrackToJson(_PublicTrack instance) =>
       'responsibleName': instance.responsibleName,
       'scheduledEnd': instance.scheduledEnd,
       'diagnosis': instance.diagnosis,
+      'items': instance.items.map((e) => e.toJson()).toList(),
+      'total': instance.total,
       'photos': instance.photos.map((e) => e.toJson()).toList(),
       'timeline': instance.timeline.map((e) => e.toJson()).toList(),
       'company': instance.company.toJson(),
