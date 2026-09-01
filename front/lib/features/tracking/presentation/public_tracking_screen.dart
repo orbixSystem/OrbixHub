@@ -540,11 +540,13 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     );
   }
 
-  /// Aba "Serviço": previsão de entrega + diagnóstico. Vazia → aviso amigável.
+  /// Aba "Serviço": previsão + diagnóstico + orçamento completo (serviços,
+  /// peças e valor total). Vazia → aviso amigável.
   Widget _servicoTab(PublicTrack t) {
     final hasPrev = t.scheduledEnd != null && t.scheduledEnd!.isNotEmpty;
     final hasDiag = t.diagnosis != null && t.diagnosis!.trim().isNotEmpty;
-    if (!hasPrev && !hasDiag) {
+    final hasItems = t.items.isNotEmpty;
+    if (!hasPrev && !hasDiag && !hasItems) {
       return _sectionCard(
         icon: Icons.build_outlined,
         color: _neu.glyphs[0],
@@ -559,9 +561,156 @@ class _PublicTrackingScreenState extends ConsumerState<PublicTrackingScreen> {
     return Column(
       children: [
         if (hasPrev) _previsao(t.scheduledEnd!),
-        if (hasPrev && hasDiag) const SizedBox(height: 16),
+        if (hasPrev && (hasDiag || hasItems)) const SizedBox(height: 16),
         if (hasDiag) _diagnosisCard(t.diagnosis!.trim()),
+        if (hasDiag && hasItems) const SizedBox(height: 16),
+        if (hasItems) _budgetCard(t),
       ],
+    );
+  }
+
+  // ---- Orçamento (serviços + peças + total) ----
+
+  String _currency(double v) {
+    final s = v.toStringAsFixed(2).replaceAll('.', ',');
+    // Separador de milhar simples (sem intl).
+    final parts = s.split(',');
+    final intPart = parts[0].replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+    return 'R\$ $intPart,${parts[1]}';
+  }
+
+  Widget _budgetCard(PublicTrack t) {
+    final services =
+        t.items.where((i) => i.kind == 'service').toList();
+    final products =
+        t.items.where((i) => i.kind != 'service').toList();
+    return _sectionCard(
+      icon: Icons.receipt_long_outlined,
+      color: _neu.glyphs[1],
+      title: 'Orçamento',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (services.isNotEmpty) ...[
+            _budgetGroupHeader('Serviços'),
+            const SizedBox(height: 8),
+            for (final item in services) _budgetRow(item),
+          ],
+          if (services.isNotEmpty && products.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Divider(color: _neu.line, height: 1),
+            ),
+          if (products.isNotEmpty) ...[
+            _budgetGroupHeader('Peças / Produtos'),
+            const SizedBox(height: 8),
+            for (final item in products) _budgetRow(item),
+          ],
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Divider(color: _neu.line, height: 1),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total',
+                style: TextStyle(
+                  color: _neu.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                _currency(t.total),
+                style: TextStyle(
+                  color: _neu.ink,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _budgetGroupHeader(String label) {
+    return Row(
+      children: [
+        Icon(
+          label.startsWith('Serviço')
+              ? Icons.handyman_outlined
+              : Icons.inventory_2_outlined,
+          size: 16,
+          color: _neu.inkMuted,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: _neu.inkMuted,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _budgetRow(PublicOrderItem item) {
+    final qty = item.quantity % 1 == 0
+        ? item.quantity.toInt().toString()
+        : item.quantity.toStringAsFixed(2).replaceAll('.', ',');
+    final hasDiscount = item.discount > 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    color: _neu.ink,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _currency(item.total),
+                style: TextStyle(
+                  color: _neu.ink,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$qty × ${_currency(item.unitPrice)}'
+            '${hasDiscount ? '  (desc. ${_currency(item.discount)})' : ''}',
+            style: TextStyle(
+              color: _neu.inkMuted,
+              fontSize: 13,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

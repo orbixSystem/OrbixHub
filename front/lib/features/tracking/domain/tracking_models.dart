@@ -76,6 +76,22 @@ abstract class PublicEvent with _$PublicEvent {
       _$PublicEventFromJson(json);
 }
 
+/// Item do orçamento público: serviço ou peça com nome, quantidade e valores.
+@freezed
+abstract class PublicOrderItem with _$PublicOrderItem {
+  const factory PublicOrderItem({
+    @Default('service') String kind,
+    @Default('') String name,
+    @Default(0) double quantity,
+    @Default(0) double unitPrice,
+    @Default(0) double discount,
+    @Default(0) double total,
+  }) = _PublicOrderItem;
+
+  factory PublicOrderItem.fromJson(Map<String, dynamic> json) =>
+      _$PublicOrderItemFromJson(json);
+}
+
 /// Status público da OS resolvido por um token opaco de deep-link. Sem auth.
 @freezed
 abstract class PublicTrack with _$PublicTrack {
@@ -87,6 +103,8 @@ abstract class PublicTrack with _$PublicTrack {
     String? responsibleName,
     String? scheduledEnd,
     String? diagnosis,
+    @Default(<PublicOrderItem>[]) List<PublicOrderItem> items,
+    @Default(0) double total,
     @Default(<PublicPhoto>[]) List<PublicPhoto> photos,
     @Default(<PublicEvent>[]) List<PublicEvent> timeline,
     @Default(PublicCompany()) PublicCompany company,

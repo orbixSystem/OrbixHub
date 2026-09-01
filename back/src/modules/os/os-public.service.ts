@@ -37,9 +37,10 @@ interface ResolvedToken {
  * Toda resolução de tenant/OS vem do `public_token` via a função `SECURITY DEFINER`
  * `os_resolve_by_public_token` — NUNCA confiando em input do cliente (regra de ouro
  * de fluxos públicos). O resto roda em `runWithTenant(tenantId, ...)` (tenant
- * explícito, sem CLS de JWT). O payload é DELIBERADAMENTE mínimo: nunca expõe
- * itens, preços, totais, telefone do cliente, queixa nem notas internas (o
- * diagnóstico, sim — é a informação que o cliente quer ver).
+ * explícito, sem CLS de JWT). O payload é público mas controlado: expõe o
+ * orçamento (itens, preços, totais) e o diagnóstico — informações que o
+ * cliente precisa ver para aprovar. Nunca expõe telefone, queixa nem notas
+ * internas.
  */
 @Injectable()
 export class OsPublicService {
@@ -70,9 +71,10 @@ export class OsPublicService {
   }
 
   /**
-   * Payload público read-only: status + previsão + diagnóstico + fotos + timeline
-   * (só eventos visible_public, mais recente no topo) + dados da empresa. NÃO inclui
-   * itens, preços, totais, queixa, telefone nem notas internas.
+   * Payload público read-only: status + previsão + diagnóstico + orçamento
+   * (itens/serviços/peças com nome, qtd, preço e total) + fotos + timeline
+   * (só eventos visible_public, mais recente no topo) + dados da empresa.
+   * NÃO inclui queixa, telefone nem notas internas.
    */
   async getPublicTrack(token: string) {
     const { tenantId, orderId } = await this.resolveToken(token);
@@ -106,6 +108,20 @@ export class OsPublicService {
           diagnosis: order.diagnosis ?? null,
           subjectLabel: order.subject_label,
           scheduledEnd: order.scheduled_end,
+          // Orçamento: nome, qtd, preço unitário, desconto e total de cada item.
+          // O cliente precisa ver o que vai pagar ANTES de aprovar.
+          items: (order.items ?? []).map((it) => ({
+            kind: it.kind,
+            name: it.name,
+            quantity: Number(it.quantity),
+            unitPrice: Number(it.unit_price),
+            discount: Number(it.discount),
+            total: Number(it.total),
+          })),
+          total: (order.items ?? []).reduce(
+            (sum, it) => sum + Number(it.total),
+            0,
+          ),
           // id exposto para o cliente citar/comentar a foto (uuid, não sensível).
           photos: photos.map((p) => ({
             id: p.id,
