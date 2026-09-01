@@ -198,6 +198,43 @@ export class BillingService {
     });
   }
 
+  /**
+   * Troca o plano do ambiente pelo painel administrativo da Orbix.
+   *
+   * Difere do `changePlan` do cliente numa coisa que importa: **preserva a
+   * situação atual**. O caminho do cliente força `active`, porque quem clica
+   * lá está assinando; aqui quem clica é a Orbix ajustando o cadastro, e
+   * forçar `active` encerraria em silêncio o teste de quem ainda está testando.
+   *
+   * Os módulos são recalculados pelo plano novo (`reconcile`), que é o efeito
+   * que o cliente sente na hora: menu e permissões mudam no próximo `/me`.
+   */
+  async trocarPlanoPeloAdmin(
+    tenantId: string,
+    planKey: string,
+  ): Promise<AssinaturaDetalhada | null> {
+    const plan = await this.assertSubscribablePlan(planKey);
+
+    await this.tenant.runWithTenant(tenantId, async () => {
+      const atual = await this.repo.getSubscription();
+      if (!atual) throw new NotFoundException('Este ambiente não tem assinatura.');
+
+      await this.repo.upsertSubscription(tenantId, plan.id, {
+        status: atual.status as SubscriptionStatus,
+      });
+      await this.repo.reconcile(tenantId, plan.id);
+    });
+
+    // Ator nulo: quem mexeu foi a Orbix, não um usuário deste tenant — e a FK
+    // de ator aponta para `users` do próprio tenant.
+    await this.audit.log(tenantId, null, 'subscription_change', 'plano_alterado', {
+      por: 'orbix-admin',
+      planKey: plan.key,
+    });
+
+    return this.assinaturaDoTenant(tenantId);
+  }
+
   /** Enabled module keys for a server-resolved tenant. Used by /me and the guard path. */
   async getEnabledModules(tenantId: string): Promise<string[]> {
     return this.tenant.runWithTenant(tenantId, async () => {

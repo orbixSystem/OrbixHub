@@ -62,6 +62,10 @@ class AjusteAssinaturaDto {
   status?: 'trialing' | 'active' | 'past_due' | 'canceled';
 }
 
+class TrocarPlanoDto {
+  @IsString() @MaxLength(64) planKey!: string;
+}
+
 class CnpjDto {
   @IsString() @MinLength(11) @MaxLength(18) cnpj!: string;
 }
@@ -182,6 +186,25 @@ export class AdminController {
   @Get('tenants/:id/billing')
   cobranca(@Param('id') id: string) {
     return this.billing.assinaturaDoTenant(id);
+  }
+
+  /**
+   * Catálogo de planos comerciais. O painel nunca traz plano fixo no código —
+   * quem define o que existe, o que custa e o que libera é o Hub.
+   */
+  @Get('plans')
+  planos() {
+    return this.billing.getPlans();
+  }
+
+  /**
+   * Troca o plano do ambiente. Preserva a situação atual da assinatura: quem
+   * está em teste continua em teste, com os módulos do plano novo.
+   */
+  @Patch('tenants/:id/plan')
+  @HttpCode(200)
+  trocarPlano(@Param('id') id: string, @Body() dto: TrocarPlanoDto) {
+    return this.billing.trocarPlanoPeloAdmin(id, dto.planKey);
   }
 
   /**
