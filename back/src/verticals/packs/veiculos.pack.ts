@@ -40,7 +40,10 @@ export const VEICULOS: PacoteVertical = {
   },
 
   subjectFields: [
-    { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
+    // `formato: 'placa'` é o que faz a UI aplicar máscara Mercosul/antiga e
+    // validar o formato. Fica AQUI, no pacote da oficina, e não no front por
+    // `chave == 'identifier'` — o nicho genérico também tem um `identifier`.
+    { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true, formato: 'placa' },
     { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
     { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
     { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },

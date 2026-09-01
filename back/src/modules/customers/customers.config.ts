@@ -19,6 +19,13 @@ export const CUSTOMERS_CONFIG_KEY = 'clientes_veiculos';
 
 export type SubjectFieldType = 'text' | 'number';
 
+/**
+ * Máscara/validação que a UI aplica no campo (espelha `CampoFormato`).
+ * Ausente = texto livre. Quem declara é o pacote da vertical — ver
+ * `back/src/verticals/vertical.types.ts`.
+ */
+export type SubjectFieldFormato = 'placa';
+
 export interface SubjectFieldConfig {
   chave: string;
   rotulo: string;
@@ -28,6 +35,8 @@ export interface SubjectFieldConfig {
   fonte?: string;
   /** Chave do campo do qual este depende na cascata (ex.: modelo→'marca'). */
   dependeDe?: string;
+  /** Máscara/validação da UI (ex.: 'placa'). Ausente = texto livre. */
+  formato?: SubjectFieldFormato;
 }
 
 export interface SubjectLabelConfig {
@@ -66,11 +75,12 @@ export const DEFAULT_CUSTOMERS_CONFIG: CustomersConfig = {
 };
 
 /**
- * Reaplica `fonte`/`dependeDe` dos defaults a campos salvos com a mesma `chave`
- * mas sem esses atributos. Snapshots de config persistidos antes da introdução
- * de uma fonte (ex.: FIPE em marca/modelo) ficam congelados; isto restaura o
- * autocomplete em runtime, sem migration de dados, e blinda futuras adições de
- * default. Campos personalizados (sem default correspondente) ficam intactos.
+ * Reaplica `fonte`/`dependeDe`/`formato` dos defaults a campos salvos com a
+ * mesma `chave` mas sem esses atributos. Snapshots de config persistidos antes
+ * da introdução de um atributo (ex.: FIPE em marca/modelo, `formato: 'placa'`
+ * no identificador da oficina) ficam congelados; isto restaura o comportamento
+ * em runtime, sem migration de dados, e blinda futuras adições de default.
+ * Campos personalizados (sem default correspondente) ficam intactos.
  */
 function withFieldSourceDefaults(
   fields: SubjectFieldConfig[],
@@ -87,6 +97,9 @@ function withFieldSourceDefaults(
         : {}),
       ...(field.dependeDe == null && def.dependeDe != null
         ? { dependeDe: def.dependeDe }
+        : {}),
+      ...(field.formato == null && def.formato != null
+        ? { formato: def.formato }
         : {}),
     };
   });
