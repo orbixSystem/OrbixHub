@@ -892,7 +892,12 @@ mixin _$SubjectFieldConfig {
 
  String get chave; String get rotulo; String get tipo;// 'text' | 'number'
  bool get obrigatorio; String? get fonte;// ex.: 'fipe.marcas' — null = campo manual
- String? get dependeDe;
+ String? get dependeDe;// chave do campo do qual depende (cascata)
+// Máscara/validação declarada pelo NICHO ('placa'). null = texto livre.
+// Quem manda é o pacote da vertical no backend, nunca a `chave`: o nicho
+// genérico também tem um `identifier` (rotulado "Nome"), e cobrar dele
+// formato de placa era o bug do "Placa inválida" ao editar equipamento.
+ String? get formato;
 /// Create a copy of SubjectFieldConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -905,16 +910,16 @@ $SubjectFieldConfigCopyWith<SubjectFieldConfig> get copyWith => _$SubjectFieldCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubjectFieldConfig&&(identical(other.chave, chave) || other.chave == chave)&&(identical(other.rotulo, rotulo) || other.rotulo == rotulo)&&(identical(other.tipo, tipo) || other.tipo == tipo)&&(identical(other.obrigatorio, obrigatorio) || other.obrigatorio == obrigatorio)&&(identical(other.fonte, fonte) || other.fonte == fonte)&&(identical(other.dependeDe, dependeDe) || other.dependeDe == dependeDe));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SubjectFieldConfig&&(identical(other.chave, chave) || other.chave == chave)&&(identical(other.rotulo, rotulo) || other.rotulo == rotulo)&&(identical(other.tipo, tipo) || other.tipo == tipo)&&(identical(other.obrigatorio, obrigatorio) || other.obrigatorio == obrigatorio)&&(identical(other.fonte, fonte) || other.fonte == fonte)&&(identical(other.dependeDe, dependeDe) || other.dependeDe == dependeDe)&&(identical(other.formato, formato) || other.formato == formato));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,chave,rotulo,tipo,obrigatorio,fonte,dependeDe);
+int get hashCode => Object.hash(runtimeType,chave,rotulo,tipo,obrigatorio,fonte,dependeDe,formato);
 
 @override
 String toString() {
-  return 'SubjectFieldConfig(chave: $chave, rotulo: $rotulo, tipo: $tipo, obrigatorio: $obrigatorio, fonte: $fonte, dependeDe: $dependeDe)';
+  return 'SubjectFieldConfig(chave: $chave, rotulo: $rotulo, tipo: $tipo, obrigatorio: $obrigatorio, fonte: $fonte, dependeDe: $dependeDe, formato: $formato)';
 }
 
 
@@ -925,7 +930,7 @@ abstract mixin class $SubjectFieldConfigCopyWith<$Res>  {
   factory $SubjectFieldConfigCopyWith(SubjectFieldConfig value, $Res Function(SubjectFieldConfig) _then) = _$SubjectFieldConfigCopyWithImpl;
 @useResult
 $Res call({
- String chave, String rotulo, String tipo, bool obrigatorio, String? fonte, String? dependeDe
+ String chave, String rotulo, String tipo, bool obrigatorio, String? fonte, String? dependeDe, String? formato
 });
 
 
@@ -942,7 +947,7 @@ class _$SubjectFieldConfigCopyWithImpl<$Res>
 
 /// Create a copy of SubjectFieldConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? chave = null,Object? rotulo = null,Object? tipo = null,Object? obrigatorio = null,Object? fonte = freezed,Object? dependeDe = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? chave = null,Object? rotulo = null,Object? tipo = null,Object? obrigatorio = null,Object? fonte = freezed,Object? dependeDe = freezed,Object? formato = freezed,}) {
   return _then(_self.copyWith(
 chave: null == chave ? _self.chave : chave // ignore: cast_nullable_to_non_nullable
 as String,rotulo: null == rotulo ? _self.rotulo : rotulo // ignore: cast_nullable_to_non_nullable
@@ -950,6 +955,7 @@ as String,tipo: null == tipo ? _self.tipo : tipo // ignore: cast_nullable_to_non
 as String,obrigatorio: null == obrigatorio ? _self.obrigatorio : obrigatorio // ignore: cast_nullable_to_non_nullable
 as bool,fonte: freezed == fonte ? _self.fonte : fonte // ignore: cast_nullable_to_non_nullable
 as String?,dependeDe: freezed == dependeDe ? _self.dependeDe : dependeDe // ignore: cast_nullable_to_non_nullable
+as String?,formato: freezed == formato ? _self.formato : formato // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -1035,10 +1041,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe,  String? formato)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SubjectFieldConfig() when $default != null:
-return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe);case _:
+return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe,_that.formato);case _:
   return orElse();
 
 }
@@ -1056,10 +1062,10 @@ return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.font
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe,  String? formato)  $default,) {final _that = this;
 switch (_that) {
 case _SubjectFieldConfig():
-return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe);case _:
+return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe,_that.formato);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1076,10 +1082,10 @@ return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.font
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String chave,  String rotulo,  String tipo,  bool obrigatorio,  String? fonte,  String? dependeDe,  String? formato)?  $default,) {final _that = this;
 switch (_that) {
 case _SubjectFieldConfig() when $default != null:
-return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe);case _:
+return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.fonte,_that.dependeDe,_that.formato);case _:
   return null;
 
 }
@@ -1091,7 +1097,7 @@ return $default(_that.chave,_that.rotulo,_that.tipo,_that.obrigatorio,_that.font
 @JsonSerializable()
 
 class _SubjectFieldConfig implements SubjectFieldConfig {
-  const _SubjectFieldConfig({required this.chave, required this.rotulo, this.tipo = 'text', this.obrigatorio = false, this.fonte, this.dependeDe});
+  const _SubjectFieldConfig({required this.chave, required this.rotulo, this.tipo = 'text', this.obrigatorio = false, this.fonte, this.dependeDe, this.formato});
   factory _SubjectFieldConfig.fromJson(Map<String, dynamic> json) => _$SubjectFieldConfigFromJson(json);
 
 @override final  String chave;
@@ -1102,6 +1108,12 @@ class _SubjectFieldConfig implements SubjectFieldConfig {
 @override final  String? fonte;
 // ex.: 'fipe.marcas' — null = campo manual
 @override final  String? dependeDe;
+// chave do campo do qual depende (cascata)
+// Máscara/validação declarada pelo NICHO ('placa'). null = texto livre.
+// Quem manda é o pacote da vertical no backend, nunca a `chave`: o nicho
+// genérico também tem um `identifier` (rotulado "Nome"), e cobrar dele
+// formato de placa era o bug do "Placa inválida" ao editar equipamento.
+@override final  String? formato;
 
 /// Create a copy of SubjectFieldConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -1116,16 +1128,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubjectFieldConfig&&(identical(other.chave, chave) || other.chave == chave)&&(identical(other.rotulo, rotulo) || other.rotulo == rotulo)&&(identical(other.tipo, tipo) || other.tipo == tipo)&&(identical(other.obrigatorio, obrigatorio) || other.obrigatorio == obrigatorio)&&(identical(other.fonte, fonte) || other.fonte == fonte)&&(identical(other.dependeDe, dependeDe) || other.dependeDe == dependeDe));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SubjectFieldConfig&&(identical(other.chave, chave) || other.chave == chave)&&(identical(other.rotulo, rotulo) || other.rotulo == rotulo)&&(identical(other.tipo, tipo) || other.tipo == tipo)&&(identical(other.obrigatorio, obrigatorio) || other.obrigatorio == obrigatorio)&&(identical(other.fonte, fonte) || other.fonte == fonte)&&(identical(other.dependeDe, dependeDe) || other.dependeDe == dependeDe)&&(identical(other.formato, formato) || other.formato == formato));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,chave,rotulo,tipo,obrigatorio,fonte,dependeDe);
+int get hashCode => Object.hash(runtimeType,chave,rotulo,tipo,obrigatorio,fonte,dependeDe,formato);
 
 @override
 String toString() {
-  return 'SubjectFieldConfig(chave: $chave, rotulo: $rotulo, tipo: $tipo, obrigatorio: $obrigatorio, fonte: $fonte, dependeDe: $dependeDe)';
+  return 'SubjectFieldConfig(chave: $chave, rotulo: $rotulo, tipo: $tipo, obrigatorio: $obrigatorio, fonte: $fonte, dependeDe: $dependeDe, formato: $formato)';
 }
 
 
@@ -1136,7 +1148,7 @@ abstract mixin class _$SubjectFieldConfigCopyWith<$Res> implements $SubjectField
   factory _$SubjectFieldConfigCopyWith(_SubjectFieldConfig value, $Res Function(_SubjectFieldConfig) _then) = __$SubjectFieldConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String chave, String rotulo, String tipo, bool obrigatorio, String? fonte, String? dependeDe
+ String chave, String rotulo, String tipo, bool obrigatorio, String? fonte, String? dependeDe, String? formato
 });
 
 
@@ -1153,7 +1165,7 @@ class __$SubjectFieldConfigCopyWithImpl<$Res>
 
 /// Create a copy of SubjectFieldConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? chave = null,Object? rotulo = null,Object? tipo = null,Object? obrigatorio = null,Object? fonte = freezed,Object? dependeDe = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? chave = null,Object? rotulo = null,Object? tipo = null,Object? obrigatorio = null,Object? fonte = freezed,Object? dependeDe = freezed,Object? formato = freezed,}) {
   return _then(_SubjectFieldConfig(
 chave: null == chave ? _self.chave : chave // ignore: cast_nullable_to_non_nullable
 as String,rotulo: null == rotulo ? _self.rotulo : rotulo // ignore: cast_nullable_to_non_nullable
@@ -1161,6 +1173,7 @@ as String,tipo: null == tipo ? _self.tipo : tipo // ignore: cast_nullable_to_non
 as String,obrigatorio: null == obrigatorio ? _self.obrigatorio : obrigatorio // ignore: cast_nullable_to_non_nullable
 as bool,fonte: freezed == fonte ? _self.fonte : fonte // ignore: cast_nullable_to_non_nullable
 as String?,dependeDe: freezed == dependeDe ? _self.dependeDe : dependeDe // ignore: cast_nullable_to_non_nullable
+as String?,formato: freezed == formato ? _self.formato : formato // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

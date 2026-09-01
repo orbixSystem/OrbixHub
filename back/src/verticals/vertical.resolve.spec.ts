@@ -86,6 +86,20 @@ describe('resolverCampos', () => {
       'identifier', 'tipo', 'marca', 'modelo', 'numero_serie',
     ]);
   });
+
+  /**
+   * O nicho genérico TAMBÉM tem um `identifier` — rotulado "Nome" — e ele é
+   * texto livre: nome de equipamento, número de série, o que o tenant quiser.
+   * Sem formato declarado, a UI não pode aplicar máscara nem validar; era daqui
+   * que saía o "Placa inválida (ex.: ABC1D23)" ao editar um equipamento.
+   */
+  it('o identificador do nicho genérico não tem formato de placa', () => {
+    const campos = resolverCampos(PACOTES, null);
+    const identifier = campos.find((c) => c.chave === 'identifier');
+    expect(identifier?.rotulo).toBe('Nome');
+    expect(identifier?.formato).toBeUndefined();
+    expect(campos.every((c) => c.formato === undefined)).toBe(true);
+  });
 });
 
 describe('critério de aceite da migração — a oficina não pode ver diferença', () => {
@@ -101,7 +115,10 @@ describe('critério de aceite da migração — a oficina não pode ver diferen�
    */
   it('o formulário da oficina continua idêntico ao de antes da migração', () => {
     expect(resolverCampos(PACOTES, 'veiculos')).toEqual([
-      { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
+      // `formato: 'placa'` entrou depois: a máscara/validação de placa era
+      // decidida no front por `chave == 'identifier'` e vazava para o nicho
+      // genérico. Declarar aqui MANTÉM a tela da oficina idêntica.
+      { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true, formato: 'placa' },
       { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
       { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
       { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },

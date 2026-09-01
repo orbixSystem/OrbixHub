@@ -87,10 +87,23 @@ abstract class SubjectFieldConfig with _$SubjectFieldConfig {
     @Default(false) bool obrigatorio,
     String? fonte, // ex.: 'fipe.marcas' — null = campo manual
     String? dependeDe, // chave do campo do qual depende (cascata)
+    // Máscara/validação declarada pelo NICHO ('placa'). null = texto livre.
+    // Quem manda é o pacote da vertical no backend, nunca a `chave`: o nicho
+    // genérico também tem um `identifier` (rotulado "Nome"), e cobrar dele
+    // formato de placa era o bug do "Placa inválida" ao editar equipamento.
+    String? formato,
   }) = _SubjectFieldConfig;
 
   factory SubjectFieldConfig.fromJson(Map<String, dynamic> json) =>
       _$SubjectFieldConfigFromJson(json);
+}
+
+/// Formatos de campo que a UI sabe aplicar. Formato desconhecido (versão do
+/// backend à frente do app) cai em texto livre — nunca em máscara errada.
+extension SubjectFieldFormato on SubjectFieldConfig {
+  /// Placa de veículo: máscara Mercosul/antiga + validação de formato. Vem do
+  /// nicho (`formato: 'placa'`), nunca da `chave` nem do rótulo do campo.
+  bool get ehPlaca => formato == 'placa';
 }
 
 /// Config do módulo (rótulo/campos dinâmicos + flags), de `GET /customers/config`.
