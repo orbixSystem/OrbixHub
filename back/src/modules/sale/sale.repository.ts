@@ -81,6 +81,36 @@ export interface SaleListFilter {
 export class SaleRepository {
   constructor(private readonly tenant: TenantContext) {}
 
+  /**
+   * Vendas do período com o dono: id → cliente. Espelha
+   * `OsRepository.documentosPorCliente` — o `report` cruza os dois com o
+   * recebido do caixa, e nenhum módulo lê tabela alheia.
+   *
+   * Canceladas ficam de fora: venda cancelada não é atendimento.
+   */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    const db = this.tenant.getClient();
+    return db.sale.findMany({
+      where: {
+        status: 'active',
+        ...(p.from || p.to
+          ? {
+              created_at: {
+                ...(p.from ? { gte: p.from } : {}),
+                ...(p.to ? { lte: p.to } : {}),
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        customer_id: true,
+        customer_name: true,
+        created_at: true,
+      },
+    });
+  }
+
   /** Maior sufixo numérico de `number` (VND-NNNN) do tenant; 0 se nenhum. */
   async maxSaleNumber(): Promise<number> {
     const db = this.tenant.getClient();

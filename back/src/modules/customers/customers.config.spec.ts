@@ -67,6 +67,52 @@ describe('mergeCustomersConfig', () => {
     expect(modelo?.dependeDe).toBe('marca');
   });
 
+  // Mesmo mecanismo, agora para `formato`: os tenants de oficina têm config
+  // SALVA (snapshot congelado) sem o atributo, e é o merge que devolve a
+  // máscara/validação de placa. Sem isto, fechar o vazamento no front tiraria a
+  // placa da oficina junto.
+  it('reapplies formato from the base pack to old saved fields by chave', () => {
+    const pacote = {
+      subjectFields: [
+        {
+          chave: 'identifier',
+          rotulo: 'Placa',
+          tipo: 'text' as const,
+          obrigatorio: true,
+          formato: 'placa' as const,
+        },
+      ],
+    };
+    const savedOld = {
+      subjectFields: [
+        { chave: 'identifier', rotulo: 'Placa', tipo: 'text' as const, obrigatorio: true },
+      ],
+    };
+    const merged = mergeCustomersConfig(pacote, savedOld);
+    expect(merged.subjectFields[0].formato).toBe('placa');
+  });
+
+  // O contrário: nicho genérico não declara formato, então o identificador do
+  // tenant de equipamentos continua texto livre depois do merge.
+  it('does not invent a formato when the base pack declares none', () => {
+    const pacote = {
+      subjectFields: [
+        {
+          chave: 'identifier',
+          rotulo: 'Identificação',
+          tipo: 'text' as const,
+          obrigatorio: false,
+        },
+      ],
+    };
+    const merged = mergeCustomersConfig(pacote, {
+      subjectFields: [
+        { chave: 'identifier', rotulo: 'Nome', tipo: 'text' as const, obrigatorio: false },
+      ],
+    });
+    expect(merged.subjectFields[0].formato).toBeUndefined();
+  });
+
   it('does not invent a fonte for custom fields without a default by chave', () => {
     const merged = mergeCustomersConfig({
       subjectFields: [

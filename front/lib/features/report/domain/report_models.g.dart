@@ -389,3 +389,53 @@ Map<String, dynamic> _$ExpensesReportToJson(_ExpensesReport instance) =>
       'rows': instance.rows.map((e) => e.toJson()).toList(),
       'totals': instance.totals.toJson(),
     };
+
+_ClienteRanqueado _$ClienteRanqueadoFromJson(Map<String, dynamic> json) =>
+    _ClienteRanqueado(
+      customerId: json['customerId'] as String? ?? '',
+      customerName: json['customerName'] as String? ?? 'Cliente',
+      recebido: json['recebido'] as num? ?? 0,
+      desconto: json['desconto'] as num? ?? 0,
+      atendimentos: (json['atendimentos'] as num?)?.toInt() ?? 0,
+      osCount: (json['osCount'] as num?)?.toInt() ?? 0,
+      saleCount: (json['saleCount'] as num?)?.toInt() ?? 0,
+      ticketMedio: json['ticketMedio'] as num? ?? 0,
+      primeiroEm: json['primeiroEm'] as String? ?? '',
+      ultimoEm: json['ultimoEm'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$ClienteRanqueadoToJson(_ClienteRanqueado instance) =>
+    <String, dynamic>{
+      'customerId': instance.customerId,
+      'customerName': instance.customerName,
+      'recebido': instance.recebido,
+      'desconto': instance.desconto,
+      'atendimentos': instance.atendimentos,
+      'osCount': instance.osCount,
+      'saleCount': instance.saleCount,
+      'ticketMedio': instance.ticketMedio,
+      'primeiroEm': instance.primeiroEm,
+      'ultimoEm': instance.ultimoEm,
+    };
+
+_CustomersRanking _$CustomersRankingFromJson(Map<String, dynamic> json) =>
+    _CustomersRanking(
+      porReceita:
+          (json['porReceita'] as List<dynamic>?)
+              ?.map((e) => ClienteRanqueado.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <ClienteRanqueado>[],
+      porRecorrencia:
+          (json['porRecorrencia'] as List<dynamic>?)
+              ?.map((e) => ClienteRanqueado.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <ClienteRanqueado>[],
+      totalClientes: (json['totalClientes'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$CustomersRankingToJson(_CustomersRanking instance) =>
+    <String, dynamic>{
+      'porReceita': instance.porReceita.map((e) => e.toJson()).toList(),
+      'porRecorrencia': instance.porRecorrencia.map((e) => e.toJson()).toList(),
+      'totalClientes': instance.totalClientes,
+    };

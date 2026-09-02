@@ -20,14 +20,50 @@ import 'receivables_providers.dart';
 ///
 /// RECEBER não é uma operação própria: é um lançamento no caixa apontando para a
 /// venda/OS, que já aceita valor parcial — a mesma porta usada pelo "Receber OS".
-class ReceivablesTab extends ConsumerWidget {
+class ReceivablesTab extends ConsumerStatefulWidget {
   const ReceivablesTab({super.key, required this.canWrite});
 
   /// `cashier.write` — sem isso a aba é só leitura (não oferece receber).
   final bool canWrite;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReceivablesTab> createState() => _ReceivablesTabState();
+}
+
+/// Quantos devedores por página. A carteira chega INTEIRA num payload (o
+/// backend agrega OS + vendas em memória, porque fiado não tem tabela própria),
+/// então buscar e paginar aqui não é preguiça: é onde o dado está. Busca no
+/// servidor exigiria refazer aquela agregação.
+const _porPagina = 20;
+
+/// Normaliza para busca: minúsculas e sem acento. Quem procura "jose" precisa
+/// achar "José" — exigir o acento certo transforma a busca em adivinhação.
+String _normalizar(String s) {
+  const de = 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
+  const para = 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
+  final buf = StringBuffer();
+  for (final ch in s.toLowerCase().split('')) {
+    final i = de.indexOf(ch);
+    buf.write(i >= 0 ? para[i].toLowerCase() : ch);
+  }
+  return buf.toString();
+}
+
+class _ReceivablesTabState extends ConsumerState<ReceivablesTab> {
+  final _buscaCtrl = TextEditingController();
+  String _busca = '';
+  int _pagina = 0;
+
+  bool get canWrite => widget.canWrite;
+
+  @override
+  void dispose() {
+    _buscaCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Offline a carteira é DERIVADA do espelho local (OS + venda + recebimentos)
     // pelo `LocalFirstReceivablesRepository` — quem observa a conexão para
     // recarregar na virada é o próprio `debtorsProvider`.
@@ -59,9 +95,29 @@ class ReceivablesTab extends ConsumerWidget {
             ],
           );
         }
+        final termo = _normalizar(_busca.trim());
+        final filtrados = termo.isEmpty
+            ? page.items
+            : page.items
+                .where((d) => _normalizar(d.customerName).contains(termo))
+                .toList();
+
+        // O total "na rua" segue o que está À VISTA: filtrar e manter o total
+        // geral faria a soma não bater com a lista, e alguém ia conferir.
+        final totalVisivel = termo.isEmpty
+            ? page.totalDue
+            : filtrados.fold<double>(0, (a, d) => a + d.totalDue.toDouble());
+
+        final paginas = (filtrados.length / _porPagina).ceil();
+        // Filtrar pode encurtar a lista abaixo da página atual: sem este clamp
+        // a tela ficaria vazia com resultados existindo.
+        final paginaAtual = _pagina >= paginas ? 0 : _pagina;
+        final inicio = paginaAtual * _porPagina;
+        final visiveis = filtrados.skip(inicio).take(_porPagina).toList();
+
         return ListView(
           children: [
-            _TotalNaRua(total: page.totalDue, devedores: page.items.length),
+            _TotalNaRua(total: totalVisivel, devedores: filtrados.length),
             if (pendentes.count > 0) ...[
               const SizedBox(height: 12),
               _AvisoPendenteAcerto(pendentes: pendentes),
@@ -71,16 +127,116 @@ class ReceivablesTab extends ConsumerWidget {
               const _AvisoTruncado(),
             ],
             const SizedBox(height: 20),
-            Text('Quem deve', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Quem deve',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                if (filtrados.length > _porPagina)
+                  Text(
+                    '${inicio + 1}–${inicio + visiveis.length} de '
+                    '${filtrados.length}',
+                    style: TextStyle(
+                        color: context.neu.inkMuted, fontSize: 14),
+                  ),
+              ],
+            ),
             const SizedBox(height: 10),
-            for (final d in page.items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _DebtorTile(debtor: d, canWrite: canWrite),
+            NeuTextField(
+              label: 'Buscar cliente',
+              controller: _buscaCtrl,
+              hint: 'Nome do cliente',
+              prefixIcon: Icons.search_rounded,
+              onChanged: (v) => setState(() {
+                _busca = v;
+                _pagina = 0; // termo novo recomeça da primeira página
+              }),
+            ),
+            const SizedBox(height: 12),
+            if (visiveis.isEmpty)
+              NeuEmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'Ninguém encontrado',
+                message: 'Nenhum devedor com "${_busca.trim()}" no nome.',
+              )
+            else
+              for (final d in visiveis)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _DebtorTile(debtor: d, canWrite: canWrite),
+                ),
+            if (paginas > 1)
+              _Paginacao(
+                pagina: paginaAtual,
+                paginas: paginas,
+                onIr: (p) => setState(() => _pagina = p),
               ),
           ],
         );
       },
+    );
+  }
+}
+
+/// Navegação entre páginas de devedores. Só aparece quando há mais de uma —
+/// controle de paginação numa lista de uma página é ruído que sugere que existe
+/// mais coisa escondida.
+class _Paginacao extends StatelessWidget {
+  const _Paginacao({
+    required this.pagina,
+    required this.paginas,
+    required this.onIr,
+  });
+
+  final int pagina;
+  final int paginas;
+  final ValueChanged<int> onIr;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    // No celular os dois rótulos por extenso mais o contador não cabem lado a
+    // lado: "Anterior" + "1 / 12" + "Próxima" estoura a largura e o Row corta.
+    // Ali os botões viram só seta — o contador no meio já diz onde se está.
+    final estreito = context.isMobile;
+    final contador = Padding(
+      padding: EdgeInsets.symmetric(horizontal: estreito ? 10 : 14),
+      child: Text(
+        '${pagina + 1} / $paginas',
+        style: TextStyle(
+          color: neu.ink,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Tooltip(
+            message: 'Página anterior',
+            child: NeuButton(
+              label: estreito ? '' : 'Anterior',
+              icon: Icons.chevron_left_rounded,
+              kind: NeuButtonKind.secondary,
+              onPressed: pagina > 0 ? () => onIr(pagina - 1) : null,
+            ),
+          ),
+          contador,
+          Tooltip(
+            message: 'Próxima página',
+            child: NeuButton(
+              label: estreito ? '' : 'Próxima',
+              icon: Icons.chevron_right_rounded,
+              kind: NeuButtonKind.secondary,
+              onPressed: pagina < paginas - 1 ? () => onIr(pagina + 1) : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -388,8 +388,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               contentType: _localContentType ?? 'image/jpeg',
             );
           } on AppException catch (e) {
-            _snack('\${widget.config.subjectLabel.singular} criado, mas a foto não pôde ser enviada: '
-                '${e.message}');
+            _snack(
+                '${widget.config.subjectLabel.singular} criado, mas a foto não '
+                'pôde ser enviada: ${e.message}');
           }
         }
       } else {
@@ -541,11 +542,15 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     );
   }
 
-  // ---- Regras de validação/máscara por campo dinâmico (keyed na `chave`) ----
-  // `identifier` (placa) → máscara/validação de placa; `ano` → só 4 dígitos;
-  // números → filtro numérico; demais → texto com teto razoável.
+  // ---- Regras de validação/máscara por campo dinâmico ----
+  // Máscara e validação de PLACA saem do `formato` que o nicho declara. Não da
+  // `chave` (o nicho genérico também tem `identifier`, rotulado "Nome", e cobrar
+  // dele o formato ABC1D23 travava o cadastro de equipamento com "Placa
+  // inválida") nem da feature de consulta, que é capacidade e não formato — ela
+  // serve também a nicho de assistência técnica, onde nº de série não é placa.
+  // `ano` → só 4 dígitos; números → filtro numérico; demais → texto com teto.
   List<TextInputFormatter>? _fieldFormatters(SubjectFieldConfig f) {
-    if (f.chave == 'identifier' && _podeConsultarIdentificador) return [PlateInputFormatter()];
+    if (f.ehPlaca) return [PlateInputFormatter()];
     if (f.chave == 'ano') return const [DigitsOnlyFormatter(4)];
     if (f.tipo == 'number') {
       return [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
@@ -563,14 +568,14 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
 
   int? _fieldMaxLength(SubjectFieldConfig f) {
     // Placa e ano já têm teto pelo próprio formatter.
-    if (f.chave == 'identifier' || f.chave == 'ano') return null;
+    if (f.ehPlaca || f.chave == 'ano') return null;
     return 120;
   }
 
   String? Function(String?) _fieldValidator(SubjectFieldConfig f) {
     return Validators.combine([
       if (f.obrigatorio) Validators.required(f.rotulo),
-      if (f.chave == 'identifier') Validators.plate(),
+      if (f.ehPlaca) Validators.plate(),
     ]);
   }
 
@@ -626,6 +631,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             )
           else
             NeuTextField(
+              key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
               hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
@@ -826,7 +832,10 @@ class _VehiclePhotoPicker extends StatelessWidget {
                 Icon(Icons.add_a_photo_outlined, size: 36, color: neu.navy),
                 const SizedBox(height: 12),
                 Text(
-                  'Adicionar foto do veículo',
+                  // Sem "do veículo": este picker serve qualquer nicho, e a
+                  // seção já se chama "Foto" (o rótulo do objeto vem do nicho e
+                  // não tem gênero previsível — "Equipamento", "Máquina").
+                  'Adicionar foto',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: neu.ink,

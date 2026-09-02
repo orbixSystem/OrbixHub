@@ -5314,4 +5314,575 @@ $ExpensesReportTotalsCopyWith<$Res> get totals {
 }
 }
 
+
+/// @nodoc
+mixin _$ClienteRanqueado {
+
+ String get customerId; String get customerName; num get recebido; num get desconto; int get atendimentos; int get osCount; int get saleCount; num get ticketMedio; String get primeiroEm; String get ultimoEm;
+/// Create a copy of ClienteRanqueado
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ClienteRanqueadoCopyWith<ClienteRanqueado> get copyWith => _$ClienteRanqueadoCopyWithImpl<ClienteRanqueado>(this as ClienteRanqueado, _$identity);
+
+  /// Serializes this ClienteRanqueado to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ClienteRanqueado&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.recebido, recebido) || other.recebido == recebido)&&(identical(other.desconto, desconto) || other.desconto == desconto)&&(identical(other.atendimentos, atendimentos) || other.atendimentos == atendimentos)&&(identical(other.osCount, osCount) || other.osCount == osCount)&&(identical(other.saleCount, saleCount) || other.saleCount == saleCount)&&(identical(other.ticketMedio, ticketMedio) || other.ticketMedio == ticketMedio)&&(identical(other.primeiroEm, primeiroEm) || other.primeiroEm == primeiroEm)&&(identical(other.ultimoEm, ultimoEm) || other.ultimoEm == ultimoEm));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,customerId,customerName,recebido,desconto,atendimentos,osCount,saleCount,ticketMedio,primeiroEm,ultimoEm);
+
+@override
+String toString() {
+  return 'ClienteRanqueado(customerId: $customerId, customerName: $customerName, recebido: $recebido, desconto: $desconto, atendimentos: $atendimentos, osCount: $osCount, saleCount: $saleCount, ticketMedio: $ticketMedio, primeiroEm: $primeiroEm, ultimoEm: $ultimoEm)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ClienteRanqueadoCopyWith<$Res>  {
+  factory $ClienteRanqueadoCopyWith(ClienteRanqueado value, $Res Function(ClienteRanqueado) _then) = _$ClienteRanqueadoCopyWithImpl;
+@useResult
+$Res call({
+ String customerId, String customerName, num recebido, num desconto, int atendimentos, int osCount, int saleCount, num ticketMedio, String primeiroEm, String ultimoEm
+});
+
+
+
+
+}
+/// @nodoc
+class _$ClienteRanqueadoCopyWithImpl<$Res>
+    implements $ClienteRanqueadoCopyWith<$Res> {
+  _$ClienteRanqueadoCopyWithImpl(this._self, this._then);
+
+  final ClienteRanqueado _self;
+  final $Res Function(ClienteRanqueado) _then;
+
+/// Create a copy of ClienteRanqueado
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? customerId = null,Object? customerName = null,Object? recebido = null,Object? desconto = null,Object? atendimentos = null,Object? osCount = null,Object? saleCount = null,Object? ticketMedio = null,Object? primeiroEm = null,Object? ultimoEm = null,}) {
+  return _then(_self.copyWith(
+customerId: null == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
+as String,customerName: null == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String,recebido: null == recebido ? _self.recebido : recebido // ignore: cast_nullable_to_non_nullable
+as num,desconto: null == desconto ? _self.desconto : desconto // ignore: cast_nullable_to_non_nullable
+as num,atendimentos: null == atendimentos ? _self.atendimentos : atendimentos // ignore: cast_nullable_to_non_nullable
+as int,osCount: null == osCount ? _self.osCount : osCount // ignore: cast_nullable_to_non_nullable
+as int,saleCount: null == saleCount ? _self.saleCount : saleCount // ignore: cast_nullable_to_non_nullable
+as int,ticketMedio: null == ticketMedio ? _self.ticketMedio : ticketMedio // ignore: cast_nullable_to_non_nullable
+as num,primeiroEm: null == primeiroEm ? _self.primeiroEm : primeiroEm // ignore: cast_nullable_to_non_nullable
+as String,ultimoEm: null == ultimoEm ? _self.ultimoEm : ultimoEm // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [ClienteRanqueado].
+extension ClienteRanqueadoPatterns on ClienteRanqueado {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ClienteRanqueado value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ClienteRanqueado() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ClienteRanqueado value)  $default,){
+final _that = this;
+switch (_that) {
+case _ClienteRanqueado():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ClienteRanqueado value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ClienteRanqueado() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String customerId,  String customerName,  num recebido,  num desconto,  int atendimentos,  int osCount,  int saleCount,  num ticketMedio,  String primeiroEm,  String ultimoEm)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ClienteRanqueado() when $default != null:
+return $default(_that.customerId,_that.customerName,_that.recebido,_that.desconto,_that.atendimentos,_that.osCount,_that.saleCount,_that.ticketMedio,_that.primeiroEm,_that.ultimoEm);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String customerId,  String customerName,  num recebido,  num desconto,  int atendimentos,  int osCount,  int saleCount,  num ticketMedio,  String primeiroEm,  String ultimoEm)  $default,) {final _that = this;
+switch (_that) {
+case _ClienteRanqueado():
+return $default(_that.customerId,_that.customerName,_that.recebido,_that.desconto,_that.atendimentos,_that.osCount,_that.saleCount,_that.ticketMedio,_that.primeiroEm,_that.ultimoEm);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String customerId,  String customerName,  num recebido,  num desconto,  int atendimentos,  int osCount,  int saleCount,  num ticketMedio,  String primeiroEm,  String ultimoEm)?  $default,) {final _that = this;
+switch (_that) {
+case _ClienteRanqueado() when $default != null:
+return $default(_that.customerId,_that.customerName,_that.recebido,_that.desconto,_that.atendimentos,_that.osCount,_that.saleCount,_that.ticketMedio,_that.primeiroEm,_that.ultimoEm);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ClienteRanqueado implements ClienteRanqueado {
+  const _ClienteRanqueado({this.customerId = '', this.customerName = 'Cliente', this.recebido = 0, this.desconto = 0, this.atendimentos = 0, this.osCount = 0, this.saleCount = 0, this.ticketMedio = 0, this.primeiroEm = '', this.ultimoEm = ''});
+  factory _ClienteRanqueado.fromJson(Map<String, dynamic> json) => _$ClienteRanqueadoFromJson(json);
+
+@override@JsonKey() final  String customerId;
+@override@JsonKey() final  String customerName;
+@override@JsonKey() final  num recebido;
+@override@JsonKey() final  num desconto;
+@override@JsonKey() final  int atendimentos;
+@override@JsonKey() final  int osCount;
+@override@JsonKey() final  int saleCount;
+@override@JsonKey() final  num ticketMedio;
+@override@JsonKey() final  String primeiroEm;
+@override@JsonKey() final  String ultimoEm;
+
+/// Create a copy of ClienteRanqueado
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ClienteRanqueadoCopyWith<_ClienteRanqueado> get copyWith => __$ClienteRanqueadoCopyWithImpl<_ClienteRanqueado>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ClienteRanqueadoToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ClienteRanqueado&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.recebido, recebido) || other.recebido == recebido)&&(identical(other.desconto, desconto) || other.desconto == desconto)&&(identical(other.atendimentos, atendimentos) || other.atendimentos == atendimentos)&&(identical(other.osCount, osCount) || other.osCount == osCount)&&(identical(other.saleCount, saleCount) || other.saleCount == saleCount)&&(identical(other.ticketMedio, ticketMedio) || other.ticketMedio == ticketMedio)&&(identical(other.primeiroEm, primeiroEm) || other.primeiroEm == primeiroEm)&&(identical(other.ultimoEm, ultimoEm) || other.ultimoEm == ultimoEm));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,customerId,customerName,recebido,desconto,atendimentos,osCount,saleCount,ticketMedio,primeiroEm,ultimoEm);
+
+@override
+String toString() {
+  return 'ClienteRanqueado(customerId: $customerId, customerName: $customerName, recebido: $recebido, desconto: $desconto, atendimentos: $atendimentos, osCount: $osCount, saleCount: $saleCount, ticketMedio: $ticketMedio, primeiroEm: $primeiroEm, ultimoEm: $ultimoEm)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ClienteRanqueadoCopyWith<$Res> implements $ClienteRanqueadoCopyWith<$Res> {
+  factory _$ClienteRanqueadoCopyWith(_ClienteRanqueado value, $Res Function(_ClienteRanqueado) _then) = __$ClienteRanqueadoCopyWithImpl;
+@override @useResult
+$Res call({
+ String customerId, String customerName, num recebido, num desconto, int atendimentos, int osCount, int saleCount, num ticketMedio, String primeiroEm, String ultimoEm
+});
+
+
+
+
+}
+/// @nodoc
+class __$ClienteRanqueadoCopyWithImpl<$Res>
+    implements _$ClienteRanqueadoCopyWith<$Res> {
+  __$ClienteRanqueadoCopyWithImpl(this._self, this._then);
+
+  final _ClienteRanqueado _self;
+  final $Res Function(_ClienteRanqueado) _then;
+
+/// Create a copy of ClienteRanqueado
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? customerId = null,Object? customerName = null,Object? recebido = null,Object? desconto = null,Object? atendimentos = null,Object? osCount = null,Object? saleCount = null,Object? ticketMedio = null,Object? primeiroEm = null,Object? ultimoEm = null,}) {
+  return _then(_ClienteRanqueado(
+customerId: null == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
+as String,customerName: null == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
+as String,recebido: null == recebido ? _self.recebido : recebido // ignore: cast_nullable_to_non_nullable
+as num,desconto: null == desconto ? _self.desconto : desconto // ignore: cast_nullable_to_non_nullable
+as num,atendimentos: null == atendimentos ? _self.atendimentos : atendimentos // ignore: cast_nullable_to_non_nullable
+as int,osCount: null == osCount ? _self.osCount : osCount // ignore: cast_nullable_to_non_nullable
+as int,saleCount: null == saleCount ? _self.saleCount : saleCount // ignore: cast_nullable_to_non_nullable
+as int,ticketMedio: null == ticketMedio ? _self.ticketMedio : ticketMedio // ignore: cast_nullable_to_non_nullable
+as num,primeiroEm: null == primeiroEm ? _self.primeiroEm : primeiroEm // ignore: cast_nullable_to_non_nullable
+as String,ultimoEm: null == ultimoEm ? _self.ultimoEm : ultimoEm // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$CustomersRanking {
+
+ List<ClienteRanqueado> get porReceita; List<ClienteRanqueado> get porRecorrencia; int get totalClientes;
+/// Create a copy of CustomersRanking
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$CustomersRankingCopyWith<CustomersRanking> get copyWith => _$CustomersRankingCopyWithImpl<CustomersRanking>(this as CustomersRanking, _$identity);
+
+  /// Serializes this CustomersRanking to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CustomersRanking&&const DeepCollectionEquality().equals(other.porReceita, porReceita)&&const DeepCollectionEquality().equals(other.porRecorrencia, porRecorrencia)&&(identical(other.totalClientes, totalClientes) || other.totalClientes == totalClientes));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(porReceita),const DeepCollectionEquality().hash(porRecorrencia),totalClientes);
+
+@override
+String toString() {
+  return 'CustomersRanking(porReceita: $porReceita, porRecorrencia: $porRecorrencia, totalClientes: $totalClientes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $CustomersRankingCopyWith<$Res>  {
+  factory $CustomersRankingCopyWith(CustomersRanking value, $Res Function(CustomersRanking) _then) = _$CustomersRankingCopyWithImpl;
+@useResult
+$Res call({
+ List<ClienteRanqueado> porReceita, List<ClienteRanqueado> porRecorrencia, int totalClientes
+});
+
+
+
+
+}
+/// @nodoc
+class _$CustomersRankingCopyWithImpl<$Res>
+    implements $CustomersRankingCopyWith<$Res> {
+  _$CustomersRankingCopyWithImpl(this._self, this._then);
+
+  final CustomersRanking _self;
+  final $Res Function(CustomersRanking) _then;
+
+/// Create a copy of CustomersRanking
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? porReceita = null,Object? porRecorrencia = null,Object? totalClientes = null,}) {
+  return _then(_self.copyWith(
+porReceita: null == porReceita ? _self.porReceita : porReceita // ignore: cast_nullable_to_non_nullable
+as List<ClienteRanqueado>,porRecorrencia: null == porRecorrencia ? _self.porRecorrencia : porRecorrencia // ignore: cast_nullable_to_non_nullable
+as List<ClienteRanqueado>,totalClientes: null == totalClientes ? _self.totalClientes : totalClientes // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [CustomersRanking].
+extension CustomersRankingPatterns on CustomersRanking {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _CustomersRanking value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _CustomersRanking() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _CustomersRanking value)  $default,){
+final _that = this;
+switch (_that) {
+case _CustomersRanking():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _CustomersRanking value)?  $default,){
+final _that = this;
+switch (_that) {
+case _CustomersRanking() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ClienteRanqueado> porReceita,  List<ClienteRanqueado> porRecorrencia,  int totalClientes)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _CustomersRanking() when $default != null:
+return $default(_that.porReceita,_that.porRecorrencia,_that.totalClientes);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ClienteRanqueado> porReceita,  List<ClienteRanqueado> porRecorrencia,  int totalClientes)  $default,) {final _that = this;
+switch (_that) {
+case _CustomersRanking():
+return $default(_that.porReceita,_that.porRecorrencia,_that.totalClientes);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ClienteRanqueado> porReceita,  List<ClienteRanqueado> porRecorrencia,  int totalClientes)?  $default,) {final _that = this;
+switch (_that) {
+case _CustomersRanking() when $default != null:
+return $default(_that.porReceita,_that.porRecorrencia,_that.totalClientes);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _CustomersRanking implements CustomersRanking {
+  const _CustomersRanking({final  List<ClienteRanqueado> porReceita = const <ClienteRanqueado>[], final  List<ClienteRanqueado> porRecorrencia = const <ClienteRanqueado>[], this.totalClientes = 0}): _porReceita = porReceita,_porRecorrencia = porRecorrencia;
+  factory _CustomersRanking.fromJson(Map<String, dynamic> json) => _$CustomersRankingFromJson(json);
+
+ final  List<ClienteRanqueado> _porReceita;
+@override@JsonKey() List<ClienteRanqueado> get porReceita {
+  if (_porReceita is EqualUnmodifiableListView) return _porReceita;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_porReceita);
+}
+
+ final  List<ClienteRanqueado> _porRecorrencia;
+@override@JsonKey() List<ClienteRanqueado> get porRecorrencia {
+  if (_porRecorrencia is EqualUnmodifiableListView) return _porRecorrencia;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_porRecorrencia);
+}
+
+@override@JsonKey() final  int totalClientes;
+
+/// Create a copy of CustomersRanking
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$CustomersRankingCopyWith<_CustomersRanking> get copyWith => __$CustomersRankingCopyWithImpl<_CustomersRanking>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$CustomersRankingToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CustomersRanking&&const DeepCollectionEquality().equals(other._porReceita, _porReceita)&&const DeepCollectionEquality().equals(other._porRecorrencia, _porRecorrencia)&&(identical(other.totalClientes, totalClientes) || other.totalClientes == totalClientes));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_porReceita),const DeepCollectionEquality().hash(_porRecorrencia),totalClientes);
+
+@override
+String toString() {
+  return 'CustomersRanking(porReceita: $porReceita, porRecorrencia: $porRecorrencia, totalClientes: $totalClientes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$CustomersRankingCopyWith<$Res> implements $CustomersRankingCopyWith<$Res> {
+  factory _$CustomersRankingCopyWith(_CustomersRanking value, $Res Function(_CustomersRanking) _then) = __$CustomersRankingCopyWithImpl;
+@override @useResult
+$Res call({
+ List<ClienteRanqueado> porReceita, List<ClienteRanqueado> porRecorrencia, int totalClientes
+});
+
+
+
+
+}
+/// @nodoc
+class __$CustomersRankingCopyWithImpl<$Res>
+    implements _$CustomersRankingCopyWith<$Res> {
+  __$CustomersRankingCopyWithImpl(this._self, this._then);
+
+  final _CustomersRanking _self;
+  final $Res Function(_CustomersRanking) _then;
+
+/// Create a copy of CustomersRanking
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? porReceita = null,Object? porRecorrencia = null,Object? totalClientes = null,}) {
+  return _then(_CustomersRanking(
+porReceita: null == porReceita ? _self._porReceita : porReceita // ignore: cast_nullable_to_non_nullable
+as List<ClienteRanqueado>,porRecorrencia: null == porRecorrencia ? _self._porRecorrencia : porRecorrencia // ignore: cast_nullable_to_non_nullable
+as List<ClienteRanqueado>,totalClientes: null == totalClientes ? _self.totalClientes : totalClientes // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
 // dart format on

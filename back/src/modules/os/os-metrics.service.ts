@@ -41,6 +41,11 @@ export class OsMetricsService {
     private readonly repo: OsRepository,
   ) {}
 
+  /** Documentos do período com o dono — ver [OsRepository.documentosPorCliente]. */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    return this.tenant.withTenantTx(() => this.repo.documentosPorCliente(p));
+  }
+
   /** KPIs glanceáveis no range [from, to] (opcionalmente por técnico). */
   async metricsSummary(p: OsMetricsParams): Promise<OsMetricsSummary> {
     const range = { from: p.from, to: p.to, assignedTo: p.assignedTo };

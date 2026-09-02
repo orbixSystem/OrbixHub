@@ -1168,9 +1168,10 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       hint: f.chave == 'tipo'
           ? ref.read(vocabProvider)['os.hint.tipo_objeto']
           : null,
-      // Máscara de placa só quando a feature de consulta de placa está ativa.
-      inputFormatters:
-          (isIdentifier && _identifierIsPlate) ? [PlateInputFormatter()] : null,
+      // Máscara Mercosul/antiga só quando o NICHO diz que o campo é uma placa.
+      // Não vem da feature de consulta (capacidade ≠ formato: nº de série numa
+      // assistência técnica é consultável e não é placa).
+      inputFormatters: f.ehPlaca ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
               ? 'Informe o ${f.rotulo.toLowerCase()}'
@@ -1753,7 +1754,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           label: 'Desconto (opcional)',
           controller: _discount,
           hint: '0,00',
-          prefixIcon: Icons.discount_outlined,
+          // Sem formatador este campo aceitava qualquer texto e o valor era
+          // deduzido por `double.tryParse`, que devolve 0 em silêncio — digitar
+          // "1.2.3" ou "10,,5" zerava o desconto sem avisar. Agora tem a mesma
+          // apresentação e a mesma máscara dos demais campos de dinheiro.
+          prefixText: 'R\$ ',
+          textAlign: TextAlign.right,
+          inputFormatters: const [DecimalInputFormatter()],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           enabled: !_saving,
           onChanged: (_) => setState(() {}),

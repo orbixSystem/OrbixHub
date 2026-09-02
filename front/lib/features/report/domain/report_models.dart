@@ -347,3 +347,39 @@ abstract class ExpensesReport with _$ExpensesReport {
   factory ExpensesReport.fromJson(Map<String, dynamic> json) =>
       _$ExpensesReportFromJson(json);
 }
+
+/// Um cliente no ranking: quanto ele já deixou em dinheiro e quantas vezes
+/// voltou. `recebido` é o que ENTROU — desconto vem à parte, porque perdoar
+/// dívida não é receita.
+@freezed
+abstract class ClienteRanqueado with _$ClienteRanqueado {
+  const factory ClienteRanqueado({
+    @Default('') String customerId,
+    @Default('Cliente') String customerName,
+    @Default(0) num recebido,
+    @Default(0) num desconto,
+    @Default(0) int atendimentos,
+    @Default(0) int osCount,
+    @Default(0) int saleCount,
+    @Default(0) num ticketMedio,
+    @Default('') String primeiroEm,
+    @Default('') String ultimoEm,
+  }) = _ClienteRanqueado;
+
+  factory ClienteRanqueado.fromJson(Map<String, dynamic> json) =>
+      _$ClienteRanqueadoFromJson(json);
+}
+
+/// As duas listas de "melhores clientes". São duas porque respondem a
+/// perguntas diferentes: quem traz mais dinheiro nem sempre é quem volta mais.
+@freezed
+abstract class CustomersRanking with _$CustomersRanking {
+  const factory CustomersRanking({
+    @Default(<ClienteRanqueado>[]) List<ClienteRanqueado> porReceita,
+    @Default(<ClienteRanqueado>[]) List<ClienteRanqueado> porRecorrencia,
+    @Default(0) int totalClientes,
+  }) = _CustomersRanking;
+
+  factory CustomersRanking.fromJson(Map<String, dynamic> json) =>
+      _$CustomersRankingFromJson(json);
+}

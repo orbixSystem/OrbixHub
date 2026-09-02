@@ -127,16 +127,28 @@ const Map<String, List<String>> osTransitions = {
   'aguardando_pecas': ['em_execucao', 'cancelada'],
   'pendente': ['aberta', 'cancelada'],
   'sem_conserto': ['entregue', 'cancelada'],
-  'concluida': ['a_receber', 'entregue'],
-  'a_receber': ['entregue'],
-  'entregue': <String>[],
-  // Cancelada só sai por "reabertura" (→ aberta) — privilegiada (os.approve).
+  'concluida': ['a_receber', 'entregue', 'em_execucao'],
+  'a_receber': ['entregue', 'em_execucao'],
+  'entregue': ['em_execucao'],
   'cancelada': ['aberta'],
 };
 
+/// Se a aresta [de] → [para] é uma REABERTURA — a volta de um estado fechado
+/// para o trabalho. Espelha `isReopen` do backend.
+///
+/// Existe para o BFS de [osCaminhoAte] NÃO atravessar reabertura ao montar um
+/// caminho: sem isso, "Cancelar" numa OS finalizada viraria um caminho válido
+/// (`concluida → em_execucao → cancelada`) e o botão apareceria habilitado,
+/// reabrindo a OS por baixo dos panos para então cancelá-la. Reabrir é decisão
+/// explícita de quem tem `os.approve`, nunca um passo intermediário.
+bool osEhReabertura(String de, String para) =>
+    (de == 'cancelada' && para == 'aberta') ||
+    ((de == 'concluida' || de == 'entregue') && para == 'em_execucao');
+
 /// Estados terminais (espelha o backend): a OS não aceita edição de conteúdo
-/// (itens, fotos, notas, cabeçalho). `cancelada` volta a ser editável reabrindo-a;
-/// `entregue` é final; `sem_conserto` é terminal (só sai para entregue/cancelada).
+/// (itens, fotos, notas, cabeçalho) ENQUANTO estiver neles. Voltam a ser
+/// editáveis pela reabertura. `sem_conserto` é terminal (só sai para
+/// entregue/cancelada). O backend é a verdade — isto só desabilita os controles.
 bool osIsTerminal(String status) =>
     status == 'cancelada' || status == 'entregue' || status == 'sem_conserto';
 
@@ -268,7 +280,9 @@ List<String>? osCaminhoAte(String atual, OsSimpleStatus destino) {
   if (destino == OsSimpleStatus.emAndamento) {
     if (osSimpleStatusOf(atual) == OsSimpleStatus.emAndamento) return const [];
     if (atual == 'cancelada') return const ['aberta'];
-    return null; // finalizada (concluida/entregue) não "volta" a andamento
+    // Finalizada volta ao trabalho em `em_execucao` — é a REABERTURA de uma OS
+    // já fechada, para corrigir peça, valor ou cliente errado.
+    return const ['em_execucao'];
   }
 
   final alvo = destino == OsSimpleStatus.finalizada ? 'entregue' : 'cancelada';
@@ -283,6 +297,7 @@ List<String>? osCaminhoAte(String atual, OsSimpleStatus destino) {
     final caminho = fila.removeAt(0);
     final ultimo = caminho.last;
     for (final proximo in osTransitions[ultimo] ?? const <String>[]) {
+      if (osEhReabertura(ultimo, proximo)) continue;
       if (proximo == alvo) return [...caminho.skip(1), proximo];
       if (visitado.add(proximo)) fila.add([...caminho, proximo]);
     }

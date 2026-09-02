@@ -164,6 +164,8 @@ model cash_entry {
   sale_kind               String?
   sale_id                 String?                  @db.Uuid
   description             String?
+  discount                Decimal                  @default(0) @db.Decimal(14, 2)
+  discount_reason         String?
   reversed_at             DateTime?                @db.Timestamptz(6)
   reversed_by             String?                  @db.Uuid
   reversal_reason         String?

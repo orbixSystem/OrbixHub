@@ -38,10 +38,11 @@ bool osSimpleTransitionEnabled(
   if (!canWrite) return false;
   final path = osCaminhoAte(order.status, destino);
   if (path == null || path.isEmpty) return false;
-  // Reabrir uma OS cancelada é privilegiado — espelha o backend.
-  if (destino == OsSimpleStatus.emAndamento && order.status == 'cancelada') {
-    return canApprove;
-  }
+  // Chegar aqui com destino "Em andamento" só acontece a partir de uma OS
+  // FECHADA (cancelada ou finalizada) — se já estivesse em andamento, o caminho
+  // teria vindo vazio. Ou seja: é sempre uma REABERTURA, e reabrir é
+  // privilegiado, como no backend.
+  if (destino == OsSimpleStatus.emAndamento) return canApprove;
   return true;
 }
 
@@ -86,6 +87,23 @@ Future<void> runOsSimpleTransition(
           'A OS ${order.number} será cancelada e a edição bloqueada. '
           'Você poderá reabri-la depois, mas os dados param aqui.',
       confirmLabel: 'Cancelar OS',
+    );
+    if (!ok || !context.mounted) return;
+  } else if (ultimo == 'em_execucao' &&
+      osSimpleStatusOf(order.status) == OsSimpleStatus.finalizada) {
+    // Reabrir uma OS já finalizada é o caminho de CORREÇÃO — e mexe em número
+    // que talvez já tenha sido conferido. A confirmação diz exatamente o que
+    // muda para ninguém reabrir achando que é só "ver de novo".
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Reabrir OS finalizada?',
+      message:
+          'A OS ${order.number} volta para "Em andamento" e fica editável de '
+          'novo. Se você mudar itens ou valores, o faturamento desta OS muda '
+          'junto. Finalize-a outra vez ao terminar a correção.',
+      confirmLabel: 'Reabrir OS',
+      danger: false,
+      icon: Icons.lock_open_rounded,
     );
     if (!ok || !context.mounted) return;
   }

@@ -270,12 +270,16 @@ class _ContentHeader extends StatelessWidget {
                 padding: EdgeInsets.only(
                   // No mobile o canto esquerdo é do "?" do tutorial (overlay,
                   // espelhando o sino do outro lado do "+"): reservamos a faixa
-                  // dele para o chip de conexão não ficar por baixo. 54 = 8 de
-                  // margem + 38 do botão + respiro.
+                  // deles para o chip de conexão não ficar por baixo.
+                  //
+                  // São DOIS botões no celular (o "?" do tutorial e o suporte),
+                  // não um. A conta antiga reservava 54 = 8 + 38 + respiro, ou
+                  // seja, a largura de UM — e o chip caía em cima do suporte.
+                  // 96 = 8 de margem + 2×38 dos botões + respiro.
                   left: showMenu
                       ? 8
                       : context.isMobile
-                      ? 54
+                      ? 96
                       : 28,
                   right: 20,
                   bottom: 16,
@@ -319,8 +323,12 @@ class _ContentHeader extends StatelessWidget {
                         // largura ILIMITADA e o Flexible interno dele nunca
                         // ativaria — rótulo longo (muitas pendências) estouraria
                         // o header num telefone estreito.
+                        // Ícone só: com dois botões à esquerda e o berço do FAB
+                        // no centro, não sobra largura para rótulo. O estado
+                        // continua legível pela cor + spinner, e o tooltip diz
+                        // o resto — tocar abre o painel de pendências.
                         if (context.isMobile)
-                          const Flexible(child: ConnectionChip(dense: true)),
+                          const ConnectionChip(collapsed: true),
                         const Spacer(),
                         // Sino, "?" do tutorial e toggle de tema vivem no overlay
                         // global (GlobalControls), lado a lado no topo-direita.

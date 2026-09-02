@@ -1,3 +1,4 @@
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsService } from './os.service';
 import {
   buildPaymentSummary,
@@ -10,6 +11,14 @@ import type { AuthUser } from '../../common/auth/auth.types';
  * recebido ⇒ a_receber" usada pela derivação do status de pagamento.
  */
 class FakeCashierService extends CashierService {
+
+  async receivedBySale() {
+    return new Map<string, { recebido: number; desconto: number }>();
+  }
+
+  async contarParcelasEmAberto() {
+    return 0;
+  }
   getPaymentSummary(_t: string, _v: string, fallbackTotal = 0) {
     return Promise.resolve(buildPaymentSummary(fallbackTotal, 0));
   }
@@ -109,6 +118,8 @@ function makeService(over: {
       // estes testes observam — fake devolvendo undefined cai no fallback.
       { texto: () => undefined } as never,
       { getTenantVertical: async () => 'veiculos' } as never,
+      // OrderLockRegistry vazio: nenhum módulo registrou impedimento.
+      new OrderLockRegistry(),
     );
   return { svc, repo, audit };
 }
@@ -120,6 +131,10 @@ describe('OsService — pagamento', () => {
     expect(result.payment).toEqual({
       total: 150,
       paid: 0,
+      // 0055: o resumo passa a distinguir dinheiro recebido de desconto
+      // concedido. Nada recebido e nada perdoado ⇒ ambos zero.
+      received: 0,
+      discount: 0,
       balance: 150,
       status: 'a_receber',
     });

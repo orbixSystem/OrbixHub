@@ -491,8 +491,12 @@ class FakeOsRepository implements OsRepository {
         // vertical saiu do módulo de clientes e o default virou neutro.
         subjectLabel: SubjectLabel(singular: 'Veículo', plural: 'Veículos'),
         subjectFields: [
+          // Fake de oficina: declara o formato como o pacote `veiculos` faz,
+          // senão o dev não vê a máscara de placa que o tenant real vê.
           SubjectFieldConfig(
-              chave: 'identifier', rotulo: 'Placa / Identificação'),
+              chave: 'identifier',
+              rotulo: 'Placa / Identificação',
+              formato: 'placa'),
           SubjectFieldConfig(
               chave: 'marca', rotulo: 'Marca', fonte: 'fipe.marcas'),
           SubjectFieldConfig(

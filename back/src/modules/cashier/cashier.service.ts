@@ -16,8 +16,18 @@ export type PaymentStatus = 'a_receber' | 'parcial' | 'pago';
 export interface PaymentSummary {
   /** Total da venda (espelha o total da OS no momento da consulta). */
   total: number;
-  /** Soma recebida pelo caixa para esta venda. */
+  /**
+   * Quanto da dívida foi QUITADO: dinheiro recebido + desconto concedido.
+   *
+   * Não é "quanto entrou em caixa" — desconto fecha dívida sem entrar dinheiro.
+   * Confundir os dois é o erro que este comentário existe para evitar: o
+   * fechamento do caixa soma só `amount`; o saldo do documento soma os dois.
+   */
   paid: number;
+  /** Dinheiro que de fato entrou (subconjunto de [paid]). */
+  received: number;
+  /** Desconto concedido na quitação (o resto de [paid]). */
+  discount: number;
   /** Saldo a receber (>= 0). */
   balance: number;
   status: PaymentStatus;
@@ -36,15 +46,29 @@ export function derivePaymentStatus(total: number, paid: number): PaymentStatus 
   return 'parcial';
 }
 
-/** Monta um resumo coerente a partir de total + pago (balance >= 0). */
-export function buildPaymentSummary(total: number, paid: number): PaymentSummary {
+/**
+ * Monta um resumo coerente a partir de total, dinheiro recebido e desconto
+ * concedido (balance >= 0).
+ *
+ * `discount` é opcional para não quebrar chamador antigo: omitir equivale a
+ * "nenhum desconto", que é a verdade sobre todo recebimento anterior à 0055.
+ */
+export function buildPaymentSummary(
+  total: number,
+  received: number,
+  discount = 0,
+): PaymentSummary {
   const safeTotal = total > 0 ? total : 0;
-  const safePaid = paid > 0 ? paid : 0;
+  const safeReceived = received > 0 ? received : 0;
+  const safeDiscount = discount > 0 ? discount : 0;
+  const paid = safeReceived + safeDiscount;
   return {
     total: safeTotal,
-    paid: safePaid,
-    balance: Math.max(0, safeTotal - safePaid),
-    status: derivePaymentStatus(safeTotal, safePaid),
+    paid,
+    received: safeReceived,
+    discount: safeDiscount,
+    balance: Math.max(0, safeTotal - paid),
+    status: derivePaymentStatus(safeTotal, paid),
   };
 }
 
@@ -75,6 +99,35 @@ export abstract class CashierService {
    * o módulo `sync` — que só enxerga este token, nunca `CashierServiceImpl`
    * ("aponta, não invade") — conseguir chamá-lo.
    */
+  /**
+   * Σ do que ENTROU em dinheiro, agrupado por documento (`sale_id`), no
+   * período. Não inclui desconto: desconto fecha dívida sem entrar dinheiro, e
+   * quem pergunta "quanto este cliente já me pagou" quer o dinheiro.
+   *
+   * O caixa não sabe de CLIENTE — ele conhece `sale_id`. Quem cruza id →
+   * cliente é o `report`, perguntando aos módulos donos. É a costura que
+   * mantém a independência: nenhum dos três lê tabela do outro.
+   */
+  abstract receivedBySale(range?: {
+    from?: Date;
+    to?: Date;
+  }): Promise<Map<string, { recebido: number; desconto: number }>>;
+
+  /**
+   * Quantas parcelas de fiado deste documento seguem EM ABERTO (não quitadas).
+   *
+   * Porta estreita para quem precisa saber se um documento pode SUMIR: excluir
+   * uma OS que deixou parcelas pendentes as tornaria cobranças órfãs — vivas em
+   * "a receber", apontando para uma OS que ninguém mais consegue abrir. O
+   * chamador não vê a parcela, só o número; o caixa segue sem saber o que é uma
+   * OS.
+   */
+  abstract contarParcelasEmAberto(
+    tenantId: string,
+    saleKind: string,
+    saleId: string,
+  ): Promise<number>;
+
   abstract listChangedSince(
     entity: string,
     cursor: { ts: string; id: string } | null,

@@ -190,6 +190,38 @@ export interface CreateEventData {
 export class OsRepository {
   constructor(private readonly tenant: TenantContext) {}
 
+  /**
+   * Documentos do período com o dono: id → cliente. É o que permite ao
+   * `report` cruzar o recebido (que o caixa conhece por `sale_id`) com o
+   * cliente (que só a OS conhece) — sem nenhum dos dois ler a tabela do outro.
+   *
+   * Traz o snapshot do nome junto: o ranking mostra nome, e buscá-lo depois em
+   * `customers` seria N+1 numa lista de centenas.
+   */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        deleted_at: null,
+        customer_id: { not: undefined },
+        ...(p.from || p.to
+          ? {
+              created_at: {
+                ...(p.from ? { gte: p.from } : {}),
+                ...(p.to ? { lte: p.to } : {}),
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        customer_id: true,
+        customer_name: true,
+        created_at: true,
+      },
+    });
+  }
+
   createOrder(tenantId: string, data: CreateOrderData) {
     const db = this.tenant.getClient();
     return db.service_order.create({
