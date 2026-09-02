@@ -80,6 +80,7 @@ _SubjectFieldConfig _$SubjectFieldConfigFromJson(Map<String, dynamic> json) =>
       obrigatorio: json['obrigatorio'] as bool? ?? false,
       fonte: json['fonte'] as String?,
       dependeDe: json['dependeDe'] as String?,
+      formato: json['formato'] as String?,
     );
 
 Map<String, dynamic> _$SubjectFieldConfigToJson(_SubjectFieldConfig instance) =>
@@ -90,6 +91,7 @@ Map<String, dynamic> _$SubjectFieldConfigToJson(_SubjectFieldConfig instance) =>
       'obrigatorio': instance.obrigatorio,
       'fonte': instance.fonte,
       'dependeDe': instance.dependeDe,
+      'formato': instance.formato,
     };
 
 _CustomersConfig _$CustomersConfigFromJson(Map<String, dynamic> json) =>

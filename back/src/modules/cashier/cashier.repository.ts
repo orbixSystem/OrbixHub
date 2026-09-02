@@ -53,6 +53,12 @@ export interface NewEntryData {
   sale_kind: SaleKind | null;
   sale_id: string | null;
   description: string | null;
+  /**
+   * Desconto concedido na quitação (0055). Não altera o total do documento —
+   * a dívida fecha quando `amount + discount` cobre o saldo.
+   */
+  discount?: DecimalIn;
+  discount_reason?: string | null;
   created_by: string;
 }
 
@@ -254,27 +260,47 @@ export class CashierRepository {
   }
 
   // ===================== Agregações =====================
-  /** Σ recebido (direction 'in', não estornado) de uma venda. */
-  async sumPaidForSale(saleId: string): Promise<number> {
+  /**
+   * Σ do que QUITOU uma venda (direction 'in', não estornado): dinheiro
+   * recebido e desconto concedido, **separados**.
+   *
+   * Os dois voltam distintos de propósito. Somados, dizem quanto da dívida foi
+   * encerrada (o saldo do documento). Só o `recebido` diz quanto entrou em
+   * caixa (o fechamento). Devolver um número só obrigaria cada chamador a
+   * lembrar qual dos dois ele queria — e um deles ia esquecer.
+   */
+  async sumSettledForSale(
+    saleId: string,
+  ): Promise<{ recebido: number; desconto: number }> {
     const db = this.tenant.getClient();
     const agg = await db.cash_entry.aggregate({
       where: { sale_id: saleId, direction: 'in', reversed_at: null },
-      _sum: { amount: true },
+      _sum: { amount: true, discount: true },
     });
-    return toNum(agg._sum.amount);
+    return {
+      recebido: toNum(agg._sum.amount),
+      desconto: toNum(agg._sum.discount),
+    };
   }
 
-  /** Σ recebido por venda (batch) — mapa sale_id → pago. */
-  async sumPaidForSales(saleIds: string[]): Promise<Map<string, number>> {
+  /** Versão batch de [sumSettledForSale] — mapa sale_id → recebido/desconto. */
+  async sumSettledForSales(
+    saleIds: string[],
+  ): Promise<Map<string, { recebido: number; desconto: number }>> {
     const db = this.tenant.getClient();
     const rows = await db.cash_entry.groupBy({
       by: ['sale_id'],
       where: { sale_id: { in: saleIds }, direction: 'in', reversed_at: null },
-      _sum: { amount: true },
+      _sum: { amount: true, discount: true },
     });
-    const map = new Map<string, number>();
+    const map = new Map<string, { recebido: number; desconto: number }>();
     for (const r of rows) {
-      if (r.sale_id) map.set(r.sale_id, toNum(r._sum.amount));
+      if (r.sale_id) {
+        map.set(r.sale_id, {
+          recebido: toNum(r._sum.amount),
+          desconto: toNum(r._sum.discount),
+        });
+      }
     }
     return map;
   }
@@ -331,6 +357,45 @@ export class CashierRepository {
           }
         : {}),
     };
+  }
+
+  /**
+   * Σ recebido e descontado POR DOCUMENTO no período. Um `groupBy` só: a
+   * alternativa (pedir venda a venda) seria N+1 numa tela de ranking.
+   */
+  async receivedBySale(p: { from?: Date; to?: Date }) {
+    const db = this.tenant.getClient();
+    const rows = await db.cash_entry.groupBy({
+      by: ['sale_id'],
+      where: { ...this.periodWhere(p), direction: 'in', sale_id: { not: null } },
+      _sum: { amount: true, discount: true },
+    });
+    const map = new Map<string, { recebido: number; desconto: number }>();
+    for (const r of rows) {
+      if (r.sale_id) {
+        map.set(r.sale_id, {
+          recebido: toNum(r._sum.amount),
+          desconto: toNum(r._sum.discount),
+        });
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Σ dos descontos concedidos no período (entradas não estornadas).
+   *
+   * Fica FORA de `totalIn`: desconto não é dinheiro na gaveta, e somá-lo à
+   * entrada faria o fechamento acusar caixa que não existe. É número irmão, não
+   * parcela do mesmo número.
+   */
+  async sumDiscounts(p: { from?: Date; to?: Date }): Promise<number> {
+    const db = this.tenant.getClient();
+    const agg = await db.cash_entry.aggregate({
+      where: { ...this.periodWhere(p), direction: 'in' },
+      _sum: { discount: true },
+    });
+    return toNum(agg._sum.discount);
   }
 
   summaryByMethod(p: { from?: Date; to?: Date }) {

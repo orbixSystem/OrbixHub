@@ -10,6 +10,7 @@ import '../../../../di.dart';
 import '../../../invoice/presentation/invoice_providers.dart';
 import '../../../invoice/presentation/invoice_status.dart';
 import '../../domain/os_models.dart';
+import '../os_providers.dart';
 import '../os_quick_actions.dart';
 import '../os_providers.dart';
 import '../os_status.dart';
@@ -483,6 +484,38 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     }
   }
 
+  /// Exclui a OS (soft delete no servidor) e volta para a lista.
+  ///
+  /// A confirmação diz as duas consequências que o usuário não vê acontecer:
+  /// a OS sai do faturamento e as peças voltam para o estoque. Recusas do
+  /// servidor (nota fiscal ativa, pagamento lançado, parcela em aberto) chegam
+  /// como mensagem pronta — quem sabe o motivo é ele.
+  Future<void> _excluir() async {
+    if (_busy) return;
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Excluir OS ${order.number}?',
+      message:
+          'A OS sai da lista e deixa de contar no faturamento, e as peças que '
+          'ela baixou voltam para o estoque. Pela tela não há como desfazer.',
+      confirmLabel: 'Excluir OS',
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(osRepositoryProvider).deleteOrder(order.id);
+      if (!mounted) return;
+      ref.invalidate(orderListProvider);
+      context.go('/m/os');
+    } on AppException catch (e) {
+      if (mounted) showNeuErrorSnackBar(context, e.message);
+    } finally {
+      // Guard obrigatório: em caso de sucesso a tela já foi trocada e este
+      // widget não existe mais.
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Nota fiscal em estado que impede emitir outra (rascunho/processando/
   /// autorizada), se houver.
   dynamic _notaAtiva() {
@@ -520,7 +553,10 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 
     // --- ação primária: o verbo do momento ---
     ({String label, IconData icon, VoidCallback onTap})? primaria;
-    if (order.status == 'cancelada') {
+    // OS fechada (cancelada ou entregue): o verbo do momento é REABRIR — é o
+    // único caminho para corrigir peça, valor ou cliente errado numa OS que já
+    // foi encerrada.
+    if (order.status == 'cancelada' || order.status == 'entregue') {
       if (_habilitado(OsSimpleStatus.emAndamento)) {
         primaria = (
           label: 'Reabrir OS',
@@ -528,8 +564,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           onTap: () => _transicao(OsSimpleStatus.emAndamento),
         );
       }
-    } else if (order.status != 'entregue' &&
-        _habilitado(OsSimpleStatus.finalizada)) {
+    } else if (_habilitado(OsSimpleStatus.finalizada)) {
       primaria = (
         label: 'Finalizar OS',
         icon: Icons.check_circle_rounded,
@@ -582,7 +617,17 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           icone: Icons.receipt_long,
           perigo: false
         ),
-      // Destrutiva por último e marcada — nunca ao lado da ação primária.
+      // `concluida` também é "Finalizada" para o usuário, mas ali a ação
+      // primária é entregar — então reabrir mora no menu, não some.
+      if (order.status == 'concluida' &&
+          _habilitado(OsSimpleStatus.emAndamento))
+        (
+          valor: 'reabrir',
+          rotulo: 'Reabrir OS',
+          icone: Icons.undo_rounded,
+          perigo: false
+        ),
+      // Destrutivas por último e marcadas — nunca ao lado da ação primária.
       if (order.status != 'cancelada' &&
           order.status != 'entregue' &&
           _habilitado(OsSimpleStatus.cancelada))
@@ -590,6 +635,16 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           valor: 'cancelar',
           rotulo: 'Cancelar OS',
           icone: Icons.close_rounded,
+          perigo: true
+        ),
+      // Excluir pede o mesmo cargo que aprova/reabre (o backend confere de
+      // novo). O servidor ainda pode recusar — nota fiscal ativa, pagamento
+      // lançado, parcela em aberto — e a mensagem dele vai para a tela.
+      if (widget.canWrite && widget.canApprove)
+        (
+          valor: 'excluir',
+          rotulo: 'Excluir OS',
+          icone: Icons.delete_outline_rounded,
           perigo: true
         ),
     ];
@@ -608,6 +663,10 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           await _emitirNota();
         case 'cancelar':
           await _transicao(OsSimpleStatus.cancelada);
+        case 'reabrir':
+          await _transicao(OsSimpleStatus.emAndamento);
+        case 'excluir':
+          await _excluir();
       }
     }
 
@@ -648,7 +707,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
       'entregue' => _Nota(
           icon: Icons.verified_outlined,
           color: neu.success,
-          text: 'OS entregue — somente leitura.',
+          text: 'OS entregue — somente leitura. Reabra para corrigir algo.',
         ),
       'sem_conserto' => _Nota(
           icon: Icons.block_outlined,

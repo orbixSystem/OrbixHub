@@ -633,6 +633,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                 _receivedCtrl.text = formatAmountForInput(_total);
               }),
             ),
+
                   ],
                 ),
               ),

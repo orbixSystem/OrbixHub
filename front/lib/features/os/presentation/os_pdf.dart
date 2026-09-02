@@ -22,6 +22,9 @@ Future<Uint8List> buildOsPdf(
   ServiceOrder order,
   PdfPageFormat format, {
   DocumentCompany? company,
+  /// Desconto concedido na quitação (vem do resumo de pagamento do caixa). Não
+  /// abate o total da OS — explica por que ela encerrou com menos dinheiro.
+  double descontoQuitacao = 0,
   /// Rótulo do objeto atendido, vindo do nicho ("Veículo", "Equipamento").
   /// O PDF é gerado fora da árvore de widgets e não tem sessão para consultar,
   /// então o chamador passa. Default genérico para quem não passar.
@@ -94,6 +97,7 @@ Future<Uint8List> buildOsPdf(
                 desconto: desconto,
                 total: total,
                 paymentStatus: order.paymentStatus,
+                descontoQuitacao: descontoQuitacao,
               ),
             ),
           ],
@@ -363,12 +367,17 @@ List<(String, String)> osTotaisLinhas({
   required double somaItens,
   required double desconto,
   required double total,
+  double descontoQuitacao = 0,
 }) =>
     [
       ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
       ('Valor das peças/serviços', formatMoney(somaItens)),
       if (desconto > 0.005) ('Desconto', formatMoney(desconto)),
       ('Valor total', formatMoney(total)),
+      // Depois do total: a OS vale o que vale, e o desconto na quitação não
+      // altera isso — ele explica o encerramento da dívida com menos dinheiro.
+      if (descontoQuitacao > 0.005)
+        ('Desconto na quitação', formatMoney(descontoQuitacao)),
     ];
 
 pw.Widget _blocoTotais({
@@ -377,12 +386,14 @@ pw.Widget _blocoTotais({
   required double desconto,
   required double total,
   required String paymentStatus,
+  double descontoQuitacao = 0,
 }) {
   final linhas = osTotaisLinhas(
     qtdTotal: qtdTotal,
     somaItens: somaItens,
     desconto: desconto,
     total: total,
+    descontoQuitacao: descontoQuitacao,
   );
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.stretch,

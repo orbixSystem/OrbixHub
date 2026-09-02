@@ -270,16 +270,16 @@ describe('Sale — Venda avulsa (e2e)', () => {
   });
 
   // ====================================================================
-  // 4. Emitir nota — Fiscal Noop ⇒ 503 com elegância
+  // 4. Emitir nota — Fiscal Noop ⇒ autoriza sincronamente (201)
   // ====================================================================
   describe('emitir nota fiscal', () => {
-    it('propaga 503 quando o Fiscal não está habilitado (Noop)', async () => {
+    it('emite nota com sucesso via Noop (autoriza sincronamente)', async () => {
       const o = await registerOwner();
       const sale = await createSale(o.access, {
         items: [{ name: 'X', kind: 'service', quantity: 1, unitPrice: 10 }],
       });
       const res = await emitInvoice(o.access, sale.body.id as string);
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(201);
     });
   });
 

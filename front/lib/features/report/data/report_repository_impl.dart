@@ -113,6 +113,24 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
+  Future<CustomersRanking> customersRanking({required ReportRange range}) =>
+      _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/customers-ranking',
+          queryParameters: {'from': range.fromIso, 'to': range.toIso},
+        );
+        return CustomersRanking.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<ClienteRanqueado> customerLifetime(String customerId) =>
+      _guard(() async {
+        final res =
+            await _dio.get<Object?>('/report/customers/$customerId/lifetime');
+        return ClienteRanqueado.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<ExpensesReport> expensesReport({required ReportRange range}) =>
       _guard(() async {
         final res = await _dio.get<Object?>(

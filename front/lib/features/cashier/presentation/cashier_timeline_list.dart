@@ -192,7 +192,7 @@ class _EventCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: neu.inkFaint,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 1.3,
                         ),
                       ),

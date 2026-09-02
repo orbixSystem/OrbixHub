@@ -20,6 +20,20 @@
 /** Tipo de campo do formulário do subject (espelha SubjectFieldType). */
 export type CampoTipo = 'text' | 'number';
 
+/**
+ * Formato de entrada do campo — máscara e validação que a UI aplica.
+ *
+ * Quem declara é o PACOTE DA VERTICAL, campo a campo: "placa" é formato de
+ * veículo, não do campo `identifier`. Antes o front decidia pela `chave`
+ * (`chave == 'identifier'` → máscara e validação de placa), então um tenant do
+ * nicho genérico — que também tem um `identifier`, rotulado "Identificação" —
+ * levava "Placa inválida (ex.: ABC1D23)" ao salvar um equipamento.
+ *
+ * Ausente = texto livre. Não é feature/capacidade (aquilo liga por tenant, em
+ * `featuresLigadas`); é a natureza do dado, que o nicho fixa.
+ */
+export type CampoFormato = 'placa';
+
 /** Campo do formulário do subject, declarado pelo pacote da vertical. */
 export interface CampoVertical {
   chave: string;
@@ -30,6 +44,8 @@ export interface CampoVertical {
   fonte?: string;
   /** Chave do campo do qual este depende na cascata (ex.: modelo→'marca'). */
   dependeDe?: string;
+  /** Máscara/validação da UI (ex.: 'placa'). Ausente = texto livre. */
+  formato?: CampoFormato;
 }
 
 /**
