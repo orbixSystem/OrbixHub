@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/offline/widgets/offline_notices.dart';
 import '../../../../core/ui/ui.dart';
+import '../../../../core/vertical/vertical_providers.dart';
 import '../../../../di.dart';
 import '../../../invoice/presentation/invoice_providers.dart';
 import '../../../invoice/presentation/invoice_status.dart';
 import '../../domain/os_models.dart';
 import '../os_quick_actions.dart';
+import '../os_providers.dart';
 import '../os_status.dart';
 import '../payment_status.dart';
 
@@ -97,7 +99,7 @@ class OsDetailHeader extends StatelessWidget {
                       runSpacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _SimpleStatusTag(status: order.status),
+                        _StatusSelect(order: order),
                         if (order.payment != null && order.payment!.total > 0)
                           PaymentTag(status: order.paymentStatus, dense: true),
                         if (isPendingOsNumber(order.number))
@@ -246,19 +248,57 @@ class _Total extends StatelessWidget {
   }
 }
 
-/// Tag de status SIMPLIFICADO (Em andamento/Finalizada/Cancelada) — não os 7
-/// status reais da FSM, que são detalhe interno.
-class _SimpleStatusTag extends StatelessWidget {
-  const _SimpleStatusTag({required this.status});
-  final String status;
+/// Seletor de status da OS: chip com o status REAL (não o simplificado) e
+/// dropdown para trocar. `sem_conserto` só aparece se a vertical não for
+/// `veiculos` (não se aplica a carros). Transições inválidas não aparecem.
+class _StatusSelect extends ConsumerStatefulWidget {
+  const _StatusSelect({required this.order});
+  final ServiceOrder order;
+
+  @override
+  ConsumerState<_StatusSelect> createState() => _StatusSelectState();
+}
+
+class _StatusSelectState extends ConsumerState<_StatusSelect> {
+  bool _busy = false;
+
+  Future<void> _changeStatus(String newStatus) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(osRepositoryProvider).changeStatus(
+            widget.order.id,
+            newStatus,
+          );
+      if (!mounted) return;
+      ref.invalidate(orderProvider(widget.order.id));
+      ref.invalidate(orderListProvider);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final simples = osSimpleStatusOf(status);
+    final status = widget.order.status;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final color = osSimpleStatusColor(simples);
-    final ink = osSimpleStatusInk(simples, Theme.of(context).brightness);
-    return Container(
+    final color = osStatusColor(status);
+    final ink = osStatusInk(status, Theme.of(context).brightness);
+    final vertical = ref.watch(verticalProvider);
+
+    // Transições válidas, filtrando sem_conserto para veículos.
+    var targets = osTransitions[status] ?? const <String>[];
+    if (vertical == 'veiculos') {
+      targets = targets.where((s) => s != 'sem_conserto').toList();
+    }
+    final canChange = targets.isNotEmpty && !_busy;
+
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: dark ? .22 : .14),
@@ -267,18 +307,88 @@ class _SimpleStatusTag extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(osSimpleStatusIcon(simples), size: 13, color: ink),
+          if (_busy)
+            SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(strokeWidth: 2, color: ink),
+            )
+          else
+            Icon(osStatusIcon(status), size: 13, color: ink),
           const SizedBox(width: 5),
           Text(
-            osSimpleStatusLabel(simples),
+            osStatusLabel(status),
             style: TextStyle(
               color: ink,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
           ),
+          if (canChange) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.expand_more_rounded, size: 16, color: ink),
+          ],
         ],
       ),
+    );
+
+    if (!canChange) return chip;
+
+    final neu = context.neu;
+    return PopupMenuButton<String>(
+      tooltip: 'Alterar status',
+      color: neu.surface,
+      position: PopupMenuPosition.under,
+      onSelected: _changeStatus,
+      itemBuilder: (_) => [
+        // Status atual (desabilitado, para contexto).
+        PopupMenuItem(
+          enabled: false,
+          child: Row(
+            children: [
+              Icon(osStatusIcon(status), size: 16,
+                  color: osStatusColor(status)),
+              const SizedBox(width: 10),
+              Text(
+                osStatusLabel(status),
+                style: TextStyle(
+                  color: neu.inkMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.check_rounded, size: 16, color: neu.inkMuted),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        // Destinos válidos.
+        for (final target in targets)
+          PopupMenuItem(
+            value: target,
+            child: Row(
+              children: [
+                Icon(osStatusIcon(target), size: 16,
+                    color: osStatusColor(target)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    osStatusLabel(target),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: target == 'cancelada' ? neu.danger : neu.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      child: chip,
     );
   }
 }
@@ -539,6 +649,11 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           icon: Icons.verified_outlined,
           color: neu.success,
           text: 'OS entregue — somente leitura.',
+        ),
+      'sem_conserto' => _Nota(
+          icon: Icons.block_outlined,
+          color: neu.inkMuted,
+          text: 'Sem conserto — entregue ou cancele.',
         ),
       _ => null,
     };

@@ -80,7 +80,11 @@ const STATUS_LABELS_FALLBACK: Record<OsStatus, string> = {
   aguardando_aprovacao: 'Aguardando aprovação',
   aprovada: 'Orçamento aprovado',
   em_execucao: 'Em execução',
+  aguardando_pecas: 'Aguardando peças',
+  pendente: 'Pendente',
+  sem_conserto: 'Sem conserto',
   concluida: 'Serviço concluído',
+  a_receber: 'A receber',
   entregue: 'Serviço entregue',
   cancelada: 'OS cancelada',
 };
@@ -105,6 +109,7 @@ const formatBrDate = (d: Date): string => {
 const CONSUMING_STATUSES = new Set<OsStatus>([
   'em_execucao',
   'concluida',
+  'a_receber',
   'entregue',
 ]);
 const consumes = (status: string): boolean =>
@@ -116,11 +121,15 @@ const consumes = (status: string): boolean =>
  * "reabertura" (→ `aberta`), que é privilegiada (gated por `os.approve`).
  */
 const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
-  aberta: ['aguardando_aprovacao', 'em_execucao', 'cancelada'],
+  aberta: ['aguardando_aprovacao', 'em_execucao', 'pendente', 'cancelada'],
   aguardando_aprovacao: ['aprovada', 'aberta', 'cancelada'],
-  aprovada: ['em_execucao', 'cancelada'],
-  em_execucao: ['concluida', 'cancelada'],
-  concluida: ['entregue'],
+  aprovada: ['em_execucao', 'aguardando_pecas', 'cancelada'],
+  em_execucao: ['concluida', 'aguardando_pecas', 'pendente', 'sem_conserto', 'cancelada'],
+  aguardando_pecas: ['em_execucao', 'cancelada'],
+  pendente: ['aberta', 'cancelada'],
+  sem_conserto: ['entregue', 'cancelada'],
+  concluida: ['a_receber', 'entregue'],
+  a_receber: ['entregue'],
   entregue: [],
   cancelada: ['aberta'],
 };
@@ -128,9 +137,9 @@ const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
 /**
  * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
  * cabeçalho). `cancelada` volta a ser editável reabrindo-a (→ `aberta`);
- * `entregue` é final.
+ * `entregue` é final; `sem_conserto` é terminal (só sai para entregue/cancelada).
  */
-const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue']);
+const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue', 'sem_conserto']);
 
 @Injectable()
 export class OsService {
@@ -736,6 +745,11 @@ export class OsService {
     if (order.status === 'cancelada') {
       throw new BadRequestException(
         'OS cancelada não pode ser alterada. Reabra a OS para editá-la.',
+      );
+    }
+    if (order.status === 'sem_conserto') {
+      throw new BadRequestException(
+        'OS sem conserto não pode ser alterada. Entregue ou cancele.',
       );
     }
     throw new BadRequestException('OS entregue não pode ser alterada.');

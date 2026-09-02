@@ -31,7 +31,11 @@ export const EQUIPAMENTOS: PacoteVertical = {
     'os.status.aguardando_aprovacao': 'Aguardando aprovação',
     'os.status.aprovada': 'Orçamento aprovado',
     'os.status.em_execucao': 'Em execução',
+    'os.status.aguardando_pecas': 'Aguardando peças',
+    'os.status.pendente': 'Pendente',
+    'os.status.sem_conserto': 'Sem conserto',
     'os.status.concluida': 'Serviço concluído',
+    'os.status.a_receber': 'A receber',
     'os.status.entregue': 'Serviço entregue',
     'os.status.cancelada': 'OS cancelada',
 
