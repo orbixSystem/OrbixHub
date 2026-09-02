@@ -21,7 +21,11 @@ const STATUS_LABELS_FALLBACK: Record<string, string> = {
   aguardando_aprovacao: 'Aguardando aprovação',
   aprovada: 'Orçamento aprovado',
   em_execucao: 'Em execução',
+  aguardando_pecas: 'Aguardando peças',
+  pendente: 'Pendente',
+  sem_conserto: 'Sem conserto',
   concluida: 'Serviço concluído',
+  a_receber: 'A receber',
   entregue: 'Serviço entregue',
   cancelada: 'OS cancelada',
 };

@@ -14,13 +14,17 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-/** Os 7 estados do workflow da OS. */
+/** Os 11 estados do workflow da OS. */
 export const OS_STATUSES = [
   'aberta',
   'aguardando_aprovacao',
   'aprovada',
   'em_execucao',
+  'aguardando_pecas',
+  'pendente',
+  'sem_conserto',
   'concluida',
+  'a_receber',
   'entregue',
   'cancelada',
 ] as const;

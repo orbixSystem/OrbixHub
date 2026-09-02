@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// Os 7 status da OS, em ordem de fluxo.
+/// Os 11 status da OS, em ordem de fluxo.
 const osStatuses = <String>[
   'aberta',
   'aguardando_aprovacao',
   'aprovada',
   'em_execucao',
+  'aguardando_pecas',
+  'pendente',
+  'sem_conserto',
   'concluida',
+  'a_receber',
   'entregue',
   'cancelada',
 ];
@@ -22,8 +26,16 @@ String osStatusLabel(String status) {
       return 'Aprovada';
     case 'em_execucao':
       return 'Em execução';
+    case 'aguardando_pecas':
+      return 'Aguardando peças';
+    case 'pendente':
+      return 'Pendente';
+    case 'sem_conserto':
+      return 'Sem conserto';
     case 'concluida':
       return 'Concluída';
+    case 'a_receber':
+      return 'A receber';
     case 'entregue':
       return 'Entregue';
     case 'cancelada':
@@ -48,8 +60,16 @@ Color osStatusColor(String status) {
       return const Color(0xFF8B5CF6); // violeta — trabalho acontecendo
     case 'aprovada':
       return const Color(0xFF5B8DEF); // azul
+    case 'aguardando_pecas':
+      return const Color(0xFFE08A2E); // laranja — bloqueado por peça
+    case 'pendente':
+      return const Color(0xFFD9A13B); // âmbar — parado
+    case 'sem_conserto':
+      return const Color(0xFF94A3B8); // cinza azulado — sem reparo
     case 'concluida':
       return const Color(0xFF10B981); // verde
+    case 'a_receber':
+      return const Color(0xFF0EA5E9); // azul claro — aguardando pagamento
     case 'entregue':
       return const Color(0xFF64748B); // slate — arquivada
     case 'cancelada':
@@ -75,8 +95,16 @@ Color osStatusInk(String status, Brightness brightness) {
       return claro ? const Color(0xFF7238F4) : const Color(0xFFBA9EFA);
     case 'aprovada':
       return claro ? const Color(0xFF165AE0) : const Color(0xFF89ADF3);
+    case 'aguardando_pecas':
+      return claro ? const Color(0xFFB06310) : const Color(0xFFE8A54A);
+    case 'pendente':
+      return claro ? const Color(0xFF835E19) : const Color(0xFFDAA441);
+    case 'sem_conserto':
+      return claro ? const Color(0xFF586374) : const Color(0xFF94A3B8);
     case 'concluida':
       return claro ? const Color(0xFF0A7350) : const Color(0xFF11C589);
+    case 'a_receber':
+      return claro ? const Color(0xFF0369A1) : const Color(0xFF38BDF8);
     case 'entregue':
       return claro ? const Color(0xFF58667A) : const Color(0xFFA3AEBD);
     case 'cancelada':
@@ -92,11 +120,15 @@ Color osStatusInk(String status, Brightness brightness) {
 /// FSM no front (espelha o backend): transições válidas a partir de cada status.
 /// O backend é a verdade — isto só desenha os botões plausíveis.
 const Map<String, List<String>> osTransitions = {
-  'aberta': ['aguardando_aprovacao', 'em_execucao', 'cancelada'],
+  'aberta': ['aguardando_aprovacao', 'em_execucao', 'pendente', 'cancelada'],
   'aguardando_aprovacao': ['aprovada', 'aberta', 'cancelada'],
-  'aprovada': ['em_execucao', 'cancelada'],
-  'em_execucao': ['concluida', 'cancelada'],
-  'concluida': ['entregue'],
+  'aprovada': ['em_execucao', 'aguardando_pecas', 'cancelada'],
+  'em_execucao': ['concluida', 'aguardando_pecas', 'pendente', 'sem_conserto', 'cancelada'],
+  'aguardando_pecas': ['em_execucao', 'cancelada'],
+  'pendente': ['aberta', 'cancelada'],
+  'sem_conserto': ['entregue', 'cancelada'],
+  'concluida': ['a_receber', 'entregue'],
+  'a_receber': ['entregue'],
   'entregue': <String>[],
   // Cancelada só sai por "reabertura" (→ aberta) — privilegiada (os.approve).
   'cancelada': ['aberta'],
@@ -104,9 +136,9 @@ const Map<String, List<String>> osTransitions = {
 
 /// Estados terminais (espelha o backend): a OS não aceita edição de conteúdo
 /// (itens, fotos, notas, cabeçalho). `cancelada` volta a ser editável reabrindo-a;
-/// `entregue` é final. O backend é a verdade — isto só desabilita os controles.
+/// `entregue` é final; `sem_conserto` é terminal (só sai para entregue/cancelada).
 bool osIsTerminal(String status) =>
-    status == 'cancelada' || status == 'entregue';
+    status == 'cancelada' || status == 'entregue' || status == 'sem_conserto';
 
 /// Chip de status em estilo tint (fundo suave + texto na cor) — mais leve que
 /// o bloco sólido e legível nos dois temas.
@@ -143,15 +175,17 @@ class OsStatusChip extends StatelessWidget {
 /// melhor", pedido do dono: o seletor de status vira 3 botões, não 7.
 enum OsSimpleStatus { emAndamento, finalizada, cancelada }
 
-/// Resume um dos 7 estados reais no rótulo simplificado.
+/// Resume um dos 11 estados reais no rótulo simplificado.
 ///
-/// `concluida` e `entregue` caem nos DOIS em "Finalizada" — é a mesma dupla que
-/// os relatórios já tratam como faturamento (nenhum lugar fora do módulo OS
-/// distingue as duas). Tudo que não é `cancelada` nem essa dupla é "Em
-/// andamento": `aberta`, `aguardando_aprovacao`, `aprovada`, `em_execucao`.
+/// `concluida`, `a_receber`, `entregue` e `sem_conserto` caem em "Finalizada"
+/// — é o mesmo grupo que os relatórios tratam como faturamento. Tudo que não é
+/// `cancelada` nem esse grupo é "Em andamento".
 OsSimpleStatus osSimpleStatusOf(String status) {
   if (status == 'cancelada') return OsSimpleStatus.cancelada;
-  if (status == 'concluida' || status == 'entregue') {
+  if (status == 'concluida' ||
+      status == 'a_receber' ||
+      status == 'entregue' ||
+      status == 'sem_conserto') {
     return OsSimpleStatus.finalizada;
   }
   return OsSimpleStatus.emAndamento;
@@ -200,8 +234,15 @@ List<String> osRealStatusesOf(OsSimpleStatus s) => switch (s) {
           'aguardando_aprovacao',
           'aprovada',
           'em_execucao',
+          'aguardando_pecas',
+          'pendente',
         ],
-      OsSimpleStatus.finalizada => const ['concluida', 'entregue'],
+      OsSimpleStatus.finalizada => const [
+          'concluida',
+          'a_receber',
+          'sem_conserto',
+          'entregue',
+        ],
       OsSimpleStatus.cancelada => const ['cancelada'],
     };
 
@@ -233,7 +274,7 @@ List<String>? osCaminhoAte(String atual, OsSimpleStatus destino) {
   final alvo = destino == OsSimpleStatus.finalizada ? 'entregue' : 'cancelada';
   if (atual == alvo) return const [];
 
-  // BFS — o grafo tem 7 nós, então nem vale a pena um algoritmo mais chique.
+  // BFS — o grafo tem 11 nós, então nem vale a pena um algoritmo mais chique.
   final visitado = <String>{atual};
   final fila = <List<String>>[
     [atual],
@@ -247,6 +288,36 @@ List<String>? osCaminhoAte(String atual, OsSimpleStatus destino) {
     }
   }
   return null;
+}
+
+/// Ícone por status REAL (11 estados), usado no dropdown de troca de status.
+IconData osStatusIcon(String status) {
+  switch (status) {
+    case 'aberta':
+      return Icons.fiber_new_rounded;
+    case 'aguardando_aprovacao':
+      return Icons.hourglass_top_rounded;
+    case 'aprovada':
+      return Icons.thumb_up_alt_rounded;
+    case 'em_execucao':
+      return Icons.autorenew_rounded;
+    case 'aguardando_pecas':
+      return Icons.inventory_rounded;
+    case 'pendente':
+      return Icons.pause_circle_rounded;
+    case 'sem_conserto':
+      return Icons.block_rounded;
+    case 'concluida':
+      return Icons.check_circle_rounded;
+    case 'a_receber':
+      return Icons.payments_rounded;
+    case 'entregue':
+      return Icons.verified_rounded;
+    case 'cancelada':
+      return Icons.cancel_rounded;
+    default:
+      return Icons.circle_outlined;
+  }
 }
 
 /// Formata um decimal serializado ("45.90") em "R$ 45,90". Null/vazio → "R$ 0,00".
