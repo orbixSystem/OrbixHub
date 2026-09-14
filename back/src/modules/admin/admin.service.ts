@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthRepository } from '../auth/auth.repository';
 import { PasswordService } from '../../common/crypto/password.service';
@@ -30,6 +31,15 @@ export interface TenantResumo {
   vertical: string | null;
   createdAt: Date;
   subscriptionStatus: string | null;
+  /**
+   * Razão social e nome fantasia como o Hub os conhece, mais o dono do
+   * ambiente. O painel usa isto para montar o cadastro comercial de quem
+   * chegou pelo autocadastro — sem esses campos, o cliente adotado ficava
+   * com o nome do ambiente no lugar da empresa, e sem contato nenhum.
+   */
+  legalName: string | null;
+  tradeName: string | null;
+  owner: { name: string | null; email: string } | null;
 }
 
 export interface FiltroTenants {
@@ -82,6 +92,7 @@ export class AdminService {
     private readonly billing: BillingService,
     private readonly verticais: VerticalRegistry,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContext,
   ) {}
 
   /**
@@ -219,6 +230,8 @@ export class AdminService {
     name: string;
     slug: string;
     cnpj: string | null;
+    legal_name?: string | null;
+    trade_name?: string | null;
     vertical: string | null;
     created_at: Date;
   }): Promise<TenantResumo> {
@@ -233,9 +246,36 @@ export class AdminService {
       name: t.name,
       slug: t.slug,
       cnpj: t.cnpj,
+      legalName: t.legal_name ?? null,
+      tradeName: t.trade_name ?? null,
       vertical: t.vertical,
       createdAt: t.created_at,
       subscriptionStatus: status,
+      owner: await this.dono(t.id),
     };
+  }
+
+  /**
+   * O dono do ambiente — quem tem o papel `owner` nele.
+   *
+   * `membership` tem RLS, então a leitura roda com o tenant no contexto. Falha
+   * aqui devolve `null` em vez de derrubar a listagem: o cadastro comercial
+   * sem contato ainda é melhor que nenhum cadastro.
+   */
+  private async dono(tenantId: string): Promise<TenantResumo['owner']> {
+    try {
+      return await this.tenantCtx.runWithTenant(tenantId, async () => {
+        const db = this.tenantCtx.getClient();
+        const m = await db.membership.findFirst({
+          where: { role: { name: 'owner' }, status: 'active' },
+          include: { users: true },
+          orderBy: { created_at: 'asc' },
+        });
+        if (!m?.users) return null;
+        return { name: m.users.full_name ?? null, email: m.users.email_normalized };
+      });
+    } catch {
+      return null;
+    }
   }
 }

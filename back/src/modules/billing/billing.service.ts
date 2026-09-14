@@ -153,12 +153,14 @@ export class BillingService {
       const agora = new Date();
       const futuro = (d?: Date | null) => d instanceof Date && d > agora;
 
+      // Acesso pago vence o teste: quem mandou PIX e ganhou 30 dias vira
+      // `active`, mesmo que estivesse `trialing` com o teste já vencido. Sem
+      // isto o cliente pagava, a data ia para frente, e o job da meia-noite o
+      // derrubava assim mesmo — porque o teste dele continuava vencido.
       let status = ajuste.status ?? (atual.status as SubscriptionStatus);
       if (!ajuste.status) {
-        if (futuro(ajuste.trialEndsAt)) status = 'trialing';
-        else if (futuro(ajuste.accessEndsAt) && atual.status === 'past_due') {
-          status = 'active';
-        }
+        if (futuro(ajuste.accessEndsAt)) status = 'active';
+        else if (futuro(ajuste.trialEndsAt)) status = 'trialing';
       }
 
       const salvo = await this.repo.ajustarAssinatura({
