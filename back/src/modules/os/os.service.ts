@@ -145,15 +145,28 @@ const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
  * quando vem de uma OS finalizada, que nenhum outro módulo tenha documento
  * amarrado a ela (ver `OrderLockRegistry`).
  *
- * `concluida`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
+ * `a_receber` entrou na lista depois: ela é OS finalizada esperando pagamento,
+ * e voltar dela para `em_execucao` é reabrir igual às outras. Enquanto ficou de
+ * fora, `concluida → a_receber → em_execucao` era um caminho que devolvia uma
+ * OS fechada ao trabalho **sem exigir `os.approve` e sem passar pela trava de
+ * nota fiscal** — e de lá dava até para cancelá-la, coisa que a FSM proíbe
+ * diretamente.
+ *
+ * `concluida`/`a_receber`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
  * propósito: os três consomem estoque (ver `CONSUMING_STATUSES`), então reabrir
  * não devolve peça à prateleira nem tenta baixá-la de novo. Reabrir em `aberta`
  * faria o estoque ir e voltar a cada correção, e uma peça vendida no meio do
  * caminho deixaria a baixa de volta falhando em silêncio.
  */
+const REABREM_EM_EXECUCAO: ReadonlySet<OsStatus> = new Set([
+  'concluida',
+  'a_receber',
+  'entregue',
+]);
+
 const isReopen = (from: OsStatus, to: OsStatus): boolean =>
   (from === 'cancelada' && to === 'aberta') ||
-  ((from === 'concluida' || from === 'entregue') && to === 'em_execucao');
+  (REABREM_EM_EXECUCAO.has(from) && to === 'em_execucao');
 
 /**
  * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
@@ -388,6 +401,7 @@ export class OsService {
             OS_STATUSES.includes(s as OsStatus),
           ),
         customerId: query.customerId,
+        assignedTo: query.assignedTo,
         sort: query.sort,
         skip: (page - 1) * pageSize,
         take: pageSize,

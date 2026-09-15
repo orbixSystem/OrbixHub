@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { FATURAVEIS } from '../os/os-status';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { OsService } from '../os/os.service';
 import { SaleService } from '../sale/sale.service';
@@ -92,8 +93,15 @@ function resumoPendentes(pendentes: TituloComDono[]): PendingSettlement {
 /** Um centavo de tolerância: resíduo de arredondamento não é dívida. */
 const EPS = 0.005;
 
-/** Status de OS em que o serviço já foi entregue ao cliente. */
-const FINALIZADAS = new Set(['concluida', 'entregue']);
+/**
+ * Status de OS em que o serviço já foi entregue ao cliente — logo, pode virar
+ * cobrança. Espelha `FATURAVEIS` do módulo OS (aponta, não invade: importa o
+ * grupo público, não a tabela).
+ *
+ * `a_receber` faltava aqui: a OS cujo nome do status é literalmente "a receber"
+ * não aparecia no aviso de entregue-sem-passar-pelo-caixa.
+ */
+const FINALIZADAS: ReadonlySet<string> = FATURAVEIS;
 
 /**
  * O título passou pelo caixa? É o que separa DÍVIDA de trabalho em andamento.

@@ -145,6 +145,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     String? status,
     List<String>? statuses,
     String? customerId,
+    String? assignedTo,
     String sort = 'recent',
     int page = 1,
   }) async {
@@ -154,6 +155,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
         status: status,
         statuses: statuses,
         customerId: customerId,
+        assignedTo: assignedTo,
         sort: sort,
         page: page,
       );
@@ -172,6 +174,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
           status: status,
           statuses: statuses,
           customerId: customerId,
+          assignedTo: assignedTo,
         ),
       );
       return res.copyWith(
@@ -187,6 +190,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
               status: status,
               statuses: statuses,
               customerId: customerId,
+              assignedTo: assignedTo,
             ))
         .toList();
 
@@ -229,6 +233,7 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     String? status,
     List<String>? statuses,
     String? customerId,
+    String? assignedTo,
   }) {
     if (statuses != null && statuses.isNotEmpty) {
       if (!statuses.contains(row['status'])) return false;
@@ -238,6 +243,11 @@ class LocalFirstOsRepository extends LocalFirstBase implements OsRepository {
     if (customerId != null &&
         customerId.isNotEmpty &&
         row['customer_id'] != customerId) {
+      return false;
+    }
+    if (assignedTo != null &&
+        assignedTo.isNotEmpty &&
+        row['assigned_to'] != assignedTo) {
       return false;
     }
     if (q == null || q.isEmpty) return true;

@@ -94,7 +94,7 @@ Widget _wrap(
 
 void main() {
   testWidgets(
-    'aberta: badge mostra "Em andamento" e o botão é "Finalizar OS" — avança até entregue, sem gate de confirmação',
+    'aberta: badge mostra o status REAL e o botão é "Finalizar OS" — avança até entregue, sem gate de confirmação',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('aberta')]);
       await tester.pumpWidget(
@@ -102,9 +102,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Um indicador SÓ, não um seletor de 3 estados.
-      expect(find.text('Em andamento'), findsOneWidget);
-      expect(find.text('Finalizada'), findsNothing);
+      // Um indicador SÓ, e com o status REAL: o resumo de três grupos dizia
+      // "Em andamento" tanto para uma OS aberta quanto para uma esperando
+      // peça, e era o que fazia tudo parecer sempre em execução.
+      expect(find.text('Aberta'), findsOneWidget);
+      expect(find.text('Em andamento'), findsNothing);
       expect(find.text('Cancelada'), findsNothing);
 
       // "Confirmar entrega?" não existe mais — era um passo sem sentido
@@ -144,7 +146,7 @@ void main() {
   });
 
   testWidgets(
-    'concluida: badge mostra "Finalizada" e o único botão é "Finalizar OS" (falta o último passo)',
+    'concluida: badge mostra "Concluída" e o único botão é "Finalizar OS" (falta o último passo)',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('concluida')]);
       await tester.pumpWidget(
@@ -152,7 +154,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Finalizada'), findsOneWidget);
+      expect(find.text('Concluída'), findsOneWidget);
       // Nem "Cancelar OS" (a FSM não permite mais).
       expect(find.text('Cancelar OS'), findsNothing);
 
@@ -172,7 +174,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Finalizada'), findsOneWidget);
+      expect(find.text('Entregue'), findsOneWidget);
       expect(find.text('Finalizar OS'), findsNothing);
       // Cancelar segue proibido: a FSM não deixa uma OS finalizada virar
       // cancelada, nem passando por uma reabertura silenciosa.

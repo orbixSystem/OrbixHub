@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 import { OsRepository } from './os.repository';
+import { FATURAVEIS } from './os-status';
+import { OsStatus } from './dto/order.dto';
 import {
   OsMetricsParams,
   OsMetricsReport,
@@ -106,7 +108,7 @@ export class OsMetricsService {
       const key = r.assigned_to ?? 'unassigned';
       const acc = byAssignedTo[key] ?? { count: 0, revenue: 0 };
       acc.count += 1;
-      if (r.status === 'concluida' || r.status === 'entregue')
+      if (FATURAVEIS.has(r.status as OsStatus))
         acc.revenue = round2(acc.revenue + r.total);
       byAssignedTo[key] = acc;
     }

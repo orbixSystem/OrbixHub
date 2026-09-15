@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import { ENCERRADAS, FATURAVEIS, lista } from './os-status';
 import {
   ChangeCursor,
   ChangedSincePage,
@@ -69,6 +70,8 @@ export interface OrderListFilter {
    * simplificado) — quando presente, prevalece sobre `status`. */
   statuses?: string[];
   customerId?: string;
+  /** Responsável (`assigned_to`) — filtro da visão "minhas OS". */
+  assignedTo?: string;
   sort?: string;
   skip: number;
   take: number;
@@ -250,6 +253,7 @@ export class OsRepository {
           ? { status: filter.status }
           : {}),
       ...(filter.customerId ? { customer_id: filter.customerId } : {}),
+      ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
       ...(filter.q
         ? {
             OR: [
@@ -706,25 +710,33 @@ export class OsRepository {
     return db.service_order.aggregate({
       where: {
         ...this.metricsWhere(p),
-        status: { in: ['concluida', 'entregue'] },
+        status: { in: lista(FATURAVEIS) },
       },
       _sum: { total: true },
       _count: { _all: true },
     });
   }
 
-  /** OS em execução no range/escopo. */
+  /**
+   * OS em execução AGORA. Como o atraso, é estado corrente e não fato do
+   * período: filtrar por `opened_at` dentro do range fazia o painel mostrar
+   * "0 em execução" com o carro no elevador, só porque a OS tinha sido aberta
+   * antes da janela de 30 dias. Respeita o escopo de técnico.
+   */
   countInExecution(p: MetricsRange) {
     const db = this.tenant.getClient();
     return db.service_order.count({
-      where: { ...this.metricsWhere(p), status: 'em_execucao' },
+      where: {
+        deleted_at: null,
+        status: 'em_execucao',
+        ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
+      },
     });
   }
 
   /**
-   * OS atrasadas: `scheduled_end` < agora e status fora de
-   * concluida/entregue/cancelada. Independe do range (atraso é "estado agora"),
-   * mas respeita o escopo de técnico.
+   * OS atrasadas: `scheduled_end` < agora e a OS ainda VIVA. Independe do
+   * range (atraso é "estado agora"), mas respeita o escopo de técnico.
    */
   countOverdue(p: MetricsRange) {
     const db = this.tenant.getClient();
@@ -732,7 +744,7 @@ export class OsRepository {
       where: {
         deleted_at: null,
         scheduled_end: { lt: new Date() },
-        status: { notIn: ['concluida', 'entregue', 'cancelada'] },
+        status: { notIn: lista(ENCERRADAS) },
         ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
       },
     });
@@ -752,7 +764,7 @@ export class OsRepository {
       FROM service_order
       WHERE deleted_at IS NULL
         AND opened_at >= ${p.from} AND opened_at <= ${p.to}
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND started_at IS NOT NULL AND finished_at IS NOT NULL
         ${assignedClause}
     `);
@@ -776,7 +788,7 @@ export class OsRepository {
              COUNT(*)   AS count
       FROM service_order
       WHERE deleted_at IS NULL
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND COALESCE(finished_at, closed_at) IS NOT NULL
         AND COALESCE(finished_at, closed_at) >= ${p.from}
         AND COALESCE(finished_at, closed_at) <= ${p.to}
@@ -797,7 +809,7 @@ export class OsRepository {
       SELECT status, SUM(total) AS revenue, COUNT(*) AS count
       FROM service_order
       WHERE deleted_at IS NULL
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND COALESCE(finished_at, closed_at) IS NOT NULL
         AND COALESCE(finished_at, closed_at) >= ${p.from}
         AND COALESCE(finished_at, closed_at) <= ${p.to}
@@ -823,8 +835,8 @@ export class OsRepository {
     >(Prisma.sql`
       SELECT assigned_to,
              COUNT(*) AS orders,
-             COUNT(*) FILTER (WHERE status IN ('concluida','entregue')) AS completed,
-             SUM(total) FILTER (WHERE status IN ('concluida','entregue')) AS revenue,
+             COUNT(*) FILTER (WHERE status IN (${Prisma.join(lista(FATURAVEIS))})) AS completed,
+             SUM(total) FILTER (WHERE status IN (${Prisma.join(lista(FATURAVEIS))})) AS revenue,
              AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)
                FILTER (WHERE status IN ('concluida','entregue')
                          AND started_at IS NOT NULL AND finished_at IS NOT NULL) AS avg_cycle_ms

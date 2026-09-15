@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/inventory_models.dart';
@@ -58,8 +60,12 @@ class ItemListQuery {
       lowStock ||
       active != 'true';
 
+  /// `q` com sentinela: `q ?? this.q` faria `null` (limpar a busca) devolver o
+  /// texto antigo — apagar o campo deixava a lista filtrada para sempre.
+  static const _sentinel = Object();
+
   ItemListQuery copyWith({
-    String? q,
+    Object? q = _sentinel,
     String? category,
     String? kind,
     String? active,
@@ -67,7 +73,7 @@ class ItemListQuery {
     ItemSort? sort,
   }) =>
       ItemListQuery(
-        q: q ?? this.q,
+        q: q == _sentinel ? this.q : q as String?,
         category: category,
         kind: kind ?? this.kind,
         active: active ?? this.active,
@@ -78,11 +84,25 @@ class ItemListQuery {
 
 /// Estado dos filtros (busca/categoria/baixo estoque/ordenação).
 class ItemListQueryNotifier extends Notifier<ItemListQuery> {
-  @override
-  ItemListQuery build() => const ItemListQuery();
+  Timer? _debounce;
 
-  void setQuery(String value) =>
-      state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
+  @override
+  ItemListQuery build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return const ItemListQuery();
+  }
+
+  /// Busca com espera — ver `OrderListQueryNotifier.setQuery`: sem isto, cada
+  /// tecla dispara uma requisição, e as intermediárias ficam penduradas.
+  void setQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      final q = value.trim();
+      final novo = q.isEmpty ? null : q;
+      if (novo == state.q) return;
+      state = state.copyWith(q: novo);
+    });
+  }
   void setCategory(String? category) => state = ItemListQuery(
         q: state.q,
         category: category,
