@@ -161,9 +161,9 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   }
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) async {
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) async {
     final meus = _titulos
-        .where((t) => (_donos[t.id]?.$1) == customerId)
+        .where((t) => _ehDoDevedor(t.id, customerId, apelido))
         .toList()
       ..sort((a, b) => (a.createdAt ?? '').compareTo(b.createdAt ?? ''));
     return DebtorDetail(
@@ -173,6 +173,17 @@ class FakeReceivablesRepository implements ReceivablesRepository {
       totalDue: meus.fold<num>(0, (acc, t) => acc + t.balance),
       items: meus,
     );
+  }
+
+  /// Mesma regra do servidor: cliente cadastrado casa por id; anônimo casa
+  /// pelo APELIDO, porque é assim que a carteira os agrupa.
+  bool _ehDoDevedor(String id, String? customerId, String? apelido) {
+    final dono = _donos[id];
+    if ((dono?.$1) != customerId) return false;
+    if (customerId != null) return true;
+    final nome = dono?.$2;
+    final doTitulo = (nome == null || nome == 'Sem cliente') ? '' : nome;
+    return doTitulo == (apelido ?? '').trim();
   }
 
   static String? _maisAntigo(String? a, String? b) {

@@ -638,6 +638,10 @@ Future<void> showDebtorTitlesDialog(
       maxWidth: 560,
       child: _DebtorTitles(
         customerId: customerId,
+        // Sem cadastro, o NOME é a chave do devedor — é ele que separa
+        // "Macarrão" de "rapaz da Hilux" na carteira. Com cadastro ele é
+        // irrelevante (o id manda), e passar não atrapalha.
+        apelido: customerId == null ? customerName : null,
         canWrite: canWrite,
       ),
     ),
@@ -645,15 +649,25 @@ Future<void> showDebtorTitlesDialog(
 }
 
 class _DebtorTitles extends ConsumerWidget {
-  const _DebtorTitles({required this.customerId, required this.canWrite});
+  const _DebtorTitles({
+    required this.customerId,
+    required this.apelido,
+    required this.canWrite,
+  });
 
   final String? customerId;
+
+  /// Apelido da venda de balcão. Só importa quando não há cliente cadastrado —
+  /// é a chave que separa "Macarrão" de "rapaz da Hilux" na carteira.
+  final String? apelido;
   final bool canWrite;
+
+  DebtorKey get _chave => (customerId: customerId, apelido: apelido);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final async = ref.watch(debtorTitlesProvider(customerId));
+    final async = ref.watch(debtorTitlesProvider(_chave));
     return async.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
@@ -661,7 +675,7 @@ class _DebtorTitles extends ConsumerWidget {
       ),
       error: (e, _) => _Erro(
         message: '$e',
-        onRetry: () => ref.invalidate(debtorTitlesProvider(customerId)),
+        onRetry: () => ref.invalidate(debtorTitlesProvider(_chave)),
       ),
       data: (detail) {
         if (detail.items.isEmpty) {
@@ -702,6 +716,7 @@ class _DebtorTitles extends ConsumerWidget {
                   title: t,
                   canWrite: canWrite,
                   customerId: customerId,
+                  apelido: apelido,
                 ),
               ),
           ],
@@ -721,11 +736,15 @@ class _TitleCard extends ConsumerWidget {
     required this.title,
     required this.canWrite,
     required this.customerId,
+    required this.apelido,
   });
 
   final ReceivableTitle title;
   final bool canWrite;
   final String? customerId;
+
+  /// Apelido do devedor anônimo — parte da chave do cache, ver [DebtorKey].
+  final String? apelido;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -911,7 +930,9 @@ class _TitleCard extends ConsumerWidget {
   /// carteira — as três lentes derivam do mesmo espelho de lançamentos.
   void _refresh(WidgetRef ref) {
     ref.invalidate(installmentsProvider((saleKind: title.origin, saleId: title.id)));
-    ref.invalidate(debtorTitlesProvider(customerId));
+    ref.invalidate(debtorTitlesProvider(
+      (customerId: customerId, apelido: apelido),
+    ));
     ref.invalidate(debtorsProvider);
   }
 }
