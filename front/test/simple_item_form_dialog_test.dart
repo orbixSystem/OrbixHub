@@ -122,7 +122,15 @@ void main() {
     // completo jogaria fora o que já tinha sido digitado.
     expect(find.byType(SimpleItemFormDialog), findsOneWidget);
     // O completo ainda oferece Produto/Serviço — é ele quem cobre serviço.
-    expect(find.text('Serviço'), findsOneWidget);
+    // Escopado ao completo: o simples segue montado atrás e tem o seu próprio
+    // segmento "Serviço", então um `find.text` solto acha os dois.
+    expect(
+      find.descendant(
+        of: find.byType(ItemFormDialog),
+        matching: find.text('Serviço'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('leva o nome já digitado para o cadastro completo', (t) async {

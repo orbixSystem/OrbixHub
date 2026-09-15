@@ -6,8 +6,9 @@ import '../../../core/ui/ui.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../domain/inventory_models.dart';
+import '../domain/stock_status.dart';
 import 'inventory_providers.dart';
-import 'item_form_dialog.dart';
+import 'stock_badge.dart';
 import 'simple_item_form_dialog.dart';
 
 /// Formata um preço decimal serializado ("45.90") em "R$ 45,90". Null → "—".
@@ -18,14 +19,16 @@ String money(String? decimal) {
   return 'R\$ ${v.toStringAsFixed(2).replaceAll('.', ',')}';
 }
 
-/// Item está com estoque no/abaixo do mínimo.
-bool isLowStock(InventoryItem i) {
-  if (i.minStock == null) return false;
-  final qty = double.tryParse(i.currentStock);
-  final min = double.tryParse(i.minStock!);
-  if (qty == null || min == null) return false;
-  return qty <= min;
-}
+/// Estado de estoque do item — delega para a regra compartilhada com o caixa
+/// e a OS, para as três telas nunca discordarem sobre o mesmo produto.
+StockStatus statusDoItem(InventoryItem i) => stockStatusOf(
+  kind: i.kind,
+  currentStock: i.currentStock,
+  minStock: i.minStock,
+);
+
+/// Item está com estoque no/abaixo do mínimo (não inclui o esgotado).
+bool isLowStock(InventoryItem i) => statusDoItem(i) == StockStatus.baixo;
 
 /// Lista de itens — adaptativa (spec 2026-07-04): desktop = linhas densas +
 /// paginação numerada; mobile = cards + pull-to-refresh + infinite scroll +
@@ -468,7 +471,9 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
   Future<void> _onMenu(String action) async {
     switch (action) {
       case 'editar':
-        final ok = await ItemFormDialog.show(context, existing: _item);
+        // Mesmo formulário do cadastro (com a saída para o completo lá dentro):
+        // quem criou o item em quatro campos volta a encontrar os mesmos quatro.
+        final ok = await SimpleItemFormDialog.show(context, existing: _item);
         if (ok != null) ref.invalidate(itemListProvider);
       case 'delete':
         await _delete();
@@ -499,7 +504,7 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
     final neu = context.neu;
     final item = _item;
     final isService = item.kind == 'service';
-    final low = isService ? false : isLowStock(item);
+    final estoque = statusDoItem(item);
     final unit = item.unit == null || item.unit!.isEmpty ? '' : ' ${item.unit}';
     final duration = item.durationMinutes;
     final subtitle = isService
@@ -549,19 +554,22 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              TextStyle(color: neu.inkMuted, fontSize: 14),
+                          // O saldo em si muda de cor — o selo diz o estado, a
+                          // cor faz o item pular na varredura da lista.
+                          style: TextStyle(
+                            color: corDoEstoque(context, estoque) ?? neu.inkMuted,
+                            fontSize: 14,
+                            fontWeight: estoque == StockStatus.esgotado
+                                ? FontWeight.w700
+                                : null,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (low) ...[
-                    NeuStatusChip(
-                      label: 'Baixo',
-                      color: neu.warning,
-                      tint: neu.warningTint,
-                      icon: Icons.warning_amber_rounded,
-                    ),
+                  if (estoque == StockStatus.esgotado ||
+                      estoque == StockStatus.baixo) ...[
+                    StockBadge(status: estoque),
                     const SizedBox(width: 6),
                   ],
                   if (archived) ...[

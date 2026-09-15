@@ -276,6 +276,7 @@ _InventoryOption _$InventoryOptionFromJson(Map<String, dynamic> json) =>
       kind: json['kind'] as String? ?? 'product',
       salePrice: json['sale_price'] as String?,
       currentStock: json['current_stock'] as String?,
+      minStock: json['min_stock'] as String?,
     );
 
 Map<String, dynamic> _$InventoryOptionToJson(_InventoryOption instance) =>
@@ -285,4 +286,5 @@ Map<String, dynamic> _$InventoryOptionToJson(_InventoryOption instance) =>
       'kind': instance.kind,
       'sale_price': instance.salePrice,
       'current_stock': instance.currentStock,
+      'min_stock': instance.minStock,
     };

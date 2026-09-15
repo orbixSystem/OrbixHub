@@ -123,6 +123,39 @@ export class InventoryRepository {
 
   async listItems(filter: ItemFilter) {
     const db = this.tenant.getClient();
+    // Os filtros compostos vão TODOS num único `AND`: duas chaves `OR` (ou dois
+    // `AND`) no mesmo objeto se sobrescrevem em silêncio, e "estoque baixo" e
+    // busca textual precisam dos dois ao mesmo tempo.
+    const and: Prisma.inventory_itemWhereInput[] = [];
+
+    // "Estoque baixo" = precisa de atenção: no/abaixo do mínimo OU zerado. O
+    // zerado entra mesmo sem mínimo cadastrado — saldo zero é falta com ou sem
+    // parâmetro, e antes o produto esgotado sem mínimo não caía em filtro
+    // nenhum. Serviço fica fora: não controla estoque (nasce com 0).
+    if (filter.lowStock) {
+      and.push({
+        kind: 'product',
+        OR: [
+          {
+            min_stock: { not: null },
+            current_stock: { lte: db.inventory_item.fields.min_stock },
+          },
+          { current_stock: { lte: 0 } },
+        ],
+      });
+    }
+
+    if (filter.q) {
+      and.push({
+        OR: [
+          { name: { contains: filter.q, mode: 'insensitive' } },
+          { sku: { contains: filter.q, mode: 'insensitive' } },
+          { barcode: { contains: filter.q, mode: 'insensitive' } },
+          { manufacturer_code: { contains: filter.q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
     const where: Prisma.inventory_itemWhereInput = {
       deleted_at: null,
       ...this.activeWhere(filter.active),
@@ -130,22 +163,7 @@ export class InventoryRepository {
       ...(filter.category
         ? { category: { equals: filter.category, mode: 'insensitive' } }
         : {}),
-      ...(filter.lowStock
-        ? {
-            min_stock: { not: null },
-            current_stock: { lte: db.inventory_item.fields.min_stock },
-          }
-        : {}),
-      ...(filter.q
-        ? {
-            OR: [
-              { name: { contains: filter.q, mode: 'insensitive' } },
-              { sku: { contains: filter.q, mode: 'insensitive' } },
-              { barcode: { contains: filter.q, mode: 'insensitive' } },
-              { manufacturer_code: { contains: filter.q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      ...(and.length ? { AND: and } : {}),
     };
     const [items, total] = await Promise.all([
       db.inventory_item.findMany({

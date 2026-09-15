@@ -3196,7 +3196,9 @@ as String?,
 /// @nodoc
 mixin _$InventoryOption {
 
- String get id; String get name; String get kind;@JsonKey(name: 'sale_price') String? get salePrice;@JsonKey(name: 'current_stock') String? get currentStock;
+ String get id; String get name; String get kind;@JsonKey(name: 'sale_price') String? get salePrice;@JsonKey(name: 'current_stock') String? get currentStock;/// Mínimo cadastrado — vem junto (a busca usa `GET /inventory/items`) e é o
+/// que permite sinalizar "baixo" aqui, não só "esgotado".
+@JsonKey(name: 'min_stock') String? get minStock;
 /// Create a copy of InventoryOption
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -3209,16 +3211,16 @@ $InventoryOptionCopyWith<InventoryOption> get copyWith => _$InventoryOptionCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryOption&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InventoryOption&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,kind,salePrice,currentStock);
+int get hashCode => Object.hash(runtimeType,id,name,kind,salePrice,currentStock,minStock);
 
 @override
 String toString() {
-  return 'InventoryOption(id: $id, name: $name, kind: $kind, salePrice: $salePrice, currentStock: $currentStock)';
+  return 'InventoryOption(id: $id, name: $name, kind: $kind, salePrice: $salePrice, currentStock: $currentStock, minStock: $minStock)';
 }
 
 
@@ -3229,7 +3231,7 @@ abstract mixin class $InventoryOptionCopyWith<$Res>  {
   factory $InventoryOptionCopyWith(InventoryOption value, $Res Function(InventoryOption) _then) = _$InventoryOptionCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String kind,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'current_stock') String? currentStock
+ String id, String name, String kind,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'current_stock') String? currentStock,@JsonKey(name: 'min_stock') String? minStock
 });
 
 
@@ -3246,13 +3248,14 @@ class _$InventoryOptionCopyWithImpl<$Res>
 
 /// Create a copy of InventoryOption
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? salePrice = freezed,Object? currentStock = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? salePrice = freezed,Object? currentStock = freezed,Object? minStock = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,salePrice: freezed == salePrice ? _self.salePrice : salePrice // ignore: cast_nullable_to_non_nullable
 as String?,currentStock: freezed == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
+as String?,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -3338,10 +3341,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock, @JsonKey(name: 'min_stock')  String? minStock)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InventoryOption() when $default != null:
-return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock);case _:
+return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock,_that.minStock);case _:
   return orElse();
 
 }
@@ -3359,10 +3362,10 @@ return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStoc
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock, @JsonKey(name: 'min_stock')  String? minStock)  $default,) {final _that = this;
 switch (_that) {
 case _InventoryOption():
-return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock);case _:
+return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock,_that.minStock);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -3379,10 +3382,10 @@ return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStoc
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String kind, @JsonKey(name: 'sale_price')  String? salePrice, @JsonKey(name: 'current_stock')  String? currentStock, @JsonKey(name: 'min_stock')  String? minStock)?  $default,) {final _that = this;
 switch (_that) {
 case _InventoryOption() when $default != null:
-return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock);case _:
+return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStock,_that.minStock);case _:
   return null;
 
 }
@@ -3394,7 +3397,7 @@ return $default(_that.id,_that.name,_that.kind,_that.salePrice,_that.currentStoc
 @JsonSerializable()
 
 class _InventoryOption implements InventoryOption {
-  const _InventoryOption({required this.id, required this.name, this.kind = 'product', @JsonKey(name: 'sale_price') this.salePrice, @JsonKey(name: 'current_stock') this.currentStock});
+  const _InventoryOption({required this.id, required this.name, this.kind = 'product', @JsonKey(name: 'sale_price') this.salePrice, @JsonKey(name: 'current_stock') this.currentStock, @JsonKey(name: 'min_stock') this.minStock});
   factory _InventoryOption.fromJson(Map<String, dynamic> json) => _$InventoryOptionFromJson(json);
 
 @override final  String id;
@@ -3402,6 +3405,9 @@ class _InventoryOption implements InventoryOption {
 @override@JsonKey() final  String kind;
 @override@JsonKey(name: 'sale_price') final  String? salePrice;
 @override@JsonKey(name: 'current_stock') final  String? currentStock;
+/// Mínimo cadastrado — vem junto (a busca usa `GET /inventory/items`) e é o
+/// que permite sinalizar "baixo" aqui, não só "esgotado".
+@override@JsonKey(name: 'min_stock') final  String? minStock;
 
 /// Create a copy of InventoryOption
 /// with the given fields replaced by the non-null parameter values.
@@ -3416,16 +3422,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryOption&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InventoryOption&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.salePrice, salePrice) || other.salePrice == salePrice)&&(identical(other.currentStock, currentStock) || other.currentStock == currentStock)&&(identical(other.minStock, minStock) || other.minStock == minStock));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,kind,salePrice,currentStock);
+int get hashCode => Object.hash(runtimeType,id,name,kind,salePrice,currentStock,minStock);
 
 @override
 String toString() {
-  return 'InventoryOption(id: $id, name: $name, kind: $kind, salePrice: $salePrice, currentStock: $currentStock)';
+  return 'InventoryOption(id: $id, name: $name, kind: $kind, salePrice: $salePrice, currentStock: $currentStock, minStock: $minStock)';
 }
 
 
@@ -3436,7 +3442,7 @@ abstract mixin class _$InventoryOptionCopyWith<$Res> implements $InventoryOption
   factory _$InventoryOptionCopyWith(_InventoryOption value, $Res Function(_InventoryOption) _then) = __$InventoryOptionCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String kind,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'current_stock') String? currentStock
+ String id, String name, String kind,@JsonKey(name: 'sale_price') String? salePrice,@JsonKey(name: 'current_stock') String? currentStock,@JsonKey(name: 'min_stock') String? minStock
 });
 
 
@@ -3453,13 +3459,14 @@ class __$InventoryOptionCopyWithImpl<$Res>
 
 /// Create a copy of InventoryOption
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? salePrice = freezed,Object? currentStock = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? kind = null,Object? salePrice = freezed,Object? currentStock = freezed,Object? minStock = freezed,}) {
   return _then(_InventoryOption(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,kind: null == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
 as String,salePrice: freezed == salePrice ? _self.salePrice : salePrice // ignore: cast_nullable_to_non_nullable
 as String?,currentStock: freezed == currentStock ? _self.currentStock : currentStock // ignore: cast_nullable_to_non_nullable
+as String?,minStock: freezed == minStock ? _self.minStock : minStock // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
