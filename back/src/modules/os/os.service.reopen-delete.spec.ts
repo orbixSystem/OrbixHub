@@ -88,9 +88,11 @@ function makeService(
     cashier?: CashierService;
     /** Impedimento registrado por outro módulo (ex.: nota fiscal ativa). */
     impedimento?: string;
+    /** Sobrescreve campos da OS de teste (ex.: partir de `a_receber`). */
+    orderPatch?: Record<string, unknown>;
   } = {},
 ) {
-  const order = orderEntregue();
+  const order = { ...orderEntregue(), ...(opts.orderPatch ?? {}) };
   const permissoes = opts.permissoes ?? ['os.approve'];
 
   // TenantContext fake: roda o callback direto e responde à consulta de
@@ -203,6 +205,51 @@ describe('OsService — reabrir OS finalizada', () => {
       't1',
       expect.objectContaining({ inventoryItemId: 'inv1', targetQty: 2 }),
     );
+  });
+
+  /**
+   * `a_receber` é reabertura como as outras — e por muito tempo não foi.
+   *
+   * Enquanto `isReopen` só conhecia `concluida`/`entregue`, sair de
+   * `a_receber` para `em_execucao` passava reto: devolvia ao trabalho uma OS já
+   * faturada SEM `os.approve` e SEM consultar a trava de nota fiscal. Como
+   * `concluida → a_receber` é transição normal, o caminho inteiro
+   * `concluida → a_receber → em_execucao` era uma porta dos fundos para
+   * destravar (e de lá, cancelar) uma OS fechada.
+   */
+  describe('a_receber também é reabertura', () => {
+    const emCobranca = { orderPatch: { status: 'a_receber' } };
+
+    it('sem os.approve NÃO reabre', async () => {
+      const { svc, repo } = makeService({
+        ...emCobranca,
+        permissoes: ['os.write'],
+      });
+      await expect(
+        svc.changeStatus(user, 'os1', { status: 'em_execucao' } as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repo.setStatusFields).not.toHaveBeenCalled();
+    });
+
+    it('nota fiscal ativa impede a reabertura', async () => {
+      const { svc, repo } = makeService({
+        ...emCobranca,
+        impedimento: 'Esta OS tem nota fiscal ativa.',
+      });
+      await expect(
+        svc.changeStatus(user, 'os1', { status: 'em_execucao' } as never),
+      ).rejects.toThrow('Esta OS tem nota fiscal ativa.');
+      expect(repo.setStatusFields).not.toHaveBeenCalled();
+    });
+
+    it('com os.approve e sem impedimento, reabre', async () => {
+      const { svc, repo } = makeService(emCobranca);
+      await svc.changeStatus(user, 'os1', { status: 'em_execucao' } as never);
+      expect(repo.setStatusFields).toHaveBeenCalledWith(
+        'os1',
+        expect.objectContaining({ status: 'em_execucao' }),
+      );
+    });
   });
 });
 

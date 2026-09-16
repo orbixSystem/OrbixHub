@@ -56,6 +56,40 @@ void main() {
       expect(find.text('de 2 clientes'), findsOneWidget);
     });
 
+    testWidgets('homônimo sem cadastro é marcado — senão são duas linhas iguais',
+        (tester) async {
+      // Um apelido digitado no balcão pode coincidir com o nome de um cliente
+      // REAL. Os títulos ficam separados corretamente (o servidor filtra por id
+      // num caso e por nome no outro), mas a carteira mostrava duas linhas
+      // visualmente IDÊNTICAS com valores diferentes — e cada uma cobra a
+      // dívida de outra pessoa.
+      final repo = FakeReceivablesRepository(titulos: const [
+        ReceivableTitle(
+          id: 't1',
+          origin: 'sale',
+          number: 'VND-0001',
+          customerId: 'c1',
+          customerName: 'João Silva',
+          total: 250,
+          balance: 250,
+        ),
+        ReceivableTitle(
+          id: 't2',
+          origin: 'sale',
+          number: 'VND-0002',
+          customerName: 'João Silva', // mesmo nome, SEM customerId
+          total: 77,
+          balance: 77,
+        ),
+      ]);
+      await tester.pumpWidget(_app(ReceivablesRepositoryOverride(repo)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('João Silva'), findsNWidgets(2));
+      // Um selo só: o cliente cadastrado não pode ganhá-lo.
+      expect(find.text('Sem cadastro'), findsOneWidget);
+    });
+
     testWidgets('lista devedores do maior saldo para o menor', (tester) async {
       await tester.pumpWidget(
         _app(ReceivablesRepositoryOverride(FakeReceivablesRepository())),

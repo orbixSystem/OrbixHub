@@ -580,14 +580,41 @@ class _DebtorTile extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      [
-                        debtor.titleCount == 1
-                            ? '1 título'
-                            : '${debtor.titleCount} títulos',
-                        ?dias,
-                      ].join(' · '),
-                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    Row(
+                      children: [
+                        // Devedor SEM cadastro fica marcado. Sem isto, um
+                        // apelido digitado no balcão igual ao nome de um
+                        // cliente real produz duas linhas visualmente
+                        // IDÊNTICAS, com valores diferentes, e ninguém sabe
+                        // qual é qual — cada uma cobra uma dívida de outra
+                        // pessoa. Os títulos já estão separados corretamente;
+                        // o que faltava era a tela dizer isso.
+                        if (debtor.customerId == null) ...[
+                          NeuStatusChip(
+                            label: 'Sem cadastro',
+                            color: neu.inkMuted,
+                            tint: neu.inkMuted.withValues(alpha: .14),
+                            icon: Icons.person_off_outlined,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            [
+                              debtor.titleCount == 1
+                                  ? '1 título'
+                                  : '${debtor.titleCount} títulos',
+                              ?dias,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: neu.inkMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -638,6 +665,10 @@ Future<void> showDebtorTitlesDialog(
       maxWidth: 560,
       child: _DebtorTitles(
         customerId: customerId,
+        // Sem cadastro, o NOME é a chave do devedor — é ele que separa
+        // "Macarrão" de "rapaz da Hilux" na carteira. Com cadastro ele é
+        // irrelevante (o id manda), e passar não atrapalha.
+        apelido: customerId == null ? customerName : null,
         canWrite: canWrite,
       ),
     ),
@@ -645,15 +676,25 @@ Future<void> showDebtorTitlesDialog(
 }
 
 class _DebtorTitles extends ConsumerWidget {
-  const _DebtorTitles({required this.customerId, required this.canWrite});
+  const _DebtorTitles({
+    required this.customerId,
+    required this.apelido,
+    required this.canWrite,
+  });
 
   final String? customerId;
+
+  /// Apelido da venda de balcão. Só importa quando não há cliente cadastrado —
+  /// é a chave que separa "Macarrão" de "rapaz da Hilux" na carteira.
+  final String? apelido;
   final bool canWrite;
+
+  DebtorKey get _chave => (customerId: customerId, apelido: apelido);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final async = ref.watch(debtorTitlesProvider(customerId));
+    final async = ref.watch(debtorTitlesProvider(_chave));
     return async.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
@@ -661,7 +702,7 @@ class _DebtorTitles extends ConsumerWidget {
       ),
       error: (e, _) => _Erro(
         message: '$e',
-        onRetry: () => ref.invalidate(debtorTitlesProvider(customerId)),
+        onRetry: () => ref.invalidate(debtorTitlesProvider(_chave)),
       ),
       data: (detail) {
         if (detail.items.isEmpty) {
@@ -702,6 +743,7 @@ class _DebtorTitles extends ConsumerWidget {
                   title: t,
                   canWrite: canWrite,
                   customerId: customerId,
+                  apelido: apelido,
                 ),
               ),
           ],
@@ -721,11 +763,15 @@ class _TitleCard extends ConsumerWidget {
     required this.title,
     required this.canWrite,
     required this.customerId,
+    required this.apelido,
   });
 
   final ReceivableTitle title;
   final bool canWrite;
   final String? customerId;
+
+  /// Apelido do devedor anônimo — parte da chave do cache, ver [DebtorKey].
+  final String? apelido;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -911,7 +957,9 @@ class _TitleCard extends ConsumerWidget {
   /// carteira — as três lentes derivam do mesmo espelho de lançamentos.
   void _refresh(WidgetRef ref) {
     ref.invalidate(installmentsProvider((saleKind: title.origin, saleId: title.id)));
-    ref.invalidate(debtorTitlesProvider(customerId));
+    ref.invalidate(debtorTitlesProvider(
+      (customerId: customerId, apelido: apelido),
+    ));
     ref.invalidate(debtorsProvider);
   }
 }

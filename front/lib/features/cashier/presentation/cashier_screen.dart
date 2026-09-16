@@ -82,8 +82,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const OfflineScreenNotice(
-              message: 'Voce esta offline. Os lancamentos sao guardados neste '
-                  'aparelho e so serao efetivados no sistema quando a conexao '
+              message:
+                  'Você está offline. Os lançamentos são guardados neste '
+                  'aparelho e só serão efetivados no sistema quando a conexão '
                   'voltar.',
             ),
             Expanded(child: _dayBody()),
@@ -144,10 +145,9 @@ class _Metric extends StatelessWidget {
       children: [
         Text(
           value,
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(color: color ?? neu.ink),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(color: color ?? neu.ink),
         ),
         const SizedBox(height: 2),
         Text(label, style: TextStyle(color: neu.inkMuted, fontSize: 12.5)),
@@ -216,20 +216,24 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   List<CashEntry> _filteredEntries(List<ServiceOrder> pendingOs) {
     final entries = widget.state.entries;
     // Cria entries virtuais para OS pendentes que NÃO têm entry no caixa.
-    final existingSaleIds =
-        entries.map((e) => e.saleId).whereType<String>().toSet();
+    final existingSaleIds = entries
+        .map((e) => e.saleId)
+        .whereType<String>()
+        .toSet();
     final virtualEntries = pendingOs
         .where((os) => !existingSaleIds.contains(os.id))
-        .map((os) => CashEntry(
-              id: 'pending-${os.id}',
-              direction: 'pending',
-              amount: os.total ?? '0',
-              method: '',
-              category: 'os_payment',
-              saleKind: 'os',
-              saleId: os.id,
-              description: 'OS ${os.number} — ${os.customerName ?? ''}',
-            ))
+        .map(
+          (os) => CashEntry(
+            id: 'pending-${os.id}',
+            direction: 'pending',
+            amount: os.total ?? '0',
+            method: '',
+            category: 'os_payment',
+            saleKind: 'os',
+            saleId: os.id,
+            description: 'OS ${os.number} — ${os.customerName ?? ''}',
+          ),
+        )
         .toList();
 
     switch (_movFilter) {
@@ -251,32 +255,38 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
     final filtered = _filteredEntries(pendingOs);
 
     final leftColumn = [
-      _BalanceCard(
-        state: widget.state,
-      ),
+      // Alvos do tutorial. O redesign trocou a tela inteira e levou os três
+      // junto — o tour do Caixa ficou apontando para o nada (`CoachTargets.live`
+      // devolvendo null nos três). Só um `_MovimentacoesCard` fica montado por
+      // vez (o mobile descarta o `Expanded`), então a GlobalKey não duplica.
+      CoachTarget('caixa.balanco', child: _BalanceCard(state: widget.state)),
       const SizedBox(height: 20),
       Expanded(
-        child: _MovimentacoesCard(
-          entries: filtered,
-          allEntries: widget.state.entries,
-          canManage: widget.canManage,
-          salesById: widget.state.salesById,
-          filter: _movFilter,
-          onFilterChanged: (f) => setState(() => _movFilter = f),
+        child: CoachTarget(
+          'caixa.movimentacoes',
+          child: _MovimentacoesCard(
+            entries: filtered,
+            allEntries: widget.state.entries,
+            canManage: widget.canManage,
+            salesById: widget.state.salesById,
+            filter: _movFilter,
+            onFilterChanged: (f) => setState(() => _movFilter = f),
+          ),
         ),
       ),
     ];
 
     final rightColumn = [
-      _PendentesCard(
-        state: widget.state,
-      ),
+      _PendentesCard(state: widget.state),
       const SizedBox(height: 20),
-      _QuickActionsGrid(
-        canWrite: widget.canWrite,
-        canSale: widget.canSale,
-        canManage: widget.canManage,
-        config: widget.state.config,
+      CoachTarget(
+        'caixa.acoes',
+        child: _QuickActionsGrid(
+          canWrite: widget.canWrite,
+          canSale: widget.canSale,
+          canManage: widget.canManage,
+          config: widget.state.config,
+        ),
       ),
     ];
 
@@ -286,13 +296,16 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           ...leftColumn.where((w) => w is! Expanded),
           SizedBox(
             height: 420,
-            child: _MovimentacoesCard(
-              entries: filtered,
-              allEntries: widget.state.entries,
-              canManage: widget.canManage,
-              salesById: widget.state.salesById,
-              filter: _movFilter,
-              onFilterChanged: (f) => setState(() => _movFilter = f),
+            child: CoachTarget(
+              'caixa.movimentacoes',
+              child: _MovimentacoesCard(
+                entries: filtered,
+                allEntries: widget.state.entries,
+                canManage: widget.canManage,
+                salesById: widget.state.salesById,
+                filter: _movFilter,
+                onFilterChanged: (f) => setState(() => _movFilter = f),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -345,13 +358,13 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
   _PeriodFilter? _period;
 
   String get _title {
-    if (_period == null) return 'Balanco do dia';
+    if (_period == null) return 'Balanço do dia';
     return switch (_period!) {
-      _PeriodFilter.hoje => 'Balanco do dia',
-      _PeriodFilter.seteDias => 'Balanco dos ultimos 7 dias',
-      _PeriodFilter.trintaDias => 'Balanco dos ultimos 30 dias',
-      _PeriodFilter.esteMes => 'Balanco deste mes',
-      _PeriodFilter.custom => 'Balanco do periodo',
+      _PeriodFilter.hoje => 'Balanço do dia',
+      _PeriodFilter.seteDias => 'Balanço dos últimos 7 dias',
+      _PeriodFilter.trintaDias => 'Balanço dos últimos 30 dias',
+      _PeriodFilter.esteMes => 'Balanço deste mês',
+      _PeriodFilter.custom => 'Balanço do período',
     };
   }
 
@@ -395,15 +408,15 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
                 child: Text(
                   _title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               Stack(
                 children: [
                   NeuIconButton(
                     icon: Icons.filter_list_rounded,
-                    tooltip: 'Filtrar periodo',
+                    tooltip: 'Filtrar período',
                     size: 38,
                     onPressed: () async {
                       final result = await showDialog<_PeriodFilter?>(
@@ -444,7 +457,7 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
                 color: neu.success,
               ),
               _Metric(
-                label: 'Saidas',
+                label: 'Saídas',
                 value: formatMoney(outTotal),
                 color: neu.danger,
               ),
@@ -478,7 +491,9 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
                   if (m.inAmount > 0 || m.outAmount > 0)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: neu.surfaceHi,
                         borderRadius: BorderRadius.circular(NeuTokens.rChip),
@@ -531,10 +546,10 @@ class _MovimentacoesCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Movimentacoes',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            'Movimentações',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           // Filter chips.
@@ -549,7 +564,7 @@ class _MovimentacoesCard extends StatelessWidget {
                       label: switch (f) {
                         _MovFilter.tudo => 'Tudo',
                         _MovFilter.entradas => 'Entradas',
-                        _MovFilter.saidas => 'Saidas',
+                        _MovFilter.saidas => 'Saídas',
                         _MovFilter.pendentes => 'Pendentes',
                       },
                       selected: filter == f,
@@ -567,7 +582,7 @@ class _MovimentacoesCard extends StatelessWidget {
               child: Text(
                 entries.length == allEntries.length
                     ? '${allEntries.length} '
-                        '${allEntries.length == 1 ? "registro" : "registros"}'
+                          '${allEntries.length == 1 ? "registro" : "registros"}'
                     : '${entries.length} de ${allEntries.length}',
                 style: TextStyle(color: neu.inkFaint, fontSize: 12),
               ),
@@ -606,17 +621,20 @@ class _MovimentacoesCard extends StatelessWidget {
 /// Provider que busca OS finalizadas com pagamento pendente diretamente do
 /// módulo de OS — não depende de entries no caixa (uma OS que nunca recebeu
 /// nada também aparece).
-final _pendingOsProvider =
-    FutureProvider.autoDispose<List<ServiceOrder>>((ref) async {
+final _pendingOsProvider = FutureProvider.autoDispose<List<ServiceOrder>>((
+  ref,
+) async {
   final repo = ref.read(osRepositoryProvider);
   // Busca todas as OS (sem filtro de status workflow) e filtra pelo
   // payment_status derivado do caixa. O backend enriquece cada OS com
   // payment_status na listagem.
   final page = await repo.listOrders(sort: 'recent', page: 1);
   return page.items
-      .where((os) =>
-          os.status != 'cancelada' &&
-          (os.paymentStatus == 'a_receber' || os.paymentStatus == 'parcial'))
+      .where(
+        (os) =>
+            os.status != 'cancelada' &&
+            (os.paymentStatus == 'a_receber' || os.paymentStatus == 'parcial'),
+      )
       .toList();
 });
 
@@ -644,15 +662,16 @@ class _PendentesCard extends ConsumerWidget {
                 child: Text(
                   'OS Pendentes',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              if (pendingAsync.value != null &&
-                  pendingAsync.value!.isNotEmpty)
+              if (pendingAsync.value != null && pendingAsync.value!.isNotEmpty)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: neu.warning.withValues(alpha: .14),
                     borderRadius: BorderRadius.circular(10),
@@ -687,8 +706,11 @@ class _PendentesCard extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Column(
                     children: [
-                      Icon(Icons.check_circle_outline_rounded,
-                          size: 36, color: neu.success),
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 36,
+                        color: neu.success,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Nenhuma OS pendente de pagamento',
@@ -700,8 +722,8 @@ class _PendentesCard extends ConsumerWidget {
                         label: 'Receber OS',
                         icon: Icons.payments_outlined,
                         kind: NeuButtonKind.secondary,
-                        onPressed: () => showReceivePickerDialog(
-                            context, ref, state.config),
+                        onPressed: () =>
+                            showReceivePickerDialog(context, ref, state.config),
                       ),
                     ],
                   ),
@@ -720,8 +742,8 @@ class _PendentesCard extends ConsumerWidget {
                       label: 'Receber OS',
                       icon: Icons.payments_outlined,
                       kind: NeuButtonKind.secondary,
-                      onPressed: () => showReceivePickerDialog(
-                          context, ref, state.config),
+                      onPressed: () =>
+                          showReceivePickerDialog(context, ref, state.config),
                     ),
                   ),
                 ],
@@ -760,8 +782,11 @@ class _PendingOsTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(NeuTokens.rChip),
               ),
               child: Center(
-                child: Icon(Icons.assignment_outlined,
-                    size: 18, color: neu.warning),
+                child: Icon(
+                  Icons.assignment_outlined,
+                  size: 18,
+                  color: neu.warning,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -790,16 +815,25 @@ class _PendingOsTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              formatMoney(order.total),
-              style: TextStyle(
-                color: neu.warning,
-                fontWeight: FontWeight.w800,
-                fontSize: 13.5,
-              ),
+            // Valor e selo empilhados, não lado a lado: em linha somavam 288px
+            // (151 + 137) numa linha de 280 no celular — o nome da OS, que está
+            // no Expanded, era espremido a ZERO e a linha estourava mesmo assim.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  formatMoney(order.total),
+                  style: TextStyle(
+                    color: neu.warning,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                PaymentTag(status: order.paymentStatus, dense: true),
+              ],
             ),
-            const SizedBox(width: 4),
-            PaymentTag(status: order.paymentStatus, dense: true),
             Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
           ],
         ),
@@ -840,15 +874,15 @@ class _QuickActionsGrid extends ConsumerWidget {
           label: 'Venda Avulsa',
           icon: Icons.shopping_cart_checkout_outlined,
           color: neu.navy,
-          requiresConnection: 'a venda avulsa e registrada no servidor',
+          requiresConnection: 'a venda avulsa é registrada no servidor',
           onTap: () => _startSale(context, ref),
         ),
       if (canManage)
         _QuickAction(
-          label: 'Deposito',
+          label: 'Depósito',
           icon: Icons.arrow_upward,
           color: neu.info,
-          requiresConnection: 'o deposito e registrado no servidor',
+          requiresConnection: 'o depósito é registrado no servidor',
           onTap: () => _showDepositoSaqueDialog(
             context,
             ref,
@@ -861,7 +895,7 @@ class _QuickActionsGrid extends ConsumerWidget {
           label: 'Saque',
           icon: Icons.arrow_downward,
           color: neu.danger,
-          requiresConnection: 'o saque e registrado no servidor',
+          requiresConnection: 'o saque é registrado no servidor',
           onTap: () => _showDepositoSaqueDialog(
             context,
             ref,
@@ -881,10 +915,10 @@ class _QuickActionsGrid extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Acoes Rapidas',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            'Ações Rápidas',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -955,7 +989,8 @@ class _QuickActionCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(NeuTokens.rChip),
                 ),
                 child: Center(
-                    child: Icon(action.icon, size: 20, color: action.color)),
+                  child: Icon(action.icon, size: 20, color: action.color),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1035,8 +1070,10 @@ class _DepositoSaqueDialogState extends ConsumerState<_DepositoSaqueDialog> {
   }
 
   Future<void> _submit() async {
-    final amountText =
-        _amountCtrl.text.trim().replaceAll('.', '').replaceAll(',', '.');
+    final amountText = _amountCtrl.text
+        .trim()
+        .replaceAll('.', '')
+        .replaceAll(',', '.');
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       showNeuErrorSnackBar(context, 'Informe um valor valido.');
@@ -1059,7 +1096,7 @@ class _DepositoSaqueDialogState extends ConsumerState<_DepositoSaqueDialog> {
         showNeuSuccessSnackBar(
           context,
           widget.isDeposito
-              ? 'Deposito registrado com sucesso.'
+              ? 'Depósito registrado com sucesso.'
               : 'Saque registrado com sucesso.',
         );
       }
@@ -1074,7 +1111,9 @@ class _DepositoSaqueDialogState extends ConsumerState<_DepositoSaqueDialog> {
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final title = widget.isDeposito ? 'Deposito (Suprimento)' : 'Saque (Sangria)';
+    final title = widget.isDeposito
+        ? 'Depósito (Suprimento)'
+        : 'Saque (Sangria)';
     final iconColor = widget.isDeposito ? neu.info : neu.danger;
     final icon = widget.isDeposito ? Icons.arrow_upward : Icons.arrow_downward;
 
@@ -1107,7 +1146,7 @@ class _DepositoSaqueDialogState extends ConsumerState<_DepositoSaqueDialog> {
           ),
           const SizedBox(height: 16),
           NeuTextField(
-            label: 'Descricao',
+            label: 'Descrição',
             controller: _descCtrl,
             hint: widget.isDeposito
                 ? 'Ex.: Troco inicial, reforco de caixa...'
@@ -1139,7 +1178,7 @@ class _DepositoSaqueDialogState extends ConsumerState<_DepositoSaqueDialog> {
           ),
           const SizedBox(height: 24),
           NeuButton(
-            label: widget.isDeposito ? 'Registrar deposito' : 'Registrar saque',
+            label: widget.isDeposito ? 'Registrar depósito' : 'Registrar saque',
             icon: icon,
             expanded: true,
             loading: _loading,
@@ -1177,13 +1216,17 @@ class _FilterPeriodDialogState extends State<_FilterPeriodDialog> {
     final neu = context.neu;
     final presets = <(_PeriodFilter, String, IconData)>[
       (_PeriodFilter.hoje, 'Hoje', Icons.today_rounded),
-      (_PeriodFilter.seteDias, 'Ultimos 7 dias', Icons.date_range_rounded),
-      (_PeriodFilter.trintaDias, 'Ultimos 30 dias', Icons.calendar_month_rounded),
-      (_PeriodFilter.esteMes, 'Este mes', Icons.calendar_today_rounded),
+      (_PeriodFilter.seteDias, 'Últimos 7 dias', Icons.date_range_rounded),
+      (
+        _PeriodFilter.trintaDias,
+        'Últimos 30 dias',
+        Icons.calendar_month_rounded,
+      ),
+      (_PeriodFilter.esteMes, 'Este mês', Icons.calendar_today_rounded),
     ];
 
     return NeuDialog(
-      title: 'Filtrar periodo',
+      title: 'Filtrar período',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1198,8 +1241,10 @@ class _FilterPeriodDialogState extends State<_FilterPeriodDialog> {
                   Navigator.of(context).pop(filter);
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: _selected == filter
                         ? neu.navy.withValues(alpha: .12)
@@ -1208,8 +1253,11 @@ class _FilterPeriodDialogState extends State<_FilterPeriodDialog> {
                   ),
                   child: Row(
                     children: [
-                      Icon(icon, size: 20,
-                          color: _selected == filter ? neu.navy : neu.inkMuted),
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: _selected == filter ? neu.navy : neu.inkMuted,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -1267,18 +1315,18 @@ class _EntryTile extends ConsumerWidget {
     final color = reversed
         ? neu.inkMuted
         : isPending
-            ? neu.warning
-            : isIn
-                ? neu.success
-                : neu.danger;
+        ? neu.warning
+        : isIn
+        ? neu.success
+        : neu.danger;
     // A descricao ja carrega o no da venda/OS (ex.: "OS-0001"/"VND-0001"); se vier
     // vazia (entries antigas), cai no rotulo generico da origem.
     final hasDesc = entry.description != null && entry.description!.isNotEmpty;
     final hora = _fmtHora(entry.createdAt);
     // Lancamento criado offline (ainda no outbox): selo "pendente de envio".
-    final pending = (ref.watch(pendingIdsProvider('cash_entry')).value ??
-            const <String>{})
-        .contains(entry.id);
+    final pending =
+        (ref.watch(pendingIdsProvider('cash_entry')).value ?? const <String>{})
+            .contains(entry.id);
     // Cliente antes da descricao (que ja traz o numero): "para quem" era a
     // informacao que faltava na linha do extrato.
     final cliente = sale?.customerName;
@@ -1316,29 +1364,38 @@ class _EntryTile extends ConsumerWidget {
     final selo = sale == null
         ? null
         : sale!.status == 'canceled'
-            // Cancelada manda no rotulo: e a informacao que muda o que fazer,
-            // e vem antes de qualquer coisa sobre pagamento.
-            ? NeuStatusChip(
-                label: 'Cancelada',
-                color: neu.danger,
-                tint: neu.danger.withValues(alpha: .14),
-              )
-            : PaymentTag(status: sale!.paymentStatus, dense: true);
+        // Cancelada manda no rotulo: e a informacao que muda o que fazer,
+        // e vem antes de qualquer coisa sobre pagamento.
+        ? NeuStatusChip(
+            label: 'Cancelada',
+            color: neu.danger,
+            tint: neu.danger.withValues(alpha: .14),
+          )
+        : PaymentTag(status: sale!.paymentStatus, dense: true);
     // So vira `Wrap` quando ha selo/badge: sem eles, o subtitulo continua uma
     // linha de texto simples, como sempre foi.
     final extras = <Widget>[
       ?selo,
-      if (pending) SyncRowBadge(entity: 'cash_entry', id: entry.id, dense: true),
+      if (pending)
+        SyncRowBadge(entity: 'cash_entry', id: entry.id, dense: true),
+      // "Estornado" vive AQUI, junto dos outros selos, e não no trailing: lá
+      // ele somava ~90px a uma coluna que já tem valor + menu + chevron, e a
+      // linha estourava no celular (360px). O subtítulo é um Wrap — ele quebra.
+      if (reversed)
+        NeuStatusChip(
+          label: 'Estornado',
+          color: neu.inkMuted,
+          tint: neu.inkMuted.withValues(alpha: .14),
+        ),
     ];
     return NeuListTile(
       onTap: daVenda
           ? () => showSaleDetailDialog(context, saleId: entry.saleId!)
           : daOs
-              ? () => showOsDetailDialog(context, orderId: entry.saleId!)
-              : daDespesa
-                  ? () => showExpenseDetailDialog(context, ref,
-                      id: entry.saleId!)
-                  : null,
+          ? () => showOsDetailDialog(context, orderId: entry.saleId!)
+          : daDespesa
+          ? () => showExpenseDetailDialog(context, ref, id: entry.saleId!)
+          : null,
       leading: isPending
           ? Container(
               width: _DirectionGlyph.size,
@@ -1348,15 +1405,22 @@ class _EntryTile extends ConsumerWidget {
                 color: neu.warning.withValues(alpha: .14),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.schedule_rounded,
-                  size: _DirectionGlyph.size * .5, color: neu.warning),
+              child: Icon(
+                Icons.schedule_rounded,
+                size: _DirectionGlyph.size * .5,
+                color: neu.warning,
+              ),
             )
           : _DirectionGlyph(color: color, isIn: isIn),
       title: Text(
         isPending ? 'Pendente' : categoryLabel(entry.category),
         style: TextStyle(
           decoration: reversed ? TextDecoration.lineThrough : null,
-          color: isPending ? neu.warning : reversed ? neu.inkMuted : neu.ink,
+          color: isPending
+              ? neu.warning
+              : reversed
+              ? neu.inkMuted
+              : neu.ink,
         ),
       ),
       subtitle: extras.isEmpty
@@ -1367,50 +1431,55 @@ class _EntryTile extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [Text(subtitleParts.join(' · ')), ...extras],
             ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            isPending
-                ? formatMoney(entry.amount)
-                : '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-              color: color,
-              decoration: reversed ? TextDecoration.lineThrough : null,
+      // Teto de largura no PRÓPRIO trailing, e não no `NeuListTile`: o tile é
+      // compartilhado por OS, clientes e estoque, e limitá-lo lá empurrava o
+      // estouro para dentro do trailing daquelas telas (162px na lista de OS).
+      // Aqui o problema é local — valor + menu + chevron chegavam a 231px numa
+      // linha de 256 no celular, sobrando ZERO para o nome.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 168),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // `Flexible`: o valor é o que pode ceder. O menu de ações e o chevron
+            // têm tamanho de alvo de toque e não encolhem — se algo tiver de
+            // truncar num celular estreito, que seja o número, que o detalhe da
+            // linha mostra por extenso.
+            Flexible(
+              child: Text(
+                isPending
+                    ? formatMoney(entry.amount)
+                    : '${isIn ? '+' : '−'} ${formatMoney(entry.amount)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: color,
+                  decoration: reversed ? TextDecoration.lineThrough : null,
+                ),
+              ),
             ),
-          ),
-          // Editar / Corrigir / Estornar num menu so: tres icones na linha nao
-          // caberiam no celular, e as acoes sao raras (nao merecem o espaco).
-          //
-          // Nas linhas de VENDA o menu nao aparece: a linha abre o detalhe da
-          // venda, que e onde se age sobre ela (itens, cliente, cancelar) E
-          // sobre o recebimento. Dois caminhos para a mesma coisa, um deles
-          // escondido atras de tres pontinhos, so confunde.
-          if (canManage && !reversed && !daVenda) ...[
-            const SizedBox(width: 6),
-            EntryActionsMenu(entry: entry),
+            // Editar / Corrigir / Estornar num menu so: tres icones na linha nao
+            // caberiam no celular, e as acoes sao raras (nao merecem o espaco).
+            //
+            // Nas linhas de VENDA o menu nao aparece: a linha abre o detalhe da
+            // venda, que e onde se age sobre ela (itens, cliente, cancelar) E
+            // sobre o recebimento. Dois caminhos para a mesma coisa, um deles
+            // escondido atras de tres pontinhos, so confunde.
+            if (canManage && !reversed && !daVenda) ...[
+              const SizedBox(width: 6),
+              EntryActionsMenu(entry: entry),
+            ],
+            // Afordancia: sem isto nada indica que a linha e clicavel (venda, OS
+            // e despesa navegam no toque — so a venda mostrava o chevron).
+            if (daVenda || daOs || daDespesa) ...[
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
+            ],
           ],
-          if (reversed) ...[
-            const SizedBox(width: 8),
-            NeuStatusChip(
-              label: 'Estornado',
-              color: neu.inkMuted,
-              tint: neu.inkMuted.withValues(alpha: .14),
-            ),
-          ],
-          // Afordancia: sem isto nada indica que a linha e clicavel (venda, OS
-          // e despesa navegam no toque — so a venda mostrava o chevron).
-          if (daVenda || daOs || daDespesa) ...[
-            const SizedBox(width: 2),
-            Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
-          ],
-        ],
+        ),
       ),
     );
   }
-
 }
 
 class _ErrorBox extends StatelessWidget {
@@ -1427,9 +1496,11 @@ class _ErrorBox extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, color: neu.danger, size: 40),
           const SizedBox(height: 12),
-          Text(message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: neu.inkMuted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: neu.inkMuted),
+          ),
           const SizedBox(height: 12),
           NeuButton(
             label: 'Tentar de novo',

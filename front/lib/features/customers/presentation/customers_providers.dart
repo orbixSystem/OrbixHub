@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../di.dart';
@@ -46,13 +48,17 @@ class CustomerListQuery {
 
   String get status => showArchived ? 'archived' : 'active';
 
+  /// `q` com sentinela: `q ?? this.q` faria `null` (limpar a busca) devolver o
+  /// texto antigo — apagar o campo deixava a lista filtrada para sempre.
+  static const _sentinel = Object();
+
   CustomerListQuery copyWith({
-    String? q,
+    Object? q = _sentinel,
     bool? showArchived,
     CustomerSort? sort,
   }) =>
       CustomerListQuery(
-        q: q ?? this.q,
+        q: q == _sentinel ? this.q : q as String?,
         showArchived: showArchived ?? this.showArchived,
         sort: sort ?? this.sort,
       );
@@ -60,11 +66,25 @@ class CustomerListQuery {
 
 /// Estado dos filtros da lista de clientes (busca/arquivados/ordenação).
 class CustomerListQueryNotifier extends Notifier<CustomerListQuery> {
-  @override
-  CustomerListQuery build() => const CustomerListQuery();
+  Timer? _debounce;
 
-  void setQuery(String value) =>
-      state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
+  @override
+  CustomerListQuery build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return const CustomerListQuery();
+  }
+
+  /// Busca com espera — ver `OrderListQueryNotifier.setQuery`: sem isto, cada
+  /// tecla dispara uma requisição, e as intermediárias ficam penduradas.
+  void setQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      final q = value.trim();
+      final novo = q.isEmpty ? null : q;
+      if (novo == state.q) return;
+      state = state.copyWith(q: novo);
+    });
+  }
   void setShowArchived(bool value) =>
       state = state.copyWith(showArchived: value);
   void setSort(CustomerSort sort) => state = state.copyWith(sort: sort);

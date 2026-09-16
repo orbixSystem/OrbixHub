@@ -71,6 +71,7 @@ function makeService() {
     {} as never,
     {} as never,
     new FakeCashier(),
+    { notify: jest.fn() } as never,
   );
   return { svc, repo };
 }

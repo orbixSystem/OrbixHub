@@ -27,7 +27,7 @@ class _InnerProibido implements ReceivablesRepository {
       throw StateError('offline não deve chamar a rede');
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) =>
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) =>
       throw StateError('offline não deve chamar a rede');
 
   @override
@@ -50,7 +50,7 @@ class _InnerOnline implements ReceivablesRepository {
   }
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) async {
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) async {
     chamado = true;
     return const DebtorDetail(customerName: 'do servidor');
   }

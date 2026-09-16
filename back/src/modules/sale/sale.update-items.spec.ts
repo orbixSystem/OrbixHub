@@ -108,6 +108,7 @@ function makeService(c: Cenario = {}) {
     customers as never,
     inventory as never,
     cashier as never,
+    { notify: jest.fn() } as never,
   );
   return { service, venda, itens: () => itens, reconciliacoes };
 }

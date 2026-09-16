@@ -441,6 +441,83 @@ describe('ReceivablesService — varredura', () => {
     expect(os.listOrders.mock.calls.length).toBe(10);
   });
 
+  describe('venda de balcao com APELIDO (customerNote) e sem cadastro', () => {
+    // `CreateSaleDto.customerNote` grava um apelido livre ("Macarrao") em
+    // `customer_name` quando NAO ha cliente cadastrado. Duas vendas assim, com
+    // apelidos diferentes, viram DOIS devedores na carteira — mas os dois com
+    // `customerId: null`.
+    //
+    // Foi o que a cliente filmou: abrir a aba de um apelido e ver a venda de
+    // outro. Nao e vazamento entre empresas (tudo no mesmo tenant), mas e
+    // dado errado na cara de quem cobra.
+    const balcao = () => ({
+      vendas: [
+        linha({
+          id: 's1',
+          number: 'VND-0001',
+          status: 'active',
+          customer_id: null,
+          customer_name: 'Macarrao',
+          payment: pagamento(100, 0),
+        }),
+        linha({
+          id: 's2',
+          number: 'VND-0002',
+          status: 'active',
+          customer_id: null,
+          customer_name: 'Rapaz da Hilux',
+          payment: pagamento(50, 0),
+        }),
+      ],
+    });
+
+    it('a carteira separa os dois apelidos', async () => {
+      const { service } = makeService(balcao());
+      const r = await service.listCustomers(user);
+      const nomes = r.items.map((i) => i.customerName).sort();
+      expect(nomes).toEqual(['Macarrao', 'Rapaz da Hilux']);
+    });
+
+    it('abrir UM apelido nao pode mostrar a venda do OUTRO', async () => {
+      const { service } = makeService(balcao());
+      const r = await service.listTitles(user, null, 'Macarrao');
+      expect(r.items.map((t) => t.number)).toEqual(['VND-0001']);
+      expect(r.customerName).toBe('Macarrao');
+      expect(r.totalDue).toBe(100);
+    });
+
+    it('sem apelido informado, devolve so o que e de fato anonimo', async () => {
+      // "Sem cliente" e um grupo legitimo: venda sem apelido nenhum. Ela nao
+      // pode arrastar junto as vendas apelidadas.
+      const { service } = makeService({
+        vendas: [
+          ...balcao().vendas,
+          linha({
+            id: 's3',
+            number: 'VND-0003',
+            status: 'active',
+          customer_id: null,
+            customer_name: null,
+            payment: pagamento(30, 0),
+          }),
+        ],
+      });
+      const r = await service.listTitles(user, null, null);
+      expect(r.items.map((t) => t.number)).toEqual(['VND-0003']);
+    });
+
+    it('cliente CADASTRADO segue filtrando por id, ignorando apelido', async () => {
+      const { service } = makeService({
+        vendas: [
+          linha({ id: 's1', number: 'VND-0001', status: 'active', customer_id: 'c1', customer_name: 'Joao' }),
+          linha({ id: 's2', number: 'VND-0002', status: 'active', customer_id: 'c2', customer_name: 'Maria' }),
+        ],
+      });
+      const r = await service.listTitles(user, 'c1');
+      expect(r.items.map((t) => t.number)).toEqual(['VND-0001']);
+    });
+  });
+
   it('cobra ambas as fontes (OS e vendas) em paralelo', async () => {
     const { service, os, sales } = makeService({ os: [], vendas: [] });
     await service.listCustomers(user);

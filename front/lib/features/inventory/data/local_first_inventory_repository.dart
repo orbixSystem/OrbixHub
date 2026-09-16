@@ -54,6 +54,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
     String? kind,
     String active = 'true',
     bool lowStock = false,
+    bool outOfStock = false,
     String sort = 'name_asc',
     int page = 1,
   }) async {
@@ -64,6 +65,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
         kind: kind,
         active: active,
         lowStock: lowStock,
+        outOfStock: outOfStock,
         sort: sort,
         page: page,
       );
@@ -81,6 +83,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
           kind: kind,
           active: active,
           lowStock: lowStock,
+          outOfStock: outOfStock,
         ),
       );
       return res.copyWith(
@@ -97,6 +100,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
               kind: kind,
               active: active,
               lowStock: lowStock,
+              outOfStock: outOfStock,
             ))
         .toList();
 
@@ -122,6 +126,7 @@ class LocalFirstInventoryRepository extends LocalFirstBase
     String? kind,
     required String active,
     required bool lowStock,
+    required bool outOfStock,
   }) {
     if (active != 'all') {
       final isActive = row['is_active'] as bool? ?? true;
@@ -133,7 +138,13 @@ class LocalFirstInventoryRepository extends LocalFirstBase
     if (kind != null && kind.isNotEmpty && (row['kind'] ?? 'product') != kind) {
       return false;
     }
-    if (lowStock && !_isLowStock(row)) return false;
+    // Espelha o servidor: o recorte menor vence quando os dois vêm.
+    if (outOfStock) {
+      if ((row['kind'] ?? 'product') != 'product') return false;
+      if (toNum(row['current_stock']) > 0) return false;
+    } else if (lowStock && !_isLowStock(row)) {
+      return false;
+    }
     if (q == null || q.isEmpty) return true;
     return matches(row['name'] as String?, q) ||
         matches(row['sku'] as String?, q) ||
@@ -142,10 +153,17 @@ class LocalFirstInventoryRepository extends LocalFirstBase
         matches(row['brand'] as String?, q);
   }
 
+  /// Espelha a regra do servidor (`inventory.repository.listItems`): "baixo" é
+  /// estar no/abaixo do mínimo AINDA COM SALDO. O zerado é do filtro
+  /// "Esgotados" — os dois são disjuntos. Se divergisse, o mesmo filtro
+  /// devolveria listas diferentes com e sem rede.
   bool _isLowStock(Map<String, dynamic> row) {
+    if ((row['kind'] ?? 'product') != 'product') return false;
+    final atual = toNum(row['current_stock']);
+    if (atual <= 0) return false;
     final min = row['min_stock'];
     if (min == null) return false;
-    return toNum(row['current_stock']) <= toNum(min);
+    return atual <= toNum(min);
   }
 
   void _sortItems(List<Map<String, dynamic>> items, String sort) {

@@ -125,12 +125,21 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   }
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) async {
-    if (isOnline()) return inner.titlesOf(customerId);
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) async {
+    if (isOnline()) return inner.titlesOf(customerId, apelido: apelido);
 
+    // Mesma regra do servidor — e o offline TAMBÉM tinha o bug: sem casar pelo
+    // apelido, abrir a aba de uma venda de balcão listava as de todas as
+    // outras. Divergir aqui faria a tela mudar de resposta ao perder a rede.
     final doCliente = (await _titulosLocais())
         .fiado
-        .where((t) => t.customerId == customerId)
+        .where((t) {
+          if (t.customerId != customerId) return false;
+          if (customerId != null) return true;
+          final doTitulo =
+              t.customerName == 'Sem cliente' ? '' : t.customerName;
+          return doTitulo == (apelido ?? '').trim();
+        })
         .toList()
       ..sort((a, b) =>
           (a.title.createdAt ?? '').compareTo(b.title.createdAt ?? ''));

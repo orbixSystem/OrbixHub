@@ -96,11 +96,14 @@ Color osStatusInk(String status, Brightness brightness) {
     case 'aprovada':
       return claro ? const Color(0xFF165AE0) : const Color(0xFF89ADF3);
     case 'aguardando_pecas':
-      return claro ? const Color(0xFFB06310) : const Color(0xFFE8A54A);
+      // 0xFFB06310 dava só 3,67:1 sobre o canvas (e 4,53:1 com branco): o
+      // laranja entrou com os status novos sem passar pela régua de contraste.
+      return claro ? const Color(0xFF94530D) : const Color(0xFFE8A54A);
     case 'pendente':
       return claro ? const Color(0xFF835E19) : const Color(0xFFDAA441);
     case 'sem_conserto':
-      return claro ? const Color(0xFF586374) : const Color(0xFF94A3B8);
+      // No escuro, 0xFF94A3B8 ficava em 4,12:1 — clareado até passar.
+      return claro ? const Color(0xFF586374) : const Color(0xFFA0AEC0);
     case 'concluida':
       return claro ? const Color(0xFF0A7350) : const Color(0xFF11C589);
     case 'a_receber':
@@ -141,9 +144,40 @@ const Map<String, List<String>> osTransitions = {
 /// (`concluida → em_execucao → cancelada`) e o botão apareceria habilitado,
 /// reabrindo a OS por baixo dos panos para então cancelá-la. Reabrir é decisão
 /// explícita de quem tem `os.approve`, nunca um passo intermediário.
+///
+/// `a_receber` faltava aqui (e no backend): com ela de fora, o BFS achava
+/// `concluida → a_receber → em_execucao → cancelada` e o botão "Cancelar"
+/// voltava a aparecer numa OS finalizada — reabrindo-a por baixo dos panos.
 bool osEhReabertura(String de, String para) =>
     (de == 'cancelada' && para == 'aberta') ||
-    ((de == 'concluida' || de == 'entregue') && para == 'em_execucao');
+    ((de == 'concluida' || de == 'a_receber' || de == 'entregue') &&
+        para == 'em_execucao');
+
+/// Destinos que este usuário pode REALMENTE escolher a partir de [status].
+///
+/// Não basta a FSM: o backend ainda exige `os.approve` para aprovar e para
+/// reabrir (`changeStatus`). Oferecer no menu o que o servidor vai recusar
+/// transforma cada toque num 403 — era a maior fonte de "requisição dando
+/// erro" na tela, e o usuário não tem como adivinhar quais das opções valem.
+///
+/// `sem_conserto` não se aplica a veículo (carro sempre tem conserto; o que
+/// existe é orçamento recusado), então sai na vertical `veiculos`.
+List<String> osTargetsFor(
+  String status, {
+  required String? vertical,
+  required bool canApprove,
+}) {
+  var alvos = osTransitions[status] ?? const <String>[];
+  if (vertical == 'veiculos') {
+    alvos = alvos.where((s) => s != 'sem_conserto').toList();
+  }
+  if (!canApprove) {
+    alvos = alvos
+        .where((s) => s != 'aprovada' && !osEhReabertura(status, s))
+        .toList();
+  }
+  return alvos;
+}
 
 /// Estados terminais (espelha o backend): a OS não aceita edição de conteúdo
 /// (itens, fotos, notas, cabeçalho) ENQUANTO estiver neles. Voltam a ser

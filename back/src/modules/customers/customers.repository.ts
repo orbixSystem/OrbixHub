@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 import {
@@ -44,7 +46,19 @@ export interface SubjectFilter {
  */
 @Injectable()
 export class CustomersRepository {
-  constructor(private readonly tenant: TenantContext) {}
+  constructor(
+    private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  /**
+   * Fuso do agrupamento por dia. Sem ele, `date_trunc` usa o fuso do SERVIDOR
+   * Postgres: na imagem padrao (UTC) o dia vira das 21h as 21h, e o
+   * faturamento das ultimas tres horas de cada dia aparece no dia seguinte.
+   */
+  private get fuso(): string {
+    return this.env.APP_TIMEZONE;
+  }
 
   private statusWhere(status: 'active' | 'archived' | 'all') {
     // 'deleted' (soft delete) é sempre oculto das listas — inclusive em 'all'.
@@ -94,7 +108,8 @@ export class CustomersRepository {
       db.customer.findMany({
         where,
         orderBy:
-          CUSTOMER_ORDER_BY[filter.sort ?? 'recent'] ?? CUSTOMER_ORDER_BY.recent,
+          CUSTOMER_ORDER_BY[filter.sort ?? 'recent'] ??
+          CUSTOMER_ORDER_BY.recent,
         skip: filter.skip,
         take: filter.take,
       }),
@@ -313,7 +328,7 @@ export class CustomersRepository {
     return db.$queryRaw<
       Array<{ day: string; type: string; count: number }>
     >(Prisma.sql`
-      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE ${this.fuso}), 'YYYY-MM-DD') AS day,
              type,
              COUNT(*)::int AS count
       FROM customer
