@@ -36,14 +36,42 @@ class TokenRefreshService {
   final RefreshTokenStore _refreshStore;
   final SecureTokenStore _secureStore;
 
-  late final SingleFlightRefresher coordinator;
+  late final SingleFlightRefresher<RefreshOutcome> coordinator;
 
   /// Returns true if a fresh access token is now in [AccessTokenStore].
-  Future<bool> refresh() => coordinator.refresh();
+  Future<bool> refresh() async => (await refreshDetailed()) == RefreshOutcome.ok;
 
-  Future<bool> _perform() async {
-    final refreshToken = _refreshStore.token;
-    if (refreshToken == null) return false;
+  /// Same refresh, but saying WHY it failed — quem chama precisa distinguir
+  /// "o servidor recusou a sessão" de "não deu para falar com o servidor".
+  Future<RefreshOutcome> refreshDetailed() => coordinator.refresh();
+
+  /// Token a apresentar: o PERSISTIDO na frente do que está em memória.
+  ///
+  /// Na web o armazenamento seguro é compartilhado entre as abas, mas a memória
+  /// não. Com duas abas abertas (o caso comum: caixa numa, OS na outra), a aba
+  /// que rotaciona grava o token novo e a outra continua com o antigo na
+  /// memória. Quando a segunda aba refresca, apresenta um token já rotacionado
+  /// — e o servidor trata reapresentação fora da janela de tolerância como
+  /// ATAQUE DE REUSO: revoga a FAMÍLIA inteira, derrubando também a aba que
+  /// estava com o token válido. As duas caem juntas.
+  ///
+  /// Reler o persistido antes de cada refresh faz a segunda aba usar o token
+  /// que a primeira acabou de gravar. Se as duas refrescarem no mesmo instante,
+  /// aí sim a janela de tolerância do servidor cobre — que é para isso que ela
+  /// existe.
+  Future<String?> _tokenMaisRecente() async {
+    if (!_refreshStore.remember) return _refreshStore.token;
+    try {
+      return await _secureStore.readRefreshToken() ?? _refreshStore.token;
+    } catch (_) {
+      // Storage indisponível não pode impedir o refresh.
+      return _refreshStore.token;
+    }
+  }
+
+  Future<RefreshOutcome> _perform() async {
+    final refreshToken = await _tokenMaisRecente();
+    if (refreshToken == null) return RefreshOutcome.semToken;
     try {
       final res = await _bareDio.post<Object?>(
         '/auth/refresh',
@@ -56,13 +84,45 @@ class TokenRefreshService {
       if (_refreshStore.remember) {
         await _secureStore.writeRefreshToken(rotated);
       }
-      return true;
+      return RefreshOutcome.ok;
+    } on DioException catch (e) {
+      // Só o SERVIDOR pode declarar a sessão morta. Antes, qualquer exceção
+      // apagava os tokens — inclusive timeout e queda de rede, que é o pão de
+      // cada dia de uma oficina com wi-fi ruim: a sessão continuava válida no
+      // servidor e mesmo assim o app deslogava o usuário. O bootstrap já fazia
+      // essa distinção (ver B6 no SessionController); aqui não fazia.
+      if (_ehRejeicaoDeAuth(e)) {
+        _accessStore.clear();
+        _refreshStore.clear();
+        await _secureStore.clear();
+        return RefreshOutcome.sessaoRejeitada;
+      }
+      // Rede: o access token continua vencido (a requisição vai falhar), mas a
+      // sessão sobrevive e a próxima tentativa tem chance.
+      return RefreshOutcome.falhaDeRede;
     } catch (_) {
-      // Refresh family rejected → drop the whole session.
-      _accessStore.clear();
-      _refreshStore.clear();
-      await _secureStore.clear();
-      return false;
+      // Resposta inesperada (corpo fora do formato) — não é prova de que a
+      // sessão morreu, então não derruba.
+      return RefreshOutcome.falhaDeRede;
     }
   }
+
+  static bool _ehRejeicaoDeAuth(DioException e) {
+    final status = e.response?.statusCode;
+    return status == 401 || status == 403;
+  }
+}
+
+/// Desfecho de um refresh — ver [TokenRefreshService.refreshDetailed].
+enum RefreshOutcome {
+  ok,
+
+  /// Não havia refresh token para apresentar.
+  semToken,
+
+  /// O servidor recusou (401/403): a sessão acabou de verdade.
+  sessaoRejeitada,
+
+  /// Não deu para falar com o servidor. A sessão pode continuar válida.
+  falhaDeRede,
 }
