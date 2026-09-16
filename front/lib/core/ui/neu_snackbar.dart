@@ -111,3 +111,52 @@ void showNeuSuccessOn(
     ),
   );
 }
+
+/// Aviso (âmbar) que fica mais tempo na tela: a ação DEU CERTO, mas algo ficou
+/// pendente e a pessoa precisa fazer algo a respeito.
+///
+/// Existe porque o caso real não cabia nem em erro nem em sucesso: a venda foi
+/// gravada (o dinheiro entrou) e mesmo assim o estoque não baixou. Mostrar isso
+/// em verde esconderia a pendência; em vermelho faria parecer que a venda
+/// falhou — e o operador tentaria vender de novo.
+void showNeuWarningSnackBar(
+  BuildContext context,
+  String message, {
+  Duration duration = const Duration(seconds: 9),
+}) {
+  final tokens = Theme.of(context).extension<NeuTokens>();
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: tokens?.ink ?? const Color(0xFF2B2F44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(NeuTokens.rField),
+      ),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      duration: duration,
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: tokens?.warning ?? Colors.amberAccent,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: tokens?.onNavy ?? Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}

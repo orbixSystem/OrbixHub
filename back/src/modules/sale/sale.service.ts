@@ -12,6 +12,7 @@ import { criarComNumeroSequencial } from '../../common/database/numero-sequencia
 import { isIdUniqueViolation } from '../../common/database/prisma-errors';
 import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CashierService } from '../cashier/cashier.service';
 import {
@@ -62,6 +63,13 @@ interface ResolvedItem {
  *  - nota: disparada via `InvoiceService` (o Fiscal é dono do status; guardamos snapshot).
  * O caixa NÃO emite nota e NÃO toca a tabela da venda (ele recebe o total do dono).
  */
+/** Item cujo saldo NÃO acompanhou a venda — ver [SaleService.applyStock]. */
+export interface StockWarning {
+  itemId: string;
+  name: string;
+  message: string;
+}
+
 @Injectable()
 export class SaleService {
   private readonly logger = new Logger(SaleService.name);
@@ -79,6 +87,9 @@ export class SaleService {
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
     private readonly cashier: CashierService,
+    // "Aponta, não invade": o aviso de estoque não aplicado vai pelo service
+    // público de notificações, sem tocar a tabela.
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ===================== Criação =====================
@@ -168,10 +179,21 @@ export class SaleService {
     });
 
     // Baixa de estoque (só produto vinculado) — FORA da tx (reconcile abre a própria).
-    // best-effort por linha: falha de estoque não desfaz a venda (apenas loga).
-    await this.applyStock(user, sale!.id, sale!.items, 'consume');
+    // best-effort por linha: falha de estoque não desfaz a venda (o dinheiro já
+    // entrou), mas VOLTA na resposta: quem vendeu precisa saber que o saldo
+    // daquele item não mexeu.
+    const stockWarnings = await this.applyStock(
+      user,
+      sale!.id,
+      sale!.number,
+      sale!.items,
+      'consume',
+    );
 
-    return this.enrichOne(sale!, user.tenantId);
+    const enriquecida = await this.enrichOne(sale!, user.tenantId);
+    return stockWarnings.length
+      ? { ...enriquecida, stockWarnings }
+      : enriquecida;
   }
 
   /**
@@ -391,7 +413,17 @@ export class SaleService {
         if (antigo.kind !== 'product' || !antigo.inventory_item_id) continue;
         await this.reconcile(user, id, antigo.id, antigo.inventory_item_id, 0);
       }
-      await this.applyStock(user, id, sale!.items, 'consume');
+      const stockWarnings = await this.applyStock(
+        user,
+        id,
+        sale!.number,
+        sale!.items,
+        'consume',
+      );
+      const enriquecida = await this.enrichOne(sale!, user.tenantId);
+      return stockWarnings.length
+        ? { ...enriquecida, stockWarnings }
+        : enriquecida;
     }
 
     return this.enrichOne(sale!, user.tenantId);
@@ -461,7 +493,7 @@ export class SaleService {
     });
 
     // Devolve o estoque (estorno) — FORA da tx (reconcile abre a própria).
-    await this.applyStock(user, id, sale.items, 'return');
+    await this.applyStock(user, id, sale.number, sale.items, 'return');
 
     return this.getSaleOrThrow(id, user.tenantId);
   }
@@ -605,14 +637,17 @@ export class SaleService {
   private async applyStock(
     user: AuthUser,
     saleId: string,
+    saleNumber: string,
     items: Array<{
       id: string;
       kind: string;
+      name?: string | null;
       inventory_item_id: string | null;
       quantity: Prisma.Decimal | number;
     }>,
     mode: 'consume' | 'return',
-  ): Promise<void> {
+  ): Promise<StockWarning[]> {
+    const falhas: StockWarning[] = [];
     for (const item of items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
@@ -625,12 +660,65 @@ export class SaleService {
           createdBy: user.userId,
         });
       } catch (e) {
+        const message = (e as Error).message;
         this.logger.warn(
-          `Estoque (${mode}) falhou (venda ${saleId}, item ${item.id}): ${
-            (e as Error).message
-          }`,
+          `Estoque (${mode}) falhou (venda ${saleId}, item ${item.id}): ${message}`,
         );
+        falhas.push({
+          itemId: item.id,
+          name: item.name ?? 'Item',
+          message,
+        });
       }
+    }
+    if (falhas.length)
+      await this.avisarEstoqueNaoAplicado(
+        user,
+        saleNumber,
+        saleId,
+        falhas,
+        mode,
+      );
+    return falhas;
+  }
+
+  /**
+   * Registra a divergência de estoque onde alguém vai ver.
+   *
+   * A venda NÃO é desfeita de propósito — o dinheiro já entrou, e cancelar por
+   * causa do estoque seria pior. Mas até aqui a falha morria num `logger.warn`
+   * no servidor: quem vendeu via "venda concluída", o saldo ficava errado e
+   * ninguém era avisado. Sem tabela nova: a notificação já é genérica por
+   * `type`, e o sino do tenant é exatamente o lugar de "confira isto".
+   *
+   * best-effort duas vezes: se a própria notificação falhar, não pode derrubar
+   * a venda que já está gravada.
+   */
+  private async avisarEstoqueNaoAplicado(
+    user: AuthUser,
+    saleNumber: string,
+    saleId: string,
+    falhas: StockWarning[],
+    mode: 'consume' | 'return',
+  ): Promise<void> {
+    const verbo = mode === 'consume' ? 'baixado' : 'devolvido';
+    try {
+      await this.notifications.notify(user.tenantId, {
+        type: 'inventory_sale_unapplied',
+        title: `Estoque não foi ${verbo} na venda ${saleNumber}`,
+        body:
+          `${falhas.length} ${falhas.length === 1 ? 'item ficou' : 'itens ficaram'} ` +
+          `com o saldo desatualizado — confira e ajuste: ` +
+          falhas.map((f) => `${f.name} (${f.message})`).join('; '),
+        refType: 'sale',
+        refId: saleId,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Não consegui notificar a divergência de estoque da venda ${saleId}: ${
+          (e as Error).message
+        }`,
+      );
     }
   }
 

@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 import { ENCERRADAS, FATURAVEIS, lista } from './os-status';
@@ -191,7 +193,19 @@ export interface CreateEventData {
  */
 @Injectable()
 export class OsRepository {
-  constructor(private readonly tenant: TenantContext) {}
+  constructor(
+    private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  /**
+   * Fuso do agrupamento por dia. Sem ele, `date_trunc` usa o fuso do SERVIDOR
+   * Postgres: na imagem padrao (UTC) o dia vira das 21h as 21h, e o
+   * faturamento das ultimas tres horas de cada dia aparece no dia seguinte.
+   */
+  private get fuso(): string {
+    return this.env.APP_TIMEZONE;
+  }
 
   /**
    * Documentos do período com o dono: id → cliente. É o que permite ao
@@ -396,7 +410,13 @@ export class OsRepository {
         scheduled_start: { not: null, lt: end },
         scheduled_end: { not: null, gt: start },
       },
-      select: { id: true, name: true, order_id: true, scheduled_start: true, scheduled_end: true },
+      select: {
+        id: true,
+        name: true,
+        order_id: true,
+        scheduled_start: true,
+        scheduled_end: true,
+      },
     });
   }
 
@@ -763,7 +783,9 @@ export class OsRepository {
     const assignedClause = p.assignedTo
       ? Prisma.sql`AND assigned_to = ${p.assignedTo}::uuid`
       : Prisma.sql``;
-    const rows = await db.$queryRaw<Array<{ avg_ms: number | null }>>(Prisma.sql`
+    const rows = await db.$queryRaw<
+      Array<{ avg_ms: number | null }>
+    >(Prisma.sql`
       SELECT AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000) AS avg_ms
       FROM service_order
       WHERE deleted_at IS NULL
@@ -787,7 +809,7 @@ export class OsRepository {
     return db.$queryRaw<
       Array<{ day: string; revenue: number | null; count: bigint }>
     >(Prisma.sql`
-      SELECT to_char(date_trunc('day', COALESCE(finished_at, closed_at)), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', COALESCE(finished_at, closed_at) AT TIME ZONE ${this.fuso}), 'YYYY-MM-DD') AS day,
              SUM(total) AS revenue,
              COUNT(*)   AS count
       FROM service_order
@@ -1013,7 +1035,13 @@ export class OsRepository {
     limit: number,
   ): Promise<ChangedSincePage> {
     const db = this.tenant.getClient();
-    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
+    return queryChangedSince(
+      db,
+      table,
+      SYNC_ENTITY_COLUMN[table],
+      cursor,
+      limit,
+    );
   }
 }
 

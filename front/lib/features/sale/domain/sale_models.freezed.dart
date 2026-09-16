@@ -21,7 +21,12 @@ mixin _$Sale {
 /// Sai no comprovante — é o que identifica a venda quando quem comprou não
 /// é cliente cadastrado.
  String? get description;@JsonKey(name: 'fiscal_status') String? get fiscalStatus;// 'a_receber' | 'parcial' | 'pago' | 'cancelada' (flat, espelha payment.status)
-@JsonKey(name: 'payment_status') String get paymentStatus;@JsonKey(name: 'created_at') String? get createdAt; List<SaleItem> get items;
+@JsonKey(name: 'payment_status') String get paymentStatus;@JsonKey(name: 'created_at') String? get createdAt; List<SaleItem> get items;/// Itens cujo saldo NÃO acompanhou a venda (ex.: estoque insuficiente).
+///
+/// Só vem na resposta de criar/editar. A venda é gravada mesmo assim — o
+/// dinheiro já entrou —, mas quem vendeu precisa saber que o estoque
+/// daquele produto continua errado. Antes isso morria num log do servidor.
+@JsonKey(name: 'stockWarnings') List<StockWarning> get stockWarnings;
 /// Create a copy of Sale
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -34,16 +39,16 @@ $SaleCopyWith<Sale> get copyWith => _$SaleCopyWithImpl<Sale>(this as Sale, _$ide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Sale&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.description, description) || other.description == description)&&(identical(other.fiscalStatus, fiscalStatus) || other.fiscalStatus == fiscalStatus)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&const DeepCollectionEquality().equals(other.items, items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Sale&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.description, description) || other.description == description)&&(identical(other.fiscalStatus, fiscalStatus) || other.fiscalStatus == fiscalStatus)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&const DeepCollectionEquality().equals(other.items, items)&&const DeepCollectionEquality().equals(other.stockWarnings, stockWarnings));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,status,total,discount,description,fiscalStatus,paymentStatus,createdAt,const DeepCollectionEquality().hash(items));
+int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,status,total,discount,description,fiscalStatus,paymentStatus,createdAt,const DeepCollectionEquality().hash(items),const DeepCollectionEquality().hash(stockWarnings));
 
 @override
 String toString() {
-  return 'Sale(id: $id, number: $number, customerId: $customerId, customerName: $customerName, status: $status, total: $total, discount: $discount, description: $description, fiscalStatus: $fiscalStatus, paymentStatus: $paymentStatus, createdAt: $createdAt, items: $items)';
+  return 'Sale(id: $id, number: $number, customerId: $customerId, customerName: $customerName, status: $status, total: $total, discount: $discount, description: $description, fiscalStatus: $fiscalStatus, paymentStatus: $paymentStatus, createdAt: $createdAt, items: $items, stockWarnings: $stockWarnings)';
 }
 
 
@@ -54,7 +59,7 @@ abstract mixin class $SaleCopyWith<$Res>  {
   factory $SaleCopyWith(Sale value, $Res Function(Sale) _then) = _$SaleCopyWithImpl;
 @useResult
 $Res call({
- String id, String number,@JsonKey(name: 'customer_id') String? customerId,@JsonKey(name: 'customer_name') String? customerName, String status, String total, String discount, String? description,@JsonKey(name: 'fiscal_status') String? fiscalStatus,@JsonKey(name: 'payment_status') String paymentStatus,@JsonKey(name: 'created_at') String? createdAt, List<SaleItem> items
+ String id, String number,@JsonKey(name: 'customer_id') String? customerId,@JsonKey(name: 'customer_name') String? customerName, String status, String total, String discount, String? description,@JsonKey(name: 'fiscal_status') String? fiscalStatus,@JsonKey(name: 'payment_status') String paymentStatus,@JsonKey(name: 'created_at') String? createdAt, List<SaleItem> items,@JsonKey(name: 'stockWarnings') List<StockWarning> stockWarnings
 });
 
 
@@ -71,7 +76,7 @@ class _$SaleCopyWithImpl<$Res>
 
 /// Create a copy of Sale
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? number = null,Object? customerId = freezed,Object? customerName = freezed,Object? status = null,Object? total = null,Object? discount = null,Object? description = freezed,Object? fiscalStatus = freezed,Object? paymentStatus = null,Object? createdAt = freezed,Object? items = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? number = null,Object? customerId = freezed,Object? customerName = freezed,Object? status = null,Object? total = null,Object? discount = null,Object? description = freezed,Object? fiscalStatus = freezed,Object? paymentStatus = null,Object? createdAt = freezed,Object? items = null,Object? stockWarnings = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
@@ -85,7 +90,8 @@ as String?,fiscalStatus: freezed == fiscalStatus ? _self.fiscalStatus : fiscalSt
 as String?,paymentStatus: null == paymentStatus ? _self.paymentStatus : paymentStatus // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<SaleItem>,
+as List<SaleItem>,stockWarnings: null == stockWarnings ? _self.stockWarnings : stockWarnings // ignore: cast_nullable_to_non_nullable
+as List<StockWarning>,
   ));
 }
 
@@ -170,10 +176,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items, @JsonKey(name: 'stockWarnings')  List<StockWarning> stockWarnings)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Sale() when $default != null:
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items,_that.stockWarnings);case _:
   return orElse();
 
 }
@@ -191,10 +197,10 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items, @JsonKey(name: 'stockWarnings')  List<StockWarning> stockWarnings)  $default,) {final _that = this;
 switch (_that) {
 case _Sale():
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items,_that.stockWarnings);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -211,10 +217,10 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String number, @JsonKey(name: 'customer_id')  String? customerId, @JsonKey(name: 'customer_name')  String? customerName,  String status,  String total,  String discount,  String? description, @JsonKey(name: 'fiscal_status')  String? fiscalStatus, @JsonKey(name: 'payment_status')  String paymentStatus, @JsonKey(name: 'created_at')  String? createdAt,  List<SaleItem> items, @JsonKey(name: 'stockWarnings')  List<StockWarning> stockWarnings)?  $default,) {final _that = this;
 switch (_that) {
 case _Sale() when $default != null:
-return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items);case _:
+return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.status,_that.total,_that.discount,_that.description,_that.fiscalStatus,_that.paymentStatus,_that.createdAt,_that.items,_that.stockWarnings);case _:
   return null;
 
 }
@@ -226,7 +232,7 @@ return $default(_that.id,_that.number,_that.customerId,_that.customerName,_that.
 @JsonSerializable()
 
 class _Sale implements Sale {
-  const _Sale({required this.id, this.number = '', @JsonKey(name: 'customer_id') this.customerId, @JsonKey(name: 'customer_name') this.customerName, this.status = 'active', this.total = '0', this.discount = '0', this.description, @JsonKey(name: 'fiscal_status') this.fiscalStatus, @JsonKey(name: 'payment_status') this.paymentStatus = 'a_receber', @JsonKey(name: 'created_at') this.createdAt, final  List<SaleItem> items = const <SaleItem>[]}): _items = items;
+  const _Sale({required this.id, this.number = '', @JsonKey(name: 'customer_id') this.customerId, @JsonKey(name: 'customer_name') this.customerName, this.status = 'active', this.total = '0', this.discount = '0', this.description, @JsonKey(name: 'fiscal_status') this.fiscalStatus, @JsonKey(name: 'payment_status') this.paymentStatus = 'a_receber', @JsonKey(name: 'created_at') this.createdAt, final  List<SaleItem> items = const <SaleItem>[], @JsonKey(name: 'stockWarnings') final  List<StockWarning> stockWarnings = const <StockWarning>[]}): _items = items,_stockWarnings = stockWarnings;
   factory _Sale.fromJson(Map<String, dynamic> json) => _$SaleFromJson(json);
 
 @override final  String id;
@@ -253,6 +259,23 @@ class _Sale implements Sale {
   return EqualUnmodifiableListView(_items);
 }
 
+/// Itens cujo saldo NÃO acompanhou a venda (ex.: estoque insuficiente).
+///
+/// Só vem na resposta de criar/editar. A venda é gravada mesmo assim — o
+/// dinheiro já entrou —, mas quem vendeu precisa saber que o estoque
+/// daquele produto continua errado. Antes isso morria num log do servidor.
+ final  List<StockWarning> _stockWarnings;
+/// Itens cujo saldo NÃO acompanhou a venda (ex.: estoque insuficiente).
+///
+/// Só vem na resposta de criar/editar. A venda é gravada mesmo assim — o
+/// dinheiro já entrou —, mas quem vendeu precisa saber que o estoque
+/// daquele produto continua errado. Antes isso morria num log do servidor.
+@override@JsonKey(name: 'stockWarnings') List<StockWarning> get stockWarnings {
+  if (_stockWarnings is EqualUnmodifiableListView) return _stockWarnings;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_stockWarnings);
+}
+
 
 /// Create a copy of Sale
 /// with the given fields replaced by the non-null parameter values.
@@ -267,16 +290,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Sale&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.description, description) || other.description == description)&&(identical(other.fiscalStatus, fiscalStatus) || other.fiscalStatus == fiscalStatus)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&const DeepCollectionEquality().equals(other._items, _items));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Sale&&(identical(other.id, id) || other.id == id)&&(identical(other.number, number) || other.number == number)&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total)&&(identical(other.discount, discount) || other.discount == discount)&&(identical(other.description, description) || other.description == description)&&(identical(other.fiscalStatus, fiscalStatus) || other.fiscalStatus == fiscalStatus)&&(identical(other.paymentStatus, paymentStatus) || other.paymentStatus == paymentStatus)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&const DeepCollectionEquality().equals(other._items, _items)&&const DeepCollectionEquality().equals(other._stockWarnings, _stockWarnings));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,status,total,discount,description,fiscalStatus,paymentStatus,createdAt,const DeepCollectionEquality().hash(_items));
+int get hashCode => Object.hash(runtimeType,id,number,customerId,customerName,status,total,discount,description,fiscalStatus,paymentStatus,createdAt,const DeepCollectionEquality().hash(_items),const DeepCollectionEquality().hash(_stockWarnings));
 
 @override
 String toString() {
-  return 'Sale(id: $id, number: $number, customerId: $customerId, customerName: $customerName, status: $status, total: $total, discount: $discount, description: $description, fiscalStatus: $fiscalStatus, paymentStatus: $paymentStatus, createdAt: $createdAt, items: $items)';
+  return 'Sale(id: $id, number: $number, customerId: $customerId, customerName: $customerName, status: $status, total: $total, discount: $discount, description: $description, fiscalStatus: $fiscalStatus, paymentStatus: $paymentStatus, createdAt: $createdAt, items: $items, stockWarnings: $stockWarnings)';
 }
 
 
@@ -287,7 +310,7 @@ abstract mixin class _$SaleCopyWith<$Res> implements $SaleCopyWith<$Res> {
   factory _$SaleCopyWith(_Sale value, $Res Function(_Sale) _then) = __$SaleCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String number,@JsonKey(name: 'customer_id') String? customerId,@JsonKey(name: 'customer_name') String? customerName, String status, String total, String discount, String? description,@JsonKey(name: 'fiscal_status') String? fiscalStatus,@JsonKey(name: 'payment_status') String paymentStatus,@JsonKey(name: 'created_at') String? createdAt, List<SaleItem> items
+ String id, String number,@JsonKey(name: 'customer_id') String? customerId,@JsonKey(name: 'customer_name') String? customerName, String status, String total, String discount, String? description,@JsonKey(name: 'fiscal_status') String? fiscalStatus,@JsonKey(name: 'payment_status') String paymentStatus,@JsonKey(name: 'created_at') String? createdAt, List<SaleItem> items,@JsonKey(name: 'stockWarnings') List<StockWarning> stockWarnings
 });
 
 
@@ -304,7 +327,7 @@ class __$SaleCopyWithImpl<$Res>
 
 /// Create a copy of Sale
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? number = null,Object? customerId = freezed,Object? customerName = freezed,Object? status = null,Object? total = null,Object? discount = null,Object? description = freezed,Object? fiscalStatus = freezed,Object? paymentStatus = null,Object? createdAt = freezed,Object? items = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? number = null,Object? customerId = freezed,Object? customerName = freezed,Object? status = null,Object? total = null,Object? discount = null,Object? description = freezed,Object? fiscalStatus = freezed,Object? paymentStatus = null,Object? createdAt = freezed,Object? items = null,Object? stockWarnings = null,}) {
   return _then(_Sale(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
@@ -318,7 +341,277 @@ as String?,fiscalStatus: freezed == fiscalStatus ? _self.fiscalStatus : fiscalSt
 as String?,paymentStatus: null == paymentStatus ? _self.paymentStatus : paymentStatus // ignore: cast_nullable_to_non_nullable
 as String,createdAt: freezed == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as String?,items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<SaleItem>,
+as List<SaleItem>,stockWarnings: null == stockWarnings ? _self._stockWarnings : stockWarnings // ignore: cast_nullable_to_non_nullable
+as List<StockWarning>,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$StockWarning {
+
+@JsonKey(name: 'itemId') String get itemId; String get name; String get message;
+/// Create a copy of StockWarning
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$StockWarningCopyWith<StockWarning> get copyWith => _$StockWarningCopyWithImpl<StockWarning>(this as StockWarning, _$identity);
+
+  /// Serializes this StockWarning to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StockWarning&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,itemId,name,message);
+
+@override
+String toString() {
+  return 'StockWarning(itemId: $itemId, name: $name, message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $StockWarningCopyWith<$Res>  {
+  factory $StockWarningCopyWith(StockWarning value, $Res Function(StockWarning) _then) = _$StockWarningCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'itemId') String itemId, String name, String message
+});
+
+
+
+
+}
+/// @nodoc
+class _$StockWarningCopyWithImpl<$Res>
+    implements $StockWarningCopyWith<$Res> {
+  _$StockWarningCopyWithImpl(this._self, this._then);
+
+  final StockWarning _self;
+  final $Res Function(StockWarning) _then;
+
+/// Create a copy of StockWarning
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? itemId = null,Object? name = null,Object? message = null,}) {
+  return _then(_self.copyWith(
+itemId: null == itemId ? _self.itemId : itemId // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [StockWarning].
+extension StockWarningPatterns on StockWarning {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _StockWarning value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _StockWarning() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _StockWarning value)  $default,){
+final _that = this;
+switch (_that) {
+case _StockWarning():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _StockWarning value)?  $default,){
+final _that = this;
+switch (_that) {
+case _StockWarning() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId,  String name,  String message)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _StockWarning() when $default != null:
+return $default(_that.itemId,_that.name,_that.message);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'itemId')  String itemId,  String name,  String message)  $default,) {final _that = this;
+switch (_that) {
+case _StockWarning():
+return $default(_that.itemId,_that.name,_that.message);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'itemId')  String itemId,  String name,  String message)?  $default,) {final _that = this;
+switch (_that) {
+case _StockWarning() when $default != null:
+return $default(_that.itemId,_that.name,_that.message);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _StockWarning implements StockWarning {
+  const _StockWarning({@JsonKey(name: 'itemId') this.itemId = '', this.name = '', this.message = ''});
+  factory _StockWarning.fromJson(Map<String, dynamic> json) => _$StockWarningFromJson(json);
+
+@override@JsonKey(name: 'itemId') final  String itemId;
+@override@JsonKey() final  String name;
+@override@JsonKey() final  String message;
+
+/// Create a copy of StockWarning
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$StockWarningCopyWith<_StockWarning> get copyWith => __$StockWarningCopyWithImpl<_StockWarning>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$StockWarningToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _StockWarning&&(identical(other.itemId, itemId) || other.itemId == itemId)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,itemId,name,message);
+
+@override
+String toString() {
+  return 'StockWarning(itemId: $itemId, name: $name, message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$StockWarningCopyWith<$Res> implements $StockWarningCopyWith<$Res> {
+  factory _$StockWarningCopyWith(_StockWarning value, $Res Function(_StockWarning) _then) = __$StockWarningCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'itemId') String itemId, String name, String message
+});
+
+
+
+
+}
+/// @nodoc
+class __$StockWarningCopyWithImpl<$Res>
+    implements _$StockWarningCopyWith<$Res> {
+  __$StockWarningCopyWithImpl(this._self, this._then);
+
+  final _StockWarning _self;
+  final $Res Function(_StockWarning) _then;
+
+/// Create a copy of StockWarning
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? itemId = null,Object? name = null,Object? message = null,}) {
+  return _then(_StockWarning(
+itemId: null == itemId ? _self.itemId : itemId // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

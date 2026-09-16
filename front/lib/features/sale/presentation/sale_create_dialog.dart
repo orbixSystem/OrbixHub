@@ -474,6 +474,19 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             ),
           ),
         );
+        // A venda foi gravada, mas o saldo de algum produto não mexeu. Aviso à
+        // parte, e mais demorado, porque exige uma ação DEPOIS (acertar o
+        // estoque) — e porque, junto do texto acima, passaria batido numa
+        // mensagem que a pessoa lê como "deu tudo certo". A mesma pendência
+        // fica registrada no sino do tenant.
+        if (sale.stockWarnings.isNotEmpty) {
+          final nomes = sale.stockWarnings.map((w) => w.name).join(', ');
+          showNeuWarningSnackBar(
+            context,
+            'Estoque não baixou em: $nomes. A venda foi registrada — '
+            'confira o saldo desses produtos.',
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
