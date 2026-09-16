@@ -192,7 +192,11 @@ class _SimpleItemFormDialogState extends ConsumerState<SimpleItemFormDialog> {
       title: _editando
           ? (_isService ? 'Editar serviço' : 'Editar produto')
           : 'Novo produto ou serviço',
-      maxWidth: 460,
+      // No celular o diálogo já preenche a tela (o `insetPadding` do NeuDialog
+      // é quem limita); 460 era o teto do DESKTOP, e apertava justamente as
+      // linhas de dois campos — preço de venda/compra e estoque atual/mínimo —,
+      // que ficavam com metade da largura de um campo normal cada.
+      maxWidth: context.isMobile ? 560 : 680,
       actions: [
         NeuButton(
           label: 'Cancelar',
