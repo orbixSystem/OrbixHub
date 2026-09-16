@@ -100,8 +100,17 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   Future<DebtorsPage> listDebtors() async {
     final porCliente = <String, Debtor>{};
     for (final t in _titulos) {
-      final (id, nome) = _donos[t.id] ?? (null, 'Sem cliente');
-      final chave = id ?? '__sem__';
+      // O dono sai do PRÓPRIO título quando ele o traz; `_donos` cobre só os
+      // títulos de exemplo, que nasceram sem esses campos.
+      final (id, nome) = _donos[t.id] ??
+          (t.customerId, (t.customerName ?? '').trim().isEmpty
+              ? 'Sem cliente'
+              : t.customerName!.trim());
+      // MESMA chave do servidor (`customerId ?? 'nome:<nome>'`). Agrupar todo
+      // mundo sem cadastro num balde só — o que este fake fazia — é exatamente
+      // o bug que a cliente filmou, e um fake que não consegue reproduzi-lo não
+      // serve para provar a correção.
+      final chave = id ?? 'nome:$nome';
       final atual = porCliente[chave];
       if (atual == null) {
         porCliente[chave] = Debtor(

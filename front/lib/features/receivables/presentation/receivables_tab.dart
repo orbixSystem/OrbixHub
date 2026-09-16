@@ -580,14 +580,41 @@ class _DebtorTile extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      [
-                        debtor.titleCount == 1
-                            ? '1 título'
-                            : '${debtor.titleCount} títulos',
-                        ?dias,
-                      ].join(' · '),
-                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                    Row(
+                      children: [
+                        // Devedor SEM cadastro fica marcado. Sem isto, um
+                        // apelido digitado no balcão igual ao nome de um
+                        // cliente real produz duas linhas visualmente
+                        // IDÊNTICAS, com valores diferentes, e ninguém sabe
+                        // qual é qual — cada uma cobra uma dívida de outra
+                        // pessoa. Os títulos já estão separados corretamente;
+                        // o que faltava era a tela dizer isso.
+                        if (debtor.customerId == null) ...[
+                          NeuStatusChip(
+                            label: 'Sem cadastro',
+                            color: neu.inkMuted,
+                            tint: neu.inkMuted.withValues(alpha: .14),
+                            icon: Icons.person_off_outlined,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            [
+                              debtor.titleCount == 1
+                                  ? '1 título'
+                                  : '${debtor.titleCount} títulos',
+                              ?dias,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: neu.inkMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
