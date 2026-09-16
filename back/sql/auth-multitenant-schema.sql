@@ -803,6 +803,15 @@ CREATE TABLE IF NOT EXISTS service_order (
 -- e o banco seguia recusando `aguardando_pecas`, `pendente`, `sem_conserto` e
 -- `a_receber` com um 500 na cara do usuário. Idempotente do jeito certo é
 -- convergir para o estado desejado, não "pular se já tem alguma coisa".
+--
+-- Este arquivo é reaplicado sobre bancos que JÁ TÊM dados, e `ADD CONSTRAINT`
+-- valida as linhas existentes: uma OS com status fora da lista abortaria o
+-- setup inteiro. Normaliza antes (mesma regra da migration 0056).
+UPDATE service_order
+SET status = 'em_execucao'
+WHERE status NOT IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
+                     'aguardando_pecas','pendente','sem_conserto','concluida',
+                     'a_receber','entregue','cancelada');
 ALTER TABLE service_order DROP CONSTRAINT IF EXISTS service_order_status_chk;
 ALTER TABLE service_order ADD CONSTRAINT service_order_status_chk
   CHECK (status IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
