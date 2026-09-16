@@ -234,6 +234,44 @@ class SubjectDraft {
       };
 }
 
+/// Acessório de um subject — armazenado em `attributes['acessorios']` (jsonb).
+/// Classe simples (não freezed) porque vive dentro do draft/attributes, não é
+/// entidade própria.
+class SubjectAccessory {
+  const SubjectAccessory({
+    required this.nome,
+    this.marca,
+    this.modelo,
+    this.numeroSerie,
+    this.observacoes,
+  });
+
+  final String nome;
+  final String? marca;
+  final String? modelo;
+  final String? numeroSerie;
+  final String? observacoes;
+
+  factory SubjectAccessory.fromJson(Map<String, dynamic> json) =>
+      SubjectAccessory(
+        nome: json['nome'] as String? ?? '',
+        marca: json['marca'] as String?,
+        modelo: json['modelo'] as String?,
+        numeroSerie: json['numero_serie'] as String?,
+        observacoes: json['observacoes'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'nome': nome,
+        if (marca != null && marca!.isNotEmpty) 'marca': marca,
+        if (modelo != null && modelo!.isNotEmpty) 'modelo': modelo,
+        if (numeroSerie != null && numeroSerie!.isNotEmpty)
+          'numero_serie': numeroSerie,
+        if (observacoes != null && observacoes!.isNotEmpty)
+          'observacoes': observacoes,
+      };
+}
+
 /// Opção de autocomplete vinda de `GET /customers/lookups/:fonte`.
 /// `value` é o texto salvo; `meta['codigo']` (quando houver) alimenta a cascata.
 @freezed
