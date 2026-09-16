@@ -105,6 +105,78 @@ String? fmtDataHora(String? iso) {
   return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
 }
 
+// ===================== Balanço do Caixa =====================
+
+/// Resultado do cálculo do balanço — função pura, testável sem widget.
+///
+/// Regras de negócio:
+/// - **Recebido**: soma de entries `os_payment` + `venda_avulsa` (não estornadas)
+/// - **Saídas**: soma de entries `sangria` (não estornadas) — saque do caixa
+/// - **Depósitos**: soma de entries `suprimento` (não estornadas) — dinheiro injetado
+/// - **Pendente**: soma dos totais das OS com `paymentStatus` a_receber/parcial
+/// - **Saldo**: Recebido + Depósitos - Saídas
+class BalanceSummary {
+  const BalanceSummary({
+    required this.recebido,
+    required this.saidas,
+    required this.depositos,
+    required this.pendente,
+  });
+
+  final double recebido;
+  final double saidas;
+  final double depositos;
+  final double pendente;
+
+  double get saldo => recebido + depositos - saidas;
+}
+
+/// Calcula o balanço a partir das entries do caixa e OS pendentes.
+///
+/// [entries] — lançamentos do período (do cashierController ou summary).
+/// [pendingOsTotals] — lista de valores (total) das OS pendentes.
+///
+/// Ignora entries estornadas (`reversedAt != null`).
+BalanceSummary computeBalance({
+  required Iterable<({String category, String? reversedAt, Object? amount})>
+      entries,
+  required Iterable<Object?> pendingOsTotals,
+}) {
+  double recebido = 0;
+  double saidas = 0;
+  double depositos = 0;
+
+  for (final e in entries) {
+    if (e.reversedAt != null) continue; // estornada — não conta
+    final v = moneyToDouble(e.amount);
+    switch (e.category) {
+      case 'os_payment':
+      case 'venda_avulsa':
+        recebido += v;
+      case 'sangria':
+        saidas += v;
+      case 'suprimento':
+        depositos += v;
+      case 'despesa':
+        saidas += v;
+      default:
+        break;
+    }
+  }
+
+  double pendente = 0;
+  for (final t in pendingOsTotals) {
+    pendente += moneyToDouble(t);
+  }
+
+  return BalanceSummary(
+    recebido: recebido,
+    saidas: saidas,
+    depositos: depositos,
+    pendente: pendente,
+  );
+}
+
 /// Quantidade sem casas decimais inúteis ("4" em vez de "4,000").
 String fmtQuantidade(String raw) {
   final v = double.tryParse(raw.replaceAll(',', '.'));
