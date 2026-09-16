@@ -33,6 +33,8 @@ export interface ItemFilter {
   /** Filtro por estado: 'active' (padrão), 'archived', ou 'all'. */
   active: 'active' | 'archived' | 'all';
   lowStock?: boolean;
+  /** Só os zerados — recorte mais estreito que `lowStock`. */
+  outOfStock?: boolean;
   /** Ordenação (default 'name_asc'). */
   sort?: ItemSort;
   skip: number;
@@ -132,7 +134,12 @@ export class InventoryRepository {
     // zerado entra mesmo sem mínimo cadastrado — saldo zero é falta com ou sem
     // parâmetro, e antes o produto esgotado sem mínimo não caía em filtro
     // nenhum. Serviço fica fora: não controla estoque (nasce com 0).
-    if (filter.lowStock) {
+    // `outOfStock` vence `lowStock` quando os dois vêm: é o recorte menor, e
+    // pedir "só os que acabaram" dentro de "os que precisam de atenção" não
+    // pode devolver mais linhas do que pedir só o primeiro.
+    if (filter.outOfStock) {
+      and.push({ kind: 'product', current_stock: { lte: 0 } });
+    } else if (filter.lowStock) {
       and.push({
         kind: 'product',
         OR: [

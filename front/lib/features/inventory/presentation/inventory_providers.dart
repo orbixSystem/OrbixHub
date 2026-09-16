@@ -39,6 +39,7 @@ class ItemListQuery {
     this.kind,
     this.active = 'true',
     this.lowStock = false,
+    this.outOfStock = false,
     this.sort = ItemSort.nameAsc,
   });
 
@@ -47,6 +48,10 @@ class ItemListQuery {
   final String? kind; // null (todos) | 'product' | 'service'
   final String active; // 'true' | 'false' | 'all'
   final bool lowStock;
+
+  /// Só os zerados. Separado de [lowStock] porque "acabou" e "está acabando"
+  /// são perguntas diferentes na hora de repor.
+  final bool outOfStock;
   final ItemSort sort;
 
   /// Algum filtro capaz de **esconder** itens está ligado? `active: 'true'` é o
@@ -58,6 +63,7 @@ class ItemListQuery {
       category != null ||
       kind != null ||
       lowStock ||
+      outOfStock ||
       active != 'true';
 
   /// `q` com sentinela: `q ?? this.q` faria `null` (limpar a busca) devolver o
@@ -70,6 +76,7 @@ class ItemListQuery {
     String? kind,
     String? active,
     bool? lowStock,
+    bool? outOfStock,
     ItemSort? sort,
   }) =>
       ItemListQuery(
@@ -78,6 +85,7 @@ class ItemListQuery {
         kind: kind ?? this.kind,
         active: active ?? this.active,
         lowStock: lowStock ?? this.lowStock,
+        outOfStock: outOfStock ?? this.outOfStock,
         sort: sort ?? this.sort,
       );
 }
@@ -109,6 +117,7 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
         kind: state.kind,
         active: state.active,
         lowStock: state.lowStock,
+        outOfStock: state.outOfStock,
         sort: state.sort,
       );
 
@@ -119,9 +128,17 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
         kind: kind,
         active: state.active,
         lowStock: state.lowStock,
+        outOfStock: state.outOfStock,
         sort: state.sort,
       );
-  void setLowStock(bool value) => state = state.copyWith(lowStock: value);
+  /// "Estoque baixo" e "Esgotados" são recortes diferentes da mesma pergunta,
+  /// e um contém o outro — ligar os dois juntos não diria nada. Ligar um
+  /// desliga o outro.
+  void setLowStock(bool value) =>
+      state = state.copyWith(lowStock: value, outOfStock: false);
+
+  void setOutOfStock(bool value) =>
+      state = state.copyWith(outOfStock: value, lowStock: false);
   void setSort(ItemSort sort) => state = state.copyWith(sort: sort);
 
   /// Zera tudo que esconde item, preservando a ordenação escolhida (ordenar não
@@ -231,6 +248,7 @@ class ItemListNotifier extends AsyncNotifier<ItemListState> {
             kind: _query.kind,
             active: _query.active,
             lowStock: _query.lowStock,
+            outOfStock: _query.outOfStock,
             sort: _query.sort.key,
             page: page,
           );

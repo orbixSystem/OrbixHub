@@ -53,3 +53,34 @@ Color? corDoEstoque(BuildContext context, StockStatus status) => switch (status)
   StockStatus.baixo => context.neu.warning,
   _ => null,
 };
+
+/// Borda do cartão quando o estoque pede atenção. `null` = cartão normal.
+///
+/// UNIFORME de propósito: o Flutter recusa pintar borda de larguras diferentes
+/// por lado junto com canto arredondado ("The following is not uniform"), e a
+/// primeira versão disto — faixa grossa só à esquerda — quebrava a tela inteira
+/// em tempo de pintura. A visibilidade que a faixa daria vem de [fundoDoEstoque]
+/// e do selo, que somados marcam o cartão bem mais que um contorno sozinho.
+BoxBorder? bordaDoEstoque(BuildContext context, StockStatus status) {
+  final cor = corDoEstoque(context, status);
+  if (cor == null) return null;
+  return Border.all(
+    color: cor,
+    width: status == StockStatus.esgotado ? 2 : 1.6,
+  );
+}
+
+/// Fundo levemente tingido para o cartão que pede atenção. `null` = padrão.
+///
+/// Só a borda não resolve numa lista longa: o contorno se perde entre cartões
+/// vizinhos, e o pedido era justamente "mais visível". O tingimento é fraco
+/// (o texto continua sendo lido sobre ele) mas muda o cartão inteiro, que é o
+/// que o olho pega ao varrer a lista.
+Color? fundoDoEstoque(BuildContext context, StockStatus status) {
+  final neu = context.neu;
+  return switch (status) {
+    StockStatus.esgotado => Color.lerp(neu.surface, neu.dangerTint, .75),
+    StockStatus.baixo => Color.lerp(neu.surface, neu.warningTint, .6),
+    _ => null,
+  };
+}

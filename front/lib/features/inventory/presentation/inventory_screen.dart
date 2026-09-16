@@ -177,39 +177,66 @@ class _Toolbar extends ConsumerWidget {
       onChanged: (v) => notifier.setKind(v == 'all' ? null : v),
     );
 
-    final lowStockToggle = InkWell(
-      onTap: () => notifier.setLowStock(!query.lowStock),
-      borderRadius: BorderRadius.circular(999),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: query.lowStock ? neu.warning : neu.surface,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: query.lowStock ? null : neu.raised(),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              query.lowStock
-                  ? Icons.warning_amber_rounded
-                  : Icons.warning_amber_outlined,
-              size: 16,
-              color: query.lowStock ? Colors.white : neu.inkMuted,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Estoque baixo',
-              style: TextStyle(
-                color: query.lowStock ? Colors.white : neu.inkMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+    // Dois recortes da MESMA pergunta ("o que preciso repor?"), e um contém o
+    // outro: baixo inclui os zerados. Por isso são exclusivos — ligar os dois
+    // devolveria a lista do mais largo e o segundo chip pareceria quebrado.
+    Widget filtroDeEstoque({
+      required String rotulo,
+      required bool ligado,
+      required IconData icone,
+      required Color cor,
+      required VoidCallback onTap,
+    }) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: ligado ? cor : neu.surface,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: ligado ? null : neu.raised(),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icone,
+                size: 16,
+                color: ligado ? Colors.white : neu.inkMuted,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                rotulo,
+                style: TextStyle(
+                  color: ligado ? Colors.white : neu.inkMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    final lowStockToggle = filtroDeEstoque(
+      rotulo: 'Estoque baixo',
+      ligado: query.lowStock,
+      icone: query.lowStock
+          ? Icons.warning_amber_rounded
+          : Icons.warning_amber_outlined,
+      cor: neu.warning,
+      onTap: () => notifier.setLowStock(!query.lowStock),
+    );
+
+    final esgotadoToggle = filtroDeEstoque(
+      rotulo: 'Esgotados',
+      ligado: query.outOfStock,
+      icone: query.outOfStock ? Icons.block_rounded : Icons.block_outlined,
+      cor: neu.danger,
+      onTap: () => notifier.setOutOfStock(!query.outOfStock),
     );
 
     final sortMenu = _SortMenu(value: query.sort, onChanged: notifier.setSort);
@@ -232,6 +259,8 @@ class _Toolbar extends ConsumerWidget {
                 kindSegmented,
                 const SizedBox(width: 8),
                 lowStockToggle,
+                const SizedBox(width: 8),
+                esgotadoToggle,
                 const SizedBox(width: 8),
                 sortMenu,
               ],
@@ -269,12 +298,13 @@ class _Toolbar extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            kindSegmented,
-            const SizedBox(width: 12),
-            lowStockToggle,
-          ],
+        // Wrap, não Row: com o chip novo a fila passa a caber mal em janela
+        // estreita de desktop, e um Row estouraria em vez de quebrar.
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [kindSegmented, lowStockToggle, esgotadoToggle],
         ),
       ],
     );
@@ -516,6 +546,8 @@ class _ItemTileState extends ConsumerState<_ItemTile> {
     return NeuCard(
       padding: EdgeInsets.zero,
       radius: NeuTokens.rField,
+      border: bordaDoEstoque(context, estoque),
+      color: fundoDoEstoque(context, estoque),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
