@@ -40,12 +40,18 @@ class ReceivablesRepositoryImpl implements ReceivablesRepository {
       });
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) => _guard(() async {
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) =>
+      _guard(() async {
         // Venda de balcão sem cliente tem rota literal própria (não é um uuid).
         final path = customerId == null
             ? '/receivables/sem-cliente'
             : '/receivables/$customerId';
-        final res = await _dio.get<Object?>(path);
+        final res = await _dio.get<Object?>(
+          path,
+          queryParameters: customerId == null && (apelido ?? '').isNotEmpty
+              ? {'nome': apelido}
+              : null,
+        );
         return DebtorDetail.fromJson(_asMap(res.data));
       });
 }

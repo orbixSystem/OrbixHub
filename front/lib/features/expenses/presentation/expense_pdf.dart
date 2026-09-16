@@ -50,7 +50,7 @@ Future<Uint8List> buildExpensePdf(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'Documento nao fiscal - controle interno',
+              'Documento não fiscal — controle interno',
               style: const pw.TextStyle(
                 fontSize: 7.5,
                 color: PdfDocTokens.muted,
@@ -72,7 +72,7 @@ Future<Uint8List> buildExpensePdf(
         ),
         pw.SizedBox(height: 10),
         _bloco('A CONTA', [
-          pdfLabelValue('Descricao:', e.description),
+          pdfLabelValue('Descrição:', e.description),
           if (categoria != null && categoria.isNotEmpty)
             pdfLabelValue('Categoria:', categoria),
           pdfLabelValue('Vencimento:', _data(e.vencimento)),
@@ -129,7 +129,7 @@ Future<Uint8List> buildExpensePdf(
               ),
           ]),
         if ((e.notes ?? '').isNotEmpty)
-          _bloco('OBSERVACAO', [pdfLabelValue('', e.notes!)]),
+          _bloco('OBSERVAÇÃO', [pdfLabelValue('', e.notes!)]),
         pw.SizedBox(height: 26),
         pw.Center(child: pdfSignatureLine('Responsavel')),
         pw.SizedBox(height: 14),

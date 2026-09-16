@@ -191,6 +191,7 @@ export class InventoryService {
         category: query.category?.trim() || undefined,
         active,
         lowStock: query.lowStock ?? false,
+        outOfStock: query.outOfStock ?? false,
         sort: query.sort ?? 'name_asc',
         skip: (page - 1) * pageSize,
         take: pageSize,

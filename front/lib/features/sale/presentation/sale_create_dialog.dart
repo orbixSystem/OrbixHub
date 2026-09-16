@@ -14,8 +14,10 @@ import '../../cashier/presentation/cashier_providers.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
 import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/domain/inventory_models.dart';
+import '../../inventory/domain/stock_status.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/simple_item_form_dialog.dart';
+import '../../inventory/presentation/stock_badge.dart';
 import '../domain/sale_models.dart';
 import '../domain/sale_payment_split.dart';
 import 'sale_providers.dart';
@@ -72,6 +74,7 @@ class _DraftLine {
     required this.kind,
     this.quantity = 1,
     this.unitPrice = 0,
+    this.estoque,
   });
   final String? inventoryItemId;
   String name;
@@ -79,8 +82,17 @@ class _DraftLine {
   double quantity;
   double unitPrice;
 
+  /// Saldo em estoque no momento em que o item entrou na venda. `null` =
+  /// serviço ou item avulso (não controla estoque). Guardado na LINHA porque
+  /// o aviso é sobre a quantidade digitada aqui, e o item já saiu da busca.
+  final double? estoque;
+
   bool get isFree => inventoryItemId == null;
   double get subtotal => quantity <= 0 ? 0 : quantity * unitPrice;
+
+  /// Quantidade pedida passou do que existe — o backend dá baixa na hora e vai
+  /// recusar. Avisamos antes de a venda inteira ser montada.
+  bool get estouraEstoque => estoque != null && quantity > estoque!;
 }
 
 class _SaleCreateDialog extends ConsumerStatefulWidget {
@@ -120,6 +132,7 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   // extrato — quem vendia para alguém sem cadastro escrevia ali quem levou e
   // o texto não aparecia em lugar nenhum depois.
   final _descCtrl = TextEditingController();
+
   /// Valor recebido — é ele que decide se a venda é paga, parcial ou fiado.
   /// Não existe mais um "Receber agora? sim/não": o número já diz tudo, e um
   /// controle a menos é um jeito a menos de a tela discordar de si mesma.
@@ -157,10 +170,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// A divisão do dinheiro (caixa / troco / fiado) — regra no domínio, testada
   /// por fora da UI: errar aqui não aparece na tela, aparece no fechamento.
   SalePaymentSplit get _split => SalePaymentSplit.of(
-        total: _total,
-        recebido: _recebido,
-        dinheiro: _method == 'dinheiro',
-      );
+    total: _total,
+    recebido: _recebido,
+    dinheiro: _method == 'dinheiro',
+  );
 
   double get _falta => _split.falta;
   double get _troco => _split.troco;
@@ -176,7 +189,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       _customerName = emEdicao.customerName;
       _descCtrl.text = emEdicao.description ?? '';
       if (moneyToDouble(emEdicao.discount) > 0) {
-        _descontoCtrl.text = formatAmountForInput(moneyToDouble(emEdicao.discount));
+        _descontoCtrl.text = formatAmountForInput(
+          moneyToDouble(emEdicao.discount),
+        );
       }
     }
     // Refazer OU editar: copia os itens. Preço e quantidade seguem editáveis —
@@ -184,13 +199,15 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     final origem = widget.refazerDe ?? emEdicao?.items;
     if (origem != null) {
       for (final i in origem) {
-        _lines.add(_DraftLine(
-          inventoryItemId: i.inventoryItemId,
-          name: i.name,
-          kind: i.kind,
-          quantity: double.tryParse(i.quantity.replaceAll(',', '.')) ?? 1,
-          unitPrice: double.tryParse(i.unitPrice.replaceAll(',', '.')) ?? 0,
-        ));
+        _lines.add(
+          _DraftLine(
+            inventoryItemId: i.inventoryItemId,
+            name: i.name,
+            kind: i.kind,
+            quantity: double.tryParse(i.quantity.replaceAll(',', '.')) ?? 1,
+            unitPrice: double.tryParse(i.unitPrice.replaceAll(',', '.')) ?? 0,
+          ),
+        );
       }
     }
   }
@@ -212,20 +229,27 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       if (existing >= 0) {
         _lines[existing].quantity += 1;
       } else {
-        _lines.add(_DraftLine(
-          inventoryItemId: item.id,
-          name: item.name,
-          kind: item.kind,
-          quantity: 1,
-          unitPrice: moneyToDouble(item.salePrice),
-        ));
+        _lines.add(
+          _DraftLine(
+            inventoryItemId: item.id,
+            name: item.name,
+            kind: item.kind,
+            quantity: 1,
+            unitPrice: moneyToDouble(item.salePrice),
+            estoque: item.kind == 'service'
+                ? null
+                : double.tryParse(item.currentStock),
+          ),
+        );
       }
     });
   }
 
   void _addFreeItem() {
     setState(() {
-      _lines.add(_DraftLine(name: '', kind: 'service', quantity: 1, unitPrice: 0));
+      _lines.add(
+        _DraftLine(name: '', kind: 'service', quantity: 1, unitPrice: 0),
+      );
     });
   }
 
@@ -267,19 +291,23 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             _LinhaResumo(rotulo: 'Total da venda', valor: _total),
             _LinhaResumo(rotulo: 'Recebido agora', valor: _aLancarNoCaixa),
             const Divider(height: 18),
-            _LinhaResumo(rotulo: 'Fica a receber', valor: _falta, destaque: true),
+            _LinhaResumo(
+              rotulo: 'Fica a receber',
+              valor: _falta,
+              destaque: true,
+            ),
             const SizedBox(height: 14),
             Text(
               !semCliente
                   ? 'A dívida de ${_customerName ?? 'cliente'} aparecerá em '
-                      'Caixa › Fiado, onde você pode receber depois.'
+                        'Caixa › Fiado, onde você pode receber depois.'
                   : apelido.isNotEmpty
-                      ? 'A dívida ficará registrada como "$apelido" no Fiado. '
-                          'Como não é um cliente cadastrado, lembre-se de '
-                          'cobrar manualmente.'
-                      : 'Sem cliente identificado, esta dívida vai para "Sem '
-                          'cliente" no Fiado — e fica difícil cobrar. Considere '
-                          'voltar e escolher o cliente.',
+                  ? 'A dívida ficará registrada como "$apelido" no Fiado. '
+                        'Como não é um cliente cadastrado, lembre-se de '
+                        'cobrar manualmente.'
+                  : 'Sem cliente identificado, esta dívida vai para "Sem '
+                        'cliente" no Fiado — e fica difícil cobrar. Considere '
+                        'voltar e escolher o cliente.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.35,
@@ -296,8 +324,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   }
 
   Future<void> _submit() async {
-    final valid =
-        _lines.where((l) => l.name.trim().isNotEmpty && l.quantity > 0).toList();
+    final valid = _lines
+        .where((l) => l.name.trim().isNotEmpty && l.quantity > 0)
+        .toList();
     if (valid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Adicione pelo menos um item.')),
@@ -312,24 +341,25 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     if (emEdicao != null) {
       setState(() => _submitting = true);
       try {
-        final atualizada =
-            await ref.read(saleRepositoryProvider).updateSale(
-                  emEdicao.id,
-                  items: [
-                    for (final l in valid)
-                      SaleItemDraft(
-                        inventoryItemId: l.inventoryItemId,
-                        name: l.isFree ? l.name.trim() : null,
-                        kind: l.kind,
-                        quantity: l.quantity,
-                        unitPrice: l.unitPrice,
-                      ),
-                  ],
-                  discount: _desconto,
-                  // Sempre enviado (inclusive vazio): apagar a observação é uma
-                  // edição legítima.
-                  description: _descCtrl.text.trim(),
-                );
+        final atualizada = await ref
+            .read(saleRepositoryProvider)
+            .updateSale(
+              emEdicao.id,
+              items: [
+                for (final l in valid)
+                  SaleItemDraft(
+                    inventoryItemId: l.inventoryItemId,
+                    name: l.isFree ? l.name.trim() : null,
+                    kind: l.kind,
+                    quantity: l.quantity,
+                    unitPrice: l.unitPrice,
+                  ),
+              ],
+              discount: _desconto,
+              // Sempre enviado (inclusive vazio): apagar a observação é uma
+              // edição legítima.
+              description: _descCtrl.text.trim(),
+            );
         ref.invalidate(cashierControllerProvider);
         if (mounted) {
           Navigator.of(context).pop(atualizada);
@@ -399,14 +429,18 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
         // A descrição livre entra no extrato junto do nº ("VND-0001 · texto").
         final note = _descCtrl.text.trim();
         final desc = [sale.number, if (note.isNotEmpty) note].join(' · ');
-        await ref.read(cashierRepositoryProvider).createEntry(EntryDraft(
-              amount: aLancar,
-              method: _method,
-              category: 'venda_avulsa',
-              saleKind: 'sale',
-              saleId: sale.id,
-              description: desc,
-            ));
+        await ref
+            .read(cashierRepositoryProvider)
+            .createEntry(
+              EntryDraft(
+                amount: aLancar,
+                method: _method,
+                category: 'venda_avulsa',
+                saleKind: 'sale',
+                saleId: sale.id,
+                description: desc,
+              ),
+            );
         ref.invalidate(cashierControllerProvider);
       }
 
@@ -414,7 +448,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       String? invoiceMsg;
       if (_emitInvoice) {
         try {
-          final res = await ref.read(saleRepositoryProvider).emitInvoice(sale.id);
+          final res = await ref
+              .read(saleRepositoryProvider)
+              .emitInvoice(sale.id);
           invoiceMsg = 'Nota: ${res.status}';
         } catch (e) {
           invoiceMsg = 'Nota indisponível ($e)';
@@ -427,8 +463,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
         // parcial — que antes era indistinguível de uma venda paga.
         final paidMsg = _falta > 0
             ? (aLancar > 0.005
-                ? ' · parcial, falta ${formatMoney(_falta)}'
-                : ' · fiado')
+                  ? ' · parcial, falta ${formatMoney(_falta)}'
+                  : ' · fiado')
             : ' · recebida';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -438,6 +474,19 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             ),
           ),
         );
+        // A venda foi gravada, mas o saldo de algum produto não mexeu. Aviso à
+        // parte, e mais demorado, porque exige uma ação DEPOIS (acertar o
+        // estoque) — e porque, junto do texto acima, passaria batido numa
+        // mensagem que a pessoa lê como "deu tudo certo". A mesma pendência
+        // fica registrada no sino do tenant.
+        if (sale.stockWarnings.isNotEmpty) {
+          final nomes = sale.stockWarnings.map((w) => w.name).join(', ');
+          showNeuWarningSnackBar(
+            context,
+            'Estoque não baixou em: $nomes. A venda foi registrada — '
+            'confira o saldo desses produtos.',
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -470,186 +519,198 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
         child: Form(
           key: _formKey,
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Cabeçalho FIXO (não rola com o corpo).
-            Row(
-              children: [
-                const Icon(Icons.shopping_cart_checkout_outlined,
-                    color: AppColors.brandDeep),
-                const SizedBox(width: 8),
-                // `Expanded` (não `Spacer` depois de um Text rígido): assim o
-                // título cede espaço em vez de empurrar o botão fora da tela.
-                Expanded(
-                  child: Text(
-                    widget.editando == null
-                        ? 'Venda avulsa'
-                        : 'Editar venda ${widget.editando!.number}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                    overflow: TextOverflow.ellipsis,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Cabeçalho FIXO (não rola com o corpo).
+              Row(
+                children: [
+                  const Icon(
+                    Icons.shopping_cart_checkout_outlined,
+                    color: AppColors.brandDeep,
+                  ),
+                  const SizedBox(width: 8),
+                  // `Expanded` (não `Spacer` depois de um Text rígido): assim o
+                  // título cede espaço em vez de empurrar o botão fora da tela.
+                  Expanded(
+                    child: Text(
+                      widget.editando == null
+                          ? 'Venda avulsa'
+                          : 'Editar venda ${widget.editando!.number}',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Miolo ROLÁVEL: em telas baixas ou com o teclado aberto, só esta
+              // parte rola — cabeçalho e rodapé permanecem fixos.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // cliente opcional
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_outline,
+                            size: 18,
+                            color: AppColors.inkMuted,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _customerName ?? 'Sem cliente (balcão)',
+                              style: const TextStyle(color: AppColors.inkMuted),
+                            ),
+                          ),
+                          if (_customerId != null)
+                            TextButton(
+                              onPressed: () => setState(() {
+                                _customerId = null;
+                                _customerName = null;
+                              }),
+                              child: const Text('Remover'),
+                            ),
+                          TextButton.icon(
+                            onPressed: _pickCustomer,
+                            icon: const Icon(Icons.search, size: 16),
+                            label: Text(
+                              _customerId == null ? 'Cliente' : 'Trocar',
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Campo de apelido/observação — visível apenas quando sem cliente cadastrado.
+                      if (_customerId == null) ...[
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _customerNoteCtrl,
+                          maxLength: 100,
+                          decoration: const InputDecoration(
+                            hintText: 'Apelido ou Observação (ex: João)',
+                            helperText:
+                                'Opcional — identifica a venda sem cadastrar o cliente',
+                            counterText: '',
+                            isDense: true,
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                      const Divider(height: 24),
+                      // busca de produto (SELECT flutuante — não empurra o layout).
+                      _ProductPicker(onPick: _addFromItem),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _addFreeItem,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Adicionar item avulso'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Tabela de itens — SEMPRE visível (adicionar não troca a tela).
+                      const _ItemsHeader(),
+                      const SizedBox(height: 4),
+                      if (_lines.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          child: Text(
+                            'Busque um produto do estoque ou adicione um item avulso.',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 14,
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          // O scroll é do corpo (SingleChildScrollView); a lista só empilha.
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _lines.length,
+                          itemBuilder: (_, i) => _LineTile(
+                            line: _lines[i],
+                            onChanged: () => setState(() {}),
+                            onRemove: () => setState(() => _lines.removeAt(i)),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 16),
+                      // Observação da venda — gravada na venda, sai no comprovante e
+                      // acompanha o lançamento do caixa.
+                      TextField(
+                        controller: _descCtrl,
+                        maxLength: 500,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          counterText: '',
+                          labelText: 'Descrição da venda (opcional)',
+                          hintText:
+                              'Ex.: placa do veículo, quem levou, nº do equipamento…',
+                          helperText: 'Sai no comprovante de venda.',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _DescontoRow(
+                        controller: _descontoCtrl,
+                        bruto: _bruto,
+                        desconto: _desconto,
+                        onChanged: () => setState(() {}),
+                      ),
+                      const SizedBox(height: 16),
+                      // Recebimento só na CRIAÇÃO: editar uma venda registrada não recebe
+                      // dinheiro de novo — o pagamento dela se ajusta pelos lançamentos do
+                      // caixa (receber o que falta, ou estornar o que sobrou).
+                      if (widget.editando == null)
+                        _PaymentSection(
+                          isNarrow: isNarrow,
+                          method: _method,
+                          emitInvoice: _emitInvoice,
+                          total: _total,
+                          recebido: _recebido,
+                          falta: _falta,
+                          troco: _troco,
+                          controller: _receivedCtrl,
+                          onMethod: (v) => setState(() => _method = v),
+                          onEmitInvoice: (v) =>
+                              setState(() => _emitInvoice = v),
+                          onRecebidoChanged: () =>
+                              setState(() => _receivedTouched = true),
+                          onValorExato: () => setState(() {
+                            _receivedTouched = true;
+                            _receivedCtrl.text = formatAmountForInput(_total);
+                          }),
+                        ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Miolo ROLÁVEL: em telas baixas ou com o teclado aberto, só esta
-            // parte rola — cabeçalho e rodapé permanecem fixos.
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-            // cliente opcional
-            Row(
-              children: [
-                const Icon(Icons.person_outline,
-                    size: 18, color: AppColors.inkMuted),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    _customerName ?? 'Sem cliente (balcão)',
-                    style: const TextStyle(color: AppColors.inkMuted),
-                  ),
-                ),
-                if (_customerId != null)
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _customerId = null;
-                      _customerName = null;
-                    }),
-                    child: const Text('Remover'),
-                  ),
-                TextButton.icon(
-                  onPressed: _pickCustomer,
-                  icon: const Icon(Icons.search, size: 16),
-                  label: Text(_customerId == null ? 'Cliente' : 'Trocar'),
-                ),
-              ],
-            ),
-            // Campo de apelido/observação — visível apenas quando sem cliente cadastrado.
-            if (_customerId == null) ...[
-              const SizedBox(height: 6),
-              TextField(
-                controller: _customerNoteCtrl,
-                maxLength: 100,
-                decoration: const InputDecoration(
-                  hintText: 'Apelido ou Observação (ex: João)',
-                  helperText:
-                      'Opcional — identifica a venda sem cadastrar o cliente',
-                  counterText: '',
-                  isDense: true,
-                ),
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 16),
+              // Rodapé FIXO (total + botão de vender).
+              _SubmitBar(
+                isNarrow: isNarrow,
+                total: _total,
+                // Na edição não há fiado a decidir aqui: o rótulo é "Salvar".
+                falta: widget.editando == null ? _falta : 0,
+                editando: widget.editando != null,
+                submitting: _submitting,
+                onSubmit: _submitting ? null : _submit,
               ),
             ],
-            const Divider(height: 24),
-            // busca de produto (SELECT flutuante — não empurra o layout).
-            _ProductPicker(onPick: _addFromItem),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _addFreeItem,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Adicionar item avulso'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Tabela de itens — SEMPRE visível (adicionar não troca a tela).
-            const _ItemsHeader(),
-            const SizedBox(height: 4),
-            if (_lines.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                child: Text(
-                  'Busque um produto do estoque ou adicione um item avulso.',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 14),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                // O scroll é do corpo (SingleChildScrollView); a lista só empilha.
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _lines.length,
-                itemBuilder: (_, i) => _LineTile(
-                  line: _lines[i],
-                  onChanged: () => setState(() {}),
-                  onRemove: () => setState(() => _lines.removeAt(i)),
-                ),
-              ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            // Observação da venda — gravada na venda, sai no comprovante e
-            // acompanha o lançamento do caixa.
-            TextField(
-              controller: _descCtrl,
-              maxLength: 500,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                isDense: true,
-                counterText: '',
-                labelText: 'Descrição da venda (opcional)',
-                hintText: 'Ex.: placa do veículo, quem levou, nº do equipamento…',
-                helperText: 'Sai no comprovante de venda.',
-              ),
-            ),
-            const SizedBox(height: 16),
-            _DescontoRow(
-              controller: _descontoCtrl,
-              bruto: _bruto,
-              desconto: _desconto,
-              onChanged: () => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            // Recebimento só na CRIAÇÃO: editar uma venda registrada não recebe
-            // dinheiro de novo — o pagamento dela se ajusta pelos lançamentos do
-            // caixa (receber o que falta, ou estornar o que sobrou).
-            if (widget.editando == null)
-            _PaymentSection(
-              isNarrow: isNarrow,
-              method: _method,
-              emitInvoice: _emitInvoice,
-              total: _total,
-              recebido: _recebido,
-              falta: _falta,
-              troco: _troco,
-              controller: _receivedCtrl,
-              onMethod: (v) => setState(() => _method = v),
-              onEmitInvoice: (v) => setState(() => _emitInvoice = v),
-              onRecebidoChanged: () => setState(() => _receivedTouched = true),
-              onValorExato: () => setState(() {
-                _receivedTouched = true;
-                _receivedCtrl.text = formatAmountForInput(_total);
-              }),
-            ),
-
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Rodapé FIXO (total + botão de vender).
-            _SubmitBar(
-              isNarrow: isNarrow,
-              total: _total,
-              // Na edição não há fiado a decidir aqui: o rótulo é "Salvar".
-              falta: widget.editando == null ? _falta : 0,
-              editando: widget.editando != null,
-              submitting: _submitting,
-              onSubmit: _submitting ? null : _submit,
-            ),
-          ],
           ),
         ),
       ),
@@ -734,7 +795,9 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
       optionsBuilder: (value) async {
         final q = value.text.trim();
         try {
-          final page = await ref.read(inventoryRepositoryProvider).listItems(
+          final page = await ref
+              .read(inventoryRepositoryProvider)
+              .listItems(
                 // Vazio → traz os primeiros itens (lista abre no clique).
                 q: q.isEmpty ? null : q,
                 active: 'true', // ativos (backend: 'true' | 'false' | 'all')
@@ -795,19 +858,39 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
               padding: EdgeInsets.zero,
               shrinkWrap: true,
               itemCount: options.length,
-              separatorBuilder: (_, _) =>
-                  Divider(
-                      height: 1,
-                      color: Theme.of(context).colorScheme.outlineVariant),
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               itemBuilder: (_, i) {
                 final it = options.elementAt(i);
+                final estado = stockStatusOf(
+                  kind: it.kind,
+                  currentStock: it.currentStock,
+                  minStock: it.minStock,
+                );
+                // Esgotado não é escolhível AQUI porque a venda dá baixa na
+                // hora e o backend recusa saldo negativo. Deixar clicar seria
+                // deixar montar a venda inteira para ela falhar no fim.
+                final bloqueado = !podeVender(estado);
+                final cor = corDoEstoque(context, estado);
                 return ListTile(
                   dense: true,
-                  title: Text(it.name),
-                  subtitle: Text(formatMoney(it.salePrice),
-                      style: const TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.add, size: 18),
-                  onTap: () => onSelected(it),
+                  enabled: !bloqueado,
+                  title: Text(it.name, style: TextStyle(color: cor)),
+                  subtitle: Text(
+                    it.kind == 'service'
+                        ? formatMoney(it.salePrice)
+                        : '${formatMoney(it.salePrice)}  ·  estoque: '
+                              '${_fmtQtd(double.tryParse(it.currentStock) ?? 0)}',
+                    style: TextStyle(fontSize: 12, color: cor),
+                  ),
+                  trailing:
+                      estado == StockStatus.ok ||
+                          estado == StockStatus.semControle
+                      ? const Icon(Icons.add, size: 18)
+                      : StockBadge(status: estado, compacto: true),
+                  onTap: bloqueado ? null : () => onSelected(it),
                 );
               },
             ),
@@ -851,7 +934,9 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
                 Text(
                   'Não achei “$_q” no estoque.',
                   style: const TextStyle(
-                      fontSize: 14, color: AppColors.inkMuted),
+                    fontSize: 14,
+                    color: AppColors.inkMuted,
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: () => _cadastrar(_q),
@@ -1098,11 +1183,14 @@ class _SubmitBar extends StatelessWidget {
           ? const SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2))
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
           : const Icon(Icons.check),
-      label: Text(editando
-          ? 'Salvar venda'
-          : (falta > 0 ? 'Vender (fiado)' : 'Vender e receber')),
+      label: Text(
+        editando
+            ? 'Salvar venda'
+            : (falta > 0 ? 'Vender (fiado)' : 'Vender e receber'),
+      ),
       style: FilledButton.styleFrom(
         minimumSize: isNarrow ? const Size(0, 48) : const Size(190, 44),
       ),
@@ -1110,11 +1198,7 @@ class _SubmitBar extends StatelessWidget {
     if (isNarrow) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          totalText,
-          const SizedBox(height: 12),
-          button,
-        ],
+        children: [totalText, const SizedBox(height: 12), button],
       );
     }
     // `Expanded` no texto (não `Spacer`) para a barra nunca estourar: com
@@ -1166,8 +1250,9 @@ class _DescontoRow extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: const [DecimalInputFormatter()],
                 onChanged: (_) => onChanged(),
                 decoration: const InputDecoration(
@@ -1194,10 +1279,10 @@ class _DescontoRow extends StatelessWidget {
           Text(
             limitado
                 ? 'Desconto limitado ao valor da venda '
-                    '(${formatMoney(bruto)}).'
+                      '(${formatMoney(bruto)}).'
                 : '${formatMoney(bruto)} − ${formatMoney(desconto)} = '
-                    '${formatMoney(bruto - desconto)}'
-                    '${bruto - desconto <= 0 ? ' · venda como brinde' : ''}',
+                      '${formatMoney(bruto - desconto)}'
+                      '${bruto - desconto <= 0 ? ' · venda como brinde' : ''}',
             style: TextStyle(
               color: limitado ? AppColors.warning : scheme.onSurfaceVariant,
               fontSize: 12,
@@ -1216,7 +1301,10 @@ class _ItemsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(
-        color: AppColors.inkMuted, fontSize: 12, fontWeight: FontWeight.w700);
+      color: AppColors.inkMuted,
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       // Mesmas proporções do `_LineTile` (5/3/4 + 36) — colunas em flex, não em
@@ -1226,9 +1314,19 @@ class _ItemsHeader extends StatelessWidget {
         children: const [
           Expanded(flex: 5, child: Text('ITEM', style: style)),
           SizedBox(width: 6),
-          Expanded(flex: 3, child: Text('QTD', style: style, textAlign: TextAlign.center)),
+          Expanded(
+            flex: 3,
+            child: Text('QTD', style: style, textAlign: TextAlign.center),
+          ),
           SizedBox(width: 6),
-          Expanded(flex: 4, child: Text('PREÇO (R\$)', style: style, textAlign: TextAlign.center)),
+          Expanded(
+            flex: 4,
+            child: Text(
+              'PREÇO (R\$)',
+              style: style,
+              textAlign: TextAlign.center,
+            ),
+          ),
           SizedBox(width: 36),
         ],
       ),
@@ -1258,9 +1356,10 @@ class _LineTile extends StatelessWidget {
             maxLength: 120,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
-                isDense: true,
-                counterText: '',
-                hintText: 'Descrição do item avulso'),
+              isDense: true,
+              counterText: '',
+              hintText: 'Descrição do item avulso',
+            ),
             validator: Validators.required('Descrição'),
             onChanged: (v) {
               line.name = v;
@@ -1301,6 +1400,35 @@ class _LineTile extends StatelessWidget {
       onPressed: onRemove,
     );
 
+    // Aviso na PRÓPRIA linha, não num diálogo por cima: ele aparece enquanto a
+    // quantidade é digitada, ao lado do número que o causou.
+    final aviso = line.estouraEstoque
+        ? Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: context.neu.warning,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Só há ${_fmtQtd(line.estoque!)} em estoque — a venda vai '
+                    'ser recusada com ${_fmtQtd(line.quantity)}.',
+                    style: TextStyle(
+                      color: context.neu.warning,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null;
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: empilhar ? 8 : 4),
       child: empilhar
@@ -1321,24 +1449,36 @@ class _LineTile extends StatelessWidget {
                     Expanded(child: preco),
                   ],
                 ),
+                ?aviso,
               ],
             )
-          : Row(
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 5/3/4: o preço precisa de mais espaço que a quantidade
-                // ("1.234,56" contra "4"), e tudo em flex para a linha nunca
-                // estourar nem cortar o número.
-                Expanded(flex: 5, child: nome),
-                const SizedBox(width: 6),
-                Expanded(flex: 3, child: quantidade),
-                const SizedBox(width: 6),
-                Expanded(flex: 4, child: preco),
-                SizedBox(width: 36, child: remover),
+                Row(
+                  children: [
+                    // 5/3/4: o preço precisa de mais espaço que a quantidade
+                    // ("1.234,56" contra "4"), e tudo em flex para a linha nunca
+                    // estourar nem cortar o número.
+                    Expanded(flex: 5, child: nome),
+                    const SizedBox(width: 6),
+                    Expanded(flex: 3, child: quantidade),
+                    const SizedBox(width: 6),
+                    Expanded(flex: 4, child: preco),
+                    SizedBox(width: 36, child: remover),
+                  ],
+                ),
+                ?aviso,
               ],
             ),
     );
   }
 }
+
+/// Quantidade para leitura humana: "4", não "4,000".
+String _fmtQtd(double v) =>
+    (v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(3))
+        .replaceAll('.', ',');
 
 /// Mini-picker de cliente (busca por nome). Devolve (id, name) ou null.
 class _CustomerPickerDialog extends ConsumerStatefulWidget {
@@ -1363,15 +1503,20 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
   Future<void> _search(String q) async {
     setState(() => _loading = true);
     try {
-      final page = await ref.read(customersRepositoryProvider).listCustomers(
+      final page = await ref
+          .read(customersRepositoryProvider)
+          .listCustomers(
             q: q.trim().isEmpty ? null : q.trim(),
             status: 'active',
             sort: 'name_asc',
             page: 1,
           );
       if (mounted) {
-        setState(() =>
-            _results = page.items.map((c) => (id: c.id, name: c.name)).toList());
+        setState(
+          () => _results = page.items
+              .map((c) => (id: c.id, name: c.name))
+              .toList(),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -1443,49 +1588,54 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : vazio
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  digitado.isEmpty
-                                      ? 'Nenhum cliente cadastrado.'
-                                      : 'Nenhum cliente com “$digitado”.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-                                FilledButton.icon(
-                                  onPressed: _cadastrar,
-                                  icon: const Icon(Icons.person_add_alt_1,
-                                      size: 18),
-                                  label: Text(digitado.isEmpty
-                                      ? 'Cadastrar cliente'
-                                      : 'Cadastrar “$digitado”'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView(
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            for (final c in _results)
-                              ListTile(
-                                dense: true,
-                                title: Text(c.name),
-                                onTap: () => Navigator.of(context).pop(c),
+                            Text(
+                              digitado.isEmpty
+                                  ? 'Nenhum cliente cadastrado.'
+                                  : 'Nenhum cliente com “$digitado”.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: _cadastrar,
+                              icon: const Icon(
+                                Icons.person_add_alt_1,
+                                size: 18,
                               ),
+                              label: Text(
+                                digitado.isEmpty
+                                    ? 'Cadastrar cliente'
+                                    : 'Cadastrar “$digitado”',
+                              ),
+                            ),
                           ],
                         ),
+                      ),
+                    )
+                  : ListView(
+                      children: [
+                        for (final c in _results)
+                          ListTile(
+                            dense: true,
+                            title: Text(c.name),
+                            onTap: () => Navigator.of(context).pop(c),
+                          ),
+                      ],
+                    ),
             ),
           ],
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar')),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
         // Sempre disponível — o cliente pode ser novo mesmo com a busca cheia
         // (homônimo, ou ela só quer cadastrar logo).
         TextButton.icon(

@@ -14,6 +14,8 @@ abstract interface class InventoryRepository {
     String? kind,
     String active,
     bool lowStock,
+    /// Só os zerados — recorte mais estreito que [lowStock], que já os inclui.
+    bool outOfStock,
     String sort,
     int page,
   });

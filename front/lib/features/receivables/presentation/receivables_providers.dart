@@ -34,8 +34,18 @@ final pendingSettlementProvider =
   return ref.read(receivablesRepositoryProvider).listPendingSettlement();
 });
 
+/// Chave do detalhe de um devedor.
+///
+/// Inclui o APELIDO porque venda de balcão não tem cliente cadastrado: com a
+/// chave sendo só o `customerId`, dois apelidos diferentes (ambos com id nulo)
+/// compartilhariam a MESMA entrada de cache e um veria os títulos do outro —
+/// o mesmo bug que o servidor tinha, reproduzido no cliente.
+typedef DebtorKey = ({String? customerId, String? apelido});
+
 final debtorTitlesProvider =
-    FutureProvider.autoDispose.family<DebtorDetail, String?>((ref, customerId) {
+    FutureProvider.autoDispose.family<DebtorDetail, DebtorKey>((ref, k) {
   ref.watch(connectivityControllerProvider.select((s) => s.status));
-  return ref.read(receivablesRepositoryProvider).titlesOf(customerId);
+  return ref
+      .read(receivablesRepositoryProvider)
+      .titlesOf(k.customerId, apelido: k.apelido);
 });

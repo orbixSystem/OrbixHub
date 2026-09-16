@@ -52,6 +52,7 @@ import {
   isIdUniqueViolation,
   isUniqueViolation,
 } from '../../common/database/prisma-errors';
+import { criarComNumeroSequencial } from '../../common/database/numero-sequencial';
 import {
   clampChangedSinceLimit,
   type ChangedSincePage,
@@ -130,7 +131,13 @@ const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
   aberta: ['aguardando_aprovacao', 'em_execucao', 'pendente', 'cancelada'],
   aguardando_aprovacao: ['aprovada', 'aberta', 'cancelada'],
   aprovada: ['em_execucao', 'aguardando_pecas', 'cancelada'],
-  em_execucao: ['concluida', 'aguardando_pecas', 'pendente', 'sem_conserto', 'cancelada'],
+  em_execucao: [
+    'concluida',
+    'aguardando_pecas',
+    'pendente',
+    'sem_conserto',
+    'cancelada',
+  ],
   aguardando_pecas: ['em_execucao', 'cancelada'],
   pendente: ['aberta', 'cancelada'],
   sem_conserto: ['entregue', 'cancelada'],
@@ -145,15 +152,28 @@ const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
  * quando vem de uma OS finalizada, que nenhum outro módulo tenha documento
  * amarrado a ela (ver `OrderLockRegistry`).
  *
- * `concluida`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
+ * `a_receber` entrou na lista depois: ela é OS finalizada esperando pagamento,
+ * e voltar dela para `em_execucao` é reabrir igual às outras. Enquanto ficou de
+ * fora, `concluida → a_receber → em_execucao` era um caminho que devolvia uma
+ * OS fechada ao trabalho **sem exigir `os.approve` e sem passar pela trava de
+ * nota fiscal** — e de lá dava até para cancelá-la, coisa que a FSM proíbe
+ * diretamente.
+ *
+ * `concluida`/`a_receber`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
  * propósito: os três consomem estoque (ver `CONSUMING_STATUSES`), então reabrir
  * não devolve peça à prateleira nem tenta baixá-la de novo. Reabrir em `aberta`
  * faria o estoque ir e voltar a cada correção, e uma peça vendida no meio do
  * caminho deixaria a baixa de volta falhando em silêncio.
  */
+const REABREM_EM_EXECUCAO: ReadonlySet<OsStatus> = new Set([
+  'concluida',
+  'a_receber',
+  'entregue',
+]);
+
 const isReopen = (from: OsStatus, to: OsStatus): boolean =>
   (from === 'cancelada' && to === 'aberta') ||
-  ((from === 'concluida' || from === 'entregue') && to === 'em_execucao');
+  (REABREM_EM_EXECUCAO.has(from) && to === 'em_execucao');
 
 /**
  * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
@@ -161,7 +181,11 @@ const isReopen = (from: OsStatus, to: OsStatus): boolean =>
  * editáveis pela reabertura (ver [isReopen]). `sem_conserto` é terminal (só
  * sai para entregue/cancelada).
  */
-const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue', 'sem_conserto']);
+const TERMINAL_STATUSES = new Set<OsStatus>([
+  'cancelada',
+  'entregue',
+  'sem_conserto',
+]);
 
 @Injectable()
 export class OsService {
@@ -193,7 +217,10 @@ export class OsService {
    * Rótulo do status na língua do nicho do tenant. Resolvido FORA de qualquer
    * transação — quem chama já traz o texto pronto para dentro dela.
    */
-  private async statusLabel(tenantId: string, status: OsStatus): Promise<string> {
+  private async statusLabel(
+    tenantId: string,
+    status: OsStatus,
+  ): Promise<string> {
     const vertical = await this.tenancy.getTenantVertical(tenantId);
     return (
       this.vocabulary.texto(vertical, statusVocabKey(status)) ??
@@ -211,7 +238,9 @@ export class OsService {
       const evt: OsChangedEvent = { tenantId, orderId, kind };
       this.events.emit(OS_CHANGED_EVENT, evt);
     } catch (e) {
-      this.logger.warn(`Falha ao emitir ${OS_CHANGED_EVENT}: ${(e as Error).message}`);
+      this.logger.warn(
+        `Falha ao emitir ${OS_CHANGED_EVENT}: ${(e as Error).message}`,
+      );
     }
   }
 
@@ -301,9 +330,9 @@ export class OsService {
       );
     }
 
-    const order = await (async () => {
-      try {
-        return await this.tenant.withTenantTx(async () => {
+    const order = await criarComNumeroSequencial(
+      () =>
+        this.tenant.withTenantTx(async () => {
           const n = (await this.repo.maxOrderNumber()) + 1;
           const number = `OS-${String(n).padStart(4, '0')}`;
           const created = await this.repo.createOrder(user.tenantId, {
@@ -318,7 +347,9 @@ export class OsService {
             assigned_to: dto.assignedTo ?? null,
             complaint: dto.complaint?.trim() || null,
             diagnosis: dto.diagnosis?.trim() || null,
-            scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
+            scheduled_start: dto.scheduledStart
+              ? new Date(dto.scheduledStart)
+              : null,
             scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
             // Nasce sem itens: o desconto fica gravado e entra no total assim
             // que o primeiro item chega (recomputeTotal).
@@ -333,14 +364,18 @@ export class OsService {
             createdBy: user.userId,
           });
           return created;
-        });
-      } catch (e) {
+        }),
+      {
         // PK duplicada (replay offline com id) ≠ nº da OS duplicado (corrida do
         // uq_service_order_tenant_number). Sob RLS o meta.target vem null —
         // quando o detalhe não aponta a PK, confirmamos com uma leitura por id
-        // em nova tx (id existe no tenant ⇒ conflito de id). Colisão de número
-        // segue o fluxo normal do erro (comportamento pré-existente).
-        if (dto.id && isUniqueViolation(e)) {
+        // em nova tx (id existe no tenant ⇒ conflito de id).
+        //
+        // Conflito de id é definitivo: repetir só repetiria. Colisão de número
+        // agora é REPETIDA — antes virava erro cru na cara de quem abriu a OS
+        // meio segundo depois do colega.
+        ehConflitoDeId: async (e) => {
+          if (!dto.id) return false;
           const idTaken =
             isIdUniqueViolation(e) ||
             (await this.tenant.withTenantTx(() =>
@@ -349,10 +384,10 @@ export class OsService {
           if (idTaken) {
             throw new ConflictException('Registro já existe (id duplicado).');
           }
-        }
-        throw e;
-      }
-    })();
+          return false;
+        },
+      },
+    );
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
 
@@ -384,10 +419,9 @@ export class OsService {
         status: query.status,
         statuses: query.statuses
           ?.split(',')
-          .filter((s): s is OsStatus =>
-            OS_STATUSES.includes(s as OsStatus),
-          ),
+          .filter((s): s is OsStatus => OS_STATUSES.includes(s as OsStatus)),
         customerId: query.customerId,
+        assignedTo: query.assignedTo,
         sort: query.sort,
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -502,8 +536,10 @@ export class OsService {
         throw new NotFoundException('OS não encontrada.');
       this.assertEditable(existing);
       const data: Record<string, unknown> = {};
-      if (dto.complaint !== undefined) data.complaint = dto.complaint.trim() || null;
-      if (dto.diagnosis !== undefined) data.diagnosis = dto.diagnosis.trim() || null;
+      if (dto.complaint !== undefined)
+        data.complaint = dto.complaint.trim() || null;
+      if (dto.diagnosis !== undefined)
+        data.diagnosis = dto.diagnosis.trim() || null;
       if (dto.scheduledStart !== undefined)
         data.scheduled_start = toDate(dto.scheduledStart);
       if (dto.scheduledEnd !== undefined)
@@ -569,7 +605,10 @@ export class OsService {
         throw new BadRequestException('OS cancelada não pode virar fiado.');
       }
       if (existing.fiado_at) return { order: existing, jaEra: true };
-      return { order: await this.repo.setFiadoAt(id, new Date()), jaEra: false };
+      return {
+        order: await this.repo.setFiadoAt(id, new Date()),
+        jaEra: false,
+      };
     });
     if (jaEra) return order;
     await this.audit.log(user.tenantId, user.userId, 'os_fiado', id);
@@ -632,7 +671,9 @@ export class OsService {
       );
     }
 
-    const result = await this.tenant.withTenantTx(() => this.repo.softDelete(id));
+    const result = await this.tenant.withTenantTx(() =>
+      this.repo.softDelete(id),
+    );
 
     // Estoque de volta à prateleira. FORA da tx (reconcile abre a própria) e
     // best-effort, como nas demais reconciliações: a OS já foi excluída, e um
@@ -775,9 +816,15 @@ export class OsService {
 
     await this.tenant.withTenantTx(() => this.repo.deletePhoto(photoId));
     this.emitOsChanged(user.tenantId, orderId, 'photos');
-    await this.audit.log(user.tenantId, user.userId, 'os_photo_delete', orderId, {
-      photoId,
-    });
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'os_photo_delete',
+      orderId,
+      {
+        photoId,
+      },
+    );
     return { id: photoId, deleted: true };
   }
 
@@ -811,7 +858,8 @@ export class OsService {
     body: string,
   ) {
     const text = body?.trim();
-    if (!text) throw new BadRequestException('O comentário não pode ser vazio.');
+    if (!text)
+      throw new BadRequestException('O comentário não pode ser vazio.');
     const created = await this.tenant.withTenantTx(async () => {
       await this.assertPhotoInOrder(orderId, photoId);
       return this.repo.addPhotoComment(user.tenantId, {
@@ -858,14 +906,16 @@ export class OsService {
     const order = await this.getOrderOrThrow(id);
     const from = order.status as OsStatus;
 
-    if (from === to) throw new BadRequestException('A OS já está neste status.');
+    if (from === to)
+      throw new BadRequestException('A OS já está neste status.');
     if (!TRANSITIONS[from]?.includes(to)) {
-      throw new BadRequestException(
-        `Transição inválida: ${from} → ${to}.`,
-      );
+      throw new BadRequestException(`Transição inválida: ${from} → ${to}.`);
     }
     // Aprovar exige a permissão os.approve (owner/gerente têm; mecânico não).
-    if (to === 'aprovada' && !(await this.userHasPermission(user, 'os.approve'))) {
+    if (
+      to === 'aprovada' &&
+      !(await this.userHasPermission(user, 'os.approve'))
+    ) {
       throw new ForbiddenException('Sem permissão para aprovar OS.');
     }
     // Reabrir é privilegiado — mesmo público de aprovar.
@@ -1280,7 +1330,9 @@ export class OsService {
 
     return templates.map((t) => {
       const items = t.items.map((it) => {
-        const inv = it.inventory_item_id ? byId.get(it.inventory_item_id) : null;
+        const inv = it.inventory_item_id
+          ? byId.get(it.inventory_item_id)
+          : null;
         return inv
           ? {
               ...it,
@@ -1291,7 +1343,8 @@ export class OsService {
           : it;
       });
       const total = items.reduce(
-        (acc, it) => acc + Math.max(0, toNum(it.quantity) * toNum(it.unit_price)),
+        (acc, it) =>
+          acc + Math.max(0, toNum(it.quantity) * toNum(it.unit_price)),
         0,
       );
       return { ...t, items, total: total.toFixed(2) };
@@ -1465,7 +1518,9 @@ export class OsService {
 
     // Resolve member names (userId → fullName) for any assigned_to present.
     // assigned_to guarda o userId (não o membershipId) — ver os_repository_impl.dart.
-    const memberIds = [...new Set(orders.map((o) => o.assigned_to).filter(Boolean))] as string[];
+    const memberIds = [
+      ...new Set(orders.map((o) => o.assigned_to).filter(Boolean)),
+    ] as string[];
     let memberNameMap = new Map<string, string>();
     if (memberIds.length > 0) {
       const members = await this.iam.listMembers();
@@ -1488,7 +1543,9 @@ export class OsService {
         order_id: o.id,
         name: o.complaint ?? '',
         assigned_to: o.assigned_to,
-        assigned_to_name: o.assigned_to ? (memberNameMap.get(o.assigned_to) ?? null) : null,
+        assigned_to_name: o.assigned_to
+          ? (memberNameMap.get(o.assigned_to) ?? null)
+          : null,
         scheduled_start: start?.toISOString() ?? null,
         scheduled_end: end?.toISOString() ?? null,
         estimated_duration,
@@ -1526,13 +1583,20 @@ export class OsService {
       const start = opts.scheduledStart ? new Date(opts.scheduledStart) : null;
       const duration = opts.estimatedDuration ?? null;
       const end =
-        start && duration ? new Date(start.getTime() + duration * 60_000) : null;
+        start && duration
+          ? new Date(start.getTime() + duration * 60_000)
+          : null;
       const assignedTo =
         opts.assignedTo !== undefined ? opts.assignedTo : item.assigned_to;
 
       // Checagem de conflito: só quando há técnico + janela de tempo definidos.
       if (assignedTo && start && end) {
-        const conflicts = await this.repo.findConflicts(assignedTo, start, end, itemId);
+        const conflicts = await this.repo.findConflicts(
+          assignedTo,
+          start,
+          end,
+          itemId,
+        );
         if (conflicts.length > 0) {
           throw new BadRequestException(
             `Conflito de agenda: técnico já tem ${conflicts.length} item(ns) no mesmo horário.`,
@@ -1589,7 +1653,9 @@ export class OsService {
     limit: number,
   ): Promise<ChangedSincePage> {
     if (!OsService.SYNC_ENTITIES.has(entity as OsSyncEntity)) {
-      throw new BadRequestException(`Entidade não pertence ao módulo os: ${entity}`);
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo os: ${entity}`,
+      );
     }
     const table = entity as OsSyncEntity;
     const clamped = clampChangedSinceLimit(limit);
@@ -1635,7 +1701,10 @@ export class OsService {
       const summaries = await this.cashier.getPaymentSummaryBatch(
         tenantId,
         page.rows.map((r) => {
-          const row = r as { id: string; total: Prisma.Decimal | number | null };
+          const row = r as {
+            id: string;
+            total: Prisma.Decimal | number | null;
+          };
           return { id: row.id, total: toNum(row.total) };
         }),
       );
@@ -1659,7 +1728,10 @@ export class OsService {
   private async recomputeTotal(orderId: string) {
     const order = await this.repo.findOrderById(orderId);
     if (!order) return;
-    const itemsTotal = order.items.reduce((acc, it) => acc + toNum(it.total), 0);
+    const itemsTotal = order.items.reduce(
+      (acc, it) => acc + toNum(it.total),
+      0,
+    );
     const total = Math.max(0, itemsTotal - toNum(order.discount));
     await this.repo.setTotal(orderId, total);
   }

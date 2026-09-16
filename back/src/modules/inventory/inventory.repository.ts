@@ -33,6 +33,8 @@ export interface ItemFilter {
   /** Filtro por estado: 'active' (padrão), 'archived', ou 'all'. */
   active: 'active' | 'archived' | 'all';
   lowStock?: boolean;
+  /** Só os zerados — recorte mais estreito que `lowStock`. */
+  outOfStock?: boolean;
   /** Ordenação (default 'name_asc'). */
   sort?: ItemSort;
   skip: number;
@@ -123,6 +125,43 @@ export class InventoryRepository {
 
   async listItems(filter: ItemFilter) {
     const db = this.tenant.getClient();
+    // Os filtros compostos vão TODOS num único `AND`: duas chaves `OR` (ou dois
+    // `AND`) no mesmo objeto se sobrescrevem em silêncio, e "estoque baixo" e
+    // busca textual precisam dos dois ao mesmo tempo.
+    const and: Prisma.inventory_itemWhereInput[] = [];
+
+    // "Estoque baixo" = precisa de atenção: no/abaixo do mínimo OU zerado. O
+    // zerado entra mesmo sem mínimo cadastrado — saldo zero é falta com ou sem
+    // parâmetro, e antes o produto esgotado sem mínimo não caía em filtro
+    // nenhum. Serviço fica fora: não controla estoque (nasce com 0).
+    // "Baixo" e "esgotado" são DISJUNTOS: baixo é "está acabando" (ainda dá
+    // para vender), esgotado é "acabou". Enquanto baixo incluía o zerado, os
+    // dois filtros mostravam as mesmas linhas e o de baixo dava trabalho à toa
+    // — quem quer repor o que está acabando não quer rever o que já acabou.
+    if (filter.outOfStock) {
+      and.push({ kind: 'product', current_stock: { lte: 0 } });
+    } else if (filter.lowStock) {
+      and.push({
+        kind: 'product',
+        min_stock: { not: null },
+        current_stock: {
+          lte: db.inventory_item.fields.min_stock,
+          gt: 0,
+        },
+      });
+    }
+
+    if (filter.q) {
+      and.push({
+        OR: [
+          { name: { contains: filter.q, mode: 'insensitive' } },
+          { sku: { contains: filter.q, mode: 'insensitive' } },
+          { barcode: { contains: filter.q, mode: 'insensitive' } },
+          { manufacturer_code: { contains: filter.q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
     const where: Prisma.inventory_itemWhereInput = {
       deleted_at: null,
       ...this.activeWhere(filter.active),
@@ -130,22 +169,7 @@ export class InventoryRepository {
       ...(filter.category
         ? { category: { equals: filter.category, mode: 'insensitive' } }
         : {}),
-      ...(filter.lowStock
-        ? {
-            min_stock: { not: null },
-            current_stock: { lte: db.inventory_item.fields.min_stock },
-          }
-        : {}),
-      ...(filter.q
-        ? {
-            OR: [
-              { name: { contains: filter.q, mode: 'insensitive' } },
-              { sku: { contains: filter.q, mode: 'insensitive' } },
-              { barcode: { contains: filter.q, mode: 'insensitive' } },
-              { manufacturer_code: { contains: filter.q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      ...(and.length ? { AND: and } : {}),
     };
     const [items, total] = await Promise.all([
       db.inventory_item.findMany({

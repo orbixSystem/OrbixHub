@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import {
   queryChangedSince,
@@ -18,10 +20,11 @@ export type SaleSyncEntity = 'sale' | 'sale_item';
  * nunca é editada; cancelar mexe no `status` da venda, não nos itens). Paginar
  * por `created_at` cobre toda mudança que pode existir nela.
  */
-const SYNC_ENTITY_COLUMN: Record<SaleSyncEntity, 'updated_at' | 'created_at'> = {
-  sale: 'updated_at',
-  sale_item: 'created_at',
-};
+const SYNC_ENTITY_COLUMN: Record<SaleSyncEntity, 'updated_at' | 'created_at'> =
+  {
+    sale: 'updated_at',
+    sale_item: 'created_at',
+  };
 
 export interface CreateSaleData {
   /**
@@ -79,7 +82,19 @@ export interface SaleListFilter {
  */
 @Injectable()
 export class SaleRepository {
-  constructor(private readonly tenant: TenantContext) {}
+  constructor(
+    private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  /**
+   * Fuso do agrupamento por dia. Sem ele, `date_trunc` usa o fuso do SERVIDOR
+   * Postgres: na imagem padrao (UTC) o dia vira das 21h as 21h, e o
+   * faturamento das ultimas tres horas de cada dia aparece no dia seguinte.
+   */
+  private get fuso(): string {
+    return this.env.APP_TIMEZONE;
+  }
 
   /**
    * Vendas do período com o dono: id → cliente. Espelha
@@ -338,7 +353,7 @@ export class SaleRepository {
     return db.$queryRaw<
       Array<{ day: string; revenue: number | null; count: bigint }>
     >(Prisma.sql`
-      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE ${this.fuso}), 'YYYY-MM-DD') AS day,
              SUM(total) AS revenue,
              COUNT(*)   AS count
       FROM sale
@@ -375,7 +390,13 @@ export class SaleRepository {
     limit: number,
   ): Promise<ChangedSincePage> {
     const db = this.tenant.getClient();
-    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
+    return queryChangedSince(
+      db,
+      table,
+      SYNC_ENTITY_COLUMN[table],
+      cursor,
+      limit,
+    );
   }
 }
 

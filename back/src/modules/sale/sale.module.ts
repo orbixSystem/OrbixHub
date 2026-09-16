@@ -3,6 +3,7 @@ import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { CashierModule } from '../cashier/cashier.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { SaleController } from './sale.controller';
 import { SaleService } from './sale.service';
 import { SaleRepository } from './sale.repository';
@@ -29,6 +30,9 @@ import { SaleSubjectHistoryProvider } from './sale-subject-history.provider';
     forwardRef(() => CustomersModule),
     InventoryModule,
     CashierModule,
+    // Avisa quando a baixa de estoque não pôde ser aplicada (a venda não é
+    // desfeita — ver `SaleService.avisarEstoqueNaoAplicado`).
+    NotificationsModule,
   ],
   controllers: [SaleController],
   providers: [SaleService, SaleRepository, SaleSubjectHistoryProvider],

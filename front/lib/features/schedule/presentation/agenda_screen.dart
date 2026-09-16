@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
+import '../../os/presentation/os_status.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../../di.dart';
 import '../../os/domain/os_models.dart';
@@ -806,23 +807,20 @@ class _EventCard extends ConsumerWidget {
 
   /// Cor + tint semânticos do status (design system).
   (Color, Color) _statusColors(NeuTokens neu, String status) =>
-      switch (status) {
-        'em_execucao' => (neu.warning, neu.warningTint),
-        'concluida' || 'entregue' => (neu.success, neu.successTint),
-        'cancelada' => (neu.danger, neu.dangerTint),
-        _ => (neu.info, neu.infoTint),
+      switch (osSimpleStatusOf(status)) {
+        OsSimpleStatus.finalizada => (neu.success, neu.successTint),
+        OsSimpleStatus.cancelada => (neu.danger, neu.dangerTint),
+        OsSimpleStatus.emAndamento =>
+          status == 'em_execucao' ? (neu.warning, neu.warningTint)
+                                  : (neu.info, neu.infoTint),
       };
 
-  String _statusLabel(String status) => switch (status) {
-        'aberta' => 'Aberta',
-        'aguardando_aprovacao' => 'Aguard. aprovação',
-        'aprovada' => 'Aprovada',
-        'em_execucao' => 'Em execução',
-        'concluida' => 'Concluída',
-        'entregue' => 'Entregue',
-        'cancelada' => 'Cancelada',
-        _ => status,
-      };
+  /// Rótulo do status — delega para `osStatusLabel`, dono dos 11 nomes.
+  ///
+  /// A cópia local conhecia 7: `aguardando_pecas`, `pendente`, `sem_conserto` e
+  /// `a_receber` caíam no `_ => status` e a agenda mostrava a chave crua
+  /// ("aguardando_pecas") na cara do usuário.
+  String _statusLabel(String status) => osStatusLabel(status);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -845,9 +843,11 @@ class _EventCard extends ConsumerWidget {
             ? _dia(start)
             : '${_dia(start)} → ${_dia(end)}');
     // Atraso só existe em OS viva — entregue/cancelada não estoura prazo.
-    final viva = item.order.status != 'entregue' &&
-        item.order.status != 'cancelada' &&
-        item.order.status != 'concluida';
+    // Só OS viva estoura prazo — e "viva" é o grupo simplificado, não uma
+    // lista de três status escrita à mão que esquece `a_receber` e
+    // `sem_conserto` (ambas já encerradas, ambas contadas como atrasadas).
+    final viva =
+        osSimpleStatusOf(item.order.status) == OsSimpleStatus.emAndamento;
     final atrasada = viva && end != null && end.isBefore(DateTime.now());
 
     return NeuCard(

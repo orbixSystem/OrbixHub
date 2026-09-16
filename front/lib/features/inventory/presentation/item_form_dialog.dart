@@ -418,7 +418,11 @@ class _ItemFormDialogState extends ConsumerState<ItemFormDialog> {
 
     return NeuDialog(
       title: editing ? 'Editar item' : 'Novo item',
-      maxWidth: context.isMobile ? 560 : 480,
+      // Mais largo que o cadastro rápido porque tem mais linhas de dois campos
+      // (fabricante/código de barras, categoria/marca, preços, margem/mínimo) e
+      // a seção fiscal inteira — a 480 cada uma dessas colunas ficava estreita
+      // demais para o próprio rótulo.
+      maxWidth: context.isMobile ? 560 : 760,
       actions: [
         NeuButton(
           label: 'Cancelar',

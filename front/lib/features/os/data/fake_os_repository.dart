@@ -40,6 +40,7 @@ class FakeOsRepository implements OsRepository {
     String? status,
     List<String>? statuses,
     String? customerId,
+    String? assignedTo,
     String sort = 'recent',
     int page = 1,
   }) async {
@@ -52,6 +53,9 @@ class FakeOsRepository implements OsRepository {
     }
     if (customerId != null && customerId.isNotEmpty) {
       list = list.where((o) => o.customerId == customerId);
+    }
+    if (assignedTo != null && assignedTo.isNotEmpty) {
+      list = list.where((o) => o.assignedTo == assignedTo);
     }
     if (term != null && term.isNotEmpty) {
       list = list.where((o) =>

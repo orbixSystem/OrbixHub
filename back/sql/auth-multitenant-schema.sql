@@ -797,12 +797,26 @@ CREATE TABLE IF NOT EXISTS service_order (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_order_status_chk') THEN
-    ALTER TABLE service_order ADD CONSTRAINT service_order_status_chk
-      CHECK (status IN ('aberta','aguardando_aprovacao','aprovada','em_execucao','concluida','entregue','cancelada'));
-  END IF;
-END $$;
+-- Os 11 status do workflow. RECRIADA sempre (sem o IF NOT EXISTS que havia
+-- aqui): com ele, um banco criado antes dos 4 status novos jamais receberia a
+-- definição atualizada — a constraint já existia, então o bloco não fazia nada
+-- e o banco seguia recusando `aguardando_pecas`, `pendente`, `sem_conserto` e
+-- `a_receber` com um 500 na cara do usuário. Idempotente do jeito certo é
+-- convergir para o estado desejado, não "pular se já tem alguma coisa".
+--
+-- Este arquivo é reaplicado sobre bancos que JÁ TÊM dados, e `ADD CONSTRAINT`
+-- valida as linhas existentes: uma OS com status fora da lista abortaria o
+-- setup inteiro. Normaliza antes (mesma regra da migration 0056).
+UPDATE service_order
+SET status = 'em_execucao'
+WHERE status NOT IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
+                     'aguardando_pecas','pendente','sem_conserto','concluida',
+                     'a_receber','entregue','cancelada');
+ALTER TABLE service_order DROP CONSTRAINT IF EXISTS service_order_status_chk;
+ALTER TABLE service_order ADD CONSTRAINT service_order_status_chk
+  CHECK (status IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
+                    'aguardando_pecas','pendente','sem_conserto','concluida',
+                    'a_receber','entregue','cancelada'));
 
 CREATE INDEX IF NOT EXISTS idx_service_order_tenant_status
   ON service_order(tenant_id, status);

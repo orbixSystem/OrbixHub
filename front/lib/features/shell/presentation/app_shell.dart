@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/offline_routes.dart';
+import '../../../core/devtools/dev_inbox_overlay.dart';
 import '../../../core/offline/widgets/connection_banner.dart';
 import '../../../core/offline/widgets/connection_chip.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
@@ -200,7 +201,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da
                           // página do go_router.
-                          Expanded(child: widget.child),
+                          // Teto de largura para o sistema INTEIRO, aplicado
+                          // aqui porque aqui passa toda tela roteada. O header
+                          // fica de fora de propósito: ele é uma faixa
+                          // decorativa (entalhe do FAB, sombra) que precisa
+                          // sangrar até a borda — cortá-lo deixaria um degrau
+                          // no desenho.
+                          Expanded(
+                            child: ConteudoLimitado(child: widget.child),
+                          ),
                         ],
                       ),
                       // FAB de criação rápida aninhado no berço do header (centro).
@@ -272,14 +281,13 @@ class _ContentHeader extends StatelessWidget {
                   // espelhando o sino do outro lado do "+"): reservamos a faixa
                   // deles para o chip de conexão não ficar por baixo.
                   //
-                  // São DOIS botões no celular (o "?" do tutorial e o suporte),
-                  // não um. A conta antiga reservava 54 = 8 + 38 + respiro, ou
-                  // seja, a largura de UM — e o chip caía em cima do suporte.
-                  // 96 = 8 de margem + 2×38 dos botões + respiro.
+                  // A largura vem de QUEM DESENHA os botões
+                  // ([kControlesEsquerdaMobile]), não de uma conta repetida
+                  // aqui — foi repetindo a conta que este bug nasceu e voltou.
                   left: showMenu
                       ? 8
                       : context.isMobile
-                      ? 96
+                      ? kControlesEsquerdaMobile
                       : 28,
                   right: 20,
                   bottom: 16,

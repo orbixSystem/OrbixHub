@@ -73,7 +73,14 @@ export class ItemQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
   @IsOptional() @IsIn(['product', 'service']) kind?: 'product' | 'service';
   @IsOptional() @IsString() @MaxLength(120) category?: string;
+  /** Precisa de atenção: no/abaixo do mínimo OU zerado. */
   @IsOptional() @Type(() => Boolean) @IsBoolean() lowStock?: boolean;
+  /**
+   * Só os ZERADOS. Mais estreito que [lowStock] (que já os inclui): é a
+   * pergunta "o que acabou", que não é a mesma de "o que está acabando".
+   * Quando os dois vêm, este vence — é o recorte menor.
+   */
+  @IsOptional() @Type(() => Boolean) @IsBoolean() outOfStock?: boolean;
   /** 'true' (padrão: só ativos), 'false' (só arquivados), 'all'. */
   @IsOptional() @IsIn(['true', 'false', 'all']) active?: 'true' | 'false' | 'all';
   /** Ordenação da lista. Default: nome A–Z. Ver ItemSort no repository. */
