@@ -8,6 +8,8 @@ import {
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
+import { criarComNumeroSequencial } from '../../common/database/numero-sequencial';
+import { isIdUniqueViolation } from '../../common/database/prisma-errors';
 import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -108,36 +110,56 @@ export class SaleService {
     // Fiscal emite. `discount` fica ao lado como registro do que foi concedido.
     const { total, discount } = applySaleDiscount(bruto, dto.discount ?? 0);
 
-    const sale = await this.tenant.withTenantTx(async () => {
-      const n = (await this.repo.maxSaleNumber()) + 1;
-      const created = await this.repo.createSale(user.tenantId, {
-        // Uuid do cliente quando veio (replay de venda criada offline); senão o
-        // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
-        // um provisório e o pull traz esta linha, já com o número real.
-        ...(dto.id ? { id: dto.id } : {}),
-        number: formatSaleNumber(n),
-        customer_id: customerId,
-        customer_name: customerName,
-        status: 'active',
-        total,
-        discount,
-        description: dto.description?.trim() || null,
-        // Declarada fiado já na criação (ver CreateSaleDto.fiado).
-        ...(dto.fiado ? { fiado_at: new Date() } : {}),
-        created_by: user.userId,
-      });
-      for (const r of resolved) {
-        await this.repo.addItem(user.tenantId, created.id, {
-          kind: r.kind,
-          inventory_item_id: r.inventory_item_id,
-          name: r.name,
-          quantity: r.quantity,
-          unit_price: r.unit_price,
-          subtotal: r.subtotal,
-        });
-      }
-      return this.repo.findSaleById(created.id);
-    });
+    // Mesma corrida da OS: `MAX(number)+1` lido fora de qualquer trava. Dois
+    // atendentes fechando venda no mesmo instante calculam o mesmo número e o
+    // índice único derruba o segundo — no balcão, com o cliente esperando.
+    const sale = await criarComNumeroSequencial(
+      () =>
+        this.tenant.withTenantTx(async () => {
+          const n = (await this.repo.maxSaleNumber()) + 1;
+          const created = await this.repo.createSale(user.tenantId, {
+            // Uuid do cliente quando veio (replay de venda criada offline); senão o
+            // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
+            // um provisório e o pull traz esta linha, já com o número real.
+            ...(dto.id ? { id: dto.id } : {}),
+            number: formatSaleNumber(n),
+            customer_id: customerId,
+            customer_name: customerName,
+            status: 'active',
+            total,
+            discount,
+            description: dto.description?.trim() || null,
+            // Declarada fiado já na criação (ver CreateSaleDto.fiado).
+            ...(dto.fiado ? { fiado_at: new Date() } : {}),
+            created_by: user.userId,
+          });
+          for (const r of resolved) {
+            await this.repo.addItem(user.tenantId, created.id, {
+              kind: r.kind,
+              inventory_item_id: r.inventory_item_id,
+              name: r.name,
+              quantity: r.quantity,
+              unit_price: r.unit_price,
+              subtotal: r.subtotal,
+            });
+          }
+          return this.repo.findSaleById(created.id);
+        }),
+      {
+        // O replay de uma venda criada offline manda o `id` do aparelho: aí o
+        // conflito é de PK e repetir não resolveria nada. Sob RLS o Postgres
+        // não diz qual constraint falhou (ver `prisma-errors.ts`), então
+        // confirmamos lendo o id numa nova transação.
+        ehConflitoDeId: async (e) => {
+          if (!dto.id) return false;
+          if (isIdUniqueViolation(e)) return true;
+          const existente = await this.tenant.withTenantTx(() =>
+            this.repo.findSaleById(dto.id as string),
+          );
+          return existente != null;
+        },
+      },
+    );
     await this.audit.log(user.tenantId, user.userId, 'sale_create', sale!.id, {
       total,
       // Desconto concedido é informação auditável (quem deu, quanto, em qual venda).
@@ -270,7 +292,9 @@ export class SaleService {
     const resolved = dto.items ? await this.resolveItems(dto.items) : null;
 
     // Estado atual + guardas, antes de mexer em qualquer coisa.
-    const atual = await this.tenant.withTenantTx(() => this.repo.findSaleById(id));
+    const atual = await this.tenant.withTenantTx(() =>
+      this.repo.findSaleById(id),
+    );
     if (!atual) throw new NotFoundException('Venda não encontrada.');
     if (atual.status === 'canceled')
       throw new ConflictException('Venda cancelada não pode ser editada.');
@@ -298,8 +322,8 @@ export class SaleService {
     if (total !== toNum(atual.total)) {
       if (atual.fiscal_status && atual.fiscal_status !== 'rejeitada') {
         throw new ConflictException(
-          'Esta venda já tem nota fiscal. Mudar o valor faria a nota divergir — '
-            + 'cancele a venda e faça uma nova.',
+          'Esta venda já tem nota fiscal. Mudar o valor faria a nota divergir — ' +
+            'cancele a venda e faça uma nova.',
         );
       }
       const pago = await this.cashier.getPaymentSummary(
@@ -309,9 +333,9 @@ export class SaleService {
       );
       if (total < pago.paid - 0.005) {
         throw new ConflictException(
-          `O cliente já pagou ${pago.paid.toFixed(2)} nesta venda e o novo total `
-            + `seria ${total.toFixed(2)}. Estorne o recebimento antes de reduzir `
-            + 'o valor.',
+          `O cliente já pagou ${pago.paid.toFixed(2)} nesta venda e o novo total ` +
+            `seria ${total.toFixed(2)}. Estorne o recebimento antes de reduzir ` +
+            'o valor.',
         );
       }
     }
@@ -553,7 +577,12 @@ export class SaleService {
   // ===================== Internos =====================
   /** Resumo de pagamento derivado do caixa + campo flat. Cancelada ⇒ não pergunta. */
   private async enrichOne(
-    sale: { id: string; tenant_id: string; status: string; total: Prisma.Decimal | number },
+    sale: {
+      id: string;
+      tenant_id: string;
+      status: string;
+      total: Prisma.Decimal | number;
+    },
     tenantId: string,
   ) {
     if (sale.status !== 'active') {

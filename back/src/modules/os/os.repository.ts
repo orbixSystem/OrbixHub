@@ -417,6 +417,10 @@ export class OsRepository {
     const db = this.tenant.getClient();
     return db.service_order.findMany({
       where: {
+        // OS excluída não ocupa horário. Faltava aqui: a exclusão é lógica
+        // (`deleted_at`), a lista de OS filtra e a agenda não filtrava — a OS
+        // sumia de todo lugar MENOS do lugar que diz quem entra amanhã.
+        deleted_at: null,
         // Começou antes do fim do período…
         scheduled_start: { not: null, lt: filter.to },
         // …e ainda não tinha terminado quando o período começou.
