@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/pdf/document_company.dart';
 import '../../../core/pdf/pdf_theme.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_status.dart';
 
@@ -29,6 +30,9 @@ Future<Uint8List> buildOsPdf(
   /// O PDF é gerado fora da árvore de widgets e não tem sessão para consultar,
   /// então o chamador passa. Default genérico para quem não passar.
   String objetoLabel = 'Objeto',
+  /// Acessórios do equipamento — o chamador busca o subject e extrai os
+  /// acessórios de `attributes['acessorios']`. Lista vazia = sem seção.
+  List<SubjectAccessory> acessorios = const [],
 }) async {
   final doc = pw.Document();
   final agora = DateTime.now();
@@ -73,6 +77,12 @@ Future<Uint8List> buildOsPdf(
           pdfSectionBand('Cliente e ${objetoLabel.toLowerCase()}'),
           pw.SizedBox(height: 4),
           pdfStack(linhas),
+        ],
+        if (acessorios.isNotEmpty) ...[
+          pw.SizedBox(height: 6),
+          pdfSectionBand('Acessórios do ${objetoLabel.toLowerCase()}'),
+          pw.SizedBox(height: 4),
+          _blocoAcessorios(acessorios),
         ],
         if ((order.complaint ?? '').trim().isNotEmpty ||
             (order.diagnosis ?? '').trim().isNotEmpty) ...[
@@ -263,6 +273,67 @@ List<pw.Widget> _linhasClienteVeiculo(ServiceOrder order, String objetoLabel) {
         ],
       ),
   ];
+}
+
+pw.Widget _blocoAcessorios(List<SubjectAccessory> acessorios) {
+  return pdfStack(
+    [
+      for (final acc in acessorios)
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: 6,
+              height: 6,
+              margin: const pw.EdgeInsets.only(top: 3, right: 6),
+              decoration: const pw.BoxDecoration(
+                shape: pw.BoxShape.circle,
+                color: PdfDocTokens.brand,
+              ),
+            ),
+            pw.Expanded(
+              child: pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(
+                      text: acc.nome,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfDocTokens.graphite,
+                      ),
+                    ),
+                    if ([
+                      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+                      if (acc.modelo != null && acc.modelo!.isNotEmpty)
+                        acc.modelo!,
+                    ]
+                        case final details
+                        when details.isNotEmpty)
+                      pw.TextSpan(
+                        text: '  ${details.join(' · ')}',
+                        style: const pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfDocTokens.muted,
+                        ),
+                      ),
+                    if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                      pw.TextSpan(
+                        text: '  S/N: ${acc.numeroSerie}',
+                        style: const pw.TextStyle(
+                          fontSize: 7.5,
+                          color: PdfDocTokens.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+    ],
+    gap: 2,
+  );
 }
 
 pw.Widget _blocoRelatoDiagnostico(ServiceOrder order) {

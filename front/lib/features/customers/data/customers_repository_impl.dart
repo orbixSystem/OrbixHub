@@ -90,6 +90,12 @@ class CustomersRepositoryImpl implements CustomersRepository {
       });
 
   @override
+  Future<Subject> getSubject(String id) => _guard(() async {
+        final res = await _dio.get<Object?>('/subjects/$id');
+        return Subject.fromJson(_asMap(res.data));
+      });
+
+  @override
   Future<SubjectPage> listSubjects({
     String? q,
     String? customerId,
