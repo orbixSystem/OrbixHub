@@ -148,6 +148,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   /// forçarem rebuild com o texto novo.
   int _fillGen = 0;
 
+  // ---- acessórios do novo subject ----
+  bool _hasAccessories = false;
+  final List<SubjectAccessory> _accessories = [];
+  final _accNome = TextEditingController();
+  final _accMarca = TextEditingController();
+  final _accModelo = TextEditingController();
+  final _accNumeroSerie = TextEditingController();
+  final _accObs = TextEditingController();
+  final _accFormKey = GlobalKey<FormState>();
+
   // Config do módulo de clientes (usaSubjects + rótulo + campos dinâmicos).
   // Default seguro: usa veículos, sem campos até a config carregar.
   CustomersConfig _config = const CustomersConfig();
@@ -180,6 +190,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       _newName,
       _newPhone,
       ..._subjFields.values,
+      _accNome,
+      _accMarca,
+      _accModelo,
+      _accNumeroSerie,
+      _accObs,
     ]) {
       c.dispose();
     }
@@ -318,6 +333,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     _autoFilled.clear();
     _plateInfo = null;
     _fillGen++;
+    _hasAccessories = false;
+    _accessories.clear();
+    _accNome.clear();
+    _accMarca.clear();
+    _accModelo.clear();
+    _accNumeroSerie.clear();
+    _accObs.clear();
   }
 
   Future<void> _pickCustomer(CustomerOption c) async {
@@ -434,6 +456,9 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
           }
       }
+    }
+    if (_hasAccessories && _accessories.isNotEmpty) {
+      built['acessorios'] = _accessories.map((a) => a.toJson()).toList();
     }
     return (
       identifier: identifier,
@@ -1117,6 +1142,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   }
 
   Widget _novoSubjectFields() {
+    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1127,7 +1153,161 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           if (idx > 0) const SizedBox(height: 12),
           _subjectFieldWidget(_config.subjectFields[idx]),
         ],
+        const SizedBox(height: 16),
+        _osAccessoriesSection(neu),
       ],
+    );
+  }
+
+  void _addOsAccessory() {
+    if (!_accFormKey.currentState!.validate()) return;
+    setState(() {
+      _accessories.add(SubjectAccessory(
+        nome: _accNome.text.trim(),
+        marca: _accMarca.text.trim().isEmpty ? null : _accMarca.text.trim(),
+        modelo: _accModelo.text.trim().isEmpty ? null : _accModelo.text.trim(),
+        numeroSerie: _accNumeroSerie.text.trim().isEmpty
+            ? null
+            : _accNumeroSerie.text.trim(),
+        observacoes: _accObs.text.trim().isEmpty ? null : _accObs.text.trim(),
+      ));
+      _accNome.clear();
+      _accMarca.clear();
+      _accModelo.clear();
+      _accNumeroSerie.clear();
+      _accObs.clear();
+    });
+  }
+
+  Widget _osAccessoriesSection(NeuTokens neu) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(color: neu.line, height: 1),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(Icons.extension_rounded, size: 20, color: neu.inkMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Possui acessórios?',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Switch.adaptive(
+              value: _hasAccessories,
+              activeTrackColor: neu.accent,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _hasAccessories = v),
+            ),
+          ],
+        ),
+        if (_hasAccessories) ...[
+          const SizedBox(height: 12),
+          if (_accessories.isNotEmpty) ...[
+            for (var i = 0; i < _accessories.length; i++) ...[
+              _osAccessoryTile(neu, _accessories[i], i),
+              if (i < _accessories.length - 1) const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
+          ],
+          _osAccessoryForm(neu),
+        ],
+      ],
+    );
+  }
+
+  Widget _osAccessoryTile(NeuTokens neu, SubjectAccessory acc, int index) {
+    final details = <String>[
+      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+      if (acc.modelo != null && acc.modelo!.isNotEmpty) acc.modelo!,
+    ];
+    return NeuSurface(
+      elevation: NeuElevation.flat,
+      radius: NeuTokens.rField,
+      color: neu.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.extension_outlined, size: 18, color: neu.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(acc.nome, style: TextStyle(color: neu.ink, fontSize: 14, fontWeight: FontWeight.w700)),
+                if (details.isNotEmpty)
+                  Text(details.join(' · '), style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                  Text('S/N: ${acc.numeroSerie}', style: TextStyle(color: neu.inkFaint, fontSize: 12)),
+              ],
+            ),
+          ),
+          NeuIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Remover acessório',
+            size: 32,
+            color: neu.danger,
+            onPressed: _saving ? null : () => setState(() => _accessories.removeAt(index)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _osAccessoryForm(NeuTokens neu) {
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rCard,
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _accFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Novo acessório', style: TextStyle(color: neu.ink, fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            NeuTextField(
+              controller: _accNome,
+              label: 'Nome *',
+              hint: 'Ex.: Carregador, Capa, Antena',
+              maxLength: 120,
+              validator: (v) => v == null || v.trim().isEmpty ? 'Nome do acessório é obrigatório' : null,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: NeuTextField(controller: _accMarca, label: 'Marca (opcional)', maxLength: 120)),
+                const SizedBox(width: 10),
+                Expanded(child: NeuTextField(controller: _accModelo, label: 'Modelo (opcional)', maxLength: 120)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            NeuTextField(controller: _accNumeroSerie, label: 'Nº de série (opcional)', maxLength: 120),
+            const SizedBox(height: 10),
+            NeuTextField(controller: _accObs, label: 'Observações (opcional)', maxLength: 250, maxLines: 2),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: NeuButton(
+                label: 'Adicionar acessório',
+                icon: Icons.add_rounded,
+                kind: NeuButtonKind.secondary,
+                onPressed: _saving ? null : _addOsAccessory,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

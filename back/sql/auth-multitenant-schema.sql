@@ -2642,3 +2642,27 @@ BEGIN
 END $$;
 
 UPDATE module SET retired_at = now() WHERE key = 'sales' AND retired_at IS NULL;
+
+-- ============================================================
+-- 0055 — Desconto na quitação (cash_entry) — aditivo, idempotente
+-- ============================================================
+-- O desconto concedido na QUITAÇÃO é distinto do desconto de documento
+-- (sale.discount / service_order.discount), que abate o total na criação.
+-- Aqui a dívida já existe e o documento fica intacto — o abatimento pertence
+-- ao recebimento. A dívida fecha quando soma(amount + discount) cobre o saldo.
+-- As colunas já constam no CREATE TABLE IF NOT EXISTS, mas bancos criados antes
+-- desta seção não as têm. O ALTER idempotente garante convergência.
+
+ALTER TABLE cash_entry ADD COLUMN IF NOT EXISTS discount        numeric(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE cash_entry ADD COLUMN IF NOT EXISTS discount_reason text;
+
+-- Atualiza o CHECK de amount para permitir amount = 0 quando há desconto
+-- (perdoar a dívida inteira é caso real).
+ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_amount_chk;
+ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_amount_chk
+  CHECK (amount >= 0 AND (amount > 0 OR discount > 0));
+
+-- Desconto nunca negativo.
+ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_discount_nonneg;
+ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_discount_nonneg
+  CHECK (discount >= 0);

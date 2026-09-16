@@ -14,6 +14,7 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/cnpj.dart';
 import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'detail/os_customer_tab.dart';
 import 'detail/os_header.dart';
@@ -187,6 +188,7 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
                 _OsTab.fotos => OsPhotosTab(order: order, canWrite: canEdit),
                 _OsTab.historico =>
                   OsTimelineTab(order: order, canWrite: canEdit),
+                _OsTab.acessorios => _OsAccessoriesTab(order: order),
                 _OsTab.cliente => OsCustomerTab(order: order),
               },
             ],
@@ -208,8 +210,29 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final company = await _companyParaPdf();
+      // Busca acessórios do subject (se houver) para incluir no PDF.
+      var acessorios = <SubjectAccessory>[];
+      final sid = order.subjectId;
+      if (sid != null && sid.isNotEmpty) {
+        try {
+          final subject =
+              await ref.read(customersRepositoryProvider).getSubject(sid);
+          final raw = subject.attributes['acessorios'];
+          if (raw is List) {
+            acessorios = raw
+                .whereType<Map<String, dynamic>>()
+                .map(SubjectAccessory.fromJson)
+                .toList();
+          }
+        } on Object {
+          // Segue sem acessórios — não bloqueia a exportação.
+        }
+      }
       final bytes = await buildOsPdf(order, PdfPageFormat.a4,
-          company: company, objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',);
+          company: company,
+          objetoLabel: ref.read(vocabProvider)['objeto.singular'] ?? 'Objeto',
+          acessorios: acessorios,
+      );
       final nome =
           'OS-${order.number.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')}.pdf';
       await downloadBytes(bytes, nome, 'application/pdf');
@@ -221,7 +244,7 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
 }
 
 /// As quatro lentes da OS.
-enum _OsTab { servico, itens, fotos, historico, cliente }
+enum _OsTab { servico, itens, fotos, historico, acessorios, cliente }
 
 /// Navegação entre as abas. Rola na horizontal quando não cabe (celular
 /// estreito) em vez de espremer os rótulos até virarem "…".
@@ -245,6 +268,7 @@ class _TabBar extends StatelessWidget {
       (_OsTab.itens, 'Itens', Icons.list_alt_rounded, itens),
       (_OsTab.fotos, 'Fotos', Icons.photo_library_outlined, fotos),
       (_OsTab.historico, 'Histórico', Icons.history_rounded, null),
+      (_OsTab.acessorios, 'Acessórios', Icons.extension_outlined, null),
       (_OsTab.cliente, 'Cliente', Icons.person_outline_rounded, null),
     ];
     return SingleChildScrollView(
@@ -338,6 +362,146 @@ class _TabChip extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Aba de acessórios da OS — busca o subject pelo `subjectId` e exibe os
+/// acessórios cadastrados em `attributes['acessorios']`.
+class _OsAccessoriesTab extends ConsumerWidget {
+  const _OsAccessoriesTab({required this.order});
+
+  final ServiceOrder order;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final subjectId = order.subjectId;
+    if (subjectId == null || subjectId.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            'Nenhum equipamento vinculado a esta OS.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    final subjectAsync = ref.watch(_osSubjectProvider(subjectId));
+    return subjectAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            'Não foi possível carregar os acessórios.',
+            style: TextStyle(color: neu.danger, fontSize: 14),
+          ),
+        ),
+      ),
+      data: (subject) {
+        final raw = subject.attributes['acessorios'];
+        if (raw is! List || raw.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'Nenhum acessório cadastrado para este equipamento.',
+                style: TextStyle(color: neu.inkMuted, fontSize: 14),
+              ),
+            ),
+          );
+        }
+        final acessorios = raw
+            .whereType<Map<String, dynamic>>()
+            .map(SubjectAccessory.fromJson)
+            .toList();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < acessorios.length; i++) ...[
+                _OsAccessoryCard(acc: acessorios[i], neu: neu),
+                if (i < acessorios.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+final _osSubjectProvider =
+    FutureProvider.family.autoDispose<Subject, String>((ref, subjectId) {
+  return ref.read(customersRepositoryProvider).getSubject(subjectId);
+});
+
+class _OsAccessoryCard extends StatelessWidget {
+  const _OsAccessoryCard({required this.acc, required this.neu});
+
+  final SubjectAccessory acc;
+  final NeuTokens neu;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = <String>[
+      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+      if (acc.modelo != null && acc.modelo!.isNotEmpty) acc.modelo!,
+    ];
+    return NeuSurface(
+      elevation: NeuElevation.raised,
+      radius: NeuTokens.rCard,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Icon(Icons.extension_outlined, size: 22, color: neu.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  acc.nome,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (details.isNotEmpty)
+                  Text(
+                    details.join(' · '),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  ),
+                if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                  Text(
+                    'S/N: ${acc.numeroSerie}',
+                    style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                  ),
+                if (acc.observacoes != null && acc.observacoes!.isNotEmpty)
+                  Text(
+                    acc.observacoes!,
+                    style: TextStyle(
+                      color: neu.inkFaint,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

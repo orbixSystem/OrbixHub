@@ -221,6 +221,14 @@ class LocalFirstCustomersRepository extends LocalFirstBase
   // =========================== subjects =================================
 
   @override
+  Future<Subject> getSubject(String id) async {
+    if (isOnline()) return inner.getSubject(id);
+    final cached = await rowById('subject', id);
+    if (cached != null) return Subject.fromJson(cached);
+    return inner.getSubject(id);
+  }
+
+  @override
   Future<SubjectPage> listSubjects({
     String? q,
     String? customerId,

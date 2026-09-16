@@ -21,6 +21,7 @@ abstract interface class CustomersRepository {
   Future<Customer> deleteCustomer(String id);
 
   // ---- subjects ----
+  Future<Subject> getSubject(String id);
   Future<SubjectPage> listSubjects({String? q, String? customerId, String status});
   Future<Subject> createSubject(String customerId, SubjectDraft draft);
   Future<Subject> updateSubject(String id, SubjectDraft draft);
