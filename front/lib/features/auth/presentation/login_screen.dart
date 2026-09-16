@@ -252,6 +252,11 @@ class _RememberToggle extends StatelessWidget {
 
 /// Dev-only quick-login: buttons that FILL the credentials of seed accounts
 /// (does not submit). Tree-shaken out of release builds via [kDevTools].
+///
+/// Os botões cobrem os DOIS modos do produto. Antes só havia contas da oficina,
+/// e entrar no modo genérico exigia criar um tenant na mão — então na prática
+/// ninguém abria o app nele, e diferença de vocabulário, de campos do veículo/
+/// equipamento e de capacidade ligada só aparecia em produção.
 class _DevQuickLogin extends StatelessWidget {
   const _DevQuickLogin({required this.onPick});
 
@@ -285,7 +290,21 @@ class _DevQuickLogin extends StatelessWidget {
               icon: Icons.build_outlined,
               onPressed: () => onPick('mecanico@oficina-demo.dev'),
             ),
+            // Vertical GENÉRICA (equipamentos): outro tenant, outro vocabulário,
+            // outros campos de subject e só `os.trackingLink` ligado.
+            NeuButton(
+              label: 'Dono (genérico)',
+              kind: NeuButtonKind.secondary,
+              icon: Icons.devices_other_outlined,
+              onPressed: () => onPick('dono@assistencia-demo.dev'),
+            ),
           ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Oficina = veículos (placa, FIPE, ficha técnica). '
+          'Genérico = equipamentos (tipo, nº de série).',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
