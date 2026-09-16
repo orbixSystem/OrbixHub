@@ -33,12 +33,28 @@ describe('filtros de estoque em listItems', () => {
     expect(clausulas(where())).toHaveLength(0);
   });
 
-  it('lowStock cobre o abaixo do mínimo E o zerado', async () => {
+  it('lowStock é "está acabando": exige mínimo e EXCLUI o zerado', async () => {
+    // Enquanto incluía o zerado, os dois filtros mostravam as mesmas linhas e
+    // quem queria repor o que está acabando revia o que já acabou.
     const { repo, where } = capturarWhere();
     await repo.listItems({ ...base, lowStock: true });
     const [c] = clausulas(where());
     expect(c.kind).toBe('product');
-    expect(c.OR).toHaveLength(2);
+    expect(c.min_stock).toEqual({ not: null });
+    expect(c.current_stock).toMatchObject({ gt: 0 });
+    expect(c.OR).toBeUndefined();
+  });
+
+  it('baixo e esgotado são disjuntos — nenhum item cai nos dois', async () => {
+    const { repo, where } = capturarWhere();
+    await repo.listItems({ ...base, lowStock: true });
+    const baixo = clausulas(where())[0].current_stock as { gt: number };
+    const { repo: r2, where: w2 } = capturarWhere();
+    await r2.listItems({ ...base, outOfStock: true });
+    const esgotado = clausulas(w2())[0].current_stock as { lte: number };
+    // baixo exige saldo > 0; esgotado exige saldo <= 0.
+    expect(baixo.gt).toBe(0);
+    expect(esgotado.lte).toBe(0);
   });
 
   it('outOfStock é só o zerado — sem OR, sem mínimo', async () => {

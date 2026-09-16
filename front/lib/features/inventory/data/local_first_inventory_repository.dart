@@ -153,13 +153,14 @@ class LocalFirstInventoryRepository extends LocalFirstBase
         matches(row['brand'] as String?, q);
   }
 
-  /// Espelha a regra do servidor (`inventory.repository.listItems`): precisa de
-  /// atenção quem está no/abaixo do mínimo OU zerado. Se divergisse, o mesmo
-  /// filtro devolveria listas diferentes com e sem rede.
+  /// Espelha a regra do servidor (`inventory.repository.listItems`): "baixo" é
+  /// estar no/abaixo do mínimo AINDA COM SALDO. O zerado é do filtro
+  /// "Esgotados" — os dois são disjuntos. Se divergisse, o mesmo filtro
+  /// devolveria listas diferentes com e sem rede.
   bool _isLowStock(Map<String, dynamic> row) {
     if ((row['kind'] ?? 'product') != 'product') return false;
     final atual = toNum(row['current_stock']);
-    if (atual <= 0) return true;
+    if (atual <= 0) return false;
     final min = row['min_stock'];
     if (min == null) return false;
     return atual <= toNum(min);

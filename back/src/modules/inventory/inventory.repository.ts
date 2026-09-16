@@ -134,21 +134,20 @@ export class InventoryRepository {
     // zerado entra mesmo sem mínimo cadastrado — saldo zero é falta com ou sem
     // parâmetro, e antes o produto esgotado sem mínimo não caía em filtro
     // nenhum. Serviço fica fora: não controla estoque (nasce com 0).
-    // `outOfStock` vence `lowStock` quando os dois vêm: é o recorte menor, e
-    // pedir "só os que acabaram" dentro de "os que precisam de atenção" não
-    // pode devolver mais linhas do que pedir só o primeiro.
+    // "Baixo" e "esgotado" são DISJUNTOS: baixo é "está acabando" (ainda dá
+    // para vender), esgotado é "acabou". Enquanto baixo incluía o zerado, os
+    // dois filtros mostravam as mesmas linhas e o de baixo dava trabalho à toa
+    // — quem quer repor o que está acabando não quer rever o que já acabou.
     if (filter.outOfStock) {
       and.push({ kind: 'product', current_stock: { lte: 0 } });
     } else if (filter.lowStock) {
       and.push({
         kind: 'product',
-        OR: [
-          {
-            min_stock: { not: null },
-            current_stock: { lte: db.inventory_item.fields.min_stock },
-          },
-          { current_stock: { lte: 0 } },
-        ],
+        min_stock: { not: null },
+        current_stock: {
+          lte: db.inventory_item.fields.min_stock,
+          gt: 0,
+        },
       });
     }
 
