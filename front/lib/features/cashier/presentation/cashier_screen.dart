@@ -11,12 +11,11 @@ import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
-import '../../../core/error/app_exception.dart';
-import '../../os/domain/os_models.dart';
-import '../../receivables/domain/receivables_models.dart';
-import '../../receivables/presentation/receive_title_dialog.dart';
 import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/os_providers.dart';
+import '../../receivables/domain/receivables_models.dart';
+import '../../receivables/presentation/receivables_providers.dart';
+import '../../receivables/presentation/receive_title_dialog.dart';
 import '../../os/presentation/payment_status.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
@@ -45,10 +44,16 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   @override
   void initState() {
     super.initState();
-    _poll = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Força refresh ao entrar na tela (garante dados frescos após navegação).
+    Future.microtask(() {
       if (!mounted) return;
       ref.invalidate(cashierControllerProvider);
-      ref.invalidate(_pendingOsProvider);
+      ref.invalidate(_pendingTitlesProvider);
+    });
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      ref.invalidate(cashierControllerProvider);
+      ref.invalidate(_pendingTitlesProvider);
     });
   }
 
@@ -213,30 +218,41 @@ class _DashboardBody extends ConsumerStatefulWidget {
 class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   _MovFilter _movFilter = _MovFilter.tudo;
 
+  @override
+  void initState() {
+    super.initState();
+    // Quando o cashierController muda (novo lançamento, estorno), invalida
+    // os pendentes pra manter tudo sincronizado.
+    ref.listenManual(cashierControllerProvider, (_, __) {
+      ref.invalidate(_pendingTitlesProvider);
+    });
+  }
+
   /// Filtra as entries localmente conforme o chip selecionado.
   /// Quando "Pendentes" ou "Tudo", inclui OS pendentes (do provider) como
   /// entries virtuais para aparecerem na lista.
-  List<CashEntry> _filteredEntries(List<ServiceOrder> pendingOs) {
+  List<CashEntry> _filteredEntries(List<ReceivableTitle> pendingTitles) {
     final entries = widget.state.entries;
-    // Cria entries virtuais para OS pendentes que NÃO têm entry no caixa.
     final existingSaleIds = entries
         .map((e) => e.saleId)
         .whereType<String>()
         .toSet();
-    final virtualEntries = pendingOs
-        .where((os) => !existingSaleIds.contains(os.id))
-        .map(
-          (os) => CashEntry(
-            id: 'pending-${os.id}',
+    final virtualEntries = pendingTitles
+        .where((t) => !existingSaleIds.contains(t.id))
+        .map((t) {
+          final prefix = t.origin == 'os' ? 'OS' : 'Venda';
+          final name = (t.customerName ?? '').isNotEmpty ? ' — ${t.customerName}' : '';
+          return CashEntry(
+            id: 'pending-${t.id}',
             direction: 'pending',
-            amount: os.total ?? '0',
+            amount: '${t.balance}',
             method: '',
-            category: 'os_payment',
-            saleKind: 'os',
-            saleId: os.id,
-            description: 'OS ${os.number} — ${os.customerName ?? ''}',
-          ),
-        )
+            category: t.origin == 'os' ? 'os_payment' : 'venda_avulsa',
+            saleKind: t.origin,
+            saleId: t.id,
+            description: '$prefix ${t.number}$name',
+          );
+        })
         .toList();
 
     switch (_movFilter) {
@@ -254,8 +270,8 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
-    final pendingOs = ref.watch(_pendingOsProvider).value ?? const [];
-    final filtered = _filteredEntries(pendingOs);
+    final pendingTitles = ref.watch(_pendingTitlesProvider).value?.items ?? const [];
+    final filtered = _filteredEntries(pendingTitles);
 
     final leftColumn = [
       // Alvos do tutorial. O redesign trocou a tela inteira e levou os três
@@ -390,14 +406,14 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
     final byMethod = session?.byMethod ?? const [];
 
     // Balanço calculado pela função pura testada (computeBalance).
-    final pendingOs = ref.watch(_pendingOsProvider).value ?? const [];
+    final pendingTitles = ref.watch(_pendingTitlesProvider).value?.items ?? const [];
     final balance = computeBalance(
       entries: widget.state.entries.map((e) => (
             category: e.category,
             reversedAt: e.reversedAt,
             amount: e.amount as Object?,
           )),
-      pendingOsTotals: pendingOs.map((os) => os.total),
+      pendingOsTotals: pendingTitles.map((t) => t.balance),
     );
 
     return NeuSurface(
@@ -622,26 +638,51 @@ class _MovimentacoesCard extends StatelessWidget {
   }
 }
 
-// ===================== OS Pendentes =====================
+// ===================== Pagamentos Pendentes =====================
 
-/// Provider que busca OS finalizadas com pagamento pendente diretamente do
-/// módulo de OS — não depende de entries no caixa (uma OS que nunca recebeu
-/// nada também aparece).
-final _pendingOsProvider = FutureProvider.autoDispose<List<ServiceOrder>>((
-  ref,
-) async {
-  final repo = ref.read(osRepositoryProvider);
-  // Busca todas as OS (sem filtro de status workflow) e filtra pelo
-  // payment_status derivado do caixa. O backend enriquece cada OS com
-  // payment_status na listagem.
-  final page = await repo.listOrders(sort: 'recent', page: 1);
-  return page.items
-      .where(
-        (os) =>
-            os.status != 'cancelada' &&
-            (os.paymentStatus == 'a_receber' || os.paymentStatus == 'parcial'),
-      )
+/// Provider que busca TODOS os pagamentos pendentes:
+/// 1. OS com payment_status a_receber/parcial (qualquer status de workflow)
+/// 2. Vendas avulsas em aberto (via receivables)
+/// Combina as duas fontes num único `OpenTitlesPage`.
+final _pendingTitlesProvider =
+    FutureProvider.autoDispose<OpenTitlesPage>((ref) async {
+  // 1. OS pendentes de pagamento (todas, incluindo em_execucao)
+  final osRepo = ref.read(osRepositoryProvider);
+  final osPage = await osRepo.listOrders(sort: 'recent', page: 1);
+  final pendingOs = osPage.items
+      .where((os) =>
+          os.status != 'cancelada' &&
+          (os.paymentStatus == 'a_receber' || os.paymentStatus == 'parcial'))
+      .map((os) => ReceivableTitle(
+            id: os.id,
+            origin: 'os',
+            number: os.number,
+            total: moneyToDouble(os.total),
+            paid: 0,
+            balance: moneyToDouble(os.total),
+            status: os.paymentStatus,
+            customerName: os.customerName,
+          ))
       .toList();
+
+  // 2. Vendas avulsas pendentes (via receivables — traz fiados + vendas sem baixa)
+  final recRepo = ref.read(receivablesRepositoryProvider);
+  final recPage = await recRepo.listOpenTitles();
+  // Filtra só vendas (as OS já vieram acima com dados mais completos)
+  final pendingSales = recPage.items.where((t) => t.origin == 'sale').toList();
+
+  // Combina: OS primeiro, vendas depois
+  final allItems = [...pendingOs, ...pendingSales];
+  num totalDue = 0;
+  for (final t in allItems) {
+    totalDue += t.balance;
+  }
+
+  return OpenTitlesPage(
+    items: allItems,
+    totalDue: totalDue,
+    truncated: recPage.truncated,
+  );
 });
 
 class _PendentesCard extends ConsumerWidget {
@@ -651,7 +692,7 @@ class _PendentesCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final pendingAsync = ref.watch(_pendingOsProvider);
+    final pendingAsync = ref.watch(_pendingTitlesProvider);
 
     return NeuSurface(
       elevation: NeuElevation.raised,
@@ -666,13 +707,13 @@ class _PendentesCard extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'OS Pendentes',
+                  'Pagamentos pendentes',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              if (pendingAsync.value != null && pendingAsync.value!.isNotEmpty)
+              if (pendingAsync.value != null && pendingAsync.value!.items.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -683,7 +724,7 @@ class _PendentesCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${pendingAsync.value!.length}',
+                    '${pendingAsync.value!.items.length}',
                     style: TextStyle(
                       color: neu.warning,
                       fontSize: 12,
@@ -706,8 +747,9 @@ class _PendentesCard extends ConsumerWidget {
                 style: TextStyle(color: neu.danger, fontSize: 13),
               ),
             ),
-            data: (pendingOs) {
-              if (pendingOs.isEmpty) {
+            data: (page) {
+              final titles = page.items;
+              if (titles.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Column(
@@ -719,17 +761,9 @@ class _PendentesCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Nenhuma OS pendente de pagamento',
+                        'Nenhum pagamento pendente',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: neu.inkMuted, fontSize: 13),
-                      ),
-                      const SizedBox(height: 12),
-                      NeuButton(
-                        label: 'Receber OS',
-                        icon: Icons.payments_outlined,
-                        kind: NeuButtonKind.secondary,
-                        onPressed: () =>
-                            showReceivePickerDialog(context, ref, state.config),
                       ),
                     ],
                   ),
@@ -737,21 +771,19 @@ class _PendentesCard extends ConsumerWidget {
               }
               return Column(
                 children: [
-                  for (final os in pendingOs) ...[
-                    _PendingOsTile(order: os, config: state.config),
-                    if (os != pendingOs.last)
+                  for (final t in titles) ...[
+                    _PendingTitleTile(title: t, config: state.config),
+                    if (t != titles.last)
                       Divider(color: neu.line, height: 20),
                   ],
-                  const SizedBox(height: 12),
-                  Center(
-                    child: NeuButton(
-                      label: 'Receber OS',
-                      icon: Icons.payments_outlined,
-                      kind: NeuButtonKind.secondary,
-                      onPressed: () =>
-                          showReceivePickerDialog(context, ref, state.config),
+                  if (page.truncated)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Há mais títulos — mostrando os mais recentes.',
+                        style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                      ),
                     ),
-                  ),
                 ],
               );
             },
@@ -763,13 +795,16 @@ class _PendentesCard extends ConsumerWidget {
 }
 
 /// Tile de uma OS pendente de pagamento.
-class _PendingOsTile extends ConsumerWidget {
-  const _PendingOsTile({required this.order, required this.config});
-  final ServiceOrder order;
+/// Tile de um título pendente (OS ou venda avulsa).
+class _PendingTitleTile extends ConsumerWidget {
+  const _PendingTitleTile({required this.title, required this.config});
+  final ReceivableTitle title;
   final CashierConfig config;
 
   void _showActions(BuildContext outerContext, WidgetRef ref) {
     final neu = outerContext.neu;
+    final isOs = title.origin == 'os';
+    final label = isOs ? 'OS ${title.number}' : 'Venda ${title.number}';
     showDialog(
       context: outerContext,
       builder: (context) => Dialog(
@@ -784,18 +819,19 @@ class _PendingOsTile extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header com info da OS
                 Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 44, height: 44,
                       decoration: BoxDecoration(
                         color: neu.warning.withValues(alpha: .14),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Center(
-                        child: Icon(Icons.build_rounded, size: 22, color: neu.warning),
+                        child: Icon(
+                          isOs ? Icons.build_rounded : Icons.shopping_cart_rounded,
+                          size: 22, color: neu.warning,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -803,30 +839,16 @@ class _PendingOsTile extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'OS ${order.number}',
-                            style: TextStyle(
-                              color: neu.navy,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (order.customerName != null)
-                            Text(
-                              order.customerName!,
-                              style: TextStyle(color: neu.ink, fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
+                          Text(label, style: TextStyle(color: neu.navy, fontSize: 15, fontWeight: FontWeight.w800)),
+                          if ((title.customerName ?? '').isNotEmpty)
+                            Text(title.customerName!, style: TextStyle(color: neu.ink, fontSize: 13, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
-                    Text(
-                      formatMoney(order.total),
-                      style: TextStyle(color: neu.ink, fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
+                    Text(formatMoney(title.balance), style: TextStyle(color: neu.ink, fontSize: 16, fontWeight: FontWeight.w800)),
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Ações
                 _OsActionButton(
                   icon: Icons.payments_rounded,
                   iconColor: neu.success,
@@ -835,36 +857,12 @@ class _PendingOsTile extends ConsumerWidget {
                   subtitle: 'Registrar entrada no caixa',
                   onTap: () async {
                     Navigator.of(context).pop();
-                    try {
-                      final repo = ref.read(cashierRepositoryProvider);
-                      final summary = await repo.paymentSummary(
-                        saleKind: 'os',
-                        saleId: order.id,
-                        total: moneyToDouble(order.total),
-                      );
-                      if (!outerContext.mounted) return;
-                      if (summary.balance <= 0) {
-                        showNeuErrorSnackBar(outerContext, 'Esta OS já foi paga.');
-                        return;
-                      }
-                      final title = ReceivableTitle(
-                        id: order.id,
-                        origin: 'os',
-                        number: order.number,
-                        total: summary.total,
-                        paid: summary.paid,
-                        balance: summary.balance,
-                        status: summary.status,
-                      );
-                      if (!outerContext.mounted) return;
-                      await showReceiveTitleDialog(
-                        outerContext, ref,
-                        config: config,
-                        title: title,
-                      );
-                    } on AppException catch (e) {
-                      if (outerContext.mounted) showNeuErrorSnackBar(outerContext, e.message);
-                    }
+                    if (!outerContext.mounted) return;
+                    await showReceiveTitleDialog(
+                      outerContext, ref,
+                      config: config,
+                      title: title,
+                    );
                   },
                 ),
                 const SizedBox(height: 8),
@@ -872,11 +870,15 @@ class _PendingOsTile extends ConsumerWidget {
                   icon: Icons.visibility_rounded,
                   iconColor: neu.navy,
                   iconBg: neu.navy.withValues(alpha: .12),
-                  label: 'Ver detalhes da OS',
-                  subtitle: 'Itens, fotos, histórico',
+                  label: 'Ver detalhes',
+                  subtitle: isOs ? 'Itens, fotos, histórico' : 'Itens, cliente, valor',
                   onTap: () {
                     Navigator.of(context).pop();
-                    showOsDetailDialog(outerContext, orderId: order.id);
+                    if (isOs) {
+                      showOsDetailDialog(outerContext, orderId: title.id);
+                    } else {
+                      showSaleDetailDialog(outerContext, saleId: title.id);
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
@@ -899,8 +901,9 @@ class _PendingOsTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final title = 'OS ${order.number}';
-    final cliente = order.customerName;
+    final isOs = title.origin == 'os';
+    final label = isOs ? 'OS ${title.number}' : 'VND ${title.number}';
+    final cliente = title.customerName;
 
     return InkWell(
       borderRadius: BorderRadius.circular(NeuTokens.rChip),
@@ -910,17 +913,15 @@ class _PendingOsTile extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 36, height: 36,
               decoration: BoxDecoration(
                 color: neu.warning.withValues(alpha: .14),
                 borderRadius: BorderRadius.circular(NeuTokens.rChip),
               ),
               child: Center(
                 child: Icon(
-                  Icons.assignment_outlined,
-                  size: 18,
-                  color: neu.warning,
+                  isOs ? Icons.assignment_outlined : Icons.shopping_bag_outlined,
+                  size: 18, color: neu.warning,
                 ),
               ),
             ),
@@ -929,44 +930,20 @@ class _PendingOsTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: neu.ink,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(label, style: TextStyle(color: neu.ink, fontSize: 13.5, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (cliente != null && cliente.isNotEmpty)
-                    Text(
-                      cliente,
-                      style: TextStyle(color: neu.inkMuted, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(cliente, style: TextStyle(color: neu.inkMuted, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            // Valor e selo empilhados, não lado a lado: em linha somavam 288px
-            // (151 + 137) numa linha de 280 no celular — o nome da OS, que está
-            // no Expanded, era espremido a ZERO e a linha estourava mesmo assim.
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  formatMoney(order.total),
-                  style: TextStyle(
-                    color: neu.warning,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
-                  ),
-                ),
+                Text(formatMoney(title.balance), style: TextStyle(color: neu.warning, fontWeight: FontWeight.w800, fontSize: 13.5)),
                 const SizedBox(height: 2),
-                PaymentTag(status: order.paymentStatus, dense: true),
+                PaymentTag(status: title.status, dense: true),
               ],
             ),
             Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
