@@ -13,6 +13,7 @@ import 'order_form_dialog.dart';
 import 'os_providers.dart';
 import 'os_quick_actions.dart';
 import 'os_status.dart';
+import 'os_status_select.dart';
 import 'payment_status.dart';
 
 /// Lista de ordens de serviço — adaptativa (spec 2026-07-04):
@@ -435,51 +436,33 @@ class _LinhaPrevisao extends StatelessWidget {
   }
 }
 
+/// Selo de status do card — o status REAL (11), não o grupo simplificado, e
+/// clicável para trocar sem abrir a OS.
+///
+/// Mostrava só "Em andamento"/"Finalizada"/"Cancelada": `aberta`, `aprovada`,
+/// `aguardando_pecas` e `pendente` ficavam todos com o mesmo rótulo e a MESMA
+/// cor de "em execução" — a lista não distinguia uma OS esperando peça de uma
+/// com o mecânico embaixo do carro. O grupo simplificado continua sendo o
+/// filtro no topo (três chips); o card mostra o estado de verdade.
 class _StrongStatusPill extends StatelessWidget {
-  const _StrongStatusPill({required this.status});
-  final String status;
+  const _StrongStatusPill({required this.order, required this.canWrite});
+  final ServiceOrder order;
+  final bool canWrite;
 
   @override
   Widget build(BuildContext context) {
-    final simple = osSimpleStatusOf(status);
-    // Fundo SÓLIDO com rótulo branco: a paleta gráfica não serve aqui (branco
-    // sobre o verde #10B981 dá 2,5:1). A variante clara do matiz é escura o
-    // bastante para o branco passar em ≥5,8:1 nos dois temas.
-    final color = osSimpleStatusInk(simple, Brightness.light);
     return ConstrainedBox(
-      // Cap explícito: sem ele, o rótulo mais longo do grupo simplificado
-      // ("Em andamento") cresce mais que o chip antigo e rouba espaço demais
-      // do título ao lado (nº da OS + selo de sync), que não tem como reagir.
-      constraints: const BoxConstraints(maxWidth: 108),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(osSimpleStatusIcon(simple), size: 13, color: Colors.white),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                osSimpleStatusLabel(simple),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      // Cap explícito: o rótulo mais longo ("Aguardando aprovação") não pode
+      // roubar o espaço do título ao lado, que não tem como reagir.
+      constraints: const BoxConstraints(maxWidth: 150),
+      child: OsStatusSelect(order: order, dense: true, enabled: canWrite),
     );
   }
 }
+
+bool _canApprove(WidgetRef ref) =>
+    ref.watch(sessionControllerProvider).meOrNull?.hasPermission('os.approve') ??
+    false;
 
 /// Ações rápidas do card (Concluir/Cancelar/Exportar PDF) — a MESMA lógica de
 /// transição do seletor da ficha (`os_quick_actions.dart`), só que num menu
@@ -497,13 +480,13 @@ class _QuickActionsMenu extends ConsumerWidget {
       order,
       OsSimpleStatus.finalizada,
       canWrite: canWrite,
-      canApprove: false,
+      canApprove: _canApprove(ref),
     );
     final podeCancelar = osSimpleTransitionEnabled(
       order,
       OsSimpleStatus.cancelada,
       canWrite: canWrite,
-      canApprove: false,
+      canApprove: _canApprove(ref),
     );
     final podeVerPagamentos = canViewOsPayments(ref, order);
     return PopupMenuButton<String>(
@@ -647,7 +630,7 @@ class _OrderTile extends StatelessWidget {
         children: [
           PaymentTag(status: order.paymentStatus, dense: true),
           const SizedBox(width: 8),
-          _StrongStatusPill(status: order.status),
+          _StrongStatusPill(order: order, canWrite: canWrite),
           const SizedBox(width: 14),
           OsAmountDue(total: order.total, payment: order.payment),
           _QuickActionsMenu(order: order, canWrite: canWrite),
@@ -737,7 +720,7 @@ class _OrderCardMobile extends StatelessWidget {
               // Flexible: com o rótulo curto do grupo simplificado ("Em
               // andamento") já sobra mais espaço que o chip de 7 estados
               // antigo, mas ainda cede se o número da OS for longo.
-              Flexible(child: _StrongStatusPill(status: order.status)),
+              Flexible(child: _StrongStatusPill(order: order, canWrite: canWrite)),
             ],
           ),
           if (subtitle.isNotEmpty) ...[

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../messages/domain/messages_models.dart';
@@ -40,13 +42,16 @@ class OrderListQuery {
   final OsSimpleStatus? status; // null = todas
   final OsSort sort;
 
+  /// `q` usa sentinela como `status`: com `q ?? this.q`, passar `null` para
+  /// LIMPAR a busca devolvia o texto antigo — apagar o campo deixava a lista
+  /// filtrada para sempre, e o jeito de sair era trocar de tela.
   OrderListQuery copyWith({
-    String? q,
+    Object? q = _sentinel,
     Object? status = _sentinel,
     OsSort? sort,
   }) =>
       OrderListQuery(
-        q: q ?? this.q,
+        q: q == _sentinel ? this.q : q as String?,
         status:
             status == _sentinel ? this.status : status as OsSimpleStatus?,
         sort: sort ?? this.sort,
@@ -57,11 +62,39 @@ class OrderListQuery {
 
 /// Estado dos filtros (busca + status + ordenação).
 class OrderListQueryNotifier extends Notifier<OrderListQuery> {
-  @override
-  OrderListQuery build() => const OrderListQuery();
+  Timer? _debounce;
 
-  void setQuery(String value) =>
-      state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
+  @override
+  OrderListQuery build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return const OrderListQuery();
+  }
+
+  /// Busca com espera: a lista inteira re-busca a cada mudança deste estado,
+  /// então publicar a cada tecla dispara uma requisição por letra — "Silva"
+  /// virava cinco GETs concorrentes, e num link ruim as intermediárias ficam
+  /// pendurada e falham. Espera o usuário parar de digitar.
+  ///
+  /// O debounce mora AQUI, e não no campo de texto, porque quem dispara a
+  /// requisição é este estado: um campo novo em outra tela esqueceria de
+  /// debouncar e o problema voltaria calado.
+  void setQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      final q = value.trim();
+      final novo = q.isEmpty ? null : q;
+      if (novo == state.q) return; // nada mudou: não re-busca
+      state = state.copyWith(q: novo);
+    });
+  }
+
+  /// Aplica a busca JÁ (Enter / lupa), sem esperar o debounce.
+  void submitQuery(String value) {
+    _debounce?.cancel();
+    final q = value.trim();
+    final novo = q.isEmpty ? null : q;
+    if (novo != state.q) state = state.copyWith(q: novo);
+  }
 
   /// Filtro de status (grupo simplificado): null = todas.
   void setStatus(OsSimpleStatus? status) =>

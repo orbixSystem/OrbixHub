@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/inventory_models.dart';
@@ -37,6 +39,7 @@ class ItemListQuery {
     this.kind,
     this.active = 'true',
     this.lowStock = false,
+    this.outOfStock = false,
     this.sort = ItemSort.nameAsc,
   });
 
@@ -45,6 +48,10 @@ class ItemListQuery {
   final String? kind; // null (todos) | 'product' | 'service'
   final String active; // 'true' | 'false' | 'all'
   final bool lowStock;
+
+  /// Só os zerados. Separado de [lowStock] porque "acabou" e "está acabando"
+  /// são perguntas diferentes na hora de repor.
+  final bool outOfStock;
   final ItemSort sort;
 
   /// Algum filtro capaz de **esconder** itens está ligado? `active: 'true'` é o
@@ -56,39 +63,61 @@ class ItemListQuery {
       category != null ||
       kind != null ||
       lowStock ||
+      outOfStock ||
       active != 'true';
 
+  /// `q` com sentinela: `q ?? this.q` faria `null` (limpar a busca) devolver o
+  /// texto antigo — apagar o campo deixava a lista filtrada para sempre.
+  static const _sentinel = Object();
+
   ItemListQuery copyWith({
-    String? q,
+    Object? q = _sentinel,
     String? category,
     String? kind,
     String? active,
     bool? lowStock,
+    bool? outOfStock,
     ItemSort? sort,
   }) =>
       ItemListQuery(
-        q: q ?? this.q,
+        q: q == _sentinel ? this.q : q as String?,
         category: category,
         kind: kind ?? this.kind,
         active: active ?? this.active,
         lowStock: lowStock ?? this.lowStock,
+        outOfStock: outOfStock ?? this.outOfStock,
         sort: sort ?? this.sort,
       );
 }
 
 /// Estado dos filtros (busca/categoria/baixo estoque/ordenação).
 class ItemListQueryNotifier extends Notifier<ItemListQuery> {
-  @override
-  ItemListQuery build() => const ItemListQuery();
+  Timer? _debounce;
 
-  void setQuery(String value) =>
-      state = state.copyWith(q: value.trim().isEmpty ? null : value.trim());
+  @override
+  ItemListQuery build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return const ItemListQuery();
+  }
+
+  /// Busca com espera — ver `OrderListQueryNotifier.setQuery`: sem isto, cada
+  /// tecla dispara uma requisição, e as intermediárias ficam penduradas.
+  void setQuery(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      final q = value.trim();
+      final novo = q.isEmpty ? null : q;
+      if (novo == state.q) return;
+      state = state.copyWith(q: novo);
+    });
+  }
   void setCategory(String? category) => state = ItemListQuery(
         q: state.q,
         category: category,
         kind: state.kind,
         active: state.active,
         lowStock: state.lowStock,
+        outOfStock: state.outOfStock,
         sort: state.sort,
       );
 
@@ -99,9 +128,17 @@ class ItemListQueryNotifier extends Notifier<ItemListQuery> {
         kind: kind,
         active: state.active,
         lowStock: state.lowStock,
+        outOfStock: state.outOfStock,
         sort: state.sort,
       );
-  void setLowStock(bool value) => state = state.copyWith(lowStock: value);
+  /// "Estoque baixo" e "Esgotados" são recortes diferentes da mesma pergunta,
+  /// e um contém o outro — ligar os dois juntos não diria nada. Ligar um
+  /// desliga o outro.
+  void setLowStock(bool value) =>
+      state = state.copyWith(lowStock: value, outOfStock: false);
+
+  void setOutOfStock(bool value) =>
+      state = state.copyWith(outOfStock: value, lowStock: false);
   void setSort(ItemSort sort) => state = state.copyWith(sort: sort);
 
   /// Zera tudo que esconde item, preservando a ordenação escolhida (ordenar não
@@ -211,6 +248,7 @@ class ItemListNotifier extends AsyncNotifier<ItemListState> {
             kind: _query.kind,
             active: _query.active,
             lowStock: _query.lowStock,
+            outOfStock: _query.outOfStock,
             sort: _query.sort.key,
             page: page,
           );

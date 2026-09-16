@@ -13,6 +13,7 @@ class NeuCard extends StatefulWidget {
     this.padding = const EdgeInsets.all(16),
     this.radius = NeuTokens.rCard,
     this.color,
+    this.border,
   });
 
   final Widget child;
@@ -20,6 +21,11 @@ class NeuCard extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final double radius;
   final Color? color;
+
+  /// Borda opcional — o [NeuSurface] por baixo sempre soube desenhar uma, o
+  /// card é que não deixava passar. Serve para marcar estado no próprio cartão
+  /// (ex.: produto esgotado na lista de estoque) sem inventar outro widget.
+  final BoxBorder? border;
 
   @override
   State<NeuCard> createState() => _NeuCardState();
@@ -35,6 +41,7 @@ class _NeuCardState extends State<NeuCard> {
       radius: widget.radius,
       padding: widget.padding,
       color: _pressed ? null : widget.color,
+      border: widget.border,
       child: widget.child,
     );
     if (widget.onTap == null) return surface;

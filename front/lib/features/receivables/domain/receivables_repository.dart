@@ -23,5 +23,11 @@ abstract interface class ReceivablesRepository {
   /// da aba Fiado. Sem isto o operador vê "3 títulos" e não descobre quais.
   Future<OpenTitlesPage> listPendingSettlement();
 
-  Future<DebtorDetail> titlesOf(String? customerId);
+  /// Títulos de um devedor.
+  ///
+  /// `customerId` identifica cliente CADASTRADO. Venda de balcão não tem — ela
+  /// carrega só um apelido livre, e a carteira agrupa esses por NOME. Por isso
+  /// o `apelido`: sem ele, todos os anônimos caem no mesmo balde e a aba de um
+  /// mostra as vendas dos outros.
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido});
 }

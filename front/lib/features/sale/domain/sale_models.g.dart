@@ -23,6 +23,11 @@ _Sale _$SaleFromJson(Map<String, dynamic> json) => _Sale(
           ?.map((e) => SaleItem.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <SaleItem>[],
+  stockWarnings:
+      (json['stockWarnings'] as List<dynamic>?)
+          ?.map((e) => StockWarning.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <StockWarning>[],
 );
 
 Map<String, dynamic> _$SaleToJson(_Sale instance) => <String, dynamic>{
@@ -38,7 +43,22 @@ Map<String, dynamic> _$SaleToJson(_Sale instance) => <String, dynamic>{
   'payment_status': instance.paymentStatus,
   'created_at': instance.createdAt,
   'items': instance.items.map((e) => e.toJson()).toList(),
+  'stockWarnings': instance.stockWarnings.map((e) => e.toJson()).toList(),
 };
+
+_StockWarning _$StockWarningFromJson(Map<String, dynamic> json) =>
+    _StockWarning(
+      itemId: json['itemId'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$StockWarningToJson(_StockWarning instance) =>
+    <String, dynamic>{
+      'itemId': instance.itemId,
+      'name': instance.name,
+      'message': instance.message,
+    };
 
 _SaleItem _$SaleItemFromJson(Map<String, dynamic> json) => _SaleItem(
   id: json['id'] as String,

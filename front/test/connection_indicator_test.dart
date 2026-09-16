@@ -7,6 +7,8 @@ import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/core/offline/widgets/connection_banner.dart';
 import 'package:orbixhub_front/core/offline/widgets/connection_chip.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
+import 'package:orbixhub_front/core/devtools/dev_inbox_overlay.dart';
+import 'package:orbixhub_front/features/support/presentation/support_button.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
@@ -421,6 +423,81 @@ void main() {
       // o estado segue legível pela cor/spinner e pelo tooltip.
       expect(find.textContaining('Offline'), findsNothing);
       expect(find.byType(Tooltip), findsWidgets);
+    });
+
+    testWidgets(
+        'o indicador NÃO cobre o botão de suporte — medido, não deduzido',
+        (tester) async {
+      // O bug: o header reservava a largura de UM botão à esquerda ("54 = 8 +
+      // 38 + respiro"), mas o overlay do celular tem DOIS (o "?" do tutorial e
+      // o suporte da Orbix). O chip começava em cima do segundo.
+      //
+      // Provar por retângulo, não por leitura do padding: foi exatamente
+      // confiando na conta do comentário que o erro nasceu.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = _FakeConnectivityController(
+        // Sincronizando com fila: o estado mais "largo" que o chip assume.
+        const ConnState(status: ConnStatus.syncing, pendingCount: 128),
+      );
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          ShellRoute(
+            builder: (context, state, child) => AppShell(child: child),
+            routes: [GoRoute(path: '/', builder: (_, _) => const SizedBox())],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            connectivityControllerProvider.overrideWith(() => controller),
+            sessionControllerProvider.overrideWith(_FakeSession.new),
+            // O GlobalControls consulta o suporte ao montar. Sem override, o
+            // dio real dispara e o teste morre com timer pendente — a geometria
+            // não tem nada a ver com isso.
+            supportUnreadProvider.overrideWith((ref) async => 0),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            // Reproduz a geometria real: no `main.dart` o GlobalControls entra
+            // como OverlayEntry, ou seja, FLUTUA por cima da casca. Testar só
+            // o AppShell não veria a colisão — foi por isso que ela passou.
+            home: Stack(
+              children: [
+                Router.withConfig(config: router),
+                const GlobalControls(),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final suporte = find.byType(SupportButton);
+      final chip = find.byType(ConnectionChip);
+      expect(suporte, findsOneWidget);
+      expect(chip, findsOneWidget);
+
+      final rSuporte = tester.getRect(suporte);
+      final rChip = tester.getRect(chip);
+
+      expect(
+        rSuporte.overlaps(rChip),
+        isFalse,
+        reason: 'o indicador de conexão ($rChip) está por cima do botão de '
+            'suporte ($rSuporte)',
+      );
+      // E o chip fica à DIREITA do suporte: se invertesse, a ordem de leitura
+      // mudaria e o toque no chip cairia onde o dedo procura suporte.
+      expect(rChip.left, greaterThanOrEqualTo(rSuporte.right));
+      expect(tester.takeException(), isNull);
     });
   });
 }

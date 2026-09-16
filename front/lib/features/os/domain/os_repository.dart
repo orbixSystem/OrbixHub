@@ -14,6 +14,9 @@ abstract interface class OsRepository {
     /// andamento") — quando presente, prevalece sobre [status].
     List<String>? statuses,
     String? customerId,
+    /// Responsável — filtro da visão "minhas OS". Vai ao SERVIDOR: filtrar no
+    /// cliente depois de pedir uma página perdia as OS que caíam nas próximas.
+    String? assignedTo,
     String sort,
     int page,
   });

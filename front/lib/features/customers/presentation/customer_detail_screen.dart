@@ -1110,7 +1110,7 @@ class _AccessoryRow extends StatelessWidget {
                 if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
                   Text(
                     'S/N: ${acc.numeroSerie}',
-                    style: TextStyle(fontSize: 11, color: scheme.outline),
+                    style: TextStyle(fontSize: 12, color: scheme.outline),
                   ),
               ],
             ),

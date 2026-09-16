@@ -27,9 +27,31 @@ abstract class Sale with _$Sale {
     @JsonKey(name: 'payment_status') @Default('a_receber') String paymentStatus,
     @JsonKey(name: 'created_at') String? createdAt,
     @Default(<SaleItem>[]) List<SaleItem> items,
+
+    /// Itens cujo saldo NÃO acompanhou a venda (ex.: estoque insuficiente).
+    ///
+    /// Só vem na resposta de criar/editar. A venda é gravada mesmo assim — o
+    /// dinheiro já entrou —, mas quem vendeu precisa saber que o estoque
+    /// daquele produto continua errado. Antes isso morria num log do servidor.
+    @JsonKey(name: 'stockWarnings')
+    @Default(<StockWarning>[])
+    List<StockWarning> stockWarnings,
   }) = _Sale;
 
   factory Sale.fromJson(Map<String, dynamic> json) => _$SaleFromJson(json);
+}
+
+/// Item cuja baixa de estoque falhou na venda — ver [Sale.stockWarnings].
+@freezed
+abstract class StockWarning with _$StockWarning {
+  const factory StockWarning({
+    @JsonKey(name: 'itemId') @Default('') String itemId,
+    @Default('') String name,
+    @Default('') String message,
+  }) = _StockWarning;
+
+  factory StockWarning.fromJson(Map<String, dynamic> json) =>
+      _$StockWarningFromJson(json);
 }
 
 /// Uma linha da venda (snapshot do item de estoque ou avulso).

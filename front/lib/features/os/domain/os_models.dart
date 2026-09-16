@@ -477,6 +477,9 @@ abstract class InventoryOption with _$InventoryOption {
     @Default('product') String kind,
     @JsonKey(name: 'sale_price') String? salePrice,
     @JsonKey(name: 'current_stock') String? currentStock,
+    /// Mínimo cadastrado — vem junto (a busca usa `GET /inventory/items`) e é o
+    /// que permite sinalizar "baixo" aqui, não só "esgotado".
+    @JsonKey(name: 'min_stock') String? minStock,
   }) = _InventoryOption;
 
   factory InventoryOption.fromJson(Map<String, dynamic> json) =>

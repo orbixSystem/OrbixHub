@@ -98,6 +98,7 @@ function makeService(over: {
     {} as never, // customers
     inventory as never,
     over.cashier ?? new FakeCashierService(),
+    { notify: jest.fn() } as never,
   );
   return { svc, repo, audit, inventory };
 }

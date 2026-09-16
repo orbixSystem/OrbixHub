@@ -419,27 +419,25 @@ const _caixa = ScreenTutorial(
   titulo: 'Caixa',
   steps: [
     CoachStep(
-      targetName: 'caixa.abas',
-      title: 'Três abas, três perguntas',
-      text: '"Caixa do dia" é onde você opera. "Histórico" responde o que '
-          'aconteceu num período, com filtros. "Fiado" mostra quem está devendo. '
-          'No celular elas ficam aqui do mesmo jeito — só mais estreitas.',
+      targetName: 'caixa.balanco',
+      title: 'O balanço responde "como estamos?"',
+      text: 'Recebido, saídas, saldo, dinheiro em caixa e o que ainda está '
+          'pendente. Começa no dia de hoje; o filtro de período muda a pergunta '
+          'para os últimos 7, 30 dias ou o mês.',
     ),
     CoachStep(
       targetName: 'caixa.acoes',
-      title: 'As três ações do dia',
-      text: '"Venda avulsa" abre o balcão completo (itens, desconto, '
-          'recebimento). "Receber OS" recebe de uma ordem já aberta, inclusive '
-          'parcial. "Despesa / saque" registra saída. No desktop ficam em até '
-          'três colunas; no celular, duas — os mesmos botões.',
+      title: 'As ações do dia',
+      text: '"Receber OS" recebe de uma ordem já aberta, inclusive parcial. '
+          '"Venda Avulsa" abre o balcão completo (itens, desconto, recebimento). '
+          '"Depósito" e "Saque" registram entrada e saída de dinheiro da gaveta.',
     ),
     CoachStep(
-      targetName: 'caixa.ultimos',
-      title: 'Últimos lançamentos: confirmação, não extrato',
-      text: 'São as 5 últimas linhas, só para você confirmar que o que acabou de '
-          'lançar entrou. O extrato completo do período é a aba Histórico — '
-          '"Ver tudo" leva até lá. Linha de VENDA abre o detalhe dela (toque nela); '
-          'despesa e saque abrem o menu de ações nos três pontinhos.',
+      targetName: 'caixa.movimentacoes',
+      title: 'Movimentações: tudo o que aconteceu',
+      text: 'A lista do período inteiro, com filtros de entradas, saídas e '
+          'pendentes. Linha de VENDA abre o detalhe dela (toque nela); despesa e '
+          'saque abrem o menu de ações nos três pontinhos.',
     ),
     CoachStep(
       title: 'O valor recebido decide se é fiado',

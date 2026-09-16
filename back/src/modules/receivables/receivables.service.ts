@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { FATURAVEIS } from '../os/os-status';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { OsService } from '../os/os.service';
 import { SaleService } from '../sale/sale.service';
@@ -92,8 +93,15 @@ function resumoPendentes(pendentes: TituloComDono[]): PendingSettlement {
 /** Um centavo de tolerância: resíduo de arredondamento não é dívida. */
 const EPS = 0.005;
 
-/** Status de OS em que o serviço já foi entregue ao cliente. */
-const FINALIZADAS = new Set(['concluida', 'entregue']);
+/**
+ * Status de OS em que o serviço já foi entregue ao cliente — logo, pode virar
+ * cobrança. Espelha `FATURAVEIS` do módulo OS (aponta, não invade: importa o
+ * grupo público, não a tabela).
+ *
+ * `a_receber` faltava aqui: a OS cujo nome do status é literalmente "a receber"
+ * não aparecia no aviso de entregue-sem-passar-pelo-caixa.
+ */
+const FINALIZADAS: ReadonlySet<string> = FATURAVEIS;
 
 /**
  * O título passou pelo caixa? É o que separa DÍVIDA de trabalho em andamento.
@@ -117,6 +125,13 @@ function passouPeloCaixa(row: LinhaVendavel, paid: number): boolean {
 }
 
 /** Cap de `pageSize` dos DTOs de listagem (não burlar chamando o service direto). */
+/**
+ * Rótulo do devedor sem NOME nenhum. Constante porque ele é comparado (não só
+ * exibido): em [listTitles] ele distingue "grupo dos anônimos de verdade" de
+ * "grupo de um apelido".
+ */
+const SEM_CLIENTE = 'Sem cliente';
+
 const PAGE_SIZE = 100;
 
 /** Teto da varredura. Atingido ⇒ `truncated: true` (nunca cap silencioso). */
@@ -286,12 +301,34 @@ export class ReceivablesService {
    * — o N é o número de títulos DAQUELE cliente (tipicamente poucos), não a
    * carteira toda.
    */
+  /**
+   * Títulos em aberto de UM devedor.
+   *
+   * `customerId` identifica cliente CADASTRADO. Venda de balcão não tem: ela
+   * carrega só um apelido livre em `customer_name` (o `customerNote` do DTO —
+   * "Macarrão", "rapaz da Hilux"). A carteira agrupa esses por NOME, então a
+   * consulta do detalhe precisa usar a mesma chave — senão todos os apelidos
+   * caem no mesmo balde `customerId === null` e abrir a aba de um mostra as
+   * vendas dos outros. Foi exatamente esse o bug relatado em produção.
+   *
+   * `nome` só é considerado quando `customerId` é nulo; para cliente
+   * cadastrado o id é a chave e o nome é irrelevante (ele pode até ter mudado).
+   */
   async listTitles(
     user: AuthUser,
     customerId: string | null,
+    nome?: string | null,
   ): Promise<{ customerName: string; totalDue: number; items: ReceivableTitle[] }> {
     const { titulos } = await this.openTitles(user);
-    const doCliente = titulos.filter((t) => t.customerId === customerId);
+    const doCliente = titulos.filter((t) => {
+      if (t.customerId !== customerId) return false;
+      if (customerId !== null) return true;
+      // Anônimo: casa pelo apelido. `null`/vazio pedido = o grupo "Sem
+      // cliente", que é o de quem não tem nem apelido.
+      const pedido = (nome ?? '').trim();
+      const doTitulo = t.customerName === SEM_CLIENTE ? '' : t.customerName;
+      return doTitulo === pedido;
+    });
 
     await Promise.all(
       doCliente
@@ -315,7 +352,7 @@ export class ReceivablesService {
       .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
 
     return {
-      customerName: doCliente[0]?.customerName ?? 'Sem cliente',
+      customerName: doCliente[0]?.customerName ?? SEM_CLIENTE,
       totalDue: round2(items.reduce((acc, t) => acc + t.balance, 0)),
       items,
     };
@@ -358,7 +395,7 @@ export class ReceivablesService {
         titulos.push({
           title,
           customerId: o.customer_id ?? null,
-          customerName: o.customer_name ?? 'Sem cliente',
+          customerName: o.customer_name ?? SEM_CLIENTE,
         });
         continue;
       }
@@ -369,7 +406,7 @@ export class ReceivablesService {
         pendentes.push({
           title,
           customerId: o.customer_id ?? null,
-          customerName: o.customer_name ?? 'Sem cliente',
+          customerName: o.customer_name ?? SEM_CLIENTE,
         });
       }
     }
@@ -382,7 +419,7 @@ export class ReceivablesService {
         titulos.push({
           title,
           customerId: s.customer_id ?? null,
-          customerName: s.customer_name ?? 'Sem cliente',
+          customerName: s.customer_name ?? SEM_CLIENTE,
         });
         continue;
       }
@@ -391,7 +428,7 @@ export class ReceivablesService {
       pendentes.push({
         title,
         customerId: s.customer_id ?? null,
-        customerName: s.customer_name ?? 'Sem cliente',
+        customerName: s.customer_name ?? SEM_CLIENTE,
       });
     }
 

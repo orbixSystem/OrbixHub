@@ -31,6 +31,7 @@ class OsRepositoryImpl implements OsRepository {
     String? status,
     List<String>? statuses,
     String? customerId,
+    String? assignedTo,
     String sort = 'recent',
     int page = 1,
   }) =>
@@ -45,6 +46,8 @@ class OsRepositoryImpl implements OsRepository {
               'status': status,
             if (customerId != null && customerId.isNotEmpty)
               'customerId': customerId,
+            if (assignedTo != null && assignedTo.isNotEmpty)
+              'assignedTo': assignedTo,
             if (sort.isNotEmpty) 'sort': sort,
             'page': page,
           },
