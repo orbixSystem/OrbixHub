@@ -1110,7 +1110,10 @@ class _AccessoryRow extends StatelessWidget {
                 if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
                   Text(
                     'S/N: ${acc.numeroSerie}',
-                    style: TextStyle(fontSize: 11, color: scheme.outline),
+                    // 12 é o piso do padrão SysOne. Número de série é
+                    // justamente o texto que alguém precisa CONFERIR letra a
+                    // letra — 11px era o pior lugar para economizar espaço.
+                    style: TextStyle(fontSize: 12, color: scheme.outline),
                   ),
               ],
             ),
