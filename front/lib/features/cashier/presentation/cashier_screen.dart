@@ -11,7 +11,10 @@ import '../../auth/presentation/session_state.dart';
 import '../domain/cashier_format.dart';
 import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
+import '../../../core/error/app_exception.dart';
 import '../../os/domain/os_models.dart';
+import '../../receivables/domain/receivables_models.dart';
+import '../../receivables/presentation/receive_title_dialog.dart';
 import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/os_providers.dart';
 import '../../os/presentation/payment_status.dart';
@@ -291,9 +294,23 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
     ];
 
     if (isMobile) {
+      // Mobile: Balanço → Ações rápidas → OS pendentes → Movimentações
       return ListView(
         children: [
-          ...leftColumn.where((w) => w is! Expanded),
+          CoachTarget('caixa.balanco', child: _BalanceCard(state: widget.state)),
+          const SizedBox(height: 20),
+          CoachTarget(
+            'caixa.acoes',
+            child: _QuickActionsGrid(
+              canWrite: widget.canWrite,
+              canSale: widget.canSale,
+              canManage: widget.canManage,
+              config: widget.state.config,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _PendentesCard(state: widget.state),
+          const SizedBox(height: 20),
           SizedBox(
             height: 420,
             child: CoachTarget(
@@ -308,8 +325,6 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          ...rightColumn,
           const SizedBox(height: 20),
         ],
       );
@@ -372,27 +387,18 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
   Widget build(BuildContext context) {
     final neu = context.neu;
     final session = widget.state.session;
-    final totals = session?.totals;
-    final inTotal = totals?.inTotal ?? 0;
-    final outTotal = totals?.outTotal ?? 0;
-    final saldo = inTotal - outTotal;
     final byMethod = session?.byMethod ?? const [];
 
-    // Dinheiro em caixa: soma de entradas em dinheiro - saidas em dinheiro.
-    num cashInHand = 0;
-    for (final m in byMethod) {
-      if (m.method == 'dinheiro') {
-        cashInHand = m.inAmount - m.outAmount;
-        break;
-      }
-    }
-
-    // Pendente: soma dos totais das OS pendentes (do provider, não das entries).
+    // Balanço calculado pela função pura testada (computeBalance).
     final pendingOs = ref.watch(_pendingOsProvider).value ?? const [];
-    num pendingTotal = 0;
-    for (final os in pendingOs) {
-      pendingTotal += moneyToDouble(os.total);
-    }
+    final balance = computeBalance(
+      entries: widget.state.entries.map((e) => (
+            category: e.category,
+            reversedAt: e.reversedAt,
+            amount: e.amount as Object?,
+          )),
+      pendingOsTotals: pendingOs.map((os) => os.total),
+    );
 
     return NeuSurface(
       elevation: NeuElevation.raised,
@@ -453,27 +459,27 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
             children: [
               _Metric(
                 label: 'Recebido',
-                value: formatMoney(inTotal),
+                value: formatMoney(balance.recebido),
                 color: neu.success,
               ),
               _Metric(
                 label: 'Saídas',
-                value: formatMoney(outTotal),
+                value: formatMoney(balance.saidas),
                 color: neu.danger,
               ),
               _Metric(
                 label: 'Saldo',
-                value: formatMoney(saldo),
+                value: formatMoney(balance.saldo),
                 color: neu.navy,
               ),
               _Metric(
-                label: 'Dinheiro em caixa',
-                value: formatMoney(cashInHand),
+                label: 'Depósitos',
+                value: formatMoney(balance.depositos),
                 color: neu.accent,
               ),
               _Metric(
                 label: 'Pendente',
-                value: formatMoney(pendingTotal),
+                value: formatMoney(balance.pendente),
                 color: neu.warning,
               ),
             ],
@@ -732,7 +738,7 @@ class _PendentesCard extends ConsumerWidget {
               return Column(
                 children: [
                   for (final os in pendingOs) ...[
-                    _PendingOsTile(order: os),
+                    _PendingOsTile(order: os, config: state.config),
                     if (os != pendingOs.last)
                       Divider(color: neu.line, height: 20),
                   ],
@@ -757,19 +763,148 @@ class _PendentesCard extends ConsumerWidget {
 }
 
 /// Tile de uma OS pendente de pagamento.
-class _PendingOsTile extends StatelessWidget {
-  const _PendingOsTile({required this.order});
+class _PendingOsTile extends ConsumerWidget {
+  const _PendingOsTile({required this.order, required this.config});
   final ServiceOrder order;
+  final CashierConfig config;
+
+  void _showActions(BuildContext outerContext, WidgetRef ref) {
+    final neu = outerContext.neu;
+    showDialog(
+      context: outerContext,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: NeuSurface(
+            elevation: NeuElevation.raisedHigh,
+            radius: NeuTokens.rPanel,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header com info da OS
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: neu.warning.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Center(
+                        child: Icon(Icons.build_rounded, size: 22, color: neu.warning),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'OS ${order.number}',
+                            style: TextStyle(
+                              color: neu.navy,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (order.customerName != null)
+                            Text(
+                              order.customerName!,
+                              style: TextStyle(color: neu.ink, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      formatMoney(order.total),
+                      style: TextStyle(color: neu.ink, fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Ações
+                _OsActionButton(
+                  icon: Icons.payments_rounded,
+                  iconColor: neu.success,
+                  iconBg: neu.success.withValues(alpha: .14),
+                  label: 'Receber pagamento',
+                  subtitle: 'Registrar entrada no caixa',
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    try {
+                      final repo = ref.read(cashierRepositoryProvider);
+                      final summary = await repo.paymentSummary(
+                        saleKind: 'os',
+                        saleId: order.id,
+                        total: moneyToDouble(order.total),
+                      );
+                      if (!outerContext.mounted) return;
+                      if (summary.balance <= 0) {
+                        showNeuErrorSnackBar(outerContext, 'Esta OS já foi paga.');
+                        return;
+                      }
+                      final title = ReceivableTitle(
+                        id: order.id,
+                        origin: 'os',
+                        number: order.number,
+                        total: summary.total,
+                        paid: summary.paid,
+                        balance: summary.balance,
+                        status: summary.status,
+                      );
+                      if (!outerContext.mounted) return;
+                      await showReceiveTitleDialog(
+                        outerContext, ref,
+                        config: config,
+                        title: title,
+                      );
+                    } on AppException catch (e) {
+                      if (outerContext.mounted) showNeuErrorSnackBar(outerContext, e.message);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                _OsActionButton(
+                  icon: Icons.visibility_rounded,
+                  iconColor: neu.navy,
+                  iconBg: neu.navy.withValues(alpha: .12),
+                  label: 'Ver detalhes da OS',
+                  subtitle: 'Itens, fotos, histórico',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    showOsDetailDialog(outerContext, orderId: order.id);
+                  },
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: NeuButton(
+                    label: 'Fechar',
+                    kind: NeuButtonKind.secondary,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
     final title = 'OS ${order.number}';
     final cliente = order.customerName;
 
     return InkWell(
       borderRadius: BorderRadius.circular(NeuTokens.rChip),
-      onTap: () => showOsDetailDialog(context, orderId: order.id),
+      onTap: () => _showActions(context, ref),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         child: Row(
@@ -833,6 +968,63 @@ class _PendingOsTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 PaymentTag(status: order.paymentStatus, dense: true),
               ],
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão de ação no modal da OS pendente.
+class _OsActionButton extends StatelessWidget {
+  const _OsActionButton({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return InkWell(
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      onTap: onTap,
+      child: NeuSurface(
+        elevation: NeuElevation.raised,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(child: Icon(icon, size: 18, color: iconColor)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(color: neu.ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  Text(subtitle, style: TextStyle(color: neu.inkFaint, fontSize: 12)),
+                ],
+              ),
             ),
             Icon(Icons.chevron_right_rounded, size: 18, color: neu.inkFaint),
           ],
