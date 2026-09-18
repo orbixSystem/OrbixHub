@@ -217,18 +217,26 @@ class _DashboardBody extends ConsumerStatefulWidget {
 
 class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   _MovFilter _movFilter = _MovFilter.tudo;
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     // Quando o cashierController muda (novo lançamento, estorno), invalida
     // os pendentes pra manter tudo sincronizado.
-    ref.listenManual(cashierControllerProvider, (_, __) {
+    ref.listenManual(cashierControllerProvider, (_, _) {
       ref.invalidate(_pendingTitlesProvider);
     });
+    _searchCtrl.addListener(() => setState(() {}));
   }
 
-  /// Filtra as entries localmente conforme o chip selecionado.
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Filtra as entries localmente conforme o chip selecionado e a busca textual.
   /// Quando "Pendentes" ou "Tudo", inclui OS pendentes (do provider) como
   /// entries virtuais para aparecerem na lista.
   List<CashEntry> _filteredEntries(List<ReceivableTitle> pendingTitles) {
@@ -255,16 +263,23 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         })
         .toList();
 
-    switch (_movFilter) {
-      case _MovFilter.tudo:
-        return [...virtualEntries, ...entries];
-      case _MovFilter.entradas:
-        return entries.where((e) => e.direction == 'in').toList();
-      case _MovFilter.saidas:
-        return entries.where((e) => e.direction == 'out').toList();
-      case _MovFilter.pendentes:
-        return virtualEntries;
-    }
+    final List<CashEntry> byChip = switch (_movFilter) {
+      _MovFilter.tudo => [...virtualEntries, ...entries],
+      _MovFilter.entradas => entries.where((e) => e.direction == 'in').toList(),
+      _MovFilter.saidas => entries.where((e) => e.direction == 'out').toList(),
+      _MovFilter.pendentes => virtualEntries,
+    };
+
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return byChip;
+
+    return byChip.where((e) {
+      if ((e.description ?? '').toLowerCase().contains(q)) return true;
+      if (categoryLabel(e.category).toLowerCase().contains(q)) return true;
+      final sale = widget.state.salesById[e.saleId];
+      if ((sale?.customerName ?? '').toLowerCase().contains(q)) return true;
+      return false;
+    }).toList();
   }
 
   @override
@@ -290,6 +305,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
             salesById: widget.state.salesById,
             filter: _movFilter,
             onFilterChanged: (f) => setState(() => _movFilter = f),
+            searchCtrl: _searchCtrl,
           ),
         ),
       ),
@@ -338,6 +354,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
                 salesById: widget.state.salesById,
                 filter: _movFilter,
                 onFilterChanged: (f) => setState(() => _movFilter = f),
+                searchCtrl: _searchCtrl,
               ),
             ),
           ),
@@ -388,6 +405,61 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
   /// Periodo customizado selecionado via filtro (null = hoje).
   _PeriodFilter? _period;
 
+  /// Entries buscadas para o período selecionado (null = usa as de hoje do state).
+  List<CashEntry>? _periodEntries;
+  bool _loadingPeriod = false;
+
+  ({String from, String to})? _rangeForPeriod(_PeriodFilter period) {
+    final now = DateTime.now();
+    return switch (period) {
+      _PeriodFilter.hoje => null,
+      _PeriodFilter.seteDias => (
+          from: now
+              .subtract(const Duration(days: 7))
+              .toUtc()
+              .toIso8601String(),
+          to: now.toUtc().toIso8601String(),
+        ),
+      _PeriodFilter.trintaDias => (
+          from: now
+              .subtract(const Duration(days: 30))
+              .toUtc()
+              .toIso8601String(),
+          to: now.toUtc().toIso8601String(),
+        ),
+      _PeriodFilter.esteMes => (
+          from: DateTime(now.year, now.month, 1).toUtc().toIso8601String(),
+          to: now.toUtc().toIso8601String(),
+        ),
+      _PeriodFilter.custom => null,
+    };
+  }
+
+  Future<void> _applyPeriod(_PeriodFilter? period) async {
+    if (period == null || period == _PeriodFilter.hoje) {
+      if (mounted) setState(() { _periodEntries = null; _loadingPeriod = false; });
+      return;
+    }
+    final range = _rangeForPeriod(period);
+    if (range == null) {
+      if (mounted) setState(() { _periodEntries = null; _loadingPeriod = false; });
+      return;
+    }
+    if (mounted) setState(() => _loadingPeriod = true);
+    try {
+      final repo = ref.read(cashierRepositoryProvider);
+      final page = await repo.listEntries(from: range.from, to: range.to);
+      if (mounted) {
+        setState(() {
+          _periodEntries = page.items;
+          _loadingPeriod = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _periodEntries = null; _loadingPeriod = false; });
+    }
+  }
+
   String get _title {
     if (_period == null) return 'Balanço do dia';
     return switch (_period!) {
@@ -407,13 +479,16 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
 
     // Balanço calculado pela função pura testada (computeBalance).
     final pendingTitles = ref.watch(_pendingTitlesProvider).value?.items ?? const [];
+    final isPeriodActive = _period != null && _period != _PeriodFilter.hoje;
+    final effectiveEntries = _periodEntries ?? widget.state.entries;
     final balance = computeBalance(
-      entries: widget.state.entries.map((e) => (
+      entries: effectiveEntries.map((e) => (
             category: e.category,
             reversedAt: e.reversedAt,
             amount: e.amount as Object?,
           )),
-      pendingOsTotals: pendingTitles.map((t) => t.balance),
+      // Pendente é estado atual — não faz sentido incluir em período histórico.
+      pendingOsTotals: isPeriodActive ? const [] : pendingTitles.map((t) => t.balance),
     );
 
     return NeuSurface(
@@ -447,6 +522,7 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
                       );
                       if (result != null || _period != null) {
                         setState(() => _period = result);
+                        _applyPeriod(result);
                       }
                     },
                   ),
@@ -469,39 +545,45 @@ class _BalanceCardState extends ConsumerState<_BalanceCard> {
           ),
           const SizedBox(height: 16),
           // 5 metric blocks.
-          Wrap(
-            spacing: 28,
-            runSpacing: 16,
-            children: [
-              _Metric(
-                label: 'Recebido',
-                value: formatMoney(balance.recebido),
-                color: neu.success,
-              ),
-              _Metric(
-                label: 'Saídas',
-                value: formatMoney(balance.saidas),
-                color: neu.danger,
-              ),
-              _Metric(
-                label: 'Saldo',
-                value: formatMoney(balance.saldo),
-                color: neu.navy,
-              ),
-              _Metric(
-                label: 'Depósitos',
-                value: formatMoney(balance.depositos),
-                color: neu.accent,
-              ),
-              _Metric(
-                label: 'Pendente',
-                value: formatMoney(balance.pendente),
-                color: neu.warning,
-              ),
-            ],
-          ),
-          // Method breakdown chips.
-          if (byMethod.isNotEmpty) ...[
+          if (_loadingPeriod)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            Wrap(
+              spacing: 28,
+              runSpacing: 16,
+              children: [
+                _Metric(
+                  label: 'Recebido',
+                  value: formatMoney(balance.recebido),
+                  color: neu.success,
+                ),
+                _Metric(
+                  label: 'Saídas',
+                  value: formatMoney(balance.saidas),
+                  color: neu.danger,
+                ),
+                _Metric(
+                  label: 'Saldo',
+                  value: formatMoney(balance.saldo),
+                  color: neu.navy,
+                ),
+                _Metric(
+                  label: 'Depósitos',
+                  value: formatMoney(balance.depositos),
+                  color: neu.accent,
+                ),
+                _Metric(
+                  label: 'Pendente',
+                  value: formatMoney(balance.pendente),
+                  color: neu.warning,
+                ),
+              ],
+            ),
+          // Method breakdown chips — omitido em períodos históricos (dado é da sessão atual).
+          if (byMethod.isNotEmpty && !isPeriodActive) ...[
             const SizedBox(height: 16),
             Divider(color: neu.line, height: 1),
             const SizedBox(height: 12),
@@ -548,6 +630,7 @@ class _MovimentacoesCard extends StatelessWidget {
     required this.salesById,
     required this.filter,
     required this.onFilterChanged,
+    required this.searchCtrl,
   });
 
   final List<CashEntry> entries;
@@ -556,6 +639,7 @@ class _MovimentacoesCard extends StatelessWidget {
   final Map<String, Sale> salesById;
   final _MovFilter filter;
   final ValueChanged<_MovFilter> onFilterChanged;
+  final TextEditingController searchCtrl;
 
   @override
   Widget build(BuildContext context) {
@@ -594,6 +678,27 @@ class _MovimentacoesCard extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Search field.
+          NeuTextField(
+            label: 'Buscar',
+            controller: searchCtrl,
+            hint: 'Cliente, número da OS ou venda...',
+            prefixIcon: Icons.search_rounded,
+            suffix: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: searchCtrl,
+              builder: (_, val, _) => val.text.isEmpty
+                  ? const SizedBox.shrink()
+                  : GestureDetector(
+                      onTap: searchCtrl.clear,
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: neu.inkMuted,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 4),
