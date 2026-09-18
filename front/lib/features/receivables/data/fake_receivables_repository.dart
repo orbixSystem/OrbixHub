@@ -14,6 +14,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
     this.truncated = false,
     this.pendingSettlement = const PendingSettlement(),
     this.pendingTitles = const [],
+    this.vencimentos = const {},
   }) : _titulos = titulos ?? _exemplo;
 
   /// Título → cliente. `null` = venda de balcão sem cliente.
@@ -25,6 +26,11 @@ class FakeReceivablesRepository implements ReceivablesRepository {
 
   /// Os títulos por trás do aviso (o drill-down de "quais são?").
   final List<ReceivableTitle> pendingTitles;
+
+  /// Prazo combinado por título (`id` → `YYYY-MM-DD`), como o servidor devolve
+  /// a próxima parcela em aberto. Sem entrada aqui o título é "sem prazo" — e
+  /// sem prazo não há vencimento nem atraso, igual à regra real.
+  final Map<String, String> vencimentos;
 
   /// Mapa título→(clienteId, nome). Mantido fora do modelo porque o servidor só
   /// devolve o dono no agregado, não em cada título.
@@ -117,7 +123,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
         origin: t.origin,
         createdAt: t.createdAt,
         balance: t.balance,
-        proximaParcelaEm: null, // fake não simula plano de parcelas
+        proximaParcelaEm: vencimentos[t.id],
       );
       final atual = porCliente[chave];
       porCliente[chave] = atual == null

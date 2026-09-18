@@ -9,7 +9,7 @@ import '../../cashier/presentation/desconto_field.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/domain/local_payment.dart';
 import '../../cashier/presentation/cashier_providers.dart';
-import '../../cashier/presentation/cashier_sheet_widgets.dart';
+import '../../cashier/presentation/prazo_fiado_section.dart';
 import '../../os/presentation/os_providers.dart';
 import '../../sale/presentation/sale_providers.dart';
 import '../domain/receivables_models.dart';
@@ -82,10 +82,9 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
       : 'pix';
   bool _saving = false;
 
-  // Parcelamento do que sobrar (só quando NÃO há plano ainda).
-  bool _parcelar = false;
-  int _numParcelas = 2;
-  int _diaVencimento = 10;
+  // Prazo do que sobrar (só quando NÃO há plano ainda). Mesmo widget e mesma
+  // conversão da venda — prazo não é exclusividade de quem fia no balcão.
+  PrazoFiado _prazo = const PrazoFiado();
 
   double get _saldo => widget.title.balance.toDouble();
   double get _esperado => widget.parcela?.valor ?? _saldo;
@@ -197,9 +196,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
         // DECISÃO — sem ela o título não passou pelo caixa e ficaria fora da
         // carteira de cobrança.
         await _declararFiado();
-        if (_parcelar && _restante > paymentEps) {
-          await _programarRestante();
-        }
+        await _programarRestante();
       } else {
         await ref.read(cashierControllerProvider.notifier).addEntry(
               EntryDraft(
@@ -221,9 +218,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
             );
         // Programar o que sobrou, quando pedido — na mesma ação, para o
         // operador não ter de voltar depois só para parcelar.
-        if (_parcelar && _restante > paymentEps) {
-          await _programarRestante();
-        }
+        await _programarRestante();
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -244,16 +239,18 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     }
   }
 
-  Future<void> _programarRestante() =>
-      ref.read(cashierRepositoryProvider).createInstallmentPlan(
-            InstallmentPlanDraft(
-              saleKind: widget.title.origin,
-              saleId: widget.title.id,
-              installmentCount: _numParcelas,
-              dueDayOfMonth: _diaVencimento,
-              totalAmount: _restante,
-            ),
-          );
+  /// Grava o prazo combinado para o que sobrou — data única ou parcelas. Sem
+  /// prazo combinado não grava nada: a dívida fica em aberto, sem atraso.
+  Future<void> _programarRestante() async {
+    if (_restante <= paymentEps) return;
+    final plano = _prazo.planoPara(
+      saleKind: widget.title.origin,
+      saleId: widget.title.id,
+      valor: _restante,
+    );
+    if (plano == null) return;
+    await ref.read(cashierRepositoryProvider).createInstallmentPlan(plano);
+  }
 
   void _snack(String msg) {
     final neu = context.neu;
@@ -394,14 +391,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
               _Consequencia(restante: _restante, digitado: _digitado),
               if (_podeParcelarRestante) ...[
                 const SizedBox(height: 12),
-                _ParcelarRestante(
-                  restante: _restante,
-                  ligado: _parcelar,
-                  numParcelas: _numParcelas,
-                  diaVencimento: _diaVencimento,
-                  onToggle: (v) => setState(() => _parcelar = v),
-                  onParcelas: (v) => setState(() => _numParcelas = v),
-                  onDia: (v) => setState(() => _diaVencimento = v),
+                PrazoFiadoSection(
+                  valor: _prazo,
+                  total: _restante,
+                  titulo: 'Prazo do que fica a receber',
+                  onChanged: (p) => setState(() => _prazo = p),
                 ),
               ],
             ],
@@ -496,99 +490,6 @@ class _Consequencia extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Opção (não obrigação) de programar o que sobrou em parcelas mensais.
-class _ParcelarRestante extends StatelessWidget {
-  const _ParcelarRestante({
-    required this.restante,
-    required this.ligado,
-    required this.numParcelas,
-    required this.diaVencimento,
-    required this.onToggle,
-    required this.onParcelas,
-    required this.onDia,
-  });
-
-  final double restante;
-  final bool ligado;
-  final int numParcelas;
-  final int diaVencimento;
-  final ValueChanged<bool> onToggle;
-  final ValueChanged<int> onParcelas;
-  final ValueChanged<int> onDia;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    return NeuSurface(
-      elevation: NeuElevation.inset,
-      radius: NeuTokens.rField,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Parcelar o restante',
-                  style: TextStyle(
-                    color: neu.ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Switch(
-                value: ligado,
-                onChanged: onToggle,
-                activeThumbColor: neu.navy,
-              ),
-            ],
-          ),
-          if (ligado) ...[
-            const SizedBox(height: 10),
-            // Wrap: os dois steppers empilham sozinhos em tela estreita.
-            Wrap(
-              spacing: 16,
-              runSpacing: 10,
-              children: [
-                CashierStepperField(
-                  label: 'Parcelas',
-                  valueLabel: '$numParcelas x',
-                  onDecrement:
-                      numParcelas > 2 ? () => onParcelas(numParcelas - 1) : null,
-                  onIncrement: numParcelas < 60
-                      ? () => onParcelas(numParcelas + 1)
-                      : null,
-                ),
-                CashierStepperField(
-                  label: 'Vence dia',
-                  valueLabel: '$diaVencimento',
-                  onDecrement:
-                      diaVencimento > 1 ? () => onDia(diaVencimento - 1) : null,
-                  onIncrement:
-                      diaVencimento < 28 ? () => onDia(diaVencimento + 1) : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${numParcelas}x de '
-              '${formatMoney(round2Money(restante / numParcelas))} '
-              '· todo dia $diaVencimento',
-              style: TextStyle(
-                color: neu.navy,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

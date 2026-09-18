@@ -394,8 +394,9 @@ void main() {
   });
 
   group('filtros offline usam a MESMA regra do servidor', () {
-    test('vencidos devolve só quem tem parcela/título vencido', () async {
-      // Ana: OS sem parcela, criada há muito tempo ⇒ vencida pela data do título.
+    test('vencidos devolve só quem passou do prazo COMBINADO', () async {
+      // Ana: prazo combinado e descumprido. É o prazo que decide, não a idade
+      // da dívida — por isso a OS dela também tem parcela, só que vencida.
       await semear(
         osId: '1',
         total: '100.00',
@@ -403,6 +404,13 @@ void main() {
         clienteNome: 'Ana',
         criada: '2020-01-01T10:00:00Z',
       );
+      await gravar('receivable_installment', {
+        'id': 'p1',
+        'sale_kind': 'os',
+        'sale_id': '1',
+        'due_date': '2020-02-01',
+        'paid_at': null,
+      });
       // Bruno: OS com parcela local futura ⇒ NÃO vencida.
       await semear(
         osId: '2',
@@ -419,10 +427,27 @@ void main() {
         'paid_at': null,
       });
 
+      // Carlos: dívida VELHA e sem prazo combinado — não é atraso, ninguém
+      // combinou data. Antes ele entraria aqui só por ser antigo.
+      await semear(
+        osId: '3',
+        total: '300.00',
+        clienteId: 'c3',
+        clienteNome: 'Carlos',
+        criada: '2019-01-01T10:00:00Z',
+      );
+
       final page = await repo(online: false).listDebtors(
         const DebtorsQuery(vencimento: VencimentoFiltro.vencidos),
       );
       expect(page.items.map((d) => d.customerName), ['Ana']);
+
+      // E ele continua na carteira, só que sem vencimento.
+      final todos = await repo(online: false).listDebtors(const DebtorsQuery());
+      final carlos =
+          todos.items.firstWhere((d) => d.customerName == 'Carlos');
+      expect(carlos.nextDueAt, isNull);
+      expect(carlos.overdue, isFalse);
     });
 
     test('busca por apelido sem acento acha "Célia" com "celia"', () async {

@@ -84,9 +84,11 @@ String _diaUtc(String iso) {
   return DateTime.parse(normalizada).toUtc().toIso8601String().substring(0, 10);
 }
 
-/// A parcela manda quando existe; sem plano, a data do título é o vencimento.
-String? _vencimentoEfetivo(TituloParaFiltro t) =>
-    t.proximaParcelaEm ?? t.createdAt;
+/// O vencimento é o PRAZO COMBINADO — a próxima parcela em aberto. Sem plano de
+/// prazo não há vencimento: `null` (fiar sem combinar data é legítimo; atraso
+/// sem prazo combinado não existe). Data ÚNICA combinada é um plano de UMA
+/// parcela, então chega aqui por `proximaParcelaEm` como qualquer outra.
+String? _vencimentoEfetivo(TituloParaFiltro t) => t.proximaParcelaEm;
 
 DevedorClassificado classificar(DevedorParaFiltro d, DateTime hoje) {
   final hojeDia = _diaUtc(hoje.toUtc().toIso8601String());

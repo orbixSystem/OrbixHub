@@ -47,12 +47,19 @@ function diaUtc(iso: string): string {
 }
 
 /**
- * A parcela manda quando existe; sem plano, a data do título é o vencimento.
- * Regra deliberada: venda fiada sem parcela "venceu" no dia em que foi feita —
- * é o que faz o fiado antigo aparecer como vencido em vez de sumir.
+ * O vencimento é o PRAZO COMBINADO — a próxima parcela em aberto. Sem plano de
+ * prazo não há vencimento: `null`.
+ *
+ * Antes isto caía na data da venda, e todo fiado sem prazo aparecia "vencido"
+ * no dia seguinte — inflando o KPI "Vencido" e sujando o filtro "Vencidos",
+ * que é a fila de cobrança. Fiar sem combinar data é legítimo: a dívida existe
+ * (e a idade dela aparece por `oldestAt`), atraso é que não.
+ *
+ * Uma data ÚNICA combinada ("me paga dia 30") é gravada como plano de UMA
+ * parcela — por isso ela chega aqui por `proximaParcelaEm` como qualquer outra.
  */
 function vencimentoEfetivo(t: TituloParaFiltro): string | null {
-  return t.proximaParcelaEm ?? t.createdAt;
+  return t.proximaParcelaEm;
 }
 
 export function classificar(

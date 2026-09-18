@@ -11,6 +11,7 @@ import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
+import '../../cashier/presentation/prazo_fiado_section.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
 import '../../customers/presentation/customers_providers.dart';
 import '../../inventory/domain/inventory_models.dart';
@@ -162,12 +163,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   // Desconto em valor sobre o total da venda.
   final _descontoCtrl = TextEditingController();
 
-  // parcelamento (só modoPrazo) — o mesmo parâmetro que `createInstallmentPlan`
-  // usa no recebimento; aqui a decisão é tomada na hora de fiar, não depois.
-  bool _parcelar = false;
-  int _parcelas = 2;
-  int _diaVencimento = DateTime.now().day.clamp(1, 28);
-  DateTime? _primeiraParcela;
+  // Prazo combinado da dívida — sem prazo, data única ou parcelado. Mesmo
+  // widget e mesma conversão usados no recebimento parcial (`PrazoFiado`),
+  // para os dois caminhos gravarem exatamente a mesma coisa.
+  PrazoFiado _prazo = const PrazoFiado();
 
   /// Soma dos itens, antes do desconto.
   double get _bruto => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
@@ -448,33 +447,25 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       );
       final sale = await ref.read(saleRepositoryProvider).createSale(draft);
 
-      // 1.5) plano de parcelas, se marcado — backend `cashier`. Disponível
-      // sempre que a venda vira fiado, não só em modo prazo: uma venda comum
-      // recebida em parte tem o MESMO direito de parcelar o resto.
+      // 1.5) prazo combinado, se houver — backend `cashier`. Disponível sempre
+      // que a venda vira fiado, não só em modo prazo: uma venda comum recebida
+      // em parte tem o MESMO direito de combinar data ou parcelar o resto.
       // Falhar aqui NÃO desfaz a venda: o dinheiro não mudou de mão, só o
-      // cronograma de cobrança faltou. A pessoa ainda pode parcelar depois,
+      // cronograma de cobrança faltou. A pessoa ainda pode combinar depois,
       // pelo devedor em "A receber".
       String? avisoParcelas;
-      if (_ehFiado && _parcelar) {
+      // O que falta receber — na venda comum parcial, só a dívida entra no
+      // plano, não o total da venda.
+      final plano = _ehFiado
+          ? _prazo.planoPara(saleKind: 'sale', saleId: sale.id, valor: _falta)
+          : null;
+      if (plano != null) {
         try {
-          await ref.read(cashierRepositoryProvider).createInstallmentPlan(
-                InstallmentPlanDraft(
-                  saleKind: 'sale',
-                  saleId: sale.id,
-                  installmentCount: _parcelas,
-                  dueDayOfMonth: _diaVencimento,
-                  // O que falta receber — na venda comum parcial, só a dívida
-                  // entra no plano, não o total da venda.
-                  totalAmount: _falta,
-                  firstDueDate: _primeiraParcela
-                      ?.toIso8601String()
-                      .substring(0, 10),
-                ),
-              );
+          await ref.read(cashierRepositoryProvider).createInstallmentPlan(plano);
         } catch (e) {
           avisoParcelas =
-              'Venda registrada, mas o parcelamento não foi gravado ($e). '
-              'Abra o devedor em "A receber" e parcele por lá.';
+              'Venda registrada, mas o prazo não foi gravado ($e). '
+              'Abra o devedor em "A receber" e combine por lá.';
         }
       }
 
@@ -847,22 +838,15 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                         ),
                       // Mesma seção do modo prazo — sem exclusividade: uma
                       // venda comum que vira fiado (recebido < total, aqui em
-                      // `_PaymentSection`) tem direito ao MESMO parcelamento,
-                      // não só quem entrou por "A receber".
+                      // `_PaymentSection`) tem direito ao MESMO prazo, não só
+                      // quem entrou por "A receber".
                       if (widget.editando == null && _ehFiado)
-                        _ParcelamentoSection(
-                          ativo: _parcelar,
-                          parcelas: _parcelas,
-                          diaVencimento: _diaVencimento,
-                          primeira: _primeiraParcela,
+                        PrazoFiadoSection(
+                          valor: _prazo,
                           // O que falta receber, não o total da venda — na
                           // venda comum parcial, só a dívida entra no plano.
                           total: _falta,
-                          onAtivo: (v) => setState(() => _parcelar = v),
-                          onParcelas: (v) => setState(() => _parcelas = v),
-                          onDia: (v) => setState(() => _diaVencimento = v),
-                          onPrimeira: (d) =>
-                              setState(() => _primeiraParcela = d),
+                          onChanged: (p) => setState(() => _prazo = p),
                         ),
                     ],
                   ),
@@ -1132,115 +1116,6 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
 /// campo de valor e permitia estados contraditórios (marcado "receber agora"
 /// com valor menor que o total, que o app registrava como pago — o bug que
 /// escondia fiado). O campo vem preenchido com o total, que é o caso comum.
-/// Parcelamento opcional da venda a prazo. Substitui `_PaymentSection` em modo
-/// prazo: aqui não há "quanto recebeu" (é sempre zero), só "em quantas vezes e
-/// quando" a dívida vai ser cobrada — a mesma pergunta que `createInstallmentPlan`
-/// já responde no recebimento, só que decidida na hora de fiar.
-class _ParcelamentoSection extends StatelessWidget {
-  const _ParcelamentoSection({
-    required this.ativo,
-    required this.parcelas,
-    required this.diaVencimento,
-    required this.primeira,
-    required this.total,
-    required this.onAtivo,
-    required this.onParcelas,
-    required this.onDia,
-    required this.onPrimeira,
-  });
-
-  final bool ativo;
-  final int parcelas;
-  final int diaVencimento;
-  final DateTime? primeira;
-  final double total;
-  final ValueChanged<bool> onAtivo;
-  final ValueChanged<int> onParcelas;
-  final ValueChanged<int> onDia;
-  final ValueChanged<DateTime?> onPrimeira;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final porParcela = parcelas > 0 ? total / parcelas : 0.0;
-    return NeuSurface(
-      elevation: NeuElevation.inset,
-      radius: NeuTokens.rField,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Material transparente: ListTile pinta fundo/splash no Material mais
-          // próximo, e aqui o ancestral seria o NeuSurface (DecoratedBox
-          // colorido) — dispara assert do framework e engole o efeito.
-          Material(
-            type: MaterialType.transparency,
-            child: SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Parcelar'),
-              subtitle: Text(
-                ativo
-                    ? '$parcelas× de ${formatMoney(porParcela)}'
-                    : 'Sem parcelas: fica tudo a receber de uma vez',
-              ),
-              value: ativo,
-              onChanged: onAtivo,
-            ),
-          ),
-          if (ativo) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: NeuStepperField(
-                    value: parcelas.toDouble(),
-                    decimals: 0,
-                    semanticLabel: 'Parcelas',
-                    onChanged: (v) => onParcelas(v.round().clamp(1, 60)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: NeuStepperField(
-                    value: diaVencimento.toDouble(),
-                    decimals: 0,
-                    semanticLabel: 'Dia do vencimento',
-                    onChanged: (v) => onDia(v.round().clamp(1, 28)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate:
-                      primeira ?? DateTime.now().add(const Duration(days: 30)),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-                );
-                onPrimeira(d);
-              },
-              icon: const Icon(Icons.event_outlined, size: 18),
-              label: Text(
-                primeira == null
-                    ? '1ª parcela: próximo dia $diaVencimento'
-                    : '1ª parcela: ${primeira!.day.toString().padLeft(2, '0')}/'
-                        '${primeira!.month.toString().padLeft(2, '0')}/'
-                        '${primeira!.year}',
-              ),
-            ),
-            Text(
-              'Rótulos e limites iguais aos do recebimento (1–60 parcelas, dia 1–28).',
-              style: TextStyle(color: neu.inkFaint, fontSize: 12),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _PaymentSection extends StatelessWidget {
   const _PaymentSection({
     required this.isNarrow,

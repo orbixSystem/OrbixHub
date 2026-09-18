@@ -89,11 +89,12 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  Future<void> ligarParcelar(WidgetTester t) async {
-    final chave = find.widgetWithText(SwitchListTile, 'Parcelar');
-    await t.ensureVisible(chave);
+  /// Escolhe um dos modos do bloco "Prazo de pagamento".
+  Future<void> escolherPrazo(WidgetTester t, String modo) async {
+    final chip = find.text(modo);
+    await t.ensureVisible(chip);
     await t.pumpAndSettle();
-    await t.tap(chave);
+    await t.tap(chip);
     await t.pumpAndSettle();
   }
 
@@ -118,7 +119,43 @@ void main() {
     // prazo ele nem monta, porque a venda nasce fiada por decisão, não por
     // valor digitado.
     expect(find.text('Valor recebido'), findsNothing);
-    expect(find.text('Parcelar'), findsOneWidget);
+    // Prazo NÃO é sinônimo de parcelamento: os três modos ficam à vista.
+    expect(find.text('Prazo de pagamento'), findsOneWidget);
+    expect(find.text('Sem prazo'), findsOneWidget);
+    expect(find.text('Data única'), findsOneWidget);
+    expect(find.text('Parcelado'), findsOneWidget);
+  });
+
+  testWidgets('sem prazo combinado: venda fiada e NENHUM plano', (t) async {
+    final cashier = FakeCashierRepository();
+    final sale = FakeSaleRepository();
+    await abrir(t, cashier: cashier, sale: sale);
+    await adicionarItemAvulso(t);
+    await salvarVenda(t); // "Sem prazo" é o padrão
+
+    expect(sale.criadas.single.fiado, isTrue);
+    expect(cashier.planos, isEmpty,
+        reason: 'sem data combinada não há o que programar');
+  });
+
+  testWidgets('data única vira um plano de UMA parcela na data escolhida',
+      (t) async {
+    final cashier = FakeCashierRepository();
+    final sale = FakeSaleRepository();
+    await abrir(t, cashier: cashier, sale: sale);
+    await adicionarItemAvulso(t);
+    await escolherPrazo(t, 'Data única');
+    await salvarVenda(t);
+
+    // "Me paga dia X" é uma parcela só — o modelo de parcelas já existia, e
+    // reusá-lo evita um segundo caminho para a mesma coisa.
+    expect(cashier.planos, hasLength(1));
+    expect(cashier.planos.single.installmentCount, 1);
+    expect(cashier.planos.single.firstDueDate, isNotNull);
+    // Padrão: 30 dias à frente — uma data futura, nunca "hoje" (que nasceria
+    // vencida no dia seguinte, o bug que a regra nova corrige).
+    final combinada = DateTime.parse(cashier.planos.single.firstDueDate!);
+    expect(combinada.isAfter(DateTime.now()), isTrue);
   });
 
   testWidgets('sem cliente cadastrado avisa que apelido não tem telefone',
@@ -132,7 +169,7 @@ void main() {
     final sale = FakeSaleRepository();
     await abrir(t, cashier: cashier, sale: sale);
     await adicionarItemAvulso(t);
-    await ligarParcelar(t);
+    await escolherPrazo(t, 'Parcelado');
     await incrementarParcelas(t);
     await salvarVenda(t);
 
@@ -148,7 +185,7 @@ void main() {
     final sale = FakeSaleRepository();
     await abrir(t, cashier: cashier, sale: sale);
     await adicionarItemAvulso(t);
-    await ligarParcelar(t);
+    await escolherPrazo(t, 'Parcelado');
     await salvarVenda(t);
 
     // A venda foi gravada — o dinheiro não mudou de mão, só o plano faltou.
@@ -160,6 +197,6 @@ void main() {
     // o segundo assumir o lugar antes de procurar o texto.
     await t.pump(const Duration(seconds: 5));
     await t.pumpAndSettle();
-    expect(find.textContaining('parcelamento não foi gravado'), findsOneWidget);
+    expect(find.textContaining('prazo não foi gravado'), findsOneWidget);
   });
 }

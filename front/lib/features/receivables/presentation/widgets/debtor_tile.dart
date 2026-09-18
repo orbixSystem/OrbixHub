@@ -84,7 +84,17 @@ class DebtorTile extends ConsumerWidget {
                                       color: neu.inkMuted, fontSize: 12)),
                             ],
                           ),
-                        if (debtor.nextDueAt != null)
+                        // Sem prazo combinado é um ESTADO, não dado faltando:
+                        // dizer isso deixa claro por que este devedor não
+                        // aparece em atraso (ninguém combinou data).
+                        if (debtor.nextDueAt == null)
+                          NeuStatusChip(
+                            label: 'Sem prazo',
+                            color: neu.inkMuted,
+                            tint: neu.inkMuted.withValues(alpha: .14),
+                            icon: Icons.event_busy_outlined,
+                          )
+                        else
                           NeuStatusChip(
                             label: debtor.overdue
                                 ? 'Vencido em ${_dataCurta(debtor.nextDueAt!)}'
