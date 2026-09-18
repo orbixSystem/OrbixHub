@@ -82,10 +82,7 @@ Future<void> _abrirCaixa(WidgetTester tester, Size size) async {
 }
 
 /// Todo alvo que o tutorial do Caixa aponta.
-// Renomeados com o redesign (6d45e34): as abas sumiram e "últimos lançamentos"
-// virou a lista inteira. Manter `caixa.abas` apontando para o balanço seria uma
-// mentira que sobreviveria a quem leu o commit.
-const _alvos = ['caixa.balanco', 'caixa.acoes', 'caixa.movimentacoes'];
+const _alvos = ['caixa.abas', 'caixa.acoes', 'caixa.ultimos'];
 
 
 /// Telas que já têm holofote, com seus alvos. Cada uma é montada nos DOIS

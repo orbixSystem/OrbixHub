@@ -41,9 +41,9 @@ String categoryLabel(String category) {
     case 'despesa':
       return 'Despesa';
     case 'sangria':
-      return 'Saque';
+      return 'Sangria';
     case 'suprimento':
-      return 'Depósito';
+      return 'Suprimento';
     default:
       return category;
   }

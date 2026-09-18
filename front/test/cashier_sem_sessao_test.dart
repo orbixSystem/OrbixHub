@@ -131,7 +131,7 @@ void main() {
 
       expect(find.text('Fechar caixa'), findsNothing);
       expect(find.textContaining('Aberto desde'), findsNothing);
-      expect(find.text('Balanço do dia'), findsOneWidget);
+      expect(find.text('Caixa de hoje'), findsOneWidget);
     });
   });
 
@@ -142,9 +142,9 @@ void main() {
       // O bloqueio desaparece...
       expect(find.text('Caixa fechado'), findsNothing);
       // ...e as ações do dia estão disponíveis de imediato.
-      expect(find.text('Balanço do dia'), findsOneWidget);
+      expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
-      expect(find.text('Venda Avulsa'), findsOneWidget);
+      expect(find.text('Venda avulsa'), findsOneWidget);
       // Despesa NÃO é mais ação do caixa: conta a pagar virou o módulo
       // `Despesas`, e o lançamento aqui nasce da baixa lá. Duas portas para o
       // mesmo dinheiro deixariam saída no livro sem conta do outro lado.
@@ -161,11 +161,13 @@ void main() {
       expect(find.text('Fechar caixa'), findsNothing);
     });
 
-    testWidgets('mostra as movimentações na própria tela', (tester) async {
-      // O redesign (6d45e34) removeu as abas: esta lista deixou de ser um
-      // resumo com "Ver tudo" para o Histórico e passou a ser A lista.
+    testWidgets('mostra os ÚLTIMOS lançamentos (confirmação, não extrato)',
+        (tester) async {
+      // O extrato completo é o Histórico. Aqui a lista serve para o operador
+      // confirmar que o que ele acabou de lançar entrou.
       await _abrirTela(tester, exigeAbertura: false);
-      expect(find.text('Movimentações'), findsOneWidget);
+      expect(find.text('Últimos lançamentos'), findsOneWidget);
+      expect(find.text('Lançamentos de hoje'), findsNothing);
     });
 
     testWidgets('as ações vêm em grid, com alvo de toque grande',
@@ -174,7 +176,7 @@ void main() {
       // As DUAS ações do caixa (dono vê todas). Eram três até a despesa sair
       // para o módulo `Despesas`; sangria/suprimento ficaram só no diálogo de
       // lançamento, já que a cerimônia de gaveta foi removida do produto.
-      expect(find.text('Venda Avulsa'), findsOneWidget);
+      expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Despesa / sangria'), findsNothing);
     });
@@ -218,7 +220,7 @@ void main() {
       expect(find.text('Fechar caixa'), findsNothing);
       expect(find.textContaining('Aberto desde'), findsNothing);
       // Segue no modo livre, sem cerimônia de nenhum tipo.
-      expect(find.text('Balanço do dia'), findsOneWidget);
+      expect(find.text('Caixa de hoje'), findsOneWidget);
       expect(find.text('Encerrar conferência'), findsNothing);
     });
 
@@ -258,13 +260,47 @@ void main() {
     });
   });
 
-  // O grupo "lista curta do dia" foi REMOVIDO junto com o recurso: o redesign
-  // (6d45e34) tirou as abas Caixa/Fiado/Histórico, e com elas o corte em 5
-  // lançamentos e o "Ver tudo". A tela mostra todas as movimentações agora.
-  //
-  // O que ficou SEM cobertura: não há mais teste garantindo que a lista de
-  // movimentações não cresça sem limite. Com muitos lançamentos no período,
-  // ninguém está verificando o custo disso.
+  group('lista curta do dia', () {
+    testWidgets('mostra no máximo 5 lançamentos e oferece "Ver tudo"',
+        (tester) async {
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+        lancamentos: [
+          for (var i = 0; i < 9; i++)
+            CashEntry(
+              id: 'e$i',
+              direction: 'out',
+              amount: '10.00',
+              method: 'pix',
+              category: 'despesa',
+              description: 'Despesa $i',
+              createdAt: '2026-08-03T12:00:00Z',
+            ),
+        ],
+      );
+      await _montar(tester, caixa);
+
+      // 9 lançamentos, 5 na tela: o resto está no Histórico.
+      expect(find.textContaining('Despesa 0'), findsOneWidget);
+      expect(find.textContaining('Despesa 4'), findsOneWidget);
+      expect(find.textContaining('Despesa 5'), findsNothing);
+      expect(find.text('Ver tudo'), findsOneWidget);
+    });
+
+    testWidgets('"Ver tudo" leva para a aba Histórico', (tester) async {
+      final caixa = _EspiaCaixa(
+        requireOpenSession: false,
+        comSessaoAberta: false,
+      );
+      await _montar(tester, caixa);
+
+      await tester.tap(find.text('Ver tudo'));
+      await tester.pumpAndSettle();
+      // O Histórico tem o seu próprio recorte por período.
+      expect(find.text('Últimos lançamentos'), findsNothing);
+    });
+  });
 
   group('sair da tela e voltar', () {
     testWidgets('remontar com config LEGADA continua sem pedir abertura',
@@ -313,7 +349,7 @@ void main() {
 
       expect(find.textContaining('Abrir caixa'), findsNothing);
       expect(find.textContaining('Fechar caixa'), findsNothing);
-      expect(find.text('Movimentações'), findsOneWidget);
+      expect(find.text('Últimos lançamentos'), findsOneWidget);
     });
   });
 
