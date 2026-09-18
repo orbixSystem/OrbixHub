@@ -67,6 +67,30 @@ class DebtorTile extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                         ],
+                        if ((debtor.phone ?? '').isNotEmpty) ...[
+                          Icon(Icons.phone_outlined,
+                              size: 14, color: neu.inkMuted),
+                          const SizedBox(width: 4),
+                          Text(debtor.phone!,
+                              style:
+                                  TextStyle(color: neu.inkMuted, fontSize: 12)),
+                          const SizedBox(width: 8),
+                        ],
+                        if (debtor.nextDueAt != null) ...[
+                          NeuStatusChip(
+                            label: debtor.overdue
+                                ? 'Vencido em ${_dataCurta(debtor.nextDueAt!)}'
+                                : 'Vence em ${_dataCurta(debtor.nextDueAt!)}',
+                            color: debtor.overdue ? neu.danger : neu.warning,
+                            tint: debtor.overdue
+                                ? neu.dangerTint
+                                : neu.warningTint,
+                            icon: debtor.overdue
+                                ? Icons.error_outline
+                                : Icons.event_outlined,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Flexible(
                           child: Text(
                             [
@@ -105,6 +129,15 @@ class DebtorTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// "dd/mm" a partir de um ISO — o vencimento não precisa do ano na lista, só
+/// no drill-down (que já mostra o título inteiro).
+String _dataCurta(String iso) {
+  final d = DateTime.tryParse(iso)?.toLocal();
+  if (d == null) return iso;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(d.day)}/${two(d.month)}';
 }
 
 /// "há N dias" a partir do título mais antigo. Sem vencimento no modelo, esta é
