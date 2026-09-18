@@ -128,6 +128,17 @@ export abstract class CashierService {
     saleId: string,
   ): Promise<number>;
 
+  /**
+   * Para vários títulos de uma vez, a data da PRÓXIMA parcela em aberto de cada
+   * um — porta do "A receber", que precisa disso para classificar vencimento
+   * sem ler a tabela de parcelas (regra 1). Chave: `${saleKind}:${saleId}`,
+   * valor `YYYY-MM-DD`. Título sem plano (ou com tudo pago) não aparece no mapa.
+   */
+  abstract proximasParcelasEmAberto(
+    tenantId: string,
+    refs: Array<{ saleKind: string; saleId: string }>,
+  ): Promise<Map<string, string>>;
+
   abstract listChangedSince(
     entity: string,
     cursor: { ts: string; id: string } | null,

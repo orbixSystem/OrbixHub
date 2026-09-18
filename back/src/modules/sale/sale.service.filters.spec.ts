@@ -24,6 +24,9 @@ class FakeCashier extends CashierService {
   async contarParcelasEmAberto() {
     return 0;
   }
+  async proximasParcelasEmAberto() {
+    return new Map<string, string>();
+  }
   getPaymentSummary(_t: string, _v: string, fallbackTotal = 0) {
     return Promise.resolve(buildPaymentSummary(fallbackTotal, 0));
   }
