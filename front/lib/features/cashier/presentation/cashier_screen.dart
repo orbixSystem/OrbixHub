@@ -13,7 +13,6 @@ import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
-import '../../receivables/presentation/receivables_tab.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -23,13 +22,11 @@ import 'receive_picker_dialog.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_timeline_list.dart';
 
-/// Módulo Caixa: três abas — "Caixa" (entradas do dia + ações rápidas), "Fiado"
-/// (contas a receber, agrupadas por cliente) e "Histórico" (movimentos por
-/// período — o relatório do caixa). Quais aparecem depende do papel: Fiado
-/// exige `cashier.read`, Histórico é de gestão.
-///
-/// "A receber" também existe como TELA própria (`/m/cashier/a-receber`, item de
-/// menu + botão aqui) — a aba Fiado sai na limpeza final desta entrega.
+/// Módulo Caixa: duas abas — "Caixa" (entradas do dia + ações rápidas) e
+/// "Histórico" (movimentos por período — o relatório do caixa, de gestão).
+/// Contas a receber (agrupadas por cliente) é TELA própria
+/// (`/m/cashier/a-receber`, item de menu abaixo de Caixa + botão aqui) — não é
+/// mais aba: duas rotas para a MESMA carteira divergiam com o tempo.
 ///
 /// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
 /// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
@@ -41,7 +38,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa · 1 = Fiado · 2 = Histórico
+  int _tab = 0; // 0 = Caixa · 1 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
@@ -70,14 +67,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final canFiado = _canReadReceivables();
-    // Abas montadas conforme o papel: o atendente vê Caixa (+ Fiado, que
-    // precisa para cobrar); o Histórico é relatório de gestão. Ordem =
-    // frequência de uso: opera-se o dia, cobra-se o fiado, consulta-se o período.
+    // Abas montadas conforme o papel: todo mundo vê Caixa; Histórico é
+    // relatório de gestão.
     final segments = <int, String>{
       0: 'Caixa',
-      if (canFiado) 1: 'Fiado',
-      if (canManage) 2: 'Histórico',
+      if (canManage) 1: 'Histórico',
     };
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -103,7 +97,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
+            Expanded(child: _body(canManage: canManage)),
           ],
         ),
       ),
@@ -112,9 +106,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
 
   /// Corpo da aba selecionada. Cai no Caixa quando a aba guardada não está
   /// mais disponível (troca de papel/empresa sem recriar a tela).
-  Widget _body({required bool canFiado, required bool canManage}) {
-    if (_tab == 1 && canFiado) return ReceivablesTab(canWrite: _canWrite());
-    if (_tab == 2 && canManage) return const _CashierHistory();
+  Widget _body({required bool canManage}) {
+    if (_tab == 1 && canManage) return const _CashierHistory();
     return _dayBody();
   }
 
@@ -133,7 +126,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           canManage: _canManage(),
           canSale: _canSale(),
           canFiado: _canReadReceivables(),
-          onVerHistorico: () => setState(() => _tab = 2),
+          onVerHistorico: () => setState(() => _tab = 1),
         );
       },
     );

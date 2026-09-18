@@ -9,9 +9,12 @@ import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_query.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
+import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/receivables/data/receivables_repository_impl.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
-import 'package:orbixhub_front/features/receivables/presentation/receivables_tab.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_screen.dart';
 
 /// Caminho REAL do fiado: `ReceivablesRepositoryImpl` sobre dio, com o payload
 /// exato que o backend devolve (capturado de `GET /api/receivables`).
@@ -87,11 +90,24 @@ Dio _dioCom(_FakeAdapter adapter) {
   return dio;
 }
 
-/// Online por padrão: sem isto a tela mostra o aviso "Fiado precisa de conexão"
-/// (o estado inicial do controller não é `online`).
+/// Online por padrão: sem isto a tela mostra o aviso "offline" (o estado
+/// inicial do controller não é `online`).
 class _OnlineConn extends ConnectivityController {
   @override
   ConnState build() => const ConnState(status: ConnStatus.online);
+}
+
+class _SessaoComPermissao extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u1', email: 'dono@teste.com', fullName: 'Dono'),
+          activeTenant: Tenant(id: 't1', slug: 'oficina', name: 'Oficina'),
+          role: 'owner',
+          permissions: ['cashier.write', 'cashier.read'],
+          modules: ['cashier'],
+        ),
+      );
 }
 
 void main() {
@@ -149,10 +165,11 @@ void main() {
             connectivityControllerProvider.overrideWith(_OnlineConn.new),
             receivablesRepositoryProvider
                 .overrideWithValue(ReceivablesRepositoryImpl(_dioCom(adapter))),
+            sessionControllerProvider.overrideWith(_SessaoComPermissao.new),
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: const Scaffold(body: ReceivablesTab(canWrite: true)),
+            home: const Scaffold(body: ReceivablesScreen()),
           ),
         );
 
@@ -220,10 +237,11 @@ void main() {
             connectivityControllerProvider.overrideWith(_OnlineConn.new),
             receivablesRepositoryProvider
                 .overrideWithValue(ReceivablesRepositoryImpl(_dioCom(adapter))),
+            sessionControllerProvider.overrideWith(_SessaoComPermissao.new),
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: const Scaffold(body: ReceivablesTab(canWrite: true)),
+            home: const Scaffold(body: ReceivablesScreen()),
           ),
         ),
       );

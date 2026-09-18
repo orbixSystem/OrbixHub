@@ -118,21 +118,34 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
   Widget _lista(BuildContext context, DebtorsPage p, DebtorsQuery query,
       bool canWrite, bool isMobile) {
     if (p.items.isEmpty) {
+      // Sem devedor nenhum a lista fica vazia — mas o aviso de "entregue e não
+      // acertado" TEM de aparecer mesmo assim, senão a oficina que esqueceu de
+      // passar uma OS pelo caixa não vê nada em lugar nenhum.
+      final aviso = p.pendingSettlement.count > 0
+          ? AvisoPendenteAcerto(pendentes: p.pendingSettlement)
+          : null;
       if (query.temFiltroAtivo) {
-        return NeuEmptyState(
-          icon: Icons.filter_alt_off_outlined,
-          title: 'Nenhum devedor com os filtros ativos',
-          message:
-              'A carteira continua aqui — a busca ou os filtros estão escondendo todos.',
-          actionLabel: 'Limpar filtros',
-          onAction: () => ref.read(debtorsQueryProvider.notifier).clearFilters(),
-        );
+        return ListView(children: [
+          if (aviso != null) ...[aviso, const SizedBox(height: 20)],
+          NeuEmptyState(
+            icon: Icons.filter_alt_off_outlined,
+            title: 'Nenhum devedor com os filtros ativos',
+            message:
+                'A carteira continua aqui — a busca ou os filtros estão escondendo todos.',
+            actionLabel: 'Limpar filtros',
+            onAction: () =>
+                ref.read(debtorsQueryProvider.notifier).clearFilters(),
+          ),
+        ]);
       }
-      return const NeuEmptyState(
-        icon: Icons.check_circle_outline,
-        title: 'Ninguém devendo',
-        message: 'Vendas a prazo e OS entregues sem acerto aparecem aqui.',
-      );
+      return ListView(children: [
+        if (aviso != null) ...[aviso, const SizedBox(height: 20)],
+        const NeuEmptyState(
+          icon: Icons.check_circle_outline,
+          title: 'Ninguém devendo',
+          message: 'Vendas a prazo e OS entregues sem acerto aparecem aqui.',
+        ),
+      ]);
     }
     final lista = ListView.separated(
       controller: _scroll,

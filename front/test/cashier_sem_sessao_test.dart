@@ -173,11 +173,13 @@ void main() {
     testWidgets('as ações vêm em grid, com alvo de toque grande',
         (tester) async {
       await _abrirTela(tester, exigeAbertura: false);
-      // As DUAS ações do caixa (dono vê todas). Eram três até a despesa sair
-      // para o módulo `Despesas`; sangria/suprimento ficaram só no diálogo de
-      // lançamento, já que a cerimônia de gaveta foi removida do produto.
+      // As TRÊS ações do caixa (dono vê todas, incluindo `cashier.read`).
+      // Despesa saiu para o módulo `Despesas`; sangria/suprimento ficaram só
+      // no diálogo de lançamento, já que a cerimônia de gaveta foi removida.
+      // "A receber" entrou no lugar da aba Fiado (que virou tela própria).
       expect(find.text('Venda avulsa'), findsOneWidget);
       expect(find.text('Receber OS'), findsOneWidget);
+      expect(find.text('A receber'), findsOneWidget);
       expect(find.text('Despesa / sangria'), findsNothing);
     });
   });
