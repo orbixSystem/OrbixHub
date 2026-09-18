@@ -18,6 +18,7 @@ import '../../inventory/domain/stock_status.dart';
 import '../../inventory/presentation/inventory_providers.dart';
 import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../../inventory/presentation/stock_badge.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 import '../domain/sale_models.dart';
 import '../domain/sale_payment_split.dart';
 import 'sale_providers.dart';
@@ -35,6 +36,11 @@ Future<Sale?> showSaleCreateDialog(
   BuildContext context, {
   List<SaleItem>? refazerDe,
   Sale? editando,
+  /// Venda A PRAZO ("A receber"): nasce fiada, sem bloco de recebimento, com
+  /// parcelamento opcional e cliente cadastrado em destaque. Usado por
+  /// `showCreditSaleDialog`, que é este MESMO diálogo em modo prazo — duplicar
+  /// o diálogo geraria dois cálculos de total que divergem com o tempo.
+  bool modoPrazo = false,
 }) {
   return showDialog<Sale?>(
     context: context,
@@ -44,7 +50,11 @@ Future<Sale?> showSaleCreateDialog(
     // (`media.width - 24`) — e o cabeçalho estourava 33px.
     builder: (_) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      child: _SaleCreateDialog(refazerDe: refazerDe, editando: editando),
+      child: _SaleCreateDialog(
+        refazerDe: refazerDe,
+        editando: editando,
+        modoPrazo: modoPrazo,
+      ),
     ),
   );
 }
@@ -96,7 +106,11 @@ class _DraftLine {
 }
 
 class _SaleCreateDialog extends ConsumerStatefulWidget {
-  const _SaleCreateDialog({this.refazerDe, this.editando});
+  const _SaleCreateDialog({
+    this.refazerDe,
+    this.editando,
+    this.modoPrazo = false,
+  });
 
   /// Itens de uma venda cancelada, para relançar sem redigitar.
   final List<SaleItem>? refazerDe;
@@ -105,6 +119,9 @@ class _SaleCreateDialog extends ConsumerStatefulWidget {
   /// salvar (PATCH em vez de POST) e esconde o recebimento: o dinheiro dessa
   /// venda já passou pelo caixa e se ajusta pelos lançamentos, não por aqui.
   final Sale? editando;
+
+  /// Venda a prazo: nasce fiada, sem recebimento, com parcelamento opcional.
+  final bool modoPrazo;
 
   @override
   ConsumerState<_SaleCreateDialog> createState() => _SaleCreateDialogState();
@@ -145,6 +162,13 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   // Desconto em valor sobre o total da venda.
   final _descontoCtrl = TextEditingController();
 
+  // parcelamento (só modoPrazo) — o mesmo parâmetro que `createInstallmentPlan`
+  // usa no recebimento; aqui a decisão é tomada na hora de fiar, não depois.
+  bool _parcelar = false;
+  int _parcelas = 2;
+  int _diaVencimento = DateTime.now().day.clamp(1, 28);
+  DateTime? _primeiraParcela;
+
   /// Soma dos itens, antes do desconto.
   double get _bruto => _lines.fold<double>(0, (acc, l) => acc + l.subtotal);
 
@@ -162,6 +186,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// Quanto o cliente entregou. Vazio = zero (venda inteiramente fiada), o que é
   /// uma escolha legítima e confirmada no modal — não um erro a bloquear.
   double get _recebido {
+    // Modo prazo não tem bloco de recebimento: a venda nasce fiada, ponto.
+    if (widget.modoPrazo) return 0;
     if (!_receivedTouched) return _total;
     final v = double.tryParse(_receivedCtrl.text.trim().replaceAll(',', '.'));
     return v == null || v < 0 ? 0 : v;
@@ -178,7 +204,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   double get _falta => _split.falta;
   double get _troco => _split.troco;
   double get _aLancarNoCaixa => _split.aLancarNoCaixa;
-  bool get _ehFiado => _split.ehFiado;
+
+  /// Em modo prazo a pessoa já escolheu "a prazo" ao abrir o modal — não há
+  /// valor recebido para derivar isso de.
+  bool get _ehFiado => widget.modoPrazo || _split.ehFiado;
 
   @override
   void initState() {
@@ -300,14 +329,14 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             Text(
               !semCliente
                   ? 'A dívida de ${_customerName ?? 'cliente'} aparecerá em '
-                        'Caixa › Fiado, onde você pode receber depois.'
+                        '"A receber", onde você pode receber depois.'
                   : apelido.isNotEmpty
-                  ? 'A dívida ficará registrada como "$apelido" no Fiado. '
-                        'Como não é um cliente cadastrado, lembre-se de '
-                        'cobrar manualmente.'
+                  ? 'A dívida ficará registrada como "$apelido" em "A '
+                        'receber". Como não é um cliente cadastrado, '
+                        'lembre-se de cobrar manualmente.'
                   : 'Sem cliente identificado, esta dívida vai para "Sem '
-                        'cliente" no Fiado — e fica difícil cobrar. Considere '
-                        'voltar e escolher o cliente.',
+                        'cliente" em "A receber" — e fica difícil cobrar. '
+                        'Considere voltar e escolher o cliente.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.35,
@@ -386,7 +415,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     // Recebeu menos que o total ⇒ o resto é fiado. Confirmar explicitamente,
     // porque a consequência (dívida de um cliente) não é óbvia ao digitar um
     // número menor — e sem cliente identificado a cobrança fica difícil.
-    if (_ehFiado) {
+    // Em modo prazo a pessoa já escolheu "a prazo" ao abrir o modal — perguntar
+    // de novo seria confirmar uma decisão que ela acabou de tomar.
+    if (_ehFiado && !widget.modoPrazo) {
       final confirmado = await _confirmarFiado();
       if (!confirmado || !mounted) return;
     }
@@ -416,6 +447,32 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
         ],
       );
       final sale = await ref.read(saleRepositoryProvider).createSale(draft);
+
+      // 1.5) plano de parcelas, se marcado (só modo prazo) — backend `cashier`.
+      // Falhar aqui NÃO desfaz a venda: o dinheiro não mudou de mão, só o
+      // cronograma de cobrança faltou. A pessoa ainda pode parcelar depois,
+      // pelo devedor em "A receber".
+      String? avisoParcelas;
+      if (widget.modoPrazo && _parcelar) {
+        try {
+          await ref.read(cashierRepositoryProvider).createInstallmentPlan(
+                InstallmentPlanDraft(
+                  saleKind: 'sale',
+                  saleId: sale.id,
+                  installmentCount: _parcelas,
+                  dueDayOfMonth: _diaVencimento,
+                  totalAmount: _total,
+                  firstDueDate: _primeiraParcela
+                      ?.toIso8601String()
+                      .substring(0, 10),
+                ),
+              );
+        } catch (e) {
+          avisoParcelas =
+              'Venda registrada, mas o parcelamento não foi gravado ($e). '
+              'Abra o devedor em "A receber" e parcele por lá.';
+        }
+      }
 
       // 2) registra no caixa APENAS o que entrou de fato — backend `cashier`.
       //
@@ -487,6 +544,13 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
             'confira o saldo desses produtos.',
           );
         }
+        if (avisoParcelas != null) {
+          showNeuWarningSnackBar(context, avisoParcelas);
+        }
+        // "A receber" observa a mesma carteira que esta venda acabou de mudar
+        // (nasceu fiada, ou entrou parcialmente paga) — sem isto quem estava
+        // com a tela aberta veria o total antigo até sair e voltar.
+        if (_ehFiado) ref.invalidate(debtorsProvider);
       }
     } catch (e) {
       if (mounted) {
@@ -534,9 +598,11 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                   // título cede espaço em vez de empurrar o botão fora da tela.
                   Expanded(
                     child: Text(
-                      widget.editando == null
-                          ? 'Venda avulsa'
-                          : 'Editar venda ${widget.editando!.number}',
+                      widget.editando != null
+                          ? 'Editar venda ${widget.editando!.number}'
+                          : widget.modoPrazo
+                              ? 'Venda a prazo'
+                              : 'Venda avulsa',
                       style: Theme.of(context).textTheme.titleLarge,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -604,6 +670,27 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                           textCapitalization: TextCapitalization.words,
                           onChanged: (_) => setState(() {}),
                         ),
+                        // A prazo, o apelido é quem carrega a cobrança futura —
+                        // e ele não tem telefone, diferente de um cadastro.
+                        if (widget.modoPrazo)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(children: [
+                              Icon(Icons.info_outline,
+                                  size: 16, color: context.neu.warning),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Apelido fica sem telefone — para cobrar '
+                                  'depois, prefira um cliente cadastrado.',
+                                  style: TextStyle(
+                                    color: context.neu.warning,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ]),
+                          ),
                       ],
                       const Divider(height: 24),
                       // busca de produto (SELECT flutuante — não empurra o layout).
@@ -672,10 +759,11 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                         onChanged: () => setState(() {}),
                       ),
                       const SizedBox(height: 16),
-                      // Recebimento só na CRIAÇÃO: editar uma venda registrada não recebe
-                      // dinheiro de novo — o pagamento dela se ajusta pelos lançamentos do
-                      // caixa (receber o que falta, ou estornar o que sobrou).
-                      if (widget.editando == null)
+                      // Recebimento só na CRIAÇÃO e fora do modo prazo: editar
+                      // uma venda registrada não recebe dinheiro de novo (o
+                      // pagamento se ajusta pelos lançamentos do caixa), e a
+                      // prazo não há recebimento — a venda nasce fiada.
+                      if (widget.editando == null && !widget.modoPrazo)
                         _PaymentSection(
                           isNarrow: isNarrow,
                           method: _method,
@@ -694,6 +782,19 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                             _receivedTouched = true;
                             _receivedCtrl.text = formatAmountForInput(_total);
                           }),
+                        ),
+                      if (widget.modoPrazo)
+                        _ParcelamentoSection(
+                          ativo: _parcelar,
+                          parcelas: _parcelas,
+                          diaVencimento: _diaVencimento,
+                          primeira: _primeiraParcela,
+                          total: _total,
+                          onAtivo: (v) => setState(() => _parcelar = v),
+                          onParcelas: (v) => setState(() => _parcelas = v),
+                          onDia: (v) => setState(() => _diaVencimento = v),
+                          onPrimeira: (d) =>
+                              setState(() => _primeiraParcela = d),
                         ),
                     ],
                   ),
@@ -963,6 +1064,115 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
 /// campo de valor e permitia estados contraditórios (marcado "receber agora"
 /// com valor menor que o total, que o app registrava como pago — o bug que
 /// escondia fiado). O campo vem preenchido com o total, que é o caso comum.
+/// Parcelamento opcional da venda a prazo. Substitui `_PaymentSection` em modo
+/// prazo: aqui não há "quanto recebeu" (é sempre zero), só "em quantas vezes e
+/// quando" a dívida vai ser cobrada — a mesma pergunta que `createInstallmentPlan`
+/// já responde no recebimento, só que decidida na hora de fiar.
+class _ParcelamentoSection extends StatelessWidget {
+  const _ParcelamentoSection({
+    required this.ativo,
+    required this.parcelas,
+    required this.diaVencimento,
+    required this.primeira,
+    required this.total,
+    required this.onAtivo,
+    required this.onParcelas,
+    required this.onDia,
+    required this.onPrimeira,
+  });
+
+  final bool ativo;
+  final int parcelas;
+  final int diaVencimento;
+  final DateTime? primeira;
+  final double total;
+  final ValueChanged<bool> onAtivo;
+  final ValueChanged<int> onParcelas;
+  final ValueChanged<int> onDia;
+  final ValueChanged<DateTime?> onPrimeira;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final porParcela = parcelas > 0 ? total / parcelas : 0.0;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Material transparente: ListTile pinta fundo/splash no Material mais
+          // próximo, e aqui o ancestral seria o NeuSurface (DecoratedBox
+          // colorido) — dispara assert do framework e engole o efeito.
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Parcelar'),
+              subtitle: Text(
+                ativo
+                    ? '$parcelas× de ${formatMoney(porParcela)}'
+                    : 'Sem parcelas: fica tudo a receber de uma vez',
+              ),
+              value: ativo,
+              onChanged: onAtivo,
+            ),
+          ),
+          if (ativo) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: NeuStepperField(
+                    value: parcelas.toDouble(),
+                    decimals: 0,
+                    semanticLabel: 'Parcelas',
+                    onChanged: (v) => onParcelas(v.round().clamp(1, 60)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: NeuStepperField(
+                    value: diaVencimento.toDouble(),
+                    decimals: 0,
+                    semanticLabel: 'Dia do vencimento',
+                    onChanged: (v) => onDia(v.round().clamp(1, 28)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate:
+                      primeira ?? DateTime.now().add(const Duration(days: 30)),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                );
+                onPrimeira(d);
+              },
+              icon: const Icon(Icons.event_outlined, size: 18),
+              label: Text(
+                primeira == null
+                    ? '1ª parcela: próximo dia $diaVencimento'
+                    : '1ª parcela: ${primeira!.day.toString().padLeft(2, '0')}/'
+                        '${primeira!.month.toString().padLeft(2, '0')}/'
+                        '${primeira!.year}',
+              ),
+            ),
+            Text(
+              'Rótulos e limites iguais aos do recebimento (1–60 parcelas, dia 1–28).',
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _PaymentSection extends StatelessWidget {
   const _PaymentSection({
     required this.isNarrow,

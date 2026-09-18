@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Registro de venda a prazo direto da tela "A receber" — poupa levar o
-/// cliente até o caixa. Implementado no Task 9 (reusa `showSaleCreateDialog`
-/// com `modoPrazo: true`); este stub existe só para `ReceivablesScreen`
-/// (Task 8) compilar antes disso.
-Future<void> showCreditSaleDialog(BuildContext context) async {}
+import '../../sale/presentation/sale_create_dialog.dart';
+
+/// "Registrar venda a prazo" — o mesmo diálogo da venda, em modo a prazo. Existe
+/// para quem está no "A receber" não precisar ir ao Caixa só para fiar. O
+/// diálogo de venda já tem itens, desconto, estoque com aviso, cliente e
+/// validação — duplicar geraria dois cálculos de total que divergem.
+Future<void> showCreditSaleDialog(BuildContext context) =>
+    showSaleCreateDialog(context, modoPrazo: true);
