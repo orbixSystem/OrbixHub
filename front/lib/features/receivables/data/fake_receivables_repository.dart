@@ -1,4 +1,5 @@
 import '../domain/receivables_models.dart';
+import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
 
 /// Fake in-memory do controle de fiado — dev/teste (não é persistência offline).
@@ -97,7 +98,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   ];
 
   @override
-  Future<DebtorsPage> listDebtors() async {
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
     final porCliente = <String, Debtor>{};
     for (final t in _titulos) {
       // O dono sai do PRÓPRIO título quando ele o traz; `_donos` cobre só os
@@ -128,11 +129,22 @@ class FakeReceivablesRepository implements ReceivablesRepository {
         );
       }
     }
-    final items = porCliente.values.toList()
+    final todos = porCliente.values.toList()
       ..sort((a, b) => b.totalDue.compareTo(a.totalDue));
+    final termo = (query.q ?? '').trim().toLowerCase();
+    final filtrados = termo.isEmpty
+        ? todos
+        : todos.where((d) => d.customerName.toLowerCase().contains(termo)).toList();
+    final inicio = (query.page - 1) * query.pageSize;
+    final items = inicio >= filtrados.length
+        ? <Debtor>[]
+        : filtrados.sublist(inicio, (inicio + query.pageSize).clamp(0, filtrados.length));
     return DebtorsPage(
       items: items,
-      totalDue: items.fold<num>(0, (acc, d) => acc + d.totalDue),
+      total: filtrados.length,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalDue: todos.fold<num>(0, (acc, d) => acc + d.totalDue),
       pendingSettlement: pendingSettlement,
       truncated: truncated,
     );

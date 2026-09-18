@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/offline/db/local_db.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_query.dart';
 import 'package:orbixhub_front/core/offline/trusted_clock.dart';
 import 'package:orbixhub_front/features/cashier/data/fake_cashier_repository.dart';
 import 'package:orbixhub_front/features/cashier/data/local_first_cashier_repository.dart';
@@ -23,7 +24,7 @@ import 'package:orbixhub_front/features/receivables/domain/receivables_repositor
 /// Inner que EXPLODE se chamado — garante que offline não vai à rede.
 class _InnerProibido implements ReceivablesRepository {
   @override
-  Future<DebtorsPage> listDebtors() =>
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) =>
       throw StateError('offline não deve chamar a rede');
 
   @override
@@ -44,7 +45,7 @@ class _InnerOnline implements ReceivablesRepository {
   var chamado = false;
 
   @override
-  Future<DebtorsPage> listDebtors() async {
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
     chamado = true;
     return const DebtorsPage(totalDue: 999);
   }
@@ -148,7 +149,7 @@ void main() {
     test('não deriva localmente quando há conexão', () async {
       await semear(osId: '1', total: '100.00');
       final inner = _InnerOnline();
-      final page = await repo(online: true, inner: inner).listDebtors();
+      final page = await repo(online: true, inner: inner).listDebtors(const DebtorsQuery());
       expect(inner.chamado, isTrue);
       expect(page.totalDue, 999); // veio do servidor, não do SQLite
     });
@@ -157,7 +158,7 @@ void main() {
   group('offline deriva do espelho local', () {
     test('OS sem recebimento é fiado pelo total', () async {
       await semear(osId: '1', total: '295.60');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
 
       expect(page.items, hasLength(1));
       expect(page.items.single.customerName, 'João Silva');
@@ -167,7 +168,7 @@ void main() {
 
     test('desconta o que já foi recebido (parcial)', () async {
       await semear(osId: '1', total: '300.00', recebido: '100.00');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.single.totalDue, 200);
 
       final d = await repo(online: false).titlesOf('c1');
@@ -178,7 +179,7 @@ void main() {
 
     test('OS quitada NÃO é fiado', () async {
       await semear(osId: '1', total: '100.00', recebido: '100.00');
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
 
     test('recebimento ESTORNADO volta a ser dívida', () async {
@@ -189,24 +190,24 @@ void main() {
         recebido: '100.00',
         estornado: true,
       );
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.single.totalDue, 100);
     });
 
     test('OS cancelada não é dívida', () async {
       await semear(osId: '1', total: '100.00', status: 'cancelada');
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
 
     test('resíduo de centavo não vira dívida', () async {
       await semear(osId: '1', total: '100.00', recebido: '99.998');
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
 
     test('soma várias OS do mesmo cliente', () async {
       await semear(osId: '1', total: '100.00');
       await semear(osId: '2', total: '250.00', criada: '2026-07-20T10:00:00Z');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
 
       expect(page.items, hasLength(1));
       expect(page.items.single.totalDue, 350);
@@ -218,7 +219,7 @@ void main() {
     test('ordena do maior devedor para o menor', () async {
       await semear(osId: '1', total: '100.00', clienteId: 'c1', clienteNome: 'Ana');
       await semear(osId: '2', total: '500.00', clienteId: 'c2', clienteNome: 'Bruno');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.map((d) => d.customerName), ['Bruno', 'Ana']);
     });
 
@@ -226,7 +227,7 @@ void main() {
       // Com `sale`/`sale_item` no sync, o espelho tem as duas origens de dívida:
       // não há mais motivo para avisar que a lista está parcial.
       await semear(osId: '1', total: '100.00');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.truncated, isFalse);
     });
 
@@ -271,7 +272,7 @@ void main() {
         clienteId: null,
         clienteNome: null,
       );
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.single.customerId, isNull);
       expect(page.items.single.customerName, 'Sem cliente');
 
@@ -280,7 +281,7 @@ void main() {
     });
 
     test('carteira vazia não explode', () async {
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items, isEmpty);
       expect(page.totalDue, 0);
     });
@@ -331,7 +332,7 @@ void main() {
 
     test('venda sem recebimento é fiado', () async {
       await semearVenda(id: '9', total: '150.00');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.single.totalDue, 150);
 
       final d = await repo(online: false).titlesOf('c1');
@@ -341,12 +342,12 @@ void main() {
 
     test('venda quitada não é fiado', () async {
       await semearVenda(id: '9', total: '150.00', recebido: '150.00');
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
 
     test('venda cancelada não é dívida', () async {
       await semearVenda(id: '9', total: '150.00', status: 'canceled');
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
 
     test('OS e venda do MESMO cliente somam num saldo só', () async {
@@ -354,7 +355,7 @@ void main() {
       // se a dívida nasceu de uma OS ou de uma venda rápida.
       await semear(osId: '1', total: '200.00');
       await semearVenda(id: '9', total: '150.00');
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
 
       expect(page.items, hasLength(1));
       expect(page.items.single.totalDue, 350);
@@ -398,7 +399,7 @@ void main() {
       // pelo LocalFirstCashierRepository e a carteira — derivada das MESMAS
       // linhas locais — tem de refletir isso sem esperar o sync.
       await semear(osId: '1', total: '300.00');
-      expect((await repo(online: false).listDebtors()).items.single.totalDue, 300);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items.single.totalDue, 300);
 
       final caixa = LocalFirstCashierRepository(
         inner: FakeCashierRepository(),
@@ -417,7 +418,7 @@ void main() {
         saleId: '1',
       ));
 
-      final page = await repo(online: false).listDebtors();
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
       expect(page.items.single.totalDue, 180, reason: '300 − 120 recebidos');
 
       final d = await repo(online: false).titlesOf('c1');
@@ -444,7 +445,7 @@ void main() {
         saleId: '1',
       ));
 
-      expect((await repo(online: false).listDebtors()).items, isEmpty);
+      expect((await repo(online: false).listDebtors(const DebtorsQuery())).items, isEmpty);
     });
   });
 }

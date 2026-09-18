@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../domain/receivables_models.dart';
+import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
 
 /// [ReceivablesRepository] real, sobre dio.
@@ -22,8 +23,11 @@ class ReceivablesRepositoryImpl implements ReceivablesRepository {
       (data as Map).cast<String, dynamic>();
 
   @override
-  Future<DebtorsPage> listDebtors() => _guard(() async {
-        final res = await _dio.get<Object?>('/receivables');
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/receivables',
+          queryParameters: query.toQuery(),
+        );
         return DebtorsPage.fromJson(_asMap(res.data));
       });
 

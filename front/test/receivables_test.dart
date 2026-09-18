@@ -6,6 +6,7 @@ import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_query.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_tab.dart';
 
@@ -202,7 +203,7 @@ void main() {
   group('regras do agregado (fake espelha o servidor)', () {
     test('só conta o saldo em aberto, não o total do título', () async {
       final repo = FakeReceivablesRepository();
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       final joao = page.items.firstWhere((d) => d.customerName == 'João Silva');
       // OS-0042 deve 480 (total 480) + OS-0051 deve 200 (total 300) = 680.
       expect(joao.totalDue, 680);
@@ -211,7 +212,7 @@ void main() {
 
     test('guarda a data do título mais antigo', () async {
       final repo = FakeReceivablesRepository();
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       final joao = page.items.firstWhere((d) => d.customerName == 'João Silva');
       expect(joao.oldestAt, '2026-07-02T10:00:00Z');
     });

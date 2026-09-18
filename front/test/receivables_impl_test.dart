@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_query.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/receivables/data/receivables_repository_impl.dart';
@@ -99,7 +100,7 @@ void main() {
       final adapter = _FakeAdapter({'/receivables': (200, _devedoresJson)});
       final repo = ReceivablesRepositoryImpl(_dioCom(adapter));
 
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       expect(page.items, hasLength(2));
       expect(page.items.first.customerName, 'João da Silva');
       expect(page.items.first.totalDue, 645.6);
@@ -137,7 +138,7 @@ void main() {
         '/receivables': (200, '{"items":[],"totalDue":0,"truncated":false}'),
       });
       final repo = ReceivablesRepositoryImpl(_dioCom(adapter));
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       expect(page.items, isEmpty);
     });
   });

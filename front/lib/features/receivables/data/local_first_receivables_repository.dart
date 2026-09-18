@@ -2,6 +2,7 @@ import '../../../core/offline/local_first.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/local_payment.dart';
 import '../domain/receivables_models.dart';
+import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
 
 /// [ReceivablesRepository] offline-first — decorator sobre a impl real (dio).
@@ -45,8 +46,8 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   static const _vendaSemDivida = {'canceled'};
 
   @override
-  Future<DebtorsPage> listDebtors() async {
-    if (isOnline()) return inner.listDebtors();
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
+    if (isOnline()) return inner.listDebtors(query);
 
     final local = await _titulosLocais();
     final porCliente = <String, Debtor>{};
