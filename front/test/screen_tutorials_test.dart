@@ -130,6 +130,7 @@ void main() {
         'clientes.',
         'estoque.',
         'relatorios.',
+        'areceber.',
         // sub-telas
         'cliente.',
         'veiculo.',
@@ -176,6 +177,7 @@ void main() {
       '/m/invoice/config',
       '/m/invoice/abc',
       '/m/cashier',
+      '/m/cashier/a-receber',
       '/m/report',
     ];
 

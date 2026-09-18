@@ -196,7 +196,7 @@ class _Resumo extends StatelessWidget {
           ),
         );
     return Row(children: [
-      kpi('Na rua', p == null ? '—' : formatMoney(p.totalDue)),
+      kpi('Total a receber', p == null ? '—' : formatMoney(p.totalDue)),
       const SizedBox(width: 10),
       kpi('Vencido', p == null ? '—' : formatMoney(p.overdueTotal),
           cor: neu.danger),

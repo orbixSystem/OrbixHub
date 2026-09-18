@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -26,6 +27,9 @@ import 'cashier_timeline_list.dart';
 /// (contas a receber, agrupadas por cliente) e "Histórico" (movimentos por
 /// período — o relatório do caixa). Quais aparecem depende do papel: Fiado
 /// exige `cashier.read`, Histórico é de gestão.
+///
+/// "A receber" também existe como TELA própria (`/m/cashier/a-receber`, item de
+/// menu + botão aqui) — a aba Fiado sai na limpeza final desta entrega.
 ///
 /// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
 /// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
@@ -128,6 +132,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           canWrite: _canWrite(),
           canManage: _canManage(),
           canSale: _canSale(),
+          canFiado: _canReadReceivables(),
           onVerHistorico: () => setState(() => _tab = 2),
         );
       },
@@ -211,6 +216,7 @@ class _FreeBody extends ConsumerWidget {
     required this.canWrite,
     required this.canManage,
     required this.canSale,
+    required this.canFiado,
     this.onVerHistorico,
   });
 
@@ -218,6 +224,7 @@ class _FreeBody extends ConsumerWidget {
   final bool canWrite;
   final bool canManage;
   final bool canSale;
+  final bool canFiado;
 
   /// Atalho para a aba Histórico (só existe para quem tem gestão).
   final VoidCallback? onVerHistorico;
@@ -229,10 +236,10 @@ class _FreeBody extends ConsumerWidget {
       children: [
         Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        // AÇÕES em grid: duas portas claras de entrada de dinheiro. Fiado (ver
-        // quem deve, parcelar, receber parcela) tem aba própria — não é uma
+        // AÇÕES em grid: portas claras de entrada de dinheiro. A receber (ver
+        // quem deve, parcelar, receber parcela) tem tela própria — não é uma
         // ação de checkout, é gestão de dívida.
-        if (canWrite || canSale)
+        if (canWrite || canSale || canFiado)
           CoachTarget(
             'caixa.acoes',
             child: _AcoesGrid(
@@ -252,6 +259,13 @@ class _FreeBody extends ConsumerWidget {
                     cor: context.neu.success,
                     onTap: () =>
                         showReceivePickerDialog(context, ref, state.config),
+                  ),
+                if (canFiado)
+                  _Acao(
+                    label: 'A receber',
+                    icon: Icons.request_quote_outlined,
+                    cor: context.neu.warning,
+                    onTap: () => context.go('/m/cashier/a-receber'),
                   ),
               ],
             ),

@@ -49,7 +49,14 @@ class DebtorTile extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Row(
+                    // Wrap, não Row: com telefone + selo de vencimento + "Sem
+                    // cadastro" tudo junto, um nome longo em tela estreita
+                    // estourava a largura (RenderFlex overflow). Aqui o que
+                    // não couber cai pra próxima linha em vez de sumir.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         // Devedor SEM cadastro fica marcado. Sem isto, um
                         // apelido digitado no balcão igual ao nome de um
@@ -58,25 +65,26 @@ class DebtorTile extends ConsumerWidget {
                         // qual é qual — cada uma cobra uma dívida de outra
                         // pessoa. Os títulos já estão separados corretamente;
                         // o que faltava era a tela dizer isso.
-                        if (debtor.customerId == null) ...[
+                        if (debtor.customerId == null)
                           NeuStatusChip(
                             label: 'Sem cadastro',
                             color: neu.inkMuted,
                             tint: neu.inkMuted.withValues(alpha: .14),
                             icon: Icons.person_off_outlined,
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        if ((debtor.phone ?? '').isNotEmpty) ...[
-                          Icon(Icons.phone_outlined,
-                              size: 14, color: neu.inkMuted),
-                          const SizedBox(width: 4),
-                          Text(debtor.phone!,
-                              style:
-                                  TextStyle(color: neu.inkMuted, fontSize: 12)),
-                          const SizedBox(width: 8),
-                        ],
-                        if (debtor.nextDueAt != null) ...[
+                        if ((debtor.phone ?? '').isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.phone_outlined,
+                                  size: 14, color: neu.inkMuted),
+                              const SizedBox(width: 4),
+                              Text(debtor.phone!,
+                                  style: TextStyle(
+                                      color: neu.inkMuted, fontSize: 12)),
+                            ],
+                          ),
+                        if (debtor.nextDueAt != null)
                           NeuStatusChip(
                             label: debtor.overdue
                                 ? 'Vencido em ${_dataCurta(debtor.nextDueAt!)}'
@@ -89,23 +97,14 @@ class DebtorTile extends ConsumerWidget {
                                 ? Icons.error_outline
                                 : Icons.event_outlined,
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        Flexible(
-                          child: Text(
-                            [
-                              debtor.titleCount == 1
-                                  ? '1 título'
-                                  : '${debtor.titleCount} títulos',
-                              ?dias,
-                            ].join(' · '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: neu.inkMuted,
-                              fontSize: 12,
-                            ),
-                          ),
+                        Text(
+                          [
+                            debtor.titleCount == 1
+                                ? '1 título'
+                                : '${debtor.titleCount} títulos',
+                            ?dias,
+                          ].join(' · '),
+                          style: TextStyle(color: neu.inkMuted, fontSize: 12),
                         ),
                       ],
                     ),
