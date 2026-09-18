@@ -64,12 +64,48 @@ varredura parcial a confessar.
 **Regra pura, testável sem banco.** O cruzamento devedor × vencimento vai para
 `receivables.filtro.ts`, como `customers-ranking.ts` já faz no módulo report. É
 onde mora a decisão de negócio ("o que conta como vencido"), e é o que erra em
-silêncio.
+silêncio. Ela também é a regra que o offline precisa repetir — ver abaixo.
 
 **Vencimento de um devedor** = o vencimento mais próximo entre seus títulos.
 Título com plano de parcelas usa a próxima parcela em aberto; sem plano, usa a
 data do título. Um devedor é `vencido` se tem ao menos um título/parcela
 vencido — não é preciso estar tudo vencido para ele entrar na fila.
+
+## Offline — a parte que decide o desenho
+
+O app é offline-first, e "filtro no servidor" contradiz isso se tratado de forma
+ingênua. Duas coisas salvam o desenho:
+
+**1. O offline não espelha a resposta do servidor — ele RECALCULA.**
+`local_first_receivables_repository` deriva a carteira inteira das linhas locais
+(OS, vendas, itens, lançamentos). Ou seja, sem rede já existe matéria-prima para
+filtrar, ordenar e paginar. O contrato do repository não muda: a tela pede
+`listDebtors(filtros)` e não sabe de onde veio.
+
+**2. A regra de negócio é UMA, escrita duas vezes, verificada contra a mesma
+tabela de casos.** Dart e TypeScript não compartilham código — então
+`receivables.filtro.ts` e o equivalente Dart são implementações irmãs. Isso é
+exatamente onde bug nasce: foi assim que o offline ficou devolvendo todos os
+títulos sem cliente enquanto o servidor já filtrava por apelido, e assim que
+`_isLowStock` do estoque divergiu do `listItems`.
+
+A mitigação é concreta: **um único arquivo de casos** (`receivables-filtro.casos.json`)
+com entrada e saída esperada, lido pelo teste do backend E pelo teste do front.
+Divergência vira teste vermelho dos dois lados, não relatório errado em produção.
+
+**Paginação offline** é sobre o que o aparelho tem. Não há teto de varredura sem
+rede; o `truncated` deixa de existir nos dois caminhos.
+
+**O modal de registro funciona offline sem nada novo.** `sale.create` e
+`receivable_installment.create_plan` já são operações de sync (registradas em
+`sync.registry.ts`, gated por `sale.write` e `cashier.write`). A venda nasce com
+uuid gerado no cliente, e o plano de parcelas referencia esse uuid — as duas
+mutações entram na fila em ordem e replicam juntas.
+
+*Aresta conhecida:* se o `sale.create` falhar no replay (validação, por exemplo),
+o `create_plan` que aponta para ela falha sozinho e vira item de erro na fila,
+sem travar as demais. A tela de sync já mostra falha por linha (selo vermelho);
+não invento tratamento novo, mas registro que esse par não é atômico.
 
 ## UI — o critério é ser fácil
 
@@ -80,6 +116,8 @@ vencido — não é preciso estar tudo vencido para ele entrar na fila.
   nº de títulos, **próxima parcela e se está vencida**, e o valor à direita.
   O telefone na linha existe para cobrar sem sair da tela.
 - **Abrir o devedor** mantém o que já funciona: títulos, parcelas, receber.
+- **Sem rede**, a tela opera igual: o aviso de offline que já existe aparece no
+  topo e o selo de "pendente de envio" marca o que ainda não subiu.
 
 Reuso, não reescrita: os widgets de devedor, títulos e o `receive_title_dialog`
 saem de `receivables_tab.dart` para arquivos próprios e são usados pela tela.
@@ -116,9 +154,10 @@ mesma regra do estoque não aplicado na venda.
 
 ## Como se verifica
 
-- **Regra pura** (`receivables.filtro.ts`): vencido/a vencer, devedor com um
-  título vencido entre vários, título sem data, parcela como fonte de
-  vencimento. Sem banco.
+- **Regra pura** (`receivables.filtro.ts` + irmã em Dart): vencido/a vencer,
+  devedor com um título vencido entre vários, título sem data, parcela como
+  fonte de vencimento. Sem banco. **Os dois lados rodam a MESMA tabela de
+  casos** — é o que impede a divergência online/offline.
 - **Endpoint**: filtro + ordenação + paginação combinados, e que a soma das
   páginas bate com o total — foi a conferência que provou o bug do vazamento.
 - **Tela**: chips filtram, a busca vai ao servidor com debounce, e o modal de
@@ -134,3 +173,5 @@ mesma regra do estoque não aplicado na venda.
 | Quebrar `receivables_tab.dart` em vários arquivos regride comportamento | Os widgets saem inteiros, sem reescrita; a suíte atual é a rede |
 | Modal novo duplicar regra da venda | Ele CHAMA a mesma API; não recalcula total nem desconto |
 | Perder a aba deixa alguém sem caminho | Botão no Caixa + item no menu entram na mesma entrega |
+| Filtro do offline divergir do servidor (já aconteceu duas vezes) | Tabela de casos única, lida pelos testes dos dois lados |
+| Venda offline gravar e o parcelamento não | Não é atômico por natureza; a fila mostra falha por linha e a spec registra a aresta |
