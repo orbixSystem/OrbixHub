@@ -448,12 +448,14 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
       );
       final sale = await ref.read(saleRepositoryProvider).createSale(draft);
 
-      // 1.5) plano de parcelas, se marcado (só modo prazo) — backend `cashier`.
+      // 1.5) plano de parcelas, se marcado — backend `cashier`. Disponível
+      // sempre que a venda vira fiado, não só em modo prazo: uma venda comum
+      // recebida em parte tem o MESMO direito de parcelar o resto.
       // Falhar aqui NÃO desfaz a venda: o dinheiro não mudou de mão, só o
       // cronograma de cobrança faltou. A pessoa ainda pode parcelar depois,
       // pelo devedor em "A receber".
       String? avisoParcelas;
-      if (widget.modoPrazo && _parcelar) {
+      if (_ehFiado && _parcelar) {
         try {
           await ref.read(cashierRepositoryProvider).createInstallmentPlan(
                 InstallmentPlanDraft(
@@ -461,7 +463,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                   saleId: sale.id,
                   installmentCount: _parcelas,
                   dueDayOfMonth: _diaVencimento,
-                  totalAmount: _total,
+                  // O que falta receber — na venda comum parcial, só a dívida
+                  // entra no plano, não o total da venda.
+                  totalAmount: _falta,
                   firstDueDate: _primeiraParcela
                       ?.toIso8601String()
                       .substring(0, 10),
@@ -613,6 +617,16 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                   ),
                 ],
               ),
+              // Este modal serve só para REGISTRAR — a venda e, quando marcada,
+              // a dívida dela. Cobrar depois é lá em "A receber".
+              if (widget.modoPrazo) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Registre a venda e, se for o caso, deixe-a fiada. Cobrar '
+                  'depois é em "A receber".',
+                  style: TextStyle(color: context.neu.inkMuted, fontSize: 12.5),
+                ),
+              ],
               const SizedBox(height: 8),
               // Miolo ROLÁVEL: em telas baixas ou com o teclado aberto, só esta
               // parte rola — cabeçalho e rodapé permanecem fixos.
@@ -623,74 +637,122 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // cliente opcional
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.person_outline,
-                            size: 18,
-                            color: AppColors.inkMuted,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _customerName ?? 'Sem cliente (balcão)',
-                              style: const TextStyle(color: AppColors.inkMuted),
-                            ),
-                          ),
-                          if (_customerId != null)
-                            TextButton(
-                              onPressed: () => setState(() {
-                                _customerId = null;
-                                _customerName = null;
-                              }),
-                              child: const Text('Remover'),
-                            ),
-                          TextButton.icon(
+                      //
+                      // A prazo (sem cliente ainda escolhido) a BUSCA vem em
+                      // destaque, na frente do apelido: cobrar depois exige
+                      // achar a pessoa, e um cadastro sempre tem telefone — o
+                      // apelido é o atalho de quem não tem cadastro, não o
+                      // caminho preferido.
+                      if (widget.modoPrazo && _customerId == null) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
                             onPressed: _pickCustomer,
-                            icon: const Icon(Icons.search, size: 16),
-                            label: Text(
-                              _customerId == null ? 'Cliente' : 'Trocar',
-                            ),
+                            icon: const Icon(Icons.search, size: 18),
+                            label: const Text('Buscar cliente cadastrado'),
                           ),
-                        ],
-                      ),
-                      // Campo de apelido/observação — visível apenas quando sem cliente cadastrado.
-                      if (_customerId == null) ...[
-                        const SizedBox(height: 6),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(
+                                'ou',
+                                style: TextStyle(
+                                    color: context.neu.inkFaint, fontSize: 12),
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                         TextField(
                           controller: _customerNoteCtrl,
                           maxLength: 100,
-                          decoration: const InputDecoration(
-                            hintText: 'Apelido ou Observação (ex: João)',
-                            helperText:
-                                'Opcional — identifica a venda sem cadastrar o cliente',
+                          style: const TextStyle(fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Apelido sem cadastro (ex: João)',
+                            hintStyle: TextStyle(color: context.neu.inkFaint),
                             counterText: '',
                             isDense: true,
                           ),
                           textCapitalization: TextCapitalization.words,
                           onChanged: (_) => setState(() {}),
                         ),
-                        // A prazo, o apelido é quem carrega a cobrança futura —
-                        // e ele não tem telefone, diferente de um cadastro.
-                        if (widget.modoPrazo)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Row(children: [
-                              Icon(Icons.info_outline,
-                                  size: 16, color: context.neu.warning),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Apelido fica sem telefone — para cobrar '
-                                  'depois, prefira um cliente cadastrado.',
-                                  style: TextStyle(
-                                    color: context.neu.warning,
-                                    fontSize: 12,
-                                  ),
+                        // O apelido é quem carrega a cobrança futura, e ele não
+                        // tem telefone, diferente de um cadastro.
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(children: [
+                            Icon(Icons.info_outline,
+                                size: 16, color: context.neu.warning),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Apelido fica sem telefone — para cobrar '
+                                'depois, prefira um cliente cadastrado.',
+                                style: TextStyle(
+                                  color: context.neu.warning,
+                                  fontSize: 12,
                                 ),
                               ),
-                            ]),
+                            ),
+                          ]),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.person_outline,
+                              size: 18,
+                              color: AppColors.inkMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _customerName ?? 'Sem cliente (balcão)',
+                                style:
+                                    const TextStyle(color: AppColors.inkMuted),
+                              ),
+                            ),
+                            if (_customerId != null)
+                              TextButton(
+                                onPressed: () => setState(() {
+                                  _customerId = null;
+                                  _customerName = null;
+                                }),
+                                child: const Text('Remover'),
+                              ),
+                            TextButton.icon(
+                              onPressed: _pickCustomer,
+                              icon: const Icon(Icons.search, size: 16),
+                              label: Text(
+                                _customerId == null ? 'Cliente' : 'Trocar',
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Campo de apelido/observação — venda avulsa comum, sem
+                        // cliente cadastrado ainda.
+                        if (!widget.modoPrazo && _customerId == null) ...[
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _customerNoteCtrl,
+                            maxLength: 100,
+                            decoration: const InputDecoration(
+                              hintText: 'Apelido ou Observação (ex: João)',
+                              helperText:
+                                  'Opcional — identifica a venda sem cadastrar o cliente',
+                              counterText: '',
+                              isDense: true,
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                            onChanged: (_) => setState(() {}),
                           ),
+                        ],
                       ],
                       const Divider(height: 24),
                       // busca de produto (SELECT flutuante — não empurra o layout).
@@ -783,13 +845,19 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                             _receivedCtrl.text = formatAmountForInput(_total);
                           }),
                         ),
-                      if (widget.modoPrazo)
+                      // Mesma seção do modo prazo — sem exclusividade: uma
+                      // venda comum que vira fiado (recebido < total, aqui em
+                      // `_PaymentSection`) tem direito ao MESMO parcelamento,
+                      // não só quem entrou por "A receber".
+                      if (widget.editando == null && _ehFiado)
                         _ParcelamentoSection(
                           ativo: _parcelar,
                           parcelas: _parcelas,
                           diaVencimento: _diaVencimento,
                           primeira: _primeiraParcela,
-                          total: _total,
+                          // O que falta receber, não o total da venda — na
+                          // venda comum parcial, só a dívida entra no plano.
+                          total: _falta,
                           onAtivo: (v) => setState(() => _parcelar = v),
                           onParcelas: (v) => setState(() => _parcelas = v),
                           onDia: (v) => setState(() => _diaVencimento = v),
