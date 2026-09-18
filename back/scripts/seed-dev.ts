@@ -77,7 +77,25 @@ async function main() {
     const roleOwner = await idByKey('role', 'owner');
     const roleMech = await idByKey('role', 'mechanic');
     const planPro = await idByKey('plan', 'pro');
-    const modules = ['os', 'inventory', 'customers', 'report'];
+    // Os módulos vêm DO PLANO, não de uma lista à parte.
+    //
+    // A lista fixa aqui era `['os','inventory','customers','report']` e ficou
+    // para trás: o tenant assinava o `pro` (que inclui caixa, vendas, despesas
+    // e nota fiscal) mas só recebia quatro módulos em `tenant_module`. Como o
+    // menu é gated por `me.modules`, a oficina demo simplesmente não tinha
+    // Caixa — e quem entrasse por ela ia achar que a rota sumiu.
+    //
+    // Derivar do plano é o que o próprio produto faz (`reconcileTenantModules`);
+    // manter uma segunda lista aqui garantia que as duas divergissem.
+    const modules: string[] = (
+      await q(
+        `SELECT m.key FROM plan_module pm
+           JOIN module m ON m.id = pm.module_id
+          WHERE pm.plan_id = $1
+          ORDER BY m.key`,
+        [planPro],
+      )
+    ).rows.map((r: { key: string }) => r.key);
     const moduleIds: Record<string, string> = {};
     for (const k of modules) moduleIds[k] = await idByKey('module', k);
 
