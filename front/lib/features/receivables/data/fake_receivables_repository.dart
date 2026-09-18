@@ -1,3 +1,4 @@
+import '../domain/receivables_filtro.dart';
 import '../domain/receivables_models.dart';
 import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
@@ -99,7 +100,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
 
   @override
   Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
-    final porCliente = <String, Debtor>{};
+    final porCliente = <String, DevedorParaFiltro>{};
     for (final t in _titulos) {
       // O dono sai do PRÓPRIO título quando ele o traz; `_donos` cobre só os
       // títulos de exemplo, que nasceram sem esses campos.
@@ -112,39 +113,68 @@ class FakeReceivablesRepository implements ReceivablesRepository {
       // o bug que a cliente filmou, e um fake que não consegue reproduzi-lo não
       // serve para provar a correção.
       final chave = id ?? 'nome:$nome';
+      final titulo = TituloParaFiltro(
+        origin: t.origin,
+        createdAt: t.createdAt,
+        balance: t.balance,
+        proximaParcelaEm: null, // fake não simula plano de parcelas
+      );
       final atual = porCliente[chave];
-      if (atual == null) {
-        porCliente[chave] = Debtor(
-          customerId: id,
-          customerName: nome,
-          totalDue: t.balance,
-          titleCount: 1,
-          oldestAt: t.createdAt,
-        );
-      } else {
-        porCliente[chave] = atual.copyWith(
-          totalDue: atual.totalDue + t.balance,
-          titleCount: atual.titleCount + 1,
-          oldestAt: _maisAntigo(atual.oldestAt, t.createdAt),
-        );
-      }
+      porCliente[chave] = atual == null
+          ? DevedorParaFiltro(
+              customerId: id,
+              customerName: nome,
+              totalDue: t.balance,
+              titleCount: 1,
+              oldestAt: t.createdAt,
+              titulos: [titulo],
+            )
+          : DevedorParaFiltro(
+              customerId: atual.customerId,
+              customerName: atual.customerName,
+              totalDue: atual.totalDue + t.balance,
+              titleCount: atual.titleCount + 1,
+              oldestAt: _maisAntigo(atual.oldestAt, t.createdAt),
+              titulos: [...atual.titulos, titulo],
+            );
     }
-    final todos = porCliente.values.toList()
-      ..sort((a, b) => b.totalDue.compareTo(a.totalDue));
-    final termo = (query.q ?? '').trim().toLowerCase();
-    final filtrados = termo.isEmpty
-        ? todos
-        : todos.where((d) => d.customerName.toLowerCase().contains(termo)).toList();
-    final inicio = (query.page - 1) * query.pageSize;
-    final items = inicio >= filtrados.length
-        ? <Debtor>[]
-        : filtrados.sublist(inicio, (inicio + query.pageSize).clamp(0, filtrados.length));
+
+    final hoje = DateTime.now().toUtc();
+    final classificados =
+        porCliente.values.map((d) => classificar(d, hoje)).toList();
+    final filtrados = filtrarDevedores(
+      classificados,
+      q: query.q,
+      vencimento: query.vencimento,
+      origem: query.origem,
+      hoje: hoje,
+    );
+    final pagina = paginar(
+      ordenarDevedores(filtrados, query.sort),
+      query.page,
+      query.pageSize,
+    );
+    final vencidos = classificados.where((d) => d.overdue);
+
     return DebtorsPage(
-      items: items,
-      total: filtrados.length,
+      items: [
+        for (final d in pagina.items)
+          Debtor(
+            customerId: d.customerId,
+            customerName: d.customerName,
+            totalDue: d.totalDue,
+            titleCount: d.titleCount,
+            oldestAt: d.oldestAt,
+            nextDueAt: d.nextDueAt,
+            overdue: d.overdue,
+          ),
+      ],
+      total: pagina.total,
       page: query.page,
       pageSize: query.pageSize,
-      totalDue: todos.fold<num>(0, (acc, d) => acc + d.totalDue),
+      totalDue: classificados.fold<num>(0, (acc, d) => acc + d.totalDue),
+      overdueTotal: vencidos.fold<num>(0, (acc, d) => acc + d.totalDue),
+      overdueCount: vencidos.length,
       pendingSettlement: pendingSettlement,
       truncated: truncated,
     );

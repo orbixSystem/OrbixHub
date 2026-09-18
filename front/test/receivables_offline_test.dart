@@ -393,6 +393,77 @@ void main() {
     });
   });
 
+  group('filtros offline usam a MESMA regra do servidor', () {
+    test('vencidos devolve só quem tem parcela/título vencido', () async {
+      // Ana: OS sem parcela, criada há muito tempo ⇒ vencida pela data do título.
+      await semear(
+        osId: '1',
+        total: '100.00',
+        clienteId: 'c1',
+        clienteNome: 'Ana',
+        criada: '2020-01-01T10:00:00Z',
+      );
+      // Bruno: OS com parcela local futura ⇒ NÃO vencida.
+      await semear(
+        osId: '2',
+        total: '200.00',
+        clienteId: 'c2',
+        clienteNome: 'Bruno',
+        criada: '2026-07-20T10:00:00Z',
+      );
+      await gravar('receivable_installment', {
+        'id': 'p2',
+        'sale_kind': 'os',
+        'sale_id': '2',
+        'due_date': '2099-01-01',
+        'paid_at': null,
+      });
+
+      final page = await repo(online: false).listDebtors(
+        const DebtorsQuery(vencimento: VencimentoFiltro.vencidos),
+      );
+      expect(page.items.map((d) => d.customerName), ['Ana']);
+    });
+
+    test('busca por apelido sem acento acha "Célia" com "celia"', () async {
+      await semear(osId: '1', total: '80.00', clienteId: null, clienteNome: 'Célia');
+      final page = await repo(online: false).listDebtors(
+        const DebtorsQuery(q: 'celia'),
+      );
+      expect(page.items, hasLength(1));
+      expect(page.items.single.customerName, 'Célia');
+    });
+
+    test('totalDue não muda ao filtrar (é da carteira inteira)', () async {
+      await semear(osId: '1', total: '100.00', clienteId: 'c1', clienteNome: 'Ana');
+      await semear(osId: '2', total: '200.00', clienteId: 'c2', clienteNome: 'Bruno');
+      final semFiltro = await repo(online: false).listDebtors(const DebtorsQuery());
+      final comFiltro = await repo(online: false).listDebtors(
+        const DebtorsQuery(q: 'ana'),
+      );
+      expect(comFiltro.items, hasLength(1));
+      expect(comFiltro.totalDue, semFiltro.totalDue);
+      expect(comFiltro.totalDue, 300);
+    });
+
+    test('OS em a_receber conta como finalizada (antes só concluida/entregue)',
+        () async {
+      // Sem fiado_at (não passou pelo caixa) e status 'a_receber' com saldo:
+      // antes do fix caía em nenhum balde (nem dívida, nem pendente).
+      await semear(
+        osId: '1',
+        total: '100.00',
+        status: 'a_receber',
+        fiadoAt: null,
+      );
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items, isEmpty); // não é fiado: não passou pelo caixa
+
+      final pendentes = await repo(online: false).listPendingSettlement();
+      expect(pendentes.items, hasLength(1)); // mas aparece como pendente de acerto
+    });
+  });
+
   group('receber offline abate a dívida na hora', () {
     test('lançamento feito pelo caixa offline some da carteira', () async {
       // O usuário cobra o cliente na oficina sem internet: o recebimento entra
