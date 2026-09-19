@@ -6,7 +6,13 @@
  * regra que o offline (Dart) repete: `receivables-filtro.casos.json` é o
  * contrato lido pelos testes dos DOIS lados.
  */
-export type Vencimento = 'todos' | 'vencidos' | 'vence7' | 'a_vencer';
+export type Vencimento =
+  | 'todos'
+  | 'vencidos'
+  | 'vence7'
+  | 'a_vencer'
+  /** Fiado sem data combinada — a fila de "preciso combinar um prazo". */
+  | 'sem_prazo';
 export type Origem = 'todos' | 'os' | 'sale';
 export type OrdemDevedores = 'valor' | 'mais_antigo' | 'nome' | 'vencimento';
 
@@ -108,6 +114,10 @@ export function filtrarDevedores<T extends DevedorClassificado>(
         );
       case 'a_vencer':
         return !d.overdue && d.nextDueAt !== null;
+      case 'sem_prazo':
+        // Quem não tem prazo não some: tem fila própria, porque a ação aqui é
+        // outra — não é cobrar atraso, é combinar uma data.
+        return d.nextDueAt === null;
     }
   });
 }

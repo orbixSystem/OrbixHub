@@ -148,6 +148,10 @@ List<T> filtrarDevedores<T extends DevedorClassificado>(
         return dia.compareTo(hojeDia) >= 0 && dia.compareTo(limite7Dia) <= 0;
       case VencimentoFiltro.aVencer:
         return !d.overdue && d.nextDueAt != null;
+      case VencimentoFiltro.semPrazo:
+        // Quem não tem prazo não some: tem fila própria, porque a ação aqui é
+        // outra — não é cobrar atraso, é combinar uma data.
+        return d.nextDueAt == null;
     }
   }).toList();
 }

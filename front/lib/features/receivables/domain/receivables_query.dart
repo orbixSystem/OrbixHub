@@ -1,7 +1,7 @@
 /// Filtros do "A receber". Valor puro — vira query string online e parâmetros
 /// da regra Dart offline (`receivables_filtro.dart`). `page` começa em 1, mesma
 /// convenção do backend.
-enum VencimentoFiltro { todos, vencidos, vence7, aVencer }
+enum VencimentoFiltro { todos, vencidos, vence7, aVencer, semPrazo }
 
 enum OrigemFiltro { todos, os, sale }
 
@@ -14,6 +14,7 @@ extension VencimentoWire on VencimentoFiltro {
         VencimentoFiltro.vencidos => 'vencidos',
         VencimentoFiltro.vence7 => 'vence7',
         VencimentoFiltro.aVencer => 'a_vencer',
+        VencimentoFiltro.semPrazo => 'sem_prazo',
       };
 
   String get rotulo => switch (this) {
@@ -21,6 +22,7 @@ extension VencimentoWire on VencimentoFiltro {
         VencimentoFiltro.vencidos => 'Vencidos',
         VencimentoFiltro.vence7 => 'Vence em 7 dias',
         VencimentoFiltro.aVencer => 'A vencer',
+        VencimentoFiltro.semPrazo => 'Sem prazo',
       };
 }
 

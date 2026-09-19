@@ -12,8 +12,8 @@ export class ListDebtorsQueryDto {
   @IsOptional() @IsString() @MaxLength(120) q?: string;
 
   @IsOptional()
-  @IsIn(['todos', 'vencidos', 'vence7', 'a_vencer'])
-  vencimento?: 'todos' | 'vencidos' | 'vence7' | 'a_vencer';
+  @IsIn(['todos', 'vencidos', 'vence7', 'a_vencer', 'sem_prazo'])
+  vencimento?: 'todos' | 'vencidos' | 'vence7' | 'a_vencer' | 'sem_prazo';
 
   @IsOptional()
   @IsIn(['todos', 'os', 'sale'])

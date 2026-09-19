@@ -7,7 +7,9 @@ import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_filters_bar.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_screen.dart';
+import 'package:orbixhub_front/features/receivables/presentation/widgets/debtor_tile.dart';
 
 class _OnlineConn extends ConnectivityController {
   @override
@@ -95,7 +97,15 @@ void main() {
     await t.pumpAndSettle();
 
     expect(find.text('João Silva'), findsOneWidget);
-    expect(find.text('Sem prazo'), findsOneWidget);
+    // Escopado ao SELO da linha: "Sem prazo" também é o rótulo do chip de
+    // filtro, então um `find.text` solto acharia os dois.
+    expect(
+      find.descendant(
+        of: find.byType(DebtorTile),
+        matching: find.text('Sem prazo'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('Vencido em'), findsNothing);
     // KPI "Vencido" zerado — é o que o filtro de cobrança passa a significar.
     expect(find.text('R\$ 0,00'), findsOneWidget);
@@ -103,6 +113,48 @@ void main() {
     await t.tap(find.text('Vencidos'));
     await t.pumpAndSettle();
     expect(find.text('João Silva'), findsNothing);
+  });
+
+  testWidgets('chip "Sem prazo" separa quem ainda precisa de data combinada',
+      (t) async {
+    final repo = FakeReceivablesRepository(
+      titulos: const [
+        ReceivableTitle(
+          id: 'x1',
+          origin: 'sale',
+          number: 'VND-1',
+          customerId: 'c1',
+          customerName: 'João Silva',
+          createdAt: '2026-01-01T10:00:00Z',
+          total: 100,
+          balance: 100,
+        ),
+        ReceivableTitle(
+          id: 'x2',
+          origin: 'sale',
+          number: 'VND-2',
+          customerId: 'c2',
+          customerName: 'Maria Souza',
+          createdAt: '2026-01-01T10:00:00Z',
+          total: 50,
+          balance: 50,
+        ),
+      ],
+      vencimentos: {'x2': '2099-01-10'}, // só a Maria tem prazo combinado
+    );
+    await t.pumpWidget(_app(repo));
+    await t.pumpAndSettle();
+
+    // O CHIP, não o selo da linha (o texto é o mesmo nos dois).
+    await t.tap(find.descendant(
+      of: find.byType(ReceivablesFiltersBar),
+      matching: find.text('Sem prazo'),
+    ));
+    await t.pumpAndSettle();
+
+    // A fila de "preciso combinar uma data" — ação diferente de cobrar atraso.
+    expect(find.text('João Silva'), findsOneWidget);
+    expect(find.text('Maria Souza'), findsNothing);
   });
 
   testWidgets('lista vazia por filtro oferece limpar, não "cadastre"', (t) async {

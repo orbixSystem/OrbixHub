@@ -28,6 +28,7 @@
     { "nome": "vencidos", "f": { "vencimento": "vencidos", "origem": "todos" }, "esperado": ["vencido"] },
     { "nome": "vence7", "f": { "vencimento": "vence7", "origem": "todos" }, "esperado": ["vence7"] },
     { "nome": "a_vencer", "f": { "vencimento": "a_vencer", "origem": "todos" }, "esperado": ["vence7", "a_vencer"] },
+    { "nome": "sem_prazo", "f": { "vencimento": "sem_prazo", "origem": "todos" }, "esperado": ["sem_data", "sem_parcela_antigo"] },
     { "nome": "so_os", "f": { "vencimento": "todos", "origem": "os" }, "esperado": ["vencido", "a_vencer"] },
     { "nome": "so_venda", "f": { "vencimento": "todos", "origem": "sale" }, "esperado": ["sem_data", "vencido", "vence7", "sem_parcela_antigo"] },
     { "nome": "busca_sem_acento", "f": { "vencimento": "todos", "origem": "todos", "q": "celia" }, "esperado": ["a_vencer"] },
