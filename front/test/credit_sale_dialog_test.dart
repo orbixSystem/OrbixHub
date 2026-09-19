@@ -126,6 +126,19 @@ void main() {
     expect(find.text('Parcelado'), findsOneWidget);
   });
 
+  testWidgets('os seletores de prazo têm rótulo VISÍVEL', (t) async {
+    // `semanticLabel` sozinho só existe para o leitor de tela: na tela ficavam
+    // dois campos numéricos lado a lado ("2" e "10") sem dizer qual era qual.
+    await abrir(t);
+
+    await escolherPrazo(t, 'Data única');
+    expect(find.text('Data combinada'), findsOneWidget);
+
+    await escolherPrazo(t, 'Parcelado');
+    expect(find.text('Parcelas'), findsOneWidget);
+    expect(find.text('Dia do vencimento'), findsOneWidget);
+  });
+
   testWidgets('sem prazo combinado: venda fiada e NENHUM plano', (t) async {
     final cashier = FakeCashierRepository();
     final sale = FakeSaleRepository();
