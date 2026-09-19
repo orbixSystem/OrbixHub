@@ -294,12 +294,22 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
   /// "Essa venda será registrada como fiado." Confirma antes de criar, dizendo
   /// quanto falta e de quem — e alertando quando não há cliente identificado,
   /// caso em que a dívida cai no balde "sem cliente" e é quase incobrável.
-  Future<bool> _confirmarFiado() async {
+  ///
+  /// É AQUI que o prazo é combinado, e não no corpo da venda: este modal é o
+  /// momento em que se decide fiar, e todo mundo passa por ele. Inline, no meio
+  /// do diálogo, o bloco de prazo passava batido — e a venda nascia sem data
+  /// por desatenção, não por escolha. (No modo "Venda a prazo" não há este
+  /// modal — a pessoa já decidiu ao abrir —, então lá o prazo segue inline.)
+  ///
+  /// Devolve o prazo escolhido, ou `null` quando o operador volta.
+  Future<PrazoFiado?> _confirmarFiado() async {
     final semCliente = _customerId == null;
     final apelido = _customerNoteCtrl.text.trim();
-    final ok = await showDialog<bool>(
+    var prazo = _prazo;
+    final confirmado = await showDialog<bool>(
       context: context,
-      builder: (ctx) => NeuDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => NeuDialog(
         title: 'Registrar como fiado?',
         maxWidth: 420,
         actions: [
@@ -344,11 +354,20 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                     : Theme.of(ctx).colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 14),
+            // Quando ele paga: a mesma seção da venda a prazo e do recebimento
+            // parcial — um jeito só de combinar prazo no produto inteiro.
+            PrazoFiadoSection(
+              valor: prazo,
+              total: _falta,
+              onChanged: (p) => setLocal(() => prazo = p),
+            ),
           ],
+        ),
         ),
       ),
     );
-    return ok ?? false;
+    return confirmado == true ? prazo : null;
   }
 
   Future<void> _submit() async {
@@ -417,8 +436,9 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     // Em modo prazo a pessoa já escolheu "a prazo" ao abrir o modal — perguntar
     // de novo seria confirmar uma decisão que ela acabou de tomar.
     if (_ehFiado && !widget.modoPrazo) {
-      final confirmado = await _confirmarFiado();
-      if (!confirmado || !mounted) return;
+      final escolhido = await _confirmarFiado();
+      if (escolhido == null || !mounted) return;
+      _prazo = escolhido;
     }
     setState(() => _submitting = true);
     try {
@@ -836,11 +856,12 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                             _receivedCtrl.text = formatAmountForInput(_total);
                           }),
                         ),
-                      // Mesma seção do modo prazo — sem exclusividade: uma
-                      // venda comum que vira fiado (recebido < total, aqui em
-                      // `_PaymentSection`) tem direito ao MESMO prazo, não só
-                      // quem entrou por "A receber".
-                      if (widget.editando == null && _ehFiado)
+                      // Só no modo prazo: na venda comum que vira fiado, o
+                      // prazo é perguntado no modal de confirmação (ver
+                      // `_confirmarFiado`), que é por onde ela passa de todo
+                      // jeito. Aqui não há esse modal — a pessoa já escolheu
+                      // "a prazo" ao abrir.
+                      if (widget.editando == null && widget.modoPrazo)
                         PrazoFiadoSection(
                           valor: _prazo,
                           // O que falta receber, não o total da venda — na

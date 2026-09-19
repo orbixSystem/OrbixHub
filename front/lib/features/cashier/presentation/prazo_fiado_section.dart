@@ -182,15 +182,19 @@ class PrazoFiadoSection extends StatelessWidget {
             ModoPrazo.dataUnica => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final escolhida = await _escolherData(context, data);
-                      if (escolhida != null) {
-                        onChanged(valor.copyWith(dataUnica: escolhida));
-                      }
-                    },
-                    icon: const Icon(Icons.event_outlined, size: 18),
-                    label: Text('Paga em ${dataCurtaBr(data)}'),
+                  _rotulado(
+                    context,
+                    'Data combinada',
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final escolhida = await _escolherData(context, data);
+                        if (escolhida != null) {
+                          onChanged(valor.copyWith(dataUnica: escolhida));
+                        }
+                      },
+                      icon: const Icon(Icons.event_outlined, size: 18),
+                      label: Text('Paga em ${dataCurtaBr(data)}'),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -205,24 +209,32 @@ class PrazoFiadoSection extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: NeuStepperField(
-                          value: valor.parcelas.toDouble(),
-                          decimals: 0,
-                          semanticLabel: 'Parcelas',
-                          onChanged: (v) => onChanged(
-                            valor.copyWith(parcelas: v.round().clamp(1, 60)),
+                        child: _rotulado(
+                          context,
+                          'Parcelas',
+                          NeuStepperField(
+                            value: valor.parcelas.toDouble(),
+                            decimals: 0,
+                            semanticLabel: 'Parcelas',
+                            onChanged: (v) => onChanged(
+                              valor.copyWith(parcelas: v.round().clamp(1, 60)),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: NeuStepperField(
-                          value: valor.diaVencimento.toDouble(),
-                          decimals: 0,
-                          semanticLabel: 'Dia do vencimento',
-                          onChanged: (v) => onChanged(
-                            valor.copyWith(
-                                diaVencimento: v.round().clamp(1, 28)),
+                        child: _rotulado(
+                          context,
+                          'Dia do vencimento',
+                          NeuStepperField(
+                            value: valor.diaVencimento.toDouble(),
+                            decimals: 0,
+                            semanticLabel: 'Dia do vencimento',
+                            onChanged: (v) => onChanged(
+                              valor.copyWith(
+                                  diaVencimento: v.round().clamp(1, 28)),
+                            ),
                           ),
                         ),
                       ),
@@ -256,6 +268,23 @@ class PrazoFiadoSection extends StatelessWidget {
           },
         ],
       ),
+    );
+  }
+
+  /// Campo com rótulo VISÍVEL. `semanticLabel` sozinho só existe para o leitor
+  /// de tela: na tela ficavam dois campos numéricos lado a lado ("2" e "10")
+  /// sem dizer qual era parcela e qual era dia.
+  Widget _rotulado(BuildContext context, String label, Widget campo) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: context.neu.inkMuted, fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        campo,
+      ],
     );
   }
 
