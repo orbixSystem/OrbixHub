@@ -13,6 +13,11 @@ class FakeSaleRepository implements SaleRepository {
   final List<Sale> _sales = [];
   int _seq = 0;
 
+  /// Rascunhos recebidos por `createSale`, na ordem — `Sale` não carrega
+  /// `fiado` (é write-only, o servidor deriva o pagamento do caixa), então é
+  /// aqui que um teste prova que a venda nasceu declarada como fiado.
+  final List<SaleDraft> criadas = [];
+
   @override
   Future<SalePage> listSales({
     String? status,
@@ -54,6 +59,7 @@ class FakeSaleRepository implements SaleRepository {
 
   @override
   Future<Sale> createSale(SaleDraft draft) async {
+    criadas.add(draft);
     _seq++;
     final items = <SaleItem>[];
     var total = 0.0;

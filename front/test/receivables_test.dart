@@ -4,26 +4,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
+import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
+import 'package:orbixhub_front/features/receivables/domain/receivables_query.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
-import 'package:orbixhub_front/features/receivables/presentation/receivables_tab.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_screen.dart';
 
-/// Aba "Fiado" — controle de contas a receber.
+/// Tela "A receber" — controle de contas a receber.
 ///
 /// A tela responde, nesta ordem: quanto a oficina tem na rua, quem deve, e de
 /// quais serviços é a dívida. Os dois primeiros são o agregado; o terceiro exige
 /// abrir o cliente.
+
+/// Dono: pode receber. Usado quando o teste não se importa com permissão.
+class _SessaoComPermissao extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u1', email: 'dono@teste.com', fullName: 'Dono'),
+          activeTenant: Tenant(id: 't1', slug: 'oficina', name: 'Oficina'),
+          role: 'owner',
+          permissions: ['cashier.write', 'cashier.read'],
+          modules: ['cashier'],
+        ),
+      );
+}
+
+/// Só lê a carteira — não pode receber.
+class _SessaoSemPermissao extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u2', email: 'consulta@teste.com', fullName: 'Consulta'),
+          activeTenant: Tenant(id: 't1', slug: 'oficina', name: 'Oficina'),
+          role: 'caixa',
+          permissions: ['cashier.read'],
+          modules: ['cashier'],
+        ),
+      );
+}
 
 Widget _app(ReceivablesRepositoryOverride override, {bool canWrite = true}) {
   return ProviderScope(
     overrides: [
       connectivityControllerProvider.overrideWith(_OnlineConn.new),
       receivablesRepositoryProvider.overrideWithValue(override.repo),
+      sessionControllerProvider.overrideWith(
+        canWrite ? _SessaoComPermissao.new : _SessaoSemPermissao.new,
+      ),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),
-      home: Scaffold(body: ReceivablesTab(canWrite: canWrite)),
+      home: const Scaffold(body: ReceivablesScreen()),
     ),
   );
 }
@@ -34,8 +69,8 @@ class ReceivablesRepositoryOverride {
   final FakeReceivablesRepository repo;
 }
 
-/// Online por padrão: sem isto a tela mostra o aviso "Fiado precisa de conexão"
-/// (o estado inicial do controller não é `online`).
+/// Online por padrão: sem isto a tela mostra o aviso "offline" (o estado
+/// inicial do controller não é `online`).
 class _OnlineConn extends ConnectivityController {
   @override
   ConnState build() => const ConnState(status: ConnStatus.online);
@@ -43,7 +78,7 @@ class _OnlineConn extends ConnectivityController {
 
 void main() {
   group('carteira de fiado', () {
-    testWidgets('mostra o total na rua e quantos clientes devem',
+    testWidgets('mostra o total a receber e os devedores',
         (tester) async {
       await tester.pumpWidget(
         _app(ReceivablesRepositoryOverride(FakeReceivablesRepository())),
@@ -52,8 +87,14 @@ void main() {
 
       // Exemplo do fake: João 480+200 = 680; Maria 150. Total 830.
       expect(find.text('A receber'), findsOneWidget);
-      expect(find.text('R\$ 830,00'), findsOneWidget);
-      expect(find.text('de 2 clientes'), findsOneWidget);
+      expect(find.text('Total a receber'), findsOneWidget);
+      // >=1: as datas fixas do fake (jul/2026) já estão todas vencidas frente
+      // ao relógio real, então o KPI "Vencido" mostra o MESMO valor — não é
+      // bug, é coincidência da fixture ter envelhecido.
+      expect(find.text('R\$ 830,00'), findsWidgets);
+      expect(find.text('devedores'), findsOneWidget);
+      expect(find.text('João Silva'), findsOneWidget);
+      expect(find.text('Maria Souza'), findsOneWidget);
     });
 
     testWidgets('homônimo sem cadastro é marcado — senão são duas linhas iguais',
@@ -120,10 +161,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Nenhum fiado em aberto'), findsOneWidget);
+      expect(find.text('Ninguém devendo'), findsOneWidget);
     });
 
-    testWidgets('avisa quando a lista está parcial (nunca cap silencioso)',
+    testWidgets('avisa quando a lista está incompleta (nunca cap silencioso)',
         (tester) async {
       await tester.pumpWidget(
         _app(ReceivablesRepositoryOverride(
@@ -132,7 +173,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('parcial'), findsOneWidget);
+      expect(find.textContaining('incompleta'), findsOneWidget);
     });
   });
 
@@ -202,7 +243,7 @@ void main() {
   group('regras do agregado (fake espelha o servidor)', () {
     test('só conta o saldo em aberto, não o total do título', () async {
       final repo = FakeReceivablesRepository();
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       final joao = page.items.firstWhere((d) => d.customerName == 'João Silva');
       // OS-0042 deve 480 (total 480) + OS-0051 deve 200 (total 300) = 680.
       expect(joao.totalDue, 680);
@@ -211,7 +252,7 @@ void main() {
 
     test('guarda a data do título mais antigo', () async {
       final repo = FakeReceivablesRepository();
-      final page = await repo.listDebtors();
+      final page = await repo.listDebtors(const DebtorsQuery());
       final joao = page.items.firstWhere((d) => d.customerName == 'João Silva');
       expect(joao.oldestAt, '2026-07-02T10:00:00Z');
     });
@@ -270,8 +311,8 @@ void main() {
         (tester) async {
       // Offline o `LocalFirstReceivablesRepository` deriva a carteira do espelho
       // local — OS **e** venda de balcão, ambas no sync. Como não sobra recorte,
-      // a aba não deve nem bloquear ("Fiado precisa de conexão", como antes) nem
-      // avisar que a lista está parcial.
+      // a tela não deve nem bloquear ("A receber precisa de conexão", como
+      // antes) nem avisar que a lista está incompleta.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -279,17 +320,18 @@ void main() {
             receivablesRepositoryProvider.overrideWithValue(
               FakeReceivablesRepository(),
             ),
+            sessionControllerProvider.overrideWith(_SessaoComPermissao.new),
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: const Scaffold(body: ReceivablesTab(canWrite: true)),
+            home: const Scaffold(body: ReceivablesScreen()),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('João Silva'), findsOneWidget);
-      expect(find.textContaining('parcial'), findsNothing);
+      expect(find.textContaining('incompleta'), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });

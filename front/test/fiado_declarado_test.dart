@@ -10,10 +10,13 @@ import 'package:orbixhub_front/features/cashier/presentation/cashier_providers.d
 import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/domain/os_models.dart';
 import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
+import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
+import 'package:orbixhub_front/features/auth/presentation/session_state.dart';
 import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
 import 'package:orbixhub_front/features/receivables/domain/receivables_models.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
-import 'package:orbixhub_front/features/receivables/presentation/receivables_tab.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_screen.dart';
 import 'package:orbixhub_front/features/receivables/presentation/receive_title_dialog.dart';
 
 /// Fiado DECLARADO — o título só entra na carteira depois de passar pelo caixa.
@@ -29,6 +32,19 @@ import 'package:orbixhub_front/features/receivables/presentation/receive_title_d
 class _OnlineConn extends ConnectivityController {
   @override
   ConnState build() => const ConnState(status: ConnStatus.online);
+}
+
+class _SessaoComPermissao extends SessionController {
+  @override
+  SessionState build() => const SessionState.authenticated(
+        Me(
+          user: User(id: 'u1', email: 'dono@teste.com', fullName: 'Dono'),
+          activeTenant: Tenant(id: 't1', slug: 'oficina', name: 'Oficina'),
+          role: 'owner',
+          permissions: ['cashier.write', 'cashier.read'],
+          modules: ['cashier'],
+        ),
+      );
 }
 
 /// OS que registra se o carimbo de fiado foi pedido.
@@ -60,10 +76,11 @@ void main() {
           overrides: [
             connectivityControllerProvider.overrideWith(_OnlineConn.new),
             receivablesRepositoryProvider.overrideWithValue(repo),
+            sessionControllerProvider.overrideWith(_SessaoComPermissao.new),
           ],
           child: MaterialApp(
             theme: AppTheme.light(),
-            home: const Scaffold(body: ReceivablesTab(canWrite: true)),
+            home: const Scaffold(body: ReceivablesScreen()),
           ),
         );
 
@@ -105,7 +122,7 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      expect(find.text('Nenhum fiado em aberto'), findsOneWidget);
+      expect(find.text('Ninguém devendo'), findsOneWidget);
       expect(find.textContaining('2 títulos finalizados'), findsOneWidget);
     });
   });

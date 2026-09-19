@@ -123,6 +123,7 @@ final Map<String, ScreenTutorial> _porRota = {
   '/m/os/:id': _osDetalhe,
   '/m/invoice/config': _fiscalConfig,
   '/m/invoice/:id': _notaDetalhe,
+  '/m/cashier/a-receber': _aReceber,
   '/agenda/horarios': _horarios,
   '/mensagens/:id': _conversa,
   // --- telas de lista / raiz ---
@@ -419,25 +420,28 @@ const _caixa = ScreenTutorial(
   titulo: 'Caixa',
   steps: [
     CoachStep(
-      targetName: 'caixa.balanco',
-      title: 'O balanço responde "como estamos?"',
-      text: 'Recebido, saídas, saldo, dinheiro em caixa e o que ainda está '
-          'pendente. Começa no dia de hoje; o filtro de período muda a pergunta '
-          'para os últimos 7, 30 dias ou o mês.',
+      targetName: 'caixa.abas',
+      title: 'Duas abas, duas perguntas',
+      text: '"Caixa do dia" é onde você opera. "Histórico" responde o que '
+          'aconteceu num período, com filtros. Quem está devendo agora tem tela '
+          'própria — "A receber", logo abaixo de Caixa no menu. No celular as '
+          'abas ficam aqui do mesmo jeito — só mais estreitas.',
     ),
     CoachStep(
       targetName: 'caixa.acoes',
-      title: 'As ações do dia',
-      text: '"Receber OS" recebe de uma ordem já aberta, inclusive parcial. '
-          '"Venda Avulsa" abre o balcão completo (itens, desconto, recebimento). '
-          '"Depósito" e "Saque" registram entrada e saída de dinheiro da gaveta.',
+      title: 'As três ações do dia',
+      text: '"Venda avulsa" abre o balcão completo (itens, desconto, '
+          'recebimento). "Receber OS" recebe de uma ordem já aberta, inclusive '
+          'parcial. "Despesa / saque" registra saída. No desktop ficam em até '
+          'três colunas; no celular, duas — os mesmos botões.',
     ),
     CoachStep(
-      targetName: 'caixa.movimentacoes',
-      title: 'Movimentações: tudo o que aconteceu',
-      text: 'A lista do período inteiro, com filtros de entradas, saídas e '
-          'pendentes. Linha de VENDA abre o detalhe dela (toque nela); despesa e '
-          'saque abrem o menu de ações nos três pontinhos.',
+      targetName: 'caixa.ultimos',
+      title: 'Últimos lançamentos: confirmação, não extrato',
+      text: 'São as 5 últimas linhas, só para você confirmar que o que acabou de '
+          'lançar entrou. O extrato completo do período é a aba Histórico — '
+          '"Ver tudo" leva até lá. Linha de VENDA abre o detalhe dela (toque nela); '
+          'despesa e saque abrem o menu de ações nos três pontinhos.',
     ),
     CoachStep(
       title: 'O valor recebido decide se é fiado',
@@ -464,6 +468,32 @@ const _caixa = ScreenTutorial(
       text: 'Essa cerimônia serve para conferir dinheiro na GAVETA. Se você '
           'recebe por Pix e cartão, ou opera sozinho, deixe desligada em '
           'Configurações › Caixa: aí o dia vira por data, à meia-noite, sozinho.',
+    ),
+  ],
+);
+
+const _aReceber = ScreenTutorial(
+  id: 'tut_areceber_v1',
+  titulo: 'A receber',
+  steps: [
+    CoachStep(
+      targetName: 'areceber.resumo',
+      title: 'Quanto tem na rua',
+      text: 'Total a receber, quanto disso já venceu e quantas pessoas devem. '
+          'Esses números são da carteira inteira — não mudam quando você filtra.',
+    ),
+    CoachStep(
+      targetName: 'areceber.filtros',
+      title: 'Quem cobro hoje',
+      text: '"Vencidos" é a fila de cobrança. "Vence em 7 dias" é quem avisar '
+          'antes. Dá para separar OS de venda de balcão e ordenar por valor, '
+          'atraso, nome ou vencimento.',
+    ),
+    CoachStep(
+      targetName: 'areceber.lista',
+      title: 'Quem deve, e de quê',
+      text: 'Cada linha traz telefone e a próxima parcela. Toque para ver os '
+          'títulos, as parcelas e receber — total ou parcela.',
     ),
   ],
 );

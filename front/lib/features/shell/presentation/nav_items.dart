@@ -65,11 +65,26 @@ List<NavItem> gatedNavItems(Me me) {
     items.add(const NavItem('Mensagens', Icons.forum_outlined, '/mensagens'));
   }
 
+  /// "A receber" não é módulo: é parte comercial do Caixa (mesmo gate do
+  /// controller de receivables: módulo `cashier` + `cashier.read`). Item
+  /// próprio porque cobrar é outro trabalho que operar a gaveta.
+  void addAReceber() {
+    if (!me.modules.contains('cashier') || !me.hasPermission('cashier.read')) {
+      return;
+    }
+    items.add(const NavItem(
+      'A receber',
+      Icons.request_quote_outlined,
+      '/m/cashier/a-receber',
+    ));
+  }
+
   // ── ORDEM DA SIDEBAR ───────────────────────────────────────────────────────
   // A ordem destas linhas É a ordem do menu. Definida pelo dono: o que se usa
   // todo dia primeiro (caixa → OS → despesas → estoque → mensagens), o resto
   // depois. Para reordenar, mova as linhas — nada mais precisa mudar.
   addModule('cashier');
+  addAReceber();
   addModule('os');
   addModule('expenses');
   addModule('inventory');

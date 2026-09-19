@@ -1,4 +1,6 @@
+import '../domain/receivables_filtro.dart';
 import '../domain/receivables_models.dart';
+import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
 
 /// Fake in-memory do controle de fiado — dev/teste (não é persistência offline).
@@ -12,6 +14,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
     this.truncated = false,
     this.pendingSettlement = const PendingSettlement(),
     this.pendingTitles = const [],
+    this.vencimentos = const {},
   }) : _titulos = titulos ?? _exemplo;
 
   /// Título → cliente. `null` = venda de balcão sem cliente.
@@ -23,6 +26,11 @@ class FakeReceivablesRepository implements ReceivablesRepository {
 
   /// Os títulos por trás do aviso (o drill-down de "quais são?").
   final List<ReceivableTitle> pendingTitles;
+
+  /// Prazo combinado por título (`id` → `YYYY-MM-DD`), como o servidor devolve
+  /// a próxima parcela em aberto. Sem entrada aqui o título é "sem prazo" — e
+  /// sem prazo não há vencimento nem atraso, igual à regra real.
+  final Map<String, String> vencimentos;
 
   /// Mapa título→(clienteId, nome). Mantido fora do modelo porque o servidor só
   /// devolve o dono no agregado, não em cada título.
@@ -97,8 +105,8 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   ];
 
   @override
-  Future<DebtorsPage> listDebtors() async {
-    final porCliente = <String, Debtor>{};
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
+    final porCliente = <String, DevedorParaFiltro>{};
     for (final t in _titulos) {
       // O dono sai do PRÓPRIO título quando ele o traz; `_donos` cobre só os
       // títulos de exemplo, que nasceram sem esses campos.
@@ -111,28 +119,68 @@ class FakeReceivablesRepository implements ReceivablesRepository {
       // o bug que a cliente filmou, e um fake que não consegue reproduzi-lo não
       // serve para provar a correção.
       final chave = id ?? 'nome:$nome';
+      final titulo = TituloParaFiltro(
+        origin: t.origin,
+        createdAt: t.createdAt,
+        balance: t.balance,
+        proximaParcelaEm: vencimentos[t.id],
+      );
       final atual = porCliente[chave];
-      if (atual == null) {
-        porCliente[chave] = Debtor(
-          customerId: id,
-          customerName: nome,
-          totalDue: t.balance,
-          titleCount: 1,
-          oldestAt: t.createdAt,
-        );
-      } else {
-        porCliente[chave] = atual.copyWith(
-          totalDue: atual.totalDue + t.balance,
-          titleCount: atual.titleCount + 1,
-          oldestAt: _maisAntigo(atual.oldestAt, t.createdAt),
-        );
-      }
+      porCliente[chave] = atual == null
+          ? DevedorParaFiltro(
+              customerId: id,
+              customerName: nome,
+              totalDue: t.balance,
+              titleCount: 1,
+              oldestAt: t.createdAt,
+              titulos: [titulo],
+            )
+          : DevedorParaFiltro(
+              customerId: atual.customerId,
+              customerName: atual.customerName,
+              totalDue: atual.totalDue + t.balance,
+              titleCount: atual.titleCount + 1,
+              oldestAt: _maisAntigo(atual.oldestAt, t.createdAt),
+              titulos: [...atual.titulos, titulo],
+            );
     }
-    final items = porCliente.values.toList()
-      ..sort((a, b) => b.totalDue.compareTo(a.totalDue));
+
+    final hoje = DateTime.now().toUtc();
+    final classificados =
+        porCliente.values.map((d) => classificar(d, hoje)).toList();
+    final filtrados = filtrarDevedores(
+      classificados,
+      q: query.q,
+      vencimento: query.vencimento,
+      origem: query.origem,
+      hoje: hoje,
+    );
+    final pagina = paginar(
+      ordenarDevedores(filtrados, query.sort),
+      query.page,
+      query.pageSize,
+    );
+    final vencidos = classificados.where((d) => d.overdue);
+
     return DebtorsPage(
-      items: items,
-      totalDue: items.fold<num>(0, (acc, d) => acc + d.totalDue),
+      items: [
+        for (final d in pagina.items)
+          Debtor(
+            customerId: d.customerId,
+            customerName: d.customerName,
+            totalDue: d.totalDue,
+            titleCount: d.titleCount,
+            oldestAt: d.oldestAt,
+            nextDueAt: d.nextDueAt,
+            overdue: d.overdue,
+          ),
+      ],
+      total: pagina.total,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalDue: classificados.fold<num>(0, (acc, d) => acc + d.totalDue),
+      overdueTotal: vencidos.fold<num>(0, (acc, d) => acc + d.totalDue),
+      overdueCount: vencidos.length,
       pendingSettlement: pendingSettlement,
       truncated: truncated,
     );

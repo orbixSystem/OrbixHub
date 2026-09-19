@@ -17,7 +17,10 @@ mixin _$Debtor {
 
 /// `null` = venda de balcão sem cliente identificado.
 @JsonKey(name: 'customerId') String? get customerId;@JsonKey(name: 'customerName') String get customerName;@JsonKey(name: 'totalDue') num get totalDue;@JsonKey(name: 'titleCount') int get titleCount;/// Título mais antigo em aberto — "deve desde quando".
-@JsonKey(name: 'oldestAt') String? get oldestAt;
+@JsonKey(name: 'oldestAt') String? get oldestAt;/// Telefone do cadastro. Nulo para apelido de balcão — não há quem ligar.
+ String? get phone;/// Vencimento mais próximo (parcela em aberto, senão data do título).
+@JsonKey(name: 'nextDueAt') String? get nextDueAt;/// Ao menos um título vencido.
+ bool get overdue;
 /// Create a copy of Debtor
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,16 +33,16 @@ $DebtorCopyWith<Debtor> get copyWith => _$DebtorCopyWithImpl<Debtor>(this as Deb
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Debtor&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.titleCount, titleCount) || other.titleCount == titleCount)&&(identical(other.oldestAt, oldestAt) || other.oldestAt == oldestAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Debtor&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.titleCount, titleCount) || other.titleCount == titleCount)&&(identical(other.oldestAt, oldestAt) || other.oldestAt == oldestAt)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.nextDueAt, nextDueAt) || other.nextDueAt == nextDueAt)&&(identical(other.overdue, overdue) || other.overdue == overdue));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,customerId,customerName,totalDue,titleCount,oldestAt);
+int get hashCode => Object.hash(runtimeType,customerId,customerName,totalDue,titleCount,oldestAt,phone,nextDueAt,overdue);
 
 @override
 String toString() {
-  return 'Debtor(customerId: $customerId, customerName: $customerName, totalDue: $totalDue, titleCount: $titleCount, oldestAt: $oldestAt)';
+  return 'Debtor(customerId: $customerId, customerName: $customerName, totalDue: $totalDue, titleCount: $titleCount, oldestAt: $oldestAt, phone: $phone, nextDueAt: $nextDueAt, overdue: $overdue)';
 }
 
 
@@ -50,7 +53,7 @@ abstract mixin class $DebtorCopyWith<$Res>  {
   factory $DebtorCopyWith(Debtor value, $Res Function(Debtor) _then) = _$DebtorCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String customerName,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'titleCount') int titleCount,@JsonKey(name: 'oldestAt') String? oldestAt
+@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String customerName,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'titleCount') int titleCount,@JsonKey(name: 'oldestAt') String? oldestAt, String? phone,@JsonKey(name: 'nextDueAt') String? nextDueAt, bool overdue
 });
 
 
@@ -67,14 +70,17 @@ class _$DebtorCopyWithImpl<$Res>
 
 /// Create a copy of Debtor
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? customerId = freezed,Object? customerName = null,Object? totalDue = null,Object? titleCount = null,Object? oldestAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? customerId = freezed,Object? customerName = null,Object? totalDue = null,Object? titleCount = null,Object? oldestAt = freezed,Object? phone = freezed,Object? nextDueAt = freezed,Object? overdue = null,}) {
   return _then(_self.copyWith(
 customerId: freezed == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
 as String?,customerName: null == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
 as String,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
 as num,titleCount: null == titleCount ? _self.titleCount : titleCount // ignore: cast_nullable_to_non_nullable
 as int,oldestAt: freezed == oldestAt ? _self.oldestAt : oldestAt // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,phone: freezed == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
+as String?,nextDueAt: freezed == nextDueAt ? _self.nextDueAt : nextDueAt // ignore: cast_nullable_to_non_nullable
+as String?,overdue: null == overdue ? _self.overdue : overdue // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -159,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt,  String? phone, @JsonKey(name: 'nextDueAt')  String? nextDueAt,  bool overdue)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Debtor() when $default != null:
-return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt);case _:
+return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt,_that.phone,_that.nextDueAt,_that.overdue);case _:
   return orElse();
 
 }
@@ -180,10 +186,10 @@ return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCo
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt,  String? phone, @JsonKey(name: 'nextDueAt')  String? nextDueAt,  bool overdue)  $default,) {final _that = this;
 switch (_that) {
 case _Debtor():
-return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt);case _:
+return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt,_that.phone,_that.nextDueAt,_that.overdue);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +206,10 @@ return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCo
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'customerId')  String? customerId, @JsonKey(name: 'customerName')  String customerName, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'titleCount')  int titleCount, @JsonKey(name: 'oldestAt')  String? oldestAt,  String? phone, @JsonKey(name: 'nextDueAt')  String? nextDueAt,  bool overdue)?  $default,) {final _that = this;
 switch (_that) {
 case _Debtor() when $default != null:
-return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt);case _:
+return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCount,_that.oldestAt,_that.phone,_that.nextDueAt,_that.overdue);case _:
   return null;
 
 }
@@ -215,7 +221,7 @@ return $default(_that.customerId,_that.customerName,_that.totalDue,_that.titleCo
 @JsonSerializable()
 
 class _Debtor implements Debtor {
-  const _Debtor({@JsonKey(name: 'customerId') this.customerId, @JsonKey(name: 'customerName') this.customerName = 'Sem cliente', @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'titleCount') this.titleCount = 0, @JsonKey(name: 'oldestAt') this.oldestAt});
+  const _Debtor({@JsonKey(name: 'customerId') this.customerId, @JsonKey(name: 'customerName') this.customerName = 'Sem cliente', @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'titleCount') this.titleCount = 0, @JsonKey(name: 'oldestAt') this.oldestAt, this.phone, @JsonKey(name: 'nextDueAt') this.nextDueAt, this.overdue = false});
   factory _Debtor.fromJson(Map<String, dynamic> json) => _$DebtorFromJson(json);
 
 /// `null` = venda de balcão sem cliente identificado.
@@ -225,6 +231,12 @@ class _Debtor implements Debtor {
 @override@JsonKey(name: 'titleCount') final  int titleCount;
 /// Título mais antigo em aberto — "deve desde quando".
 @override@JsonKey(name: 'oldestAt') final  String? oldestAt;
+/// Telefone do cadastro. Nulo para apelido de balcão — não há quem ligar.
+@override final  String? phone;
+/// Vencimento mais próximo (parcela em aberto, senão data do título).
+@override@JsonKey(name: 'nextDueAt') final  String? nextDueAt;
+/// Ao menos um título vencido.
+@override@JsonKey() final  bool overdue;
 
 /// Create a copy of Debtor
 /// with the given fields replaced by the non-null parameter values.
@@ -239,16 +251,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Debtor&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.titleCount, titleCount) || other.titleCount == titleCount)&&(identical(other.oldestAt, oldestAt) || other.oldestAt == oldestAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Debtor&&(identical(other.customerId, customerId) || other.customerId == customerId)&&(identical(other.customerName, customerName) || other.customerName == customerName)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.titleCount, titleCount) || other.titleCount == titleCount)&&(identical(other.oldestAt, oldestAt) || other.oldestAt == oldestAt)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.nextDueAt, nextDueAt) || other.nextDueAt == nextDueAt)&&(identical(other.overdue, overdue) || other.overdue == overdue));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,customerId,customerName,totalDue,titleCount,oldestAt);
+int get hashCode => Object.hash(runtimeType,customerId,customerName,totalDue,titleCount,oldestAt,phone,nextDueAt,overdue);
 
 @override
 String toString() {
-  return 'Debtor(customerId: $customerId, customerName: $customerName, totalDue: $totalDue, titleCount: $titleCount, oldestAt: $oldestAt)';
+  return 'Debtor(customerId: $customerId, customerName: $customerName, totalDue: $totalDue, titleCount: $titleCount, oldestAt: $oldestAt, phone: $phone, nextDueAt: $nextDueAt, overdue: $overdue)';
 }
 
 
@@ -259,7 +271,7 @@ abstract mixin class _$DebtorCopyWith<$Res> implements $DebtorCopyWith<$Res> {
   factory _$DebtorCopyWith(_Debtor value, $Res Function(_Debtor) _then) = __$DebtorCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String customerName,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'titleCount') int titleCount,@JsonKey(name: 'oldestAt') String? oldestAt
+@JsonKey(name: 'customerId') String? customerId,@JsonKey(name: 'customerName') String customerName,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'titleCount') int titleCount,@JsonKey(name: 'oldestAt') String? oldestAt, String? phone,@JsonKey(name: 'nextDueAt') String? nextDueAt, bool overdue
 });
 
 
@@ -276,14 +288,17 @@ class __$DebtorCopyWithImpl<$Res>
 
 /// Create a copy of Debtor
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? customerId = freezed,Object? customerName = null,Object? totalDue = null,Object? titleCount = null,Object? oldestAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? customerId = freezed,Object? customerName = null,Object? totalDue = null,Object? titleCount = null,Object? oldestAt = freezed,Object? phone = freezed,Object? nextDueAt = freezed,Object? overdue = null,}) {
   return _then(_Debtor(
 customerId: freezed == customerId ? _self.customerId : customerId // ignore: cast_nullable_to_non_nullable
 as String?,customerName: null == customerName ? _self.customerName : customerName // ignore: cast_nullable_to_non_nullable
 as String,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
 as num,titleCount: null == titleCount ? _self.titleCount : titleCount // ignore: cast_nullable_to_non_nullable
 as int,oldestAt: freezed == oldestAt ? _self.oldestAt : oldestAt // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,phone: freezed == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
+as String?,nextDueAt: freezed == nextDueAt ? _self.nextDueAt : nextDueAt // ignore: cast_nullable_to_non_nullable
+as String?,overdue: null == overdue ? _self.overdue : overdue // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -560,7 +575,10 @@ as num,
 /// @nodoc
 mixin _$DebtorsPage {
 
- List<Debtor> get items;@JsonKey(name: 'totalDue') num get totalDue;/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
+ List<Debtor> get items;/// Nº de devedores APÓS o filtro (para a paginação). `items` é só a página.
+ int get total; int get page; int get pageSize;/// Da carteira INTEIRA — não muda com filtro nem página.
+@JsonKey(name: 'totalDue') num get totalDue;/// Quanto da carteira inteira está vencido, e quantos devedores.
+@JsonKey(name: 'overdueTotal') num get overdueTotal;@JsonKey(name: 'overdueCount') int get overdueCount;/// Entregues e nunca acertados no caixa — o aviso do topo da aba.
 @JsonKey(name: 'pendingSettlement') PendingSettlement get pendingSettlement;/// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
 /// em vez de deixar o usuário achar que viu tudo.
  bool get truncated;
@@ -576,16 +594,16 @@ $DebtorsPageCopyWith<DebtorsPage> get copyWith => _$DebtorsPageCopyWithImpl<Debt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DebtorsPage&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.overdueTotal, overdueTotal) || other.overdueTotal == overdueTotal)&&(identical(other.overdueCount, overdueCount) || other.overdueCount == overdueCount)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),totalDue,pendingSettlement,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),total,page,pageSize,totalDue,overdueTotal,overdueCount,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, total: $total, page: $page, pageSize: $pageSize, totalDue: $totalDue, overdueTotal: $overdueTotal, overdueCount: $overdueCount, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -596,7 +614,7 @@ abstract mixin class $DebtorsPageCopyWith<$Res>  {
   factory $DebtorsPageCopyWith(DebtorsPage value, $Res Function(DebtorsPage) _then) = _$DebtorsPageCopyWithImpl;
 @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
+ List<Debtor> items, int total, int page, int pageSize,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'overdueTotal') num overdueTotal,@JsonKey(name: 'overdueCount') int overdueCount,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
@@ -613,11 +631,16 @@ class _$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? total = null,Object? page = null,Object? pageSize = null,Object? totalDue = null,Object? overdueTotal = null,Object? overdueCount = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_self.copyWith(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
-as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as List<Debtor>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
+as num,overdueTotal: null == overdueTotal ? _self.overdueTotal : overdueTotal // ignore: cast_nullable_to_non_nullable
+as num,overdueCount: null == overdueCount ? _self.overdueCount : overdueCount // ignore: cast_nullable_to_non_nullable
+as int,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
 as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -713,10 +736,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Debtor> items,  int total,  int page,  int pageSize, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'overdueTotal')  num overdueTotal, @JsonKey(name: 'overdueCount')  int overdueCount, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize,_that.totalDue,_that.overdueTotal,_that.overdueCount,_that.pendingSettlement,_that.truncated);case _:
   return orElse();
 
 }
@@ -734,10 +757,10 @@ return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncat
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Debtor> items,  int total,  int page,  int pageSize, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'overdueTotal')  num overdueTotal, @JsonKey(name: 'overdueCount')  int overdueCount, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage():
-return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize,_that.totalDue,_that.overdueTotal,_that.overdueCount,_that.pendingSettlement,_that.truncated);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -754,10 +777,10 @@ return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncat
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Debtor> items,  int total,  int page,  int pageSize, @JsonKey(name: 'totalDue')  num totalDue, @JsonKey(name: 'overdueTotal')  num overdueTotal, @JsonKey(name: 'overdueCount')  int overdueCount, @JsonKey(name: 'pendingSettlement')  PendingSettlement pendingSettlement,  bool truncated)?  $default,) {final _that = this;
 switch (_that) {
 case _DebtorsPage() when $default != null:
-return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncated);case _:
+return $default(_that.items,_that.total,_that.page,_that.pageSize,_that.totalDue,_that.overdueTotal,_that.overdueCount,_that.pendingSettlement,_that.truncated);case _:
   return null;
 
 }
@@ -769,7 +792,7 @@ return $default(_that.items,_that.totalDue,_that.pendingSettlement,_that.truncat
 @JsonSerializable()
 
 class _DebtorsPage implements DebtorsPage {
-  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'pendingSettlement') this.pendingSettlement = const PendingSettlement(), this.truncated = false}): _items = items;
+  const _DebtorsPage({final  List<Debtor> items = const <Debtor>[], this.total = 0, this.page = 1, this.pageSize = 20, @JsonKey(name: 'totalDue') this.totalDue = 0, @JsonKey(name: 'overdueTotal') this.overdueTotal = 0, @JsonKey(name: 'overdueCount') this.overdueCount = 0, @JsonKey(name: 'pendingSettlement') this.pendingSettlement = const PendingSettlement(), this.truncated = false}): _items = items;
   factory _DebtorsPage.fromJson(Map<String, dynamic> json) => _$DebtorsPageFromJson(json);
 
  final  List<Debtor> _items;
@@ -779,7 +802,15 @@ class _DebtorsPage implements DebtorsPage {
   return EqualUnmodifiableListView(_items);
 }
 
+/// Nº de devedores APÓS o filtro (para a paginação). `items` é só a página.
+@override@JsonKey() final  int total;
+@override@JsonKey() final  int page;
+@override@JsonKey() final  int pageSize;
+/// Da carteira INTEIRA — não muda com filtro nem página.
 @override@JsonKey(name: 'totalDue') final  num totalDue;
+/// Quanto da carteira inteira está vencido, e quantos devedores.
+@override@JsonKey(name: 'overdueTotal') final  num overdueTotal;
+@override@JsonKey(name: 'overdueCount') final  int overdueCount;
 /// Entregues e nunca acertados no caixa — o aviso do topo da aba.
 @override@JsonKey(name: 'pendingSettlement') final  PendingSettlement pendingSettlement;
 /// A varredura bateu no teto do servidor: há dívida não listada. A tela avisa
@@ -799,16 +830,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DebtorsPage&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.total, total) || other.total == total)&&(identical(other.page, page) || other.page == page)&&(identical(other.pageSize, pageSize) || other.pageSize == pageSize)&&(identical(other.totalDue, totalDue) || other.totalDue == totalDue)&&(identical(other.overdueTotal, overdueTotal) || other.overdueTotal == overdueTotal)&&(identical(other.overdueCount, overdueCount) || other.overdueCount == overdueCount)&&(identical(other.pendingSettlement, pendingSettlement) || other.pendingSettlement == pendingSettlement)&&(identical(other.truncated, truncated) || other.truncated == truncated));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),totalDue,pendingSettlement,truncated);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),total,page,pageSize,totalDue,overdueTotal,overdueCount,pendingSettlement,truncated);
 
 @override
 String toString() {
-  return 'DebtorsPage(items: $items, totalDue: $totalDue, pendingSettlement: $pendingSettlement, truncated: $truncated)';
+  return 'DebtorsPage(items: $items, total: $total, page: $page, pageSize: $pageSize, totalDue: $totalDue, overdueTotal: $overdueTotal, overdueCount: $overdueCount, pendingSettlement: $pendingSettlement, truncated: $truncated)';
 }
 
 
@@ -819,7 +850,7 @@ abstract mixin class _$DebtorsPageCopyWith<$Res> implements $DebtorsPageCopyWith
   factory _$DebtorsPageCopyWith(_DebtorsPage value, $Res Function(_DebtorsPage) _then) = __$DebtorsPageCopyWithImpl;
 @override @useResult
 $Res call({
- List<Debtor> items,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
+ List<Debtor> items, int total, int page, int pageSize,@JsonKey(name: 'totalDue') num totalDue,@JsonKey(name: 'overdueTotal') num overdueTotal,@JsonKey(name: 'overdueCount') int overdueCount,@JsonKey(name: 'pendingSettlement') PendingSettlement pendingSettlement, bool truncated
 });
 
 
@@ -836,11 +867,16 @@ class __$DebtorsPageCopyWithImpl<$Res>
 
 /// Create a copy of DebtorsPage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? totalDue = null,Object? pendingSettlement = null,Object? truncated = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? total = null,Object? page = null,Object? pageSize = null,Object? totalDue = null,Object? overdueTotal = null,Object? overdueCount = null,Object? pendingSettlement = null,Object? truncated = null,}) {
   return _then(_DebtorsPage(
 items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
-as List<Debtor>,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
-as num,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
+as List<Debtor>,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,page: null == page ? _self.page : page // ignore: cast_nullable_to_non_nullable
+as int,pageSize: null == pageSize ? _self.pageSize : pageSize // ignore: cast_nullable_to_non_nullable
+as int,totalDue: null == totalDue ? _self.totalDue : totalDue // ignore: cast_nullable_to_non_nullable
+as num,overdueTotal: null == overdueTotal ? _self.overdueTotal : overdueTotal // ignore: cast_nullable_to_non_nullable
+as num,overdueCount: null == overdueCount ? _self.overdueCount : overdueCount // ignore: cast_nullable_to_non_nullable
+as int,pendingSettlement: null == pendingSettlement ? _self.pendingSettlement : pendingSettlement // ignore: cast_nullable_to_non_nullable
 as PendingSettlement,truncated: null == truncated ? _self.truncated : truncated // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

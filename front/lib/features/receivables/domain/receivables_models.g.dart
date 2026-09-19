@@ -12,6 +12,9 @@ _Debtor _$DebtorFromJson(Map<String, dynamic> json) => _Debtor(
   totalDue: json['totalDue'] as num? ?? 0,
   titleCount: (json['titleCount'] as num?)?.toInt() ?? 0,
   oldestAt: json['oldestAt'] as String?,
+  phone: json['phone'] as String?,
+  nextDueAt: json['nextDueAt'] as String?,
+  overdue: json['overdue'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$DebtorToJson(_Debtor instance) => <String, dynamic>{
@@ -20,6 +23,9 @@ Map<String, dynamic> _$DebtorToJson(_Debtor instance) => <String, dynamic>{
   'totalDue': instance.totalDue,
   'titleCount': instance.titleCount,
   'oldestAt': instance.oldestAt,
+  'phone': instance.phone,
+  'nextDueAt': instance.nextDueAt,
+  'overdue': instance.overdue,
 };
 
 _PendingSettlement _$PendingSettlementFromJson(Map<String, dynamic> json) =>
@@ -37,7 +43,12 @@ _DebtorsPage _$DebtorsPageFromJson(Map<String, dynamic> json) => _DebtorsPage(
           ?.map((e) => Debtor.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <Debtor>[],
+  total: (json['total'] as num?)?.toInt() ?? 0,
+  page: (json['page'] as num?)?.toInt() ?? 1,
+  pageSize: (json['pageSize'] as num?)?.toInt() ?? 20,
   totalDue: json['totalDue'] as num? ?? 0,
+  overdueTotal: json['overdueTotal'] as num? ?? 0,
+  overdueCount: (json['overdueCount'] as num?)?.toInt() ?? 0,
   pendingSettlement: json['pendingSettlement'] == null
       ? const PendingSettlement()
       : PendingSettlement.fromJson(
@@ -49,7 +60,12 @@ _DebtorsPage _$DebtorsPageFromJson(Map<String, dynamic> json) => _DebtorsPage(
 Map<String, dynamic> _$DebtorsPageToJson(_DebtorsPage instance) =>
     <String, dynamic>{
       'items': instance.items.map((e) => e.toJson()).toList(),
+      'total': instance.total,
+      'page': instance.page,
+      'pageSize': instance.pageSize,
       'totalDue': instance.totalDue,
+      'overdueTotal': instance.overdueTotal,
+      'overdueCount': instance.overdueCount,
       'pendingSettlement': instance.pendingSettlement.toJson(),
       'truncated': instance.truncated,
     };

@@ -201,15 +201,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da
                           // página do go_router.
-                          // Teto de largura para o sistema INTEIRO, aplicado
-                          // aqui porque aqui passa toda tela roteada. O header
-                          // fica de fora de propósito: ele é uma faixa
-                          // decorativa (entalhe do FAB, sombra) que precisa
-                          // sangrar até a borda — cortá-lo deixaria um degrau
-                          // no desenho.
-                          Expanded(
-                            child: ConteudoLimitado(child: widget.child),
-                          ),
+                          Expanded(child: widget.child),
                         ],
                       ),
                       // FAB de criação rápida aninhado no berço do header (centro).

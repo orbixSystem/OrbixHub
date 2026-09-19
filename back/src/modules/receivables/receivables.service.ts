@@ -3,6 +3,19 @@ import { FATURAVEIS } from '../os/os-status';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { OsService } from '../os/os.service';
 import { SaleService } from '../sale/sale.service';
+import { CashierService } from '../cashier/cashier.service';
+import { CustomersService } from '../customers/customers.service';
+import type { ListDebtorsQueryDto } from './dto/list-debtors.dto';
+import {
+  classificar,
+  filtrarDevedores,
+  ordenarDevedores,
+  paginar,
+  type DevedorParaFiltro,
+  type OrdemDevedores,
+  type Origem,
+  type Vencimento,
+} from './receivables.filtro';
 
 /**
  * Controle de FIADO (contas a receber) — módulo ORQUESTRADOR, sem tabela própria.
@@ -74,7 +87,16 @@ export interface ReceivableCustomer {
   titleCount: number;
   /** Título mais antigo em aberto — "deve desde quando". */
   oldestAt: string | null;
+  /** Telefone do cadastro — null para apelido de balcão. Para cobrar da linha. */
+  phone: string | null;
+  /** Vencimento mais próximo (parcela em aberto, senão data do título). */
+  nextDueAt: string | null;
+  /** Ao menos um título vencido. */
+  overdue: boolean;
 }
+
+/** Página padrão da lista de devedores (o front pede 20; o DTO limita a 100). */
+const DEBTORS_PAGE_SIZE = 20;
 
 const n = (v: unknown): number => {
   const x = Number(v);
@@ -187,20 +209,53 @@ export class ReceivablesService {
   constructor(
     private readonly os: OsService,
     private readonly sales: SaleService,
+    // Portas estreitas (regra 1): próxima parcela em lote e telefone por ids.
+    private readonly cashier: CashierService,
+    private readonly customers: CustomersService,
   ) {}
 
-  /** Devedores e quanto cada um deve, do maior saldo para o menor. */
-  async listCustomers(user: AuthUser): Promise<{
+  /**
+   * Devedores — filtrados, ordenados e paginados NO SERVIDOR.
+   *
+   * A carteira ainda nasce da varredura (ver [openTitles]); o que muda é que a
+   * peneira deixou de ser no cliente. Os TOTAIS (`totalDue`, `overdueTotal`)
+   * são da carteira inteira, nunca da página nem do filtro: "quanto tenho na
+   * rua" não pode mudar quando a pessoa clica num chip.
+   */
+  async listCustomers(
+    user: AuthUser,
+    query: ListDebtorsQueryDto = {},
+  ): Promise<{
     items: ReceivableCustomer[];
+    total: number;
+    page: number;
+    pageSize: number;
     totalDue: number;
+    overdueTotal: number;
+    overdueCount: number;
     pendingSettlement: PendingSettlement;
     truncated: boolean;
   }> {
     const { titulos, pendentes, truncated } = await this.openTitles(user);
-    const porCliente = new Map<string, ReceivableCustomer>();
 
+    // 1) próxima parcela por título — UMA chamada ao caixa (regra 1)
+    const proximas = await this.cashier.proximasParcelasEmAberto(
+      user.tenantId,
+      titulos.map((t) => ({ saleKind: t.title.origin, saleId: t.title.id })),
+    );
+
+    // 2) agrupa por devedor — MESMA chave da leitura do detalhe: id, senão
+    //    `nome:<apelido>`. Foi a diferença entre estas duas chaves que fez a
+    //    aba de um devedor mostrar as vendas de outro.
+    const porCliente = new Map<string, DevedorParaFiltro>();
     for (const { title, customerId, customerName } of titulos) {
       const chave = customerId ?? `nome:${customerName}`;
+      const titulo = {
+        origin: title.origin,
+        createdAt: title.createdAt,
+        balance: title.balance,
+        proximaParcelaEm: proximas.get(`${title.origin}:${title.id}`) ?? null,
+      };
       const atual = porCliente.get(chave);
       if (atual) {
         atual.totalDue = round2(atual.totalDue + title.balance);
@@ -208,6 +263,7 @@ export class ReceivablesService {
         if (ehAnterior(title.createdAt, atual.oldestAt)) {
           atual.oldestAt = title.createdAt;
         }
+        atual.titulos.push(titulo);
         continue;
       }
       porCliente.set(chave, {
@@ -216,15 +272,65 @@ export class ReceivablesService {
         totalDue: round2(title.balance),
         titleCount: 1,
         oldestAt: title.createdAt,
+        titulos: [titulo],
       });
     }
 
-    const items = [...porCliente.values()].sort((a, b) => b.totalDue - a.totalDue);
+    // 3) telefone em lote — só dos cadastrados
+    const ids = [...porCliente.values()]
+      .map((d) => d.customerId)
+      .filter((x): x is string => !!x);
+    const contatos = new Map(
+      (await this.customers.getCustomersByIds(user, ids)).map((c) => [
+        c.id,
+        c.phone,
+      ]),
+    );
+
+    // 4) regra pura: classifica → filtra → ordena → pagina
+    const hoje = new Date();
+    const classificados = [...porCliente.values()].map((d) =>
+      classificar(d, hoje),
+    );
+    const filtrados = filtrarDevedores(
+      classificados,
+      {
+        q: query.q,
+        vencimento: (query.vencimento ?? 'todos') as Vencimento,
+        origem: (query.origem ?? 'todos') as Origem,
+      },
+      hoje,
+    );
+    const ordenados = ordenarDevedores(
+      filtrados,
+      (query.sort ?? 'valor') as OrdemDevedores,
+    );
+    const pageSize = query.pageSize ?? DEBTORS_PAGE_SIZE;
+    const page = query.page ?? 1;
+    const pagina = paginar(ordenados, page, pageSize);
+
+    const items: ReceivableCustomer[] = pagina.items.map((d) => ({
+      customerId: d.customerId,
+      customerName: d.customerName,
+      totalDue: d.totalDue,
+      titleCount: d.titleCount,
+      oldestAt: d.oldestAt,
+      phone: d.customerId ? (contatos.get(d.customerId) ?? null) : null,
+      nextDueAt: d.nextDueAt,
+      overdue: d.overdue,
+    }));
+
+    const vencidos = classificados.filter((d) => d.overdue);
     return {
       items,
-      totalDue: round2(items.reduce((acc, c) => acc + c.totalDue, 0)),
-      // Vai junto de propósito: a aba Fiado já faz esta chamada, então o aviso
-      // de "entregue e não acertado" não custa uma segunda varredura.
+      total: pagina.total,
+      page,
+      pageSize,
+      totalDue: round2(classificados.reduce((acc, c) => acc + c.totalDue, 0)),
+      overdueTotal: round2(vencidos.reduce((acc, c) => acc + c.totalDue, 0)),
+      overdueCount: vencidos.length,
+      // Vai junto de propósito: a tela já faz esta chamada, então o aviso de
+      // "entregue e não acertado" não custa uma segunda varredura.
       pendingSettlement: resumoPendentes(pendentes),
       truncated,
     };

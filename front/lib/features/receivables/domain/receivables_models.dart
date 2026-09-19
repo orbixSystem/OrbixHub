@@ -22,6 +22,15 @@ abstract class Debtor with _$Debtor {
 
     /// Título mais antigo em aberto — "deve desde quando".
     @JsonKey(name: 'oldestAt') String? oldestAt,
+
+    /// Telefone do cadastro. Nulo para apelido de balcão — não há quem ligar.
+    String? phone,
+
+    /// Vencimento mais próximo (parcela em aberto, senão data do título).
+    @JsonKey(name: 'nextDueAt') String? nextDueAt,
+
+    /// Ao menos um título vencido.
+    @Default(false) bool overdue,
   }) = _Debtor;
 
   factory Debtor.fromJson(Map<String, dynamic> json) => _$DebtorFromJson(json);
@@ -47,7 +56,18 @@ abstract class PendingSettlement with _$PendingSettlement {
 abstract class DebtorsPage with _$DebtorsPage {
   const factory DebtorsPage({
     @Default(<Debtor>[]) List<Debtor> items,
+
+    /// Nº de devedores APÓS o filtro (para a paginação). `items` é só a página.
+    @Default(0) int total,
+    @Default(1) int page,
+    @Default(20) int pageSize,
+
+    /// Da carteira INTEIRA — não muda com filtro nem página.
     @JsonKey(name: 'totalDue') @Default(0) num totalDue,
+
+    /// Quanto da carteira inteira está vencido, e quantos devedores.
+    @JsonKey(name: 'overdueTotal') @Default(0) num overdueTotal,
+    @JsonKey(name: 'overdueCount') @Default(0) int overdueCount,
 
     /// Entregues e nunca acertados no caixa — o aviso do topo da aba.
     @JsonKey(name: 'pendingSettlement')

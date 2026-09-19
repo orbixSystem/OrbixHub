@@ -90,6 +90,16 @@ export class CustomersRepository {
     return db.customer.findUnique({ where: { id } });
   }
 
+  /** Vários por id — para o "A receber" mostrar telefone sem N consultas. */
+  findCustomersByIds(ids: string[]) {
+    const db = this.tenant.getClient();
+    if (ids.length === 0) return Promise.resolve([]);
+    return db.customer.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
   async listCustomers(filter: CustomerFilter) {
     const db = this.tenant.getClient();
     const where: Prisma.customerWhereInput = {
