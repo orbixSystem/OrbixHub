@@ -1,4 +1,5 @@
 import 'receivables_models.dart';
+import 'receivables_query.dart';
 
 /// Contrato do controle de FIADO (contas a receber). Leitura apenas: RECEBER um
 /// fiado é um lançamento no Caixa (`CashierRepository.createEntry` com
@@ -9,8 +10,10 @@ import 'receivables_models.dart';
 /// cliente reflete para UX. Impl real (dio) + fake, trocadas por injeção
 /// Riverpod. A UI nunca fala com o dio direto.
 abstract interface class ReceivablesRepository {
-  /// Devedores, do maior saldo para o menor.
-  Future<DebtorsPage> listDebtors();
+  /// Devedores filtrados, ordenados e paginados. Online vai ao servidor;
+  /// offline aplica a MESMA regra sobre o espelho local
+  /// (`receivables_filtro.dart`).
+  Future<DebtorsPage> listDebtors(DebtorsQuery query);
 
   /// TODOS os títulos em aberto, achatados (com o dono em cada um) e do mais
   /// recente para o mais antigo. É o que o histórico do caixa consome para

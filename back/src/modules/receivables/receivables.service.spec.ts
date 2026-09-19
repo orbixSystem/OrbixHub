@@ -44,6 +44,9 @@ function makeService(opts: {
   osTotal?: number;
   vendasTotal?: number;
   detalhe?: (id: string) => Linha;
+  /** `${origin}:${id}` → próxima parcela (YYYY-MM-DD). */
+  parcelas?: Map<string, string>;
+  contatos?: Array<{ id: string; name: string; phone: string | null }>;
 }) {
   const os = {
     listOrders: jest.fn(async (_u: AuthUser, q: Query) => {
@@ -60,13 +63,30 @@ function makeService(opts: {
       return { items, total: opts.vendasTotal ?? (opts.vendas ?? []).length };
     }),
   };
+  // Portas do caixa e de clientes — o padrão é "sem parcela, sem telefone";
+  // cenários que precisam de vencimento por parcela sobrescrevem `parcelas`.
+  const cashier = {
+    proximasParcelasEmAberto: jest.fn(
+      async (_tid: string, _refs: Array<{ saleKind: string; saleId: string }>) =>
+        opts.parcelas ?? new Map<string, string>(),
+    ),
+  };
+  const customers = {
+    getCustomersByIds: jest.fn(
+      async (_u: AuthUser, _ids: string[]) => opts.contatos ?? [],
+    ),
+  };
   return {
     service: new ReceivablesService(
       os as unknown as ConstructorParameters<typeof ReceivablesService>[0],
       sales as unknown as ConstructorParameters<typeof ReceivablesService>[1],
+      cashier as unknown as ConstructorParameters<typeof ReceivablesService>[2],
+      customers as unknown as ConstructorParameters<typeof ReceivablesService>[3],
     ),
     os,
     sales,
+    cashier,
+    customers,
   };
 }
 
@@ -433,6 +453,8 @@ describe('ReceivablesService — varredura', () => {
     const service = new ReceivablesService(
       os as unknown as ConstructorParameters<typeof ReceivablesService>[0],
       sales as unknown as ConstructorParameters<typeof ReceivablesService>[1],
+      { proximasParcelasEmAberto: async () => new Map() } as never,
+      { getCustomersByIds: async () => [] } as never,
     );
 
     const r = await service.listCustomers(user);
@@ -527,3 +549,73 @@ describe('ReceivablesService — varredura', () => {
     expect(sales.listSales.mock.calls[0][1]).toMatchObject({ status: 'active' });
   });
 });
+
+describe('listCustomers com filtros no SERVIDOR', () => {
+  // Dois devedores fiados: v1 (Ana) com parcela VENCIDA, v2 (Bruno) sem parcela
+  // e criado hoje (portanto a vencer / não vencido).
+  const hoje = new Date();
+  const fixtures = () => ({
+    vendas: [
+      // `status: 'active'`: o ramo de VENDAS pula qualquer outro status (o
+      // default da fábrica, 'concluida', é vocabulário de OS).
+      linha({
+        id: 'v1', number: '1', status: 'active', customer_id: 'c1', customer_name: 'Ana',
+        created_at: new Date('2026-01-10T10:00:00Z'), payment: pagamento(100, 0),
+      }),
+      linha({
+        id: 'v2', number: '2', status: 'active', customer_id: 'c2', customer_name: 'Bruno',
+        created_at: hoje, payment: pagamento(250, 0),
+      }),
+    ],
+    parcelas: new Map([['sale:v1', '2026-01-20']]),
+    contatos: [{ id: 'c1', name: 'Ana', phone: '(11) 9999-0001' }],
+  });
+
+  it('vencidos filtra a lista, mas totalDue continua o da carteira INTEIRA', async () => {
+    const { service } = makeService(fixtures());
+    const r = await service.listCustomers(user, { vencimento: 'vencidos' });
+    expect(r.items.map((d) => d.customerName)).toEqual(['Ana']);
+    expect(r.total).toBe(1);
+    // "quanto tenho na rua" não muda quando se clica num chip.
+    expect(r.totalDue).toBe(350);
+    expect(r.overdueTotal).toBe(100);
+    expect(r.overdueCount).toBe(1);
+  });
+
+  it('enriquece com telefone (só cadastrado) e próxima parcela', async () => {
+    const { service } = makeService(fixtures());
+    const r = await service.listCustomers(user, {});
+    const ana = r.items.find((d) => d.customerName === 'Ana')!;
+    const bruno = r.items.find((d) => d.customerName === 'Bruno')!;
+    expect(ana.phone).toBe('(11) 9999-0001');
+    expect(ana.nextDueAt).toBe('2026-01-20');
+    expect(ana.overdue).toBe(true);
+    expect(bruno.phone).toBeNull();
+    expect(bruno.overdue).toBe(false);
+  });
+
+  it('a soma das páginas bate com o total', async () => {
+    const { service } = makeService({
+      vendas: ['a', 'b', 'c'].map((n, i) =>
+        linha({ id: `v-${n}`, number: `${i}`, status: 'active', customer_id: `c-${n}`, customer_name: `Cliente ${n}`, payment: pagamento(10 * (i + 1), 0) }),
+      ),
+    });
+    const p1 = await service.listCustomers(user, { page: 1, pageSize: 2 });
+    const p2 = await service.listCustomers(user, { page: 2, pageSize: 2 });
+    expect(p1.total).toBe(3);
+    expect(p2.total).toBe(3);
+    expect(p1.items.length + p2.items.length).toBe(3);
+    // Nenhum devedor repetido entre as páginas.
+    const ids = [...p1.items, ...p2.items].map((d) => d.customerId);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('pede ao caixa a próxima parcela de TODOS os títulos numa chamada só', async () => {
+    const { service, cashier } = makeService(fixtures());
+    await service.listCustomers(user, {});
+    expect(cashier.proximasParcelasEmAberto).toHaveBeenCalledTimes(1);
+    const refs = cashier.proximasParcelasEmAberto.mock.calls[0][1];
+    expect(refs).toHaveLength(2);
+  });
+});
+

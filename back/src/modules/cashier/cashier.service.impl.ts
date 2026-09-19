@@ -918,6 +918,31 @@ export class CashierServiceImpl extends CashierService {
     });
   }
 
+  async proximasParcelasEmAberto(
+    tenantId: string,
+    refs: Array<{ saleKind: string; saleId: string }>,
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    if (refs.length === 0) return out;
+    const rows = await this.tenant.runWithTenant(tenantId, () => {
+      const db = this.tenant.getClient();
+      return db.receivable_installment.findMany({
+        where: {
+          paid_at: null,
+          OR: refs.map((r) => ({ sale_kind: r.saleKind, sale_id: r.saleId })),
+        },
+        select: { sale_kind: true, sale_id: true, due_date: true },
+        orderBy: { due_date: 'asc' },
+      });
+    });
+    // `orderBy asc` + "primeiro que aparece ganha" = a mais próxima de cada título.
+    for (const r of rows) {
+      const k = `${r.sale_kind}:${r.sale_id}`;
+      if (!out.has(k)) out.set(k, r.due_date.toISOString().slice(0, 10));
+    }
+    return out;
+  }
+
   /** Parcelas ainda não quitadas (contrato `CashierService`). */
   contarParcelasEmAberto(
     tenantId: string,

@@ -7,6 +7,7 @@ import '../../features/customers/presentation/customers_screen.dart';
 import '../../features/customers/presentation/customer_detail_screen.dart';
 import '../../features/customers/presentation/subject_detail_screen.dart';
 import '../../features/cashier/presentation/cashier_screen.dart';
+import '../../features/receivables/presentation/receivables_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../config/feature_flags.dart';
 import '../../features/invoice/presentation/invoice_screen.dart';
@@ -328,6 +329,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/m/cashier',
             pageBuilder: (_, s) => neuPage(s, const CashierScreen()),
+          ),
+          // A receber — sub-rota do Caixa: o redirect lê o segmento `/m/<módulo>`
+          // (`segments[2]`), então ela herda o gate do módulo `cashier` sem
+          // código novo no redirect.
+          GoRoute(
+            path: '/m/cashier/a-receber',
+            pageBuilder: (_, s) => neuPage(s, const ReceivablesScreen()),
           ),
           // Relatórios — literal antes do placeholder genérico; gated sob /m/
           // (módulo `report`); o backend exige report.read nos endpoints.

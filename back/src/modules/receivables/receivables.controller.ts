@@ -11,6 +11,7 @@ import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { ReceivablesService } from './receivables.service';
+import { ListDebtorsQueryDto } from './dto/list-debtors.dto';
 
 /**
  * Controle de fiado (contas a receber) — leitura apenas.
@@ -27,11 +28,14 @@ import { ReceivablesService } from './receivables.service';
 export class ReceivablesController {
   constructor(private readonly receivables: ReceivablesService) {}
 
-  /** Devedores e quanto cada um deve. */
+  /** Devedores — filtrados, ordenados e paginados no servidor. */
   @Get()
   @Permissions('cashier.read')
-  listCustomers(@CurrentUser() user: AuthUser) {
-    return this.receivables.listCustomers(user);
+  listCustomers(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListDebtorsQueryDto,
+  ) {
+    return this.receivables.listCustomers(user, query);
   }
 
   /**

@@ -353,6 +353,14 @@ class FakeCashierRepository implements CashierRepository {
 
   // --- parcelas de fiado (fake — sempre vazias em dev) ---
 
+  /// Planos criados, na ordem — testes leem isto para provar que
+  /// `createInstallmentPlan` foi (ou não) chamado, e com o quê.
+  final List<InstallmentPlanDraft> planos = [];
+
+  /// Quando setado, `createInstallmentPlan` lança este erro em vez de gravar —
+  /// para testar que a venda continua valendo mesmo com o plano falhando.
+  Object? planoDeveFalharCom;
+
   @override
   Future<List<Installment>> listInstallments({
     required String saleKind,
@@ -361,7 +369,11 @@ class FakeCashierRepository implements CashierRepository {
       const [];
 
   @override
-  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) async {}
+  Future<void> createInstallmentPlan(InstallmentPlanDraft draft) async {
+    final erro = planoDeveFalharCom;
+    if (erro != null) throw erro;
+    planos.add(draft);
+  }
 
   @override
   Future<Installment> payInstallment({
