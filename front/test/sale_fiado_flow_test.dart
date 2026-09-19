@@ -206,6 +206,74 @@ void main() {
 
     expect(find.textContaining('Sem cliente identificado'), findsOneWidget);
   });
+
+  group('prazo combinado no modal de confirmação', () {
+    // O prazo é perguntado ONDE se decide fiar. Inline, no corpo da venda, ele
+    // passava batido e a dívida nascia sem data por desatenção.
+    testWidgets('o modal de fiado pergunta quando o cliente paga',
+        (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Registrar como fiado?'), findsOneWidget);
+      expect(find.text('Prazo de pagamento'), findsOneWidget);
+      expect(find.text('Sem prazo'), findsOneWidget);
+      expect(find.text('Data única'), findsOneWidget);
+      expect(find.text('Parcelado'), findsOneWidget);
+    });
+
+    testWidgets('combinar data única grava plano de 1 parcela sobre o que FALTA',
+        (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Data única'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect(caixa.planos, hasLength(1));
+      expect(caixa.planos.single.installmentCount, 1);
+      // 200 − 120 recebidos: o plano é da DÍVIDA, não do total da venda.
+      expect(caixa.planos.single.totalAmount, 80);
+      expect(caixa.lancados.single.amount, 120);
+    });
+
+    testWidgets('sem prazo (padrão) registra a dívida e nenhum plano',
+        (tester) async {
+      await abrirComItem(tester, 90);
+      await tester.enterText(campoRecebido, '0');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect((await vendas.listSales()).items, hasLength(1));
+      expect(caixa.planos, isEmpty);
+    });
+
+    testWidgets('voltar no modal não grava venda NEM plano', (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Data única'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+
+      expect((await vendas.listSales()).items, isEmpty);
+      expect(caixa.planos, isEmpty);
+    });
+  });
   group('editar venda existente', () {
     testWidgets('abre preenchida, sem recebimento, e salva os itens novos',
         (tester) async {
