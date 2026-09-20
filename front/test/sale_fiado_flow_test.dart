@@ -207,6 +207,32 @@ void main() {
     expect(find.textContaining('Sem cliente identificado'), findsOneWidget);
   });
 
+
+  group('cliente cadastrado em destaque sobre o apelido', () {
+    testWidgets('a venda comum tambem lidera pela busca de cliente',
+        (tester) async {
+      // Um cadastro tem telefone e historico; o apelido nao tem nada. O
+      // destaque era exclusivo da venda a prazo — mas quem fia por engano
+      // (recebeu menos) tem o mesmo problema de cobranca depois.
+      await abrirComItem(tester, 150);
+
+      expect(find.text('Buscar cliente cadastrado'), findsOneWidget);
+      expect(find.text('Apelido sem cadastro (ex: João)'), findsOneWidget);
+    });
+
+    testWidgets('a vista NAO avisa sobre telefone; virando fiado, avisa',
+        (tester) async {
+      await abrirComItem(tester, 150);
+      // Recebendo tudo, nao ha o que cobrar depois: o aviso seria ruido.
+      expect(find.textContaining('sem telefone'), findsNothing);
+
+      // Recebeu menos ⇒ vira divida ⇒ o apelido passa a ser um problema.
+      await tester.enterText(campoRecebido, '50,00');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('sem telefone'), findsOneWidget);
+    });
+  });
+
   group('prazo combinado no modal de confirmação', () {
     // O prazo é perguntado ONDE se decide fiar. Inline, no corpo da venda, ele
     // passava batido e a dívida nascia sem data por desatenção.

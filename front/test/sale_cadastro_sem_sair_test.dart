@@ -109,7 +109,7 @@ void main() {
   testWidgets('a busca de cliente oferece cadastrar quem não existe',
       (t) async {
     await abrirVenda(t);
-    await t.tap(find.widgetWithText(TextButton, 'Cliente'));
+    await t.tap(find.text('Buscar cliente cadastrado'));
     await t.pumpAndSettle();
 
     // Base vazia: em vez de um beco sem saída ("Nenhum cliente."), a saída.
@@ -135,7 +135,7 @@ void main() {
   testWidgets('cliente cadastrado na hora já sai selecionado na venda',
       (t) async {
     await abrirVenda(t);
-    await t.tap(find.widgetWithText(TextButton, 'Cliente'));
+    await t.tap(find.text('Buscar cliente cadastrado'));
     await t.pumpAndSettle();
     await t.enterText(buscaDoPicker, 'Dona Marlene');
     await t.pumpAndSettle();
