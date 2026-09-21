@@ -489,6 +489,147 @@ void main() {
     });
   });
 
+
+  /// Offline o app lê JSON CRU do espelho (o mesmo payload que o pull gravou).
+  /// Campo faltando, tipo trocado ou data inválida não podem derrubar a
+  /// carteira: sem rede, esta tela é a única fonte de cobrança que o operador
+  /// tem — melhor uma linha a menos do que uma tela de erro.
+  group('espelho local com dado sujo não derruba a carteira', () {
+    test('linha sem id é ignorada, o resto continua', () async {
+      await gravar('sale', {
+        'id': 'sem-campos', // o row-store exige id; o RESTO vem faltando
+        'fiado_at': '2026-07-10T11:00:00Z',
+      });
+      await semear(osId: '1', total: '100.00');
+
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items.single.totalDue, 100);
+    });
+
+    test('total não numérico vira zero, não exceção', () async {
+      await gravar('sale', {
+        'id': 'v-ruim',
+        'number': 'VND-9',
+        'status': 'active',
+        'customer_id': 'c9',
+        'customer_name': 'Estranho',
+        'total': 'abc',
+        'created_at': '2026-07-15T10:00:00Z',
+        'fiado_at': '2026-07-15T11:00:00Z',
+      });
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      // Saldo zero não é dívida — a linha some da cobrança, mas a tela vive.
+      expect(page.items, isEmpty);
+      expect(page.totalDue, 0);
+    });
+
+    test('recebimento com valor sujo não inventa nem apaga dívida', () async {
+      await semear(osId: '1', total: '300.00');
+      await gravar('cash_entry', {
+        'id': 'e-sujo',
+        'direction': 'in',
+        'amount': 'xx',
+        'method': 'dinheiro',
+        'category': 'os_payment',
+        'sale_kind': 'os',
+        'sale_id': '1',
+        'reversed_at': null,
+        'created_at': '2026-07-10T12:00:00Z',
+      });
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items.single.totalDue, 300);
+    });
+
+    test('parcela com due_date inválido não quebra a classificação', () async {
+      await semear(osId: '1', total: '100.00');
+      await gravar('receivable_installment', {
+        'id': 'p-ruim',
+        'sale_kind': 'os',
+        'sale_id': '1',
+        'due_date': 'nao-e-data',
+        'paid_at': null,
+      });
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items, hasLength(1));
+      // Data ilegível não vira atraso: acusar vencimento por lixo de dado seria
+      // pior do que não acusar nada.
+      expect(page.items.single.overdue, isFalse);
+    });
+
+    test('parcela PAGA não define o vencimento; a em aberto define', () async {
+      await semear(osId: '1', total: '200.00');
+      await gravar('receivable_installment', {
+        'id': 'p1',
+        'sale_kind': 'os',
+        'sale_id': '1',
+        'due_date': '2020-01-01',
+        'paid_at': '2020-01-02T10:00:00Z',
+      });
+      await gravar('receivable_installment', {
+        'id': 'p2',
+        'sale_kind': 'os',
+        'sale_id': '1',
+        'due_date': '2099-01-01',
+        'paid_at': null,
+      });
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items.single.nextDueAt, '2099-01-01');
+      expect(page.items.single.overdue, isFalse);
+    });
+
+    test('entre várias em aberto, vale a MAIS PRÓXIMA', () async {
+      await semear(osId: '1', total: '300.00');
+      for (final d in ['2099-05-01', '2098-01-01', '2099-01-01']) {
+        await gravar('receivable_installment', {
+          'id': 'p-$d',
+          'sale_kind': 'os',
+          'sale_id': '1',
+          'due_date': d,
+          'paid_at': null,
+        });
+      }
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items.single.nextDueAt, '2098-01-01');
+    });
+
+    test('parcela de VENDA não vira vencimento de OS de mesmo id', () async {
+      // `sale_kind` faz parte da chave justamente por isto: os ids vivem em
+      // tabelas diferentes e podem coincidir.
+      await semear(osId: 'x', total: '100.00', clienteId: 'c1', clienteNome: 'Ana');
+      await gravar('receivable_installment', {
+        'id': 'p-venda',
+        'sale_kind': 'sale',
+        'sale_id': 'x', // MESMO id, outra origem
+        'due_date': '2020-01-01',
+        'paid_at': null,
+      });
+      final page = await repo(online: false).listDebtors(const DebtorsQuery());
+      expect(page.items.single.nextDueAt, isNull);
+      expect(page.items.single.overdue, isFalse);
+    });
+
+    test('carteira grande continua paginando certo', () async {
+      for (var i = 0; i < 25; i++) {
+        await semear(
+          osId: 'os$i',
+          total: '${10 * (i + 1)}.00',
+          clienteId: 'c$i',
+          clienteNome: 'Cliente $i',
+        );
+      }
+      final p1 = await repo(online: false)
+          .listDebtors(const DebtorsQuery(pageSize: 20));
+      final p2 = await repo(online: false)
+          .listDebtors(const DebtorsQuery(page: 2, pageSize: 20));
+      expect(p1.items, hasLength(20));
+      expect(p2.items, hasLength(5));
+      expect(p1.total, 25);
+      // Ninguém repetido entre páginas.
+      final nomes = [...p1.items, ...p2.items].map((d) => d.customerName);
+      expect(nomes.toSet().length, 25);
+    });
+  });
+
   group('receber offline abate a dívida na hora', () {
     test('lançamento feito pelo caixa offline some da carteira', () async {
       // O usuário cobra o cliente na oficina sem internet: o recebimento entra
