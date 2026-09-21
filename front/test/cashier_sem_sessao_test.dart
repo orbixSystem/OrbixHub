@@ -176,7 +176,10 @@ void main() {
       // As DUAS ações do caixa — as duas resolvem ali mesmo, num modal.
       // Despesa saiu para o módulo `Despesas`; sangria/suprimento ficaram só
       // no diálogo de lançamento, já que a cerimônia de gaveta foi removida.
+      // Fiado NÃO tem botão próprio aqui: nasce do valor recebido na venda
+      // avulsa (decisão do dono).
       expect(find.text('Venda avulsa'), findsOneWidget);
+      expect(find.text('Venda a prazo'), findsNothing);
       expect(find.text('Receber OS'), findsOneWidget);
       expect(find.text('Despesa / sangria'), findsNothing);
       // "A receber" NÃO é ação: navega para outra tela, então saiu do grid e

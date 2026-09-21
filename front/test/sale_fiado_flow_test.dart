@@ -208,6 +208,57 @@ void main() {
   });
 
 
+
+  group('atalho "Deixar fiado"', () {
+    testWidgets('zera o valor e a venda inteira vira dívida', (tester) async {
+      // Antes era preciso ADIVINHAR que se devia apagar o valor que vem
+      // preenchido com o total. O atalho fica ao lado do "valor exato", que faz
+      // exatamente o oposto.
+      await abrirComItem(tester, 150);
+      expect(find.text('Deixar fiado'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+
+      // O efeito aparece na hora, sem precisar salvar para descobrir.
+      expect(find.textContaining('Fiado: ficam'), findsOneWidget);
+      expect(find.text('Vender (fiado)'), findsOneWidget);
+    });
+
+    testWidgets('a venda sai fiada e nada entra na gaveta', (tester) async {
+      await abrirComItem(tester, 150);
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect(vendas.criadas.single.fiado, isTrue);
+      expect(caixa.lancados, isEmpty);
+    });
+
+    testWidgets('o atalho contrário continua lá (recebeu tudo)', (tester) async {
+      await abrirComItem(tester, 150);
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      expect(find.text('Vender (fiado)'), findsOneWidget);
+
+      // "Valor exato" desfaz: volta a ser venda recebida.
+      await tester.ensureVisible(find.byType(NeuExactAmountButton).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(NeuExactAmountButton).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Vender e receber'), findsOneWidget);
+    });
+  });
+
   group('cliente cadastrado em destaque sobre o apelido', () {
     testWidgets('a venda comum tambem lidera pela busca de cliente',
         (tester) async {

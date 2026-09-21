@@ -589,8 +589,12 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     // em desktop fica num cartão de 560px. Evita campos espremidos/cortados.
     final media = MediaQuery.sizeOf(context);
     final isNarrow = media.width < 620; // celular: empilha os controles
-    final maxW = isNarrow ? media.width - 24 : 560.0;
-    final maxH = media.height < 780 ? media.height - 40 : 720.0;
+    // No desktop o diálogo era estreito (560) e baixo (720): com itens,
+    // desconto, recebimento e prazo, quase tudo caía no scroll — e o operador
+    // perdia de vista o efeito do que digitava. Aqui ele usa o espaço que a
+    // tela tem, com teto para não virar uma faixa gigante no monitor largo.
+    final maxW = isNarrow ? media.width - 24 : (media.width - 96).clamp(560.0, 980.0);
+    final maxH = (media.height - 64).clamp(420.0, 1100.0);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
       child: Padding(
@@ -839,6 +843,10 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                           onValorExato: () => setState(() {
                             _receivedTouched = true;
                             _receivedCtrl.text = formatAmountForInput(_total);
+                          }),
+                          onDeixarFiado: () => setState(() {
+                            _receivedTouched = true;
+                            _receivedCtrl.text = formatAmountForInput(0);
                           }),
                         ),
                       // Só no modo prazo: na venda comum que vira fiado, o
@@ -1122,6 +1130,37 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
 /// campo de valor e permitia estados contraditórios (marcado "receber agora"
 /// com valor menor que o total, que o app registrava como pago — o bug que
 /// escondia fiado). O campo vem preenchido com o total, que é o caso comum.
+/// "Não recebi nada": zera o valor e a venda inteira vira dívida.
+///
+/// O fiado sempre nasceu do VALOR (recebeu menos que o total ⇒ o resto fica a
+/// receber), o que é a regra certa — mas para fiar tudo era preciso adivinhar
+/// que se devia apagar o valor que vem preenchido. Um atalho ao lado do "valor
+/// exato" (que faz o oposto) torna as duas pontas visíveis.
+class _BotaoDeixarFiado extends StatelessWidget {
+  const _BotaoDeixarFiado({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.event_outlined, size: 16),
+      label: const Text('Deixar fiado'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: neu.warning,
+        side: BorderSide(color: neu.warning.withValues(alpha: .5)),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
+        // O tema manda `Size.fromHeight(50)` — que é largura INFINITA (todo
+        // OutlinedButton do app é full-width). Numa linha, ao lado do campo de
+        // valor, isso estoura o layout.
+        minimumSize: const Size(0, 44),
+      ),
+    );
+  }
+}
+
 class _PaymentSection extends StatelessWidget {
   const _PaymentSection({
     required this.isNarrow,
@@ -1136,6 +1175,7 @@ class _PaymentSection extends StatelessWidget {
     required this.onEmitInvoice,
     required this.onRecebidoChanged,
     required this.onValorExato,
+    required this.onDeixarFiado,
   });
   final bool isNarrow;
   final String method;
@@ -1149,6 +1189,9 @@ class _PaymentSection extends StatelessWidget {
   final ValueChanged<bool> onEmitInvoice;
   final VoidCallback onRecebidoChanged;
   final VoidCallback onValorExato;
+
+  /// Zera o valor recebido — a venda inteira vira dívida.
+  final VoidCallback onDeixarFiado;
 
   @override
   Widget build(BuildContext context) {
@@ -1181,11 +1224,6 @@ class _PaymentSection extends StatelessWidget {
           forma,
           const SizedBox(height: 10),
           valor,
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: NeuExactAmountButton(onTap: onValorExato),
-          ),
         ] else
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -1193,13 +1231,25 @@ class _PaymentSection extends StatelessWidget {
               SizedBox(width: 150, child: forma),
               const SizedBox(width: 10),
               Expanded(child: valor),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: NeuExactAmountButton(onTap: onValorExato),
-              ),
             ],
           ),
+        // Os dois atalhos do valor, SEMPRE abaixo do campo: com eles na mesma
+        // linha (só no desktop) a barra estourava 57px, e o rótulo "Deixar
+        // fiado" precisa caber por extenso — abreviar esconderia justamente o
+        // caminho que ninguém achava.
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              _BotaoDeixarFiado(onTap: onDeixarFiado),
+              NeuExactAmountButton(onTap: onValorExato),
+            ],
+          ),
+        ),
         // O efeito do valor digitado, dito na hora — o operador não deveria
         // descobrir que criou um fiado só no modal de confirmação.
         if (total > 0 && (falta > 0 || troco > 0)) ...[

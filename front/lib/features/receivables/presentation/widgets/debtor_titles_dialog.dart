@@ -265,7 +265,8 @@ class _TitleCard extends ConsumerWidget {
                             label:
                                 proxima == null ? 'Receber' : 'Receber parcela',
                             icon: Icons.payments_outlined,
-                            onPressed: () => _receber(context, ref, proxima),
+                            onPressed: () =>
+                                _receber(context, ref, proxima, pendentes),
                           ),
                         ],
                       ),
@@ -320,6 +321,7 @@ class _TitleCard extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Installment? proxima,
+    List<Installment> pendentes,
   ) async {
     // ESPERA a config do caixa em vez de ler o valor corrente.
     //
@@ -345,6 +347,9 @@ class _TitleCard extends ConsumerWidget {
       config: config,
       title: title,
       parcela: proxima,
+      // Todas as em aberto: com mais de uma, o diálogo deixa marcar quais
+      // quitar (da mais antiga para a frente) em vez de só a próxima.
+      parcelasEmAberto: pendentes,
     );
     if (!context.mounted) return;
     _refresh(ref);
