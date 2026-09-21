@@ -971,6 +971,7 @@ export class CashierServiceImpl extends CashierService {
       firstDueDate,
       notes,
       installmentIds,
+      substituirPendentes,
     } = dto;
     // Replay offline: os ids vêm do cliente (um por parcela, na mesma ordem) —
     // sem eles, reenviar o push duplicaria o plano inteiro.
@@ -987,7 +988,16 @@ export class CashierServiceImpl extends CashierService {
         where: { sale_kind: saleKind, sale_id: saleId, paid_at: null },
       });
       if (existing > 0) {
-        throw new BadRequestException('Já existe um plano de parcelas pendentes para esta venda.');
+        if (!substituirPendentes) {
+          throw new BadRequestException('Já existe um plano de parcelas pendentes para esta venda.');
+        }
+        // Corrigir um prazo combinado errado: as parcelas EM ABERTO dão lugar
+        // às novas. As PAGAS não entram no filtro — dinheiro que entrou é
+        // histórico e não se apaga; por isso o chamador manda como
+        // `totalAmount` o que ainda falta, não o total do título.
+        await db.receivable_installment.deleteMany({
+          where: { sale_kind: saleKind, sale_id: saleId, paid_at: null },
+        });
       }
 
       // Divide o total igualmente; ajuste de centavos na última parcela.

@@ -8,6 +8,7 @@ import '../../../cashier/presentation/cashier_providers.dart';
 import '../../../os/presentation/os_detail_dialog.dart';
 import '../../../sale/presentation/sale_detail_dialog.dart';
 import '../../domain/receivables_models.dart';
+import '../combinar_prazo_dialog.dart';
 import '../receivables_providers.dart';
 import '../receive_title_dialog.dart';
 
@@ -219,36 +220,56 @@ class _TitleCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Deve ${formatMoney(title.balance)}',
-                            style: TextStyle(
-                              color: neu.ink,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (parcial)
-                            Text(
-                              'de ${formatMoney(title.total)} · já pagou '
-                              '${formatMoney(title.paid)}',
-                              style: TextStyle(
-                                  color: neu.inkMuted, fontSize: 12),
-                            ),
-                        ],
+                    Text(
+                      'Deve ${formatMoney(title.balance)}',
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (canWrite && title.balance > 0)
-                      NeuButton(
-                        label: proxima == null ? 'Receber' : 'Receber parcela',
-                        icon: Icons.payments_outlined,
-                        onPressed: () => _receber(context, ref, proxima),
+                    if (parcial)
+                      Text(
+                        'de ${formatMoney(title.total)} · já pagou '
+                        '${formatMoney(title.paid)}',
+                        style: TextStyle(color: neu.inkMuted, fontSize: 12),
                       ),
+                    if (canWrite && title.balance > 0) ...[
+                      const SizedBox(height: 10),
+                      // Wrap, não Row: são dois botões de rótulo longo
+                      // ("Alterar prazo" + "Receber parcela") num diálogo
+                      // estreito — em Row eles estouravam a linha.
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          // Combinar/alterar prazo é AÇÃO PRÓPRIA. Antes só
+                          // dava para combinar na hora de fiar: depois, a única
+                          // saída era abrir "Receber", zerar o valor e clicar
+                          // em "Deixar fiado" — o que ninguém descobre.
+                          // Secundário porque o ato comum aqui é receber.
+                          NeuButton(
+                            label: parcelas.isEmpty
+                                ? 'Combinar prazo'
+                                : 'Alterar prazo',
+                            icon: Icons.event_outlined,
+                            kind: NeuButtonKind.secondary,
+                            onPressed: () =>
+                                _combinarPrazo(context, ref, parcelas),
+                          ),
+                          NeuButton(
+                            label:
+                                proxima == null ? 'Receber' : 'Receber parcela',
+                            icon: Icons.payments_outlined,
+                            onPressed: () => _receber(context, ref, proxima),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
                 // Cronograma como INFORMAÇÃO (o que vence e quando). Receber é
@@ -264,6 +285,21 @@ class _TitleCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Combina o prazo (ou corrige o que estava combinado) sem passar pelo
+  /// recebimento — quem só quer marcar "paga dia 30" não está recebendo nada.
+  Future<void> _combinarPrazo(
+    BuildContext context,
+    WidgetRef ref,
+    List<Installment> parcelas,
+  ) async {
+    final gravou = await showCombinarPrazoDialog(
+      context,
+      titulo: title,
+      parcelasAtuais: parcelas,
+    );
+    if (gravou) _refresh(ref);
   }
 
   /// Abre o detalhe de VERDADE do título, sem tirar o operador do Fiado: os

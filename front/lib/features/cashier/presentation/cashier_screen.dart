@@ -13,6 +13,7 @@ import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -229,10 +230,11 @@ class _FreeBody extends ConsumerWidget {
       children: [
         Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        // AÇÕES em grid: portas claras de entrada de dinheiro. A receber (ver
-        // quem deve, parcelar, receber parcela) tem tela própria — não é uma
-        // ação de checkout, é gestão de dívida.
-        if (canWrite || canSale || canFiado)
+        // AÇÕES em grid: portas claras de entrada de dinheiro, todas resolvidas
+        // aqui mesmo num modal. "A receber" NÃO entra: ela navega para outra
+        // tela, e um cartão que teleporta no meio de cartões que agem ensina a
+        // coisa errada. Ela aparece como RESUMO logo abaixo.
+        if (canWrite || canSale)
           CoachTarget(
             'caixa.acoes',
             child: _AcoesGrid(
@@ -253,16 +255,13 @@ class _FreeBody extends ConsumerWidget {
                     onTap: () =>
                         showReceivePickerDialog(context, ref, state.config),
                   ),
-                if (canFiado)
-                  _Acao(
-                    label: 'A receber',
-                    icon: Icons.request_quote_outlined,
-                    cor: context.neu.warning,
-                    onTap: () => context.go('/m/cashier/a-receber'),
-                  ),
               ],
             ),
           ),
+        if (canFiado) ...[
+          const SizedBox(height: 20),
+          const _ResumoAReceber(),
+        ],
         const SizedBox(height: 24),
         Row(
           children: [
@@ -292,6 +291,67 @@ class _FreeBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Quanto há na rua, no próprio Caixa — INFORMAÇÃO que leva ao detalhe, não um
+/// botão de ação. Antes isto era um cartão no grid de ações, irmão de "Venda
+/// avulsa" e "Receber OS": os dois resolvem ali mesmo, e ele teleportava.
+///
+/// De quebra resolve o que faltava: para saber quanto se tem a receber era
+/// preciso sair do Caixa e abrir outra tela.
+class _ResumoAReceber extends ConsumerWidget {
+  const _ResumoAReceber();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final page = ref.watch(debtorsProvider).value;
+    // Enquanto carrega (ou se falhar), o Caixa não é lugar de spinner nem de
+    // erro de outra tela: o resumo simplesmente não aparece.
+    if (page == null) return const SizedBox.shrink();
+
+    final devedores = page.total == 1 ? '1 cliente' : '${page.total} clientes';
+    final vencido = page.overdueCount > 0
+        ? ' · ${formatMoney(page.overdueTotal)} vencido'
+        : '';
+    return InkWell(
+      onTap: () => context.go('/m/cashier/a-receber'),
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.request_quote_outlined, size: 18, color: neu.inkMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'A receber',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatMoney(page.totalDue)} · $devedores$vencido',
+                    maxLines: 2,
+                    style: TextStyle(
+                      color: page.overdueCount > 0 ? neu.danger : neu.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: neu.inkFaint),
+          ],
+        ),
+      ),
     );
   }
 }

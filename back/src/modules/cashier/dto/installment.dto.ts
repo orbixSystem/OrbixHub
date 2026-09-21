@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   MaxLength,
   ArrayMaxSize,
   ArrayMinSize,
@@ -25,6 +26,16 @@ export class CreateInstallmentPlanDto {
   /** ISO date, default = próxima ocorrência do `dueDayOfMonth`. */
   @IsOptional() @IsDateString() firstDueDate?: string;
   @IsOptional() @IsString() notes?: string;
+  /**
+   * Substitui o plano PENDENTE que já existir para este título, em vez de
+   * recusar. É como se corrige um prazo combinado errado (data trocada, número
+   * de parcelas errado) — sem isto, errar uma vez congelava a cobrança, porque
+   * não há rota de editar nem de cancelar plano.
+   *
+   * Só as parcelas EM ABERTO são substituídas: parcela paga é dinheiro que
+   * entrou e vira histórico, nunca é apagada.
+   */
+  @IsOptional() @IsBoolean() substituirPendentes?: boolean;
   /**
    * Uuids das parcelas gerados no cliente (replay offline), um por parcela, na
    * MESMA ordem — mesmo espírito de `cash_entry.create`'s `id`: o replay usa o
