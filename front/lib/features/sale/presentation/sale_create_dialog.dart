@@ -649,12 +649,14 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                     children: [
                       // cliente opcional
                       //
-                      // A prazo (sem cliente ainda escolhido) a BUSCA vem em
-                      // destaque, na frente do apelido: cobrar depois exige
-                      // achar a pessoa, e um cadastro sempre tem telefone — o
-                      // apelido é o atalho de quem não tem cadastro, não o
-                      // caminho preferido.
-                      if (widget.modoPrazo && _customerId == null) ...[
+                      // Sem cliente escolhido, a BUSCA vem em destaque, na
+                      // frente do apelido: um cadastro tem telefone e histórico,
+                      // o apelido não tem nada. O apelido segue ali logo abaixo
+                      // — é o atalho de quem não tem cadastro, não o caminho
+                      // preferido. Vale para toda venda, nao so a prazo: quem
+                      // fia por engano (recebeu menos) tem o mesmo problema de
+                      // cobranca depois.
+                      if (_customerId == null) ...[
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
@@ -693,9 +695,11 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                           textCapitalization: TextCapitalization.words,
                           onChanged: (_) => setState(() {}),
                         ),
-                        // O apelido é quem carrega a cobrança futura, e ele não
-                        // tem telefone, diferente de um cadastro.
-                        Padding(
+                        // Só quando há o que cobrar DEPOIS: na venda à vista
+                        // o apelido é só identificação, e o aviso seria ruído.
+                        if (widget.editando == null &&
+                            (widget.modoPrazo || _ehFiado))
+                          Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Row(children: [
                             Icon(Icons.info_outline,
@@ -714,6 +718,8 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                           ]),
                         ),
                       ] else ...[
+                        // Cliente JÁ escolhido: some a busca em destaque e fica
+                        // o nome, com trocar/remover ao lado.
                         Row(
                           children: [
                             const Icon(
@@ -729,41 +735,20 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
                                     const TextStyle(color: AppColors.inkMuted),
                               ),
                             ),
-                            if (_customerId != null)
-                              TextButton(
-                                onPressed: () => setState(() {
-                                  _customerId = null;
-                                  _customerName = null;
-                                }),
-                                child: const Text('Remover'),
-                              ),
+                            TextButton(
+                              onPressed: () => setState(() {
+                                _customerId = null;
+                                _customerName = null;
+                              }),
+                              child: const Text('Remover'),
+                            ),
                             TextButton.icon(
                               onPressed: _pickCustomer,
                               icon: const Icon(Icons.search, size: 16),
-                              label: Text(
-                                _customerId == null ? 'Cliente' : 'Trocar',
-                              ),
+                              label: const Text('Trocar'),
                             ),
                           ],
                         ),
-                        // Campo de apelido/observação — venda avulsa comum, sem
-                        // cliente cadastrado ainda.
-                        if (!widget.modoPrazo && _customerId == null) ...[
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _customerNoteCtrl,
-                            maxLength: 100,
-                            decoration: const InputDecoration(
-                              hintText: 'Apelido ou Observação (ex: João)',
-                              helperText:
-                                  'Opcional — identifica a venda sem cadastrar o cliente',
-                              counterText: '',
-                              isDense: true,
-                            ),
-                            textCapitalization: TextCapitalization.words,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ],
                       ],
                       const Divider(height: 24),
                       // busca de produto (SELECT flutuante — não empurra o layout).

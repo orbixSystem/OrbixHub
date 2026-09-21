@@ -65,6 +65,8 @@ class PrazoFiado {
     required String saleKind,
     required String saleId,
     required double valor,
+    /// Corrigindo um prazo que já existia (ver [InstallmentPlanDraft]).
+    bool substituirPendentes = false,
   }) {
     switch (modo) {
       case ModoPrazo.semPrazo:
@@ -81,6 +83,7 @@ class PrazoFiado {
           dueDayOfMonth: data.day.clamp(1, 28),
           totalAmount: valor,
           firstDueDate: _iso(data),
+          substituirPendentes: substituirPendentes,
         );
       case ModoPrazo.parcelado:
         return InstallmentPlanDraft(
@@ -91,6 +94,7 @@ class PrazoFiado {
           totalAmount: valor,
           firstDueDate:
               primeiraParcela == null ? null : _iso(primeiraParcela!),
+          substituirPendentes: substituirPendentes,
         );
     }
   }

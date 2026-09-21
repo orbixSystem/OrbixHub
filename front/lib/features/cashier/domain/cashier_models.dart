@@ -327,6 +327,7 @@ class InstallmentPlanDraft {
     required this.totalAmount,
     this.firstDueDate,
     this.notes,
+    this.substituirPendentes = false,
   });
 
   final String saleKind;
@@ -338,6 +339,11 @@ class InstallmentPlanDraft {
   final String? firstDueDate;
   final String? notes;
 
+  /// Corrigir um prazo já combinado: o servidor troca as parcelas EM ABERTO
+  /// pelas novas (as pagas são histórico e ficam). Sem isto, errar a data uma
+  /// vez congelava a cobrança — criar outro plano era recusado.
+  final bool substituirPendentes;
+
   Map<String, dynamic> toJson() => {
         'saleKind': saleKind,
         'saleId': saleId,
@@ -346,6 +352,7 @@ class InstallmentPlanDraft {
         'totalAmount': totalAmount,
         if (firstDueDate != null) 'firstDueDate': firstDueDate,
         if (notes != null) 'notes': notes,
+        if (substituirPendentes) 'substituirPendentes': true,
       };
 }
 

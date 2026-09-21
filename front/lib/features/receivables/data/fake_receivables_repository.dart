@@ -110,10 +110,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
     for (final t in _titulos) {
       // O dono sai do PRÓPRIO título quando ele o traz; `_donos` cobre só os
       // títulos de exemplo, que nasceram sem esses campos.
-      final (id, nome) = _donos[t.id] ??
-          (t.customerId, (t.customerName ?? '').trim().isEmpty
-              ? 'Sem cliente'
-              : t.customerName!.trim());
+      final (id, nome) = _dono(t);
       // MESMA chave do servidor (`customerId ?? 'nome:<nome>'`). Agrupar todo
       // mundo sem cadastro num balde só — o que este fake fazia — é exatamente
       // o bug que a cliente filmou, e um fake que não consegue reproduzi-lo não
@@ -190,10 +187,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   Future<OpenTitlesPage> listOpenTitles() async {
     final items = [
       for (final t in _titulos)
-        t.copyWith(
-          customerId: _donos[t.id]?.$1,
-          customerName: _donos[t.id]?.$2 ?? 'Sem cliente',
-        ),
+        t.copyWith(customerId: _dono(t).$1, customerName: _dono(t).$2),
     ]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
     return OpenTitlesPage(
       items: items,
@@ -206,10 +200,7 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   Future<OpenTitlesPage> listPendingSettlement() async {
     final items = [
       for (final t in pendingTitles)
-        t.copyWith(
-          customerId: _donos[t.id]?.$1,
-          customerName: _donos[t.id]?.$2 ?? 'Sem cliente',
-        ),
+        t.copyWith(customerId: _dono(t).$1, customerName: _dono(t).$2),
     ];
     return OpenTitlesPage(
       items: items,
@@ -220,13 +211,11 @@ class FakeReceivablesRepository implements ReceivablesRepository {
   @override
   Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) async {
     final meus = _titulos
-        .where((t) => _ehDoDevedor(t.id, customerId, apelido))
+        .where((t) => _ehDoDevedor(t, customerId, apelido))
         .toList()
       ..sort((a, b) => (a.createdAt ?? '').compareTo(b.createdAt ?? ''));
     return DebtorDetail(
-      customerName: meus.isEmpty
-          ? 'Sem cliente'
-          : (_donos[meus.first.id]?.$2 ?? 'Sem cliente'),
+      customerName: meus.isEmpty ? 'Sem cliente' : _dono(meus.first).$2,
       totalDue: meus.fold<num>(0, (acc, t) => acc + t.balance),
       items: meus,
     );
@@ -234,14 +223,29 @@ class FakeReceivablesRepository implements ReceivablesRepository {
 
   /// Mesma regra do servidor: cliente cadastrado casa por id; anônimo casa
   /// pelo APELIDO, porque é assim que a carteira os agrupa.
-  bool _ehDoDevedor(String id, String? customerId, String? apelido) {
-    final dono = _donos[id];
-    if ((dono?.$1) != customerId) return false;
+  ///
+  /// O dono sai da MESMA resolução usada na listagem (`_dono`): antes este
+  /// método olhava só o mapa `_donos`, então um título montado no teste com
+  /// `customerId`/`customerName` próprios aparecia na carteira e sumia ao abrir
+  /// o devedor — um fake que mente sobre o servidor.
+  bool _ehDoDevedor(ReceivableTitle t, String? customerId, String? apelido) {
+    final (id, nome) = _dono(t);
+    if (id != customerId) return false;
     if (customerId != null) return true;
-    final nome = dono?.$2;
-    final doTitulo = (nome == null || nome == 'Sem cliente') ? '' : nome;
+    final doTitulo = nome == 'Sem cliente' ? '' : nome;
     return doTitulo == (apelido ?? '').trim();
   }
+
+  /// Dono do título: o mapa de exemplo quando o id é conhecido, senão o que o
+  /// próprio título carrega.
+  (String?, String) _dono(ReceivableTitle t) =>
+      _donos[t.id] ??
+      (
+        t.customerId,
+        (t.customerName ?? '').trim().isEmpty
+            ? 'Sem cliente'
+            : t.customerName!.trim(),
+      );
 
   static String? _maisAntigo(String? a, String? b) {
     if (a == null) return b;

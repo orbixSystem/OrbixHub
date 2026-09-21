@@ -79,9 +79,15 @@ String semAcento(String s) {
 /// "YYYY-MM-DD" em UTC — comparação por DIA, não por instante (igual ao TS).
 /// Data pura ("2026-09-10") é lida como UTC, como o `new Date()` do JS faz;
 /// `DateTime.parse` sozinho a leria no fuso local e mudaria o dia a leste de UTC.
-String _diaUtc(String iso) {
+///
+/// Devolve `null` quando a data é ilegível. Offline os valores vêm do espelho
+/// local (JSON cru gravado pelo pull), então uma linha estranha é possível — e
+/// derrubar a carteira inteira com `FormatException` seria o pior desfecho: sem
+/// rede, esta tela é a ÚNICA fonte de cobrança que o operador tem.
+String? _diaUtc(String iso) {
   final normalizada = iso.length == 10 ? '${iso}T00:00:00Z' : iso;
-  return DateTime.parse(normalizada).toUtc().toIso8601String().substring(0, 10);
+  final d = DateTime.tryParse(normalizada);
+  return d?.toUtc().toIso8601String().substring(0, 10);
 }
 
 /// O vencimento é o PRAZO COMBINADO — a próxima parcela em aberto. Sem plano de
@@ -91,16 +97,19 @@ String _diaUtc(String iso) {
 String? _vencimentoEfetivo(TituloParaFiltro t) => t.proximaParcelaEm;
 
 DevedorClassificado classificar(DevedorParaFiltro d, DateTime hoje) {
-  final hojeDia = _diaUtc(hoje.toUtc().toIso8601String());
+  final hojeDia = _diaUtc(hoje.toUtc().toIso8601String())!;
   String? nextDueAt;
   var overdue = false;
   for (final t in d.titulos) {
     final v = _vencimentoEfetivo(t);
     if (v == null) continue;
-    if (nextDueAt == null || _diaUtc(v).compareTo(_diaUtc(nextDueAt)) < 0) {
-      nextDueAt = v;
-    }
-    if (_diaUtc(v).compareTo(hojeDia) < 0) overdue = true;
+    final dia = _diaUtc(v);
+    // Data ilegível é tratada como SEM prazo: acusar vencimento por causa de
+    // lixo de dado seria pior do que não acusar nada.
+    if (dia == null) continue;
+    final atual = nextDueAt == null ? null : _diaUtc(nextDueAt);
+    if (atual == null || dia.compareTo(atual) < 0) nextDueAt = v;
+    if (dia.compareTo(hojeDia) < 0) overdue = true;
   }
   return DevedorClassificado(
     customerId: d.customerId,
@@ -123,10 +132,10 @@ List<T> filtrarDevedores<T extends DevedorClassificado>(
   required OrigemFiltro origem,
   required DateTime hoje,
 }) {
-  final hojeDia = _diaUtc(hoje.toUtc().toIso8601String());
+  final hojeDia = _diaUtc(hoje.toUtc().toIso8601String())!;
   final limite7Dia = _diaUtc(
     hoje.toUtc().add(const Duration(days: 7)).toIso8601String(),
-  );
+  )!;
   final termo = (q ?? '').trim().isEmpty ? '' : semAcento(q!.trim());
 
   return lista.where((d) {
@@ -145,6 +154,7 @@ List<T> filtrarDevedores<T extends DevedorClassificado>(
       case VencimentoFiltro.vence7:
         if (d.overdue || d.nextDueAt == null) return false;
         final dia = _diaUtc(d.nextDueAt!);
+        if (dia == null) return false;
         return dia.compareTo(hojeDia) >= 0 && dia.compareTo(limite7Dia) <= 0;
       case VencimentoFiltro.aVencer:
         return !d.overdue && d.nextDueAt != null;
@@ -183,9 +193,13 @@ List<T> ordenarDevedores<T extends DevedorClassificado>(
     case OrdemDevedores.vencimento:
       copia.sort((a, b) {
         if (a.nextDueAt == b.nextDueAt) return _porNome(a, b);
-        if (a.nextDueAt == null) return 1; // sem data por último
-        if (b.nextDueAt == null) return -1;
-        return _diaUtc(a.nextDueAt!).compareTo(_diaUtc(b.nextDueAt!));
+        // Sem data (ou com data ilegível) vai para o fim.
+        final da = a.nextDueAt == null ? null : _diaUtc(a.nextDueAt!);
+        final dbb = b.nextDueAt == null ? null : _diaUtc(b.nextDueAt!);
+        if (da == null && dbb == null) return _porNome(a, b);
+        if (da == null) return 1;
+        if (dbb == null) return -1;
+        return da.compareTo(dbb);
       });
   }
   return copia;

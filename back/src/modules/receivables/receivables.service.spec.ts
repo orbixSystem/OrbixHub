@@ -619,3 +619,220 @@ describe('listCustomers com filtros no SERVIDOR', () => {
   });
 });
 
+
+/**
+ * Bateria adversarial da carteira filtrada: os casos que não aparecem no uso
+ * comum e por isso só quebrariam em produção — colisão de id entre módulos,
+ * dado faltando, empates, busca com acento e os limites da paginação.
+ */
+describe('listCustomers — casos que quebram em produção, não no happy path', () => {
+  const venda = (over: Record<string, unknown> = {}) =>
+    linha({ status: 'active', ...over });
+
+  describe('colisão de identificador entre OS e venda', () => {
+    // OS e venda são tabelas diferentes: nada impede que um uuid se repita
+    // entre elas (e no replay offline o id vem do cliente). A chave da próxima
+    // parcela é `${saleKind}:${saleId}` justamente por isso — se fosse só o id,
+    // o vencimento de uma venda vazaria para a OS de mesmo id.
+    const mesmoId = 'id-colidido';
+
+    it('não mistura o vencimento de uma com o da outra', async () => {
+      const { service } = makeService({
+        os: [
+          linha({
+            id: mesmoId, number: 'OS-1', customer_id: 'c1', customer_name: 'Ana',
+            payment: pagamento(100, 0),
+          }),
+        ],
+        vendas: [
+          venda({
+            id: mesmoId, number: '1', customer_id: 'c2', customer_name: 'Bruno',
+            payment: pagamento(200, 0),
+          }),
+        ],
+        // Só a VENDA tem prazo combinado.
+        parcelas: new Map([[`sale:${mesmoId}`, '2099-01-10']]),
+      });
+      const r = await service.listCustomers(user, {});
+      const ana = r.items.find((d) => d.customerName === 'Ana')!;
+      const bruno = r.items.find((d) => d.customerName === 'Bruno')!;
+      expect(bruno.nextDueAt).toBe('2099-01-10');
+      expect(ana.nextDueAt).toBeNull();
+    });
+
+    it('cada uma continua sendo um título próprio', async () => {
+      const { service } = makeService({
+        os: [linha({ id: mesmoId, customer_id: 'c1', customer_name: 'Ana', payment: pagamento(100, 0) })],
+        vendas: [venda({ id: mesmoId, customer_id: 'c1', customer_name: 'Ana', payment: pagamento(50, 0) })],
+      });
+      const r = await service.listCustomers(user, {});
+      expect(r.items).toHaveLength(1);
+      expect(r.items[0].titleCount).toBe(2);
+      expect(r.items[0].totalDue).toBe(150);
+    });
+  });
+
+  describe('dado faltando não derruba a carteira', () => {
+    it('título sem data fica no fim da ordem por mais antigo', async () => {
+      const { service } = makeService({
+        vendas: [
+          venda({ id: 'v1', customer_id: 'c1', customer_name: 'Sem data', created_at: null, payment: pagamento(10, 0) }),
+          venda({ id: 'v2', customer_id: 'c2', customer_name: 'Com data', created_at: new Date('2020-01-01'), payment: pagamento(10, 0) }),
+        ],
+      });
+      const r = await service.listCustomers(user, { sort: 'mais_antigo' });
+      expect(r.items.map((d) => d.customerName)).toEqual(['Com data', 'Sem data']);
+    });
+
+    it('cliente cadastrado SEM telefone vem com phone nulo (não vazio)', async () => {
+      const { service } = makeService({
+        vendas: [venda({ id: 'v1', customer_id: 'c1', customer_name: 'Ana', payment: pagamento(10, 0) })],
+        contatos: [{ id: 'c1', name: 'Ana', phone: null }],
+      });
+      const r = await service.listCustomers(user, {});
+      expect(r.items[0].phone).toBeNull();
+    });
+
+    it('apelido (sem cadastro) nunca recebe telefone de ninguém', async () => {
+      const { service } = makeService({
+        vendas: [venda({ id: 'v1', customer_id: null, customer_name: 'Macarrão', payment: pagamento(10, 0) })],
+        // Um contato existe na base, mas não é deste título.
+        contatos: [{ id: 'c1', name: 'Ana', phone: '(11) 9999-0001' }],
+      });
+      const r = await service.listCustomers(user, {});
+      expect(r.items[0].customerId).toBeNull();
+      expect(r.items[0].phone).toBeNull();
+    });
+  });
+
+  describe('busca', () => {
+    const comNomes = () =>
+      makeService({
+        vendas: [
+          venda({ id: 'v1', customer_id: 'c1', customer_name: 'José da Silva', payment: pagamento(10, 0) }),
+          venda({ id: 'v2', customer_id: 'c2', customer_name: 'Maria Souza', payment: pagamento(20, 0) }),
+        ],
+      });
+
+    it.each([
+      ['jose', 'sem acento acha com acento'],
+      ['JOSÉ', 'caixa alta acha minúscula'],
+      ['  josé  ', 'espaços em volta não atrapalham'],
+      ['silva', 'casa no meio do nome'],
+    ])('busca "%s" — %s', async (q) => {
+      const { service } = comNomes();
+      const r = await service.listCustomers(user, { q });
+      expect(r.items.map((d) => d.customerName)).toEqual(['José da Silva']);
+    });
+
+    it('busca sem resultado devolve lista vazia, mas mantém o total da carteira', async () => {
+      const { service } = comNomes();
+      const r = await service.listCustomers(user, { q: 'zzz' });
+      expect(r.items).toEqual([]);
+      expect(r.total).toBe(0);
+      // O "na rua" é da carteira inteira: filtrar não faz dinheiro sumir.
+      expect(r.totalDue).toBe(30);
+    });
+
+    it('busca em branco equivale a não buscar', async () => {
+      const { service } = comNomes();
+      const r = await service.listCustomers(user, { q: '   ' });
+      expect(r.items).toHaveLength(2);
+    });
+  });
+
+  describe('paginação nos limites', () => {
+    const carteira = () =>
+      makeService({
+        vendas: Array.from({ length: 5 }, (_, i) =>
+          venda({
+            id: `v${i}`, customer_id: `c${i}`, customer_name: `Cliente ${i}`,
+            payment: pagamento(10 * (i + 1), 0),
+          }),
+        ),
+      });
+
+    it('página além do fim devolve vazio SEM mentir no total', async () => {
+      const { service } = carteira();
+      const r = await service.listCustomers(user, { page: 99, pageSize: 2 });
+      expect(r.items).toEqual([]);
+      expect(r.total).toBe(5);
+      expect(r.page).toBe(99);
+      expect(r.totalDue).toBe(150);
+    });
+
+    it('a última página vem incompleta, não repetindo itens', async () => {
+      const { service } = carteira();
+      const p3 = await service.listCustomers(user, { page: 3, pageSize: 2 });
+      expect(p3.items).toHaveLength(1);
+    });
+
+    it('filtrar e paginar juntos continua consistente', async () => {
+      const { service } = carteira();
+      const r = await service.listCustomers(user, { q: 'Cliente', page: 2, pageSize: 2 });
+      expect(r.total).toBe(5);
+      expect(r.items).toHaveLength(2);
+    });
+  });
+
+  describe('origem', () => {
+    // Um devedor com as DUAS origens precisa aparecer nos dois filtros — o
+    // filtro é sobre os títulos dele, não sobre uma etiqueta do devedor.
+    const misto = () =>
+      makeService({
+        os: [linha({ id: 'o1', customer_id: 'c1', customer_name: 'Ana', payment: pagamento(100, 0) })],
+        vendas: [venda({ id: 'v1', customer_id: 'c1', customer_name: 'Ana', payment: pagamento(50, 0) })],
+      });
+
+    it('aparece em "só OS"', async () => {
+      const { service } = misto();
+      const r = await service.listCustomers(user, { origem: 'os' });
+      expect(r.items).toHaveLength(1);
+      // O saldo mostrado é o do DEVEDOR (as duas origens somadas): o filtro
+      // escolhe quem aparece, não recalcula o que ele deve.
+      expect(r.items[0].totalDue).toBe(150);
+    });
+
+    it('aparece em "só venda"', async () => {
+      const { service } = misto();
+      const r = await service.listCustomers(user, { origem: 'sale' });
+      expect(r.items).toHaveLength(1);
+    });
+  });
+
+  describe('empates', () => {
+    it('mesmo valor desempata por nome, ignorando acento', async () => {
+      const { service } = makeService({
+        vendas: [
+          venda({ id: 'v1', customer_id: 'c1', customer_name: 'Zeca', payment: pagamento(100, 0) }),
+          venda({ id: 'v2', customer_id: 'c2', customer_name: 'Ána', payment: pagamento(100, 0) }),
+          venda({ id: 'v3', customer_id: 'c3', customer_name: 'ana', payment: pagamento(100, 0) }),
+        ],
+      });
+      const r = await service.listCustomers(user, { sort: 'valor' });
+      // "Ána" e "ana" empatam entre si (mesma chave sem acento); o que importa
+      // é que a ordem é estável e "Zeca" fica por último.
+      expect(r.items[2].customerName).toBe('Zeca');
+      expect(r.items.slice(0, 2).map((d) => d.customerName).sort()).toEqual(['ana', 'Ána']);
+    });
+  });
+
+  describe('sem prazo combinado', () => {
+    it('fiado antigo sem parcela NÃO é atraso e tem fila própria', async () => {
+      const { service } = makeService({
+        vendas: [
+          venda({ id: 'v1', customer_id: 'c1', customer_name: 'Antigo', created_at: new Date('2020-01-01'), payment: pagamento(100, 0) }),
+          venda({ id: 'v2', customer_id: 'c2', customer_name: 'Combinado', payment: pagamento(50, 0) }),
+        ],
+        parcelas: new Map([['sale:v2', '2099-01-10']]),
+      });
+
+      const vencidos = await service.listCustomers(user, { vencimento: 'vencidos' });
+      expect(vencidos.items).toEqual([]);
+      expect(vencidos.overdueTotal).toBe(0);
+
+      const semPrazo = await service.listCustomers(user, { vencimento: 'sem_prazo' });
+      expect(semPrazo.items.map((d) => d.customerName)).toEqual(['Antigo']);
+    });
+  });
+});
