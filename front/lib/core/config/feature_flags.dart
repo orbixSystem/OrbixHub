@@ -23,11 +23,20 @@ const bool kBillingNoticesEnabled = false;
 /// no build de release todo o código de NF é removido pelo tree-shaking —
 /// o cliente não vê nem alcança a tela.
 ///
-/// Com `false`, o app esconde TODOS os pontos de NF: item "Notas Fiscais" no
-/// menu, rotas `/m/invoice*`, botão "Emitir NF" na OS, a opção de emitir nota
-/// na venda e a seção fiscal em Configurações. O backend (`invoice`) fica
-/// intacto nos dois casos — isto é visibilidade, não regra de acesso (quem
-/// barra de verdade é `@RequiresModule('invoice')` + permissões).
+/// Com `false`, os pontos de NF continuam VISÍVEIS, mas inertes e marcados
+/// **"Em breve"**: item "Notas Fiscais" no menu, botão "Emitir nota fiscal" na
+/// OS, a opção de emitir nota na venda e a seção fiscal em Configurações.
+/// Anunciar o que está a caminho é decisão de produto — o cliente entende que
+/// a nota vem, em vez de achar que o sistema não emite.
+///
+/// A única coisa que NÃO fica acessível é a rota: `/m/invoice*` volta para a
+/// home, porque a tela de verdade fala com um backend que o cliente ainda não
+/// vai usar. O backend (`invoice`) fica intacto nos dois casos — isto é
+/// visibilidade, não regra de acesso (quem barra de verdade é
+/// `@RequiresModule('invoice')` + permissões).
+///
+/// Para VER como o cliente vê durante o desenvolvimento:
+/// `flutter run --dart-define=INVOICE_ENABLED=false`.
 ///
 /// Para abrir a NF ao cliente real, basta subir com
 /// `--dart-define=INVOICE_ENABLED=true` (ou trocar o default) — nada muda no

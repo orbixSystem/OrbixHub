@@ -385,4 +385,23 @@ class FakeCashierRepository implements CashierRepository {
   }) async {
     throw UnimplementedError('payInstallment não implementado no fake.');
   }
+
+  /// Valores corrigidos, na ordem — o teste confere o que foi pedido.
+  final valoresCorrigidos = <({String id, double amount})>[];
+
+  @override
+  Future<Installment> updateInstallmentAmount({
+    required String installmentId,
+    required double amount,
+    String? reason,
+  }) async {
+    valoresCorrigidos.add((id: installmentId, amount: amount));
+    return Installment(
+      id: installmentId,
+      saleKind: 'sale',
+      saleId: 'fake',
+      amount: amount.toStringAsFixed(2),
+      dueDate: DateTime.now().toIso8601String().substring(0, 10),
+    );
+  }
 }

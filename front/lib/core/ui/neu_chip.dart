@@ -124,3 +124,39 @@ class NeuStatusChip extends StatelessWidget {
     );
   }
 }
+
+/// Selo "Em breve": marca um ponto do produto que o cliente VÊ mas ainda não
+/// pode usar.
+///
+/// Existe como widget único porque aparece em lugares muito diferentes (menu,
+/// ação da OS, opção da venda, seção de configurações) e a promessa precisa ser
+/// literalmente a mesma em todos — "Em breve" num canto e "Logo mais" noutro
+/// pareceriam duas coisas distintas.
+class NeuEmBreveTag extends StatelessWidget {
+  const NeuEmBreveTag({super.key, this.compacto = false});
+
+  /// Só o texto, sem o fundo — para linhas já apertadas (item de menu).
+  final bool compacto;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final texto = Text(
+      'Em breve',
+      style: TextStyle(
+        color: neu.inkMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    if (compacto) return texto;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: neu.inkFaint.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: texto,
+    );
+  }
+}

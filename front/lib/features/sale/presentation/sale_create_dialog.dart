@@ -1256,16 +1256,23 @@ class _PaymentSection extends StatelessWidget {
           const SizedBox(height: 10),
           _EfeitoDoValor(falta: falta, troco: troco),
         ],
-        // NF desligada no front (kInvoiceEnabled): sem a opção de emitir nota.
-        if (kInvoiceEnabled)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: emitInvoice,
-            onChanged: (v) => onEmitInvoice(v ?? false),
-            title: const Text('Emitir nota fiscal'),
+        // NF ainda não liberada (kInvoiceEnabled=false): a opção FICA, marcada
+        // "Em breve" e sem marcar — anunciar é decisão de produto. `onChanged:
+        // null` é o que garante que ela não entre na venda.
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: kInvoiceEnabled && emitInvoice,
+          onChanged:
+              kInvoiceEnabled ? (v) => onEmitInvoice(v ?? false) : null,
+          title: Row(
+            children: [
+              const Expanded(child: Text('Emitir nota fiscal')),
+              if (!kInvoiceEnabled) const NeuEmBreveTag(),
+            ],
           ),
+        ),
       ],
     );
   }

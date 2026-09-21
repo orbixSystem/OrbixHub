@@ -465,6 +465,9 @@ class _NeuBottomBar extends StatelessWidget {
                     icon: primary[i].icon,
                     label: primary[i].label,
                     active: !overflowSelected && i == selectedIndex,
+                    // Feature anunciada e ainda não liberada: aparece, avisa e
+                    // não navega (mesma regra da sidebar).
+                    emBreve: primary[i].emBreve,
                     onTap: () => onNavigate(primary[i].route),
                   ),
                 ),
@@ -524,14 +527,26 @@ class _NeuBottomBar extends StatelessWidget {
                           child: NeuListTile(
                             leading: Icon(
                               item.icon,
-                              color: neu.inkMuted,
+                              color: item.emBreve ? neu.inkFaint : neu.inkMuted,
                               size: 22,
                             ),
-                            title: Text(item.label),
-                            onTap: () {
-                              Navigator.of(sheetContext).pop();
-                              onNavigate(item.route);
-                            },
+                            title: Text(
+                              item.label,
+                              style: item.emBreve
+                                  ? TextStyle(color: neu.inkFaint)
+                                  : null,
+                            ),
+                            // Anunciado e ainda não liberado: o selo diz o
+                            // porquê ali mesmo, sem precisar tocar para
+                            // descobrir.
+                            trailing:
+                                item.emBreve ? const NeuEmBreveTag() : null,
+                            onTap: item.emBreve
+                                ? null
+                                : () {
+                                    Navigator.of(sheetContext).pop();
+                                    onNavigate(item.route);
+                                  },
                           ),
                         ),
                     ],
@@ -552,6 +567,7 @@ class _BottomItem extends StatelessWidget {
     required this.label,
     required this.active,
     required this.onTap,
+    this.emBreve = false,
   });
 
   final IconData icon;
@@ -559,12 +575,26 @@ class _BottomItem extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
+  /// Anunciado, ainda não liberado: esmaecido e sem navegar.
+  final bool emBreve;
+
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final color = active ? neu.navy : neu.inkMuted;
+    final color = emBreve
+        ? neu.inkFaint
+        : active
+            ? neu.navy
+            : neu.inkMuted;
     return InkWell(
-      onTap: onTap,
+      onTap: emBreve
+          ? () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  content: Text('$label chega em breve.'),
+                ),
+              )
+          : onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

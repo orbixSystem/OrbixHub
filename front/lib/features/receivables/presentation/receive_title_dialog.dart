@@ -318,9 +318,13 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     final t = widget.title;
     final parcela = widget.parcela;
     final parcial = t.status == 'parcial';
+    // Em 440px fixos o diálogo ficava apertado justamente quando tem mais
+    // conteúdo: a checklist de parcelas, o desconto e o prazo do que sobra. Usa
+    // o espaço da janela e para em 720 — passar disso só espalha campos curtos.
+    final maxW = (MediaQuery.sizeOf(context).width - 96).clamp(360.0, 720.0);
     return NeuDialog(
       title: parcela != null ? 'Receber parcela' : 'Receber $_rotulo',
-      maxWidth: 440,
+      maxWidth: maxW,
       actions: [
         Builder(
           builder: (ctx) => NeuButton(

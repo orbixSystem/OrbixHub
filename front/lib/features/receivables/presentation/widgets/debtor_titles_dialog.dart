@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../cashier/domain/cashier_format.dart';
 import '../../../cashier/domain/cashier_models.dart';
+import '../../../cashier/domain/local_payment.dart';
 import '../../../cashier/presentation/cashier_providers.dart';
 import '../../../os/presentation/os_detail_dialog.dart';
 import '../../../sale/presentation/sale_detail_dialog.dart';
 import '../../domain/receivables_models.dart';
 import '../combinar_prazo_dialog.dart';
+import '../editar_parcela_dialog.dart';
 import '../receivables_providers.dart';
 import '../receive_title_dialog.dart';
 
@@ -20,11 +22,16 @@ Future<void> showDebtorTitlesDialog(
   required String customerName,
   required bool canWrite,
 }) {
+  // Espaço é o que esta tela mais precisa: cada título traz saldo, ações e um
+  // cronograma de parcelas. Em 560px fixos tudo virava coluna estreita com
+  // rótulo quebrando. Cresce com a janela e para em 900 (linha longa demais
+  // custa leitura), sem nunca passar da largura disponível no celular.
+  final larguraTela = MediaQuery.sizeOf(context).width;
   return showNeuDialog<void>(
     context,
     dialog: NeuDialog(
       title: customerName,
-      maxWidth: 560,
+      maxWidth: (larguraTela - 96).clamp(360.0, 900.0),
       child: _DebtorTitles(
         customerId: customerId,
         // Sem cadastro, o NOME é a chave do devedor — é ele que separa
@@ -193,6 +200,18 @@ class _TitleCard extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  // PARCELADO vem antes de tudo: é a informação que muda o
+                  // que o operador vai fazer aqui (cobrar uma parcela, não o
+                  // saldo). Antes só se descobria rolando até o cronograma.
+                  if (parcelas.isNotEmpty) ...[
+                    NeuStatusChip(
+                      label: 'Parcelado ${parcelas.length}x',
+                      color: neu.navy,
+                      tint: neu.accentTint,
+                      icon: Icons.calendar_month_rounded,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   if (parcial) ...[
                     NeuStatusChip(
                       label: 'Parcial',
@@ -278,7 +297,22 @@ class _TitleCard extends ConsumerWidget {
                 // parcela, era o que fazia esta tela parecer cheia de cliques.
                 if (parcelas.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _ScheduleList(parcelas: parcelas),
+                  _ScheduleList(
+                    parcelas: parcelas,
+                    saldoDoTitulo: title.balance.toDouble(),
+                    canWrite: canWrite,
+                    onEditar: (p, ordem, outras) async {
+                      final gravou = await showEditarParcelaDialog(
+                        context,
+                        parcela: p,
+                        ordem: ordem,
+                        total: parcelas.length,
+                        saldoDoTitulo: title.balance.toDouble(),
+                        outrasEmAberto: outras,
+                      );
+                      if (gravou) _refresh(ref);
+                    },
+                  ),
                 ],
               ],
             ),
@@ -367,20 +401,62 @@ class _TitleCard extends ConsumerWidget {
 }
 
 /// Cronograma das parcelas: o que vence, quando e o que já foi pago.
-/// INFORMATIVO — receber é sempre pelo botão único do card, que já mira a
-/// próxima parcela pendente. Um botão por linha aqui multiplicava os alvos
-/// para uma decisão que, na prática, é sempre "receber a mais antiga".
-class _ScheduleList extends StatelessWidget {
-  const _ScheduleList({required this.parcelas});
+///
+/// Nasce FECHADO. Um título de 12 parcelas abria 12 linhas dentro do card, e o
+/// diálogo do cliente virava uma rolagem sem fim antes de mostrar o segundo
+/// título. O cabeçalho já responde o que se pergunta no dia a dia ("parcelado
+/// em quantas, quantas já foram, qual a próxima"); a lista completa é para
+/// quando alguém quer conferir, e aí ela abre.
+///
+/// Receber continua sendo pelo botão único do card — que já mira a parcela mais
+/// antiga em aberto. Um botão por linha aqui multiplicava os alvos de uma
+/// decisão que na prática é sempre a mesma. O lápis é exceção: mudar o VALOR de
+/// uma parcela é por parcela, não há como ser em outro lugar.
+class _ScheduleList extends StatefulWidget {
+  const _ScheduleList({
+    required this.parcelas,
+    required this.saldoDoTitulo,
+    required this.canWrite,
+    required this.onEditar,
+  });
 
   final List<Installment> parcelas;
+
+  /// Quanto o título ainda deve — o cronograma deveria somar isto.
+  final double saldoDoTitulo;
+  final bool canWrite;
+
+  /// (parcela, ordem 1-based, soma das OUTRAS em aberto).
+  final void Function(Installment p, int ordem, double outrasEmAberto) onEditar;
+
+  @override
+  State<_ScheduleList> createState() => _ScheduleListState();
+}
+
+class _ScheduleListState extends State<_ScheduleList> {
+  bool _aberto = false;
+
+  /// Altura máxima da lista aberta. Acima disso ela ROLA por dentro, em vez de
+  /// empurrar o card e o diálogo — é o que impede um plano de 60 parcelas de
+  /// esticar a tela até o botão de receber sair de vista.
+  static const double _alturaMaxima = 240;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final ordenadas = [...parcelas]
+    final ordenadas = [...widget.parcelas]
       ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
     final pagas = ordenadas.where((p) => p.paidAt != null).length;
+    final emAberto = ordenadas.where((p) => p.paidAt == null).toList();
+    final somaEmAberto =
+        emAberto.fold<double>(0, (a, p) => a + p.valor);
+    // As parcelas em aberto deveriam somar exatamente o que o cliente deve.
+    // Deixar de fechar é legítimo (alguém corrigiu um valor de propósito), mas
+    // nunca deve ser invisível.
+    final diferenca = round2Money(somaEmAberto - widget.saldoDoTitulo);
+    final fecha = diferenca.abs() <= paymentEps;
+    final proxima = emAberto.isEmpty ? null : emAberto.first;
+
     return NeuSurface(
       elevation: NeuElevation.inset,
       radius: NeuTokens.rField,
@@ -388,87 +464,209 @@ class _ScheduleList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.calendar_month_outlined, size: 15, color: neu.inkMuted),
-              const SizedBox(width: 7),
-              Text(
-                'Parcelado em ${ordenadas.length}x',
-                style: TextStyle(
-                  color: neu.inkMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$pagas de ${ordenadas.length} pagas',
-                style: TextStyle(color: neu.inkFaint, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < ordenadas.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
+          // Cabeçalho inteiro clicável: é o próprio controle de abrir/fechar.
+          InkWell(
+            onTap: () => setState(() => _aberto = !_aberto),
+            borderRadius: BorderRadius.circular(NeuTokens.rField),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
                 children: [
-                  _StatusDot(status: ordenadas[i].status),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${i + 1}ª',
-                    style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                  Icon(
+                    Icons.calendar_month_outlined,
+                    size: 15,
+                    color: neu.inkMuted,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      _rotuloVencimento(ordenadas[i]),
+                      'Parcelado em ${ordenadas.length}x',
                       style: TextStyle(
-                        color: ordenadas[i].status == InstallmentStatus.vencida
-                            ? neu.danger
-                            : neu.inkMuted,
-                        fontSize: 12.5,
-                        fontWeight:
-                            ordenadas[i].status == InstallmentStatus.vencida
-                                ? FontWeight.w700
-                                : FontWeight.w400,
+                        color: neu.inkMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   Text(
-                    formatMoney(ordenadas[i].valor),
-                    style: TextStyle(
-                      color: ordenadas[i].paidAt != null
-                          ? neu.inkFaint
-                          : neu.ink,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      decoration: ordenadas[i].paidAt != null
-                          ? TextDecoration.lineThrough
-                          : null,
+                    '$pagas de ${ordenadas.length} pagas',
+                    style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                  ),
+                  Icon(
+                    _aberto
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 20,
+                    color: neu.inkMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Fechado, ainda responde o que importa agora: qual é a próxima.
+          if (!_aberto && proxima != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Próxima: ${_rotuloVencimento(proxima)} · '
+                '${formatMoney(proxima.valor)}',
+                style: TextStyle(
+                  color: proxima.status == InstallmentStatus.vencida
+                      ? neu.danger
+                      : neu.inkFaint,
+                  fontSize: 12,
+                  fontWeight: proxima.status == InstallmentStatus.vencida
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                ),
+              ),
+            ),
+          if (!fecha)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: neu.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'As parcelas em aberto somam '
+                      '${formatMoney(somaEmAberto)} e o saldo é '
+                      '${formatMoney(widget.saldoDoTitulo)}.',
+                      style: TextStyle(
+                        color: neu.warning,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+          if (_aberto) ...[
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: _alturaMaxima),
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < ordenadas.length; i++)
+                        _LinhaCronograma(
+                          parcela: ordenadas[i],
+                          ordem: i + 1,
+                          // Editar só o que ainda não virou dinheiro no caixa.
+                          onEditar: widget.canWrite &&
+                                  ordenadas[i].paidAt == null
+                              ? () => widget.onEditar(
+                                    ordenadas[i],
+                                    i + 1,
+                                    round2Money(
+                                      somaEmAberto - ordenadas[i].valor,
+                                    ),
+                                  )
+                              : null,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
 
-  /// "Vencida", "Vence hoje", "Paga" ou a data — o estado vem antes do número,
-  /// porque é ele que decide se alguém precisa agir.
-  String _rotuloVencimento(Installment p) {
-    if (p.paidAt != null) return 'Paga';
-    final d = DateTime.tryParse(p.dueDate);
-    final data = d == null
-        ? p.dueDate
-        : '${d.day.toString().padLeft(2, '0')}/'
-            '${d.month.toString().padLeft(2, '0')}/${d.year}';
-    if (p.status == InstallmentStatus.vencida) return 'Vencida · $data';
-    if (p.venceHoje) return 'Vence hoje';
-    return data;
+/// Uma linha do cronograma. O lápis aparece só para parcela em aberto de quem
+/// pode escrever — o valor de uma parcela paga já virou lançamento no caixa.
+class _LinhaCronograma extends StatelessWidget {
+  const _LinhaCronograma({
+    required this.parcela,
+    required this.ordem,
+    required this.onEditar,
+  });
+
+  final Installment parcela;
+  final int ordem;
+  final VoidCallback? onEditar;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final vencida = parcela.status == InstallmentStatus.vencida;
+    final paga = parcela.paidAt != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          _StatusDot(status: parcela.status),
+          const SizedBox(width: 8),
+          Text(
+            '$ordemª',
+            style: TextStyle(color: neu.inkFaint, fontSize: 12),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _rotuloVencimento(parcela),
+              style: TextStyle(
+                color: vencida ? neu.danger : neu.inkMuted,
+                fontSize: 12.5,
+                fontWeight: vencida ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ),
+          Text(
+            formatMoney(parcela.valor),
+            style: TextStyle(
+              color: paga ? neu.inkFaint : neu.ink,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              decoration: paga ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          if (onEditar != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                color: neu.inkMuted,
+                tooltip: 'Corrigir o valor desta parcela',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
+                onPressed: onEditar,
+              ),
+            )
+          else
+            // Mantém o alinhamento das colunas de valor com as linhas que têm
+            // lápis — sem isto a parcela paga aparece deslocada.
+            const SizedBox(width: 34),
+        ],
+      ),
+    );
   }
+}
+
+/// "Vencida", "Vence hoje", "Paga" ou a data — o estado vem antes do número,
+/// porque é ele que decide se alguém precisa agir.
+String _rotuloVencimento(Installment p) {
+  if (p.paidAt != null) return 'Paga';
+  final d = DateTime.tryParse(p.dueDate);
+  final data = d == null
+      ? p.dueDate
+      : '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')}/${d.year}';
+  if (p.status == InstallmentStatus.vencida) return 'Vencida · $data';
+  if (p.venceHoje) return 'Vence hoje';
+  return data;
 }
 
 class _StatusDot extends StatelessWidget {

@@ -175,17 +175,40 @@ void main() {
     expect(chamada, contains('nome=Z'));
   });
 
-  testWidgets('o cronograma mostra as pagas e a próxima', (t) async {
+  testWidgets('parcelado se anuncia no cabeçalho, sem abrir a lista', (t) async {
     await _abrir(t, parcelas: _parcelas);
     await t.tap(find.text('Zé Motoboy'));
     await t.pumpAndSettle();
 
-    // O controle de parcelas: quantas, quantas já foram e o que vem.
+    // O selo responde "isto é parcelado" de longe — é o que muda o que o
+    // operador vai fazer aqui (cobrar parcela, não o saldo).
+    expect(find.text('Parcelado 3x'), findsOneWidget);
+    // E o cabeçalho do cronograma responde o resto sem gastar altura: um plano
+    // de 12 parcelas abria 12 linhas e enterrava o título seguinte.
     expect(find.text('Parcelado em 3x'), findsOneWidget);
     expect(find.text('1 de 3 pagas'), findsOneWidget);
-    expect(find.text('Paga'), findsOneWidget);
+    expect(find.textContaining('Próxima: 10/10/2026'), findsOneWidget);
+    // Fechado: as linhas da lista ainda não existem.
+    expect(find.text('Paga'), findsNothing);
     // A ação mira a PRÓXIMA parcela em aberto, não o saldo todo.
     expect(find.text('Receber parcela'), findsOneWidget);
+  });
+
+  testWidgets('abrindo o cronograma, aparecem as pagas e as que faltam',
+      (t) async {
+    await _abrir(t, parcelas: _parcelas);
+    await t.tap(find.text('Zé Motoboy'));
+    await t.pumpAndSettle();
+
+    await t.tap(find.text('Parcelado em 3x'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Paga'), findsOneWidget);
+    expect(find.text('10/10/2026'), findsOneWidget);
+    expect(find.text('10/11/2026'), findsOneWidget);
+    // Lápis só nas DUAS em aberto: o valor de uma parcela paga já virou
+    // lançamento no caixa.
+    expect(find.byIcon(Icons.edit_outlined), findsNWidgets(2));
   });
 
   testWidgets('título sem plano não inventa cronograma', (t) async {
