@@ -21,6 +21,7 @@ import '../../os/presentation/order_form_dialog.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
 import '../../update/presentation/update_banner.dart';
+import '../../update/presentation/update_watcher.dart';
 import '../../update/presentation/update_controller.dart';
 import 'nav_items.dart';
 import 'screen_tutorials.dart';
@@ -196,7 +197,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           const ConnectionBanner(),
                           // Versão nova disponível (adiável). A obrigatória não
                           // chega aqui — ela substitui a casca inteira.
-                          const UpdateBanner(),
+                          const UpdateWatcher(),
                           // A transição entre telas é feita pelo Navigator do
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da
