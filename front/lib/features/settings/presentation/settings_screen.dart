@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/config/feature_flags.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -10,6 +11,28 @@ import '../../auth/presentation/session_state.dart';
 import 'appearance_section.dart';
 import 'company_form.dart';
 import 'dynamic_section.dart';
+
+/// Seções de módulo cuja configuração mora em TELA PRÓPRIA, não nos campos
+/// genéricos do registry.
+///
+/// O módulo registra a seção no backend só para ela aparecer em Configurações
+/// quando estiver habilitada — mas com `fields: []`, porque o conteúdo é
+/// sensível demais para o renderizador genérico (certificado digital, senha,
+/// numeração fiscal). Sem este mapa a categoria virava um beco sem saída:
+/// o cliente clicava em "Nota Fiscal" e lia "Nenhuma configuração disponível".
+/// Aqui ela vira a porta de entrada da tela de verdade.
+const Map<String, ({String rota, String rotulo, String descricao, String permissao})>
+    _secoesComTelaPropria = {
+  'invoice': (
+    rota: '/m/invoice/config',
+    rotulo: 'Abrir configuração fiscal',
+    permissao: 'invoice.config',
+    descricao:
+        'A nota fiscal é configurada em tela própria: cadastro da empresa no '
+        'provedor fiscal, certificado digital A1, ambiente de emissão '
+        '(homologação ou produção) e numeração das séries.',
+  ),
+};
 
 /// Uma categoria de configuração (item da navegação + conteúdo).
 class _Category {
@@ -157,13 +180,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Preferências do módulo',
                 icon: Icons.tune_rounded,
                 glyphIndex: nextGlyph(),
-                builder: (_) => DynamicSection(
-                  section: section,
-                  values: section.values,
-                  hideTitle: true,
-                  onToggle: (campo, valor) =>
-                      _salvarSecao(section.key, {campo: valor}),
-                ),
+                builder: (_) {
+                  final propria = _secoesComTelaPropria[section.key];
+                  if (propria != null) {
+                    return _SecaoComTelaPropria(
+                      destino: propria,
+                      liberada: session.meOrNull
+                              ?.hasPermission(propria.permissao) ??
+                          false,
+                    );
+                  }
+                  return DynamicSection(
+                    section: section,
+                    values: section.values,
+                    hideTitle: true,
+                    onToggle: (campo, valor) =>
+                        _salvarSecao(section.key, {campo: valor}),
+                  );
+                },
               ),
         ];
 
@@ -537,6 +571,53 @@ class _CategoryTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(NeuTokens.rCard),
       child: wrapped,
+    );
+  }
+}
+
+/// Corpo de uma categoria cuja configuração mora em outra tela
+/// (ver [_secoesComTelaPropria]): explica o que há lá e leva até ela.
+///
+/// Quando o usuário tem `settings.manage` mas não a permissão específica da
+/// seção (ex.: `invoice.config`), o botão sai e entra o motivo — mandar para
+/// uma tela que vai recusar o acesso é pior do que dizer por quê.
+class _SecaoComTelaPropria extends StatelessWidget {
+  const _SecaoComTelaPropria({
+    required this.destino,
+    required this.liberada,
+  });
+
+  final ({String rota, String rotulo, String descricao, String permissao})
+      destino;
+  final bool liberada;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          destino.descricao,
+          style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.5),
+        ),
+        const SizedBox(height: 22),
+        if (liberada)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: NeuButton(
+              label: destino.rotulo,
+              icon: Icons.arrow_forward_rounded,
+              onPressed: () => context.go(destino.rota),
+            ),
+          )
+        else
+          Text(
+            'Seu cargo não tem permissão para alterar esta configuração. '
+            'Peça ao responsável pela empresa.',
+            style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.5),
+          ),
+      ],
     );
   }
 }
