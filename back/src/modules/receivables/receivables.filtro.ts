@@ -47,9 +47,19 @@ export function semAcento(s: string): string {
     .toLowerCase();
 }
 
-/** "YYYY-MM-DD" em UTC — comparação por DIA, não por instante. */
-function diaUtc(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+/**
+ * "YYYY-MM-DD" em UTC — comparação por DIA, não por instante.
+ *
+ * `null` quando a data é ilegível. `new Date('lixo').toISOString()` lança
+ * RangeError, e a regra roda também em Dart sobre o espelho LOCAL (JSON cru do
+ * pull), onde linha estranha é possível. Derrubar a carteira inteira por causa
+ * de uma data ruim seria o pior desfecho — sem rede, ela é a única fonte de
+ * cobrança que o operador tem. As duas implementações tratam igual, e a tabela
+ * de casos é quem garante isso.
+ */
+function diaUtc(iso: string): string | null {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
 /**
@@ -72,14 +82,19 @@ export function classificar(
   d: DevedorParaFiltro,
   hoje: Date,
 ): DevedorClassificado {
-  const hojeDia = diaUtc(hoje.toISOString());
+  const hojeDia = diaUtc(hoje.toISOString())!;
   let nextDueAt: string | null = null;
   let overdue = false;
   for (const t of d.titulos) {
     const v = vencimentoEfetivo(t);
     if (!v) continue;
-    if (nextDueAt === null || diaUtc(v) < diaUtc(nextDueAt)) nextDueAt = v;
-    if (diaUtc(v) < hojeDia) overdue = true;
+    const dia = diaUtc(v);
+    // Data ilegível conta como SEM prazo: acusar vencimento por lixo de dado é
+    // pior do que não acusar nada.
+    if (dia === null) continue;
+    const atual = nextDueAt === null ? null : diaUtc(nextDueAt);
+    if (atual === null || dia < atual) nextDueAt = v;
+    if (dia < hojeDia) overdue = true;
   }
   return { ...d, nextDueAt, overdue };
 }
@@ -89,10 +104,10 @@ export function filtrarDevedores<T extends DevedorClassificado>(
   f: { q?: string; vencimento: Vencimento; origem: Origem },
   hoje: Date,
 ): T[] {
-  const hojeDia = diaUtc(hoje.toISOString());
+  const hojeDia = diaUtc(hoje.toISOString())!;
   const limite7 = new Date(hoje);
   limite7.setUTCDate(limite7.getUTCDate() + 7);
-  const limite7Dia = diaUtc(limite7.toISOString());
+  const limite7Dia = diaUtc(limite7.toISOString())!;
   const termo = f.q ? semAcento(f.q.trim()) : '';
 
   return lista.filter((d) => {
@@ -105,13 +120,11 @@ export function filtrarDevedores<T extends DevedorClassificado>(
         return true;
       case 'vencidos':
         return d.overdue;
-      case 'vence7':
-        return (
-          !d.overdue &&
-          d.nextDueAt !== null &&
-          diaUtc(d.nextDueAt) >= hojeDia &&
-          diaUtc(d.nextDueAt) <= limite7Dia
-        );
+      case 'vence7': {
+        if (d.overdue || d.nextDueAt === null) return false;
+        const dia = diaUtc(d.nextDueAt);
+        return dia !== null && dia >= hojeDia && dia <= limite7Dia;
+      }
       case 'a_vencer':
         return !d.overdue && d.nextDueAt !== null;
       case 'sem_prazo':
@@ -149,9 +162,13 @@ export function ordenarDevedores<T extends DevedorClassificado>(
     case 'vencimento':
       return copia.sort((a, b) => {
         if (a.nextDueAt === b.nextDueAt) return porNome(a, b);
-        if (a.nextDueAt === null) return 1; // sem data por último
-        if (b.nextDueAt === null) return -1;
-        return diaUtc(a.nextDueAt) < diaUtc(b.nextDueAt) ? -1 : 1;
+        // Sem data (ou com data ilegível) vai para o fim.
+        const da = a.nextDueAt === null ? null : diaUtc(a.nextDueAt);
+        const db = b.nextDueAt === null ? null : diaUtc(b.nextDueAt);
+        if (da === null && db === null) return porNome(a, b);
+        if (da === null) return 1;
+        if (db === null) return -1;
+        return da < db ? -1 : 1;
       });
   }
 }
