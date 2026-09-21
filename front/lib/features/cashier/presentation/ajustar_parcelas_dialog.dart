@@ -247,75 +247,77 @@ class _AjustarParcelasDialogState
 
 /// O que o recálculo faria, parcela por parcela — de → para. Aplicar às cegas
 /// um número que ninguém viu é o que faz o operador desconfiar do botão.
-class _PreviaRecalculo extends StatelessWidget {
+class _PreviaRecalculo extends StatefulWidget {
   const _PreviaRecalculo({required this.parcelas, required this.valores});
 
   final List<Installment> parcelas;
   final List<double> valores;
 
   @override
+  State<_PreviaRecalculo> createState() => _PreviaRecalculoState();
+}
+
+class _PreviaRecalculoState extends State<_PreviaRecalculo> {
+  @override
   Widget build(BuildContext context) {
     final neu = context.neu;
+    final parcelas = widget.parcelas;
+    final valores = widget.valores;
     return NeuSurface(
       elevation: NeuElevation.inset,
       radius: NeuTokens.rField,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: ConstrainedBox(
-        // Rola por dentro: um plano longo não pode esticar o diálogo até as
-        // ações saírem da tela.
-        constraints: const BoxConstraints(maxHeight: 200),
-        child: Scrollbar(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < parcelas.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      children: [
-                        Text(
-                          '${i + 1}ª · ${_dataBr(parcelas[i].dueDate)}',
-                          style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
-                        ),
-                        const Spacer(),
-                        Text(
-                          formatMoney(parcelas[i].valor),
-                          style: TextStyle(
-                            color: neu.inkFaint,
-                            fontSize: 12.5,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 13,
-                          color: neu.inkFaint,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          formatMoney(valores[i]),
-                          style: TextStyle(
-                            color: neu.ink,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
+      // Sem rolagem própria, pelo mesmo motivo dos campos: quem rola é o
+      // diálogo. Uma prévia cortada por uma borda invisível é pior que uma
+      // prévia longa — o ponto dela é justamente ver TODAS as linhas antes de
+      // aplicar.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < parcelas.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Text(
+                    '${i + 1}ª · ${_dataBr(parcelas[i].dueDate)}',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                  ),
+                  const Spacer(),
+                  Text(
+                    formatMoney(parcelas[i].valor),
+                    style: TextStyle(
+                      color: neu.inkFaint,
+                      fontSize: 12.5,
+                      decoration: TextDecoration.lineThrough,
                     ),
                   ),
-              ],
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 13,
+                    color: neu.inkFaint,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatMoney(valores[i]),
+                    style: TextStyle(
+                      color: neu.ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
 }
 
 /// Um campo por parcela em aberto, com a soma conferida na hora contra a dívida.
-class _CamposManuais extends StatelessWidget {
+class _CamposManuais extends StatefulWidget {
   const _CamposManuais({
     required this.parcelas,
     required this.ctrls,
@@ -331,41 +333,51 @@ class _CamposManuais extends StatelessWidget {
   final VoidCallback onChanged;
 
   @override
+  State<_CamposManuais> createState() => _CamposManuaisState();
+}
+
+class _CamposManuaisState extends State<_CamposManuais> {
+  @override
   Widget build(BuildContext context) {
     final neu = context.neu;
+    final parcelas = widget.parcelas;
+    final ctrls = widget.ctrls;
+    final soma = widget.soma;
+    final saldo = widget.saldo;
+    final onChanged = widget.onChanged;
     final diferenca = round2Money(soma - saldo);
     final fecha = diferenca.abs() <= paymentEps;
+    // TODOS os campos, sem caixa de rolagem própria.
+    //
+    // Antes esta lista vivia num box de 280px — altura de exatamente três
+    // campos — e rolava por dentro. Ela ROLAVA, mas parecia completa: a barra
+    // do desktop só aparece depois que você já está rolando, então a 4ª parcela
+    // em diante simplesmente não existia para quem olhava. Scroll dentro de
+    // scroll num modal é assim: some conteúdo sem avisar.
+    //
+    // Quem rola agora é o próprio diálogo (o `NeuDialog` já tem altura limitada
+    // pela tela e rola o conteúdo inteiro): uma superfície, uma rolagem, nada
+    // escondido atrás de uma borda invisível.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 280),
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  for (var i = 0; i < parcelas.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: NeuTextField(
-                        label: '${i + 1}ª parcela · vence em '
-                            '${_dataBr(parcelas[i].dueDate)}',
-                        controller: ctrls[i],
-                        hint: '0,00',
-                        prefixText: 'R\$ ',
-                        textAlign: TextAlign.right,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: const [DecimalInputFormatter()],
-                        onChanged: (_) => onChanged(),
-                      ),
-                    ),
-                ],
+        for (var i = 0; i < parcelas.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: NeuTextField(
+              label: '${i + 1}ª parcela · vence em '
+                  '${_dataBr(parcelas[i].dueDate)}',
+              controller: ctrls[i],
+              hint: '0,00',
+              prefixText: 'R\$ ',
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
+              inputFormatters: const [DecimalInputFormatter()],
+              onChanged: (_) => onChanged(),
             ),
           ),
-        ),
         const SizedBox(height: 4),
         Row(
           children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
+import 'package:orbixhub_front/core/ui/ui.dart';
 import 'package:orbixhub_front/features/cashier/data/fake_cashier_repository.dart';
 import 'package:orbixhub_front/features/cashier/domain/cashier_models.dart';
 import 'package:orbixhub_front/features/cashier/presentation/ajustar_parcelas_dialog.dart';
@@ -43,8 +44,10 @@ Future<FakeCashierRepository> _abrir(
   double totalDepois = 150,
   double saldo = 150,
   List<Installment>? parcelas,
+  /// Altura da janela. Baixa é onde falta espaço — e onde o scroll importa.
+  double altura = 1600,
 }) async {
-  t.view.physicalSize = const Size(1100, 1600);
+  t.view.physicalSize = Size(1100, altura);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
 
@@ -170,6 +173,94 @@ void main() {
 
     // Só a que mudou é enviada — parcela intocada não vira "alterada" no log.
     expect(caixa.valoresCorrigidos, [(id: 'p1', amount: 90.0)]);
+  });
+
+  testWidgets('com MUITAS parcelas, TODOS os campos existem e são editáveis',
+      (t) async {
+    // O relato: acima de três parcelas, as de baixo não apareciam. A lista
+    // rolava por dentro de uma caixa de 280px (a altura de exatos três campos),
+    // e a barra do desktop só aparece depois que você já está rolando — então a
+    // lista PARECIA completa. Agora quem rola é o diálogo, e todos os campos
+    // estão na árvore.
+    final muitas = [
+      for (var i = 1; i <= 6; i++)
+        Installment(
+          id: 'p$i',
+          saleKind: 'sale',
+          saleId: 'v-1',
+          amount: '30.00',
+          dueDate: '2026-0$i-10',
+        ),
+    ];
+    // Tela BAIXA de propósito: é onde falta espaço.
+    final caixa = await _abrir(
+      t,
+      parcelas: muitas,
+      saldo: 300,
+      totalDepois: 300,
+      altura: 700,
+    );
+    await t.tap(find.text('Editar à mão'));
+    await t.pumpAndSettle();
+
+    expect(find.byType(TextFormField), findsNWidgets(6));
+    final ultima = find.text('6ª parcela · vence em 10/06/2026');
+    expect(ultima, findsOneWidget);
+
+    // UMA rolagem só no diálogo — a do próprio NeuDialog (cabeçalho e ações
+    // ficam fixos, o conteúdo rola). Duas era o defeito: a de fora sem
+    // extensão e a de dentro cortando a lista atrás de uma borda invisível.
+    expect(
+      find.descendant(
+        of: find.byType(NeuDialog),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+      reason: 'scroll dentro de scroll é o que escondia as parcelas de baixo',
+    );
+
+    // E o gesto sobre a lista rola de fato.
+    final campoAntes = t.getRect(find.byType(TextFormField).first).top;
+    await t.drag(find.byType(TextFormField).first, const Offset(0, -200));
+    await t.pumpAndSettle();
+    expect(t.getRect(find.byType(TextFormField).first).top,
+        lessThan(campoAntes));
+
+    // E a 6ª é editável de fato.
+    await t.ensureVisible(ultima);
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextFormField).at(5), '50');
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Salvar parcelas'));
+    await t.tap(find.text('Salvar parcelas'));
+    await t.pumpAndSettle();
+
+    expect(caixa.valoresCorrigidos, [(id: 'p6', amount: 50.0)]);
+  });
+
+  testWidgets('a prévia do recálculo mostra TODAS as parcelas', (t) async {
+    final muitas = [
+      for (var i = 1; i <= 6; i++)
+        Installment(
+          id: 'p$i',
+          saleKind: 'sale',
+          saleId: 'v-1',
+          amount: '30.00',
+          dueDate: '2026-0$i-10',
+        ),
+    ];
+    await _abrir(
+      t,
+      parcelas: muitas,
+      saldo: 300,
+      totalDepois: 300,
+      altura: 700,
+    );
+
+    // O ponto da prévia é ver o que vai ser aplicado ANTES de aplicar; cortar
+    // as últimas linhas atrás de uma borda invisível desmancharia isso.
+    expect(find.text('6ª · 10/06/2026'), findsOneWidget);
+    expect(find.text('R\$ 50,00'), findsNWidgets(6));
   });
 
   testWidgets('no manual, parcela zerada barra o salvamento', (t) async {

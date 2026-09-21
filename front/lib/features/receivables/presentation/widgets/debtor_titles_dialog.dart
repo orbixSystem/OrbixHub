@@ -436,11 +436,6 @@ class _ScheduleList extends StatefulWidget {
 class _ScheduleListState extends State<_ScheduleList> {
   bool _aberto = false;
 
-  /// Altura máxima da lista aberta. Acima disso ela ROLA por dentro, em vez de
-  /// empurrar o card e o diálogo — é o que impede um plano de 60 parcelas de
-  /// esticar a tela até o botão de receber sair de vista.
-  static const double _alturaMaxima = 240;
-
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
@@ -549,34 +544,27 @@ class _ScheduleListState extends State<_ScheduleList> {
             ),
           if (_aberto) ...[
             const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: _alturaMaxima),
-              child: Scrollbar(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < ordenadas.length; i++)
-                        _LinhaCronograma(
-                          parcela: ordenadas[i],
-                          ordem: i + 1,
-                          // Editar só o que ainda não virou dinheiro no caixa.
-                          onEditar: widget.canWrite &&
-                                  ordenadas[i].paidAt == null
-                              ? () => widget.onEditar(
-                                    ordenadas[i],
-                                    i + 1,
-                                    round2Money(
-                                      somaEmAberto - ordenadas[i].valor,
-                                    ),
-                                  )
-                              : null,
-                        ),
-                    ],
-                  ),
-                ),
+            // Sem rolagem própria: quem rola é o diálogo.
+            //
+            // Antes isto vivia num box de altura máxima que rolava por dentro.
+            // Rolava — mas a barra do desktop só aparece depois que você já
+            // está rolando, então a lista PARECIA completa e as parcelas de
+            // baixo não existiam para quem olhava. Scroll dentro de scroll num
+            // modal esconde conteúdo sem avisar; e aqui a lista já nasce
+            // fechada, então quem a abre quer ver o cronograma INTEIRO.
+            for (var i = 0; i < ordenadas.length; i++)
+              _LinhaCronograma(
+                parcela: ordenadas[i],
+                ordem: i + 1,
+                // Editar só o que ainda não virou dinheiro no caixa.
+                onEditar: widget.canWrite && ordenadas[i].paidAt == null
+                    ? () => widget.onEditar(
+                          ordenadas[i],
+                          i + 1,
+                          round2Money(somaEmAberto - ordenadas[i].valor),
+                        )
+                    : null,
               ),
-            ),
           ],
         ],
       ),

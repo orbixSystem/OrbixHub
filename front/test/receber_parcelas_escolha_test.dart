@@ -80,8 +80,10 @@ final _emAberto = [
 Future<_SpyCaixa> _abrir(
   WidgetTester t, {
   List<Installment>? emAberto,
+  /// Altura da janela — baixa é onde falta espaço e o scroll importa.
+  double altura = 1600,
 }) async {
-  t.view.physicalSize = const Size(1200, 1600);
+  t.view.physicalSize = Size(1200, altura);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
 
@@ -198,6 +200,33 @@ void main() {
     // Uma escolha só: o operador recebeu as duas do mesmo jeito. Herdar 'pix'
     // (o default) em alguma delas sujaria a conferência de caixa por forma.
     expect(caixa.metodos, ['dinheiro', 'dinheiro']);
+  });
+
+  testWidgets('com MUITAS parcelas em janela baixa, a lista é alcançável',
+      (t) async {
+    // O relato: acima de três parcelas, as de baixo não apareciam.
+    final muitas = [
+      for (var i = 1; i <= 8; i++)
+        Installment(
+          id: 'p$i',
+          saleKind: 'sale',
+          saleId: 'v-1',
+          amount: '30.00',
+          dueDate: '2099-0$i-10',
+        ),
+    ];
+    await _abrir(t, emAberto: muitas, altura: 700);
+
+    expect(find.byType(Checkbox), findsNWidgets(8));
+    final ultima = find.byType(Checkbox).last;
+    await t.ensureVisible(ultima);
+    await t.pumpAndSettle();
+    await t.tap(ultima);
+    await t.pumpAndSettle();
+
+    // Marcou até a 8ª: 8 × 30.
+    expect(find.text('8 parcelas'), findsOneWidget);
+    expect(find.text('R\$ 240,00'), findsWidgets);
   });
 
   testWidgets('com UMA parcela em aberto, segue o fluxo antigo (sem checklist)',

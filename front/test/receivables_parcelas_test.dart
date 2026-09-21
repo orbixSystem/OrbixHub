@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/offline/connectivity_controller.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
+import 'package:orbixhub_front/core/ui/ui.dart';
 import 'package:orbixhub_front/di.dart';
 import 'package:orbixhub_front/features/auth/domain/auth_models.dart';
 import 'package:orbixhub_front/features/auth/presentation/session_controller.dart';
@@ -209,6 +210,18 @@ void main() {
     // Lápis só nas DUAS em aberto: o valor de uma parcela paga já virou
     // lançamento no caixa.
     expect(find.byIcon(Icons.edit_outlined), findsNWidgets(2));
+
+    // UMA rolagem no diálogo (a do próprio NeuDialog). O cronograma não tem
+    // caixa de rolagem própria: scroll dentro de scroll rolava, mas a barra do
+    // desktop só aparece depois que você já está rolando — a lista parecia
+    // completa e as parcelas de baixo não existiam para quem olhava.
+    expect(
+      find.descendant(
+        of: find.byType(NeuDialog),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('título sem plano não inventa cronograma', (t) async {
