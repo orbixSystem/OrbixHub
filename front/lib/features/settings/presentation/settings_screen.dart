@@ -142,9 +142,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       data: (bundle) {
         final moduleSections = bundle.sections
             .where((s) => s.moduleKey != null)
-            // NF desligada no front (kInvoiceEnabled=false): esconde a seção
-            // de config fiscal do módulo `invoice`.
-            .where((s) => kInvoiceEnabled || s.moduleKey != 'invoice')
             .toList();
 
         // Paleta de glyph por categoria (cores do DS, ciclo p/ os módulos).
@@ -188,6 +185,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       liberada: session.meOrNull
                               ?.hasPermission(propria.permissao) ??
                           false,
+                      // NF ainda não liberada: a seção FICA (explica o que vem)
+                      // e o botão que levaria à tela fica inerte.
+                      emBreve:
+                          section.moduleKey == 'invoice' && !kInvoiceEnabled,
                     );
                   }
                   return DynamicSection(
@@ -585,11 +586,15 @@ class _SecaoComTelaPropria extends StatelessWidget {
   const _SecaoComTelaPropria({
     required this.destino,
     required this.liberada,
+    this.emBreve = false,
   });
 
   final ({String rota, String rotulo, String descricao, String permissao})
       destino;
   final bool liberada;
+
+  /// Anunciada, ainda não liberada: descreve o que vem, sem porta para entrar.
+  final bool emBreve;
 
   @override
   Widget build(BuildContext context) {
@@ -602,7 +607,20 @@ class _SecaoComTelaPropria extends StatelessWidget {
           style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.5),
         ),
         const SizedBox(height: 22),
-        if (liberada)
+        if (emBreve)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              NeuButton(
+                label: destino.rotulo,
+                icon: Icons.arrow_forward_rounded,
+                onPressed: null,
+              ),
+              const SizedBox(width: 8),
+              const NeuEmBreveTag(),
+            ],
+          )
+        else if (liberada)
           Align(
             alignment: Alignment.centerLeft,
             child: NeuButton(

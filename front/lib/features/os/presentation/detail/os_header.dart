@@ -267,6 +267,7 @@ class OsActionBar extends ConsumerStatefulWidget {
     required this.canEdit,
     required this.canRead,
     required this.canIssueInvoice,
+    this.invoiceEmBreve = false,
     required this.onEdit,
     required this.onExport,
   });
@@ -279,6 +280,10 @@ class OsActionBar extends ConsumerStatefulWidget {
   final bool canEdit;
   final bool canRead;
   final bool canIssueInvoice;
+
+  /// NF anunciada e ainda não liberada: a ação aparece marcada "Em breve" e
+  /// não faz nada. Ver `kInvoiceEnabled`.
+  final bool invoiceEmBreve;
   final VoidCallback onEdit;
   final VoidCallback onExport;
 
@@ -432,36 +437,56 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     // ("Pagamentos"), que é informação — não uma segunda boca de caixa.
 
     // --- menu: o resto, sem competir por atenção ---
-    final extras = <({String valor, String rotulo, IconData icone, bool perigo})>[
+    final extras = <({
+      String valor,
+      String rotulo,
+      IconData icone,
+      bool perigo,
+      bool emBreve
+    })>[
       if (widget.canRead)
         (
           valor: 'pdf',
           rotulo: 'Exportar PDF',
           icone: Icons.picture_as_pdf_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if (widget.canEdit)
         (
           valor: 'editar',
           rotulo: 'Editar OS',
           icone: Icons.edit_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if ((order.conversationId ?? '').isNotEmpty)
         (
           valor: 'mensagens',
           rotulo: 'Mensagens',
           icone: Icons.forum_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if (canViewOsPayments(ref, order))
         (
           valor: 'pagamentos',
           rotulo: 'Pagamentos',
           icone: Icons.receipt_long_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
-      if (widget.canIssueInvoice)
+      // NF ainda não liberada: a ação FICA, inerte e marcada "Em breve" — o
+      // cliente que tem o módulo no plano precisa saber que a nota vem.
+      if (widget.invoiceEmBreve)
+        (
+          valor: 'nota',
+          rotulo: 'Emitir nota fiscal',
+          icone: Icons.receipt_long,
+          perigo: false,
+          emBreve: true
+        )
+      else if (widget.canIssueInvoice)
         (
           valor: 'nota',
           rotulo: _notaAtiva() == null
@@ -469,7 +494,8 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
               : 'Nota · '
                   '${invoiceStatusLabel(_notaAtiva()!.status as String)}',
           icone: Icons.receipt_long,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       // `concluida` também é "Finalizada" para o usuário, mas ali a ação
       // primária é entregar — então reabrir mora no menu, não some.
@@ -479,7 +505,8 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           valor: 'reabrir',
           rotulo: 'Reabrir OS',
           icone: Icons.undo_rounded,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       // Destrutivas por último e marcadas — nunca ao lado da ação primária.
       if (order.status != 'cancelada' &&
@@ -489,7 +516,8 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           valor: 'cancelar',
           rotulo: 'Cancelar OS',
           icone: Icons.close_rounded,
-          perigo: true
+          perigo: true,
+          emBreve: false
         ),
       // Excluir pede o mesmo cargo que aprova/reabre (o backend confere de
       // novo). O servidor ainda pode recusar — nota fiscal ativa, pagamento
@@ -499,7 +527,8 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           valor: 'excluir',
           rotulo: 'Excluir OS',
           icone: Icons.delete_outline_rounded,
-          perigo: true
+          perigo: true,
+          emBreve: false
         ),
     ];
 
@@ -540,12 +569,29 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
         _MenuMais(itens: extras, onSelected: executar),
       if (!isMobile)
         for (final e in extras)
-          NeuButton(
-            label: e.rotulo,
-            icon: e.icone,
-            kind: e.perigo ? NeuButtonKind.danger : NeuButtonKind.secondary,
-            onPressed: () => executar(e.valor),
-          ),
+          // Em breve: botão presente, desabilitado, com o selo ao lado dizendo
+          // o porquê — `onPressed: null` é o que o torna inerte de verdade.
+          if (e.emBreve)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NeuButton(
+                  label: e.rotulo,
+                  icon: e.icone,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: null,
+                ),
+                const SizedBox(width: 6),
+                const NeuEmBreveTag(),
+              ],
+            )
+          else
+            NeuButton(
+              label: e.rotulo,
+              icon: e.icone,
+              kind: e.perigo ? NeuButtonKind.danger : NeuButtonKind.secondary,
+              onPressed: () => executar(e.valor),
+            ),
     ];
 
     // Estado terminal: dizer POR QUE não há "Finalizar" aqui. A nota acompanha
@@ -588,7 +634,14 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 class _MenuMais extends StatelessWidget {
   const _MenuMais({required this.itens, required this.onSelected});
 
-  final List<({String valor, String rotulo, IconData icone, bool perigo})> itens;
+  final List<
+      ({
+        String valor,
+        String rotulo,
+        IconData icone,
+        bool perigo,
+        bool emBreve
+      })> itens;
   final ValueChanged<String> onSelected;
 
   @override
@@ -603,6 +656,8 @@ class _MenuMais extends StatelessWidget {
         for (final i in itens)
           PopupMenuItem(
             value: i.valor,
+            // Em breve: item visível e não selecionável.
+            enabled: !i.emBreve,
             child: Row(
               children: [
                 Icon(
@@ -623,6 +678,7 @@ class _MenuMais extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (i.emBreve) const NeuEmBreveTag(compacto: true),
               ],
             ),
           ),

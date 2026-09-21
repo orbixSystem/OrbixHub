@@ -1001,4 +1001,44 @@ class LocalFirstCashierRepository extends LocalFirstBase
     await putRow(_installments, paidRow);
     return Installment.fromJson(paidRow);
   }
+
+  @override
+  Future<Installment> updateInstallmentAmount({
+    required String installmentId,
+    required double amount,
+    String? reason,
+  }) async {
+    if (!await useLocal(_installments, installmentId)) {
+      final inst = await inner.updateInstallmentAmount(
+        installmentId: installmentId,
+        amount: amount,
+        reason: reason,
+      );
+      await putRow(_installments, inst.toJson());
+      return inst;
+    }
+    final row = await rowById(_installments, installmentId);
+    if (row == null) notFoundLocally('Parcela');
+    // Mesma trava do servidor: parcela paga já virou lançamento no caixa, e
+    // mexer no valor dela deixaria os dois discordando para sempre.
+    if (row['paid_at'] != null) {
+      throw const AppException(
+        statusCode: 400,
+        error: 'BadRequest',
+        message: 'Esta parcela já foi paga — o valor dela não muda.',
+      );
+    }
+    await enqueue(_installments, 'update', {
+      'id': installmentId,
+      'amount': amount,
+      if ((reason ?? '').isNotEmpty) 'reason': reason,
+    });
+    final novaRow = {
+      ...row,
+      'amount': dec(amount),
+      'updated_at': nowIso(),
+    };
+    await putRow(_installments, novaRow);
+    return Installment.fromJson(novaRow);
+  }
 }

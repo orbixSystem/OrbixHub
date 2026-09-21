@@ -40,7 +40,11 @@ import {
   ReverseEntryDto,
   UpdateEntryDto,
 } from './dto/entry.dto';
-import { CreateInstallmentPlanDto, PayInstallmentDto } from './dto/installment.dto';
+import {
+  CreateInstallmentPlanDto,
+  PayInstallmentDto,
+  UpdateInstallmentDto,
+} from './dto/installment.dto';
 import {
   CreateExpenseTemplateDto,
   UpdateExpenseTemplateDto,
@@ -1029,6 +1033,57 @@ export class CashierServiceImpl extends CashierService {
 
       return db.receivable_installment.createMany({ data });
     });
+  }
+
+  /**
+   * Corrige o valor de UMA parcela em aberto.
+   *
+   * O plano divide o total igualmente; a vida não. Aqui se acerta o número sem
+   * refazer o plano — refazer (`substituirPendentes`) reescreve as datas, então
+   * quem só queria mudar um valor perdia o prazo combinado.
+   *
+   * Duas travas: a parcela tem de estar EM ABERTO (valor de parcela paga já
+   * virou lançamento no caixa; mexer criaria divergência permanente entre os
+   * dois) e o novo valor tem de ser positivo (DTO). O total do título NÃO é
+   * conferido aqui de propósito: ele vive no módulo dono (OS/venda) e o caixa
+   * não lê tabela alheia — quem mostra a divergência é a tela, que já tem o
+   * saldo em mãos.
+   */
+  async updateInstallment(
+    user: AuthUser,
+    installmentId: string,
+    dto: UpdateInstallmentDto,
+  ) {
+    const amount = round2(dto.amount);
+    const atual = await this.tenant.withTenantTx(async () => {
+      const db = this.tenant.getClient();
+      const inst = await db.receivable_installment.findFirst({
+        where: { id: installmentId },
+      });
+      if (!inst) throw new NotFoundException('Parcela não encontrada.');
+      if (inst.paid_at) {
+        throw new BadRequestException(
+          'Esta parcela já foi paga — o valor dela não muda.',
+        );
+      }
+      const antes = round2(toNum(inst.amount));
+      const parcela = await db.receivable_installment.update({
+        where: { id: installmentId },
+        data: { amount, updated_at: new Date() },
+      });
+      return { parcela, antes };
+    });
+
+    // Auditado porque é dinheiro a receber mudando de valor sem nenhum
+    // pagamento envolvido — o "antes" é o que permite explicar a diferença.
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'installment_amount_update',
+      installmentId,
+      { antes: atual.antes, depois: amount, reason: dto.reason ?? null },
+    );
+    return atual.parcela;
   }
 
   /**

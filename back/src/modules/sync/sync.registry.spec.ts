@@ -50,6 +50,7 @@ describe('sync registry — whitelist S7 + roteamento do pull', () => {
     // `cash_entry.create` (operar o balcão), não gestão.
     'receivable_installment.create_plan': 'cashier.write',
     'receivable_installment.pay': 'cashier.write',
+    'receivable_installment.update': 'cashier.write',
     'sale.create': 'sale.write',
     'sale.cancel': 'sale.write',
     'sale.markFiado': 'sale.write',

@@ -67,3 +67,21 @@ export class PayInstallmentDto {
   @IsOptional() @IsNumber() @Min(0) discount?: number;
   @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
 }
+
+/**
+ * Corrige o VALOR de uma parcela ainda em aberto.
+ *
+ * Existe porque o plano divide o total igualmente e a vida não: o cliente
+ * combina "essa eu pago 500 e as outras menores", ou o valor foi digitado
+ * errado. Sem isto a única saída era refazer o plano inteiro
+ * (`substituirPendentes`), o que reescreve as datas — quem só queria mudar um
+ * número perdia o prazo combinado.
+ *
+ * Parcela PAGA nunca entra aqui: mexer no valor de algo que já virou dinheiro
+ * no caixa faria o lançamento discordar da parcela para sempre.
+ */
+export class UpdateInstallmentDto {
+  @IsNumber() @IsPositive() @Max(99_999_999) amount!: number;
+  /** Por que mudou — fica no log de auditoria. */
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}

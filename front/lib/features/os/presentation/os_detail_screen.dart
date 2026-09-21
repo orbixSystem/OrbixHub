@@ -126,10 +126,12 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
     final canRead = _has('os.read');
     // "Emitir NF" só aparece com o módulo fiscal habilitado E a permissão de
     // emissão — o backend é a verdade (aqui só refletimos para UX).
-    // NF desligada no front (kInvoiceEnabled=false): sem emitir nota na OS,
-    // mesmo com módulo/permissão. O backend segue capaz — é retirada de UI.
-    final canIssueInvoice =
-        kInvoiceEnabled && _hasModule('invoice') && _has('invoice.issue');
+    // NF ainda não liberada (kInvoiceEnabled=false): a ação APARECE, marcada
+    // "Em breve" e inerte — quem tem o módulo no plano precisa saber que a nota
+    // vem. Sem o módulo/permissão continua não existindo.
+    final podeVerNf = _hasModule('invoice') && _has('invoice.issue');
+    final canIssueInvoice = podeVerNf && kInvoiceEnabled;
+    final invoiceEmBreve = podeVerNf && !kInvoiceEnabled;
 
     return orderAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -169,6 +171,7 @@ class _OsDetailScreenState extends ConsumerState<OsDetailScreen> {
                   canEdit: canEdit,
                   canRead: canRead,
                   canIssueInvoice: canIssueInvoice,
+                  invoiceEmBreve: invoiceEmBreve,
                   onEdit: () => _edit(order),
                   onExport: () => _exportOrder(order),
                 ),
