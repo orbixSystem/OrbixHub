@@ -441,12 +441,16 @@ class _SideNavItemState extends State<_SideNavItem> {
   Widget build(BuildContext context) {
     final c = _SideColors(context);
     final active = widget.active;
+    // "Em breve" e "sem conexão" são inércias diferentes com a mesma aparência:
+    // item esmaecido que não navega. O que muda é a explicação.
+    final emBreve = widget.item.emBreve;
+    final inerte = widget.blocked || emBreve;
     final bg = active
         ? c.accent.withValues(alpha: 0.22)
         : _hover
             ? c.bgHi
             : Colors.transparent;
-    final fg = widget.blocked
+    final fg = inerte
         ? c.fgMuted.withValues(alpha: 0.4)
         : active
             ? c.fg
@@ -458,7 +462,13 @@ class _SideNavItemState extends State<_SideNavItem> {
         alignment: Alignment.center,
         children: [
           Icon(widget.item.icon, size: 21, color: fg),
-          if (widget.blocked)
+          if (emBreve)
+            Positioned(
+              top: 1,
+              right: 3,
+              child: Icon(Icons.schedule_rounded, size: 12, color: fg),
+            )
+          else if (widget.blocked)
             Positioned(
               top: 1,
               right: 3,
@@ -496,7 +506,9 @@ class _SideNavItemState extends State<_SideNavItem> {
               ),
             ),
           ),
-          if (widget.blocked)
+          if (emBreve)
+            const NeuEmBreveTag(compacto: true)
+          else if (widget.blocked)
             Icon(Icons.wifi_off_rounded, size: 16, color: fg)
           else if (widget.badge > 0)
             Container(
@@ -533,14 +545,22 @@ class _SideNavItemState extends State<_SideNavItem> {
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
-          onTap: widget.blocked
+          onTap: emBreve
               ? () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       behavior: SnackBarBehavior.floating,
-                      content: Text('Sem conexão — esta área precisa de internet.'),
+                      content: Text('${widget.item.label} chega em breve.'),
                     ),
                   )
-              : widget.onTap,
+              : widget.blocked
+                  ? () => ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content:
+                              Text('Sem conexão — esta área precisa de internet.'),
+                        ),
+                      )
+                  : widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
@@ -559,8 +579,13 @@ class _SideNavItemState extends State<_SideNavItem> {
       ),
     );
 
-    // Tooltip: bloqueado explica o porquê; colapsado mostra o rótulo.
-    if (widget.blocked) {
+    // Tooltip: inerte explica o porquê; colapsado mostra o rótulo.
+    if (emBreve) {
+      tile = Tooltip(
+        message: '${widget.item.label} — em breve',
+        child: tile,
+      );
+    } else if (widget.blocked) {
       tile = Tooltip(
         message: '${widget.item.label} — requer conexão',
         child: tile,

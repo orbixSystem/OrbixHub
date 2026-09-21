@@ -8,29 +8,21 @@ import '../domain/update_models.dart';
 import 'update_controller.dart';
 
 /// Aviso de versão nova no topo do app. Discreto e adiável — a oficina está no
-/// meio do trabalho. Some sozinho quando o app já está em dia, e não aparece
-/// quando a atualização é obrigatória (nesse caso a tela inteira é bloqueada).
-class UpdateBanner extends ConsumerStatefulWidget {
-  const UpdateBanner({super.key});
+/// meio do trabalho.
+///
+/// Quem decide se ele aparece é o [UpdateWatcher] (via `avisoAtualizacaoProvider`);
+/// aqui é só a apresentação. "Depois" é PERSISTIDO: antes era estado deste
+/// widget e morria no primeiro rebuild, então o aviso voltava a interromper e a
+/// palavra "Depois" não significava nada. Agora ele manda a atualização para o
+/// sino, onde fica enquanto estiver pendente.
+class UpdateBanner extends ConsumerWidget {
+  const UpdateBanner({super.key, required this.update});
+
+  final AppUpdate update;
 
   @override
-  ConsumerState<UpdateBanner> createState() => _UpdateBannerState();
-}
-
-class _UpdateBannerState extends ConsumerState<UpdateBanner> {
-  bool _adiado = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final async = ref.watch(updateStatusProvider);
-    final data = async.asData?.value;
-    if (_adiado ||
-        data == null ||
-        data.status != UpdateStatus.disponivel) {
-      return const SizedBox.shrink();
-    }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: NeuSurface(
@@ -44,7 +36,7 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Versão ${data.update.version} disponível.',
+                'Versão ${update.version} disponível.',
                 style: TextStyle(
                   color: neu.ink,
                   fontSize: 14,
@@ -53,14 +45,16 @@ class _UpdateBannerState extends ConsumerState<UpdateBanner> {
               ),
             ),
             TextButton(
-              onPressed: () => setState(() => _adiado = true),
+              onPressed: () => ref
+                  .read(atualizacaoAdiadaProvider.notifier)
+                  .adiar(chaveDaVersao(update)),
               child: const Text('Depois'),
             ),
             const SizedBox(width: 4),
             NeuButton(
               label: 'Atualizar',
               icon: Icons.download_rounded,
-              onPressed: () => showUpdateDialog(context, data.update),
+              onPressed: () => showUpdateDialog(context, update),
             ),
           ],
         ),

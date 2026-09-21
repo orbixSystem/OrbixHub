@@ -35,6 +35,7 @@ import {
 import {
   CreateInstallmentPlanDto,
   PayInstallmentDto,
+  UpdateInstallmentDto,
 } from '../cashier/dto/installment.dto';
 import {
   CreateExpenseTemplateDto,
@@ -506,6 +507,16 @@ export const SYNC_OPS: Record<string, SyncOpDef> = {
     permission: 'cashier.write',
     structuralKeys: ['id'],
     apply: (s, u, p) => s.cashier.payInstallment(u, str(p.id), asDto(p)),
+  },
+  // Corrigir o VALOR de uma parcela em aberto (o plano divide igual; a vida
+  // não). Sem LWW: é decisão do operador, e a última correção é a que vale —
+  // mesmo tratamento de `cash_entry.update`.
+  'receivable_installment.update': {
+    dto: UpdateInstallmentDto,
+    module: 'cashier',
+    permission: 'cashier.write',
+    structuralKeys: ['id'],
+    apply: (s, u, p) => s.cashier.updateInstallment(u, str(p.id), asDto(p)),
   },
   'cash_entry.reverse': {
     dto: ReverseEntryDto,

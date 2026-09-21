@@ -340,4 +340,21 @@ class CashierRepositoryImpl implements CashierRepository {
         );
         return Installment.fromJson(_asMap(res.data));
       });
+
+  @override
+  Future<Installment> updateInstallmentAmount({
+    required String installmentId,
+    required double amount,
+    String? reason,
+  }) =>
+      _guard(() async {
+        final res = await _dio.patch<Object?>(
+          '/cashier/installments/$installmentId',
+          data: {
+            'amount': amount,
+            if ((reason ?? '').isNotEmpty) 'reason': reason,
+          },
+        );
+        return Installment.fromJson(_asMap(res.data));
+      });
 }

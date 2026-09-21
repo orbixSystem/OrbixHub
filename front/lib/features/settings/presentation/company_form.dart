@@ -460,13 +460,6 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         // devem aparecer como linha de texto nos grupos.
         if (g == 'Aparência') continue;
         if (f.type == 'image') continue;
-        // NF desligada no front (kInvoiceEnabled=false): esconde o grupo de
-        // identidade fiscal (inscrições/regime/CNAE) — só serve p/ emitir NFS-e.
-        if (!kInvoiceEnabled &&
-            (g.toLowerCase().contains('fiscal') ||
-                g.toLowerCase().contains('tribut'))) {
-          continue;
-        }
         groups.putIfAbsent(g, () => []).add(f);
       }
     }
@@ -514,9 +507,21 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
               label: groupList[gi].key,
               icon: _groupIcon(groupList[gi].key),
               index: gi,
+              emBreve: _grupoFiscalEmBreve(groupList[gi].key),
             ),
             const SizedBox(height: 16),
-            _buildFieldsGrid(groupList[gi].value),
+            // Identidade fiscal (inscrições, regime, CNAE) só serve para emitir
+            // NFS-e. Enquanto a nota não está liberada, o grupo ANUNCIA em vez
+            // de pedir dados que ainda não vão a lugar nenhum — campo que não
+            // faz nada é pior que campo ausente.
+            if (_grupoFiscalEmBreve(groupList[gi].key))
+              Text(
+                'Os dados fiscais (inscrições, regime tributário e CNAE) '
+                'entram aqui quando a emissão de nota fiscal for liberada.',
+                style: TextStyle(color: neu.inkMuted, fontSize: 14, height: 1.5),
+              )
+            else
+              _buildFieldsGrid(groupList[gi].value),
           ],
         ],
 
@@ -561,6 +566,15 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
   }
 
   /// Ícone representativo de cada grupo de campos (cabeçalho de bloco).
+  /// Grupo de identidade FISCAL enquanto a NF não está liberada. O nome do
+  /// grupo vem do servidor (registry de seções), por isso a checagem é por
+  /// conteúdo do rótulo e não por chave fixa.
+  bool _grupoFiscalEmBreve(String group) {
+    if (kInvoiceEnabled) return false;
+    final k = group.toLowerCase();
+    return k.contains('fiscal') || k.contains('tribut');
+  }
+
   IconData _groupIcon(String group) {
     final k = group.toLowerCase();
     if (k.contains('endereç') || k.contains('endereco')) {
@@ -969,10 +983,14 @@ class _GroupHeader extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.index,
+    this.emBreve = false,
   });
   final String label;
   final IconData icon;
   final int index;
+
+  /// Grupo anunciado, ainda sem campos para preencher.
+  final bool emBreve;
 
   @override
   Widget build(BuildContext context) {
@@ -991,6 +1009,7 @@ class _GroupHeader extends StatelessWidget {
             ),
           ),
         ),
+        if (emBreve) const NeuEmBreveTag(),
       ],
     );
   }
