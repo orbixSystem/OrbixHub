@@ -361,12 +361,18 @@ class FakeCashierRepository implements CashierRepository {
   /// para testar que a venda continua valendo mesmo com o plano falhando.
   Object? planoDeveFalharCom;
 
+  /// Parcelas semeadas pelo teste (o fake não gera plano sozinho). Filtradas
+  /// por título em [listInstallments], como o servidor faz.
+  final parcelas = <Installment>[];
+
   @override
   Future<List<Installment>> listInstallments({
     required String saleKind,
     required String saleId,
   }) async =>
-      const [];
+      parcelas
+          .where((p) => p.saleKind == saleKind && p.saleId == saleId)
+          .toList(growable: false);
 
   @override
   Future<void> createInstallmentPlan(InstallmentPlanDraft draft) async {

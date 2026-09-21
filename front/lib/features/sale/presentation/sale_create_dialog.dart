@@ -10,6 +10,8 @@ import '../../../core/util/validators.dart';
 import '../../../di.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/cashier_models.dart';
+import '../../cashier/domain/local_payment.dart';
+import '../../cashier/presentation/ajustar_parcelas_dialog.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../cashier/presentation/prazo_fiado_section.dart';
 import '../../customers/presentation/customer_form_dialog.dart';
@@ -370,6 +372,54 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
     return confirmado == true ? prazo : null;
   }
 
+  /// Editou os itens de uma venda PARCELADA e o total mudou: oferece
+  /// recalcular as parcelas, editar à mão, ou deixar como está.
+  ///
+  /// Falhar aqui não desfaz a edição da venda (ela já foi gravada) — no pior
+  /// caso o operador ajusta o cronograma pela tela "A receber", onde cada
+  /// parcela tem o seu lápis. Por isso a consulta é protegida: um erro ao ler o
+  /// plano não pode transformar uma edição bem-sucedida em mensagem de erro.
+  Future<void> _talvezAjustarParcelas(Sale antes, Sale depois) async {
+    final totalAntes = moneyToDouble(antes.total);
+    final totalDepois = moneyToDouble(depois.total);
+    if ((totalAntes - totalDepois).abs() <= paymentEps) return;
+    try {
+      final repo = ref.read(cashierRepositoryProvider);
+      final parcelas = await repo.listInstallments(
+        saleKind: 'sale',
+        saleId: depois.id,
+      );
+      final emAberto = parcelas.where((p) => p.paidAt == null).toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      if (emAberto.isEmpty || !mounted) return;
+      // O saldo vem do CAIXA (fonte do que já entrou), não de uma subtração
+      // aqui: o total do documento não sabe quanto foi recebido.
+      final pagamento = await repo.paymentSummary(
+        saleKind: 'sale',
+        saleId: depois.id,
+        total: totalDepois,
+      );
+      if (!mounted) return;
+      final ajustou = await showAjustarParcelasDialog(
+        context,
+        rotuloTitulo: 'A venda ${depois.number}',
+        totalAntes: totalAntes,
+        totalDepois: totalDepois,
+        saldo: pagamento.balance.toDouble(),
+        parcelasEmAberto: emAberto,
+      );
+      if (ajustou) {
+        ref.invalidate(installmentsProvider(
+          (saleKind: 'sale', saleId: depois.id),
+        ));
+      }
+    } on Object {
+      // Silencioso de propósito: a venda FOI salva, e o cronograma continua
+      // ajustável em "A receber".
+      return;
+    }
+  }
+
   Future<void> _submit() async {
     final valid = _lines
         .where((l) => l.name.trim().isNotEmpty && l.quantity > 0)
@@ -408,6 +458,17 @@ class _SaleCreateDialogState extends ConsumerState<_SaleCreateDialog> {
               description: _descCtrl.text.trim(),
             );
         ref.invalidate(cashierControllerProvider);
+        // O total mudou e a venda está parcelada? O cronograma não se ajusta
+        // sozinho — perguntar aqui, antes de fechar, é o que evita a dívida
+        // ficar sendo uma coisa e a cobrança, outra.
+        //
+        // Sai do estado "salvando" ANTES de perguntar: a venda já foi gravada,
+        // e deixar o botão girando embaixo de um modal é dizer que ainda há
+        // trabalho em curso quando o que falta é uma decisão do operador.
+        if (mounted) {
+          setState(() => _submitting = false);
+          await _talvezAjustarParcelas(emEdicao, atualizada);
+        }
         if (mounted) {
           Navigator.of(context).pop(atualizada);
           ScaffoldMessenger.of(context).showSnackBar(

@@ -421,5 +421,137 @@ void main() {
       expect(caixa.lancados, isEmpty,
           reason: 'editar não recebe dinheiro de novo');
     });
+
+    testWidgets('venda PARCELADA: mudar o total pergunta o que fazer com as '
+        'parcelas', (tester) async {
+      tester.view.physicalSize = const Size(1500, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final existente = Sale(
+        id: 's-9',
+        number: 'VND-0009',
+        total: '100.00',
+        items: const [
+          SaleItem(id: 'i1', name: 'Palheta', quantity: '2',
+              unitPrice: '25.00', subtotal: '50.00'),
+          SaleItem(id: 'i2', name: 'Óleo', quantity: '1',
+              unitPrice: '50.00', subtotal: '50.00'),
+        ],
+      );
+      caixa = _SpyCashier();
+      // Duas parcelas de 50 combinadas quando a venda era 100.
+      caixa.parcelas.addAll(const [
+        Installment(id: 'p1', saleKind: 'sale', saleId: 's-9',
+            amount: '50.00', dueDate: '2026-10-10'),
+        Installment(id: 'p2', saleKind: 'sale', saleId: 's-9',
+            amount: '50.00', dueDate: '2026-11-10'),
+      ]);
+      vendas = FakeSaleRepository(sales: [existente]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cashierRepositoryProvider.overrideWithValue(caixa),
+          saleRepositoryProvider.overrideWithValue(vendas),
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+          customersRepositoryProvider
+              .overrideWithValue(FakeCustomersRepository()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => showSaleEditDialog(ctx, existente),
+                child: const Text('editar'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('editar'));
+      await tester.pumpAndSettle();
+
+      // 2 → 3 palhetas: o total vai de 100 para 125.
+      final steppers = find.descendant(
+        of: find.byType(NeuStepperField),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(steppers.first, '3');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar venda'));
+      await tester.pumpAndSettle();
+
+      // A dívida mudou e o cronograma não muda sozinho: perguntar é o que
+      // impede a cobrança de discordar da dívida em silêncio.
+      expect(find.text('As parcelas acompanham a mudança?'), findsOneWidget);
+      expect(find.textContaining('de R\$ 100,00 para R\$ 125,00'),
+          findsOneWidget);
+
+      await tester.tap(find.text('Recalcular'));
+      await tester.pumpAndSettle();
+
+      // 125 em duas: 62,50 cada, mantendo as datas combinadas.
+      expect(caixa.valoresCorrigidos, [
+        (id: 'p1', amount: 62.50),
+        (id: 'p2', amount: 62.50),
+      ]);
+    });
+
+    testWidgets('venda parcelada sem mudança de total NÃO pergunta nada',
+        (tester) async {
+      tester.view.physicalSize = const Size(1500, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final existente = Sale(
+        id: 's-9',
+        number: 'VND-0009',
+        total: '100.00',
+        items: const [
+          SaleItem(id: 'i1', name: 'Palheta', quantity: '2',
+              unitPrice: '25.00', subtotal: '50.00'),
+          SaleItem(id: 'i2', name: 'Óleo', quantity: '1',
+              unitPrice: '50.00', subtotal: '50.00'),
+        ],
+      );
+      caixa = _SpyCashier();
+      caixa.parcelas.add(const Installment(id: 'p1', saleKind: 'sale',
+          saleId: 's-9', amount: '100.00', dueDate: '2026-10-10'));
+      vendas = FakeSaleRepository(sales: [existente]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cashierRepositoryProvider.overrideWithValue(caixa),
+          saleRepositoryProvider.overrideWithValue(vendas),
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+          customersRepositoryProvider
+              .overrideWithValue(FakeCustomersRepository()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => showSaleEditDialog(ctx, existente),
+                child: const Text('editar'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('editar'));
+      await tester.pumpAndSettle();
+      // Salva sem mexer em nada.
+      await tester.tap(find.text('Salvar venda'));
+      await tester.pumpAndSettle();
+
+      // Corrigir a observação de uma venda não é motivo para revisitar o
+      // cronograma — perguntar por nada treina o operador a ignorar o aviso.
+      expect(find.text('As parcelas acompanham a mudança?'), findsNothing);
+      expect(caixa.valoresCorrigidos, isEmpty);
+    });
   });
 }
