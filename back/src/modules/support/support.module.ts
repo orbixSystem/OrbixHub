@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MailerModule } from '../../common/mailer/mailer.module';
 import { TenancyModule } from '../tenancy/tenancy.module';
+import { IamModule } from '../iam/iam.module';
 import { SupportController } from './support.controller';
 import { SupportService } from './support.service';
 import { SupportRepository } from './support.repository';
@@ -12,7 +13,7 @@ import { SupportRepository } from './support.repository';
  * público, sem tocar a tabela `tenant` ("aponta, não invade").
  */
 @Module({
-  imports: [MailerModule, TenancyModule],
+  imports: [MailerModule, TenancyModule, IamModule],
   controllers: [SupportController],
   providers: [SupportService, SupportRepository],
   exports: [SupportService],

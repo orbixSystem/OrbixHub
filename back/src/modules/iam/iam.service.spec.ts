@@ -97,3 +97,64 @@ describe('IamService.acceptInvite', () => {
     );
   });
 });
+
+/**
+ * O bug que este teste existe para impedir de voltar:
+ *
+ * a busca procurava `role.name = 'owner'`. Em `role`, `name` e o ROTULO que
+ * aparece na tela ('Dono') e o identificador e `key`. A consulta nao casava com
+ * nada, devolvia vazio em vez de estourar, e o efeito era um ambiente que
+ * simplesmente nao tinha dono: o painel mostrava "sem contato" para todo mundo
+ * e nenhuma cobranca saiu por e-mail — tudo em silencio, por meses.
+ */
+describe('IamService.donoDoTenant', () => {
+  const comMembership = (m: unknown) => {
+    const findFirst = jest.fn(async () => m);
+    const tenant = {
+      runWithTenant: (_t: string, fn: () => unknown) => fn(),
+      getClient: () => ({ membership: { findFirst } }),
+    } as unknown as TenantContext;
+    const { repo } = deps();
+    const svc = new IamService(
+      repo as unknown as IamRepository,
+      {} as unknown as PrismaService,
+      tenant,
+      {} as unknown as PasswordService,
+      {} as unknown as RefreshService,
+      {} as unknown as AccessTokenService,
+      {} as unknown as AuditService,
+      {} as unknown as ReauthService,
+    );
+    return { svc, findFirst };
+  };
+
+  it('procura o papel por KEY, nao pelo rotulo', async () => {
+    const { svc, findFirst } = comMembership({
+      users: { full_name: 'Zé', email_normalized: 'ze@oficina.com' },
+    });
+
+    await svc.donoDoTenant('t1');
+
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ role: { key: 'owner' } }),
+      }),
+    );
+  });
+
+  it('devolve nome e e-mail do dono', async () => {
+    const { svc } = comMembership({
+      users: { full_name: 'Zé', email_normalized: 'ze@oficina.com' },
+    });
+
+    await expect(svc.donoDoTenant('t1')).resolves.toEqual({
+      name: 'Zé',
+      email: 'ze@oficina.com',
+    });
+  });
+
+  it('sem membership de dono -> null (e quem chama decide o que fazer)', async () => {
+    const { svc } = comMembership(null);
+    await expect(svc.donoDoTenant('t1')).resolves.toBeNull();
+  });
+});

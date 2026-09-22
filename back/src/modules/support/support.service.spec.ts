@@ -57,9 +57,13 @@ function make(
   const audit = { log: jest.fn(async () => undefined) } as unknown as AuditService;
   const events = { emit: jest.fn() } as unknown as EventEmitter2;
   const env = { SUPPORT_EMAIL: over.supportEmail } as unknown as Env;
+  // O dono existe: e para ele que a resposta da Orbix e enviada.
+  const iam = {
+    donoDoTenant: jest.fn(async () => ({ name: 'Zé', email: 'ze@oficina.com' })),
+  } as never;
 
   return {
-    svc: new SupportService(repo, mailer, tenancy, audit, events, env),
+    svc: new SupportService(repo, mailer, tenancy, audit, events, iam, env),
     repo,
     sendMessage,
     audit,
