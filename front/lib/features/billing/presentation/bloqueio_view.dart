@@ -25,27 +25,31 @@ class AvisoDeEscritaLido extends Notifier<bool> {
 
 final _dataFmt = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
 
-/// "O acesso venceu em 14 de setembro de 2026" — ou "vence em", quando a data
-/// ainda está à frente. O verbo segue a data em vez de ser fixo: um bloqueio
-/// aplicado à mão antes do vencimento é comum, e anunciar que "venceu" uma data
-/// futura faz a tela parecer quebrada justo quando ela precisa ser acreditada.
-String? _quando(DateTime? d) {
+/// A data que EXPLICA o bloqueio — quando existe uma.
+///
+/// `acessoAte` quer dizer "acesso pago até". Ela só explica um bloqueio se foi
+/// ela que o causou, isto é, se já passou. Bloqueio posto à mão pela Orbix não
+/// tem data para acabar: acaba quando alguém libera.
+///
+/// Por isso uma data no FUTURO não vira texto aqui. Ela dizia "O acesso vence
+/// em 12 de outubro" na mesma tela que anuncia "Acesso bloqueado" — o cliente
+/// lia que ainda tem três semanas e ficava esperando uma data que não ia
+/// destravar nada.
+String? _oQueVenceu(DateTime? d) {
   if (d == null) return null;
   final local = d.toLocal();
-  final verbo = local.isAfter(DateTime.now()) ? 'vence' : 'venceu';
-  return 'O acesso $verbo em ${_dataFmt.format(local)}.';
+  if (local.isAfter(DateTime.now())) return null;
+  return 'O acesso venceu em ${_dataFmt.format(local)}.';
 }
 
-/// "venceu há 3 dias" / "vence hoje" — o dado que faz alguém agir.
+/// "venceu há 3 dias" — só quando venceu mesmo. Ver [_oQueVenceu].
 String? _prazo(DateTime? d) {
   if (d == null) return null;
   final dias = d.toLocal().difference(DateTime.now()).inHours ~/ 24;
-  if (dias < 0) {
-    final n = -dias;
-    return n == 1 ? 'venceu ontem' : 'venceu há $n dias';
-  }
+  if (dias > 0) return null;
   if (dias == 0) return 'vence hoje';
-  return dias == 1 ? 'vence amanhã' : 'vence em $dias dias';
+  final n = -dias;
+  return n == 1 ? 'venceu ontem' : 'venceu há $n dias';
 }
 
 /// Tela cheia quando o ambiente está completamente bloqueado.
@@ -61,7 +65,7 @@ class BloqueioTotalView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final venceu = _quando(me.assinatura?.acessoAte);
+    final venceu = _oQueVenceu(me.assinatura?.acessoAte);
 
     return _Moldura(
       cor: neu.danger,
@@ -103,7 +107,7 @@ class AvisoDeEscritaView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final neu = context.neu;
-    final venceu = _quando(me.assinatura?.acessoAte);
+    final venceu = _oQueVenceu(me.assinatura?.acessoAte);
 
     return _Moldura(
       cor: neu.warning,
@@ -116,9 +120,12 @@ class AvisoDeEscritaView extends ConsumerWidget {
           'ordens, clientes, estoque, relatórios —, mas não dá para criar nem '
           'alterar nada até o pagamento ser confirmado.',
       detalhe: venceu,
-      rodape:
-          'Depois do prazo de tolerância o sistema é bloqueado por completo. '
-          'Fale com a Orbix para liberar.',
+      // A carência só existe depois de um VENCIMENTO. Num bloqueio posto à mão
+      // não há contagem correndo, e prometer uma assusta sem informar.
+      rodape: venceu == null
+          ? 'Fale com a Orbix para liberar.'
+          : 'Depois do prazo de tolerância o sistema é bloqueado por completo. '
+                'Fale com a Orbix para liberar.',
       acoes: [
         NeuButton(
           label: 'Entendi, continuar',
