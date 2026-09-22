@@ -61,16 +61,20 @@ describe('Billing (e2e)', () => {
   });
 
   // Criterion 1: subscribe populates tenant_module from plan_module (idempotent)
-  it('subscribe to pro enables pro modules; repeat is idempotent', async () => {
+  //
+  // O plano se chama `profissional` desde a 0058 — o `pro` antigo foi
+  // aposentado porque ele e o `trial` liberavam os MESMOS modulos, e um plano
+  // que nao muda nada nao e plano, e etiqueta.
+  it('subscribe to profissional enables its modules; repeat is idempotent', async () => {
     const { token, tenantId } = await registerOwner(app);
     const first = await request(app.getHttpServer())
-      .post('/api/billing/subscribe').set('Authorization', `Bearer ${token}`).send({ planKey: 'pro' });
+      .post('/api/billing/subscribe').set('Authorization', `Bearer ${token}`).send({ planKey: 'profissional' });
     expect(first.status).toBe(200);
     const me1 = await request(app.getHttpServer()).get('/api/me').set('Authorization', `Bearer ${token}`);
     expect(me1.body.modules).toEqual(expect.arrayContaining(['os', 'inventory', 'customers']));
 
     await request(app.getHttpServer())
-      .post('/api/billing/subscribe').set('Authorization', `Bearer ${token}`).send({ planKey: 'pro' });
+      .post('/api/billing/subscribe').set('Authorization', `Bearer ${token}`).send({ planKey: 'profissional' });
     const count = await tenant.runWithTenant(tenantId, async () => {
       const db = tenant.getClient();
       return db.tenant_module.count({ where: { enabled: true } });
@@ -117,7 +121,7 @@ describe('Billing (e2e)', () => {
     const subB = await request(app.getHttpServer()).get('/api/billing/subscription').set('Authorization', `Bearer ${b.token}`);
     expect(subA.body.status).toBe('trialing');
     expect(subB.body.status).toBe('trialing');
-    await request(app.getHttpServer()).post('/api/billing/subscribe').set('Authorization', `Bearer ${a.token}`).send({ planKey: 'pro' });
+    await request(app.getHttpServer()).post('/api/billing/subscribe').set('Authorization', `Bearer ${a.token}`).send({ planKey: 'profissional' });
     const meB = await request(app.getHttpServer()).get('/api/me').set('Authorization', `Bearer ${b.token}`);
     // B continua com exatamente os módulos do trial (A assinar pro não vaza pra B).
     // trial = cashier+customers+expenses+inventory+invoice+os+report+sale (plan_module seed).
