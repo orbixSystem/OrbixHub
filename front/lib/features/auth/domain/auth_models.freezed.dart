@@ -839,7 +839,9 @@ mixin _$Me {
 /// Vem resolvido do backend: pacote padrão → pacote da vertical → override.
  Map<String, String> get vocab;/// Capacidades ligadas. Gateia a UI do mesmo jeito que [modules], porém
 /// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
- List<String> get features; List<Membership> get memberships;
+ List<String> get features; List<Membership> get memberships;/// Situação da assinatura do ambiente. Ausente em versões antigas do
+/// backend — por isso é opcional, e a falta dela significa "liberado".
+ Assinatura? get assinatura;
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -852,16 +854,16 @@ $MeCopyWith<Me> get copyWith => _$MeCopyWithImpl<Me>(this as Me, _$identity);
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.permissions, permissions)&&const DeepCollectionEquality().equals(other.modules, modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other.vocab, vocab)&&const DeepCollectionEquality().equals(other.features, features)&&const DeepCollectionEquality().equals(other.memberships, memberships));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.permissions, permissions)&&const DeepCollectionEquality().equals(other.modules, modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other.vocab, vocab)&&const DeepCollectionEquality().equals(other.features, features)&&const DeepCollectionEquality().equals(other.memberships, memberships)&&(identical(other.assinatura, assinatura) || other.assinatura == assinatura));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(permissions),const DeepCollectionEquality().hash(modules),vertical,const DeepCollectionEquality().hash(vocab),const DeepCollectionEquality().hash(features),const DeepCollectionEquality().hash(memberships));
+int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(permissions),const DeepCollectionEquality().hash(modules),vertical,const DeepCollectionEquality().hash(vocab),const DeepCollectionEquality().hash(features),const DeepCollectionEquality().hash(memberships),assinatura);
 
 @override
 String toString() {
-  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships)';
+  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships, assinatura: $assinatura)';
 }
 
 
@@ -872,11 +874,11 @@ abstract mixin class $MeCopyWith<$Res>  {
   factory $MeCopyWith(Me value, $Res Function(Me) _then) = _$MeCopyWithImpl;
 @useResult
 $Res call({
- User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships
+ User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships, Assinatura? assinatura
 });
 
 
-$UserCopyWith<$Res> get user;$TenantCopyWith<$Res>? get activeTenant;
+$UserCopyWith<$Res> get user;$TenantCopyWith<$Res>? get activeTenant;$AssinaturaCopyWith<$Res>? get assinatura;
 
 }
 /// @nodoc
@@ -889,7 +891,7 @@ class _$MeCopyWithImpl<$Res>
 
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,Object? assinatura = freezed,}) {
   return _then(_self.copyWith(
 user: null == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User,activeTenant: freezed == activeTenant ? _self.activeTenant : activeTenant // ignore: cast_nullable_to_non_nullable
@@ -900,7 +902,8 @@ as List<String>,vertical: freezed == vertical ? _self.vertical : vertical // ign
 as String?,vocab: null == vocab ? _self.vocab : vocab // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,features: null == features ? _self.features : features // ignore: cast_nullable_to_non_nullable
 as List<String>,memberships: null == memberships ? _self.memberships : memberships // ignore: cast_nullable_to_non_nullable
-as List<Membership>,
+as List<Membership>,assinatura: freezed == assinatura ? _self.assinatura : assinatura // ignore: cast_nullable_to_non_nullable
+as Assinatura?,
   ));
 }
 /// Create a copy of Me
@@ -923,6 +926,18 @@ $TenantCopyWith<$Res>? get activeTenant {
 
   return $TenantCopyWith<$Res>(_self.activeTenant!, (value) {
     return _then(_self.copyWith(activeTenant: value));
+  });
+}/// Create a copy of Me
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AssinaturaCopyWith<$Res>? get assinatura {
+    if (_self.assinatura == null) {
+    return null;
+  }
+
+  return $AssinaturaCopyWith<$Res>(_self.assinatura!, (value) {
+    return _then(_self.copyWith(assinatura: value));
   });
 }
 }
@@ -1006,10 +1021,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships,  Assinatura? assinatura)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Me() when $default != null:
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships,_that.assinatura);case _:
   return orElse();
 
 }
@@ -1027,10 +1042,10 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships,  Assinatura? assinatura)  $default,) {final _that = this;
 switch (_that) {
 case _Me():
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships,_that.assinatura);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1047,10 +1062,10 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( User user,  Tenant? activeTenant,  String role,  List<String> permissions,  List<String> modules,  String? vertical,  Map<String, String> vocab,  List<String> features,  List<Membership> memberships,  Assinatura? assinatura)?  $default,) {final _that = this;
 switch (_that) {
 case _Me() when $default != null:
-return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships);case _:
+return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that.modules,_that.vertical,_that.vocab,_that.features,_that.memberships,_that.assinatura);case _:
   return null;
 
 }
@@ -1062,7 +1077,7 @@ return $default(_that.user,_that.activeTenant,_that.role,_that.permissions,_that
 @JsonSerializable()
 
 class _Me extends Me {
-  const _Me({required this.user, this.activeTenant, required this.role, final  List<String> permissions = const <String>[], final  List<String> modules = const <String>[], this.vertical, final  Map<String, String> vocab = const <String, String>{}, final  List<String> features = const <String>[], final  List<Membership> memberships = const <Membership>[]}): _permissions = permissions,_modules = modules,_vocab = vocab,_features = features,_memberships = memberships,super._();
+  const _Me({required this.user, this.activeTenant, required this.role, final  List<String> permissions = const <String>[], final  List<String> modules = const <String>[], this.vertical, final  Map<String, String> vocab = const <String, String>{}, final  List<String> features = const <String>[], final  List<Membership> memberships = const <Membership>[], this.assinatura}): _permissions = permissions,_modules = modules,_vocab = vocab,_features = features,_memberships = memberships,super._();
   factory _Me.fromJson(Map<String, dynamic> json) => _$MeFromJson(json);
 
 @override final  User user;
@@ -1113,6 +1128,9 @@ class _Me extends Me {
   return EqualUnmodifiableListView(_memberships);
 }
 
+/// Situação da assinatura do ambiente. Ausente em versões antigas do
+/// backend — por isso é opcional, e a falta dela significa "liberado".
+@override final  Assinatura? assinatura;
 
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
@@ -1127,16 +1145,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._permissions, _permissions)&&const DeepCollectionEquality().equals(other._modules, _modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other._vocab, _vocab)&&const DeepCollectionEquality().equals(other._features, _features)&&const DeepCollectionEquality().equals(other._memberships, _memberships));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Me&&(identical(other.user, user) || other.user == user)&&(identical(other.activeTenant, activeTenant) || other.activeTenant == activeTenant)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._permissions, _permissions)&&const DeepCollectionEquality().equals(other._modules, _modules)&&(identical(other.vertical, vertical) || other.vertical == vertical)&&const DeepCollectionEquality().equals(other._vocab, _vocab)&&const DeepCollectionEquality().equals(other._features, _features)&&const DeepCollectionEquality().equals(other._memberships, _memberships)&&(identical(other.assinatura, assinatura) || other.assinatura == assinatura));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(_permissions),const DeepCollectionEquality().hash(_modules),vertical,const DeepCollectionEquality().hash(_vocab),const DeepCollectionEquality().hash(_features),const DeepCollectionEquality().hash(_memberships));
+int get hashCode => Object.hash(runtimeType,user,activeTenant,role,const DeepCollectionEquality().hash(_permissions),const DeepCollectionEquality().hash(_modules),vertical,const DeepCollectionEquality().hash(_vocab),const DeepCollectionEquality().hash(_features),const DeepCollectionEquality().hash(_memberships),assinatura);
 
 @override
 String toString() {
-  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships)';
+  return 'Me(user: $user, activeTenant: $activeTenant, role: $role, permissions: $permissions, modules: $modules, vertical: $vertical, vocab: $vocab, features: $features, memberships: $memberships, assinatura: $assinatura)';
 }
 
 
@@ -1147,11 +1165,11 @@ abstract mixin class _$MeCopyWith<$Res> implements $MeCopyWith<$Res> {
   factory _$MeCopyWith(_Me value, $Res Function(_Me) _then) = __$MeCopyWithImpl;
 @override @useResult
 $Res call({
- User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships
+ User user, Tenant? activeTenant, String role, List<String> permissions, List<String> modules, String? vertical, Map<String, String> vocab, List<String> features, List<Membership> memberships, Assinatura? assinatura
 });
 
 
-@override $UserCopyWith<$Res> get user;@override $TenantCopyWith<$Res>? get activeTenant;
+@override $UserCopyWith<$Res> get user;@override $TenantCopyWith<$Res>? get activeTenant;@override $AssinaturaCopyWith<$Res>? get assinatura;
 
 }
 /// @nodoc
@@ -1164,7 +1182,7 @@ class __$MeCopyWithImpl<$Res>
 
 /// Create a copy of Me
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? user = null,Object? activeTenant = freezed,Object? role = null,Object? permissions = null,Object? modules = null,Object? vertical = freezed,Object? vocab = null,Object? features = null,Object? memberships = null,Object? assinatura = freezed,}) {
   return _then(_Me(
 user: null == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User,activeTenant: freezed == activeTenant ? _self.activeTenant : activeTenant // ignore: cast_nullable_to_non_nullable
@@ -1175,7 +1193,8 @@ as List<String>,vertical: freezed == vertical ? _self.vertical : vertical // ign
 as String?,vocab: null == vocab ? _self._vocab : vocab // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,features: null == features ? _self._features : features // ignore: cast_nullable_to_non_nullable
 as List<String>,memberships: null == memberships ? _self._memberships : memberships // ignore: cast_nullable_to_non_nullable
-as List<Membership>,
+as List<Membership>,assinatura: freezed == assinatura ? _self.assinatura : assinatura // ignore: cast_nullable_to_non_nullable
+as Assinatura?,
   ));
 }
 
@@ -1200,7 +1219,298 @@ $TenantCopyWith<$Res>? get activeTenant {
   return $TenantCopyWith<$Res>(_self.activeTenant!, (value) {
     return _then(_self.copyWith(activeTenant: value));
   });
+}/// Create a copy of Me
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$AssinaturaCopyWith<$Res>? get assinatura {
+    if (_self.assinatura == null) {
+    return null;
+  }
+
+  return $AssinaturaCopyWith<$Res>(_self.assinatura!, (value) {
+    return _then(_self.copyWith(assinatura: value));
+  });
 }
+}
+
+
+/// @nodoc
+mixin _$Assinatura {
+
+ String? get status;/// Até quando o acesso pago vale.
+ DateTime? get acessoAte;/// Fim do período de teste.
+ DateTime? get testeAte; bool get podeLer; bool get podeEscrever;
+/// Create a copy of Assinatura
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$AssinaturaCopyWith<Assinatura> get copyWith => _$AssinaturaCopyWithImpl<Assinatura>(this as Assinatura, _$identity);
+
+  /// Serializes this Assinatura to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,podeLer,podeEscrever);
+
+@override
+String toString() {
+  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, podeLer: $podeLer, podeEscrever: $podeEscrever)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $AssinaturaCopyWith<$Res>  {
+  factory $AssinaturaCopyWith(Assinatura value, $Res Function(Assinatura) _then) = _$AssinaturaCopyWithImpl;
+@useResult
+$Res call({
+ String? status, DateTime? acessoAte, DateTime? testeAte, bool podeLer, bool podeEscrever
+});
+
+
+
+
+}
+/// @nodoc
+class _$AssinaturaCopyWithImpl<$Res>
+    implements $AssinaturaCopyWith<$Res> {
+  _$AssinaturaCopyWithImpl(this._self, this._then);
+
+  final Assinatura _self;
+  final $Res Function(Assinatura) _then;
+
+/// Create a copy of Assinatura
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
+  return _then(_self.copyWith(
+status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String?,acessoAte: freezed == acessoAte ? _self.acessoAte : acessoAte // ignore: cast_nullable_to_non_nullable
+as DateTime?,testeAte: freezed == testeAte ? _self.testeAte : testeAte // ignore: cast_nullable_to_non_nullable
+as DateTime?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
+as bool,podeEscrever: null == podeEscrever ? _self.podeEscrever : podeEscrever // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [Assinatura].
+extension AssinaturaPatterns on Assinatura {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _Assinatura value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _Assinatura() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _Assinatura value)  $default,){
+final _that = this;
+switch (_that) {
+case _Assinatura():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _Assinatura value)?  $default,){
+final _that = this;
+switch (_that) {
+case _Assinatura() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _Assinatura() when $default != null:
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)  $default,) {final _that = this;
+switch (_that) {
+case _Assinatura():
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)?  $default,) {final _that = this;
+switch (_that) {
+case _Assinatura() when $default != null:
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _Assinatura implements Assinatura {
+  const _Assinatura({this.status, this.acessoAte, this.testeAte, this.podeLer = true, this.podeEscrever = true});
+  factory _Assinatura.fromJson(Map<String, dynamic> json) => _$AssinaturaFromJson(json);
+
+@override final  String? status;
+/// Até quando o acesso pago vale.
+@override final  DateTime? acessoAte;
+/// Fim do período de teste.
+@override final  DateTime? testeAte;
+@override@JsonKey() final  bool podeLer;
+@override@JsonKey() final  bool podeEscrever;
+
+/// Create a copy of Assinatura
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$AssinaturaCopyWith<_Assinatura> get copyWith => __$AssinaturaCopyWithImpl<_Assinatura>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$AssinaturaToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,podeLer,podeEscrever);
+
+@override
+String toString() {
+  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, podeLer: $podeLer, podeEscrever: $podeEscrever)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$AssinaturaCopyWith<$Res> implements $AssinaturaCopyWith<$Res> {
+  factory _$AssinaturaCopyWith(_Assinatura value, $Res Function(_Assinatura) _then) = __$AssinaturaCopyWithImpl;
+@override @useResult
+$Res call({
+ String? status, DateTime? acessoAte, DateTime? testeAte, bool podeLer, bool podeEscrever
+});
+
+
+
+
+}
+/// @nodoc
+class __$AssinaturaCopyWithImpl<$Res>
+    implements _$AssinaturaCopyWith<$Res> {
+  __$AssinaturaCopyWithImpl(this._self, this._then);
+
+  final _Assinatura _self;
+  final $Res Function(_Assinatura) _then;
+
+/// Create a copy of Assinatura
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
+  return _then(_Assinatura(
+status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String?,acessoAte: freezed == acessoAte ? _self.acessoAte : acessoAte // ignore: cast_nullable_to_non_nullable
+as DateTime?,testeAte: freezed == testeAte ? _self.testeAte : testeAte // ignore: cast_nullable_to_non_nullable
+as DateTime?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
+as bool,podeEscrever: null == podeEscrever ? _self.podeEscrever : podeEscrever // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
 }
 
 
