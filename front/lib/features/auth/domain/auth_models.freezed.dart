@@ -1240,7 +1240,9 @@ mixin _$Assinatura {
 
  String? get status;/// Até quando o acesso pago vale.
  DateTime? get acessoAte;/// Fim do período de teste.
- DateTime? get testeAte; bool get podeLer; bool get podeEscrever;
+ DateTime? get testeAte;/// Por que o acesso foi bloqueado, do jeito que o cliente lê. Vem do
+/// servidor pronto — é o MESMO texto que foi no e-mail.
+ String? get motivo; bool get podeLer; bool get podeEscrever;
 /// Create a copy of Assinatura
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1253,16 +1255,16 @@ $AssinaturaCopyWith<Assinatura> get copyWith => _$AssinaturaCopyWithImpl<Assinat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.motivo, motivo) || other.motivo == motivo)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,podeLer,podeEscrever);
+int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,motivo,podeLer,podeEscrever);
 
 @override
 String toString() {
-  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, podeLer: $podeLer, podeEscrever: $podeEscrever)';
+  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, motivo: $motivo, podeLer: $podeLer, podeEscrever: $podeEscrever)';
 }
 
 
@@ -1273,7 +1275,7 @@ abstract mixin class $AssinaturaCopyWith<$Res>  {
   factory $AssinaturaCopyWith(Assinatura value, $Res Function(Assinatura) _then) = _$AssinaturaCopyWithImpl;
 @useResult
 $Res call({
- String? status, DateTime? acessoAte, DateTime? testeAte, bool podeLer, bool podeEscrever
+ String? status, DateTime? acessoAte, DateTime? testeAte, String? motivo, bool podeLer, bool podeEscrever
 });
 
 
@@ -1290,12 +1292,13 @@ class _$AssinaturaCopyWithImpl<$Res>
 
 /// Create a copy of Assinatura
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? motivo = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
   return _then(_self.copyWith(
 status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String?,acessoAte: freezed == acessoAte ? _self.acessoAte : acessoAte // ignore: cast_nullable_to_non_nullable
 as DateTime?,testeAte: freezed == testeAte ? _self.testeAte : testeAte // ignore: cast_nullable_to_non_nullable
-as DateTime?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
+as DateTime?,motivo: freezed == motivo ? _self.motivo : motivo // ignore: cast_nullable_to_non_nullable
+as String?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
 as bool,podeEscrever: null == podeEscrever ? _self.podeEscrever : podeEscrever // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -1382,10 +1385,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  String? motivo,  bool podeLer,  bool podeEscrever)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Assinatura() when $default != null:
-return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.motivo,_that.podeLer,_that.podeEscrever);case _:
   return orElse();
 
 }
@@ -1403,10 +1406,10 @@ return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  String? motivo,  bool podeLer,  bool podeEscrever)  $default,) {final _that = this;
 switch (_that) {
 case _Assinatura():
-return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.motivo,_that.podeLer,_that.podeEscrever);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1423,10 +1426,10 @@ return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  bool podeLer,  bool podeEscrever)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? status,  DateTime? acessoAte,  DateTime? testeAte,  String? motivo,  bool podeLer,  bool podeEscrever)?  $default,) {final _that = this;
 switch (_that) {
 case _Assinatura() when $default != null:
-return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.podeEscrever);case _:
+return $default(_that.status,_that.acessoAte,_that.testeAte,_that.motivo,_that.podeLer,_that.podeEscrever);case _:
   return null;
 
 }
@@ -1438,7 +1441,7 @@ return $default(_that.status,_that.acessoAte,_that.testeAte,_that.podeLer,_that.
 @JsonSerializable()
 
 class _Assinatura implements Assinatura {
-  const _Assinatura({this.status, this.acessoAte, this.testeAte, this.podeLer = true, this.podeEscrever = true});
+  const _Assinatura({this.status, this.acessoAte, this.testeAte, this.motivo, this.podeLer = true, this.podeEscrever = true});
   factory _Assinatura.fromJson(Map<String, dynamic> json) => _$AssinaturaFromJson(json);
 
 @override final  String? status;
@@ -1446,6 +1449,9 @@ class _Assinatura implements Assinatura {
 @override final  DateTime? acessoAte;
 /// Fim do período de teste.
 @override final  DateTime? testeAte;
+/// Por que o acesso foi bloqueado, do jeito que o cliente lê. Vem do
+/// servidor pronto — é o MESMO texto que foi no e-mail.
+@override final  String? motivo;
 @override@JsonKey() final  bool podeLer;
 @override@JsonKey() final  bool podeEscrever;
 
@@ -1462,16 +1468,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Assinatura&&(identical(other.status, status) || other.status == status)&&(identical(other.acessoAte, acessoAte) || other.acessoAte == acessoAte)&&(identical(other.testeAte, testeAte) || other.testeAte == testeAte)&&(identical(other.motivo, motivo) || other.motivo == motivo)&&(identical(other.podeLer, podeLer) || other.podeLer == podeLer)&&(identical(other.podeEscrever, podeEscrever) || other.podeEscrever == podeEscrever));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,podeLer,podeEscrever);
+int get hashCode => Object.hash(runtimeType,status,acessoAte,testeAte,motivo,podeLer,podeEscrever);
 
 @override
 String toString() {
-  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, podeLer: $podeLer, podeEscrever: $podeEscrever)';
+  return 'Assinatura(status: $status, acessoAte: $acessoAte, testeAte: $testeAte, motivo: $motivo, podeLer: $podeLer, podeEscrever: $podeEscrever)';
 }
 
 
@@ -1482,7 +1488,7 @@ abstract mixin class _$AssinaturaCopyWith<$Res> implements $AssinaturaCopyWith<$
   factory _$AssinaturaCopyWith(_Assinatura value, $Res Function(_Assinatura) _then) = __$AssinaturaCopyWithImpl;
 @override @useResult
 $Res call({
- String? status, DateTime? acessoAte, DateTime? testeAte, bool podeLer, bool podeEscrever
+ String? status, DateTime? acessoAte, DateTime? testeAte, String? motivo, bool podeLer, bool podeEscrever
 });
 
 
@@ -1499,12 +1505,13 @@ class __$AssinaturaCopyWithImpl<$Res>
 
 /// Create a copy of Assinatura
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = freezed,Object? acessoAte = freezed,Object? testeAte = freezed,Object? motivo = freezed,Object? podeLer = null,Object? podeEscrever = null,}) {
   return _then(_Assinatura(
 status: freezed == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String?,acessoAte: freezed == acessoAte ? _self.acessoAte : acessoAte // ignore: cast_nullable_to_non_nullable
 as DateTime?,testeAte: freezed == testeAte ? _self.testeAte : testeAte // ignore: cast_nullable_to_non_nullable
-as DateTime?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
+as DateTime?,motivo: freezed == motivo ? _self.motivo : motivo // ignore: cast_nullable_to_non_nullable
+as String?,podeLer: null == podeLer ? _self.podeLer : podeLer // ignore: cast_nullable_to_non_nullable
 as bool,podeEscrever: null == podeEscrever ? _self.podeEscrever : podeEscrever // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

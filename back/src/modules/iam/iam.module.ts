@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { IamController } from './iam.controller';
 import { EmployeesController } from './employees.controller';
 import { InvitesController } from './invites.controller';
@@ -12,7 +12,7 @@ import { AuthModule } from '../auth/auth.module';
   // AuthModule re-exports RefreshService (+ AuthRepository), which IamService
   // injects. AccessTokenService, PasswordService, AuditService and
   // MailerService are provided by @Global() modules.
-  imports: [AuthModule],
+  imports: [forwardRef(() => AuthModule)],
   controllers: [IamController, EmployeesController, InvitesController],
   providers: [IamService, EmployeesService, ReauthService, IamRepository],
   // IamService é service público (resolveMemberName) consumido por outros

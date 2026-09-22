@@ -106,4 +106,34 @@ void main() {
     expect(find.text('Sistema em modo consulta'), findsOneWidget);
     expect(find.text('Entendi, continuar'), findsOneWidget);
   });
+
+  /// O motivo é a razão de a pessoa estar nesta tela — e é o MESMO texto que
+  /// ela recebeu por e-mail. Sem ele a tela só diz "bloqueado", que é a
+  /// informação que ela já tinha.
+  testWidgets('a tela mostra o motivo que veio do servidor', (tester) async {
+    await tester.pumpWidget(
+      _emTela(
+        BloqueioTotalView(
+          me: Me(
+            user: const User(id: 'u1', email: 'a@b.c', fullName: 'Dono'),
+            activeTenant: const Tenant(id: 't1', slug: 's1', name: 'Oficina Teste'),
+            role: 'owner',
+            assinatura: const Assinatura(
+              status: 'canceled',
+              motivo: 'Acesso vencido — pagamento não identificado.',
+              podeLer: false,
+              podeEscrever: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('Acesso vencido — pagamento não identificado.'),
+      findsOneWidget,
+    );
+    expect(find.text('Falar com o suporte'), findsOneWidget);
+  });
 }

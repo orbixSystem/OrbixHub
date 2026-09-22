@@ -79,6 +79,10 @@ export class TenancyService {
         status: assinatura.status,
         acessoAte: assinatura.currentPeriodEnd,
         testeAte: assinatura.trialEndsAt,
+        // O motivo vem do servidor pronto: a tela de bloqueio mostra ESTE
+        // texto, o mesmo que foi para o e-mail. Duas fontes para a mesma
+        // explicação viram duas explicações diferentes.
+        motivo: assinatura.motivo,
         podeLer: subscriptionAllows(assinatura.status ?? 'active', false, enforce),
         podeEscrever: subscriptionAllows(assinatura.status ?? 'active', true, enforce),
       },
