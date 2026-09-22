@@ -123,7 +123,7 @@ const _config = CustomersConfig(
       fonte: 'fipe.modelos',
       dependeDe: 'marca',
     ),
-    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa'),
+    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa', formato: 'placa'),
   ],
 );
 

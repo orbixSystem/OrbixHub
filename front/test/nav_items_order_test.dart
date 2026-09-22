@@ -65,4 +65,21 @@ void main() {
       ['Início', 'Caixa', 'Estoque', 'Mensagens', 'Configurações'],
     );
   });
+
+  test(
+      'A receber entra logo abaixo de Caixa, só com módulo cashier e cashier.read',
+      () {
+    final com = gatedNavItems(
+      _me(modules: ['cashier'], permissions: ['cashier.read']),
+    );
+    final rotas = com.map((i) => i.route).toList();
+    expect(
+      rotas.indexOf('/m/cashier/a-receber'),
+      rotas.indexOf('/m/cashier') + 1,
+    );
+    final sem = gatedNavItems(
+      _me(modules: ['cashier'], permissions: ['cashier.write']),
+    );
+    expect(sem.map((i) => i.route), isNot(contains('/m/cashier/a-receber')));
+  });
 }

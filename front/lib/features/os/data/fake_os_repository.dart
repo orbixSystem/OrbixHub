@@ -40,6 +40,7 @@ class FakeOsRepository implements OsRepository {
     String? status,
     List<String>? statuses,
     String? customerId,
+    String? assignedTo,
     String sort = 'recent',
     int page = 1,
   }) async {
@@ -52,6 +53,9 @@ class FakeOsRepository implements OsRepository {
     }
     if (customerId != null && customerId.isNotEmpty) {
       list = list.where((o) => o.customerId == customerId);
+    }
+    if (assignedTo != null && assignedTo.isNotEmpty) {
+      list = list.where((o) => o.assignedTo == assignedTo);
     }
     if (term != null && term.isNotEmpty) {
       list = list.where((o) =>
@@ -491,8 +495,12 @@ class FakeOsRepository implements OsRepository {
         // vertical saiu do módulo de clientes e o default virou neutro.
         subjectLabel: SubjectLabel(singular: 'Veículo', plural: 'Veículos'),
         subjectFields: [
+          // Fake de oficina: declara o formato como o pacote `veiculos` faz,
+          // senão o dev não vê a máscara de placa que o tenant real vê.
           SubjectFieldConfig(
-              chave: 'identifier', rotulo: 'Placa / Identificação'),
+              chave: 'identifier',
+              rotulo: 'Placa / Identificação',
+              formato: 'placa'),
           SubjectFieldConfig(
               chave: 'marca', rotulo: 'Marca', fonte: 'fipe.marcas'),
           SubjectFieldConfig(

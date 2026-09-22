@@ -19,6 +19,9 @@ import 'package:orbixhub_front/features/inventory/presentation/inventory_screen.
 import 'package:orbixhub_front/features/os/data/fake_os_repository.dart';
 import 'package:orbixhub_front/features/os/presentation/os_list_screen.dart';
 import 'package:orbixhub_front/features/os/presentation/os_providers.dart';
+import 'package:orbixhub_front/features/receivables/data/fake_receivables_repository.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_providers.dart';
+import 'package:orbixhub_front/features/receivables/presentation/receivables_screen.dart';
 import 'package:orbixhub_front/features/sale/presentation/sale_providers.dart';
 
 import 'support/online_conn.dart';
@@ -97,6 +100,10 @@ final _telas = <String, ({Widget tela, List<String> alvos})>{
     tela: const InventoryScreen(),
     alvos: ['estoque.filtros', 'estoque.lista'],
   ),
+  'A receber': (
+    tela: const ReceivablesScreen(),
+    alvos: ['areceber.resumo', 'areceber.filtros', 'areceber.lista'],
+  ),
   // FALTAM AQUI: Ficha do cliente, Veículo, Relatórios, Equipe e Planos. Os alvos JÁ ESTÃO marcados no
   // código (`cliente.abas`/`cliente.conteudo`, `veiculo.abas`/`veiculo.conteudo`),
   // em cabeçalhos compartilhados pelos dois layouts — mas não estão testados.
@@ -125,6 +132,8 @@ Future<void> _abrir(WidgetTester tester, Widget tela, Size size) async {
       customersRepositoryProvider.overrideWithValue(FakeCustomersRepository()),
       inventoryRepositoryProvider.overrideWithValue(FakeInventoryRepository()),
       saleRepositoryProvider.overrideWithValue(FakeSaleRepository()),
+      receivablesRepositoryProvider
+          .overrideWithValue(FakeReceivablesRepository()),
     ],
     child: MaterialApp(theme: AppTheme.light(), home: tela),
   ));

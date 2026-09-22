@@ -1,4 +1,9 @@
 import {
+  IsBoolean,
+  MaxLength,
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsDateString,
   IsInt,
   IsNumber,
@@ -21,9 +26,62 @@ export class CreateInstallmentPlanDto {
   /** ISO date, default = próxima ocorrência do `dueDayOfMonth`. */
   @IsOptional() @IsDateString() firstDueDate?: string;
   @IsOptional() @IsString() notes?: string;
+  /**
+   * Substitui o plano PENDENTE que já existir para este título, em vez de
+   * recusar. É como se corrige um prazo combinado errado (data trocada, número
+   * de parcelas errado) — sem isto, errar uma vez congelava a cobrança, porque
+   * não há rota de editar nem de cancelar plano.
+   *
+   * Só as parcelas EM ABERTO são substituídas: parcela paga é dinheiro que
+   * entrou e vira histórico, nunca é apagada.
+   */
+  @IsOptional() @IsBoolean() substituirPendentes?: boolean;
+  /**
+   * Uuids das parcelas gerados no cliente (replay offline), um por parcela, na
+   * MESMA ordem — mesmo espírito de `cash_entry.create`'s `id`: o replay usa o
+   * id do cliente em vez de gerar um novo, senão duplicaria o plano a cada
+   * reenvio do push.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(60)
+  @IsUUID('4', { each: true })
+  installmentIds?: string[];
 }
 
 export class PayInstallmentDto {
   @IsString() method!: string;
   @IsOptional() @IsString() description?: string;
+  /**
+   * Uuid do lançamento do caixa gerado no cliente (replay offline). Repassado
+   * ao caixa para o replay não duplicar o lançamento — mesmo idioma de
+   * `PayExpenseDto.cashEntryId`.
+   */
+  @IsOptional() @IsUUID() cashEntryId?: string;
+  /**
+   * Desconto concedido para fechar ESTA parcela. Abate o saldo que está sendo
+   * quitado nesta operação — quitar o título inteiro é outra chamada, com o
+   * desconto do título. Exige `cashier.discount` e respeita o teto.
+   */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
+}
+
+/**
+ * Corrige o VALOR de uma parcela ainda em aberto.
+ *
+ * Existe porque o plano divide o total igualmente e a vida não: o cliente
+ * combina "essa eu pago 500 e as outras menores", ou o valor foi digitado
+ * errado. Sem isto a única saída era refazer o plano inteiro
+ * (`substituirPendentes`), o que reescreve as datas — quem só queria mudar um
+ * número perdia o prazo combinado.
+ *
+ * Parcela PAGA nunca entra aqui: mexer no valor de algo que já virou dinheiro
+ * no caixa faria o lançamento discordar da parcela para sempre.
+ */
+export class UpdateInstallmentDto {
+  @IsNumber() @IsPositive() @Max(99_999_999) amount!: number;
+  /** Por que mudou — fica no log de auditoria. */
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }

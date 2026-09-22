@@ -379,6 +379,11 @@ INSERT INTO permission (key, name) VALUES
   ('tracking.manage','Gerenciar acompanhamento'),
   ('cashier.read','Ver caixa'), ('cashier.write','Operar caixa'),
   ('cashier.manage','Gerenciar caixa'),
+  -- 0055: conceder desconto na quitação não é o mesmo que registrar
+  -- recebimento. `caixa` recebe dinheiro; perdoar dívida exige alçada. Owner e
+  -- gerente herdam pelos seeds abaixo (que dão tudo / tudo menos billing);
+  -- `caixa` tem lista explícita e fica de fora por construção.
+  ('cashier.discount','Conceder desconto na quitação'),
   ('invoice.issue','Emitir nota'),
   ('finance.read','Ver financeiro'), ('finance.write','Editar financeiro'),
   ('report.read','Ver relatórios'),
@@ -524,6 +529,10 @@ CREATE TABLE IF NOT EXISTS subject (
   customer_id uuid NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
   label       text,                          -- apelido (ex.: "Gol do João")
   identifier  text,                          -- genérico/indexado: placa na oficina
+  tipo        text,                          -- tipo de equipamento (ex.: celular, câmera)
+  marca       text,                          -- fabricante
+  modelo      text,                          -- modelo do equipamento
+  numero_serie text,                         -- número de série / IMEI
   attributes  jsonb,                         -- marca/modelo/ano/cor/km na oficina
   status      text NOT NULL DEFAULT 'active',-- 'active' | 'archived'
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -532,6 +541,21 @@ CREATE TABLE IF NOT EXISTS subject (
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subject_status_chk') THEN
     ALTER TABLE subject ADD CONSTRAINT subject_status_chk CHECK (status IN ('active','archived'));
+  END IF;
+END $$;
+-- Colunas de equipamento: adicionadas após o baseline inicial (migration 0054).
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='tipo' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN tipo text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='marca' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN marca text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='modelo' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN modelo text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='subject'::regclass AND attname='numero_serie' AND NOT attisdropped) THEN
+    ALTER TABLE subject ADD COLUMN numero_serie text;
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_subject_tenant_identifier ON subject(tenant_id, identifier);
@@ -773,12 +797,26 @@ CREATE TABLE IF NOT EXISTS service_order (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_order_status_chk') THEN
-    ALTER TABLE service_order ADD CONSTRAINT service_order_status_chk
-      CHECK (status IN ('aberta','aguardando_aprovacao','aprovada','em_execucao','concluida','entregue','cancelada'));
-  END IF;
-END $$;
+-- Os 11 status do workflow. RECRIADA sempre (sem o IF NOT EXISTS que havia
+-- aqui): com ele, um banco criado antes dos 4 status novos jamais receberia a
+-- definição atualizada — a constraint já existia, então o bloco não fazia nada
+-- e o banco seguia recusando `aguardando_pecas`, `pendente`, `sem_conserto` e
+-- `a_receber` com um 500 na cara do usuário. Idempotente do jeito certo é
+-- convergir para o estado desejado, não "pular se já tem alguma coisa".
+--
+-- Este arquivo é reaplicado sobre bancos que JÁ TÊM dados, e `ADD CONSTRAINT`
+-- valida as linhas existentes: uma OS com status fora da lista abortaria o
+-- setup inteiro. Normaliza antes (mesma regra da migration 0056).
+UPDATE service_order
+SET status = 'em_execucao'
+WHERE status NOT IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
+                     'aguardando_pecas','pendente','sem_conserto','concluida',
+                     'a_receber','entregue','cancelada');
+ALTER TABLE service_order DROP CONSTRAINT IF EXISTS service_order_status_chk;
+ALTER TABLE service_order ADD CONSTRAINT service_order_status_chk
+  CHECK (status IN ('aberta','aguardando_aprovacao','aprovada','em_execucao',
+                    'aguardando_pecas','pendente','sem_conserto','concluida',
+                    'a_receber','entregue','cancelada'));
 
 CREATE INDEX IF NOT EXISTS idx_service_order_tenant_status
   ON service_order(tenant_id, status);
@@ -1506,13 +1544,23 @@ CREATE TABLE IF NOT EXISTS cash_entry (
   sale_kind       text,                           -- 'os' | 'sale' (nullable) — venda recebida
   sale_id         uuid,                           -- id da venda apontada (nullable)
   description     text,
+  -- Desconto concedido na QUITAÇÃO (0055): distinto do desconto de documento
+  -- (sale.discount / service_order.discount), que abate o total na criação.
+  -- Aqui a dívida já existe e o documento fica intacto — o abatimento pertence
+  -- ao recebimento. A dívida fecha quando soma(amount + discount) cobre o saldo.
+  discount        numeric(14,2) NOT NULL DEFAULT 0,
+  discount_reason text,
   reversed_at     timestamptz,                    -- estorno lógico (fora dos somatórios)
   reversed_by     uuid,
   reversal_reason text,
   created_by      uuid NOT NULL,
   created_at      timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT cash_entry_direction_chk CHECK (direction IN ('in','out')),
-  CONSTRAINT cash_entry_amount_chk    CHECK (amount > 0),
+  -- amount = 0 é permitido SÓ quando há desconto: perdoar a dívida inteira é
+  -- caso real, e é justamente o que mais precisa ficar registrado. Lançamento
+  -- vazio (0 sem desconto) segue barrado — é erro de operação.
+  CONSTRAINT cash_entry_amount_chk    CHECK (amount >= 0 AND (amount > 0 OR discount > 0)),
+  CONSTRAINT cash_entry_discount_nonneg CHECK (discount >= 0),
   CONSTRAINT cash_entry_method_chk    CHECK (method IN ('pix','dinheiro','cartao_credito','cartao_debito','outro')),
   CONSTRAINT cash_entry_category_chk  CHECK (category IN ('os_payment','venda_avulsa','despesa','sangria','suprimento')),
   -- 'expense' entra na 0040: a baixa de uma conta a pagar marca a origem para o
@@ -2608,8 +2656,32 @@ BEGIN
 END $$;
 
 UPDATE module SET retired_at = now() WHERE key = 'sales' AND retired_at IS NULL;
+
 -- ============================================================
--- 0054 — acesso vencido (aditivo, idempotente)
+-- 0055 — Desconto na quitação (cash_entry) — aditivo, idempotente
+-- ============================================================
+-- O desconto concedido na QUITAÇÃO é distinto do desconto de documento
+-- (sale.discount / service_order.discount), que abate o total na criação.
+-- Aqui a dívida já existe e o documento fica intacto — o abatimento pertence
+-- ao recebimento. A dívida fecha quando soma(amount + discount) cobre o saldo.
+-- As colunas já constam no CREATE TABLE IF NOT EXISTS, mas bancos criados antes
+-- desta seção não as têm. O ALTER idempotente garante convergência.
+
+ALTER TABLE cash_entry ADD COLUMN IF NOT EXISTS discount        numeric(14,2) NOT NULL DEFAULT 0;
+ALTER TABLE cash_entry ADD COLUMN IF NOT EXISTS discount_reason text;
+
+-- Atualiza o CHECK de amount para permitir amount = 0 quando há desconto
+-- (perdoar a dívida inteira é caso real).
+ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_amount_chk;
+ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_amount_chk
+  CHECK (amount >= 0 AND (amount > 0 OR discount > 0));
+
+-- Desconto nunca negativo.
+ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_discount_nonneg;
+ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_discount_nonneg
+  CHECK (discount >= 0);
+-- ============================================================
+-- 0057 — acesso vencido (aditivo, idempotente)
 -- ============================================================
 -- Companheira de billing_find_expired_trials().
 --
@@ -2630,7 +2702,7 @@ $$;
 REVOKE ALL ON FUNCTION billing_find_expired_access() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION billing_find_expired_access() TO app_user;
 -- ============================================================
--- 0055 — planos comerciais: Essencial e Profissional
+-- 0058 — planos comerciais: Essencial e Profissional
 -- ============================================================
 --
 -- Antes existiam `trial` e `pro`, e os dois liberavam os MESMOS 8 módulos — o
@@ -2689,7 +2761,7 @@ DELETE FROM plan p
 WHERE p.key = 'pro'
   AND NOT EXISTS (SELECT 1 FROM subscription s WHERE s.plan_id = p.id);
 -- ============================================================
--- 0056 — carência depois do vencimento
+-- 0059 — carência depois do vencimento
 -- ============================================================
 --
 -- A régua combinada com o dono: vencido, o cliente fica em SOMENTE LEITURA por

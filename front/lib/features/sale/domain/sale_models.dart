@@ -27,9 +27,31 @@ abstract class Sale with _$Sale {
     @JsonKey(name: 'payment_status') @Default('a_receber') String paymentStatus,
     @JsonKey(name: 'created_at') String? createdAt,
     @Default(<SaleItem>[]) List<SaleItem> items,
+
+    /// Itens cujo saldo NÃO acompanhou a venda (ex.: estoque insuficiente).
+    ///
+    /// Só vem na resposta de criar/editar. A venda é gravada mesmo assim — o
+    /// dinheiro já entrou —, mas quem vendeu precisa saber que o estoque
+    /// daquele produto continua errado. Antes isso morria num log do servidor.
+    @JsonKey(name: 'stockWarnings')
+    @Default(<StockWarning>[])
+    List<StockWarning> stockWarnings,
   }) = _Sale;
 
   factory Sale.fromJson(Map<String, dynamic> json) => _$SaleFromJson(json);
+}
+
+/// Item cuja baixa de estoque falhou na venda — ver [Sale.stockWarnings].
+@freezed
+abstract class StockWarning with _$StockWarning {
+  const factory StockWarning({
+    @JsonKey(name: 'itemId') @Default('') String itemId,
+    @Default('') String name,
+    @Default('') String message,
+  }) = _StockWarning;
+
+  factory StockWarning.fromJson(Map<String, dynamic> json) =>
+      _$StockWarningFromJson(json);
 }
 
 /// Uma linha da venda (snapshot do item de estoque ou avulso).
@@ -93,6 +115,7 @@ class SaleItemDraft {
 class SaleDraft {
   const SaleDraft({
     this.customerId,
+    this.customerNote,
     required this.items,
     this.discount,
     this.description,
@@ -100,6 +123,11 @@ class SaleDraft {
   });
 
   final String? customerId;
+
+  /// Apelido/observação livre para venda sem cliente cadastrado (ex.: "Macarrão").
+  /// Ignorado pelo backend quando [customerId] for fornecido.
+  final String? customerNote;
+
   final List<SaleItemDraft> items;
 
   /// Desconto em valor sobre o total. O backend clampa ao bruto.
@@ -116,6 +144,10 @@ class SaleDraft {
 
   Map<String, dynamic> toJson() => {
         if (customerId != null) 'customerId': customerId,
+        if (customerId == null &&
+            customerNote != null &&
+            customerNote!.isNotEmpty)
+          'customerNote': customerNote,
         'items': items.map((i) => i.toJson()).toList(),
         if (discount != null && discount! > 0) 'discount': discount,
         if (description != null && description!.isNotEmpty)

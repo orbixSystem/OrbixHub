@@ -1,6 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
+import { OrderLockRegistry } from '../os/order-lock.registry';
 import { OsModule } from '../os/os.module';
 import { SaleModule } from '../sale/sale.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -9,6 +10,7 @@ import { TenancyModule } from '../tenancy/tenancy.module';
 import { InvoiceController } from './invoice.controller';
 import { InvoiceWebhookController } from './invoice-webhook.controller';
 import { InvoiceService } from './invoice.service';
+import { InvoiceOrderLock } from './invoice-order-lock';
 import { InvoiceRepository } from './invoice.repository';
 import { INVOICE_CONFIG_KEY } from './invoice.config';
 import { FISCAL_GATEWAY } from './fiscal/fiscal-gateway';
@@ -37,15 +39,23 @@ import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
   providers: [
     InvoiceService,
     InvoiceRepository,
+    InvoiceOrderLock,
     NuvemFiscalClient,
     { provide: FISCAL_GATEWAY, useClass: NoopFiscalGateway },
   ],
   exports: [InvoiceService],
 })
 export class InvoiceModule implements OnModuleInit {
-  constructor(private readonly registry: SettingsSectionRegistry) {}
+  constructor(
+    private readonly registry: SettingsSectionRegistry,
+    private readonly orderLocks: OrderLockRegistry,
+    private readonly orderLock: InvoiceOrderLock,
+  ) {}
 
   onModuleInit(): void {
+    // OS com nota ativa não pode ser reaberta nem excluída — quem sabe disso é
+    // o Fiscal, então é ele quem registra o impedimento na OS.
+    this.orderLocks.registrar(this.orderLock);
     // Seção aparece em GET /settings só se o módulo `invoice` estiver habilitado.
     // Credenciais sensíveis (certificado A1, CSC, série, ambiente) serão geridas
     // por endpoints próprios do módulo (tenant_module.settings['invoice']).

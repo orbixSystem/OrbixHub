@@ -5,10 +5,15 @@ import '../../auth/domain/auth_models.dart';
 
 /// A navigable destination, already gated in/out for the current user.
 class NavItem {
-  const NavItem(this.label, this.icon, this.route);
+  const NavItem(this.label, this.icon, this.route, {this.emBreve = false});
   final String label;
   final IconData icon;
   final String route;
+
+  /// Feature anunciada, ainda não liberada: o item aparece esmaecido com o selo
+  /// "Em breve" e o toque NÃO navega. Não é o mesmo que ausente — o cliente
+  /// precisa saber que vem.
+  final bool emBreve;
 }
 
 /// Rótulo + ícone por chave de módulo. Esta tabela é a lista de módulos que
@@ -31,7 +36,11 @@ const Map<String, (String, IconData)> moduleMeta = {
 /// A ORDEM dos itens é a ordem das chamadas no bloco "ORDEM DA SIDEBAR" abaixo
 /// — decisão de produto, não do backend. Antes o menu saía na ordem em que
 /// `/me` devolvia `modules[]`, então mudar a sidebar exigia mexer no servidor.
-List<NavItem> gatedNavItems(Me me) {
+/// [invoiceEnabled] é o flag de produto da NF, injetável para que o teste possa
+/// exercitar os DOIS lados — o default é o `const` real, então a produção não
+/// muda. Sem esse parâmetro, o caminho "Em breve" só rodaria num build de
+/// release, ou seja: nunca em teste.
+List<NavItem> gatedNavItems(Me me, {bool invoiceEnabled = kInvoiceEnabled}) {
   final items = <NavItem>[
     const NavItem('Início', Icons.home_outlined, '/'),
   ];
@@ -48,9 +57,13 @@ List<NavItem> gatedNavItems(Me me) {
     placed.add(key);
     final meta = moduleMeta[key];
     if (meta == null || !me.modules.contains(key)) return;
-    // NF desligada no front (kInvoiceEnabled=false): não vira item de menu,
-    // mesmo o backend habilitando o módulo `invoice`.
-    if (key == 'invoice' && !kInvoiceEnabled) return;
+    // NF ainda não liberada (kInvoiceEnabled=false): o item FICA, marcado
+    // "Em breve" e sem navegar. O módulo está no plano do cliente; esconder
+    // faria parecer que o sistema não emite nota.
+    if (key == 'invoice' && !invoiceEnabled) {
+      items.add(NavItem(meta.$1, meta.$2, '/m/$key', emBreve: true));
+      return;
+    }
     // Relatórios é o único módulo com visibilidade gerencial/financeira: além do
     // módulo habilitado, exige `report.read` (owner/gerente). Mecânico/caixa não
     // veem o item. Demais módulos seguem só pelo módulo habilitado.
@@ -65,11 +78,26 @@ List<NavItem> gatedNavItems(Me me) {
     items.add(const NavItem('Mensagens', Icons.forum_outlined, '/mensagens'));
   }
 
+  /// "A receber" não é módulo: é parte comercial do Caixa (mesmo gate do
+  /// controller de receivables: módulo `cashier` + `cashier.read`). Item
+  /// próprio porque cobrar é outro trabalho que operar a gaveta.
+  void addAReceber() {
+    if (!me.modules.contains('cashier') || !me.hasPermission('cashier.read')) {
+      return;
+    }
+    items.add(const NavItem(
+      'A receber',
+      Icons.request_quote_outlined,
+      '/m/cashier/a-receber',
+    ));
+  }
+
   // ── ORDEM DA SIDEBAR ───────────────────────────────────────────────────────
   // A ordem destas linhas É a ordem do menu. Definida pelo dono: o que se usa
   // todo dia primeiro (caixa → OS → despesas → estoque → mensagens), o resto
   // depois. Para reordenar, mova as linhas — nada mais precisa mudar.
   addModule('cashier');
+  addAReceber();
   addModule('os');
   addModule('expenses');
   addModule('inventory');

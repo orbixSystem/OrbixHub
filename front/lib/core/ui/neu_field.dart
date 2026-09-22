@@ -33,6 +33,11 @@ class NeuTextField extends StatefulWidget {
     this.onFieldSubmitted,
     this.onChanged,
     this.prefixIcon,
+    /// Prefixo textual fixo (ex.: `'R$ '`). Campo de dinheiro sem isto obriga o
+    /// operador a deduzir a unidade — e o app tem campos de dinheiro em quase
+    /// toda tela de caixa.
+    this.prefixText,
+    this.textAlign = TextAlign.start,
     this.suffix,
     this.enabled = true,
     this.maxLines = 1,
@@ -60,6 +65,8 @@ class NeuTextField extends StatefulWidget {
   final ValueChanged<String>? onFieldSubmitted;
   final ValueChanged<String>? onChanged;
   final IconData? prefixIcon;
+  final String? prefixText;
+  final TextAlign textAlign;
   final Widget? suffix;
   final bool enabled;
   final int maxLines;
@@ -139,10 +146,17 @@ class _NeuTextFieldState extends State<NeuTextField> {
             textCapitalization: widget.textCapitalization,
             autofocus: widget.autofocus,
             style: TextStyle(color: neu.ink, fontSize: 16),
+            textAlign: widget.textAlign,
             decoration: InputDecoration(
               counterText: '', // esconde o contador; o cap de maxLength continua
               hintText: widget.hint,
               hintStyle: TextStyle(color: neu.inkFaint),
+              prefixText: widget.prefixText,
+              prefixStyle: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
               prefixIcon: widget.prefixIcon != null
                   ? Icon(widget.prefixIcon, size: 20, color: neu.inkMuted)
                   : null,

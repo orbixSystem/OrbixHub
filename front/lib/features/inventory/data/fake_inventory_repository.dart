@@ -27,6 +27,7 @@ class FakeInventoryRepository implements InventoryRepository {
     String? kind,
     String active = 'true',
     bool lowStock = false,
+    bool outOfStock = false,
     String sort = 'name_asc',
     int page = 1,
   }) async {
@@ -48,7 +49,12 @@ class FakeInventoryRepository implements InventoryRepository {
           (i.barcode?.toLowerCase().contains(term) ?? false) ||
           (i.manufacturerCode?.toLowerCase().contains(term) ?? false));
     }
-    if (lowStock) {
+    if (outOfStock) {
+      list = list.where(
+        (i) =>
+            i.kind == 'product' && (double.tryParse(i.currentStock) ?? 0) <= 0,
+      );
+    } else if (lowStock) {
       list = list.where(_isLow);
     }
     final all = list.toList()..sort(_comparatorFor(sort));

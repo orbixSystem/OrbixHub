@@ -46,7 +46,14 @@ void main() {
     for (final f in Directory('lib').listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
       if (f.path.endsWith('.g.dart') || f.path.endsWith('.freezed.dart')) continue;
-      if (f.path.contains('_pdf')) continue;
+      // Papel é outro meio: 9pt num documento impresso é normal e legível, e a
+      // auditoria SysOne é explicitamente sobre TELA. O filtro antigo dizia
+      // isso mas só pegava arquivos com `_pdf` no nome — `core/pdf/` passava
+      // batido e ficava sujeito ao piso de tela sem que ninguém percebesse.
+      if (f.path.contains('_pdf') ||
+          f.path.contains('${Platform.pathSeparator}pdf${Platform.pathSeparator}')) {
+        continue;
+      }
       final linhas = f.readAsLinesSync();
       for (var i = 0; i < linhas.length; i++) {
         for (final m in regex.allMatches(linhas[i])) {

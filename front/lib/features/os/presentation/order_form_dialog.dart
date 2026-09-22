@@ -148,6 +148,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   /// forçarem rebuild com o texto novo.
   int _fillGen = 0;
 
+  // ---- acessórios do novo subject ----
+  bool _hasAccessories = false;
+  final List<SubjectAccessory> _accessories = [];
+  final _accNome = TextEditingController();
+  final _accMarca = TextEditingController();
+  final _accModelo = TextEditingController();
+  final _accNumeroSerie = TextEditingController();
+  final _accObs = TextEditingController();
+  final _accFormKey = GlobalKey<FormState>();
+
   // Config do módulo de clientes (usaSubjects + rótulo + campos dinâmicos).
   // Default seguro: usa veículos, sem campos até a config carregar.
   CustomersConfig _config = const CustomersConfig();
@@ -180,6 +190,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       _newName,
       _newPhone,
       ..._subjFields.values,
+      _accNome,
+      _accMarca,
+      _accModelo,
+      _accNumeroSerie,
+      _accObs,
     ]) {
       c.dispose();
     }
@@ -318,6 +333,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     _autoFilled.clear();
     _plateInfo = null;
     _fillGen++;
+    _hasAccessories = false;
+    _accessories.clear();
+    _accNome.clear();
+    _accMarca.clear();
+    _accModelo.clear();
+    _accNumeroSerie.clear();
+    _accObs.clear();
   }
 
   Future<void> _pickCustomer(CustomerOption c) async {
@@ -351,14 +373,19 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     if (_mode == _CustomerMode.existing) {
       // Cliente existente pode vir com um veículo NOVO cadastrado aqui mesmo —
       // o backend cria o veículo para ele e já vincula na OS.
-      final (identifier, attrs) = _novoSubjetoParaExistente
+      final emptyFields = (identifier: null, tipo: null, marca: null, modelo: null, numeroSerie: null, attrs: null);
+      final fields = _novoSubjetoParaExistente
           ? _buildSubjectFields()
-          : (null, null);
+          : emptyFields;
       return OrderDraft(
         customerId: _customer!.id,
         subjectId: _subject?.id,
-        newSubjectIdentifier: identifier,
-        newSubjectAttributes: attrs,
+        newSubjectIdentifier: fields.identifier,
+        newSubjectTipo: fields.tipo,
+        newSubjectMarca: fields.marca,
+        newSubjectModelo: fields.modelo,
+        newSubjectNumeroSerie: fields.numeroSerie,
+        newSubjectAttributes: fields.attrs,
         newSubjectPlateData:
             _novoSubjetoParaExistente ? _plateInfo?.toJson() : null,
         complaint: complaint,
@@ -371,12 +398,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
     // Cliente novo: identifier (placa) + atributos do veículo a partir dos
     // campos dinâmicos da config.
-    final (identifier, attrs) = _buildSubjectFields();
+    final fields = _buildSubjectFields();
     return OrderDraft(
       newCustomerName: _newName.text.trim(),
       newCustomerPhone: _newPhone.text.trim(),
-      newSubjectIdentifier: identifier,
-      newSubjectAttributes: attrs,
+      newSubjectIdentifier: fields.identifier,
+      newSubjectTipo: fields.tipo,
+      newSubjectMarca: fields.marca,
+      newSubjectModelo: fields.modelo,
+      newSubjectNumeroSerie: fields.numeroSerie,
+      newSubjectAttributes: fields.attrs,
       newSubjectPlateData: _plateInfo?.toJson(),
       complaint: complaint,
       diagnosis: diagnosis,
@@ -387,22 +418,56 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     );
   }
 
-  /// Lê os campos dinâmicos do veículo: `identifier` (placa) sai separado; o
-  /// resto vira `attributes`. Vazio quando o tenant não usa veículos.
-  (String?, Map<String, dynamic>?) _buildSubjectFields() {
-    if (!_usaSubjects) return (null, null);
+  /// Lê os campos dinâmicos do equipamento: `identifier`/`tipo`/`marca`/`modelo`/
+  /// `numero_serie` saem como campos dedicados; o restante vai para `attributes`.
+  /// Vazio quando o tenant não usa subjects.
+  ({
+    String? identifier,
+    String? tipo,
+    String? marca,
+    String? modelo,
+    String? numeroSerie,
+    Map<String, dynamic>? attrs,
+  }) _buildSubjectFields() {
+    if (!_usaSubjects) {
+      return (identifier: null, tipo: null, marca: null, modelo: null, numeroSerie: null, attrs: null);
+    }
     final built = <String, dynamic>{};
     String? identifier;
+    String? tipo;
+    String? marca;
+    String? modelo;
+    String? numeroSerie;
     for (final f in _config.subjectFields) {
       final raw = _subjFields[f.chave]?.text.trim() ?? '';
-      if (f.chave == 'identifier') {
-        identifier = raw.isEmpty ? null : raw;
-        continue;
+      switch (f.chave) {
+        case 'identifier':
+          identifier = raw.isEmpty ? null : raw;
+        case 'tipo':
+          tipo = raw.isEmpty ? null : raw;
+        case 'marca':
+          marca = raw.isEmpty ? null : raw;
+        case 'modelo':
+          modelo = raw.isEmpty ? null : raw;
+        case 'numero_serie':
+          numeroSerie = raw.isEmpty ? null : raw;
+        default:
+          if (raw.isNotEmpty) {
+            built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
+          }
       }
-      if (raw.isEmpty) continue;
-      built[f.chave] = f.tipo == 'number' ? (num.tryParse(raw) ?? raw) : raw;
     }
-    return (identifier, built.isEmpty ? null : built);
+    if (_hasAccessories && _accessories.isNotEmpty) {
+      built['acessorios'] = _accessories.map((a) => a.toJson()).toList();
+    }
+    return (
+      identifier: identifier,
+      tipo: tipo,
+      marca: marca,
+      modelo: modelo,
+      numeroSerie: numeroSerie,
+      attrs: built.isEmpty ? null : built,
+    );
   }
 
   /// Cria a OS e, sobre ela, lança tudo que foi preenchido no wizard:
@@ -516,8 +581,11 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     }
   }
 
-  String _subjectTitle(SubjectOption s) =>
-      s.label?.isNotEmpty == true ? s.label! : (s.identifier ?? 'Veículo');
+  String _subjectTitle(SubjectOption s) => s.label?.isNotEmpty == true
+      ? s.label!
+      : (s.identifier ??
+          ref.read(vocabProvider)['objeto.singular'] ??
+          'Objeto');
 
   // ---------------------------------------------------------------------------
   // Navegação do wizard
@@ -1074,6 +1142,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   }
 
   Widget _novoSubjectFields() {
+    final neu = context.neu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1084,7 +1153,161 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           if (idx > 0) const SizedBox(height: 12),
           _subjectFieldWidget(_config.subjectFields[idx]),
         ],
+        const SizedBox(height: 16),
+        _osAccessoriesSection(neu),
       ],
+    );
+  }
+
+  void _addOsAccessory() {
+    if (!_accFormKey.currentState!.validate()) return;
+    setState(() {
+      _accessories.add(SubjectAccessory(
+        nome: _accNome.text.trim(),
+        marca: _accMarca.text.trim().isEmpty ? null : _accMarca.text.trim(),
+        modelo: _accModelo.text.trim().isEmpty ? null : _accModelo.text.trim(),
+        numeroSerie: _accNumeroSerie.text.trim().isEmpty
+            ? null
+            : _accNumeroSerie.text.trim(),
+        observacoes: _accObs.text.trim().isEmpty ? null : _accObs.text.trim(),
+      ));
+      _accNome.clear();
+      _accMarca.clear();
+      _accModelo.clear();
+      _accNumeroSerie.clear();
+      _accObs.clear();
+    });
+  }
+
+  Widget _osAccessoriesSection(NeuTokens neu) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(color: neu.line, height: 1),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(Icons.extension_rounded, size: 20, color: neu.inkMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Possui acessórios?',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Switch.adaptive(
+              value: _hasAccessories,
+              activeTrackColor: neu.accent,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _hasAccessories = v),
+            ),
+          ],
+        ),
+        if (_hasAccessories) ...[
+          const SizedBox(height: 12),
+          if (_accessories.isNotEmpty) ...[
+            for (var i = 0; i < _accessories.length; i++) ...[
+              _osAccessoryTile(neu, _accessories[i], i),
+              if (i < _accessories.length - 1) const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
+          ],
+          _osAccessoryForm(neu),
+        ],
+      ],
+    );
+  }
+
+  Widget _osAccessoryTile(NeuTokens neu, SubjectAccessory acc, int index) {
+    final details = <String>[
+      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+      if (acc.modelo != null && acc.modelo!.isNotEmpty) acc.modelo!,
+    ];
+    return NeuSurface(
+      elevation: NeuElevation.flat,
+      radius: NeuTokens.rField,
+      color: neu.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.extension_outlined, size: 18, color: neu.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(acc.nome, style: TextStyle(color: neu.ink, fontSize: 14, fontWeight: FontWeight.w700)),
+                if (details.isNotEmpty)
+                  Text(details.join(' · '), style: TextStyle(color: neu.inkMuted, fontSize: 13)),
+                if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                  Text('S/N: ${acc.numeroSerie}', style: TextStyle(color: neu.inkFaint, fontSize: 12)),
+              ],
+            ),
+          ),
+          NeuIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Remover acessório',
+            size: 32,
+            color: neu.danger,
+            onPressed: _saving ? null : () => setState(() => _accessories.removeAt(index)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _osAccessoryForm(NeuTokens neu) {
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rCard,
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _accFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Novo acessório', style: TextStyle(color: neu.ink, fontSize: 14, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            NeuTextField(
+              controller: _accNome,
+              label: 'Nome *',
+              hint: 'Ex.: Carregador, Capa, Antena',
+              maxLength: 120,
+              validator: (v) => v == null || v.trim().isEmpty ? 'Nome do acessório é obrigatório' : null,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: NeuTextField(controller: _accMarca, label: 'Marca (opcional)', maxLength: 120)),
+                const SizedBox(width: 10),
+                Expanded(child: NeuTextField(controller: _accModelo, label: 'Modelo (opcional)', maxLength: 120)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            NeuTextField(controller: _accNumeroSerie, label: 'Nº de série (opcional)', maxLength: 120),
+            const SizedBox(height: 10),
+            NeuTextField(controller: _accObs, label: 'Observações (opcional)', maxLength: 250, maxLines: 2),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: NeuButton(
+                label: 'Adicionar acessório',
+                icon: Icons.add_rounded,
+                kind: NeuButtonKind.secondary,
+                onPressed: _saving ? null : _addOsAccessory,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1122,11 +1345,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
       keyboardType: f.tipo == 'number'
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      // Identificação = placa: máscara Mercosul/antiga (MAIÚSCULO, 7 chars).
-      inputFormatters: isIdentifier ? [PlateInputFormatter()] : null,
+      hint: f.chave == 'tipo'
+          ? ref.read(vocabProvider)['os.hint.tipo_objeto']
+          : null,
+      // Máscara Mercosul/antiga só quando o NICHO diz que o campo é uma placa.
+      // Não vem da feature de consulta (capacidade ≠ formato: nº de série numa
+      // assistência técnica é consultável e não é placa).
+      inputFormatters: f.ehPlaca ? [PlateInputFormatter()] : null,
       validator: isIdentifier
           ? (v) => (v == null || v.trim().isEmpty)
-              ? 'Informe a ${f.rotulo.toLowerCase()}'
+              ? 'Informe o ${f.rotulo.toLowerCase()}'
               : null
           : null,
     );
@@ -1340,7 +1568,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         _totaisSection(),
         _secao(
           'Fotos',
-          hint: 'Registre o estado do veículo na entrada.',
+          hint: ref.read(vocabProvider)['os.hint.fotos'],
         ),
         _fotosSection(),
       ],
@@ -1607,7 +1835,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           NeuTextField(
             label: 'Nome do template *',
             controller: _templateNome,
-            hint: 'ex.: Revisão simples',
+            hint: ref.read(vocabProvider)['os.hint.template'],
             prefixIcon: Icons.checklist_rounded,
             enabled: !_saving,
             maxLength: 120,
@@ -1706,7 +1934,13 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           label: 'Desconto (opcional)',
           controller: _discount,
           hint: '0,00',
-          prefixIcon: Icons.discount_outlined,
+          // Sem formatador este campo aceitava qualquer texto e o valor era
+          // deduzido por `double.tryParse`, que devolve 0 em silêncio — digitar
+          // "1.2.3" ou "10,,5" zerava o desconto sem avisar. Agora tem a mesma
+          // apresentação e a mesma máscara dos demais campos de dinheiro.
+          prefixText: 'R\$ ',
+          textAlign: TextAlign.right,
+          inputFormatters: const [DecimalInputFormatter()],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           enabled: !_saving,
           onChanged: (_) => setState(() {}),
@@ -1815,7 +2049,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
           NeuTextField(
             label: 'Legenda das fotos (opcional)',
             controller: _fotoLegenda,
-            hint: 'ex.: estado na entrada',
+            hint: ref.read(vocabProvider)['os.hint.legenda_foto'],
             prefixIcon: Icons.notes_outlined,
             enabled: !_saving,
             maxLength: 200,

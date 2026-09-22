@@ -114,3 +114,59 @@ UpdateStatus resolveUpdateStatus({
       0;
   return maisNovoDisponivel ? UpdateStatus.disponivel : UpdateStatus.emDia;
 }
+
+/// Identidade da versão publicada, para lembrar o que o usuário já dispensou.
+///
+/// Versão **e** build: o pubspec fica em 1.0.0 por várias publicações, então só
+/// a versão não distingue 1.0.0+13 de 1.0.0+14 — adiar uma silenciaria todas as
+/// seguintes.
+String chaveDaVersao(AppUpdate u) => '${u.version ?? ''}+${u.buildNumber ?? 0}';
+
+/// ONDE o aviso de atualização aparece.
+enum AvisoAtualizacao {
+  /// Nada a mostrar.
+  nenhum,
+
+  /// Tela cheia: a versão não é mais atendida pelo servidor. Sem "depois".
+  bloqueio,
+
+  /// Faixa no topo, com "Depois" — há trabalho em curso e a decisão é do
+  /// usuário.
+  banner,
+
+  /// Só no sino. É o destino do "Depois": o aviso não desaparece (a
+  /// atualização continua pendente), mas para de interromper.
+  sino,
+}
+
+/// Decide onde avisar. Função pura — a regra que decide se a oficina é
+/// interrompida no meio do expediente não deveria depender de rede para ser
+/// testada.
+///
+/// [adiada] é a [chaveDaVersao] que o usuário dispensou (persistida entre
+/// sessões). Duas consequências deliberadas:
+///
+/// - adiar NUNCA silencia uma atualização obrigatória — ali seguir usando daria
+///   erro a cada ação, então não há "depois" a respeitar;
+/// - adiar vale para AQUELA versão. Quando sai uma nova, o banner volta: quem
+///   disse "depois" para a 1.0.13 não disse para a 1.0.14.
+///
+/// E, adiado, o aviso não é esquecido: vai para o sino e fica lá enquanto a
+/// atualização estiver pendente. Ressurgir como banner a cada hora é o que
+/// treina o usuário a ignorar avisos.
+AvisoAtualizacao resolveAviso({
+  required UpdateStatus status,
+  required AppUpdate update,
+  required String? adiada,
+}) {
+  switch (status) {
+    case UpdateStatus.emDia:
+      return AvisoAtualizacao.nenhum;
+    case UpdateStatus.obrigatoria:
+      return AvisoAtualizacao.bloqueio;
+    case UpdateStatus.disponivel:
+      return adiada == chaveDaVersao(update)
+          ? AvisoAtualizacao.sino
+          : AvisoAtualizacao.banner;
+  }
+}

@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/pdf/document_company.dart';
 import '../../../core/pdf/pdf_theme.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../customers/domain/customers_models.dart';
 import '../domain/os_models.dart';
 import 'os_status.dart';
 
@@ -22,10 +23,16 @@ Future<Uint8List> buildOsPdf(
   ServiceOrder order,
   PdfPageFormat format, {
   DocumentCompany? company,
+  /// Desconto concedido na quitação (vem do resumo de pagamento do caixa). Não
+  /// abate o total da OS — explica por que ela encerrou com menos dinheiro.
+  double descontoQuitacao = 0,
   /// Rótulo do objeto atendido, vindo do nicho ("Veículo", "Equipamento").
   /// O PDF é gerado fora da árvore de widgets e não tem sessão para consultar,
   /// então o chamador passa. Default genérico para quem não passar.
   String objetoLabel = 'Objeto',
+  /// Acessórios do equipamento — o chamador busca o subject e extrai os
+  /// acessórios de `attributes['acessorios']`. Lista vazia = sem seção.
+  List<SubjectAccessory> acessorios = const [],
 }) async {
   final doc = pw.Document();
   final agora = DateTime.now();
@@ -71,6 +78,12 @@ Future<Uint8List> buildOsPdf(
           pw.SizedBox(height: 4),
           pdfStack(linhas),
         ],
+        if (acessorios.isNotEmpty) ...[
+          pw.SizedBox(height: 6),
+          pdfSectionBand('Acessórios do ${objetoLabel.toLowerCase()}'),
+          pw.SizedBox(height: 4),
+          _blocoAcessorios(acessorios),
+        ],
         if ((order.complaint ?? '').trim().isNotEmpty ||
             (order.diagnosis ?? '').trim().isNotEmpty) ...[
           pw.SizedBox(height: 8),
@@ -94,6 +107,7 @@ Future<Uint8List> buildOsPdf(
                 desconto: desconto,
                 total: total,
                 paymentStatus: order.paymentStatus,
+                descontoQuitacao: descontoQuitacao,
               ),
             ),
           ],
@@ -261,6 +275,67 @@ List<pw.Widget> _linhasClienteVeiculo(ServiceOrder order, String objetoLabel) {
   ];
 }
 
+pw.Widget _blocoAcessorios(List<SubjectAccessory> acessorios) {
+  return pdfStack(
+    [
+      for (final acc in acessorios)
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: 6,
+              height: 6,
+              margin: const pw.EdgeInsets.only(top: 3, right: 6),
+              decoration: const pw.BoxDecoration(
+                shape: pw.BoxShape.circle,
+                color: PdfDocTokens.brand,
+              ),
+            ),
+            pw.Expanded(
+              child: pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(
+                      text: acc.nome,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfDocTokens.graphite,
+                      ),
+                    ),
+                    if ([
+                      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+                      if (acc.modelo != null && acc.modelo!.isNotEmpty)
+                        acc.modelo!,
+                    ]
+                        case final details
+                        when details.isNotEmpty)
+                      pw.TextSpan(
+                        text: '  ${details.join(' · ')}',
+                        style: const pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfDocTokens.muted,
+                        ),
+                      ),
+                    if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                      pw.TextSpan(
+                        text: '  S/N: ${acc.numeroSerie}',
+                        style: const pw.TextStyle(
+                          fontSize: 7.5,
+                          color: PdfDocTokens.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+    ],
+    gap: 2,
+  );
+}
+
 pw.Widget _blocoRelatoDiagnostico(ServiceOrder order) {
   final relato = (order.complaint ?? '').trim();
   final diagnostico = (order.diagnosis ?? '').trim();
@@ -363,12 +438,17 @@ List<(String, String)> osTotaisLinhas({
   required double somaItens,
   required double desconto,
   required double total,
+  double descontoQuitacao = 0,
 }) =>
     [
       ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
       ('Valor das peças/serviços', formatMoney(somaItens)),
       if (desconto > 0.005) ('Desconto', formatMoney(desconto)),
       ('Valor total', formatMoney(total)),
+      // Depois do total: a OS vale o que vale, e o desconto na quitação não
+      // altera isso — ele explica o encerramento da dívida com menos dinheiro.
+      if (descontoQuitacao > 0.005)
+        ('Desconto na quitação', formatMoney(descontoQuitacao)),
     ];
 
 pw.Widget _blocoTotais({
@@ -377,12 +457,14 @@ pw.Widget _blocoTotais({
   required double desconto,
   required double total,
   required String paymentStatus,
+  double descontoQuitacao = 0,
 }) {
   final linhas = osTotaisLinhas(
     qtdTotal: qtdTotal,
     somaItens: somaItens,
     desconto: desconto,
     total: total,
+    descontoQuitacao: descontoQuitacao,
   );
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.stretch,

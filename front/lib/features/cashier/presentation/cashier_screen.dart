@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/widgets/offline_notices.dart';
 import '../../../core/ui/ui.dart';
@@ -12,7 +13,7 @@ import '../domain/cashier_models.dart';
 import '../../expenses/presentation/expense_detail_dialog.dart';
 import '../../os/presentation/os_detail_dialog.dart';
 import '../../os/presentation/payment_status.dart';
-import '../../receivables/presentation/receivables_tab.dart';
+import '../../receivables/presentation/receivables_providers.dart';
 import '../../sale/domain/sale_models.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -22,10 +23,11 @@ import 'receive_picker_dialog.dart';
 import '../domain/cashier_timeline.dart';
 import 'cashier_timeline_list.dart';
 
-/// Módulo Caixa: três abas — "Caixa" (entradas do dia + ações rápidas), "Fiado"
-/// (contas a receber, agrupadas por cliente) e "Histórico" (movimentos por
-/// período — o relatório do caixa). Quais aparecem depende do papel: Fiado
-/// exige `cashier.read`, Histórico é de gestão.
+/// Módulo Caixa: duas abas — "Caixa" (entradas do dia + ações rápidas) e
+/// "Histórico" (movimentos por período — o relatório do caixa, de gestão).
+/// Contas a receber (agrupadas por cliente) é TELA própria
+/// (`/m/cashier/a-receber`, item de menu abaixo de Caixa + botão aqui) — não é
+/// mais aba: duas rotas para a MESMA carteira divergiam com o tempo.
 ///
 /// Corpo apenas — a moldura é do shell. UI só fala com o repository (via
 /// controller). Visual 100% no design system neumórfico (`core/ui`), responsivo.
@@ -37,7 +39,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
-  int _tab = 0; // 0 = Caixa · 1 = Fiado · 2 = Histórico
+  int _tab = 0; // 0 = Caixa · 1 = Histórico
 
   bool _canWrite() {
     final s = ref.read(sessionControllerProvider);
@@ -66,14 +68,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
     final canManage = _canManage();
-    final canFiado = _canReadReceivables();
-    // Abas montadas conforme o papel: o atendente vê Caixa (+ Fiado, que
-    // precisa para cobrar); o Histórico é relatório de gestão. Ordem =
-    // frequência de uso: opera-se o dia, cobra-se o fiado, consulta-se o período.
+    // Abas montadas conforme o papel: todo mundo vê Caixa; Histórico é
+    // relatório de gestão.
     final segments = <int, String>{
       0: 'Caixa',
-      if (canFiado) 1: 'Fiado',
-      if (canManage) 2: 'Histórico',
+      if (canManage) 1: 'Histórico',
     };
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -99,7 +98,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            Expanded(child: _body(canFiado: canFiado, canManage: canManage)),
+            Expanded(child: _body(canManage: canManage)),
           ],
         ),
       ),
@@ -108,9 +107,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
 
   /// Corpo da aba selecionada. Cai no Caixa quando a aba guardada não está
   /// mais disponível (troca de papel/empresa sem recriar a tela).
-  Widget _body({required bool canFiado, required bool canManage}) {
-    if (_tab == 1 && canFiado) return ReceivablesTab(canWrite: _canWrite());
-    if (_tab == 2 && canManage) return const _CashierHistory();
+  Widget _body({required bool canManage}) {
+    if (_tab == 1 && canManage) return const _CashierHistory();
     return _dayBody();
   }
 
@@ -128,7 +126,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           canWrite: _canWrite(),
           canManage: _canManage(),
           canSale: _canSale(),
-          onVerHistorico: () => setState(() => _tab = 2),
+          canFiado: _canReadReceivables(),
+          onVerHistorico: () => setState(() => _tab = 1),
         );
       },
     );
@@ -211,6 +210,7 @@ class _FreeBody extends ConsumerWidget {
     required this.canWrite,
     required this.canManage,
     required this.canSale,
+    required this.canFiado,
     this.onVerHistorico,
   });
 
@@ -218,6 +218,7 @@ class _FreeBody extends ConsumerWidget {
   final bool canWrite;
   final bool canManage;
   final bool canSale;
+  final bool canFiado;
 
   /// Atalho para a aba Histórico (só existe para quem tem gestão).
   final VoidCallback? onVerHistorico;
@@ -229,9 +230,10 @@ class _FreeBody extends ConsumerWidget {
       children: [
         Text('Caixa de hoje', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        // AÇÕES em grid: duas portas claras de entrada de dinheiro. Fiado (ver
-        // quem deve, parcelar, receber parcela) tem aba própria — não é uma
-        // ação de checkout, é gestão de dívida.
+        // AÇÕES em grid: portas claras de entrada de dinheiro, todas resolvidas
+        // aqui mesmo num modal. "A receber" NÃO entra: ela navega para outra
+        // tela, e um cartão que teleporta no meio de cartões que agem ensina a
+        // coisa errada. Ela aparece como RESUMO logo abaixo.
         if (canWrite || canSale)
           CoachTarget(
             'caixa.acoes',
@@ -256,6 +258,10 @@ class _FreeBody extends ConsumerWidget {
               ],
             ),
           ),
+        if (canFiado) ...[
+          const SizedBox(height: 20),
+          const _ResumoAReceber(),
+        ],
         const SizedBox(height: 24),
         Row(
           children: [
@@ -285,6 +291,67 @@ class _FreeBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Quanto há na rua, no próprio Caixa — INFORMAÇÃO que leva ao detalhe, não um
+/// botão de ação. Antes isto era um cartão no grid de ações, irmão de "Venda
+/// avulsa" e "Receber OS": os dois resolvem ali mesmo, e ele teleportava.
+///
+/// De quebra resolve o que faltava: para saber quanto se tem a receber era
+/// preciso sair do Caixa e abrir outra tela.
+class _ResumoAReceber extends ConsumerWidget {
+  const _ResumoAReceber();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final neu = context.neu;
+    final page = ref.watch(debtorsProvider).value;
+    // Enquanto carrega (ou se falhar), o Caixa não é lugar de spinner nem de
+    // erro de outra tela: o resumo simplesmente não aparece.
+    if (page == null) return const SizedBox.shrink();
+
+    final devedores = page.total == 1 ? '1 cliente' : '${page.total} clientes';
+    final vencido = page.overdueCount > 0
+        ? ' · ${formatMoney(page.overdueTotal)} vencido'
+        : '';
+    return InkWell(
+      onTap: () => context.go('/m/cashier/a-receber'),
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: NeuSurface(
+        elevation: NeuElevation.inset,
+        radius: NeuTokens.rField,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.request_quote_outlined, size: 18, color: neu.inkMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'A receber',
+                    style: TextStyle(color: neu.inkMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatMoney(page.totalDue)} · $devedores$vencido',
+                    maxLines: 2,
+                    style: TextStyle(
+                      color: page.overdueCount > 0 ? neu.danger : neu.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: neu.inkFaint),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -372,7 +439,7 @@ class _AcaoCard extends StatelessWidget {
                   maxLines: 2,
                   style: TextStyle(
                     color: neu.ink,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
@@ -673,6 +740,13 @@ class _CashierHistory extends ConsumerWidget {
                             label: 'Saldo',
                             value: formatMoney(s.net),
                             color: neu.navy),
+                        // Só quando houve. Métrica de zero permanente vira
+                        // ruído e ensina o olho a ignorar o bloco inteiro.
+                        if (s.totalDiscount > 0)
+                          _Metric(
+                              label: 'Descontos',
+                              value: formatMoney(s.totalDiscount),
+                              color: neu.warning),
                       ],
                     ),
                   ),
@@ -697,7 +771,6 @@ class _CashierHistory extends ConsumerWidget {
                       final todos = buildCashierTimeline(
                         entries: data.entries,
                         sales: data.sales,
-                        osTitles: data.osTitles,
                       );
                       // Servidor já recortou; aqui fica só a coerência entre as
                       // duas fontes (venda em fiado não é entrada de caixa).
@@ -828,15 +901,6 @@ class _HistoricoFiltrosState extends State<_HistoricoFiltros> {
           ),
         ),
         const SizedBox(height: 2),
-        if (widget.filtro == CashierFilter.fiado)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Vendas e OS com saldo em aberto no período. A carteira inteira '
-              '(inclusive de antes) fica no fiado, na aba Caixa.',
-              style: TextStyle(color: neu.inkMuted, fontSize: 14),
-            ),
-          ),
         if (widget.filtro == CashierFilter.entradas)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -893,7 +957,7 @@ class _ChoicePill extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? neu.onNavy : neu.inkMuted,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),

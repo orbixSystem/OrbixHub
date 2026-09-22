@@ -14,6 +14,7 @@ import { OsPublicService } from './os-public.service';
 import { OsTrackingService } from './os-tracking.service';
 import { OsRepository } from './os.repository';
 import { OsSubjectHistoryProvider } from './os-subject-history.provider';
+import { OrderLockRegistry } from './order-lock.registry';
 
 /**
  * Módulo Ordens de Serviço (OS) — núcleo (Fase 1): cabeçalho + itens, workflow de
@@ -42,10 +43,19 @@ import { OsSubjectHistoryProvider } from './os-subject-history.provider';
     OsTrackingService,
     OsRepository,
     OsSubjectHistoryProvider,
+    OrderLockRegistry,
   ],
   // Exporta o provider de histórico para o CustomersModule plugá-lo no seam
   // SubjectHistoryProvider (forwardRef — dependência mútua). OsPublicService é
   // exportado para o RealtimeModule resolver a sala de um token público.
-  exports: [OsService, OsMetricsService, OsSubjectHistoryProvider, OsPublicService],
+  // OrderLockRegistry sai para que os módulos donos de documentos amarrados a
+  // uma OS (hoje `invoice`) registrem o impedimento deles em reabrir/excluir.
+  exports: [
+    OsService,
+    OsMetricsService,
+    OsSubjectHistoryProvider,
+    OsPublicService,
+    OrderLockRegistry,
+  ],
 })
 export class OsModule {}

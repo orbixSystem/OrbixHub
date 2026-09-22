@@ -79,6 +79,11 @@ abstract class CashEntry with _$CashEntry {
     @JsonKey(name: 'sale_kind') String? saleKind,
     @JsonKey(name: 'sale_id') String? saleId,
     String? description,
+    /// Desconto concedido na quitação. Vem como String (Decimal do Postgres,
+    /// como `amount`). A dívida fechou por `amount + discount` — mostrar só o
+    /// `amount` faria a conta não bater aos olhos de quem confere.
+    @Default('0') String discount,
+    @JsonKey(name: 'discount_reason') String? discountReason,
     @JsonKey(name: 'reversed_at') String? reversedAt,
     @JsonKey(name: 'created_at') String? createdAt,
   }) = _CashEntry;
@@ -125,6 +130,9 @@ abstract class CashSummary with _$CashSummary {
     @Default(0) num totalIn,
     @Default(0) num totalOut,
     @Default(0) num net,
+    /// Desconto concedido no período. NÃO faz parte de [totalIn] nem de [net]:
+    /// fecha dívida sem entrar dinheiro. É número irmão, não parcela.
+    @JsonKey(name: 'totalDiscount') @Default(0) num totalDiscount,
   }) = _CashSummary;
 
   factory CashSummary.fromJson(Map<String, dynamic> json) =>
@@ -136,7 +144,12 @@ abstract class CashSummary with _$CashSummary {
 abstract class PaymentDetail with _$PaymentDetail {
   const factory PaymentDetail({
     @Default(0) num total,
+    /// Quanto da DÍVIDA foi quitado: dinheiro recebido + desconto concedido.
     @Default(0) num paid,
+    /// Dinheiro que de fato entrou (subconjunto de [paid]).
+    @Default(0) num received,
+    /// Desconto concedido na quitação (o resto de [paid]).
+    @Default(0) num discount,
     @Default(0) num balance,
     @Default('a_receber') String status,
     @Default(<CashEntry>[]) List<CashEntry> entries,
@@ -314,6 +327,7 @@ class InstallmentPlanDraft {
     required this.totalAmount,
     this.firstDueDate,
     this.notes,
+    this.substituirPendentes = false,
   });
 
   final String saleKind;
@@ -325,6 +339,11 @@ class InstallmentPlanDraft {
   final String? firstDueDate;
   final String? notes;
 
+  /// Corrigir um prazo já combinado: o servidor troca as parcelas EM ABERTO
+  /// pelas novas (as pagas são histórico e ficam). Sem isto, errar a data uma
+  /// vez congelava a cobrança — criar outro plano era recusado.
+  final bool substituirPendentes;
+
   Map<String, dynamic> toJson() => {
         'saleKind': saleKind,
         'saleId': saleId,
@@ -333,6 +352,7 @@ class InstallmentPlanDraft {
         'totalAmount': totalAmount,
         if (firstDueDate != null) 'firstDueDate': firstDueDate,
         if (notes != null) 'notes': notes,
+        if (substituirPendentes) 'substituirPendentes': true,
       };
 }
 
@@ -345,6 +365,9 @@ class EntryDraft {
     this.saleKind,
     this.saleId,
     this.description,
+    this.discount = 0,
+    this.discountReason,
+    this.saleTotal,
   });
 
   final double amount;
@@ -354,6 +377,16 @@ class EntryDraft {
   final String? saleId;
   final String? description;
 
+  /// Desconto concedido na quitação. NÃO altera o total do documento — a dívida
+  /// fecha quando `amount + discount` cobre o saldo. O backend valida permissão
+  /// e teto; o front só oferece o campo a quem tem `cashier.discount`.
+  final double discount;
+  final String? discountReason;
+
+  /// Total do documento, informado por quem o conhece. O caixa não lê a tabela
+  /// da OS/venda, então sem isto o backend não aplica o teto percentual.
+  final double? saleTotal;
+
   Map<String, dynamic> toJson() => {
         'amount': amount,
         'method': method,
@@ -362,5 +395,11 @@ class EntryDraft {
         if (saleId != null) 'saleId': saleId,
         if (description != null && description!.isNotEmpty)
           'description': description,
+        if (discount > 0) 'discount': discount,
+        if (discount > 0 &&
+            discountReason != null &&
+            discountReason!.isNotEmpty)
+          'discountReason': discountReason,
+        if (saleTotal != null) 'saleTotal': saleTotal,
       };
 }

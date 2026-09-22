@@ -60,7 +60,7 @@ class _RepoComHistorico extends FakeCustomersRepository {
 
 const _config = CustomersConfig(
   subjectFields: [
-    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa'),
+    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa', formato: 'placa'),
     SubjectFieldConfig(chave: 'cor', rotulo: 'Cor'),
   ],
 );

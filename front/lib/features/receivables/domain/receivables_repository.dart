@@ -1,4 +1,5 @@
 import 'receivables_models.dart';
+import 'receivables_query.dart';
 
 /// Contrato do controle de FIADO (contas a receber). Leitura apenas: RECEBER um
 /// fiado é um lançamento no Caixa (`CashierRepository.createEntry` com
@@ -9,8 +10,10 @@ import 'receivables_models.dart';
 /// cliente reflete para UX. Impl real (dio) + fake, trocadas por injeção
 /// Riverpod. A UI nunca fala com o dio direto.
 abstract interface class ReceivablesRepository {
-  /// Devedores, do maior saldo para o menor.
-  Future<DebtorsPage> listDebtors();
+  /// Devedores filtrados, ordenados e paginados. Online vai ao servidor;
+  /// offline aplica a MESMA regra sobre o espelho local
+  /// (`receivables_filtro.dart`).
+  Future<DebtorsPage> listDebtors(DebtorsQuery query);
 
   /// TODOS os títulos em aberto, achatados (com o dono em cada um) e do mais
   /// recente para o mais antigo. É o que o histórico do caixa consome para
@@ -23,5 +26,11 @@ abstract interface class ReceivablesRepository {
   /// da aba Fiado. Sem isto o operador vê "3 títulos" e não descobre quais.
   Future<OpenTitlesPage> listPendingSettlement();
 
-  Future<DebtorDetail> titlesOf(String? customerId);
+  /// Títulos de um devedor.
+  ///
+  /// `customerId` identifica cliente CADASTRADO. Venda de balcão não tem — ela
+  /// carrega só um apelido livre, e a carteira agrupa esses por NOME. Por isso
+  /// o `apelido`: sem ele, todos os anônimos caem no mesmo balde e a aba de um
+  /// mostra as vendas dos outros.
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido});
 }

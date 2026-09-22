@@ -49,11 +49,26 @@ class ConnectionChip extends ConsumerWidget {
     void open() => unawaited(showPendingChangesPanel(context));
 
     if (collapsed) {
-      final dot = Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: display.color, shape: BoxShape.circle),
-      );
+      // Sincronizando mostra SPINNER, não ponto parado: "está acontecendo algo"
+      // é justamente a informação que o estado de sync carrega, e um ponto
+      // estático é indistinguível de "offline" a um metro de distância.
+      final Widget dot = display.spinner
+          ? SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.8,
+                color: display.color,
+              ),
+            )
+          : Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: display.color,
+                shape: BoxShape.circle,
+              ),
+            );
       return Tooltip(
         message: _collapsedTooltip(display),
         child: hasQueue

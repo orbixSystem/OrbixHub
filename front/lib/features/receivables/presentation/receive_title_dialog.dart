@@ -5,10 +5,11 @@ import '../../../core/ui/ui.dart';
 import '../../../core/util/masks.dart';
 import '../../../core/util/validators.dart';
 import '../../cashier/domain/cashier_format.dart';
+import '../../cashier/presentation/desconto_field.dart';
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/domain/local_payment.dart';
 import '../../cashier/presentation/cashier_providers.dart';
-import '../../cashier/presentation/cashier_sheet_widgets.dart';
+import '../../cashier/presentation/prazo_fiado_section.dart';
 import '../../os/presentation/os_providers.dart';
 import '../../sale/presentation/sale_providers.dart';
 import '../domain/receivables_models.dart';
@@ -34,11 +35,18 @@ Future<bool> showReceiveTitleDialog(
   required CashierConfig config,
   required ReceivableTitle title,
   Installment? parcela,
+  /// Todas as parcelas em aberto do título, da mais antiga para a mais nova.
+  /// Com mais de uma, o diálogo oferece escolher quais quitar.
+  List<Installment> parcelasEmAberto = const [],
 }) async {
   final ok = await showDialog<bool>(
     context: context,
-    builder: (_) =>
-        _ReceiveTitleDialog(config: config, title: title, parcela: parcela),
+    builder: (_) => _ReceiveTitleDialog(
+      config: config,
+      title: title,
+      parcela: parcela,
+      parcelasEmAberto: parcelasEmAberto,
+    ),
   );
   return ok ?? false;
 }
@@ -48,6 +56,7 @@ class _ReceiveTitleDialog extends ConsumerStatefulWidget {
     required this.config,
     required this.title,
     this.parcela,
+    this.parcelasEmAberto = const [],
   });
 
   final CashierConfig config;
@@ -55,6 +64,10 @@ class _ReceiveTitleDialog extends ConsumerStatefulWidget {
 
   /// Parcela alvo, quando o título já está parcelado.
   final Installment? parcela;
+
+  /// As parcelas em aberto (ordenadas por vencimento) — a lista que o operador
+  /// marca para quitar mais de uma de uma vez.
+  final List<Installment> parcelasEmAberto;
 
   @override
   ConsumerState<_ReceiveTitleDialog> createState() =>
@@ -68,25 +81,75 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     // plano, ou o SALDO (não o total) quando não há.
     text: formatAmountForInput(_esperado),
   );
+  /// O operador tocou no valor? Enquanto não, ele acompanha o desconto: digitar
+  /// "10 de desconto" faz o esperado cair para 90, que é como se pensa no
+  /// balcão. Sem isto o valor ficava no saldo cheio e QUALQUER desconto
+  /// acusava "maior que o saldo" — o campo era inutilizável.
+  bool _valorTocado = false;
   final _descCtrl = TextEditingController();
+  final _descontoCtrl = TextEditingController();
+  final _motivoDescontoCtrl = TextEditingController();
   late String _method = widget.config.paymentMethods.isNotEmpty
       ? widget.config.paymentMethods.first
       : 'pix';
   bool _saving = false;
 
-  // Parcelamento do que sobrar (só quando NÃO há plano ainda).
-  bool _parcelar = false;
-  int _numParcelas = 2;
-  int _diaVencimento = 10;
+  // Prazo do que sobrar (só quando NÃO há plano ainda). Mesmo widget e mesma
+  // conversão da venda — prazo não é exclusividade de quem fia no balcão.
+  PrazoFiado _prazo = const PrazoFiado();
+
+  /// Quantas parcelas em aberto estão marcadas, SEMPRE contadas da mais antiga
+  /// para a frente. Guardar a quantidade (e não um conjunto de ids) é o que faz
+  /// a regra "quitar a 3ª quita a 1ª e a 2ª" ser impossível de violar: não
+  /// existe estado que represente um buraco no meio.
+  ///
+  /// Cobrar salteado deixaria parcela vencida atrás de uma paga, e o cronograma
+  /// passaria a discordar do "vencido" da carteira.
+  int _qtdParcelas = 1;
+
+  /// As parcelas marcadas, na ordem em que serão quitadas.
+  List<Installment> get _parcelasMarcadas =>
+      widget.parcelasEmAberto.take(_qtdParcelas).toList();
+
+  /// Há escolha a fazer? Com uma só, não há o que marcar.
+  bool get _temEscolhaDeParcelas => widget.parcelasEmAberto.length > 1;
 
   double get _saldo => widget.title.balance.toDouble();
-  double get _esperado => widget.parcela?.valor ?? _saldo;
+
+  double get _esperado {
+    if (_temEscolhaDeParcelas) {
+      return _parcelasMarcadas.fold<double>(0, (a, p) => a + p.valor);
+    }
+    return widget.parcela?.valor ?? _saldo;
+  }
 
   double get _digitado =>
       double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
 
+  /// Desconto concedido para fechar a conta. Não altera o total do documento.
+  double get _desconto {
+    final d = DescontoField.valorDe(_descontoCtrl);
+    return d > _esperado ? _esperado : d;
+  }
+
+  /// Quanto se espera em DINHEIRO depois do desconto.
+  double get _esperadoEmDinheiro {
+    final v = _esperado - _desconto;
+    return v > 0 ? v : 0;
+  }
+
+  /// Mantém o valor recebido colado no esperado enquanto o operador não o
+  /// editar à mão.
+  void _sincronizarValorComDesconto() {
+    if (_valorTocado) return;
+    _amountCtrl.text = formatAmountForInput(_esperadoEmDinheiro);
+  }
+
   /// Quanto continua pendente depois deste recebimento.
-  double get _restante => round2Money(_saldo - _digitado);
+  ///
+  /// O desconto entra aqui: ele QUITA sem entrar dinheiro, então o que sobra é
+  /// o saldo menos o recebido menos o perdoado.
+  double get _restante => round2Money(_saldo - _digitado - _desconto);
 
   /// Recebeu ZERO: a ação deixa de ser "registrar dinheiro" e passa a ser
   /// "declarar fiado". Só existe no caminho livre — quitar PARCELA sempre move
@@ -100,6 +163,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
   /// discorda de si mesma. Mesma filosofia da venda avulsa, onde o valor
   /// recebido (e não um "é fiado? sim/não") decide o desfecho.
   String get _rotuloAcao {
+    if (_temEscolhaDeParcelas) {
+      return _qtdParcelas == 1
+          ? 'Receber 1 parcela'
+          : 'Receber $_qtdParcelas parcelas';
+    }
     if (widget.parcela != null) return 'Registrar';
     if (_ehFiadoPuro) return 'Deixar fiado';
     if (_deixaSaldo) return 'Registrar e deixar o resto fiado';
@@ -118,6 +186,8 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
   void dispose() {
     _amountCtrl.dispose();
     _descCtrl.dispose();
+    _descontoCtrl.dispose();
+    _motivoDescontoCtrl.dispose();
     super.dispose();
   }
 
@@ -139,25 +209,47 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
         _snack('O valor é maior que o saldo de ${formatMoney(_saldo)}.');
         return;
       }
+      // Recebido + perdoado não pode passar do que se deve — senão o "troco"
+      // viraria desconto fantasma.
+      if (valor + _desconto > _saldo + paymentEps) {
+        _snack(
+          'Valor e desconto somam mais que o saldo de ${formatMoney(_saldo)}.',
+        );
+        return;
+      }
     }
     setState(() => _saving = true);
     final nota = _descCtrl.text.trim();
     try {
       if (parcela != null) {
         // Quitação de parcela: o backend lança no caixa E marca a parcela.
-        await ref.read(cashierRepositoryProvider).payInstallment(
-              installmentId: parcela.id,
-              method: _method,
-              description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
-            );
+        //
+        // Uma chamada POR PARCELA, da mais antiga para a mais nova: cada
+        // parcela quitada ganha o seu lançamento no caixa, que é o que permite
+        // conferir depois "esta entrada pagou qual parcela". Um lançamento
+        // único somado perderia esse rastro.
+        final alvos = _temEscolhaDeParcelas ? _parcelasMarcadas : [parcela];
+        // Quitação de parcela não oferece desconto hoje (o campo só aparece no
+        // caminho de valor livre), mas o desconto vale para o CONJUNTO: ele
+        // entra na primeira, porque repeti-lo em cada parcela multiplicaria o
+        // perdão no dia em que o campo chegar aqui.
+        var descontoRestante = _desconto;
+        for (final p in alvos) {
+          await ref.read(cashierRepositoryProvider).payInstallment(
+                installmentId: p.id,
+                method: _method,
+                description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
+                discount: descontoRestante,
+                discountReason: _motivoDescontoCtrl.text.trim(),
+              );
+          descontoRestante = 0;
+        }
       } else if (_ehFiadoPuro) {
         // Nada recebido: não há dinheiro a lançar. O que se registra é a
         // DECISÃO — sem ela o título não passou pelo caixa e ficaria fora da
         // carteira de cobrança.
         await _declararFiado();
-        if (_parcelar && _restante > paymentEps) {
-          await _programarRestante();
-        }
+        await _programarRestante();
       } else {
         await ref.read(cashierControllerProvider.notifier).addEntry(
               EntryDraft(
@@ -170,13 +262,16 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                 saleId: widget.title.id,
                 // O extrato mostra de qual título veio o dinheiro.
                 description: nota.isEmpty ? _rotulo : '$_rotulo · $nota',
+                discount: _desconto,
+                discountReason: _motivoDescontoCtrl.text.trim(),
+                // O caixa não lê a tabela da OS/venda: sem o total informado
+                // aqui, o backend não tem denominador para o teto percentual.
+                saleTotal: widget.title.total.toDouble(),
               ),
             );
         // Programar o que sobrou, quando pedido — na mesma ação, para o
         // operador não ter de voltar depois só para parcelar.
-        if (_parcelar && _restante > paymentEps) {
-          await _programarRestante();
-        }
+        await _programarRestante();
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -197,16 +292,18 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     }
   }
 
-  Future<void> _programarRestante() =>
-      ref.read(cashierRepositoryProvider).createInstallmentPlan(
-            InstallmentPlanDraft(
-              saleKind: widget.title.origin,
-              saleId: widget.title.id,
-              installmentCount: _numParcelas,
-              dueDayOfMonth: _diaVencimento,
-              totalAmount: _restante,
-            ),
-          );
+  /// Grava o prazo combinado para o que sobrou — data única ou parcelas. Sem
+  /// prazo combinado não grava nada: a dívida fica em aberto, sem atraso.
+  Future<void> _programarRestante() async {
+    if (_restante <= paymentEps) return;
+    final plano = _prazo.planoPara(
+      saleKind: widget.title.origin,
+      saleId: widget.title.id,
+      valor: _restante,
+    );
+    if (plano == null) return;
+    await ref.read(cashierRepositoryProvider).createInstallmentPlan(plano);
+  }
 
   void _snack(String msg) {
     final neu = context.neu;
@@ -221,9 +318,13 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
     final t = widget.title;
     final parcela = widget.parcela;
     final parcial = t.status == 'parcial';
+    // Em 440px fixos o diálogo ficava apertado justamente quando tem mais
+    // conteúdo: a checklist de parcelas, o desconto e o prazo do que sobra. Usa
+    // o espaço da janela e para em 720 — passar disso só espalha campos curtos.
+    final maxW = (MediaQuery.sizeOf(context).width - 96).clamp(360.0, 720.0);
     return NeuDialog(
       title: parcela != null ? 'Receber parcela' : 'Receber $_rotulo',
-      maxWidth: 440,
+      maxWidth: maxW,
       actions: [
         Builder(
           builder: (ctx) => NeuButton(
@@ -285,7 +386,17 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
             // Parcela tem valor definido pelo plano: mostrar um campo editável
             // convidaria a divergir do cronograma sem que nada explicasse a
             // diferença depois.
-            if (parcela != null)
+            if (_temEscolhaDeParcelas)
+              _EscolhaDeParcelas(
+                parcelas: widget.parcelasEmAberto,
+                marcadas: _qtdParcelas,
+                total: _esperado,
+                onMarcar: (n) => setState(() {
+                  _qtdParcelas = n;
+                  _sincronizarValorComDesconto();
+                }),
+              )
+            else if (parcela != null)
               _ValorFixo(valor: _esperado, vencimento: parcela.dueDate)
             else ...[
               Row(
@@ -296,7 +407,12 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Valor recebido *',
                       controller: _amountCtrl,
                       hint: '0,00',
-                      prefixIcon: Icons.attach_money_rounded,
+                      // Mesma apresentação da venda e do campo de desconto ao
+                      // lado: prefixo R$ e número à direita. Ícone de cifrão
+                      // deixava os dois campos de dinheiro da MESMA tela com
+                      // aparências diferentes.
+                      prefixText: 'R\$ ',
+                      textAlign: TextAlign.right,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: const [DecimalInputFormatter()],
@@ -305,7 +421,7 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       // justamente o caso que o operador mais precisa
                       // registrar. Negativo/lixo continua barrado.
                       validator: Validators.nonNegativeNumber(field: 'Valor'),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(() => _valorTocado = true),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -316,11 +432,25 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
                       label: 'Tudo',
                       tooltip: 'Preencher com o saldo total',
                       onTap: () => setState(() {
-                        _amountCtrl.text = formatAmountForInput(_saldo);
+                        _valorTocado = true;
+                        _amountCtrl.text =
+                            formatAmountForInput(_esperadoEmDinheiro);
                       }),
                     ),
                   ),
                 ],
+              ),
+              // Desconto vem ANTES da linha de consequência de propósito: ele
+              // muda o que sobra, e a consequência precisa já refletir isso.
+              const SizedBox(height: 12),
+              DescontoField(
+                controller: _descontoCtrl,
+                motivoController: _motivoDescontoCtrl,
+                // Saldo CHEIO: o teto do desconto é o que se deve, não o que
+                // sobrou depois do valor digitado (que nasce igual ao saldo e
+                // faria todo desconto parecer excessivo).
+                saldo: _esperado,
+                onChanged: () => setState(_sincronizarValorComDesconto),
               ),
               // A consequência do que foi digitado, dita em uma linha: é o que
               // torna "receber parcial" óbvio em vez de um efeito colateral.
@@ -328,14 +458,11 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
               _Consequencia(restante: _restante, digitado: _digitado),
               if (_podeParcelarRestante) ...[
                 const SizedBox(height: 12),
-                _ParcelarRestante(
-                  restante: _restante,
-                  ligado: _parcelar,
-                  numParcelas: _numParcelas,
-                  diaVencimento: _diaVencimento,
-                  onToggle: (v) => setState(() => _parcelar = v),
-                  onParcelas: (v) => setState(() => _numParcelas = v),
-                  onDia: (v) => setState(() => _diaVencimento = v),
+                PrazoFiadoSection(
+                  valor: _prazo,
+                  total: _restante,
+                  titulo: 'Prazo do que fica a receber',
+                  onChanged: (p) => setState(() => _prazo = p),
                 ),
               ],
             ],
@@ -359,6 +486,158 @@ class _ReceiveTitleDialogState extends ConsumerState<_ReceiveTitleDialog> {
 }
 
 /// Valor da parcela (não editável) + vencimento.
+/// Quais parcelas quitar agora.
+///
+/// Marcar é sempre da mais antiga para a frente: tocar na 3ª marca a 1ª e a 2ª,
+/// e desmarcar a 1ª desmarca todas. Não é capricho — cobrar salteado deixaria
+/// parcela vencida atrás de uma paga, e aí o cronograma passaria a discordar do
+/// "vencido" que a carteira mostra.
+class _EscolhaDeParcelas extends StatelessWidget {
+  const _EscolhaDeParcelas({
+    required this.parcelas,
+    required this.marcadas,
+    required this.total,
+    required this.onMarcar,
+  });
+
+  final List<Installment> parcelas;
+
+  /// Quantas estão marcadas, contadas do início da lista.
+  final int marcadas;
+  final double total;
+
+  /// Nova quantidade marcada (1..parcelas.length).
+  final ValueChanged<int> onMarcar;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rField,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.checklist_rounded, size: 16, color: neu.inkMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Quais parcelas receber',
+                  style: TextStyle(
+                    color: neu.inkMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < parcelas.length; i++)
+            _LinhaParcela(
+              parcela: parcelas[i],
+              ordem: i + 1,
+              marcada: i < marcadas,
+              // Tocar numa linha já marcada desmarca dela para frente (deixando
+              // as anteriores); tocar numa desmarcada marca até ela.
+              onTap: () => onMarcar(i < marcadas ? i : i + 1),
+            ),
+          const Divider(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  marcadas == 1 ? '1 parcela' : '$marcadas parcelas',
+                  style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                ),
+              ),
+              Text(
+                formatMoney(total),
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinhaParcela extends StatelessWidget {
+  const _LinhaParcela({
+    required this.parcela,
+    required this.ordem,
+    required this.marcada,
+    required this.onTap,
+  });
+
+  final Installment parcela;
+  final int ordem;
+  final bool marcada;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final vencida = parcela.status == InstallmentStatus.vencida;
+    final d = DateTime.tryParse(parcela.dueDate);
+    String two(int n) => n.toString().padLeft(2, '0');
+    final data = d == null
+        ? parcela.dueDate
+        : '${two(d.day)}/${two(d.month)}/${d.year}';
+    // A primeira nunca desmarca: receber sem quitar a mais antiga não existe
+    // neste fluxo (é o que mantém a fila de cobrança honesta).
+    final travada = ordem == 1;
+    return InkWell(
+      onTap: travada ? null : onTap,
+      borderRadius: BorderRadius.circular(NeuTokens.rField),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Checkbox(
+              value: marcada,
+              onChanged: travada ? null : (_) => onTap(),
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$ordemª',
+              style: TextStyle(color: neu.inkFaint, fontSize: 12),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                vencida ? 'Vencida · $data' : data,
+                style: TextStyle(
+                  color: vencida ? neu.danger : neu.inkMuted,
+                  fontSize: 13,
+                  fontWeight: vencida ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+            ),
+            Text(
+              formatMoney(parcela.valor),
+              style: TextStyle(
+                color: marcada ? neu.ink : neu.inkFaint,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ValorFixo extends StatelessWidget {
   const _ValorFixo({required this.valor, required this.vencimento});
 
@@ -430,99 +709,6 @@ class _Consequencia extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Opção (não obrigação) de programar o que sobrou em parcelas mensais.
-class _ParcelarRestante extends StatelessWidget {
-  const _ParcelarRestante({
-    required this.restante,
-    required this.ligado,
-    required this.numParcelas,
-    required this.diaVencimento,
-    required this.onToggle,
-    required this.onParcelas,
-    required this.onDia,
-  });
-
-  final double restante;
-  final bool ligado;
-  final int numParcelas;
-  final int diaVencimento;
-  final ValueChanged<bool> onToggle;
-  final ValueChanged<int> onParcelas;
-  final ValueChanged<int> onDia;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    return NeuSurface(
-      elevation: NeuElevation.inset,
-      radius: NeuTokens.rField,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Parcelar o restante',
-                  style: TextStyle(
-                    color: neu.ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Switch(
-                value: ligado,
-                onChanged: onToggle,
-                activeThumbColor: neu.navy,
-              ),
-            ],
-          ),
-          if (ligado) ...[
-            const SizedBox(height: 10),
-            // Wrap: os dois steppers empilham sozinhos em tela estreita.
-            Wrap(
-              spacing: 16,
-              runSpacing: 10,
-              children: [
-                CashierStepperField(
-                  label: 'Parcelas',
-                  valueLabel: '$numParcelas x',
-                  onDecrement:
-                      numParcelas > 2 ? () => onParcelas(numParcelas - 1) : null,
-                  onIncrement: numParcelas < 60
-                      ? () => onParcelas(numParcelas + 1)
-                      : null,
-                ),
-                CashierStepperField(
-                  label: 'Vence dia',
-                  valueLabel: '$diaVencimento',
-                  onDecrement:
-                      diaVencimento > 1 ? () => onDia(diaVencimento - 1) : null,
-                  onIncrement:
-                      diaVencimento < 28 ? () => onDia(diaVencimento + 1) : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${numParcelas}x de '
-              '${formatMoney(round2Money(restante / numParcelas))} '
-              '· todo dia $diaVencimento',
-              style: TextStyle(
-                color: neu.navy,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

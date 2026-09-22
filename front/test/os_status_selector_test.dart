@@ -94,7 +94,7 @@ Widget _wrap(
 
 void main() {
   testWidgets(
-    'aberta: badge mostra "Em andamento" e o botão é "Finalizar OS" — avança até entregue, sem gate de confirmação',
+    'aberta: badge mostra o status REAL e o botão é "Finalizar OS" — avança até entregue, sem gate de confirmação',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('aberta')]);
       await tester.pumpWidget(
@@ -102,9 +102,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Um indicador SÓ, não um seletor de 3 estados.
-      expect(find.text('Em andamento'), findsOneWidget);
-      expect(find.text('Finalizada'), findsNothing);
+      // Um indicador SÓ, e com o status REAL: o resumo de três grupos dizia
+      // "Em andamento" tanto para uma OS aberta quanto para uma esperando
+      // peça, e era o que fazia tudo parecer sempre em execução.
+      expect(find.text('Aberta'), findsOneWidget);
+      expect(find.text('Em andamento'), findsNothing);
       expect(find.text('Cancelada'), findsNothing);
 
       // "Confirmar entrega?" não existe mais — era um passo sem sentido
@@ -144,7 +146,7 @@ void main() {
   });
 
   testWidgets(
-    'concluida: badge mostra "Finalizada" e o único botão é "Finalizar OS" (falta o último passo)',
+    'concluida: badge mostra "Concluída" e o único botão é "Finalizar OS" (falta o último passo)',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('concluida')]);
       await tester.pumpWidget(
@@ -152,7 +154,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Finalizada'), findsOneWidget);
+      expect(find.text('Concluída'), findsOneWidget);
       // Nem "Cancelar OS" (a FSM não permite mais).
       expect(find.text('Cancelar OS'), findsNothing);
 
@@ -164,7 +166,7 @@ void main() {
   );
 
   testWidgets(
-    'entregue: terminal — badge "Finalizada", sem nenhum botão de ação',
+    'entregue: sem avanço nem cancelamento, mas REABRE (pedindo confirmação)',
     (tester) async {
       final repo = _RecordingOsRepository(orders: [_os('entregue')]);
       await tester.pumpWidget(
@@ -172,11 +174,59 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Finalizada'), findsOneWidget);
+      expect(find.text('Entregue'), findsOneWidget);
       expect(find.text('Finalizar OS'), findsNothing);
+      // Cancelar segue proibido: a FSM não deixa uma OS finalizada virar
+      // cancelada, nem passando por uma reabertura silenciosa.
       expect(find.text('Cancelar OS'), findsNothing);
-      expect(find.text('OS entregue — somente leitura.'),
-          findsOneWidget);
+
+      // Reabrir avisa o que muda antes de mexer em número já fechado.
+      await tester.tap(find.text('Reabrir OS'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reabrir OS finalizada?'), findsOneWidget);
+      // .last: o botão original (por baixo) e o do diálogo têm o MESMO rótulo.
+      await tester.tap(find.text('Reabrir OS').last);
+      await tester.pumpAndSettle();
+
+      // Volta para `em_execucao`, NÃO para `aberta` — os dois consomem estoque,
+      // então corrigir não faz a peça ir e voltar da prateleira.
+      expect(repo.calls, ['em_execucao']);
+    },
+  );
+
+  testWidgets(
+    'entregue sem os.approve: nem reabrir nem excluir — só a nota',
+    (tester) async {
+      final repo = _RecordingOsRepository(orders: [_os('entregue')]);
+      await tester.pumpWidget(
+        _wrap(const OsDetailScreen(orderId: 'os-1'), repo, canApprove: false),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reabrir OS'), findsNothing);
+      expect(find.text('Excluir OS'), findsNothing);
+      expect(
+        find.text('OS entregue — somente leitura. Reabra para corrigir algo.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'entregue com os.approve: "Excluir OS" existe e pede confirmação',
+    (tester) async {
+      final repo = _RecordingOsRepository(orders: [_os('entregue')]);
+      await tester.pumpWidget(
+        _wrap(const OsDetailScreen(orderId: 'os-1'), repo),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Excluir OS'));
+      await tester.pumpAndSettle();
+
+      // A confirmação diz as duas consequências invisíveis: sai do faturamento
+      // e as peças voltam ao estoque.
+      expect(find.text('Excluir OS OS-0001?'), findsOneWidget);
     },
   );
 

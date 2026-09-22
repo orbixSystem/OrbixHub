@@ -1,3 +1,4 @@
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsService } from './os.service';
 import type { AuthUser } from '../../common/auth/auth.types';
 import type { ListOrdersQueryDto } from './dto/order.dto';
@@ -42,6 +43,8 @@ function makeService() {
       // estes testes observam — fake devolvendo undefined cai no fallback.
       { texto: () => undefined } as never,
       { getTenantVertical: async () => 'veiculos' } as never,
+      // OrderLockRegistry vazio: nenhum módulo registrou impedimento.
+      new OrderLockRegistry(),
   );
   return { svc, repo };
 }

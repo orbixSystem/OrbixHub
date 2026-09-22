@@ -61,6 +61,16 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
   bool _saving = false;
   String? _error;
 
+  // ---- acessórios ----
+  bool _hasAccessories = false;
+  final List<SubjectAccessory> _accessories = [];
+  final _accNome = TextEditingController();
+  final _accMarca = TextEditingController();
+  final _accModelo = TextEditingController();
+  final _accNumeroSerie = TextEditingController();
+  final _accObs = TextEditingController();
+  final _accFormKey = GlobalKey<FormState>();
+
   // ---- foto ----
   /// URL da foto atual (só no modo edição). Reflete o resultado dos uploads.
   String? _photoUrl;
@@ -145,11 +155,27 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     _fields = {
       for (final f in widget.config.subjectFields)
         f.chave: TextEditingController(
-          text: f.chave == 'identifier'
-              ? (s?.identifier ?? '')
-              : (s?.attributes[f.chave]?.toString() ?? ''),
+          text: switch (f.chave) {
+            'identifier' => s?.identifier ?? '',
+            'tipo' => s?.tipo ?? '',
+            'marca' => s?.marca ?? '',
+            'modelo' => s?.modelo ?? '',
+            'numero_serie' => s?.numeroSerie ?? '',
+            _ => s?.attributes[f.chave]?.toString() ?? '',
+          },
         ),
     };
+
+    // Carrega acessórios existentes (armazenados em attributes['acessorios']).
+    final existingAcc = s?.attributes['acessorios'];
+    if (existingAcc is List && existingAcc.isNotEmpty) {
+      _hasAccessories = true;
+      for (final e in existingAcc) {
+        if (e is Map<String, dynamic>) {
+          _accessories.add(SubjectAccessory.fromJson(e));
+        }
+      }
+    }
   }
 
   @override
@@ -158,6 +184,11 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     for (final c in _fields.values) {
       c.dispose();
     }
+    _accNome.dispose();
+    _accMarca.dispose();
+    _accModelo.dispose();
+    _accNumeroSerie.dispose();
+    _accObs.dispose();
     super.dispose();
   }
 
@@ -332,21 +363,47 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     });
 
     String? identifier;
+    String? tipo;
+    String? marca;
+    String? modelo;
+    String? numeroSerie;
     final attributes = <String, dynamic>{};
     for (final f in widget.config.subjectFields) {
       final raw = _fields[f.chave]!.text.trim();
-      if (f.chave == 'identifier') {
-        identifier = raw.isEmpty ? null : raw;
-        continue;
+      switch (f.chave) {
+        case 'identifier':
+          identifier = raw.isEmpty ? null : raw;
+        case 'tipo':
+          tipo = raw.isEmpty ? null : raw;
+        case 'marca':
+          marca = raw.isEmpty ? null : raw;
+        case 'modelo':
+          modelo = raw.isEmpty ? null : raw;
+        case 'numero_serie':
+          numeroSerie = raw.isEmpty ? null : raw;
+        default:
+          if (raw.isNotEmpty) {
+            attributes[f.chave] =
+                f.tipo == 'number' ? num.tryParse(raw) ?? raw : raw;
+          }
       }
-      if (raw.isEmpty) continue;
-      attributes[f.chave] =
-          f.tipo == 'number' ? num.tryParse(raw) ?? raw : raw;
+    }
+
+    // Inclui acessórios no attributes (jsonb).
+    if (_hasAccessories && _accessories.isNotEmpty) {
+      attributes['acessorios'] =
+          _accessories.map((a) => a.toJson()).toList();
+    } else {
+      attributes.remove('acessorios');
     }
 
     final draft = SubjectDraft(
       label: _label.text.trim().isEmpty ? null : _label.text.trim(),
       identifier: identifier,
+      tipo: tipo,
+      marca: marca,
+      modelo: modelo,
+      numeroSerie: numeroSerie,
       attributes: attributes,
       plateData: _plateInfo?.toJson(),
     );
@@ -365,8 +422,9 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               contentType: _localContentType ?? 'image/jpeg',
             );
           } on AppException catch (e) {
-            _snack('\${widget.config.subjectLabel.singular} criado, mas a foto não pôde ser enviada: '
-                '${e.message}');
+            _snack(
+                '${widget.config.subjectLabel.singular} criado, mas a foto não '
+                'pôde ser enviada: ${e.message}');
           }
         }
       } else {
@@ -413,6 +471,8 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         photo,
         const SizedBox(height: 20),
         fields,
+        const SizedBox(height: 20),
+        _accessoriesSection(neu),
       ],
     );
 
@@ -518,11 +578,15 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
     );
   }
 
-  // ---- Regras de validação/máscara por campo dinâmico (keyed na `chave`) ----
-  // `identifier` (placa) → máscara/validação de placa; `ano` → só 4 dígitos;
-  // números → filtro numérico; demais → texto com teto razoável.
+  // ---- Regras de validação/máscara por campo dinâmico ----
+  // Máscara e validação de PLACA saem do `formato` que o nicho declara. Não da
+  // `chave` (o nicho genérico também tem `identifier`, rotulado "Nome", e cobrar
+  // dele o formato ABC1D23 travava o cadastro de equipamento com "Placa
+  // inválida") nem da feature de consulta, que é capacidade e não formato — ela
+  // serve também a nicho de assistência técnica, onde nº de série não é placa.
+  // `ano` → só 4 dígitos; números → filtro numérico; demais → texto com teto.
   List<TextInputFormatter>? _fieldFormatters(SubjectFieldConfig f) {
-    if (f.chave == 'identifier') return [PlateInputFormatter()];
+    if (f.ehPlaca) return [PlateInputFormatter()];
     if (f.chave == 'ano') return const [DigitsOnlyFormatter(4)];
     if (f.tipo == 'number') {
       return [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
@@ -540,14 +604,14 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
 
   int? _fieldMaxLength(SubjectFieldConfig f) {
     // Placa e ano já têm teto pelo próprio formatter.
-    if (f.chave == 'identifier' || f.chave == 'ano') return null;
+    if (f.ehPlaca || f.chave == 'ano') return null;
     return 120;
   }
 
   String? Function(String?) _fieldValidator(SubjectFieldConfig f) {
     return Validators.combine([
       if (f.obrigatorio) Validators.required(f.rotulo),
-      if (f.chave == 'identifier') Validators.plate(),
+      if (f.ehPlaca) Validators.plate(),
     ]);
   }
 
@@ -559,7 +623,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
         NeuTextField(
           controller: _label,
           label: 'Apelido (opcional)',
-          hint: 'Ex.: Carro da esposa',
+          hint: ref.read(vocabProvider)['subject.hint.apelido'],
           maxLength: 120,
         ),
         for (final f in widget.config.subjectFields) ...[
@@ -572,6 +636,7 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
               key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
               helper: 'Sem conexão — digite manualmente',
               keyboardType: _fieldKeyboard(f),
               inputFormatters: _fieldFormatters(f),
@@ -602,8 +667,10 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             )
           else
             NeuTextField(
+              key: Key('subjectField-${f.chave}'),
               controller: _fields[f.chave],
               label: '${f.rotulo}${f.obrigatorio ? ' *' : ' (opcional)'}',
+              hint: f.chave == 'tipo' ? 'Ex.: câmera, celular, computador' : null,
               helper: _autoFilled.contains(f.chave)
                   ? 'Preenchido pela consulta da placa'
                   : null,
@@ -614,6 +681,220 @@ class _SubjectFormDialogState extends ConsumerState<SubjectFormDialog> {
             ),
         ],
       ],
+    );
+  }
+
+  // ==== Acessórios ====
+
+  void _addAccessory() {
+    if (!_accFormKey.currentState!.validate()) return;
+    setState(() {
+      _accessories.add(SubjectAccessory(
+        nome: _accNome.text.trim(),
+        marca: _accMarca.text.trim().isEmpty ? null : _accMarca.text.trim(),
+        modelo: _accModelo.text.trim().isEmpty ? null : _accModelo.text.trim(),
+        numeroSerie: _accNumeroSerie.text.trim().isEmpty
+            ? null
+            : _accNumeroSerie.text.trim(),
+        observacoes: _accObs.text.trim().isEmpty ? null : _accObs.text.trim(),
+      ));
+      _accNome.clear();
+      _accMarca.clear();
+      _accModelo.clear();
+      _accNumeroSerie.clear();
+      _accObs.clear();
+    });
+  }
+
+  void _removeAccessory(int index) {
+    setState(() => _accessories.removeAt(index));
+  }
+
+  Widget _accessoriesSection(NeuTokens neu) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(color: neu.line, height: 1),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Icon(Icons.extension_rounded, size: 20, color: neu.inkMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Possui acessórios?',
+                style: TextStyle(
+                  color: neu.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Switch.adaptive(
+              value: _hasAccessories,
+              activeTrackColor: neu.accent,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _hasAccessories = v),
+            ),
+          ],
+        ),
+        if (_hasAccessories) ...[
+          const SizedBox(height: 12),
+          // Lista dos acessórios já adicionados.
+          if (_accessories.isNotEmpty) ...[
+            for (var i = 0; i < _accessories.length; i++) ...[
+              _accessoryTile(neu, _accessories[i], i),
+              if (i < _accessories.length - 1) const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 16),
+          ],
+          // Mini-formulário para adicionar novo acessório.
+          _accessoryForm(neu),
+        ],
+      ],
+    );
+  }
+
+  Widget _accessoryTile(NeuTokens neu, SubjectAccessory acc, int index) {
+    final details = <String>[
+      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+      if (acc.modelo != null && acc.modelo!.isNotEmpty) acc.modelo!,
+    ];
+    return NeuSurface(
+      elevation: NeuElevation.flat,
+      radius: NeuTokens.rField,
+      color: neu.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.extension_outlined, size: 18, color: neu.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  acc.nome,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (details.isNotEmpty)
+                  Text(
+                    details.join(' · '),
+                    style: TextStyle(color: neu.inkMuted, fontSize: 13),
+                  ),
+                if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                  Text(
+                    'S/N: ${acc.numeroSerie}',
+                    style: TextStyle(color: neu.inkFaint, fontSize: 12),
+                  ),
+                if (acc.observacoes != null && acc.observacoes!.isNotEmpty)
+                  Text(
+                    acc.observacoes!,
+                    style: TextStyle(
+                      color: neu.inkFaint,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          NeuIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Remover acessório',
+            size: 32,
+            color: neu.danger,
+            onPressed: _saving ? null : () => _removeAccessory(index),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _accessoryForm(NeuTokens neu) {
+    return NeuSurface(
+      elevation: NeuElevation.inset,
+      radius: NeuTokens.rCard,
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _accFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Novo acessório',
+              style: TextStyle(
+                color: neu.ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            NeuTextField(
+              controller: _accNome,
+              label: 'Nome *',
+              hint: 'Ex.: Carregador, Capa, Antena',
+              maxLength: 120,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Nome do acessório é obrigatório'
+                  : null,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: NeuTextField(
+                    controller: _accMarca,
+                    label: 'Marca (opcional)',
+                    maxLength: 120,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: NeuTextField(
+                    controller: _accModelo,
+                    label: 'Modelo (opcional)',
+                    maxLength: 120,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            NeuTextField(
+              controller: _accNumeroSerie,
+              label: 'Nº de série (opcional)',
+              maxLength: 120,
+            ),
+            const SizedBox(height: 10),
+            NeuTextField(
+              controller: _accObs,
+              label: 'Observações (opcional)',
+              maxLength: 250,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: NeuButton(
+                label: 'Adicionar acessório',
+                icon: Icons.add_rounded,
+                kind: NeuButtonKind.secondary,
+                onPressed: _saving ? null : _addAccessory,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -801,7 +1082,10 @@ class _VehiclePhotoPicker extends StatelessWidget {
                 Icon(Icons.add_a_photo_outlined, size: 36, color: neu.navy),
                 const SizedBox(height: 12),
                 Text(
-                  'Adicionar foto do veículo',
+                  // Sem "do veículo": este picker serve qualquer nicho, e a
+                  // seção já se chama "Foto" (o rótulo do objeto vem do nicho e
+                  // não tem gênero previsível — "Equipamento", "Máquina").
+                  'Adicionar foto',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: neu.ink,

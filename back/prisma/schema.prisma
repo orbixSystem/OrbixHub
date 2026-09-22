@@ -51,6 +51,10 @@ model subject {
   customer_id       String    @db.Uuid
   label             String?
   identifier        String?
+  tipo              String?
+  marca             String?
+  modelo            String?
+  numero_serie      String?
   attributes        Json?
   photo_url         String?
   photo_storage_key String?
@@ -160,6 +164,8 @@ model cash_entry {
   sale_kind               String?
   sale_id                 String?                  @db.Uuid
   description             String?
+  discount                Decimal                  @default(0) @db.Decimal(14, 2)
+  discount_reason         String?
   reversed_at             DateTime?                @db.Timestamptz(6)
   reversed_by             String?                  @db.Uuid
   reversal_reason         String?

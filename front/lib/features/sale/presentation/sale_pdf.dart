@@ -15,7 +15,12 @@ import '../domain/sale_models.dart';
 /// endereço são do cliente e podem ter mudado — quem exporta busca a ficha
 /// atual e passa aqui, em vez de o gerador sair pedindo dados por conta própria.
 class SaleReceiptExtras {
-  const SaleReceiptExtras({this.customer, this.vendedor, this.pagamentos});
+  const SaleReceiptExtras({
+    this.customer,
+    this.vendedor,
+    this.pagamentos,
+    this.descontoQuitacao = 0,
+  });
 
   /// Ficha do cliente (para CNPJ/telefone/endereço). Nula em venda sem cliente.
   final Customer? customer;
@@ -26,6 +31,12 @@ class SaleReceiptExtras {
 
   /// Formas de pagamento recebidas: rótulo → valor. Vazio = venda em aberto.
   final List<({String label, double valor})>? pagamentos;
+
+  /// Desconto concedido na QUITAÇÃO — não abate o "Valor total" do comprovante
+  /// (o documento vale o que vale), mas explica por que a venda foi encerrada
+  /// tendo entrado menos dinheiro. Sem esta linha, o cliente que confere o
+  /// papel não fecha a conta.
+  final double descontoQuitacao;
 }
 
 /// Comprovante de venda em PDF, no formato que o balcão brasileiro reconhece:
@@ -131,6 +142,7 @@ Future<Uint8List> buildSalePdf(
                 desconto: desconto,
                 total: total,
                 recebido: recebido,
+                descontoQuitacao: extras.descontoQuitacao,
               ),
             ),
           ],
@@ -326,12 +338,19 @@ List<(String, String)> saleTotaisLinhas({
   required double desconto,
   required double total,
   required double troco,
+  double descontoQuitacao = 0,
 }) =>
     [
       ('Qtde total de itens', fmtQuantidade(qtdTotal.toString())),
       ('Valor dos produtos', formatMoney(somaItens)),
       if (desconto > 0.005) ('Valor total desconto', formatMoney(desconto)),
       ('Valor total', formatMoney(total)),
+      // Vem DEPOIS do total de propósito: o total é o que a venda vale, e o
+      // desconto na quitação não o altera — ele explica o encerramento da
+      // dívida. Colocá-lo antes sugeriria que abate o valor, que é a confusão
+      // que o comprovante precisa justamente evitar.
+      if (descontoQuitacao > 0.005)
+        ('Desconto na quitação', formatMoney(descontoQuitacao)),
       if (troco > 0.005) ('Valor troco', formatMoney(troco)),
     ];
 
@@ -341,6 +360,7 @@ pw.Widget _blocoTotais({
   required double desconto,
   required double total,
   required double recebido,
+  double descontoQuitacao = 0,
 }) {
   // Troco só quando recebeu MAIS que o total (dinheiro). Pagamento parcial é
   // fiado, não troco negativo — mostrar "-50" aqui confundiria o balcão.
@@ -350,6 +370,7 @@ pw.Widget _blocoTotais({
     somaItens: somaItens,
     desconto: desconto,
     total: total,
+    descontoQuitacao: descontoQuitacao,
     troco: troco,
   );
   return pw.Table(

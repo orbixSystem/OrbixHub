@@ -69,9 +69,13 @@ class AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
 
-    final refreshed = await _refreshService.refresh();
-    if (!refreshed) {
-      _onSessionExpired();
+    final desfecho = await _refreshService.refreshDetailed();
+    if (desfecho != RefreshOutcome.ok) {
+      // Só derruba a sessão quando o SERVIDOR a recusou. Falha de rede deixa a
+      // requisição falhar normalmente (a tela mostra o erro, o modo offline
+      // assume) — deslogar aí era transformar wi-fi instável em "sua sessão
+      // expirou", e o usuário voltava para a tela de login sem ter feito nada.
+      if (desfecho != RefreshOutcome.falhaDeRede) _onSessionExpired();
       return handler.next(err);
     }
 

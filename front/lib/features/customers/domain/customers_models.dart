@@ -31,6 +31,10 @@ abstract class Subject with _$Subject {
     @JsonKey(name: 'customer_id') required String customerId,
     String? label,
     String? identifier,
+    String? tipo,
+    String? marca,
+    String? modelo,
+    @JsonKey(name: 'numero_serie') String? numeroSerie,
     @Default(<String, dynamic>{}) Map<String, dynamic> attributes,
     @JsonKey(name: 'photo_url') String? photoUrl,
     @Default('active') String status,
@@ -83,10 +87,23 @@ abstract class SubjectFieldConfig with _$SubjectFieldConfig {
     @Default(false) bool obrigatorio,
     String? fonte, // ex.: 'fipe.marcas' — null = campo manual
     String? dependeDe, // chave do campo do qual depende (cascata)
+    // Máscara/validação declarada pelo NICHO ('placa'). null = texto livre.
+    // Quem manda é o pacote da vertical no backend, nunca a `chave`: o nicho
+    // genérico também tem um `identifier` (rotulado "Nome"), e cobrar dele
+    // formato de placa era o bug do "Placa inválida" ao editar equipamento.
+    String? formato,
   }) = _SubjectFieldConfig;
 
   factory SubjectFieldConfig.fromJson(Map<String, dynamic> json) =>
       _$SubjectFieldConfigFromJson(json);
+}
+
+/// Formatos de campo que a UI sabe aplicar. Formato desconhecido (versão do
+/// backend à frente do app) cai em texto livre — nunca em máscara errada.
+extension SubjectFieldFormato on SubjectFieldConfig {
+  /// Placa de veículo: máscara Mercosul/antiga + validação de formato. Vem do
+  /// nicho (`formato: 'placa'`), nunca da `chave` nem do rótulo do campo.
+  bool get ehPlaca => formato == 'placa';
 }
 
 /// Config do módulo (rótulo/campos dinâmicos + flags), de `GET /customers/config`.
@@ -185,12 +202,20 @@ class SubjectDraft {
   const SubjectDraft({
     this.label,
     this.identifier,
+    this.tipo,
+    this.marca,
+    this.modelo,
+    this.numeroSerie,
     this.attributes,
     this.plateData,
   });
 
   final String? label;
   final String? identifier;
+  final String? tipo;
+  final String? marca;
+  final String? modelo;
+  final String? numeroSerie;
   final Map<String, dynamic>? attributes;
 
   /// Retorno da consulta por placa a persistir (só quando houve consulta —
@@ -200,8 +225,50 @@ class SubjectDraft {
   Map<String, dynamic> toJson() => {
         if (label != null) 'label': label,
         if (identifier != null) 'identifier': identifier,
+        if (tipo != null) 'tipo': tipo,
+        if (marca != null) 'marca': marca,
+        if (modelo != null) 'modelo': modelo,
+        if (numeroSerie != null) 'numeroSerie': numeroSerie,
         if (attributes != null) 'attributes': attributes,
         if (plateData != null) 'plateData': plateData,
+      };
+}
+
+/// Acessório de um subject — armazenado em `attributes['acessorios']` (jsonb).
+/// Classe simples (não freezed) porque vive dentro do draft/attributes, não é
+/// entidade própria.
+class SubjectAccessory {
+  const SubjectAccessory({
+    required this.nome,
+    this.marca,
+    this.modelo,
+    this.numeroSerie,
+    this.observacoes,
+  });
+
+  final String nome;
+  final String? marca;
+  final String? modelo;
+  final String? numeroSerie;
+  final String? observacoes;
+
+  factory SubjectAccessory.fromJson(Map<String, dynamic> json) =>
+      SubjectAccessory(
+        nome: json['nome'] as String? ?? '',
+        marca: json['marca'] as String?,
+        modelo: json['modelo'] as String?,
+        numeroSerie: json['numero_serie'] as String?,
+        observacoes: json['observacoes'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'nome': nome,
+        if (marca != null && marca!.isNotEmpty) 'marca': marca,
+        if (modelo != null && modelo!.isNotEmpty) 'modelo': modelo,
+        if (numeroSerie != null && numeroSerie!.isNotEmpty)
+          'numero_serie': numeroSerie,
+        if (observacoes != null && observacoes!.isNotEmpty)
+          'observacoes': observacoes,
       };
 }
 

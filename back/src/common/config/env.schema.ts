@@ -15,6 +15,18 @@ export const envSchema = z.object({
   ARGON_MEMORY_KIB: z.coerce.number().int().positive().default(19456),
   ARGON_TIME_COST: z.coerce.number().int().positive().default(2),
   ARGON_PARALLELISM: z.coerce.number().int().positive().default(1),
+  /**
+   * Fuso usado para agrupar os relatorios POR DIA.
+   *
+   * Existe porque `date_trunc('day', ...)` usa o fuso do SERVIDOR Postgres, que
+   * o codigo nunca fixava: no Postgres local (America/Sao_Paulo) o resultado
+   * ficava certo por acidente, mas a imagem `postgres:16` padrao roda em UTC —
+   * e ai toda venda depois das 21h vai para a barra do dia seguinte. Tres horas
+   * de faturamento por dia no dia errado, sem nenhum erro aparecer.
+   *
+   * Fixar aqui torna o numero independente de como o banco foi provisionado.
+   */
+  APP_TIMEZONE: z.string().min(1).default('America/Sao_Paulo'),
   TRIAL_PLAN_KEY: z.string().default('trial'),
   TRIAL_DAYS: z.coerce.number().int().positive().default(14),
   // NB: z.coerce.boolean() treats the string "false" as TRUE. Parse explicitly.

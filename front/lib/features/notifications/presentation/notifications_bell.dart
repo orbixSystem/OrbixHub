@@ -13,6 +13,9 @@ import '../../../core/router/navigator_key.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../di.dart';
 import '../../messages/presentation/messages_providers.dart';
+import '../../update/presentation/update_banner.dart';
+import '../../update/domain/update_models.dart';
+import '../../update/presentation/update_controller.dart';
 import '../domain/notifications_models.dart';
 import 'notifications_providers.dart';
 
@@ -134,6 +137,14 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
       });
     }
 
+    // Atualização pendente também mora aqui: é uma pendência do app, e o sino é
+    // onde se procura o que ficou para depois. Não entra na CONTAGEM (que é
+    // verdade do servidor, e "marcar todas como lidas" não instala nada) —
+    // aparece como um ponto próprio.
+    final atualizacaoPendente = ref.watch(avisoAtualizacaoProvider).onde ==
+            AvisoAtualizacao.sino ||
+        ref.watch(avisoAtualizacaoProvider).onde == AvisoAtualizacao.banner;
+
     // Desconhecido (carregando) esconde o badge, como antes — melhor sem número
     // do que com um zero que parece "tudo lido".
     final hasUnread = (unread ?? 0) > 0;
@@ -148,15 +159,39 @@ class _NotificationsBellState extends ConsumerState<NotificationsBell> {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              tooltip: 'Notificações',
+              tooltip: atualizacaoPendente
+                  ? 'Notificações · atualização disponível'
+                  : 'Notificações',
               icon: Icon(
-                hasUnread
+                hasUnread || atualizacaoPendente
                     ? Icons.notifications_active_rounded
                     : Icons.notifications_none_rounded,
-                color: color,
+                color: color ?? (atualizacaoPendente ? AppColors.info : null),
               ),
               onPressed: _togglePanel,
             ),
+            // Ponto (não número): a atualização é UMA pendência permanente
+            // enquanto não for instalada, e somá-la ao contador de não-lidas
+            // faria a conta do sino discordar da do servidor.
+            if (atualizacaoPendente)
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: AppColors.info,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.surface,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (hasUnread)
               Positioned(
                 right: 4,
@@ -369,6 +404,14 @@ class _PanelContent extends ConsumerWidget {
     final async = ref.watch(notificationsProvider);
     final scheme = Theme.of(context).colorScheme;
     final unread = async.maybeWhen(data: (r) => r.unread, orElse: () => 0);
+    // Atualização pendente: fica FIXA no topo do painel enquanto não for
+    // instalada. É o destino do "Depois" do banner — sair do caminho sem ser
+    // esquecida. Não é uma notificação do servidor (a versão instalada é um
+    // fato desta máquina; o servidor não sabe qual build cada uma tem), por
+    // isso é uma linha própria e não entra na lista nem na contagem.
+    final aviso = ref.watch(avisoAtualizacaoProvider);
+    final temAtualizacao = aviso.onde == AvisoAtualizacao.sino ||
+        aviso.onde == AvisoAtualizacao.banner;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 440),
@@ -414,6 +457,14 @@ class _PanelContent extends ConsumerWidget {
             ),
           ),
           Divider(height: 1, color: scheme.outlineVariant),
+          if (temAtualizacao) ...[
+            _LinhaAtualizacao(
+              update: aviso.update,
+              scheme: scheme,
+              onTap: () => showUpdateDialog(context, aviso.update),
+            ),
+            Divider(height: 1, color: scheme.outlineVariant),
+          ],
           Flexible(
             child: async.when(
               loading: () => const Padding(
@@ -429,7 +480,12 @@ class _PanelContent extends ConsumerWidget {
               ),
               data: (r) {
                 if (r.items.isEmpty) {
-                  return _EmptyState(scheme: scheme);
+                  // Com a linha de atualização acima, o painel não está vazio —
+                  // dizer "nenhuma notificação" logo abaixo de um aviso se
+                  // contradiz.
+                  return temAtualizacao
+                      ? const SizedBox.shrink()
+                      : _EmptyState(scheme: scheme);
                 }
                 return ListView.separated(
                   shrinkWrap: true,
@@ -447,6 +503,67 @@ class _PanelContent extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Atualização disponível, fixa no topo do painel. Fica aqui enquanto estiver
+/// pendente: não se marca como lida, resolve-se instalando.
+class _LinhaAtualizacao extends StatelessWidget {
+  const _LinhaAtualizacao({
+    required this.update,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  final AppUpdate update;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: AppColors.info.withValues(alpha: 0.10),
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        child: Row(
+          children: [
+            Icon(Icons.system_update_alt_rounded,
+                size: 20, color: AppColors.info),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Versão ${update.version} disponível',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    (update.notes ?? '').trim().isNotEmpty
+                        ? update.notes!.trim()
+                        : 'Toque para atualizar agora.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }

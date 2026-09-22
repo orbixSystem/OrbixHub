@@ -26,10 +26,24 @@ export const VEICULOS: PacoteVertical = {
     // errado quanto a palavra "Veículo".
     'objeto.icone': 'veiculo',
     'os.status.entregue': 'Veículo entregue',
+
+    // Hints contextuais para formulários de OS
+    'objeto.fallback_titulo': 'Veículo',
+    'os.hint.fotos': 'Registre o estado do veículo na entrada.',
+    'os.hint.template': 'ex.: Revisão simples',
+
+    // Hints do módulo de estoque
+    'inventory.hint.nome_produto': 'Filtro de óleo, pastilha de freio…',
+
+    // Hints do cadastro de subject
+    'subject.hint.apelido': 'Ex.: Carro da esposa',
   },
 
   subjectFields: [
-    { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true },
+    // `formato: 'placa'` é o que faz a UI aplicar máscara Mercosul/antiga e
+    // validar o formato. Fica AQUI, no pacote da oficina, e não no front por
+    // `chave == 'identifier'` — o nicho genérico também tem um `identifier`.
+    { chave: 'identifier', rotulo: 'Placa', tipo: 'text', obrigatorio: true, formato: 'placa' },
     { chave: 'marca', rotulo: 'Marca', tipo: 'text', obrigatorio: false, fonte: 'fipe.marcas' },
     { chave: 'modelo', rotulo: 'Modelo', tipo: 'text', obrigatorio: false, fonte: 'fipe.modelos', dependeDe: 'marca' },
     { chave: 'ano', rotulo: 'Ano', tipo: 'number', obrigatorio: false, fonte: 'fipe.anos', dependeDe: 'modelo' },

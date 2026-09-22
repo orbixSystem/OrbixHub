@@ -4,6 +4,7 @@ import '../../../di.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../os/domain/os_models.dart';
 import '../../os/presentation/os_providers.dart';
+import '../../os/presentation/os_status.dart';
 import '../domain/dashboard_models.dart';
 import '../domain/dashboard_repository.dart';
 import 'period_controller.dart';
@@ -52,22 +53,28 @@ final customersMetricsProvider =
   return ref.read(dashboardRepositoryProvider).customersMetrics(range: range);
 });
 
-/// OS em andamento para o painel da Home: até 5 OS mais recentes em
-/// `em_execucao`, já com o nome do responsável resolvido (`assigned_to` → nome
-/// do membro via `listMembers`, serviço público — "aponta, não invade").
+/// OS em andamento para o painel da Home: até 5 OS mais recentes do GRUPO "em
+/// andamento", já com o nome do responsável resolvido (`assigned_to` → nome do
+/// membro via `listMembers`, serviço público — "aponta, não invade").
 /// Reusa o `OsRepository` (sem endpoint novo). autoDispose: re-busca ao reentrar.
 ///
-/// [assignedTo] (opcional): quando informado, filtra só as OS desse responsável
-/// (visão operacional do mecânico — "minhas OS"). Null = todas (gerencial).
+/// O painel se chama "OS em andamento" mas pedia só `em_execucao`: uma OS
+/// aberta, aprovada, esperando peça ou pendente nunca aparecia — e a Home dava
+/// a impressão de que só existe "em execução". Agora pede o mesmo grupo que o
+/// chip "Em andamento" da lista usa (`osRealStatusesOf`), que é a definição
+/// única de "ainda acontecendo".
+///
+/// [assignedTo] (opcional): visão operacional do mecânico ("minhas OS"). O
+/// filtro vai ao SERVIDOR — filtrá-lo aqui, depois de receber uma página,
+/// escondia as OS do mecânico que caíssem da 2ª página em diante.
 final activeOrdersProvider = FutureProvider.autoDispose
     .family<List<ActiveOrder>, String?>((ref, assignedTo) async {
   final repo = ref.read(osRepositoryProvider);
-  final page = await repo.listOrders(status: 'em_execucao');
-  var orders = page.items;
-  if (assignedTo != null) {
-    orders = orders.where((o) => o.assignedTo == assignedTo).toList();
-  }
-  orders = orders.take(5).toList();
+  final page = await repo.listOrders(
+    statuses: osRealStatusesOf(OsSimpleStatus.emAndamento),
+    assignedTo: assignedTo,
+  );
+  final orders = page.items.take(5).toList();
   // Mapa id→nome do responsável (best-effort; falha vira "—").
   Map<String, String> names = const {};
   try {
@@ -92,12 +99,17 @@ final myOverdueOrdersProvider = FutureProvider.autoDispose
     .family<List<ServiceOrder>, String?>((ref, assignedTo) async {
   if (assignedTo == null) return const <ServiceOrder>[];
   final repo = ref.read(osRepositoryProvider);
-  final page = await repo.listOrders();
+  // Responsável e "ainda viva" vão ao SERVIDOR: antes isto pedia a lista
+  // inteira sem filtro e peneirava a 1ª página no cliente, então numa oficina
+  // com mais de 20 OS as atrasadas do mecânico simplesmente não apareciam.
+  // O conjunto "viva" também era escrito à mão e não conhecia `a_receber` nem
+  // `sem_conserto` — OS já encerradas ficavam eternamente "atrasadas".
+  final page = await repo.listOrders(
+    statuses: osRealStatusesOf(OsSimpleStatus.emAndamento),
+    assignedTo: assignedTo,
+  );
   final now = DateTime.now();
-  const done = {'concluida', 'entregue', 'cancelada'};
   return page.items.where((o) {
-    if (o.assignedTo != assignedTo) return false;
-    if (done.contains(o.status)) return false;
     final end = o.scheduledEnd == null
         ? null
         : DateTime.tryParse(o.scheduledEnd!);

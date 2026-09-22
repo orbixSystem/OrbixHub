@@ -1,9 +1,17 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser, Permissions } from '../../common/auth/decorators';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { ReceivablesService } from './receivables.service';
+import { ListDebtorsQueryDto } from './dto/list-debtors.dto';
 
 /**
  * Controle de fiado (contas a receber) — leitura apenas.
@@ -20,11 +28,14 @@ import { ReceivablesService } from './receivables.service';
 export class ReceivablesController {
   constructor(private readonly receivables: ReceivablesService) {}
 
-  /** Devedores e quanto cada um deve. */
+  /** Devedores — filtrados, ordenados e paginados no servidor. */
   @Get()
   @Permissions('cashier.read')
-  listCustomers(@CurrentUser() user: AuthUser) {
-    return this.receivables.listCustomers(user);
+  listCustomers(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListDebtorsQueryDto,
+  ) {
+    return this.receivables.listCustomers(user, query);
   }
 
   /**
@@ -56,8 +67,16 @@ export class ReceivablesController {
    */
   @Get('sem-cliente')
   @Permissions('cashier.read')
-  listAnonymous(@CurrentUser() user: AuthUser) {
-    return this.receivables.listTitles(user, null);
+  listAnonymous(
+    @CurrentUser() user: AuthUser,
+    /**
+     * Apelido da venda de balcão ("Macarrão"). A carteira agrupa os anônimos
+     * por NOME, então o detalhe precisa da mesma chave — sem isto, abrir a aba
+     * de um apelido lista as vendas de todos os outros.
+     */
+    @Query('nome') nome?: string,
+  ) {
+    return this.receivables.listTitles(user, null, nome ?? null);
   }
 
   /** Títulos em aberto de um cliente, separados e com os itens de cada. */

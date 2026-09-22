@@ -49,17 +49,39 @@ void main() {
       expect(osCaminhoAte('aberta', OsSimpleStatus.cancelada), ['cancelada']);
     });
 
-    test('CONCLUÍDA NÃO PODE cancelar — a FSM do backend não permite', () {
-      // Regra real: `concluida: ['entregue']` no backend, sem saída para
-      // cancelada. Se isto retornasse um caminho, o botão "Cancelada" ficaria
-      // habilitado e a chamada real quebraria com 400 na cara do usuário.
+    test('CONCLUÍDA NÃO PODE cancelar — nem passando por uma reabertura', () {
+      // `concluida` não tem saída direta para `cancelada`. Desde que ela ganhou
+      // a volta para `em_execucao` (reabertura), existe um caminho no grafo —
+      // e é exatamente ele que o BFS precisa RECUSAR: o botão "Cancelada"
+      // habilitado reabriria a OS por baixo dos panos, sem o usuário pedir.
       expect(osCaminhoAte('concluida', OsSimpleStatus.cancelada), isNull);
     });
 
-    test('ENTREGUE é terminal — nenhum destino tem caminho', () {
+    test('ENTREGUE não vira cancelada, mas REABRE para em andamento', () {
       expect(osCaminhoAte('entregue', OsSimpleStatus.finalizada), isEmpty);
       expect(osCaminhoAte('entregue', OsSimpleStatus.cancelada), isNull);
-      expect(osCaminhoAte('entregue', OsSimpleStatus.emAndamento), isNull);
+      // Deixou de ser beco sem saída: é assim que se corrige uma OS finalizada
+      // com peça, valor ou cliente errado (exige `os.approve`).
+      expect(
+        osCaminhoAte('entregue', OsSimpleStatus.emAndamento),
+        ['em_execucao'],
+      );
+    });
+
+    test('CONCLUÍDA também reabre para em andamento', () {
+      expect(
+        osCaminhoAte('concluida', OsSimpleStatus.emAndamento),
+        ['em_execucao'],
+      );
+    });
+
+    test('reabrir volta para em_execucao, NUNCA para aberta', () {
+      // `em_execucao`, `concluida` e `entregue` consomem estoque; `aberta` não.
+      // Reabrir em `aberta` devolveria a peça à prateleira e tentaria baixá-la
+      // de novo a cada correção — e uma peça vendida no meio disso deixaria a
+      // baixa de volta falhando em silêncio.
+      expect(osTransitions['entregue'], ['em_execucao']);
+      expect(osTransitions['concluida'], contains('em_execucao'));
     });
 
     test('cancelada → "Em andamento" reabre (única saída real: para aberta)', () {

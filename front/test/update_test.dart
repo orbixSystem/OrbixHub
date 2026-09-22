@@ -164,6 +164,83 @@ void main() {
     });
   });
 
+  group('onde avisar (resolveAviso)', () {
+    // O gap que isto fecha: antes o "Depois" era estado do widget do banner —
+    // morria no primeiro rebuild e o aviso voltava a interromper. Agora adiar é
+    // uma decisão que sobrevive à sessão, e o aviso não se perde: vai pro sino.
+    const nova = AppUpdate(
+      enabled: true,
+      version: '1.0.0',
+      buildNumber: 14,
+      url: 'https://objects.example/setup.exe',
+    );
+
+    test('em dia: nenhum aviso', () {
+      expect(
+        resolveAviso(
+          status: UpdateStatus.emDia,
+          update: nova,
+          adiada: null,
+        ),
+        AvisoAtualizacao.nenhum,
+      );
+    });
+
+    test('disponível e nunca dispensada: banner', () {
+      expect(
+        resolveAviso(
+          status: UpdateStatus.disponivel,
+          update: nova,
+          adiada: null,
+        ),
+        AvisoAtualizacao.banner,
+      );
+    });
+
+    test('dispensada: sai do caminho e vai pro sino', () {
+      expect(
+        resolveAviso(
+          status: UpdateStatus.disponivel,
+          update: nova,
+          adiada: '1.0.0+14',
+        ),
+        AvisoAtualizacao.sino,
+      );
+    });
+
+    test('"depois" numa versão NÃO vale para a próxima', () {
+      // Quem dispensou a 1.0.0+13 não dispensou a +14 — senão a primeira recusa
+      // silenciaria o app para sempre.
+      expect(
+        resolveAviso(
+          status: UpdateStatus.disponivel,
+          update: nova,
+          adiada: '1.0.0+13',
+        ),
+        AvisoAtualizacao.banner,
+      );
+    });
+
+    test('obrigatória ignora o "depois" — não há adiar aqui', () {
+      expect(
+        resolveAviso(
+          status: UpdateStatus.obrigatoria,
+          update: nova,
+          adiada: '1.0.0+14',
+        ),
+        AvisoAtualizacao.bloqueio,
+      );
+    });
+
+    test('a chave distingue builds da MESMA versão', () {
+      expect(chaveDaVersao(nova), '1.0.0+14');
+      expect(
+        chaveDaVersao(const AppUpdate(version: '1.0.0', buildNumber: 13)),
+        '1.0.0+13',
+      );
+    });
+  });
+
   group('AppUpdate.fromJson', () {
     test('lê a resposta do backend', () {
       final u = AppUpdate.fromJson(const {

@@ -112,7 +112,7 @@ class _ReceiveOsPickerState extends ConsumerState<_ReceiveOsPicker> {
               Expanded(
                 child: Text(
                   'Esta OS já está quitada — não há saldo para receber.',
-                  style: TextStyle(color: neu.inkMuted, fontSize: 14),
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
                 ),
               ),
             ],

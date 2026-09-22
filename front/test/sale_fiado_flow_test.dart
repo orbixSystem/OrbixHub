@@ -206,6 +206,151 @@ void main() {
 
     expect(find.textContaining('Sem cliente identificado'), findsOneWidget);
   });
+
+
+
+  group('atalho "Deixar fiado"', () {
+    testWidgets('zera o valor e a venda inteira vira dívida', (tester) async {
+      // Antes era preciso ADIVINHAR que se devia apagar o valor que vem
+      // preenchido com o total. O atalho fica ao lado do "valor exato", que faz
+      // exatamente o oposto.
+      await abrirComItem(tester, 150);
+      expect(find.text('Deixar fiado'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+
+      // O efeito aparece na hora, sem precisar salvar para descobrir.
+      expect(find.textContaining('Fiado: ficam'), findsOneWidget);
+      expect(find.text('Vender (fiado)'), findsOneWidget);
+    });
+
+    testWidgets('a venda sai fiada e nada entra na gaveta', (tester) async {
+      await abrirComItem(tester, 150);
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect(vendas.criadas.single.fiado, isTrue);
+      expect(caixa.lancados, isEmpty);
+    });
+
+    testWidgets('o atalho contrário continua lá (recebeu tudo)', (tester) async {
+      await abrirComItem(tester, 150);
+      await tester.ensureVisible(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deixar fiado'));
+      await tester.pumpAndSettle();
+      expect(find.text('Vender (fiado)'), findsOneWidget);
+
+      // "Valor exato" desfaz: volta a ser venda recebida.
+      await tester.ensureVisible(find.byType(NeuExactAmountButton).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(NeuExactAmountButton).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Vender e receber'), findsOneWidget);
+    });
+  });
+
+  group('cliente cadastrado em destaque sobre o apelido', () {
+    testWidgets('a venda comum tambem lidera pela busca de cliente',
+        (tester) async {
+      // Um cadastro tem telefone e historico; o apelido nao tem nada. O
+      // destaque era exclusivo da venda a prazo — mas quem fia por engano
+      // (recebeu menos) tem o mesmo problema de cobranca depois.
+      await abrirComItem(tester, 150);
+
+      expect(find.text('Buscar cliente cadastrado'), findsOneWidget);
+      expect(find.text('Apelido sem cadastro (ex: João)'), findsOneWidget);
+    });
+
+    testWidgets('a vista NAO avisa sobre telefone; virando fiado, avisa',
+        (tester) async {
+      await abrirComItem(tester, 150);
+      // Recebendo tudo, nao ha o que cobrar depois: o aviso seria ruido.
+      expect(find.textContaining('sem telefone'), findsNothing);
+
+      // Recebeu menos ⇒ vira divida ⇒ o apelido passa a ser um problema.
+      await tester.enterText(campoRecebido, '50,00');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('sem telefone'), findsOneWidget);
+    });
+  });
+
+  group('prazo combinado no modal de confirmação', () {
+    // O prazo é perguntado ONDE se decide fiar. Inline, no corpo da venda, ele
+    // passava batido e a dívida nascia sem data por desatenção.
+    testWidgets('o modal de fiado pergunta quando o cliente paga',
+        (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Registrar como fiado?'), findsOneWidget);
+      expect(find.text('Prazo de pagamento'), findsOneWidget);
+      expect(find.text('Sem prazo'), findsOneWidget);
+      expect(find.text('Data única'), findsOneWidget);
+      expect(find.text('Parcelado'), findsOneWidget);
+    });
+
+    testWidgets('combinar data única grava plano de 1 parcela sobre o que FALTA',
+        (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Data única'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect(caixa.planos, hasLength(1));
+      expect(caixa.planos.single.installmentCount, 1);
+      // 200 − 120 recebidos: o plano é da DÍVIDA, não do total da venda.
+      expect(caixa.planos.single.totalAmount, 80);
+      expect(caixa.lancados.single.amount, 120);
+    });
+
+    testWidgets('sem prazo (padrão) registra a dívida e nenhum plano',
+        (tester) async {
+      await abrirComItem(tester, 90);
+      await tester.enterText(campoRecebido, '0');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirmar fiado'));
+      await tester.pumpAndSettle();
+
+      expect((await vendas.listSales()).items, hasLength(1));
+      expect(caixa.planos, isEmpty);
+    });
+
+    testWidgets('voltar no modal não grava venda NEM plano', (tester) async {
+      await abrirComItem(tester, 200);
+      await tester.enterText(campoRecebido, '120,00');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vender (fiado)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Data única'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+
+      expect((await vendas.listSales()).items, isEmpty);
+      expect(caixa.planos, isEmpty);
+    });
+  });
   group('editar venda existente', () {
     testWidgets('abre preenchida, sem recebimento, e salva os itens novos',
         (tester) async {
@@ -275,6 +420,138 @@ void main() {
       expect(salva.total, '125.00');
       expect(caixa.lancados, isEmpty,
           reason: 'editar não recebe dinheiro de novo');
+    });
+
+    testWidgets('venda PARCELADA: mudar o total pergunta o que fazer com as '
+        'parcelas', (tester) async {
+      tester.view.physicalSize = const Size(1500, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final existente = Sale(
+        id: 's-9',
+        number: 'VND-0009',
+        total: '100.00',
+        items: const [
+          SaleItem(id: 'i1', name: 'Palheta', quantity: '2',
+              unitPrice: '25.00', subtotal: '50.00'),
+          SaleItem(id: 'i2', name: 'Óleo', quantity: '1',
+              unitPrice: '50.00', subtotal: '50.00'),
+        ],
+      );
+      caixa = _SpyCashier();
+      // Duas parcelas de 50 combinadas quando a venda era 100.
+      caixa.parcelas.addAll(const [
+        Installment(id: 'p1', saleKind: 'sale', saleId: 's-9',
+            amount: '50.00', dueDate: '2026-10-10'),
+        Installment(id: 'p2', saleKind: 'sale', saleId: 's-9',
+            amount: '50.00', dueDate: '2026-11-10'),
+      ]);
+      vendas = FakeSaleRepository(sales: [existente]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cashierRepositoryProvider.overrideWithValue(caixa),
+          saleRepositoryProvider.overrideWithValue(vendas),
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+          customersRepositoryProvider
+              .overrideWithValue(FakeCustomersRepository()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => showSaleEditDialog(ctx, existente),
+                child: const Text('editar'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('editar'));
+      await tester.pumpAndSettle();
+
+      // 2 → 3 palhetas: o total vai de 100 para 125.
+      final steppers = find.descendant(
+        of: find.byType(NeuStepperField),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(steppers.first, '3');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar venda'));
+      await tester.pumpAndSettle();
+
+      // A dívida mudou e o cronograma não muda sozinho: perguntar é o que
+      // impede a cobrança de discordar da dívida em silêncio.
+      expect(find.text('As parcelas acompanham a mudança?'), findsOneWidget);
+      expect(find.textContaining('de R\$ 100,00 para R\$ 125,00'),
+          findsOneWidget);
+
+      await tester.tap(find.text('Recalcular'));
+      await tester.pumpAndSettle();
+
+      // 125 em duas: 62,50 cada, mantendo as datas combinadas.
+      expect(caixa.valoresCorrigidos, [
+        (id: 'p1', amount: 62.50),
+        (id: 'p2', amount: 62.50),
+      ]);
+    });
+
+    testWidgets('venda parcelada sem mudança de total NÃO pergunta nada',
+        (tester) async {
+      tester.view.physicalSize = const Size(1500, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final existente = Sale(
+        id: 's-9',
+        number: 'VND-0009',
+        total: '100.00',
+        items: const [
+          SaleItem(id: 'i1', name: 'Palheta', quantity: '2',
+              unitPrice: '25.00', subtotal: '50.00'),
+          SaleItem(id: 'i2', name: 'Óleo', quantity: '1',
+              unitPrice: '50.00', subtotal: '50.00'),
+        ],
+      );
+      caixa = _SpyCashier();
+      caixa.parcelas.add(const Installment(id: 'p1', saleKind: 'sale',
+          saleId: 's-9', amount: '100.00', dueDate: '2026-10-10'));
+      vendas = FakeSaleRepository(sales: [existente]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          cashierRepositoryProvider.overrideWithValue(caixa),
+          saleRepositoryProvider.overrideWithValue(vendas),
+          inventoryRepositoryProvider
+              .overrideWithValue(FakeInventoryRepository()),
+          customersRepositoryProvider
+              .overrideWithValue(FakeCustomersRepository()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => showSaleEditDialog(ctx, existente),
+                child: const Text('editar'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('editar'));
+      await tester.pumpAndSettle();
+      // Salva sem mexer em nada.
+      await tester.tap(find.text('Salvar venda'));
+      await tester.pumpAndSettle();
+
+      // Corrigir a observação de uma venda não é motivo para revisitar o
+      // cronograma — perguntar por nada treina o operador a ignorar o aviso.
+      expect(find.text('As parcelas acompanham a mudança?'), findsNothing);
+      expect(caixa.valoresCorrigidos, isEmpty);
     });
   });
 }

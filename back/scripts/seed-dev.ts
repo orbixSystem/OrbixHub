@@ -34,6 +34,12 @@ const PASSWORD = 'Dev@12345';
 const OWNER_EMAIL = 'dono@oficina-demo.dev';
 const MECH_EMAIL = 'mecanico@oficina-demo.dev';
 
+// Segundo tenant, na OUTRA vertical. A Orbix atende dois modos e só o de
+// oficina tinha conta semeada — para ver o genérico era preciso criar um tenant
+// na mão, então na prática ninguém testava nele.
+const GENERICO_SLUG = 'assistencia-demo';
+const GENERICO_OWNER_EMAIL = 'dono@assistencia-demo.dev';
+
 async function main() {
   loadEnv();
   const url =
@@ -71,20 +77,45 @@ async function main() {
     const roleOwner = await idByKey('role', 'owner');
     const roleMech = await idByKey('role', 'mechanic');
     const planPro = await idByKey('plan', 'pro');
-    const modules = ['os', 'inventory', 'customers', 'report'];
+    // Os módulos vêm DO PLANO, não de uma lista à parte.
+    //
+    // A lista fixa aqui era `['os','inventory','customers','report']` e ficou
+    // para trás: o tenant assinava o `pro` (que inclui caixa, vendas, despesas
+    // e nota fiscal) mas só recebia quatro módulos em `tenant_module`. Como o
+    // menu é gated por `me.modules`, a oficina demo simplesmente não tinha
+    // Caixa — e quem entrasse por ela ia achar que a rota sumiu.
+    //
+    // Derivar do plano é o que o próprio produto faz (`reconcileTenantModules`);
+    // manter uma segunda lista aqui garantia que as duas divergissem.
+    const modules: string[] = (
+      await q(
+        `SELECT m.key FROM plan_module pm
+           JOIN module m ON m.id = pm.module_id
+          WHERE pm.plan_id = $1
+          ORDER BY m.key`,
+        [planPro],
+      )
+    ).rows.map((r: { key: string }) => r.key);
     const moduleIds: Record<string, string> = {};
     for (const k of modules) moduleIds[k] = await idByKey('module', k);
 
     // ---- limpa execução anterior (idempotente) ----
-    await q(`DELETE FROM tenant WHERE slug = $1`, [DEMO_SLUG]); // cascata: domínio + membership + subscription
+    await q(`DELETE FROM tenant WHERE slug = ANY($1::text[])`, [
+      [DEMO_SLUG, GENERICO_SLUG],
+    ]); // cascata: domínio + membership + subscription
     await q(`DELETE FROM users WHERE email_normalized = ANY($1::text[])`, [
-      [OWNER_EMAIL, MECH_EMAIL],
+      [OWNER_EMAIL, MECH_EMAIL, GENERICO_OWNER_EMAIL],
     ]);
 
     // ---- tenant + assinatura + módulos ----
     const tenant = await one(
-      `INSERT INTO tenant (name, slug, cnpj, legal_name, trade_name, settings)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING id`,
+      // `vertical` EXPLÍCITO. Sem ele a coluna fica nula e resolve no pacote
+      // padrão (`equipamentos`): a "Oficina Demo" nascia rodando no modo
+      // genérico — sem máscara de placa, sem cascata FIPE, sem ficha técnica.
+      // O seed existe para reproduzir o produto real; nascer na vertical errada
+      // faz exatamente o contrário.
+      `INSERT INTO tenant (name, slug, cnpj, legal_name, trade_name, settings, vertical)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING id`,
       [
         'Oficina Demo OrbixHub',
         DEMO_SLUG,
@@ -92,6 +123,7 @@ async function main() {
         'Oficina Demo OrbixHub LTDA',
         'Oficina Demo',
         JSON.stringify({ phone: '(11) 4000-0000', email: 'contato@oficina-demo.dev' }),
+        'veiculos',
       ],
     );
     const tid = tenant.id as string;
@@ -300,6 +332,83 @@ async function main() {
       [tid, conv.id],
     );
 
+    // ================= 2º tenant: vertical GENÉRICA =================
+    // Enxuto de propósito: serve para ENTRAR no modo genérico e ver a diferença
+    // de vocabulário e de campos do subject (aqui é "Nome/Tipo/Marca/Modelo/
+    // Nº de série", não "Placa/Marca/Modelo/Ano/Cor/KM"). Encher de OS aqui só
+    // dobraria o tempo do seed sem mostrar nada que a oficina já não mostre.
+    const tenantGen = await one(
+      `INSERT INTO tenant (name, slug, cnpj, legal_name, trade_name, settings, vertical)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING id`,
+      [
+        'Assistência Demo OrbixHub',
+        GENERICO_SLUG,
+        '12345678000288',
+        'Assistência Demo OrbixHub LTDA',
+        'Assistência Demo',
+        JSON.stringify({
+          phone: '(11) 4000-0001',
+          email: 'contato@assistencia-demo.dev',
+        }),
+        'equipamentos',
+      ],
+    );
+    const tidGen = tenantGen.id as string;
+
+    await q(
+      `INSERT INTO subscription (tenant_id, plan_id, status, trial_ends_at, current_period_start, current_period_end)
+       VALUES ($1,$2,'trialing', now() + interval '14 days', now(), now() + interval '14 days')`,
+      [tidGen, planPro],
+    );
+    for (const k of modules) {
+      await q(
+        `INSERT INTO tenant_module (tenant_id, module_id, enabled, source) VALUES ($1,$2,true,'plan')`,
+        [tidGen, moduleIds[k]],
+      );
+    }
+
+    const ownerGenId = (
+      await one(
+        `INSERT INTO users (email_normalized, full_name, password_hash, email_verified_at, last_tenant_id)
+         VALUES ($1,$2,$3, now(), $4) RETURNING id`,
+        [GENERICO_OWNER_EMAIL, 'Bruno Assistência', passwordHash, tidGen],
+      )
+    ).id as string;
+    await q(
+      `INSERT INTO membership (tenant_id, user_id, role_id, status) VALUES ($1,$2,$3,'active')`,
+      [tidGen, ownerGenId, roleOwner],
+    );
+
+    // Um cliente com um equipamento, para o modo genérico abrir com conteúdo e
+    // a diferença de campos ficar visível já na primeira tela.
+    const clienteGen = await one(
+      `INSERT INTO customer (tenant_id, name, type, document, phone, email, status)
+       VALUES ($1,$2,'PF',$3,$4,$5,'active') RETURNING id`,
+      [
+        tidGen,
+        'Marina Souza',
+        '98765432100',
+        '(11) 98888-1000',
+        'marina@exemplo.dev',
+      ],
+    );
+    await q(
+      `INSERT INTO subject (tenant_id, customer_id, label, identifier, status, attributes)
+       VALUES ($1,$2,$3,$4,'active',$5::jsonb)`,
+      [
+        tidGen,
+        clienteGen.id,
+        'Notebook Dell Inspiron',
+        'Notebook Dell Inspiron',
+        JSON.stringify({
+          tipo: 'Notebook',
+          marca: 'Dell',
+          modelo: 'Inspiron 15',
+          numero_serie: 'SN-4421-A',
+        }),
+      ],
+    );
+
     await q('COMMIT');
 
     // ---- conferência ----
@@ -317,9 +426,11 @@ async function main() {
     console.table(counts.rows);
     // eslint-disable-next-line no-console
     console.log(
-      `\nTenant: Oficina Demo OrbixHub (slug: ${DEMO_SLUG})\n` +
+      `\nTenant OFICINA (vertical veiculos, slug: ${DEMO_SLUG})\n` +
         `Login DONO:     ${OWNER_EMAIL}  /  ${PASSWORD}\n` +
         `Login MECÂNICO: ${MECH_EMAIL}  /  ${PASSWORD}\n` +
+        `\nTenant GENÉRICO (vertical equipamentos, slug: ${GENERICO_SLUG})\n` +
+        `Login DONO:     ${GENERICO_OWNER_EMAIL}  /  ${PASSWORD}\n` +
         `Acompanhamento público da OS-0002: token ${osCivic.public_token}\n`,
     );
   } catch (e) {

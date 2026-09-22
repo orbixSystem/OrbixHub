@@ -35,7 +35,11 @@ import {
   CreateExpenseTemplateDto,
   UpdateExpenseTemplateDto,
 } from './dto/expense-template.dto';
-import { CreateInstallmentPlanDto, PayInstallmentDto } from './dto/installment.dto';
+import {
+  CreateInstallmentPlanDto,
+  PayInstallmentDto,
+  UpdateInstallmentDto,
+} from './dto/installment.dto';
 
 @Controller('cashier')
 @UseGuards(ModuleAccessGuard)
@@ -225,6 +229,20 @@ export class CashierController {
     @Body() dto: CreateInstallmentPlanDto,
   ) {
     return this.cashier.createInstallmentPlan(user, dto);
+  }
+
+  /**
+   * Corrige o valor de uma parcela em aberto (o plano divide igual; a vida
+   * não). `cashier.write` porque é a mesma classe de ato de criar o plano.
+   */
+  @Patch('installments/:id')
+  @Permissions('cashier.write')
+  updateInstallment(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateInstallmentDto,
+  ) {
+    return this.cashier.updateInstallment(user, id, dto);
   }
 
   @Post('installments/:id/pay')

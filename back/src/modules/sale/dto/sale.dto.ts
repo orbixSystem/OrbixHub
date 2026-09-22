@@ -42,6 +42,12 @@ export class CreateSaleDto {
    */
   @IsOptional() @IsUUID() id?: string;
   @IsOptional() @IsUUID() customerId?: string;
+  /**
+   * Apelido ou observação livre para venda sem cliente cadastrado (ex.: "Macarrão").
+   * Ignorado quando `customerId` for fornecido (o nome vem do cadastro).
+   * Gravado como `customer_name` para identificar a venda no extrato e no fiado.
+   */
+  @IsOptional() @IsString() @MaxLength(100) customerNote?: string;
   /** Desconto em valor sobre o total da venda (≥ 0). O service clampa ao bruto. */
   @IsOptional() @IsNumber() @Min(0) discount?: number;
   /**

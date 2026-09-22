@@ -209,6 +209,19 @@ export class CustomersService {
     return customer;
   }
 
+  /**
+   * Nome e telefone de vários clientes de uma vez. Porta do "A receber": quem
+   * cobra precisa do telefone na linha, e fazer uma chamada por devedor seria
+   * N+1 numa lista que já custa uma varredura.
+   */
+  async getCustomersByIds(
+    _user: AuthUser,
+    ids: string[],
+  ): Promise<Array<{ id: string; name: string; phone: string | null }>> {
+    if (ids.length === 0) return [];
+    return this.tenant.withTenantTx(() => this.repo.findCustomersByIds(ids));
+  }
+
   async updateCustomer(user: AuthUser, id: string, dto: UpdateCustomerDto) {
     return this.tenant.withTenantTx(async () => {
       const existing = await this.repo.findCustomerById(id);
@@ -309,6 +322,10 @@ export class CustomersService {
           id: dto.id,
           label: dto.label?.trim() || null,
           identifier,
+          tipo: dto.tipo?.trim() || null,
+          marca: dto.marca?.trim() || null,
+          modelo: dto.modelo?.trim() || null,
+          numeroSerie: dto.numeroSerie?.trim() || null,
           attributes: dto.attributes,
           plateData: dto.plateData,
         });
@@ -358,6 +375,10 @@ export class CustomersService {
       if (dto.identifier !== undefined) {
         data.identifier = dto.identifier.trim() || null;
       }
+      if (dto.tipo !== undefined) data.tipo = dto.tipo?.trim() || null;
+      if (dto.marca !== undefined) data.marca = dto.marca?.trim() || null;
+      if (dto.modelo !== undefined) data.modelo = dto.modelo?.trim() || null;
+      if (dto.numeroSerie !== undefined) data.numeroSerie = dto.numeroSerie?.trim() || null;
       if (dto.attributes !== undefined) data.attributes = dto.attributes;
       if (dto.plateData !== undefined) data.plateData = dto.plateData;
       return this.repo.updateSubject(id, data);

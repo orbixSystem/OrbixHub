@@ -169,6 +169,8 @@ export class OsController {
     return this.os.markFiado(user, id);
   }
 
+  // Excluir é soft delete e exige `os.approve` (checado no service, como as
+  // demais transições privilegiadas): mexe em estoque e faturamento apurado.
   @Delete('orders/:id')
   @Permissions('os.write')
   @HttpCode(200)

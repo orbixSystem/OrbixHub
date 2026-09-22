@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/offline/offline_routes.dart';
+import '../../../core/devtools/dev_inbox_overlay.dart';
 import '../../../core/offline/widgets/connection_banner.dart';
 import '../../../core/offline/widgets/connection_chip.dart';
 import '../../../core/offline/widgets/offline_notices.dart';
@@ -21,6 +22,7 @@ import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
 import '../../billing/presentation/bloqueio_view.dart';
 import '../../update/presentation/update_banner.dart';
+import '../../update/presentation/update_watcher.dart';
 import '../../update/presentation/update_controller.dart';
 import 'nav_items.dart';
 import 'screen_tutorials.dart';
@@ -226,7 +228,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                           const ConnectionBanner(),
                           // Versão nova disponível (adiável). A obrigatória não
                           // chega aqui — ela substitui a casca inteira.
-                          const UpdateBanner(),
+                          const UpdateWatcher(),
                           // A transição entre telas é feita pelo Navigator do
                           // ShellRoute (pageBuilder + neuPage), não aqui — envolver
                           // o child num AnimatedSwitcher duplicava a GlobalKey da
@@ -301,12 +303,15 @@ class _ContentHeader extends StatelessWidget {
                 padding: EdgeInsets.only(
                   // No mobile o canto esquerdo é do "?" do tutorial (overlay,
                   // espelhando o sino do outro lado do "+"): reservamos a faixa
-                  // dele para o chip de conexão não ficar por baixo. 54 = 8 de
-                  // margem + 38 do botão + respiro.
+                  // deles para o chip de conexão não ficar por baixo.
+                  //
+                  // A largura vem de QUEM DESENHA os botões
+                  // ([kControlesEsquerdaMobile]), não de uma conta repetida
+                  // aqui — foi repetindo a conta que este bug nasceu e voltou.
                   left: showMenu
                       ? 8
                       : context.isMobile
-                      ? 54
+                      ? kControlesEsquerdaMobile
                       : 28,
                   right: 20,
                   bottom: 16,
@@ -350,8 +355,12 @@ class _ContentHeader extends StatelessWidget {
                         // largura ILIMITADA e o Flexible interno dele nunca
                         // ativaria — rótulo longo (muitas pendências) estouraria
                         // o header num telefone estreito.
+                        // Ícone só: com dois botões à esquerda e o berço do FAB
+                        // no centro, não sobra largura para rótulo. O estado
+                        // continua legível pela cor + spinner, e o tooltip diz
+                        // o resto — tocar abre o painel de pendências.
                         if (context.isMobile)
-                          const Flexible(child: ConnectionChip(dense: true)),
+                          const ConnectionChip(collapsed: true),
                         const Spacer(),
                         // Sino, "?" do tutorial e toggle de tema vivem no overlay
                         // global (GlobalControls), lado a lado no topo-direita.
@@ -488,6 +497,9 @@ class _NeuBottomBar extends StatelessWidget {
                     icon: primary[i].icon,
                     label: primary[i].label,
                     active: !overflowSelected && i == selectedIndex,
+                    // Feature anunciada e ainda não liberada: aparece, avisa e
+                    // não navega (mesma regra da sidebar).
+                    emBreve: primary[i].emBreve,
                     onTap: () => onNavigate(primary[i].route),
                   ),
                 ),
@@ -547,14 +559,26 @@ class _NeuBottomBar extends StatelessWidget {
                           child: NeuListTile(
                             leading: Icon(
                               item.icon,
-                              color: neu.inkMuted,
+                              color: item.emBreve ? neu.inkFaint : neu.inkMuted,
                               size: 22,
                             ),
-                            title: Text(item.label),
-                            onTap: () {
-                              Navigator.of(sheetContext).pop();
-                              onNavigate(item.route);
-                            },
+                            title: Text(
+                              item.label,
+                              style: item.emBreve
+                                  ? TextStyle(color: neu.inkFaint)
+                                  : null,
+                            ),
+                            // Anunciado e ainda não liberado: o selo diz o
+                            // porquê ali mesmo, sem precisar tocar para
+                            // descobrir.
+                            trailing:
+                                item.emBreve ? const NeuEmBreveTag() : null,
+                            onTap: item.emBreve
+                                ? null
+                                : () {
+                                    Navigator.of(sheetContext).pop();
+                                    onNavigate(item.route);
+                                  },
                           ),
                         ),
                     ],
@@ -575,6 +599,7 @@ class _BottomItem extends StatelessWidget {
     required this.label,
     required this.active,
     required this.onTap,
+    this.emBreve = false,
   });
 
   final IconData icon;
@@ -582,12 +607,26 @@ class _BottomItem extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
+  /// Anunciado, ainda não liberado: esmaecido e sem navegar.
+  final bool emBreve;
+
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final color = active ? neu.navy : neu.inkMuted;
+    final color = emBreve
+        ? neu.inkFaint
+        : active
+            ? neu.navy
+            : neu.inkMuted;
     return InkWell(
-      onTap: onTap,
+      onTap: emBreve
+          ? () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  content: Text('$label chega em breve.'),
+                ),
+              )
+          : onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

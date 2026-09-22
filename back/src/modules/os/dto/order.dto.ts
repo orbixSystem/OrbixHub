@@ -13,18 +13,12 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OS_STATUSES, type OsStatus } from '../os-status';
 
-/** Os 7 estados do workflow da OS. */
-export const OS_STATUSES = [
-  'aberta',
-  'aguardando_aprovacao',
-  'aprovada',
-  'em_execucao',
-  'concluida',
-  'entregue',
-  'cancelada',
-] as const;
-export type OsStatus = (typeof OS_STATUSES)[number];
+// A lista de status é do domínio, não da validação — vive em `../os-status`.
+// Reexportada aqui porque meio código já a importa por este caminho.
+export { OS_STATUSES } from '../os-status';
+export type { OsStatus } from '../os-status';
 
 /**
  * Chaves de ordenação da lista/relatório de OS (contrato com o front). `recent`
@@ -70,6 +64,14 @@ export class CreateOrderDto {
   newCustomerPhone!: string;
   /** Veículo novo: placa/identificação (genérico = identifier). */
   @IsOptional() @IsString() @MaxLength(120) newSubjectIdentifier?: string;
+  /** Equipamento novo: tipo (ex.: celular, câmera fotográfica). */
+  @IsOptional() @IsString() @MaxLength(100) newSubjectTipo?: string;
+  /** Equipamento novo: fabricante. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectMarca?: string;
+  /** Equipamento novo: modelo do equipamento. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectModelo?: string;
+  /** Equipamento novo: número de série / IMEI. */
+  @IsOptional() @IsString() @MaxLength(120) newSubjectNumeroSerie?: string;
   /** Veículo novo: atributos do vertical (ex.: { marca, modelo }). */
   @IsOptional() @IsObject() newSubjectAttributes?: Record<string, unknown>;
   /**
@@ -114,6 +116,10 @@ export class ListOrdersQueryDto {
   // `status` quando presente; tokens fora de OS_STATUSES são ignorados.
   @IsOptional() @IsString() @MaxLength(200) statuses?: string;
   @IsOptional() @IsUUID() customerId?: string;
+  // Responsável pela OS. Existe porque a home do mecânico ("minhas OS") pegava
+  // a 1ª página e filtrava no cliente: com mais de uma página, as OS dele
+  // simplesmente não apareciam.
+  @IsOptional() @IsUUID() assignedTo?: string;
   @IsOptional() @IsIn(OS_SORTS) sort?: OsSort;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   // Cap igual ao dos demais módulos — sem ele um cliente pode pedir uma

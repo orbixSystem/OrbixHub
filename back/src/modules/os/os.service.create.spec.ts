@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsService } from './os.service';
 import type { AuthUser } from '../../common/auth/auth.types';
 import type { CreateOrderDto } from './dto/order.dto';
@@ -67,6 +68,8 @@ function makeService(opts: { usaSubjects?: boolean } = {}) {
       // estes testes observam — fake devolvendo undefined cai no fallback.
       { texto: () => undefined } as never,
       { getTenantVertical: async () => 'veiculos' } as never,
+      // OrderLockRegistry vazio: nenhum módulo registrou impedimento.
+      new OrderLockRegistry(),
     );
   return { svc, customers, repo };
 }

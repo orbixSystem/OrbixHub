@@ -24,6 +24,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { MessagesService } from '../messages/messages.service';
 import { IamService } from '../iam/iam.service';
 import { CashierService } from '../cashier/cashier.service';
+import { OrderLockRegistry } from './order-lock.registry';
 import { OsRepository } from './os.repository';
 import {
   ChangeStatusDto,
@@ -51,6 +52,7 @@ import {
   isIdUniqueViolation,
   isUniqueViolation,
 } from '../../common/database/prisma-errors';
+import { criarComNumeroSequencial } from '../../common/database/numero-sequencial';
 import {
   clampChangedSinceLimit,
   type ChangedSincePage,
@@ -80,7 +82,11 @@ const STATUS_LABELS_FALLBACK: Record<OsStatus, string> = {
   aguardando_aprovacao: 'Aguardando aprovação',
   aprovada: 'Orçamento aprovado',
   em_execucao: 'Em execução',
+  aguardando_pecas: 'Aguardando peças',
+  pendente: 'Pendente',
+  sem_conserto: 'Sem conserto',
   concluida: 'Serviço concluído',
+  a_receber: 'A receber',
   entregue: 'Serviço entregue',
   cancelada: 'OS cancelada',
 };
@@ -105,6 +111,7 @@ const formatBrDate = (d: Date): string => {
 const CONSUMING_STATUSES = new Set<OsStatus>([
   'em_execucao',
   'concluida',
+  'a_receber',
   'entregue',
 ]);
 const consumes = (status: string): boolean =>
@@ -112,25 +119,73 @@ const consumes = (status: string): boolean =>
 
 /**
  * Máquina de estados do workflow da OS (FSM pura). Cada chave lista os destinos
- * válidos; `entregue` é terminal (sem destinos). `cancelada` só sai via
- * "reabertura" (→ `aberta`), que é privilegiada (gated por `os.approve`).
+ * válidos. Nenhum estado é beco sem saída: todo estado fechado sai por
+ * **reabertura**, que é privilegiada (gated por `os.approve`) — `cancelada` volta
+ * para `aberta`, `concluida`/`entregue` voltam para `em_execucao`.
+ *
+ * Uma OS finalizada com erro (peça errada, valor errado, cliente errado) existia
+ * sem conserto até 31/08/2026: `entregue` não tinha destino nenhum. Corrigir
+ * exigia abrir OUTRA OS, o que dobra o histórico do carro e o faturamento.
  */
 const TRANSITIONS: Record<OsStatus, OsStatus[]> = {
-  aberta: ['aguardando_aprovacao', 'em_execucao', 'cancelada'],
+  aberta: ['aguardando_aprovacao', 'em_execucao', 'pendente', 'cancelada'],
   aguardando_aprovacao: ['aprovada', 'aberta', 'cancelada'],
-  aprovada: ['em_execucao', 'cancelada'],
-  em_execucao: ['concluida', 'cancelada'],
-  concluida: ['entregue'],
-  entregue: [],
+  aprovada: ['em_execucao', 'aguardando_pecas', 'cancelada'],
+  em_execucao: [
+    'concluida',
+    'aguardando_pecas',
+    'pendente',
+    'sem_conserto',
+    'cancelada',
+  ],
+  aguardando_pecas: ['em_execucao', 'cancelada'],
+  pendente: ['aberta', 'cancelada'],
+  sem_conserto: ['entregue', 'cancelada'],
+  concluida: ['a_receber', 'entregue', 'em_execucao'],
+  a_receber: ['entregue', 'em_execucao'],
+  entregue: ['em_execucao'],
   cancelada: ['aberta'],
 };
 
 /**
- * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
- * cabeçalho). `cancelada` volta a ser editável reabrindo-a (→ `aberta`);
- * `entregue` é final.
+ * Reabertura: volta de um estado fechado para o trabalho. Exige `os.approve` e,
+ * quando vem de uma OS finalizada, que nenhum outro módulo tenha documento
+ * amarrado a ela (ver `OrderLockRegistry`).
+ *
+ * `a_receber` entrou na lista depois: ela é OS finalizada esperando pagamento,
+ * e voltar dela para `em_execucao` é reabrir igual às outras. Enquanto ficou de
+ * fora, `concluida → a_receber → em_execucao` era um caminho que devolvia uma
+ * OS fechada ao trabalho **sem exigir `os.approve` e sem passar pela trava de
+ * nota fiscal** — e de lá dava até para cancelá-la, coisa que a FSM proíbe
+ * diretamente.
+ *
+ * `concluida`/`a_receber`/`entregue` reabrem em `em_execucao` — e NÃO em `aberta` — de
+ * propósito: os três consomem estoque (ver `CONSUMING_STATUSES`), então reabrir
+ * não devolve peça à prateleira nem tenta baixá-la de novo. Reabrir em `aberta`
+ * faria o estoque ir e voltar a cada correção, e uma peça vendida no meio do
+ * caminho deixaria a baixa de volta falhando em silêncio.
  */
-const TERMINAL_STATUSES = new Set<OsStatus>(['cancelada', 'entregue']);
+const REABREM_EM_EXECUCAO: ReadonlySet<OsStatus> = new Set([
+  'concluida',
+  'a_receber',
+  'entregue',
+]);
+
+const isReopen = (from: OsStatus, to: OsStatus): boolean =>
+  (from === 'cancelada' && to === 'aberta') ||
+  (REABREM_EM_EXECUCAO.has(from) && to === 'em_execucao');
+
+/**
+ * Estados terminais: a OS não aceita edição de conteúdo (itens, fotos, notas,
+ * cabeçalho) enquanto estiver neles. Não são becos sem saída — voltam a ser
+ * editáveis pela reabertura (ver [isReopen]). `sem_conserto` é terminal (só
+ * sai para entregue/cancelada).
+ */
+const TERMINAL_STATUSES = new Set<OsStatus>([
+  'cancelada',
+  'entregue',
+  'sem_conserto',
+]);
 
 @Injectable()
 export class OsService {
@@ -153,13 +208,19 @@ export class OsService {
     // Tenancy (dona da tabela `tenant`), o texto vem do pacote.
     private readonly vocabulary: VocabularyService,
     private readonly tenancy: TenancyService,
+    // Impedimentos que OUTROS módulos têm sobre esta OS (hoje: nota fiscal
+    // ativa). A OS pergunta ao registro; nunca lê a tabela deles.
+    private readonly orderLocks: OrderLockRegistry,
   ) {}
 
   /**
    * Rótulo do status na língua do nicho do tenant. Resolvido FORA de qualquer
    * transação — quem chama já traz o texto pronto para dentro dela.
    */
-  private async statusLabel(tenantId: string, status: OsStatus): Promise<string> {
+  private async statusLabel(
+    tenantId: string,
+    status: OsStatus,
+  ): Promise<string> {
     const vertical = await this.tenancy.getTenantVertical(tenantId);
     return (
       this.vocabulary.texto(vertical, statusVocabKey(status)) ??
@@ -177,7 +238,9 @@ export class OsService {
       const evt: OsChangedEvent = { tenantId, orderId, kind };
       this.events.emit(OS_CHANGED_EVENT, evt);
     } catch (e) {
-      this.logger.warn(`Falha ao emitir ${OS_CHANGED_EVENT}: ${(e as Error).message}`);
+      this.logger.warn(
+        `Falha ao emitir ${OS_CHANGED_EVENT}: ${(e as Error).message}`,
+      );
     }
   }
 
@@ -204,6 +267,10 @@ export class OsService {
     }
     const subject = await this.customers.createSubject(user, customerId, {
       identifier: dto.newSubjectIdentifier?.trim() || undefined,
+      tipo: dto.newSubjectTipo?.trim() || undefined,
+      marca: dto.newSubjectMarca?.trim() || undefined,
+      modelo: dto.newSubjectModelo?.trim() || undefined,
+      numeroSerie: dto.newSubjectNumeroSerie?.trim() || undefined,
       attributes: dto.newSubjectAttributes,
       plateData: dto.newSubjectPlateData,
     });
@@ -226,6 +293,10 @@ export class OsService {
     // cliente existente que ainda não tem nenhum cadastrado).
     const wantsSubject =
       !!dto.newSubjectIdentifier?.trim() ||
+      !!dto.newSubjectTipo?.trim() ||
+      !!dto.newSubjectMarca?.trim() ||
+      !!dto.newSubjectModelo?.trim() ||
+      !!dto.newSubjectNumeroSerie?.trim() ||
       (dto.newSubjectAttributes != null &&
         Object.keys(dto.newSubjectAttributes).length > 0);
 
@@ -259,9 +330,9 @@ export class OsService {
       );
     }
 
-    const order = await (async () => {
-      try {
-        return await this.tenant.withTenantTx(async () => {
+    const order = await criarComNumeroSequencial(
+      () =>
+        this.tenant.withTenantTx(async () => {
           const n = (await this.repo.maxOrderNumber()) + 1;
           const number = `OS-${String(n).padStart(4, '0')}`;
           const created = await this.repo.createOrder(user.tenantId, {
@@ -276,7 +347,9 @@ export class OsService {
             assigned_to: dto.assignedTo ?? null,
             complaint: dto.complaint?.trim() || null,
             diagnosis: dto.diagnosis?.trim() || null,
-            scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart) : null,
+            scheduled_start: dto.scheduledStart
+              ? new Date(dto.scheduledStart)
+              : null,
             scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd) : null,
             // Nasce sem itens: o desconto fica gravado e entra no total assim
             // que o primeiro item chega (recomputeTotal).
@@ -291,14 +364,18 @@ export class OsService {
             createdBy: user.userId,
           });
           return created;
-        });
-      } catch (e) {
+        }),
+      {
         // PK duplicada (replay offline com id) ≠ nº da OS duplicado (corrida do
         // uq_service_order_tenant_number). Sob RLS o meta.target vem null —
         // quando o detalhe não aponta a PK, confirmamos com uma leitura por id
-        // em nova tx (id existe no tenant ⇒ conflito de id). Colisão de número
-        // segue o fluxo normal do erro (comportamento pré-existente).
-        if (dto.id && isUniqueViolation(e)) {
+        // em nova tx (id existe no tenant ⇒ conflito de id).
+        //
+        // Conflito de id é definitivo: repetir só repetiria. Colisão de número
+        // agora é REPETIDA — antes virava erro cru na cara de quem abriu a OS
+        // meio segundo depois do colega.
+        ehConflitoDeId: async (e) => {
+          if (!dto.id) return false;
           const idTaken =
             isIdUniqueViolation(e) ||
             (await this.tenant.withTenantTx(() =>
@@ -307,10 +384,10 @@ export class OsService {
           if (idTaken) {
             throw new ConflictException('Registro já existe (id duplicado).');
           }
-        }
-        throw e;
-      }
-    })();
+          return false;
+        },
+      },
+    );
     // audit FORA do tx (audit.log abre sua própria transação; aninhar esgota o pool).
     await this.audit.log(user.tenantId, user.userId, 'os_create', order.id);
 
@@ -342,10 +419,9 @@ export class OsService {
         status: query.status,
         statuses: query.statuses
           ?.split(',')
-          .filter((s): s is OsStatus =>
-            OS_STATUSES.includes(s as OsStatus),
-          ),
+          .filter((s): s is OsStatus => OS_STATUSES.includes(s as OsStatus)),
         customerId: query.customerId,
+        assignedTo: query.assignedTo,
         sort: query.sort,
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -460,8 +536,10 @@ export class OsService {
         throw new NotFoundException('OS não encontrada.');
       this.assertEditable(existing);
       const data: Record<string, unknown> = {};
-      if (dto.complaint !== undefined) data.complaint = dto.complaint.trim() || null;
-      if (dto.diagnosis !== undefined) data.diagnosis = dto.diagnosis.trim() || null;
+      if (dto.complaint !== undefined)
+        data.complaint = dto.complaint.trim() || null;
+      if (dto.diagnosis !== undefined)
+        data.diagnosis = dto.diagnosis.trim() || null;
       if (dto.scheduledStart !== undefined)
         data.scheduled_start = toDate(dto.scheduledStart);
       if (dto.scheduledEnd !== undefined)
@@ -527,7 +605,10 @@ export class OsService {
         throw new BadRequestException('OS cancelada não pode virar fiado.');
       }
       if (existing.fiado_at) return { order: existing, jaEra: true };
-      return { order: await this.repo.setFiadoAt(id, new Date()), jaEra: false };
+      return {
+        order: await this.repo.setFiadoAt(id, new Date()),
+        jaEra: false,
+      };
     });
     if (jaEra) return order;
     await this.audit.log(user.tenantId, user.userId, 'os_fiado', id);
@@ -535,14 +616,85 @@ export class OsService {
     return order;
   }
 
+  /**
+   * Exclui uma OS (soft delete — a linha continua no banco com `deleted_at`).
+   *
+   * Uma OS não é um rascunho: ela consome peça do estoque, gera recebimento no
+   * caixa e pode ter nota fiscal. Sumir com ela sem olhar para isso deixa
+   * rastro que ninguém consegue explicar depois — peça faltando na prateleira,
+   * dinheiro no extrato apontando para uma OS que não abre, cobrança viva em "a
+   * receber". Então:
+   *
+   * - exige `os.approve` (mesmo público que aprova e reabre — nunca o mecânico
+   *   com `os.write`), porque é destrutivo e mexe em faturamento apurado;
+   * - RECUSA enquanto houver documento de outro módulo amarrado (nota fiscal
+   *   ativa), pagamento lançado no caixa ou parcela de fiado em aberto — nos
+   *   dois últimos casos o caminho é estornar/quitar primeiro, no Caixa, onde a
+   *   baixa fica registrada em vez de desaparecer;
+   * - DEVOLVE ao estoque tudo que a OS tinha consumido, porque a peça que ela
+   *   baixou não foi usada em serviço nenhum se a OS não existe mais.
+   */
   async deleteOrder(user: AuthUser, id: string) {
-    const result = await this.tenant.withTenantTx(async () => {
-      const existing = await this.repo.findOrderById(id);
-      if (!existing || existing.deleted_at)
-        throw new NotFoundException('OS não encontrada.');
-      return this.repo.softDelete(id);
+    if (!(await this.userHasPermission(user, 'os.approve'))) {
+      throw new ForbiddenException('Sem permissão para excluir OS.');
+    }
+    // Carrega a OS inteira ANTES de excluir: depois do soft delete ela some das
+    // consultas, e os itens são justamente o que precisa voltar ao estoque.
+    const order = await this.getOrderOrThrow(id);
+
+    const impedimento = await this.orderLocks.primeiroImpedimento(id);
+    if (impedimento) throw new BadRequestException(impedimento);
+
+    // Dinheiro: quem sabe é o caixa, e a OS pergunta por id ("aponta, não
+    // invade"). `paid` cobre recebimento E desconto concedido — os dois são
+    // baixa da dívida e os dois viraram lançamento no livro caixa.
+    const pagamento = await this.cashier.getPaymentSummary(
+      user.tenantId,
+      id,
+      toNum(order.total),
+    );
+    if (pagamento.paid > 0) {
+      throw new BadRequestException(
+        'Esta OS já tem pagamento lançado no caixa. Estorne os lançamentos em ' +
+          'Pagamentos antes de excluí-la.',
+      );
+    }
+    const parcelas = await this.cashier.contarParcelasEmAberto(
+      user.tenantId,
+      'os',
+      id,
+    );
+    if (parcelas > 0) {
+      throw new BadRequestException(
+        `Esta OS tem ${parcelas} parcela(s) de fiado em aberto. Quite ou ` +
+          'cancele o parcelamento antes de excluí-la.',
+      );
+    }
+
+    const result = await this.tenant.withTenantTx(() =>
+      this.repo.softDelete(id),
+    );
+
+    // Estoque de volta à prateleira. FORA da tx (reconcile abre a própria) e
+    // best-effort, como nas demais reconciliações: a OS já foi excluída, e um
+    // erro de estoque num item não pode ressuscitá-la pela metade.
+    const linhasDeEstoque = order.items.filter(
+      (i) => i.kind === 'product' && i.inventory_item_id,
+    ).length;
+    if (linhasDeEstoque > 0) {
+      await this.reconcileOrderStock(user, order, { devolverTudo: true });
+    }
+    // Só houve devolução se a OS tinha de fato baixado a peça: numa OS que
+    // morreu antes de entrar em execução a reconciliação é um no-op, e dizer
+    // "devolvi 3 itens" na auditoria seria mentira.
+    const devolvidos = consumes(order.status) ? linhasDeEstoque : 0;
+
+    await this.audit.log(user.tenantId, user.userId, 'os_delete', id, {
+      status: order.status,
+      total: toNum(order.total),
+      itensDevolvidos: devolvidos,
     });
-    await this.audit.log(user.tenantId, user.userId, 'os_delete', id);
+    this.emitOsChanged(user.tenantId, id, 'status');
     return result;
   }
 
@@ -664,9 +816,15 @@ export class OsService {
 
     await this.tenant.withTenantTx(() => this.repo.deletePhoto(photoId));
     this.emitOsChanged(user.tenantId, orderId, 'photos');
-    await this.audit.log(user.tenantId, user.userId, 'os_photo_delete', orderId, {
-      photoId,
-    });
+    await this.audit.log(
+      user.tenantId,
+      user.userId,
+      'os_photo_delete',
+      orderId,
+      {
+        photoId,
+      },
+    );
     return { id: photoId, deleted: true };
   }
 
@@ -700,7 +858,8 @@ export class OsService {
     body: string,
   ) {
     const text = body?.trim();
-    if (!text) throw new BadRequestException('O comentário não pode ser vazio.');
+    if (!text)
+      throw new BadRequestException('O comentário não pode ser vazio.');
     const created = await this.tenant.withTenantTx(async () => {
       await this.assertPhotoInOrder(orderId, photoId);
       return this.repo.addPhotoComment(user.tenantId, {
@@ -721,7 +880,8 @@ export class OsService {
 
   /**
    * Bloqueia edição de conteúdo quando a OS está num estado terminal
-   * (`cancelada`/`entregue`). Cancelada pode voltar a ser editável reabrindo-a.
+   * (`cancelada`/`entregue`). Os dois voltam a ser editáveis pela reabertura
+   * (ver [isReopen]) — daí a mensagem dizer o que fazer, e não só "não pode".
    */
   private assertEditable(order: { status: string }) {
     if (!TERMINAL_STATUSES.has(order.status as OsStatus)) return;
@@ -730,7 +890,14 @@ export class OsService {
         'OS cancelada não pode ser alterada. Reabra a OS para editá-la.',
       );
     }
-    throw new BadRequestException('OS entregue não pode ser alterada.');
+    if (order.status === 'sem_conserto') {
+      throw new BadRequestException(
+        'OS sem conserto não pode ser alterada. Entregue ou cancele.',
+      );
+    }
+    throw new BadRequestException(
+      'OS entregue não pode ser alterada. Reabra a OS para editá-la.',
+    );
   }
 
   // ===================== Workflow =====================
@@ -739,34 +906,59 @@ export class OsService {
     const order = await this.getOrderOrThrow(id);
     const from = order.status as OsStatus;
 
-    if (from === to) throw new BadRequestException('A OS já está neste status.');
+    if (from === to)
+      throw new BadRequestException('A OS já está neste status.');
     if (!TRANSITIONS[from]?.includes(to)) {
-      throw new BadRequestException(
-        `Transição inválida: ${from} → ${to}.`,
-      );
+      throw new BadRequestException(`Transição inválida: ${from} → ${to}.`);
     }
     // Aprovar exige a permissão os.approve (owner/gerente têm; mecânico não).
-    if (to === 'aprovada' && !(await this.userHasPermission(user, 'os.approve'))) {
+    if (
+      to === 'aprovada' &&
+      !(await this.userHasPermission(user, 'os.approve'))
+    ) {
       throw new ForbiddenException('Sem permissão para aprovar OS.');
     }
-    // Reabrir (cancelada → aberta) é privilegiado — mesmo público de aprovar.
-    const isReopen = from === 'cancelada' && to === 'aberta';
-    if (isReopen && !(await this.userHasPermission(user, 'os.approve'))) {
+    // Reabrir é privilegiado — mesmo público de aprovar.
+    const reabrindo = isReopen(from, to);
+    if (reabrindo && !(await this.userHasPermission(user, 'os.approve'))) {
       throw new ForbiddenException('Sem permissão para reabrir OS.');
+    }
+    // Reabrir uma OS FINALIZADA destrava a edição de valores já fechados: se
+    // outro módulo tem documento amarrado a ela (nota fiscal ativa), não passa.
+    // OS cancelada nunca faturou nada — não precisa da consulta.
+    if (reabrindo && from !== 'cancelada') {
+      const impedimento = await this.orderLocks.primeiroImpedimento(id);
+      if (impedimento) throw new BadRequestException(impedimento);
     }
 
     const fields: {
       status: string;
       started_at?: Date;
       finished_at?: Date;
-      closed_at?: Date;
+      // Aceita null: reabrir uma OS entregue APAGA o carimbo de entrega.
+      closed_at?: Date | null;
     } = { status: to };
-    if (to === 'em_execucao') fields.started_at = new Date();
-    if (to === 'concluida') fields.finished_at = new Date();
+    // Carimbos de ciclo são gravados UMA vez, na primeira passagem. Reabrir e
+    // refinalizar uma OS é CORREÇÃO, não um serviço novo: a data em que o
+    // trabalho aconteceu não muda. Sobrescrevê-la mudaria de mês o faturamento
+    // já apurado, porque os relatórios agrupam por
+    // COALESCE(finished_at, closed_at) — a correção de uma OS de janeiro
+    // reapareceria como receita do mês em que alguém a corrigiu.
+    if (to === 'em_execucao' && !order.started_at) {
+      fields.started_at = new Date();
+    }
+    if (to === 'concluida' && !order.finished_at) {
+      fields.finished_at = new Date();
+    }
     if (to === 'entregue') fields.closed_at = new Date();
+    // Reaberta, a OS deixou de estar entregue — o carimbo de entrega sai e só
+    // volta quando ela for entregue de novo.
+    if (from === 'entregue') fields.closed_at = null;
 
     // Resolve o texto ANTES de abrir a transação: dentro dela só entra escrita.
-    const label = isReopen ? 'OS reaberta' : await this.statusLabel(user.tenantId, to);
+    const label = reabrindo
+      ? 'OS reaberta'
+      : await this.statusLabel(user.tenantId, to);
 
     await this.tenant.withTenantTx(async () => {
       await this.repo.setStatusFields(id, fields);
@@ -843,8 +1035,11 @@ export class OsService {
         quantity: Prisma.Decimal | number;
       }>;
     },
+    opts: { devolverTudo?: boolean } = {},
   ): Promise<void> {
-    const target = consumes(order.status);
+    // `devolverTudo` zera o consumo independentemente do status — é o caso da
+    // OS excluída, que some do negócio mas cujo status ainda diz "entregue".
+    const target = !opts.devolverTudo && consumes(order.status);
     for (const item of order.items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
@@ -1135,7 +1330,9 @@ export class OsService {
 
     return templates.map((t) => {
       const items = t.items.map((it) => {
-        const inv = it.inventory_item_id ? byId.get(it.inventory_item_id) : null;
+        const inv = it.inventory_item_id
+          ? byId.get(it.inventory_item_id)
+          : null;
         return inv
           ? {
               ...it,
@@ -1146,7 +1343,8 @@ export class OsService {
           : it;
       });
       const total = items.reduce(
-        (acc, it) => acc + Math.max(0, toNum(it.quantity) * toNum(it.unit_price)),
+        (acc, it) =>
+          acc + Math.max(0, toNum(it.quantity) * toNum(it.unit_price)),
         0,
       );
       return { ...t, items, total: total.toFixed(2) };
@@ -1320,7 +1518,9 @@ export class OsService {
 
     // Resolve member names (userId → fullName) for any assigned_to present.
     // assigned_to guarda o userId (não o membershipId) — ver os_repository_impl.dart.
-    const memberIds = [...new Set(orders.map((o) => o.assigned_to).filter(Boolean))] as string[];
+    const memberIds = [
+      ...new Set(orders.map((o) => o.assigned_to).filter(Boolean)),
+    ] as string[];
     let memberNameMap = new Map<string, string>();
     if (memberIds.length > 0) {
       const members = await this.iam.listMembers();
@@ -1343,7 +1543,9 @@ export class OsService {
         order_id: o.id,
         name: o.complaint ?? '',
         assigned_to: o.assigned_to,
-        assigned_to_name: o.assigned_to ? (memberNameMap.get(o.assigned_to) ?? null) : null,
+        assigned_to_name: o.assigned_to
+          ? (memberNameMap.get(o.assigned_to) ?? null)
+          : null,
         scheduled_start: start?.toISOString() ?? null,
         scheduled_end: end?.toISOString() ?? null,
         estimated_duration,
@@ -1381,13 +1583,20 @@ export class OsService {
       const start = opts.scheduledStart ? new Date(opts.scheduledStart) : null;
       const duration = opts.estimatedDuration ?? null;
       const end =
-        start && duration ? new Date(start.getTime() + duration * 60_000) : null;
+        start && duration
+          ? new Date(start.getTime() + duration * 60_000)
+          : null;
       const assignedTo =
         opts.assignedTo !== undefined ? opts.assignedTo : item.assigned_to;
 
       // Checagem de conflito: só quando há técnico + janela de tempo definidos.
       if (assignedTo && start && end) {
-        const conflicts = await this.repo.findConflicts(assignedTo, start, end, itemId);
+        const conflicts = await this.repo.findConflicts(
+          assignedTo,
+          start,
+          end,
+          itemId,
+        );
         if (conflicts.length > 0) {
           throw new BadRequestException(
             `Conflito de agenda: técnico já tem ${conflicts.length} item(ns) no mesmo horário.`,
@@ -1444,7 +1653,9 @@ export class OsService {
     limit: number,
   ): Promise<ChangedSincePage> {
     if (!OsService.SYNC_ENTITIES.has(entity as OsSyncEntity)) {
-      throw new BadRequestException(`Entidade não pertence ao módulo os: ${entity}`);
+      throw new BadRequestException(
+        `Entidade não pertence ao módulo os: ${entity}`,
+      );
     }
     const table = entity as OsSyncEntity;
     const clamped = clampChangedSinceLimit(limit);
@@ -1490,7 +1701,10 @@ export class OsService {
       const summaries = await this.cashier.getPaymentSummaryBatch(
         tenantId,
         page.rows.map((r) => {
-          const row = r as { id: string; total: Prisma.Decimal | number | null };
+          const row = r as {
+            id: string;
+            total: Prisma.Decimal | number | null;
+          };
           return { id: row.id, total: toNum(row.total) };
         }),
       );
@@ -1514,7 +1728,10 @@ export class OsService {
   private async recomputeTotal(orderId: string) {
     const order = await this.repo.findOrderById(orderId);
     if (!order) return;
-    const itemsTotal = order.items.reduce((acc, it) => acc + toNum(it.total), 0);
+    const itemsTotal = order.items.reduce(
+      (acc, it) => acc + toNum(it.total),
+      0,
+    );
     const total = Math.max(0, itemsTotal - toNum(order.discount));
     await this.repo.setTotal(orderId, total);
   }

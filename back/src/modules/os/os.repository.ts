@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
+import { ENCERRADAS, FATURAVEIS, lista } from './os-status';
 import {
   ChangeCursor,
   ChangedSincePage,
@@ -69,6 +72,8 @@ export interface OrderListFilter {
    * simplificado) — quando presente, prevalece sobre `status`. */
   statuses?: string[];
   customerId?: string;
+  /** Responsável (`assigned_to`) — filtro da visão "minhas OS". */
+  assignedTo?: string;
   sort?: string;
   skip: number;
   take: number;
@@ -188,7 +193,51 @@ export interface CreateEventData {
  */
 @Injectable()
 export class OsRepository {
-  constructor(private readonly tenant: TenantContext) {}
+  constructor(
+    private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  /**
+   * Fuso do agrupamento por dia. Sem ele, `date_trunc` usa o fuso do SERVIDOR
+   * Postgres: na imagem padrao (UTC) o dia vira das 21h as 21h, e o
+   * faturamento das ultimas tres horas de cada dia aparece no dia seguinte.
+   */
+  private get fuso(): string {
+    return this.env.APP_TIMEZONE;
+  }
+
+  /**
+   * Documentos do período com o dono: id → cliente. É o que permite ao
+   * `report` cruzar o recebido (que o caixa conhece por `sale_id`) com o
+   * cliente (que só a OS conhece) — sem nenhum dos dois ler a tabela do outro.
+   *
+   * Traz o snapshot do nome junto: o ranking mostra nome, e buscá-lo depois em
+   * `customers` seria N+1 numa lista de centenas.
+   */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    const db = this.tenant.getClient();
+    return db.service_order.findMany({
+      where: {
+        deleted_at: null,
+        customer_id: { not: undefined },
+        ...(p.from || p.to
+          ? {
+              created_at: {
+                ...(p.from ? { gte: p.from } : {}),
+                ...(p.to ? { lte: p.to } : {}),
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        customer_id: true,
+        customer_name: true,
+        created_at: true,
+      },
+    });
+  }
 
   createOrder(tenantId: string, data: CreateOrderData) {
     const db = this.tenant.getClient();
@@ -218,6 +267,7 @@ export class OsRepository {
           ? { status: filter.status }
           : {}),
       ...(filter.customerId ? { customer_id: filter.customerId } : {}),
+      ...(filter.assignedTo ? { assigned_to: filter.assignedTo } : {}),
       ...(filter.q
         ? {
             OR: [
@@ -360,7 +410,13 @@ export class OsRepository {
         scheduled_start: { not: null, lt: end },
         scheduled_end: { not: null, gt: start },
       },
-      select: { id: true, name: true, order_id: true, scheduled_start: true, scheduled_end: true },
+      select: {
+        id: true,
+        name: true,
+        order_id: true,
+        scheduled_start: true,
+        scheduled_end: true,
+      },
     });
   }
 
@@ -381,6 +437,10 @@ export class OsRepository {
     const db = this.tenant.getClient();
     return db.service_order.findMany({
       where: {
+        // OS excluída não ocupa horário. Faltava aqui: a exclusão é lógica
+        // (`deleted_at`), a lista de OS filtra e a agenda não filtrava — a OS
+        // sumia de todo lugar MENOS do lugar que diz quem entra amanhã.
+        deleted_at: null,
         // Começou antes do fim do período…
         scheduled_start: { not: null, lt: filter.to },
         // …e ainda não tinha terminado quando o período começou.
@@ -674,25 +734,33 @@ export class OsRepository {
     return db.service_order.aggregate({
       where: {
         ...this.metricsWhere(p),
-        status: { in: ['concluida', 'entregue'] },
+        status: { in: lista(FATURAVEIS) },
       },
       _sum: { total: true },
       _count: { _all: true },
     });
   }
 
-  /** OS em execução no range/escopo. */
+  /**
+   * OS em execução AGORA. Como o atraso, é estado corrente e não fato do
+   * período: filtrar por `opened_at` dentro do range fazia o painel mostrar
+   * "0 em execução" com o carro no elevador, só porque a OS tinha sido aberta
+   * antes da janela de 30 dias. Respeita o escopo de técnico.
+   */
   countInExecution(p: MetricsRange) {
     const db = this.tenant.getClient();
     return db.service_order.count({
-      where: { ...this.metricsWhere(p), status: 'em_execucao' },
+      where: {
+        deleted_at: null,
+        status: 'em_execucao',
+        ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
+      },
     });
   }
 
   /**
-   * OS atrasadas: `scheduled_end` < agora e status fora de
-   * concluida/entregue/cancelada. Independe do range (atraso é "estado agora"),
-   * mas respeita o escopo de técnico.
+   * OS atrasadas: `scheduled_end` < agora e a OS ainda VIVA. Independe do
+   * range (atraso é "estado agora"), mas respeita o escopo de técnico.
    */
   countOverdue(p: MetricsRange) {
     const db = this.tenant.getClient();
@@ -700,7 +768,7 @@ export class OsRepository {
       where: {
         deleted_at: null,
         scheduled_end: { lt: new Date() },
-        status: { notIn: ['concluida', 'entregue', 'cancelada'] },
+        status: { notIn: lista(ENCERRADAS) },
         ...(p.assignedTo ? { assigned_to: p.assignedTo } : {}),
       },
     });
@@ -715,12 +783,14 @@ export class OsRepository {
     const assignedClause = p.assignedTo
       ? Prisma.sql`AND assigned_to = ${p.assignedTo}::uuid`
       : Prisma.sql``;
-    const rows = await db.$queryRaw<Array<{ avg_ms: number | null }>>(Prisma.sql`
+    const rows = await db.$queryRaw<
+      Array<{ avg_ms: number | null }>
+    >(Prisma.sql`
       SELECT AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000) AS avg_ms
       FROM service_order
       WHERE deleted_at IS NULL
         AND opened_at >= ${p.from} AND opened_at <= ${p.to}
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND started_at IS NOT NULL AND finished_at IS NOT NULL
         ${assignedClause}
     `);
@@ -739,12 +809,12 @@ export class OsRepository {
     return db.$queryRaw<
       Array<{ day: string; revenue: number | null; count: bigint }>
     >(Prisma.sql`
-      SELECT to_char(date_trunc('day', COALESCE(finished_at, closed_at)), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', COALESCE(finished_at, closed_at) AT TIME ZONE ${this.fuso}), 'YYYY-MM-DD') AS day,
              SUM(total) AS revenue,
              COUNT(*)   AS count
       FROM service_order
       WHERE deleted_at IS NULL
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND COALESCE(finished_at, closed_at) IS NOT NULL
         AND COALESCE(finished_at, closed_at) >= ${p.from}
         AND COALESCE(finished_at, closed_at) <= ${p.to}
@@ -765,7 +835,7 @@ export class OsRepository {
       SELECT status, SUM(total) AS revenue, COUNT(*) AS count
       FROM service_order
       WHERE deleted_at IS NULL
-        AND status IN ('concluida','entregue')
+        AND status IN (${Prisma.join(lista(FATURAVEIS))})
         AND COALESCE(finished_at, closed_at) IS NOT NULL
         AND COALESCE(finished_at, closed_at) >= ${p.from}
         AND COALESCE(finished_at, closed_at) <= ${p.to}
@@ -791,8 +861,8 @@ export class OsRepository {
     >(Prisma.sql`
       SELECT assigned_to,
              COUNT(*) AS orders,
-             COUNT(*) FILTER (WHERE status IN ('concluida','entregue')) AS completed,
-             SUM(total) FILTER (WHERE status IN ('concluida','entregue')) AS revenue,
+             COUNT(*) FILTER (WHERE status IN (${Prisma.join(lista(FATURAVEIS))})) AS completed,
+             SUM(total) FILTER (WHERE status IN (${Prisma.join(lista(FATURAVEIS))})) AS revenue,
              AVG(EXTRACT(EPOCH FROM (finished_at - started_at)) * 1000)
                FILTER (WHERE status IN ('concluida','entregue')
                          AND started_at IS NOT NULL AND finished_at IS NOT NULL) AS avg_cycle_ms
@@ -965,7 +1035,13 @@ export class OsRepository {
     limit: number,
   ): Promise<ChangedSincePage> {
     const db = this.tenant.getClient();
-    return queryChangedSince(db, table, SYNC_ENTITY_COLUMN[table], cursor, limit);
+    return queryChangedSince(
+      db,
+      table,
+      SYNC_ENTITY_COLUMN[table],
+      cursor,
+      limit,
+    );
   }
 }
 

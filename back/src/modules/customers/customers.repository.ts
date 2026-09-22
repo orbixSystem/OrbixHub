@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import { TenantContext } from '../../common/database/tenant-context';
 import {
@@ -44,7 +46,19 @@ export interface SubjectFilter {
  */
 @Injectable()
 export class CustomersRepository {
-  constructor(private readonly tenant: TenantContext) {}
+  constructor(
+    private readonly tenant: TenantContext,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
+
+  /**
+   * Fuso do agrupamento por dia. Sem ele, `date_trunc` usa o fuso do SERVIDOR
+   * Postgres: na imagem padrao (UTC) o dia vira das 21h as 21h, e o
+   * faturamento das ultimas tres horas de cada dia aparece no dia seguinte.
+   */
+  private get fuso(): string {
+    return this.env.APP_TIMEZONE;
+  }
 
   private statusWhere(status: 'active' | 'archived' | 'all') {
     // 'deleted' (soft delete) é sempre oculto das listas — inclusive em 'all'.
@@ -76,6 +90,16 @@ export class CustomersRepository {
     return db.customer.findUnique({ where: { id } });
   }
 
+  /** Vários por id — para o "A receber" mostrar telefone sem N consultas. */
+  findCustomersByIds(ids: string[]) {
+    const db = this.tenant.getClient();
+    if (ids.length === 0) return Promise.resolve([]);
+    return db.customer.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, phone: true },
+    });
+  }
+
   async listCustomers(filter: CustomerFilter) {
     const db = this.tenant.getClient();
     const where: Prisma.customerWhereInput = {
@@ -94,7 +118,8 @@ export class CustomersRepository {
       db.customer.findMany({
         where,
         orderBy:
-          CUSTOMER_ORDER_BY[filter.sort ?? 'recent'] ?? CUSTOMER_ORDER_BY.recent,
+          CUSTOMER_ORDER_BY[filter.sort ?? 'recent'] ??
+          CUSTOMER_ORDER_BY.recent,
         skip: filter.skip,
         take: filter.take,
       }),
@@ -139,6 +164,10 @@ export class CustomersRepository {
       id?: string;
       label: string | null;
       identifier: string | null;
+      tipo: string | null;
+      marca: string | null;
+      modelo: string | null;
+      numeroSerie: string | null;
       attributes: Record<string, unknown> | undefined;
       /** Consulta por placa (opcional); carimba plate_data_at quando vem. */
       plateData?: Record<string, unknown>;
@@ -152,6 +181,10 @@ export class CustomersRepository {
         customer_id: customerId,
         label: data.label,
         identifier: data.identifier,
+        tipo: data.tipo,
+        marca: data.marca,
+        modelo: data.modelo,
+        numero_serie: data.numeroSerie,
         attributes: (data.attributes as Prisma.InputJsonValue) ?? undefined,
         ...(data.plateData !== undefined
           ? {
@@ -194,16 +227,21 @@ export class CustomersRepository {
     data: Partial<{
       label: string | null;
       identifier: string | null;
+      tipo: string | null;
+      marca: string | null;
+      modelo: string | null;
+      numeroSerie: string | null;
       attributes: Record<string, unknown>;
       plateData: Record<string, unknown>;
     }>,
   ) {
     const db = this.tenant.getClient();
-    const { attributes, plateData, ...rest } = data;
+    const { attributes, plateData, numeroSerie, ...rest } = data;
     return db.subject.update({
       where: { id },
       data: {
         ...rest,
+        ...(numeroSerie !== undefined ? { numero_serie: numeroSerie } : {}),
         ...(attributes !== undefined
           ? { attributes: attributes as Prisma.InputJsonValue }
           : {}),
@@ -300,7 +338,7 @@ export class CustomersRepository {
     return db.$queryRaw<
       Array<{ day: string; type: string; count: number }>
     >(Prisma.sql`
-      SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE ${this.fuso}), 'YYYY-MM-DD') AS day,
              type,
              COUNT(*)::int AS count
       FROM customer

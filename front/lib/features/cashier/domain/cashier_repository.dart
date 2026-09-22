@@ -46,6 +46,10 @@ abstract interface class CashierRepository {
     String? method,
     String? category,
     String? description,
+    /// Omitir HERDA o desconto original — corrigir só a forma de pagamento não
+    /// deve apagar em silêncio o abatimento que já havia sido concedido.
+    double? discount,
+    String? discountReason,
   });
 
   Future<EntryPage> listEntries({
@@ -99,5 +103,20 @@ abstract interface class CashierRepository {
     required String installmentId,
     required String method,
     String? description,
+    /// Desconto para fechar ESTA parcela — abate o saldo dela, não o do título.
+    double discount = 0,
+    String? discountReason,
+  });
+
+  /// Corrige o VALOR de uma parcela ainda em aberto.
+  ///
+  /// O plano divide o total igualmente; a combinação real raramente é ("essa eu
+  /// pago 500, as outras menores"). Sem isto a única saída era refazer o plano
+  /// inteiro — o que reescreve as datas e perde o prazo combinado. Parcela paga
+  /// o servidor recusa: o valor dela já virou lançamento no caixa.
+  Future<Installment> updateInstallmentAmount({
+    required String installmentId,
+    required double amount,
+    String? reason,
   });
 }

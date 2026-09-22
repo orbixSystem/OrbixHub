@@ -230,7 +230,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const ids = [randomUUID(), randomUUID(), randomUUID()];
     for (const id of ids) {
-      expect((await createCustomer(o.access, { id, name: `C ${id.slice(0, 4)}` })).status).toBe(201);
+      expect((await createCustomer(o.access, { id, name: `C ${id.slice(0, 4)}`, phone: '11999999999' })).status).toBe(201);
     }
 
     const p1 = await pull(o.access, '?entity=customer&limit=2');
@@ -270,7 +270,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const cId = randomUUID();
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: cId, name: 'Original' }),
+      mut('customer', 'create', { id: cId, name: 'Original', phone: '11999999999' }),
       mut('customer', 'update', { id: cId, name: 'Atualizado' }),
     ]);
     expect(res.status).toBe(201);
@@ -295,7 +295,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const uid = await myUserId(o.access);
     const cId = randomUUID();
     const batch = [
-      mut('customer', 'create', { id: cId, name: 'Uno' }),
+      mut('customer', 'create', { id: cId, name: 'Uno', phone: '11999999999' }),
       mut('customer', 'update', { id: cId, name: 'Dos' }),
     ];
 
@@ -324,7 +324,7 @@ describe('Sync — pull + push offline (e2e)', () => {
   it('S1: authorUserId diferente do usuário autenticado → 403', async () => {
     const o = await registerOwner();
     const res = await push(o.access, randomUUID(), [
-      mut('customer', 'create', { id: randomUUID(), name: 'X' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'X', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(403);
   });
@@ -336,7 +336,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Base' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Base', phone: '11999999999' })).status).toBe(201);
     // escrita ONLINE (servidor) DEPOIS do timestamp do cliente → updated_at = agora
     expect((await patchCustomer(o.access, cId, { name: 'Servidor Vence' })).status).toBe(200);
 
@@ -364,7 +364,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((unknown.body.results as Array<{ status: string }>)[0].status).toBe('error');
 
     const extra = await push(o.access, uid, [
-      mut('customer', 'create', { id: randomUUID(), name: 'Y', bogus: 1 }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Y', phone: '11999999999', bogus: 1 }),
     ]);
     expect((extra.body.results as Array<{ status: string }>)[0].status).toBe('error');
 
@@ -385,12 +385,12 @@ describe('Sync — pull + push offline (e2e)', () => {
     const idB = randomUUID();
 
     const resA = await push(o.access, ownerId, [
-      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idA, name: 'A' }, clientUpdatedAt: soon() },
+      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idA, name: 'A', phone: '11999999999' }, clientUpdatedAt: soon() },
     ]);
     expect((resA.body.results as Array<{ status: string }>)[0].status).toBe('applied');
 
     const resB = await push(b.access, b.userId, [
-      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idB, name: 'B' }, clientUpdatedAt: soon() },
+      { clientMutationId: sharedCmid, entity: 'customer', op: 'create', payload: { id: idB, name: 'B', phone: '11999999999' }, clientUpdatedAt: soon() },
     ]);
     expect((resB.body.results as Array<{ status: string }>)[0].status).toBe('applied');
 
@@ -406,10 +406,10 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Dono' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Dono', phone: '11999999999' })).status).toBe(201);
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: cId, name: 'Intruso' }),
+      mut('customer', 'create', { id: cId, name: 'Intruso', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(201);
     const item = (res.body.results as Array<{ status: string; message?: string }>)[0];
@@ -425,7 +425,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const mutations = Array.from({ length: 101 }, () =>
-      mut('customer', 'create', { id: randomUUID(), name: 'Z' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Z', phone: '11999999999' }),
     );
     const res = await push(o.access, uid, mutations);
     expect(res.status).toBe(400);
@@ -459,7 +459,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const b = await registerOwner();
     const bId = await myUserId(b.access);
     const aCustomer = randomUUID();
-    expect((await createCustomer(a.access, { id: aCustomer, name: 'Cliente de A' })).status).toBe(201);
+    expect((await createCustomer(a.access, { id: aCustomer, name: 'Cliente de A', phone: '11999999999' })).status).toBe(201);
 
     // pull de B não enxerga o cliente de A
     const bPull = await pull(b.access, '?entity=customer&limit=100');
@@ -486,7 +486,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const created = await request(srv())
       .post('/api/os/orders')
       .set(auth(o.access))
-      .send({ id: orderId, newCustomerName: 'Cliente da OS' });
+      .send({ id: orderId, newCustomerName: 'Cliente da OS', newCustomerPhone: '11999999999' });
     expect(created.status).toBe(201);
 
     // addItem: a OS-pai vai em `orderId` (chave estrutural). Antes, com `id`, o
@@ -549,7 +549,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const o = await registerOwner();
     const uid = await myUserId(o.access);
     const cId = randomUUID();
-    expect((await createCustomer(o.access, { id: cId, name: 'Arquivar' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: cId, name: 'Arquivar', phone: '11999999999' })).status).toBe(201);
 
     const res = await push(o.access, uid, [
       mut('customer', 'archive', { id: cId }),
@@ -580,7 +580,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     const cId = randomUUID();
     const res = await push(o.access, uid, [
       mut('inventory_item', 'create', { id: randomUUID(), name: 'Filtro' }),
-      mut('customer', 'create', { id: cId, name: 'Cliente OK' }),
+      mut('customer', 'create', { id: cId, name: 'Cliente OK', phone: '11999999999' }),
     ]);
     expect(res.status).toBe(201);
     const results = res.body.results as Array<{ status: string; message?: string }>;
@@ -601,7 +601,7 @@ describe('Sync — pull + push offline (e2e)', () => {
     expect((await pull(o.access, '?entity=customer&limit=10')).status).toBe(200);
 
     const res = await push(o.access, uid, [
-      mut('customer', 'create', { id: randomUUID(), name: 'Não deve entrar' }),
+      mut('customer', 'create', { id: randomUUID(), name: 'Não deve entrar', phone: '11999999999' }),
     ]);
     const results = res.body.results as Array<{ status: string; message?: string }>;
     expect(results[0].status).toBe('error');
@@ -621,7 +621,7 @@ describe('Sync — pull + push offline (e2e)', () => {
   it('pull incremental: com o cursor salvo nada é re-baixado; só a linha nova volta', async () => {
     const o = await registerOwner();
     const first = randomUUID();
-    expect((await createCustomer(o.access, { id: first, name: 'Primeiro' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: first, name: 'Primeiro', phone: '11999999999' })).status).toBe(201);
 
     const p1 = await pull(o.access, '?entity=customer&limit=500');
     expect(p1.body.rows).toHaveLength(1);
@@ -641,7 +641,7 @@ describe('Sync — pull + push offline (e2e)', () => {
 
     // só a linha NOVA volta na rodada seguinte
     const second = randomUUID();
-    expect((await createCustomer(o.access, { id: second, name: 'Segundo' })).status).toBe(201);
+    expect((await createCustomer(o.access, { id: second, name: 'Segundo', phone: '11999999999' })).status).toBe(201);
     const p3 = await pull(o.access, q(c));
     expect((p3.body.rows as Array<{ id: string }>).map((r) => r.id)).toEqual([second]);
     expect(p3.body.nextCursor).toBeTruthy();

@@ -123,6 +123,7 @@ final Map<String, ScreenTutorial> _porRota = {
   '/m/os/:id': _osDetalhe,
   '/m/invoice/config': _fiscalConfig,
   '/m/invoice/:id': _notaDetalhe,
+  '/m/cashier/a-receber': _aReceber,
   '/agenda/horarios': _horarios,
   '/mensagens/:id': _conversa,
   // --- telas de lista / raiz ---
@@ -420,10 +421,11 @@ const _caixa = ScreenTutorial(
   steps: [
     CoachStep(
       targetName: 'caixa.abas',
-      title: 'Três abas, três perguntas',
+      title: 'Duas abas, duas perguntas',
       text: '"Caixa do dia" é onde você opera. "Histórico" responde o que '
-          'aconteceu num período, com filtros. "Fiado" mostra quem está devendo. '
-          'No celular elas ficam aqui do mesmo jeito — só mais estreitas.',
+          'aconteceu num período, com filtros. Quem está devendo agora tem tela '
+          'própria — "A receber", logo abaixo de Caixa no menu. No celular as '
+          'abas ficam aqui do mesmo jeito — só mais estreitas.',
     ),
     CoachStep(
       targetName: 'caixa.acoes',
@@ -466,6 +468,32 @@ const _caixa = ScreenTutorial(
       text: 'Essa cerimônia serve para conferir dinheiro na GAVETA. Se você '
           'recebe por Pix e cartão, ou opera sozinho, deixe desligada em '
           'Configurações › Caixa: aí o dia vira por data, à meia-noite, sozinho.',
+    ),
+  ],
+);
+
+const _aReceber = ScreenTutorial(
+  id: 'tut_areceber_v1',
+  titulo: 'A receber',
+  steps: [
+    CoachStep(
+      targetName: 'areceber.resumo',
+      title: 'Quanto tem na rua',
+      text: 'Total a receber, quanto disso já venceu e quantas pessoas devem. '
+          'Esses números são da carteira inteira — não mudam quando você filtra.',
+    ),
+    CoachStep(
+      targetName: 'areceber.filtros',
+      title: 'Quem cobro hoje',
+      text: '"Vencidos" é a fila de cobrança. "Vence em 7 dias" é quem avisar '
+          'antes. Dá para separar OS de venda de balcão e ordenar por valor, '
+          'atraso, nome ou vencimento.',
+    ),
+    CoachStep(
+      targetName: 'areceber.lista',
+      title: 'Quem deve, e de quê',
+      text: 'Cada linha traz telefone e a próxima parcela. Toque para ver os '
+          'títulos, as parcelas e receber — total ou parcela.',
     ),
   ],
 );

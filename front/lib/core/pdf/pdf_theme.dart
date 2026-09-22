@@ -50,7 +50,7 @@ pw.Widget pdfCompanyHeader(
 
   /// Piso de altura: dá presença ao logo quando a empresa cadastrou poucos
   /// dados (2–3 linhas à direita).
-  double minHeight = 70,
+  double minHeight = 56,
 
   /// TETO de altura: sem ele um logo quadrado, esticado até a largura da
   /// coluna, geraria um cabeçalho de palmo e meio e empurraria o corpo do
@@ -74,7 +74,11 @@ pw.Widget pdfCompanyHeader(
         company.name.toUpperCase(),
         textAlign: pw.TextAlign.right,
         style: pw.TextStyle(
-          fontSize: 14,
+          // 11pt: o bloco da direita era o mais pesado do cabeçalho e roubava
+          // atenção do que o documento diz. Em PAPEL 11pt é nome de empresa
+          // em timbrado — o piso de 12px da auditoria SysOne é sobre TELA,
+          // outro meio e outra distância de leitura.
+          fontSize: 11,
           fontWeight: pw.FontWeight.bold,
           color: PdfDocTokens.graphite,
         ),
@@ -140,7 +144,9 @@ pw.Widget _linha(String texto) {
     child: pw.Text(
       texto,
       textAlign: pw.TextAlign.right,
-      style: const pw.TextStyle(fontSize: 12, color: PdfDocTokens.muted),
+      // 9pt: linha de endereço/contato de timbrado. Encolher a direita libera
+      // largura para o logo e baixa a altura do cabeçalho inteiro.
+      style: const pw.TextStyle(fontSize: 9, color: PdfDocTokens.muted),
     ),
   );
 }

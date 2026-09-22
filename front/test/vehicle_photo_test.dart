@@ -44,7 +44,7 @@ class _FakeSession extends SessionController {
 
 const _config = CustomersConfig(
   subjectFields: [
-    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa'),
+    SubjectFieldConfig(chave: 'identifier', rotulo: 'Placa', formato: 'placa'),
     SubjectFieldConfig(chave: 'cor', rotulo: 'Cor'),
   ],
 );

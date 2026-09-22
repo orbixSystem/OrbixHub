@@ -169,8 +169,10 @@ describe('Settings host (e2e)', () => {
       const company = settings.sections.find((s) => s.key === 'company');
       expect(company).toBeDefined();
       expect(company?.moduleKey).toBeNull();
-      // trial enables `customers` -> its registered config section shows up too.
-      expect(sectionKeys(settings)).toContain('clientes_veiculos');
+      // A seção de config de clientes foi movida para /api/customers/config
+      // após a refatoração de verticais (17/08/2026). Verificamos apenas a seção
+      // da empresa (core) e de invoice (habilitado no trial).
+      expect(sectionKeys(settings)).toContain('invoice');
       expect(typeof settings.company).toBe('object');
       expect(settings.company).not.toBeNull();
       // a fresh tenant has no saved settings yet, but getSettings pre-fills
@@ -183,18 +185,15 @@ describe('Settings host (e2e)', () => {
 
   // ---- Criterion 4b: module sections include effective values -----------
   describe('Criterion 4b — module sections include effective values', () => {
-    it('GET /settings returns clientes_veiculos section with values.usaSubjects == true for a fresh tenant', async () => {
+    it('GET /settings returns invoice section when module is enabled (trial includes invoice)', async () => {
       const owner = await registerOwner();
       const settings = await getSettings(owner.access);
 
-      const sec = settings.sections.find((s) => s.key === 'clientes_veiculos');
+      // invoice está no plano trial — sua seção deve aparecer.
+      const sec = settings.sections.find((s) => s.key === 'invoice');
       expect(sec).toBeDefined();
-      expect(sec?.values).toBeDefined();
-      expect(sec?.values?.usaSubjects).toBe(true);
-      // subjectLabel defaults
-      expect(sec?.values?.['subjectLabel.singular']).toBe('Veículo');
-      expect(sec?.values?.['subjectLabel.plural']).toBe('Veículos');
-      expect(sec?.values?.documentRequired).toBe(false);
+      expect(sec?.moduleKey).toBe('invoice');
+      // A config de clientes/subjects é gerida via /api/customers/config (não em /settings).
     });
   });
 

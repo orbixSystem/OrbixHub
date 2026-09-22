@@ -22,6 +22,8 @@ export class SubjectFieldDto {
   @IsBoolean() obrigatorio!: boolean;
   @IsOptional() @IsString() @MaxLength(40) fonte?: string;
   @IsOptional() @IsString() @MaxLength(40) dependeDe?: string;
+  /** Máscara/validação da UI. Whitelist: só formatos que a UI implementa. */
+  @IsOptional() @IsIn(['placa']) formato?: 'placa';
 }
 
 export class UpdateCustomersConfigDto {

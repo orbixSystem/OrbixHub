@@ -24,7 +24,27 @@ import {
 export class CreateEntryDto {
   /** Uuid gerado no cliente (replay offline preserva o id). Opcional. */
   @IsOptional() @IsUUID() id?: string;
-  @IsNumber() @Min(0.01) amount!: number;
+  /**
+   * Min(0), não Min(0.01): com desconto na quitação, perdoar a dívida inteira é
+   * um lançamento legítimo de valor zero em dinheiro. O par (amount, discount)
+   * não pode ser zero nos dois — isso o service valida, porque é regra entre
+   * campos e o class-validator só enxerga um de cada vez.
+   */
+  @IsNumber() @Min(0) amount!: number;
+  /**
+   * Desconto concedido na quitação. NÃO altera o total do documento — a dívida
+   * fecha quando `amount + discount` cobre o saldo. Exige `cashier.discount` e
+   * respeita o teto do tenant; ambos verificados no service.
+   */
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
+  /**
+   * Total do documento sendo quitado, informado por quem o conhece (o módulo
+   * dono). O caixa não lê a tabela da OS/venda — regra de independência de
+   * módulos —, então sem isto ele não tem denominador para o teto percentual.
+   * Ausente: só o teto por valor é aplicado.
+   */
+  @IsOptional() @IsNumber() @Min(0) saleTotal?: number;
   @IsIn(PAYMENT_METHODS as unknown as string[]) method!: PaymentMethod;
   @IsIn(ENTRY_CATEGORIES as unknown as string[]) category!: EntryCategory;
   @IsOptional() @IsIn(['os', 'sale']) saleKind?: 'os' | 'sale';
@@ -65,7 +85,9 @@ export class UpdateEntryDto {
  */
 export class CorrectEntryDto {
   @IsString() @MinLength(3) @MaxLength(500) reason!: string;
-  @IsOptional() @IsNumber() @Min(0.01) amount?: number;
+  @IsOptional() @IsNumber() @Min(0) amount?: number;
+  @IsOptional() @IsNumber() @Min(0) discount?: number;
+  @IsOptional() @IsString() @MaxLength(500) discountReason?: string;
   @IsOptional() @IsIn(PAYMENT_METHODS as unknown as string[]) method?: PaymentMethod;
   @IsOptional()
   @IsIn(ENTRY_CATEGORIES as unknown as string[])

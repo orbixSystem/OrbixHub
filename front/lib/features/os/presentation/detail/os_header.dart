@@ -9,8 +9,10 @@ import '../../../../di.dart';
 import '../../../invoice/presentation/invoice_providers.dart';
 import '../../../invoice/presentation/invoice_status.dart';
 import '../../domain/os_models.dart';
+import '../os_providers.dart';
 import '../os_quick_actions.dart';
 import '../os_status.dart';
+import '../os_status_select.dart';
 import '../payment_status.dart';
 
 /// Cabeçalho do detalhe da OS: **quem, o quê e em que pé está** — nada mais.
@@ -97,7 +99,7 @@ class OsDetailHeader extends StatelessWidget {
                       runSpacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _SimpleStatusTag(status: order.status),
+                        OsStatusSelect(order: order),
                         if (order.payment != null && order.payment!.total > 0)
                           PaymentTag(status: order.paymentStatus, dense: true),
                         if (isPendingOsNumber(order.number))
@@ -246,43 +248,6 @@ class _Total extends StatelessWidget {
   }
 }
 
-/// Tag de status SIMPLIFICADO (Em andamento/Finalizada/Cancelada) — não os 7
-/// status reais da FSM, que são detalhe interno.
-class _SimpleStatusTag extends StatelessWidget {
-  const _SimpleStatusTag({required this.status});
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final simples = osSimpleStatusOf(status);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final color = osSimpleStatusColor(simples);
-    final ink = osSimpleStatusInk(simples, Theme.of(context).brightness);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: dark ? .22 : .14),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(osSimpleStatusIcon(simples), size: 13, color: ink),
-          const SizedBox(width: 5),
-          Text(
-            osSimpleStatusLabel(simples),
-            style: TextStyle(
-              color: ink,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Barra de ações da OS: **uma ação primária, rotulada, e o resto num menu**.
 ///
 /// Antes eram até oito botões concorrendo em pé de igualdade (Finalizar,
@@ -302,6 +267,7 @@ class OsActionBar extends ConsumerStatefulWidget {
     required this.canEdit,
     required this.canRead,
     required this.canIssueInvoice,
+    this.invoiceEmBreve = false,
     required this.onEdit,
     required this.onExport,
   });
@@ -314,6 +280,10 @@ class OsActionBar extends ConsumerStatefulWidget {
   final bool canEdit;
   final bool canRead;
   final bool canIssueInvoice;
+
+  /// NF anunciada e ainda não liberada: a ação aparece marcada "Em breve" e
+  /// não faz nada. Ver `kInvoiceEnabled`.
+  final bool invoiceEmBreve;
   final VoidCallback onEdit;
   final VoidCallback onExport;
 
@@ -373,6 +343,38 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     }
   }
 
+  /// Exclui a OS (soft delete no servidor) e volta para a lista.
+  ///
+  /// A confirmação diz as duas consequências que o usuário não vê acontecer:
+  /// a OS sai do faturamento e as peças voltam para o estoque. Recusas do
+  /// servidor (nota fiscal ativa, pagamento lançado, parcela em aberto) chegam
+  /// como mensagem pronta — quem sabe o motivo é ele.
+  Future<void> _excluir() async {
+    if (_busy) return;
+    final ok = await showNeuConfirm(
+      context,
+      title: 'Excluir OS ${order.number}?',
+      message:
+          'A OS sai da lista e deixa de contar no faturamento, e as peças que '
+          'ela baixou voltam para o estoque. Pela tela não há como desfazer.',
+      confirmLabel: 'Excluir OS',
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(osRepositoryProvider).deleteOrder(order.id);
+      if (!mounted) return;
+      ref.invalidate(orderListProvider);
+      context.go('/m/os');
+    } on AppException catch (e) {
+      if (mounted) showNeuErrorSnackBar(context, e.message);
+    } finally {
+      // Guard obrigatório: em caso de sucesso a tela já foi trocada e este
+      // widget não existe mais.
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Nota fiscal em estado que impede emitir outra (rascunho/processando/
   /// autorizada), se houver.
   dynamic _notaAtiva() {
@@ -410,7 +412,10 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 
     // --- ação primária: o verbo do momento ---
     ({String label, IconData icon, VoidCallback onTap})? primaria;
-    if (order.status == 'cancelada') {
+    // OS fechada (cancelada ou entregue): o verbo do momento é REABRIR — é o
+    // único caminho para corrigir peça, valor ou cliente errado numa OS que já
+    // foi encerrada.
+    if (order.status == 'cancelada' || order.status == 'entregue') {
       if (_habilitado(OsSimpleStatus.emAndamento)) {
         primaria = (
           label: 'Reabrir OS',
@@ -418,8 +423,7 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           onTap: () => _transicao(OsSimpleStatus.emAndamento),
         );
       }
-    } else if (order.status != 'entregue' &&
-        _habilitado(OsSimpleStatus.finalizada)) {
+    } else if (_habilitado(OsSimpleStatus.finalizada)) {
       primaria = (
         label: 'Finalizar OS',
         icon: Icons.check_circle_rounded,
@@ -433,36 +437,56 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
     // ("Pagamentos"), que é informação — não uma segunda boca de caixa.
 
     // --- menu: o resto, sem competir por atenção ---
-    final extras = <({String valor, String rotulo, IconData icone, bool perigo})>[
+    final extras = <({
+      String valor,
+      String rotulo,
+      IconData icone,
+      bool perigo,
+      bool emBreve
+    })>[
       if (widget.canRead)
         (
           valor: 'pdf',
           rotulo: 'Exportar PDF',
           icone: Icons.picture_as_pdf_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if (widget.canEdit)
         (
           valor: 'editar',
           rotulo: 'Editar OS',
           icone: Icons.edit_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if ((order.conversationId ?? '').isNotEmpty)
         (
           valor: 'mensagens',
           rotulo: 'Mensagens',
           icone: Icons.forum_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
       if (canViewOsPayments(ref, order))
         (
           valor: 'pagamentos',
           rotulo: 'Pagamentos',
           icone: Icons.receipt_long_outlined,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
-      if (widget.canIssueInvoice)
+      // NF ainda não liberada: a ação FICA, inerte e marcada "Em breve" — o
+      // cliente que tem o módulo no plano precisa saber que a nota vem.
+      if (widget.invoiceEmBreve)
+        (
+          valor: 'nota',
+          rotulo: 'Emitir nota fiscal',
+          icone: Icons.receipt_long,
+          perigo: false,
+          emBreve: true
+        )
+      else if (widget.canIssueInvoice)
         (
           valor: 'nota',
           rotulo: _notaAtiva() == null
@@ -470,9 +494,21 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
               : 'Nota · '
                   '${invoiceStatusLabel(_notaAtiva()!.status as String)}',
           icone: Icons.receipt_long,
-          perigo: false
+          perigo: false,
+          emBreve: false
         ),
-      // Destrutiva por último e marcada — nunca ao lado da ação primária.
+      // `concluida` também é "Finalizada" para o usuário, mas ali a ação
+      // primária é entregar — então reabrir mora no menu, não some.
+      if (order.status == 'concluida' &&
+          _habilitado(OsSimpleStatus.emAndamento))
+        (
+          valor: 'reabrir',
+          rotulo: 'Reabrir OS',
+          icone: Icons.undo_rounded,
+          perigo: false,
+          emBreve: false
+        ),
+      // Destrutivas por último e marcadas — nunca ao lado da ação primária.
       if (order.status != 'cancelada' &&
           order.status != 'entregue' &&
           _habilitado(OsSimpleStatus.cancelada))
@@ -480,7 +516,19 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           valor: 'cancelar',
           rotulo: 'Cancelar OS',
           icone: Icons.close_rounded,
-          perigo: true
+          perigo: true,
+          emBreve: false
+        ),
+      // Excluir pede o mesmo cargo que aprova/reabre (o backend confere de
+      // novo). O servidor ainda pode recusar — nota fiscal ativa, pagamento
+      // lançado, parcela em aberto — e a mensagem dele vai para a tela.
+      if (widget.canWrite && widget.canApprove)
+        (
+          valor: 'excluir',
+          rotulo: 'Excluir OS',
+          icone: Icons.delete_outline_rounded,
+          perigo: true,
+          emBreve: false
         ),
     ];
 
@@ -498,6 +546,10 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
           await _emitirNota();
         case 'cancelar':
           await _transicao(OsSimpleStatus.cancelada);
+        case 'reabrir':
+          await _transicao(OsSimpleStatus.emAndamento);
+        case 'excluir':
+          await _excluir();
       }
     }
 
@@ -517,12 +569,29 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
         _MenuMais(itens: extras, onSelected: executar),
       if (!isMobile)
         for (final e in extras)
-          NeuButton(
-            label: e.rotulo,
-            icon: e.icone,
-            kind: e.perigo ? NeuButtonKind.danger : NeuButtonKind.secondary,
-            onPressed: () => executar(e.valor),
-          ),
+          // Em breve: botão presente, desabilitado, com o selo ao lado dizendo
+          // o porquê — `onPressed: null` é o que o torna inerte de verdade.
+          if (e.emBreve)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NeuButton(
+                  label: e.rotulo,
+                  icon: e.icone,
+                  kind: NeuButtonKind.secondary,
+                  onPressed: null,
+                ),
+                const SizedBox(width: 6),
+                const NeuEmBreveTag(),
+              ],
+            )
+          else
+            NeuButton(
+              label: e.rotulo,
+              icon: e.icone,
+              kind: e.perigo ? NeuButtonKind.danger : NeuButtonKind.secondary,
+              onPressed: () => executar(e.valor),
+            ),
     ];
 
     // Estado terminal: dizer POR QUE não há "Finalizar" aqui. A nota acompanha
@@ -538,7 +607,12 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
       'entregue' => _Nota(
           icon: Icons.verified_outlined,
           color: neu.success,
-          text: 'OS entregue — somente leitura.',
+          text: 'OS entregue — somente leitura. Reabra para corrigir algo.',
+        ),
+      'sem_conserto' => _Nota(
+          icon: Icons.block_outlined,
+          color: neu.inkMuted,
+          text: 'Sem conserto — entregue ou cancele.',
         ),
       _ => null,
     };
@@ -560,7 +634,14 @@ class _OsActionBarState extends ConsumerState<OsActionBar> {
 class _MenuMais extends StatelessWidget {
   const _MenuMais({required this.itens, required this.onSelected});
 
-  final List<({String valor, String rotulo, IconData icone, bool perigo})> itens;
+  final List<
+      ({
+        String valor,
+        String rotulo,
+        IconData icone,
+        bool perigo,
+        bool emBreve
+      })> itens;
   final ValueChanged<String> onSelected;
 
   @override
@@ -575,6 +656,8 @@ class _MenuMais extends StatelessWidget {
         for (final i in itens)
           PopupMenuItem(
             value: i.valor,
+            // Em breve: item visível e não selecionável.
+            enabled: !i.emBreve,
             child: Row(
               children: [
                 Icon(
@@ -595,6 +678,7 @@ class _MenuMais extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (i.emBreve) const NeuEmBreveTag(compacto: true),
               ],
             ),
           ),

@@ -1,0 +1,299 @@
+{
+  "_comentario": "Contrato ONLINE/OFFLINE do 'A receber'. Lido por back/src/modules/receivables/receivables.filtro.spec.ts (jest) E por front/test/receivables_filtro_test.dart (flutter test). Mudar a regra num lado sem o outro deixa os dois vermelhos.",
+  "_comentario_prazo": "Vencimento = PRAZO COMBINADO (proximaParcelaEm). Sem prazo combinado nao ha vencimento: nextDueAt null e overdue false — 'sem_parcela_antigo' e velho e continua na carteira, mas nao e atraso. Data unica combinada ('me paga dia 30') e gravada como plano de UMA parcela, entao chega como proximaParcelaEm igual aos demais — e o que 'vence7'/'a_vencer' representam aqui.",
+  "hoje": "2026-09-18T12:00:00Z",
+  "devedores": [
+    {
+      "id": "sem_data",
+      "customerId": "c1",
+      "customerName": "Ana",
+      "totalDue": 100,
+      "titleCount": 1,
+      "oldestAt": "2026-09-01T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "sale",
+          "createdAt": null,
+          "balance": 100,
+          "proximaParcelaEm": null
+        }
+      ]
+    },
+    {
+      "id": "vencido",
+      "customerId": "c2",
+      "customerName": "Bruno",
+      "totalDue": 250,
+      "titleCount": 2,
+      "oldestAt": "2026-08-01T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "os",
+          "createdAt": "2026-08-01T10:00:00Z",
+          "balance": 150,
+          "proximaParcelaEm": "2026-09-10"
+        },
+        {
+          "origin": "sale",
+          "createdAt": "2026-09-15T10:00:00Z",
+          "balance": 100,
+          "proximaParcelaEm": null
+        }
+      ]
+    },
+    {
+      "id": "vence7",
+      "customerId": null,
+      "customerName": "Zeca do Posto",
+      "totalDue": 80,
+      "titleCount": 1,
+      "oldestAt": "2026-09-16T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "sale",
+          "createdAt": "2026-09-16T10:00:00Z",
+          "balance": 80,
+          "proximaParcelaEm": "2026-09-22"
+        }
+      ]
+    },
+    {
+      "id": "a_vencer",
+      "customerId": "c4",
+      "customerName": "Célia",
+      "totalDue": 500,
+      "titleCount": 1,
+      "oldestAt": "2026-09-17T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "os",
+          "createdAt": "2026-09-17T10:00:00Z",
+          "balance": 500,
+          "proximaParcelaEm": "2026-10-30"
+        }
+      ]
+    },
+    {
+      "id": "sem_parcela_antigo",
+      "customerId": "c5",
+      "customerName": "Dário",
+      "totalDue": 60,
+      "titleCount": 1,
+      "oldestAt": "2026-07-01T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "sale",
+          "createdAt": "2026-07-01T10:00:00Z",
+          "balance": 60,
+          "proximaParcelaEm": null
+        }
+      ]
+    },
+    {
+      "id": "data_ruim",
+      "customerId": "c6",
+      "customerName": "Eva",
+      "totalDue": 40,
+      "titleCount": 1,
+      "oldestAt": "2026-09-01T10:00:00Z",
+      "titulos": [
+        {
+          "origin": "sale",
+          "createdAt": "2026-09-01T10:00:00Z",
+          "balance": 40,
+          "proximaParcelaEm": "nao-e-data"
+        }
+      ]
+    }
+  ],
+  "classificacao": {
+    "sem_data": {
+      "nextDueAt": null,
+      "overdue": false
+    },
+    "vencido": {
+      "nextDueAt": "2026-09-10",
+      "overdue": true
+    },
+    "vence7": {
+      "nextDueAt": "2026-09-22",
+      "overdue": false
+    },
+    "a_vencer": {
+      "nextDueAt": "2026-10-30",
+      "overdue": false
+    },
+    "sem_parcela_antigo": {
+      "nextDueAt": null,
+      "overdue": false
+    },
+    "data_ruim": {
+      "nextDueAt": null,
+      "overdue": false
+    }
+  },
+  "filtros": [
+    {
+      "nome": "todos",
+      "f": {
+        "vencimento": "todos",
+        "origem": "todos"
+      },
+      "esperado": [
+        "sem_data",
+        "vencido",
+        "vence7",
+        "a_vencer",
+        "sem_parcela_antigo",
+        "data_ruim"
+      ]
+    },
+    {
+      "nome": "vencidos",
+      "f": {
+        "vencimento": "vencidos",
+        "origem": "todos"
+      },
+      "esperado": [
+        "vencido"
+      ]
+    },
+    {
+      "nome": "vence7",
+      "f": {
+        "vencimento": "vence7",
+        "origem": "todos"
+      },
+      "esperado": [
+        "vence7"
+      ]
+    },
+    {
+      "nome": "a_vencer",
+      "f": {
+        "vencimento": "a_vencer",
+        "origem": "todos"
+      },
+      "esperado": [
+        "vence7",
+        "a_vencer"
+      ]
+    },
+    {
+      "nome": "sem_prazo",
+      "f": {
+        "vencimento": "sem_prazo",
+        "origem": "todos"
+      },
+      "esperado": [
+        "sem_data",
+        "sem_parcela_antigo",
+        "data_ruim"
+      ]
+    },
+    {
+      "nome": "so_os",
+      "f": {
+        "vencimento": "todos",
+        "origem": "os"
+      },
+      "esperado": [
+        "vencido",
+        "a_vencer"
+      ]
+    },
+    {
+      "nome": "so_venda",
+      "f": {
+        "vencimento": "todos",
+        "origem": "sale"
+      },
+      "esperado": [
+        "sem_data",
+        "vencido",
+        "vence7",
+        "sem_parcela_antigo",
+        "data_ruim"
+      ]
+    },
+    {
+      "nome": "busca_sem_acento",
+      "f": {
+        "vencimento": "todos",
+        "origem": "todos",
+        "q": "celia"
+      },
+      "esperado": [
+        "a_vencer"
+      ]
+    },
+    {
+      "nome": "busca_apelido",
+      "f": {
+        "vencimento": "todos",
+        "origem": "todos",
+        "q": "zeca"
+      },
+      "esperado": [
+        "vence7"
+      ]
+    }
+  ],
+  "ordenacoes": [
+    {
+      "ordem": "valor",
+      "esperado": [
+        "a_vencer",
+        "vencido",
+        "sem_data",
+        "vence7",
+        "sem_parcela_antigo",
+        "data_ruim"
+      ]
+    },
+    {
+      "ordem": "mais_antigo",
+      "esperado": [
+        "sem_parcela_antigo",
+        "vencido",
+        "sem_data",
+        "data_ruim",
+        "vence7",
+        "a_vencer"
+      ]
+    },
+    {
+      "ordem": "nome",
+      "esperado": [
+        "sem_data",
+        "vencido",
+        "a_vencer",
+        "sem_parcela_antigo",
+        "data_ruim",
+        "vence7"
+      ]
+    },
+    {
+      "ordem": "vencimento",
+      "esperado": [
+        "vencido",
+        "vence7",
+        "a_vencer",
+        "sem_data",
+        "sem_parcela_antigo",
+        "data_ruim"
+      ]
+    }
+  ],
+  "paginacao": {
+    "pageSize": 2,
+    "page": 2,
+    "ordem": "valor",
+    "esperadoIds": [
+      "sem_data",
+      "vence7"
+    ],
+    "total": 6
+  },
+  "_comentario_data_ruim": "Data ilegivel (espelho local com lixo) conta como SEM prazo, nunca como atraso — e NUNCA derruba a carteira: no Dart era FormatException, no TS seria RangeError. O caso data_ruim existe para os dois lados provarem isso."
+}

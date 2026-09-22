@@ -1,5 +1,7 @@
 import {
   Controller,
+  Param,
+  ParseUUIDPipe,
   Get,
   Header,
   Query,
@@ -129,6 +131,29 @@ export class ReportController {
   }
 
   /** Faturamento: total, ticket médio, série por dia, quebra por status. */
+  /**
+   * Melhores clientes do período, por dinheiro RECEBIDO e por recorrência.
+   *
+   * Duas listas em vez de uma "nota" combinada: quem traz mais dinheiro nem
+   * sempre é quem volta mais, e a oficina trata os dois de jeitos diferentes.
+   */
+  @Get('customers-ranking')
+  @Permissions('report.read')
+  customersRanking(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReportRangeQueryDto,
+  ) {
+    const { from, to } = resolveRange(query.from, query.to);
+    return this.report.customersRanking({ from, to });
+  }
+
+  /** Ciclo de vida de um cliente — sem período, é o "desde sempre". */
+  @Get('customers/:id/lifetime')
+  @Permissions('report.read')
+  customerLifetime(@Param('id', ParseUUIDPipe) id: string) {
+    return this.report.customerLifetime(id);
+  }
+
   @Get('revenue')
   revenue(@CurrentUser() user: AuthUser, @Query() query: ReportRangeQueryDto) {
     const { from, to } = resolveRange(query.from, query.to);

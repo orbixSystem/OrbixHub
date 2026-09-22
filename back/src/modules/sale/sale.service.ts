@@ -8,8 +8,11 @@ import {
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
+import { criarComNumeroSequencial } from '../../common/database/numero-sequencial';
+import { isIdUniqueViolation } from '../../common/database/prisma-errors';
 import { AuditService } from '../../common/audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CashierService } from '../cashier/cashier.service';
 import {
@@ -60,6 +63,13 @@ interface ResolvedItem {
  *  - nota: disparada via `InvoiceService` (o Fiscal é dono do status; guardamos snapshot).
  * O caixa NÃO emite nota e NÃO toca a tabela da venda (ele recebe o total do dono).
  */
+/** Item cujo saldo NÃO acompanhou a venda — ver [SaleService.applyStock]. */
+export interface StockWarning {
+  itemId: string;
+  name: string;
+  message: string;
+}
+
 @Injectable()
 export class SaleService {
   private readonly logger = new Logger(SaleService.name);
@@ -77,9 +87,17 @@ export class SaleService {
     private readonly customers: CustomersService,
     private readonly inventory: InventoryService,
     private readonly cashier: CashierService,
+    // "Aponta, não invade": o aviso de estoque não aplicado vai pelo service
+    // público de notificações, sem tocar a tabela.
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ===================== Criação =====================
+  /** Vendas do período com o dono — ver [SaleRepository.documentosPorCliente]. */
+  async documentosPorCliente(p: { from?: Date; to?: Date }) {
+    return this.tenant.withTenantTx(() => this.repo.documentosPorCliente(p));
+  }
+
   async createSale(user: AuthUser, dto: CreateSaleDto) {
     // Cliente OPCIONAL: se informado, ponteiro + snapshot via service público
     // (FORA da tx — getCustomer abre a própria; aninhar esgota o pool).
@@ -89,6 +107,9 @@ export class SaleService {
       const customer = await this.customers.getCustomer(user, dto.customerId);
       customerId = customer.id;
       customerName = customer.name;
+    } else if (dto.customerNote?.trim()) {
+      // Apelido/observação livre informado pelo operador para venda sem cadastro.
+      customerName = dto.customerNote.trim();
     }
 
     const resolved = await this.resolveItems(dto.items);
@@ -100,36 +121,56 @@ export class SaleService {
     // Fiscal emite. `discount` fica ao lado como registro do que foi concedido.
     const { total, discount } = applySaleDiscount(bruto, dto.discount ?? 0);
 
-    const sale = await this.tenant.withTenantTx(async () => {
-      const n = (await this.repo.maxSaleNumber()) + 1;
-      const created = await this.repo.createSale(user.tenantId, {
-        // Uuid do cliente quando veio (replay de venda criada offline); senão o
-        // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
-        // um provisório e o pull traz esta linha, já com o número real.
-        ...(dto.id ? { id: dto.id } : {}),
-        number: formatSaleNumber(n),
-        customer_id: customerId,
-        customer_name: customerName,
-        status: 'active',
-        total,
-        discount,
-        description: dto.description?.trim() || null,
-        // Declarada fiado já na criação (ver CreateSaleDto.fiado).
-        ...(dto.fiado ? { fiado_at: new Date() } : {}),
-        created_by: user.userId,
-      });
-      for (const r of resolved) {
-        await this.repo.addItem(user.tenantId, created.id, {
-          kind: r.kind,
-          inventory_item_id: r.inventory_item_id,
-          name: r.name,
-          quantity: r.quantity,
-          unit_price: r.unit_price,
-          subtotal: r.subtotal,
-        });
-      }
-      return this.repo.findSaleById(created.id);
-    });
+    // Mesma corrida da OS: `MAX(number)+1` lido fora de qualquer trava. Dois
+    // atendentes fechando venda no mesmo instante calculam o mesmo número e o
+    // índice único derruba o segundo — no balcão, com o cliente esperando.
+    const sale = await criarComNumeroSequencial(
+      () =>
+        this.tenant.withTenantTx(async () => {
+          const n = (await this.repo.maxSaleNumber()) + 1;
+          const created = await this.repo.createSale(user.tenantId, {
+            // Uuid do cliente quando veio (replay de venda criada offline); senão o
+            // banco gera. O NÚMERO é sempre atribuído aqui — offline o aparelho usa
+            // um provisório e o pull traz esta linha, já com o número real.
+            ...(dto.id ? { id: dto.id } : {}),
+            number: formatSaleNumber(n),
+            customer_id: customerId,
+            customer_name: customerName,
+            status: 'active',
+            total,
+            discount,
+            description: dto.description?.trim() || null,
+            // Declarada fiado já na criação (ver CreateSaleDto.fiado).
+            ...(dto.fiado ? { fiado_at: new Date() } : {}),
+            created_by: user.userId,
+          });
+          for (const r of resolved) {
+            await this.repo.addItem(user.tenantId, created.id, {
+              kind: r.kind,
+              inventory_item_id: r.inventory_item_id,
+              name: r.name,
+              quantity: r.quantity,
+              unit_price: r.unit_price,
+              subtotal: r.subtotal,
+            });
+          }
+          return this.repo.findSaleById(created.id);
+        }),
+      {
+        // O replay de uma venda criada offline manda o `id` do aparelho: aí o
+        // conflito é de PK e repetir não resolveria nada. Sob RLS o Postgres
+        // não diz qual constraint falhou (ver `prisma-errors.ts`), então
+        // confirmamos lendo o id numa nova transação.
+        ehConflitoDeId: async (e) => {
+          if (!dto.id) return false;
+          if (isIdUniqueViolation(e)) return true;
+          const existente = await this.tenant.withTenantTx(() =>
+            this.repo.findSaleById(dto.id as string),
+          );
+          return existente != null;
+        },
+      },
+    );
     await this.audit.log(user.tenantId, user.userId, 'sale_create', sale!.id, {
       total,
       // Desconto concedido é informação auditável (quem deu, quanto, em qual venda).
@@ -138,10 +179,21 @@ export class SaleService {
     });
 
     // Baixa de estoque (só produto vinculado) — FORA da tx (reconcile abre a própria).
-    // best-effort por linha: falha de estoque não desfaz a venda (apenas loga).
-    await this.applyStock(user, sale!.id, sale!.items, 'consume');
+    // best-effort por linha: falha de estoque não desfaz a venda (o dinheiro já
+    // entrou), mas VOLTA na resposta: quem vendeu precisa saber que o saldo
+    // daquele item não mexeu.
+    const stockWarnings = await this.applyStock(
+      user,
+      sale!.id,
+      sale!.number,
+      sale!.items,
+      'consume',
+    );
 
-    return this.enrichOne(sale!, user.tenantId);
+    const enriquecida = await this.enrichOne(sale!, user.tenantId);
+    return stockWarnings.length
+      ? { ...enriquecida, stockWarnings }
+      : enriquecida;
   }
 
   /**
@@ -262,7 +314,9 @@ export class SaleService {
     const resolved = dto.items ? await this.resolveItems(dto.items) : null;
 
     // Estado atual + guardas, antes de mexer em qualquer coisa.
-    const atual = await this.tenant.withTenantTx(() => this.repo.findSaleById(id));
+    const atual = await this.tenant.withTenantTx(() =>
+      this.repo.findSaleById(id),
+    );
     if (!atual) throw new NotFoundException('Venda não encontrada.');
     if (atual.status === 'canceled')
       throw new ConflictException('Venda cancelada não pode ser editada.');
@@ -290,8 +344,8 @@ export class SaleService {
     if (total !== toNum(atual.total)) {
       if (atual.fiscal_status && atual.fiscal_status !== 'rejeitada') {
         throw new ConflictException(
-          'Esta venda já tem nota fiscal. Mudar o valor faria a nota divergir — '
-            + 'cancele a venda e faça uma nova.',
+          'Esta venda já tem nota fiscal. Mudar o valor faria a nota divergir — ' +
+            'cancele a venda e faça uma nova.',
         );
       }
       const pago = await this.cashier.getPaymentSummary(
@@ -301,9 +355,9 @@ export class SaleService {
       );
       if (total < pago.paid - 0.005) {
         throw new ConflictException(
-          `O cliente já pagou ${pago.paid.toFixed(2)} nesta venda e o novo total `
-            + `seria ${total.toFixed(2)}. Estorne o recebimento antes de reduzir `
-            + 'o valor.',
+          `O cliente já pagou ${pago.paid.toFixed(2)} nesta venda e o novo total ` +
+            `seria ${total.toFixed(2)}. Estorne o recebimento antes de reduzir ` +
+            'o valor.',
         );
       }
     }
@@ -359,7 +413,17 @@ export class SaleService {
         if (antigo.kind !== 'product' || !antigo.inventory_item_id) continue;
         await this.reconcile(user, id, antigo.id, antigo.inventory_item_id, 0);
       }
-      await this.applyStock(user, id, sale!.items, 'consume');
+      const stockWarnings = await this.applyStock(
+        user,
+        id,
+        sale!.number,
+        sale!.items,
+        'consume',
+      );
+      const enriquecida = await this.enrichOne(sale!, user.tenantId);
+      return stockWarnings.length
+        ? { ...enriquecida, stockWarnings }
+        : enriquecida;
     }
 
     return this.enrichOne(sale!, user.tenantId);
@@ -429,7 +493,7 @@ export class SaleService {
     });
 
     // Devolve o estoque (estorno) — FORA da tx (reconcile abre a própria).
-    await this.applyStock(user, id, sale.items, 'return');
+    await this.applyStock(user, id, sale.number, sale.items, 'return');
 
     return this.getSaleOrThrow(id, user.tenantId);
   }
@@ -545,7 +609,12 @@ export class SaleService {
   // ===================== Internos =====================
   /** Resumo de pagamento derivado do caixa + campo flat. Cancelada ⇒ não pergunta. */
   private async enrichOne(
-    sale: { id: string; tenant_id: string; status: string; total: Prisma.Decimal | number },
+    sale: {
+      id: string;
+      tenant_id: string;
+      status: string;
+      total: Prisma.Decimal | number;
+    },
     tenantId: string,
   ) {
     if (sale.status !== 'active') {
@@ -568,14 +637,17 @@ export class SaleService {
   private async applyStock(
     user: AuthUser,
     saleId: string,
+    saleNumber: string,
     items: Array<{
       id: string;
       kind: string;
+      name?: string | null;
       inventory_item_id: string | null;
       quantity: Prisma.Decimal | number;
     }>,
     mode: 'consume' | 'return',
-  ): Promise<void> {
+  ): Promise<StockWarning[]> {
+    const falhas: StockWarning[] = [];
     for (const item of items) {
       if (item.kind !== 'product' || !item.inventory_item_id) continue;
       try {
@@ -588,12 +660,65 @@ export class SaleService {
           createdBy: user.userId,
         });
       } catch (e) {
+        const message = (e as Error).message;
         this.logger.warn(
-          `Estoque (${mode}) falhou (venda ${saleId}, item ${item.id}): ${
-            (e as Error).message
-          }`,
+          `Estoque (${mode}) falhou (venda ${saleId}, item ${item.id}): ${message}`,
         );
+        falhas.push({
+          itemId: item.id,
+          name: item.name ?? 'Item',
+          message,
+        });
       }
+    }
+    if (falhas.length)
+      await this.avisarEstoqueNaoAplicado(
+        user,
+        saleNumber,
+        saleId,
+        falhas,
+        mode,
+      );
+    return falhas;
+  }
+
+  /**
+   * Registra a divergência de estoque onde alguém vai ver.
+   *
+   * A venda NÃO é desfeita de propósito — o dinheiro já entrou, e cancelar por
+   * causa do estoque seria pior. Mas até aqui a falha morria num `logger.warn`
+   * no servidor: quem vendeu via "venda concluída", o saldo ficava errado e
+   * ninguém era avisado. Sem tabela nova: a notificação já é genérica por
+   * `type`, e o sino do tenant é exatamente o lugar de "confira isto".
+   *
+   * best-effort duas vezes: se a própria notificação falhar, não pode derrubar
+   * a venda que já está gravada.
+   */
+  private async avisarEstoqueNaoAplicado(
+    user: AuthUser,
+    saleNumber: string,
+    saleId: string,
+    falhas: StockWarning[],
+    mode: 'consume' | 'return',
+  ): Promise<void> {
+    const verbo = mode === 'consume' ? 'baixado' : 'devolvido';
+    try {
+      await this.notifications.notify(user.tenantId, {
+        type: 'inventory_sale_unapplied',
+        title: `Estoque não foi ${verbo} na venda ${saleNumber}`,
+        body:
+          `${falhas.length} ${falhas.length === 1 ? 'item ficou' : 'itens ficaram'} ` +
+          `com o saldo desatualizado — confira e ajuste: ` +
+          falhas.map((f) => `${f.name} (${f.message})`).join('; '),
+        refType: 'sale',
+        refId: saleId,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Não consegui notificar a divergência de estoque da venda ${saleId}: ${
+          (e as Error).message
+        }`,
+      );
     }
   }
 

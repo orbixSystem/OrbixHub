@@ -12,6 +12,7 @@ import '../../../di.dart';
 import '../domain/customers_models.dart';
 import '../../../verticals/veiculos/brand_logo.dart';
 import 'customer_form_dialog.dart';
+import 'customer_kpis.dart';
 import 'customers_providers.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../sale/presentation/sale_detail_dialog.dart';
@@ -925,6 +926,33 @@ class _VehicleBody extends StatelessWidget {
           Divider(height: 1, color: scheme.outlineVariant),
           const SizedBox(height: 16),
           content,
+          // Acessórios (se houver, do attributes['acessorios']).
+          if (subject.attributes['acessorios'] case final List acessorios
+              when acessorios.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Divider(height: 1, color: scheme.outlineVariant),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.extension_rounded, size: 18, color: scheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Acessórios (${acessorios.length})',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final raw in acessorios)
+              if (raw is Map<String, dynamic>) ...[
+                _AccessoryRow(acc: SubjectAccessory.fromJson(raw)),
+                const SizedBox(height: 4),
+              ],
+          ],
           ...[
             const SizedBox(height: 16),
             Wrap(
@@ -1038,6 +1066,64 @@ class _FieldTile extends StatelessWidget {
   }
 }
 
+/// Linha compacta de acessório na expansão do subject.
+class _AccessoryRow extends StatelessWidget {
+  const _AccessoryRow({required this.acc});
+
+  final SubjectAccessory acc;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final details = <String>[
+      if (acc.marca != null && acc.marca!.isNotEmpty) acc.marca!,
+      if (acc.modelo != null && acc.modelo!.isNotEmpty) acc.modelo!,
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.extension_outlined, size: 16, color: scheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  acc.nome,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                if (details.isNotEmpty)
+                  Text(
+                    details.join(' · '),
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                if (acc.numeroSerie != null && acc.numeroSerie!.isNotEmpty)
+                  Text(
+                    'S/N: ${acc.numeroSerie}',
+                    // 12 é o piso do padrão SysOne. Número de série é
+                    // justamente o texto que alguém precisa CONFERIR letra a
+                    // letra — 11px era o pior lugar para economizar espaço.
+                    style: TextStyle(fontSize: 12, color: scheme.outline),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Tipo do fato em PT-BR. Antes a timeline mostrava a chave crua ("os"), que não
 /// diz nada ao usuário — e agora há mais de um tipo para distinguir.
 String _rotuloDoTipo(String kind) => switch (kind) {
@@ -1081,6 +1167,12 @@ class _CustomerHistoryTabState extends ConsumerState<_CustomerHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Ciclo de vida ANTES do histórico: quem abre a ficha quer primeiro
+          // saber quanto o cliente vale, e depois o que aconteceu com ele.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),
+            child: CustomerKpis(customerId: widget.customerId),
+          ),
           if (widget.config.usaSubjects && subjects.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),

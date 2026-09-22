@@ -28,6 +28,7 @@ import 'report_csv.dart';
 import '../../../core/export/file_download.dart';
 import 'report_pdf.dart';
 import 'report_xlsx.dart';
+import 'customers_ranking_card.dart';
 import 'report_providers.dart';
 import 'report_tables.dart';
 
@@ -2756,6 +2757,12 @@ class _CustomersReportState extends ConsumerState<_CustomersReport> {
               _CustomersChart(series: state.series),
               const SizedBox(height: 18),
             ],
+            // Melhores clientes: dinheiro e recorrência, lado a lado no
+            // desktop e empilhados no celular. Fica ABAIXO do gráfico de novos
+            // clientes de propósito — "quem entrou" é a pergunta do período,
+            // "quem vale" é a que se leva embora.
+            CustomersRankingCard(range: ref.watch(reportRangeProvider)),
+            const SizedBox(height: 18),
             if (empty)
               const _Empty(message: 'Sem clientes novos no período.')
             else

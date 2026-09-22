@@ -141,7 +141,7 @@ describe('Sale — Venda avulsa (e2e)', () => {
   const cancelSale = (access: string, id: string, body: Record<string, unknown> = {}) =>
     request(srv()).post(`/api/sales/${id}/cancel`).set(auth(access)).send(body);
   const emitInvoice = (access: string, id: string) =>
-    request(srv()).post(`/api/sales/${id}/invoice`).set(auth(access)).send({});
+    request(srv()).post('/api/invoices').set(auth(access)).send({ saleId: id });
   const openSession = (access: string, body: Record<string, unknown> = {}) =>
     request(srv()).post('/api/cashier/sessions/open').set(auth(access)).send(body);
   const createEntry = (access: string, body: Record<string, unknown>) =>
@@ -157,7 +157,7 @@ describe('Sale — Venda avulsa (e2e)', () => {
     const cust = await request(srv())
       .post('/api/customers')
       .set(auth(access))
-      .send({ name: `Cliente ${uniq()}` });
+      .send({ name: `Cliente ${uniq()}`, phone: '11999999999' });
     expect(cust.status).toBe(201);
     const order = await request(srv())
       .post('/api/os/orders')
@@ -270,16 +270,16 @@ describe('Sale — Venda avulsa (e2e)', () => {
   });
 
   // ====================================================================
-  // 4. Emitir nota — Fiscal Noop ⇒ 503 com elegância
+  // 4. Emitir nota — Fiscal Noop ⇒ autoriza sincronamente (201)
   // ====================================================================
   describe('emitir nota fiscal', () => {
-    it('propaga 503 quando o Fiscal não está habilitado (Noop)', async () => {
+    it('emite nota com sucesso via Noop (autoriza sincronamente)', async () => {
       const o = await registerOwner();
       const sale = await createSale(o.access, {
         items: [{ name: 'X', kind: 'service', quantity: 1, unitPrice: 10 }],
       });
       const res = await emitInvoice(o.access, sale.body.id as string);
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(201);
     });
   });
 

@@ -124,6 +124,11 @@ class FakeCustomersRepository implements CustomersRepository {
   }
 
   @override
+  Future<Subject> getSubject(String id) async {
+    return _subjects.firstWhere((s) => s.id == id);
+  }
+
+  @override
   Future<SubjectPage> listSubjects({
     String? q,
     String? customerId,

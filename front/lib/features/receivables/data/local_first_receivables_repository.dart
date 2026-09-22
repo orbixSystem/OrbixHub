@@ -1,7 +1,9 @@
 import '../../../core/offline/local_first.dart';
 import '../../cashier/domain/cashier_format.dart';
 import '../../cashier/domain/local_payment.dart';
+import '../domain/receivables_filtro.dart';
 import '../domain/receivables_models.dart';
+import '../domain/receivables_query.dart';
 import '../domain/receivables_repository.dart';
 
 /// [ReceivablesRepository] offline-first — decorator sobre a impl real (dio).
@@ -44,36 +46,106 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   /// Idem para a venda de balcão — que nasce `active` e só sai por cancelamento.
   static const _vendaSemDivida = {'canceled'};
 
+  /// Espelha `FATURAVEIS` do servidor. `a_receber` FALTAVA aqui — a OS cujo
+  /// status se chama "a receber" não caía em pendente de acerto sem rede.
+  static const _osFinalizadas = {'concluida', 'a_receber', 'entregue'};
+
+  static const _installments = 'receivable_installment';
+  static const _customers = 'customer';
+
   @override
-  Future<DebtorsPage> listDebtors() async {
-    if (isOnline()) return inner.listDebtors();
+  Future<DebtorsPage> listDebtors(DebtorsQuery query) async {
+    if (isOnline()) return inner.listDebtors(query);
 
     final local = await _titulosLocais();
-    final porCliente = <String, Debtor>{};
+
+    // Próxima parcela em aberto por título — mesma porta que o servidor usa
+    // (`CashierService.proximasParcelasEmAberto`), só que sobre o espelho local.
+    final proximas = <String, String>{};
+    final parcelas = (await rows(_installments))
+        .where((r) => r['paid_at'] == null)
+        .toList()
+      ..sort((a, b) =>
+          (a['due_date'] as String).compareTo(b['due_date'] as String));
+    for (final r in parcelas) {
+      proximas.putIfAbsent(
+        '${r['sale_kind']}:${r['sale_id']}',
+        () => (r['due_date'] as String).substring(0, 10),
+      );
+    }
+
+    // Telefone do cadastro — offline a linha da OS/venda não o carrega.
+    final telefones = <String, String?>{
+      for (final c in await rows(_customers))
+        if (c['id'] != null) c['id'] as String: c['phone'] as String?,
+    };
+
+    final porCliente = <String, DevedorParaFiltro>{};
     for (final t in local.fiado) {
       final chave = t.customerId ?? 'nome:${t.customerName}';
+      final titulo = TituloParaFiltro(
+        origin: t.title.origin,
+        createdAt: t.title.createdAt,
+        balance: t.title.balance,
+        proximaParcelaEm: proximas['${t.title.origin}:${t.title.id}'],
+      );
       final atual = porCliente[chave];
-      if (atual == null) {
-        porCliente[chave] = Debtor(
-          customerId: t.customerId,
-          customerName: t.customerName,
-          totalDue: t.title.balance,
-          titleCount: 1,
-          oldestAt: t.title.createdAt,
-        );
-      } else {
-        porCliente[chave] = atual.copyWith(
-          totalDue: _round2(atual.totalDue + t.title.balance),
-          titleCount: atual.titleCount + 1,
-          oldestAt: _maisAntigo(atual.oldestAt, t.title.createdAt),
-        );
-      }
+      porCliente[chave] = atual == null
+          ? DevedorParaFiltro(
+              customerId: t.customerId,
+              customerName: t.customerName,
+              totalDue: t.title.balance,
+              titleCount: 1,
+              oldestAt: t.title.createdAt,
+              titulos: [titulo],
+            )
+          : DevedorParaFiltro(
+              customerId: atual.customerId,
+              customerName: atual.customerName,
+              totalDue: _round2(atual.totalDue + t.title.balance),
+              titleCount: atual.titleCount + 1,
+              oldestAt: _maisAntigo(atual.oldestAt, t.title.createdAt),
+              titulos: [...atual.titulos, titulo],
+            );
     }
-    final items = porCliente.values.toList()
-      ..sort((a, b) => b.totalDue.compareTo(a.totalDue));
+
+    final hoje = DateTime.now().toUtc();
+    final classificados =
+        porCliente.values.map((d) => classificar(d, hoje)).toList();
+    final filtrados = filtrarDevedores(
+      classificados,
+      q: query.q,
+      vencimento: query.vencimento,
+      origem: query.origem,
+      hoje: hoje,
+    );
+    final pagina = paginar(
+      ordenarDevedores(filtrados, query.sort),
+      query.page,
+      query.pageSize,
+    );
+    final vencidos = classificados.where((d) => d.overdue);
+
     return DebtorsPage(
-      items: items,
-      totalDue: _round2(items.fold<num>(0, (a, d) => a + d.totalDue)),
+      items: [
+        for (final d in pagina.items)
+          Debtor(
+            customerId: d.customerId,
+            customerName: d.customerName,
+            totalDue: d.totalDue,
+            titleCount: d.titleCount,
+            oldestAt: d.oldestAt,
+            phone: d.customerId == null ? null : telefones[d.customerId],
+            nextDueAt: d.nextDueAt,
+            overdue: d.overdue,
+          ),
+      ],
+      total: pagina.total,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalDue: _round2(classificados.fold<num>(0, (a, d) => a + d.totalDue)),
+      overdueTotal: _round2(vencidos.fold<num>(0, (a, d) => a + d.totalDue)),
+      overdueCount: vencidos.length,
       pendingSettlement: PendingSettlement(
         count: local.pendentes.length,
         total: _round2(
@@ -125,12 +197,21 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
   }
 
   @override
-  Future<DebtorDetail> titlesOf(String? customerId) async {
-    if (isOnline()) return inner.titlesOf(customerId);
+  Future<DebtorDetail> titlesOf(String? customerId, {String? apelido}) async {
+    if (isOnline()) return inner.titlesOf(customerId, apelido: apelido);
 
+    // Mesma regra do servidor — e o offline TAMBÉM tinha o bug: sem casar pelo
+    // apelido, abrir a aba de uma venda de balcão listava as de todas as
+    // outras. Divergir aqui faria a tela mudar de resposta ao perder a rede.
     final doCliente = (await _titulosLocais())
         .fiado
-        .where((t) => t.customerId == customerId)
+        .where((t) {
+          if (t.customerId != customerId) return false;
+          if (customerId != null) return true;
+          final doTitulo =
+              t.customerName == 'Sem cliente' ? '' : t.customerName;
+          return doTitulo == (apelido ?? '').trim();
+        })
         .toList()
       ..sort((a, b) =>
           (a.title.createdAt ?? '').compareTo(b.title.createdAt ?? ''));
@@ -144,8 +225,6 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
 
   /// Títulos em aberto derivados do espelho local: OS **e** venda de balcão,
   /// menos o que o caixa já recebeu de cada uma.
-  /// Status de OS em que o serviço já foi entregue ao cliente.
-  static const _osFinalizadas = {'concluida', 'entregue'};
 
   /// Os dois baldes do fiado local: o que É dívida (passou pelo caixa) e o que
   /// foi entregue mas nunca passou por lá — o aviso da aba.
@@ -168,6 +247,7 @@ class LocalFirstReceivablesRepository extends LocalFirstBase
         pendentes: pendentes,
         finalizados: _osFinalizadas,
       ),
+      // (venda de balcão logo abaixo)
       ..._titulosDe(
         linhas: await rows(_sales),
         itens: await rows(_saleItems),
