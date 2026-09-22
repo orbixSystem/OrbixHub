@@ -16,6 +16,8 @@ const TICKET = {
   status: 'aberto',
   last_message_at: new Date('2026-08-21T10:00:00Z'),
   created_at: new Date('2026-08-21T09:00:00Z'),
+  // Quem abriu — não é o dono, que é o caso comum numa oficina.
+  created_by: 'u-akue',
   naoLidas: 0,
 };
 
@@ -24,6 +26,8 @@ function make(
     supportEmail?: string;
     sendMessage?: jest.Mock;
     ticket?: unknown;
+    /** Quem abriu o chamado, resolvido pelo IAM. `null` = não é mais membro. */
+    quemAbriu?: { name: string | null; email: string } | null;
   } = {},
 ) {
   const criada = {
@@ -59,7 +63,9 @@ function make(
   const env = { SUPPORT_EMAIL: over.supportEmail } as unknown as Env;
   // O dono existe: e para ele que a resposta da Orbix e enviada.
   const iam = {
-    donoDoTenant: jest.fn(async () => ({ name: 'Zé', email: 'ze@oficina.com' })),
+    donoDoTenant: jest.fn(async () => ({ name: 'Zé', email: 'dono@oficina.com' })),
+    // Quem abriu o chamado — é para ele que a resposta vai.
+    membroDoTenant: jest.fn(async () => over.quemAbriu ?? null),
   } as never;
 
   return {
@@ -343,5 +349,53 @@ describe('SupportService — aviso em tempo real', () => {
       kind: 'status',
       daOrbix: true,
     });
+  });
+});
+
+/**
+ * Para quem vai a resposta da Orbix.
+ *
+ * Numa oficina quem escreve para o suporte costuma ser o mecânico ou o caixa, e
+ * o dono pode nem saber que existe chamado. Responder para o dono seria
+ * responder para a pessoa errada.
+ */
+describe('SupportService.responderComoOrbix — destinatário', () => {
+  it('vai para QUEM ABRIU o chamado', async () => {
+    const sendMessage = jest.fn(async () => undefined);
+    const { svc } = make({
+      sendMessage,
+      quemAbriu: { name: 'Akue', email: 'akue@gmail.com' },
+    });
+
+    await svc.responderComoOrbix('t1', 'tk1', 'já liberamos', 'Suporte Orbix');
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'akue@gmail.com' }),
+    );
+  });
+
+  /** Chamado antigo de alguém que saiu da oficina não vira resposta perdida. */
+  it('quem abriu nao e mais membro -> cai para o dono', async () => {
+    const sendMessage = jest.fn(async () => undefined);
+    const { svc } = make({ sendMessage, quemAbriu: null });
+
+    await svc.responderComoOrbix('t1', 'tk1', 'já liberamos', 'Suporte Orbix');
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'dono@oficina.com' }),
+    );
+  });
+
+  /** O patrão não é copiado em dúvida de funcionário: um e-mail, um destino. */
+  it('nao copia o dono junto', async () => {
+    const sendMessage = jest.fn(async () => undefined);
+    const { svc } = make({
+      sendMessage,
+      quemAbriu: { name: 'Akue', email: 'akue@gmail.com' },
+    });
+
+    await svc.responderComoOrbix('t1', 'tk1', 'já liberamos', 'Suporte Orbix');
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 });
