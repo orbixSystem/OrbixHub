@@ -286,6 +286,27 @@ export class BillingService {
     return sub?.status ?? null;
   }
 
+  /**
+   * Situação e até quando o acesso vale, numa consulta só.
+   *
+   * O painel lista ambientes e precisa dos dois juntos — "ativa" sem a data
+   * não responde a pergunta que quem atende faz ("até quando ele tem?"), e
+   * buscar a data numa segunda chamada por ambiente multiplicaria as idas ao
+   * banco pela lista inteira.
+   */
+  async getSubscriptionBrief(
+    tenantId: string,
+  ): Promise<{ status: string | null; currentPeriodEnd: Date | null; trialEndsAt: Date | null }> {
+    const sub = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.getSubscription(),
+    );
+    return {
+      status: sub?.status ?? null,
+      currentPeriodEnd: sub?.current_period_end ?? null,
+      trialEndsAt: sub?.trial_ends_at ?? null,
+    };
+  }
+
   /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */
   listTenantModules(tenantId: string) {
     return this.tenant.runWithTenant(tenantId, () => this.repo.listTenantModules());

@@ -82,6 +82,21 @@ export class BillingRepository {
     `;
   }
 
+  /**
+   * Quem já passou da carência: está em `past_due` há mais que os dias dados,
+   * contados a partir da própria data de vencimento.
+   *
+   * Contar do vencimento, e não de quando o status virou `past_due`, deixa o
+   * resultado independente de o job ter falhado num dia ou de a máquina ter
+   * ficado fora do ar — o cliente não ganha dias de graça por acidente nosso,
+   * nem perde por ele.
+   */
+  findGraceExpired(dias: number) {
+    return this.prisma.$queryRaw<Array<{ tenant_id: string; subscription_id: string }>>`
+      SELECT tenant_id, subscription_id FROM billing_find_grace_expired(${dias})
+    `;
+  }
+
   async updateSubscriptionStatus(
     data: {
       status: SubscriptionStatus;

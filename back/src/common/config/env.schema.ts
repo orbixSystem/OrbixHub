@@ -50,6 +50,10 @@ export const envSchema = z.object({
   // Continua existindo porque as suítes e2e usam este caminho como fixture:
   // apagá-lo trocaria 21 arquivos de teste por uma dependência do token de
   // serviço do admin em todos eles.
+  // Dias em SOMENTE LEITURA depois do vencimento, antes do bloqueio total.
+  // Três: tempo de alguém notar o aviso e pagar, sem virar mês de graça. Zero
+  // corta na hora; valores altos transformam inadimplência em cortesia.
+  BILLING_GRACE_DAYS: z.coerce.number().int().min(0).max(90).default(3),
   SELF_SIGNUP_ENABLED: z
     .string()
     .default('false')

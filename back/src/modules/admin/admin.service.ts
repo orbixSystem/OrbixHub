@@ -31,6 +31,9 @@ export interface TenantResumo {
   vertical: string | null;
   createdAt: Date;
   subscriptionStatus: string | null;
+  /** Até quando o acesso vale, e o fim do teste. O painel lista os dois. */
+  currentPeriodEnd: Date | null;
+  trialEndsAt: Date | null;
   /**
    * Razão social e nome fantasia como o Hub os conhece, mais o dono do
    * ambiente. O painel usa isto para montar o cadastro comercial de quem
@@ -235,9 +238,13 @@ export class AdminService {
     vertical: string | null;
     created_at: Date;
   }): Promise<TenantResumo> {
-    let status: string | null = null;
+    let assinatura: {
+      status: string | null;
+      currentPeriodEnd: Date | null;
+      trialEndsAt: Date | null;
+    } = { status: null, currentPeriodEnd: null, trialEndsAt: null };
     try {
-      status = await this.billing.getSubscriptionStatus(t.id);
+      assinatura = await this.billing.getSubscriptionBrief(t.id);
     } catch {
       // Um ambiente sem assinatura legível não pode derrubar a lista inteira.
     }
@@ -250,7 +257,9 @@ export class AdminService {
       tradeName: t.trade_name ?? null,
       vertical: t.vertical,
       createdAt: t.created_at,
-      subscriptionStatus: status,
+      subscriptionStatus: assinatura.status,
+      currentPeriodEnd: assinatura.currentPeriodEnd,
+      trialEndsAt: assinatura.trialEndsAt,
       owner: await this.dono(t.id),
     };
   }

@@ -7,11 +7,15 @@ import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository } from './billing.repository';
 
 /**
- * O que vence, todo dia à meia-noite: teste acabado e acesso fora do prazo.
+ * O que vence, todo dia à meia-noite, em duas etapas.
  *
- * Os dois viram `past_due`, que é "continua vendo o que é dele, não escreve
- * mais" — e não `canceled`. Cancelar por vencimento tiraria do cliente até a
- * consulta ao próprio histórico por causa de um boleto atrasado.
+ * 1. Teste acabado ou acesso fora do prazo → `past_due`: continua vendo o que
+ *    é dele, não escreve mais. Cancelar já no dia do vencimento tiraria do
+ *    cliente até a consulta ao próprio histórico por causa de um boleto
+ *    atrasado.
+ * 2. Passada a carência (`BILLING_GRACE_DAYS`) sem pagar → `canceled`: fecha
+ *    até o pagamento. Sem esta etapa, "somente leitura" virava um estado
+ *    permanente e confortável para quem simplesmente parou de pagar.
  */
 @Injectable()
 export class TrialExpiryJob {
@@ -37,19 +41,29 @@ export class TrialExpiryJob {
       'access_expired',
       'acesso(s) fora do prazo',
     );
+
+    // Depois dos dois, para que quem venceu HOJE entre na carência agora e só
+    // seja cortado quando ela acabar — e não no mesmo laço.
+    await this.vencer(
+      await this.repo.findGraceExpired(this.env.BILLING_GRACE_DAYS),
+      'grace_expired',
+      `acesso(s) com carência de ${this.env.BILLING_GRACE_DAYS} dia(s) esgotada`,
+      'canceled',
+    );
   }
 
   private async vencer(
     vencidos: Array<{ tenant_id: string; subscription_id: string }>,
-    motivo: 'trial_expired' | 'access_expired',
+    motivo: 'trial_expired' | 'access_expired' | 'grace_expired',
     rotulo: string,
+    novoStatus: 'past_due' | 'canceled' = 'past_due',
   ): Promise<void> {
     if (vencidos.length === 0) return;
     this.logger.log(`Expiring ${vencidos.length} ${rotulo}`);
 
     for (const { tenant_id, subscription_id } of vencidos) {
       await this.tenant.runWithTenant(tenant_id, () =>
-        this.repo.updateSubscriptionStatus({ status: 'past_due' }),
+        this.repo.updateSubscriptionStatus({ status: novoStatus }),
       );
       await this.audit.log(tenant_id, null, 'subscription_change', motivo, {
         subscriptionId: subscription_id,
