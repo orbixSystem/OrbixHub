@@ -62,6 +62,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Acesso bloqueado'), findsOneWidget);
+    // O texto do bloqueio TOTAL, nao o do modo consulta: uma edicao anterior
+    // trocou um pelo outro e a tela passou a dizer "voce continua vendo tudo"
+    // embaixo de um cadeado.
+    expect(
+      find.textContaining('nenhuma área do sistema está disponível'),
+      findsOneWidget,
+    );
     expect(find.text('Oficina Teste'), findsOneWidget);
     expect(find.textContaining('venceu em 1 de setembro'), findsOneWidget);
     expect(find.text('Sair'), findsOneWidget);

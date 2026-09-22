@@ -6,6 +6,7 @@ import '../../../core/ui/ui.dart';
 import '../../../di.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
+import 'falar_com_suporte.dart';
 
 /// O aviso de bloqueio de escrita já foi lido nesta sessão?
 ///
@@ -83,17 +84,13 @@ class BloqueioTotalView extends ConsumerWidget {
       icone: Icons.lock_rounded,
       titulo: 'Acesso bloqueado',
       empresa: me.activeTenant?.name,
-      // O MOTIVO vem do servidor e é o mesmo texto que foi no e-mail. O texto
-      // genérico só entra quando não há motivo gravado (bloqueio antigo,
-      // anterior a este campo).
       texto:
-          'Seu ambiente está em modo consulta. Você continua vendo tudo — '
-          'ordens, clientes, estoque, relatórios —, mas não dá para criar nem '
-          'alterar nada até o pagamento ser confirmado.',
+          'O acesso da sua empresa ao OrbixHub está suspenso e nenhuma área do '
+          'sistema está disponível no momento.',
       detalhe: motivo ?? venceu,
       rodape:
           'Seus dados continuam guardados e voltam exatamente como estavam '
-          'assim que o acesso for liberado. Fale com a Orbix para regularizar.',
+          'assim que o acesso for liberado.',
       acoes: [
         const FalarComSuporte(assunto: 'Acesso bloqueado'),
         const SizedBox(height: 10),
@@ -354,132 +351,6 @@ class _Moldura extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// "Falar com o suporte" — que abre um chamado de verdade, ali mesmo.
-///
-/// Bloqueado, a pessoa não alcança a tela de suporte: a casca inteira deu lugar
-/// ao aviso. Mandá-la procurar um telefone que não está em lugar nenhum é o
-/// mesmo que não oferecer saída. O endpoint de suporte do Hub está
-/// deliberadamente SEM `@RequiresModule` — pedir ajuda não depende de estar em
-/// dia —, então o chamado sai mesmo com o acesso cortado e cai na caixa de
-/// entrada da Orbix, com histórico.
-class FalarComSuporte extends ConsumerStatefulWidget {
-  const FalarComSuporte({super.key, required this.assunto});
-
-  /// Vira o assunto do chamado, para a Orbix saber de onde ele veio.
-  final String assunto;
-
-  @override
-  ConsumerState<FalarComSuporte> createState() => _FalarComSuporteState();
-}
-
-class _FalarComSuporteState extends ConsumerState<FalarComSuporte> {
-  final _texto = TextEditingController();
-  bool _aberto = false;
-  bool _enviando = false;
-  bool _enviado = false;
-  String? _erro;
-
-  @override
-  void dispose() {
-    _texto.dispose();
-    super.dispose();
-  }
-
-  Future<void> _enviar() async {
-    final corpo = _texto.text.trim();
-    if (corpo.isEmpty) {
-      setState(() => _erro = 'Escreva sua dúvida para enviar.');
-      return;
-    }
-    setState(() {
-      _enviando = true;
-      _erro = null;
-    });
-    try {
-      await ref.read(supportRepositoryProvider).abrir(widget.assunto, corpo);
-      if (mounted) setState(() => _enviado = true);
-    } on Object catch (e) {
-      // Sem rede ou com o servidor fora, dizer o que houve é melhor que um
-      // botão que não reage: a pessoa já está numa tela de má notícia.
-      if (mounted) {
-        setState(() => _erro = 'Não consegui enviar agora. Tente de novo. ($e)');
-      }
-    } finally {
-      if (mounted) setState(() => _enviando = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-
-    if (_enviado) {
-      return NeuSurface(
-        elevation: NeuElevation.flat,
-        radius: NeuTokens.rField,
-        color: neu.successTint,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, size: 20, color: neu.success),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Chamado aberto. A Orbix responde por aqui e pelo seu e-mail.',
-                style: TextStyle(
-                  color: neu.ink,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (!_aberto) {
-      return NeuButton(
-        label: 'Falar com o suporte',
-        icon: Icons.support_agent_rounded,
-        kind: NeuButtonKind.secondary,
-        onPressed: () => setState(() => _aberto = true),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        NeuTextField(
-          controller: _texto,
-          label: 'Sua dúvida',
-          hint: 'Conte o que aconteceu — respondemos por aqui e por e-mail.',
-          maxLines: 3,
-        ),
-        if (_erro != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _erro!,
-            style: TextStyle(
-              color: neu.danger,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        NeuButton(
-          label: 'Enviar',
-          icon: Icons.send_rounded,
-          loading: _enviando,
-          onPressed: _enviando ? null : _enviar,
-        ),
-      ],
     );
   }
 }
