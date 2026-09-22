@@ -64,6 +64,22 @@ abstract final class CoachMark {
 
   static String _key(String id) => 'coach_seen_$id';
 
+  /// O cartão que está na tela agora, para poder ser retirado de fora.
+  static OverlayEntry? _naTela;
+
+  /// Tira o tutorial da frente SEM marcá-lo como visto.
+  ///
+  /// Existe para quando algo mais importante toma a tela no meio do caminho —
+  /// o aviso de acesso bloqueado, por exemplo. O tutorial é um `OverlayEntry`,
+  /// não uma rota: trocar a tela embaixo dele o deixaria pintando por cima,
+  /// ensinando a usar um sistema que não abre. Como não foi visto, volta na
+  /// próxima vez.
+  static void fechar() {
+    _naTela?.remove();
+    _naTela = null;
+    ativo.value = false;
+  }
+
   /// Mostra o tutorial [id] só se ainda não foi visto (e houver alvo montado).
   static Future<void> maybeStart(
     BuildContext context, {
@@ -101,6 +117,7 @@ abstract final class CoachMark {
       builder: (_) => _CoachView(
         steps: live,
         onDone: () async {
+          if (_naTela == entry) _naTela = null;
           entry.remove();
           ativo.value = false;
           final prefs = await SharedPreferences.getInstance();
@@ -108,6 +125,7 @@ abstract final class CoachMark {
         },
       ),
     );
+    _naTela = entry;
     overlay.insert(entry);
   }
 }

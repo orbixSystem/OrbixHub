@@ -66,9 +66,21 @@ abstract class Me with _$Me {
     /// abaixo do módulo: 'customers.identifierLookup', 'os.trackingLink'.
     @Default(<String>[]) List<String> features,
     @Default(<Membership>[]) List<Membership> memberships,
+    /// Situação da assinatura do ambiente. Ausente em versões antigas do
+    /// backend — por isso é opcional, e a falta dela significa "liberado".
+    Assinatura? assinatura,
   }) = _Me;
 
   factory Me.fromJson(Map<String, dynamic> json) => _$MeFromJson(json);
+
+  /// O sistema está liberado? Sem o bloco de assinatura (backend antigo),
+  /// libera: negar acesso por causa de um campo que não veio seria pior erro
+  /// que deixar passar.
+  bool get podeLer => assinatura?.podeLer ?? true;
+  bool get podeEscrever => assinatura?.podeEscrever ?? true;
+
+  /// Só consulta: lê o que é dele, não cria nem edita.
+  bool get somenteLeitura => podeLer && !podeEscrever;
 
   bool hasModule(String key) => modules.contains(key);
   bool hasPermission(String key) => permissions.contains(key);
@@ -83,6 +95,30 @@ abstract class Me with _$Me {
   String get objeto => t('objeto.singular', 'Objeto');
   String get objetos => t('objeto.plural', 'Objetos');
   String get objetoIdentificador => t('objeto.identificador', 'Identificação');
+}
+
+/// Situação da assinatura, do jeito que o `/me` entrega.
+///
+/// A DECISÃO vem pronta do backend (`podeLer`/`podeEscrever`): a régua de o que
+/// `past_due` significa, e se a cobrança está sendo aplicada, mora num lugar só.
+/// Se o app recalculasse isso, um dia as duas versões discordariam — e a que o
+/// cliente vê é justamente a errada.
+@freezed
+abstract class Assinatura with _$Assinatura {
+  const factory Assinatura({
+    String? status,
+
+    /// Até quando o acesso pago vale.
+    DateTime? acessoAte,
+
+    /// Fim do período de teste.
+    DateTime? testeAte,
+    @Default(true) bool podeLer,
+    @Default(true) bool podeEscrever,
+  }) = _Assinatura;
+
+  factory Assinatura.fromJson(Map<String, dynamic> json) =>
+      _$AssinaturaFromJson(json);
 }
 
 /// A token pair. `switch-tenant` and `refresh` return exactly this.

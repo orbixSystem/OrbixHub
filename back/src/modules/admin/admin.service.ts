@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthRepository } from '../auth/auth.repository';
 import { PasswordService } from '../../common/crypto/password.service';
@@ -30,6 +31,18 @@ export interface TenantResumo {
   vertical: string | null;
   createdAt: Date;
   subscriptionStatus: string | null;
+  /** Até quando o acesso vale, e o fim do teste. O painel lista os dois. */
+  currentPeriodEnd: Date | null;
+  trialEndsAt: Date | null;
+  /**
+   * Razão social e nome fantasia como o Hub os conhece, mais o dono do
+   * ambiente. O painel usa isto para montar o cadastro comercial de quem
+   * chegou pelo autocadastro — sem esses campos, o cliente adotado ficava
+   * com o nome do ambiente no lugar da empresa, e sem contato nenhum.
+   */
+  legalName: string | null;
+  tradeName: string | null;
+  owner: { name: string | null; email: string } | null;
 }
 
 export interface FiltroTenants {
@@ -82,6 +95,7 @@ export class AdminService {
     private readonly billing: BillingService,
     private readonly verticais: VerticalRegistry,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContext,
   ) {}
 
   /**
@@ -174,17 +188,63 @@ export class AdminService {
     return this.comAssinatura(t);
   }
 
+  /**
+   * Troca o nicho do ambiente.
+   *
+   * O nicho manda no VOCABULÁRIO (o que a tela chama de "veículo" ou
+   * "equipamento") e no conjunto de capacidades que o pacote liga por padrão.
+   * Não mexe em dado nenhum já gravado: uma OS aberta como "veículo" continua
+   * lá, e é por isso que trocar é seguro depois do ambiente estar em uso.
+   *
+   * O que NÃO acontece de propósito: as funcionalidades já ligadas à mão neste
+   * ambiente ficam como estão. Religá-las conforme o pacote novo desfaria, sem
+   * avisar, escolhas que alguém fez de caso pensado — quem quiser o padrão do
+   * nicho novo liga uma a uma, que é onde a decisão fica visível.
+   */
+  async alterarNicho(tenantId: string, vertical: string | null) {
+    const t = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!t) throw new NotFoundException('Ambiente não encontrado.');
+
+    // `null` é legítimo: significa "pacote padrão". Chave desconhecida não —
+    // gravaria um nicho que nenhum pacote atende, e as telas cairiam no padrão
+    // sem ninguém entender por quê.
+    if (vertical !== null && !this.verticais.existe(vertical)) {
+      throw new BadRequestException('Nicho desconhecido.');
+    }
+    if (t.vertical === vertical) return this.tenant(tenantId);
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { vertical },
+    });
+
+    // Ator nulo: quem mexeu foi a Orbix pelo painel administrativo, não um
+    // usuário do tenant — e a FK de ator aponta para `users` deste tenant.
+    await this.audit.log(tenantId, null, 'tenant_vertical_changed', tenantId, {
+      de: t.vertical,
+      para: vertical,
+    });
+
+    return this.tenant(tenantId);
+  }
+
   private async comAssinatura(t: {
     id: string;
     name: string;
     slug: string;
     cnpj: string | null;
+    legal_name?: string | null;
+    trade_name?: string | null;
     vertical: string | null;
     created_at: Date;
   }): Promise<TenantResumo> {
-    let status: string | null = null;
+    let assinatura: {
+      status: string | null;
+      currentPeriodEnd: Date | null;
+      trialEndsAt: Date | null;
+    } = { status: null, currentPeriodEnd: null, trialEndsAt: null };
     try {
-      status = await this.billing.getSubscriptionStatus(t.id);
+      assinatura = await this.billing.getSubscriptionBrief(t.id);
     } catch {
       // Um ambiente sem assinatura legível não pode derrubar a lista inteira.
     }
@@ -193,9 +253,38 @@ export class AdminService {
       name: t.name,
       slug: t.slug,
       cnpj: t.cnpj,
+      legalName: t.legal_name ?? null,
+      tradeName: t.trade_name ?? null,
       vertical: t.vertical,
       createdAt: t.created_at,
-      subscriptionStatus: status,
+      subscriptionStatus: assinatura.status,
+      currentPeriodEnd: assinatura.currentPeriodEnd,
+      trialEndsAt: assinatura.trialEndsAt,
+      owner: await this.dono(t.id),
     };
+  }
+
+  /**
+   * O dono do ambiente — quem tem o papel `owner` nele.
+   *
+   * `membership` tem RLS, então a leitura roda com o tenant no contexto. Falha
+   * aqui devolve `null` em vez de derrubar a listagem: o cadastro comercial
+   * sem contato ainda é melhor que nenhum cadastro.
+   */
+  private async dono(tenantId: string): Promise<TenantResumo['owner']> {
+    try {
+      return await this.tenantCtx.runWithTenant(tenantId, async () => {
+        const db = this.tenantCtx.getClient();
+        const m = await db.membership.findFirst({
+          where: { role: { name: 'owner' }, status: 'active' },
+          include: { users: true },
+          orderBy: { created_at: 'asc' },
+        });
+        if (!m?.users) return null;
+        return { name: m.users.full_name ?? null, email: m.users.email_normalized };
+      });
+    } catch {
+      return null;
+    }
   }
 }

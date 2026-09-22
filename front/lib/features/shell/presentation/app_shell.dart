@@ -20,6 +20,7 @@ import '../../inventory/presentation/simple_item_form_dialog.dart';
 import '../../os/presentation/order_form_dialog.dart';
 import '../../sale/presentation/sale_create_dialog.dart';
 import '../../update/domain/update_models.dart';
+import '../../billing/presentation/bloqueio_view.dart';
 import '../../update/presentation/update_banner.dart';
 import '../../update/presentation/update_watcher.dart';
 import '../../update/presentation/update_controller.dart';
@@ -59,6 +60,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // O tutorial é lido do disco e chega um frame depois: se nesse meio-tempo
+      // o ambiente foi bloqueado, ele pintaria por cima da tela de bloqueio —
+      // um passo a passo de como usar um sistema que não abre. Volta a valer
+      // quando o acesso for liberado.
+      if (ref.read(sessionControllerProvider).meOrNull?.podeLer != true) {
+        _tutorialDisparado = null;
+        return;
+      }
       CoachMark.maybeStart(context, id: tut.id, steps: tut.steps);
     });
   }
@@ -110,6 +119,24 @@ class _AppShellState extends ConsumerState<AppShell> {
     final upd = ref.watch(updateStatusProvider).asData?.value;
     if (upd != null && upd.status == UpdateStatus.obrigatoria) {
       return UpdateRequiredView(update: upd.update);
+    }
+
+    // Assinatura vencida. A régua vem decidida do backend (`/me`): aqui só se
+    // escolhe a tela.
+    //
+    // Bloqueio total substitui a casca — deixar navegar daria 403 em cada
+    // clique, e a pessoa culparia o sistema em vez de resolver o pagamento.
+    if (!me.podeLer) {
+      // O tutorial pode ter subido um instante antes do bloqueio chegar: como
+      // é overlay, ficaria por cima do aviso.
+      WidgetsBinding.instance.addPostFrameCallback((_) => CoachMark.fechar());
+      return BloqueioTotalView(me: me);
+    }
+    // Bloqueio de escrita avisa UMA vez e sai da frente: consultar ainda
+    // funciona, e a faixa fixa no topo segue lembrando enquanto navega.
+    if (me.somenteLeitura && !ref.watch(avisoDeEscritaLidoProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => CoachMark.fechar());
+      return AvisoDeEscritaView(me: me);
     }
 
     final items = gatedNavItems(me);
@@ -194,6 +221,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                           // empresa precisa ver isso o tempo todo — descobrir
                           // depois de apagar algo é tarde.
                           const _FaixaDeSuporte(),
+                          // Escrita bloqueada: a faixa fica enquanto navega,
+                          // para o bloqueio não ser descoberto só na hora de
+                          // salvar uma OS de vinte itens.
+                          const FaixaDeBloqueio(),
                           const ConnectionBanner(),
                           // Versão nova disponível (adiável). A obrigatória não
                           // chega aqui — ela substitui a casca inteira.

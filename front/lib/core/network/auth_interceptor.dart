@@ -15,15 +15,23 @@ class AuthInterceptor extends Interceptor {
     required AccessTokenStore accessStore,
     required TokenRefreshService refreshService,
     required void Function() onSessionExpired,
+    void Function()? onForbidden,
   })  : _dio = dio,
         _accessStore = accessStore,
         _refreshService = refreshService,
-        _onSessionExpired = onSessionExpired;
+        _onSessionExpired = onSessionExpired,
+        _onForbidden = onForbidden;
 
   final Dio _dio;
   final AccessTokenStore _accessStore;
   final TokenRefreshService _refreshService;
   final void Function() _onSessionExpired;
+
+  /// Chamado quando o servidor recusa uma ação autenticada (403). É o sinal de
+  /// que a assinatura pode ter mudado embaixo de uma sessão aberta: o `/me` é
+  /// lido no login e, sem isto, quem foi bloqueado às 10h seguiria vendo o
+  /// sistema liberado, tomando erro a cada tentativa sem entender por quê.
+  final void Function()? _onForbidden;
 
   static const _retriedKey = 'orbix_retried';
 
@@ -43,6 +51,14 @@ class AuthInterceptor extends Interceptor {
   ) async {
     final req = err.requestOptions;
     final isUnauthorized = err.response?.statusCode == 401;
+
+    // `/me` fica de fora: é justamente o que a releitura pede, e reagir ao 403
+    // dele chamaria a si mesmo.
+    if (err.response?.statusCode == 403 &&
+        req.headers.containsKey('Authorization') &&
+        !req.path.endsWith('/me')) {
+      _onForbidden?.call();
+    }
     final alreadyRetried = req.extra[_retriedKey] == true;
     final hadBearer = req.headers.containsKey('Authorization');
 
