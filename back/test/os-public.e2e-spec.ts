@@ -191,9 +191,15 @@ describe('OS — Acompanhamento público (e2e)', () => {
       // diagnóstico aparece (é a informação que o cliente quer ver) — aqui null
       expect(res.body.diagnosis).toBeNull();
 
-      // payload público NÃO expõe preços/itens/total/queixa/cliente
-      expect(res.body.items).toBeUndefined();
-      expect(res.body.total).toBeUndefined();
+      // O ORÇAMENTO aparece de propósito desde `fix(tracking): exibe orçamento
+      // completo na página pública` — o cliente precisa ver o que vai pagar
+      // antes de aprovar. A OS nova ainda não tem item, então vem vazio.
+      expect(Array.isArray(res.body.items)).toBe(true);
+      expect(res.body.total).toBe(0);
+
+      // O que continua FORA: a queixa (texto de quem atendeu, escrito para a
+      // oficina) e o nome do cliente — o link circula por WhatsApp e não pode
+      // dizer de quem é o carro para quem o receber encaminhado.
       expect(res.body.complaint).toBeUndefined();
       expect(res.body.customer_name).toBeUndefined();
     });
