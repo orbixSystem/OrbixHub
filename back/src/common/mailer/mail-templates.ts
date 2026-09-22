@@ -241,3 +241,85 @@ export function renderVerificationEmail(
       });
   }
 }
+
+// ---------------------------------------------------------------- cobrança
+
+export interface CobrancaMailInput {
+  /** Nome da empresa do cliente — ele precisa saber QUAL ambiente é. */
+  empresa: string;
+  /** Para onde o botão leva: o próprio Hub. */
+  url: string;
+  /** Quantos dias faltam (só no aviso prévio). */
+  dias?: number;
+  /** O motivo, quando o acesso foi bloqueado. */
+  motivo?: string | null;
+}
+
+/**
+ * A mesma assinatura em todos os três: quem recebe uma cobrança precisa ter
+ * para quem responder na mesma tela em que leu a má notícia.
+ */
+const LINHA_SUPORTE =
+  'Em caso de dúvida, entre em contato com o suporte — é só responder por aqui ' +
+  'ou abrir um chamado dentro do sistema.';
+
+/**
+ * Aviso ANTES de vencer. Sai uma vez por prazo (ver `aviso_vencimento_para`).
+ *
+ * O tom é de lembrete, não de cobrança: neste momento o cliente não deve nada
+ * e tratá-lo como inadimplente é a forma mais rápida de perdê-lo.
+ */
+export function renderAvisoDeVencimento(input: CobrancaMailInput): RenderedMail {
+  const dias = input.dias ?? 0;
+  const quando =
+    dias <= 0 ? 'hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`;
+
+  return renderLayout({
+    heading: `Seu acesso ao OrbixHub vence ${quando}`,
+    paragraphs: [
+      `O acesso de <strong>${escapeHtml(input.empresa)}</strong> ao OrbixHub vence ${quando}.`,
+      'Para continuar usando o sistema sem interrupção, faça o pagamento antes dessa data.',
+      'Passado o vencimento, o sistema fica em modo consulta — você continua vendo tudo, mas não consegue criar nem alterar nada.',
+      LINHA_SUPORTE,
+    ],
+    ctaLabel: 'Abrir o OrbixHub',
+    ctaUrl: input.url,
+  });
+}
+
+/** O acesso venceu: modo consulta. Ainda dá para trabalhar olhando. */
+export function renderAcessoVencido(input: CobrancaMailInput): RenderedMail {
+  return renderLayout({
+    heading: 'Seu acesso venceu — o sistema está em modo consulta',
+    paragraphs: [
+      `O acesso de <strong>${escapeHtml(input.empresa)}</strong> ao OrbixHub venceu.`,
+      'Você continua vendo tudo — ordens, clientes, estoque, relatórios —, mas não consegue criar nem alterar nada até o pagamento ser confirmado.',
+      'Seus dados continuam guardados e voltam exatamente como estavam assim que o acesso for liberado.',
+      LINHA_SUPORTE,
+    ],
+    ctaLabel: 'Abrir o OrbixHub',
+    ctaUrl: input.url,
+  });
+}
+
+/**
+ * Acesso bloqueado — automático ou pela mão de alguém.
+ *
+ * O motivo entra no corpo porque é a única coisa que responde a pergunta que a
+ * pessoa vai fazer de qualquer jeito. Sem ele, o e-mail só antecipa o telefonema.
+ */
+export function renderAcessoBloqueado(input: CobrancaMailInput): RenderedMail {
+  const motivo = (input.motivo ?? '').trim();
+
+  return renderLayout({
+    heading: 'Acesso bloqueado',
+    paragraphs: [
+      `O acesso de <strong>${escapeHtml(input.empresa)}</strong> ao OrbixHub está bloqueado.`,
+      ...(motivo ? [`<strong>Motivo:</strong> ${escapeHtml(motivo)}`] : []),
+      'Seus dados continuam guardados e voltam exatamente como estavam assim que o acesso for liberado.',
+      LINHA_SUPORTE,
+    ],
+    ctaLabel: 'Abrir o OrbixHub',
+    ctaUrl: input.url,
+  });
+}

@@ -58,6 +58,8 @@ export class BillingRepository {
     status?: SubscriptionStatus;
     trial_ends_at?: Date | null;
     current_period_end?: Date | null;
+    block_reason?: string | null;
+    blocked_at?: Date | null;
   }) {
     const db = this.tenant.getClient();
     const sub = await db.subscription.findFirst();
@@ -91,6 +93,32 @@ export class BillingRepository {
    * ficado fora do ar — o cliente não ganha dias de graça por acidente nosso,
    * nem perde por ele.
    */
+  /**
+   * Quem vence em ate `dias` e ainda nao foi avisado PARA ESTA data.
+   *
+   * A funcao compara `aviso_vencimento_para` com o `current_period_end` atual em
+   * vez de olhar um "ja avisei": renovar o prazo faz os dois divergirem e o
+   * aviso volta a valer no ciclo seguinte, sem ninguem zerar nada na mao.
+   */
+  findVencimentoProximo(dias: number) {
+    return this.prisma.$queryRaw<
+      Array<{ tenant_id: string; subscription_id: string; vence_em: Date }>
+    >`
+      SELECT tenant_id, subscription_id, vence_em FROM billing_find_vencimento_proximo(${dias})
+    `;
+  }
+
+  /** Marca que o aviso daquele vencimento saiu. Assume tenant tx aberta. */
+  async marcarAvisoEnviado(vencimento: Date): Promise<void> {
+    const db = this.tenant.getClient();
+    const sub = await db.subscription.findFirst();
+    if (!sub) return;
+    await db.subscription.update({
+      where: { id: sub.id },
+      data: { aviso_vencimento_para: vencimento },
+    });
+  }
+
   findGraceExpired(dias: number) {
     return this.prisma.$queryRaw<Array<{ tenant_id: string; subscription_id: string }>>`
       SELECT tenant_id, subscription_id FROM billing_find_grace_expired(${dias})
@@ -103,6 +131,8 @@ export class BillingRepository {
       current_period_start?: Date | null;
       current_period_end?: Date | null;
       canceled_at?: Date | null;
+      block_reason?: string | null;
+      blocked_at?: Date | null;
     },
   ) {
     const db = this.tenant.getClient();

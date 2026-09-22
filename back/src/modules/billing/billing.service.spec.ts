@@ -1,3 +1,10 @@
+/** O correio de cobrança não é o assunto destes testes. */
+const correioFalso = () => ({
+  avisoDeVencimento: jest.fn(async () => true),
+  acessoVencido: jest.fn(async () => true),
+  acessoBloqueado: jest.fn(async () => true),
+});
+
 import { BillingService } from './billing.service';
 
 describe('BillingService.createTrial', () => {
@@ -15,7 +22,7 @@ describe('BillingService.createTrial', () => {
     const audit = { log: jest.fn() } as never;
     const gateway = {} as never;
 
-    const svc = new BillingService(tenant, repo as never, env, audit, gateway);
+    const svc = new BillingService(tenant, repo as never, env, audit, gateway, correioFalso() as never);
     await svc.createTrial('t1');
 
     expect(repo.findPlanByKey).toHaveBeenCalledWith('trial');

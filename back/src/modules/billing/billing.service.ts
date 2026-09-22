@@ -10,6 +10,7 @@ import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository, type SubscriptionStatus } from './billing.repository';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment/payment-gateway';
+import { CobrancaMailService } from './cobranca-mail.service';
 
 export interface PlanView {
   key: string;
@@ -51,6 +52,7 @@ export class BillingService {
     @Inject(ENV) private readonly env: Env,
     private readonly audit: AuditService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
+    private readonly correio: CobrancaMailService,
   ) {}
 
   /**
@@ -144,6 +146,11 @@ export class BillingService {
       trialEndsAt?: Date | null;
       accessEndsAt?: Date | null;
       status?: SubscriptionStatus;
+      /**
+       * O texto que o CLIENTE vai ler na tela e no e-mail. Obrigatório quando o
+       * ajuste bloqueia: bloqueio sem explicação só antecipa o telefonema.
+       */
+      motivo?: string | null;
     },
   ): Promise<AssinaturaDetalhada | null> {
     return this.tenant.runWithTenant(tenantId, async () => {
@@ -163,8 +170,22 @@ export class BillingService {
         else if (futuro(ajuste.trialEndsAt)) status = 'trialing';
       }
 
+      // Bloquear é o único ajuste que exige explicação: é o que o cliente lê
+      // na tela e recebe por e-mail. Liberar não precisa — a boa notícia se
+      // explica sozinha.
+      const bloqueia = status === 'past_due' || status === 'canceled';
+      const motivo = (ajuste.motivo ?? '').trim();
+      if (bloqueia && ajuste.status && !motivo) {
+        throw new BadRequestException(
+          'Diga o motivo do bloqueio — ele aparece para o cliente.',
+        );
+      }
+
       const salvo = await this.repo.ajustarAssinatura({
         status,
+        ...(bloqueia
+          ? { block_reason: motivo || atual.block_reason, blocked_at: new Date() }
+          : { block_reason: null, blocked_at: null }),
         ...(ajuste.trialEndsAt !== undefined ? { trial_ends_at: ajuste.trialEndsAt } : {}),
         ...(ajuste.accessEndsAt !== undefined
           ? { current_period_end: ajuste.accessEndsAt }
@@ -184,7 +205,14 @@ export class BillingService {
           trialEndsAt: salvo.trial_ends_at,
           accessEndsAt: salvo.current_period_end,
         },
+        motivo: salvo.block_reason,
       });
+
+      // Bloqueou agora: o cliente precisa saber por quê sem depender de abrir
+      // o sistema para descobrir.
+      if (bloqueia && ajuste.status && atual.status !== salvo.status) {
+        await this.correio.acessoBloqueado(tenantId, salvo.block_reason);
+      }
 
       return {
         planKey: salvo.plan.key,
@@ -296,7 +324,13 @@ export class BillingService {
    */
   async getSubscriptionBrief(
     tenantId: string,
-  ): Promise<{ status: string | null; currentPeriodEnd: Date | null; trialEndsAt: Date | null }> {
+  ): Promise<{
+    status: string | null;
+    currentPeriodEnd: Date | null;
+    trialEndsAt: Date | null;
+    /** O texto que o cliente lê na tela de bloqueio. */
+    motivo: string | null;
+  }> {
     const sub = await this.tenant.runWithTenant(tenantId, () =>
       this.repo.getSubscription(),
     );
@@ -304,6 +338,7 @@ export class BillingService {
       status: sub?.status ?? null,
       currentPeriodEnd: sub?.current_period_end ?? null,
       trialEndsAt: sub?.trial_ends_at ?? null,
+      motivo: sub?.block_reason ?? null,
     };
   }
 

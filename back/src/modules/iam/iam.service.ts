@@ -88,6 +88,34 @@ export class IamService {
       return user?.full_name?.trim() || null;
     });
   }
+  /**
+   * O dono do ambiente — nome e e-mail. Service PÚBLICO ("aponta, não invade"):
+   * `membership` e `users` são tabelas do IAM, e quem precisa do dono pergunta
+   * aqui em vez de ler as tabelas por fora.
+   *
+   * Existe porque a cobrança precisa saber para quem mandar o aviso de
+   * vencimento. É o `owner` ATIVO mais antigo: se a oficina tem dois sócios
+   * cadastrados, o e-mail vai para quem abriu a conta, e não para um dos dois
+   * conforme a ordem em que o banco devolveu.
+   */
+  async donoDoTenant(
+    tenantId: string,
+  ): Promise<{ name: string | null; email: string } | null> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const m = await db.membership.findFirst({
+        where: { role: { name: 'owner' }, status: 'active' },
+        include: { users: true },
+        orderBy: { created_at: 'asc' },
+      });
+      if (!m?.users) return null;
+      return {
+        name: m.users.full_name ?? null,
+        email: m.users.email_normalized,
+      };
+    });
+  }
+
   listRoles() {
     return this.repo.listRoles();
   }

@@ -60,6 +60,12 @@ class AjusteAssinaturaDto {
   @IsOptional() @IsISO8601() accessEndsAt?: string | null;
   @IsOptional() @IsIn(['trialing', 'active', 'past_due', 'canceled'])
   status?: 'trialing' | 'active' | 'past_due' | 'canceled';
+
+  /**
+   * O motivo do bloqueio, do jeito que o CLIENTE vai ler — na tela e no e-mail.
+   * Obrigatório quando o ajuste bloqueia; o service recusa sem ele.
+   */
+  @IsOptional() @IsString() @MaxLength(280) motivo?: string | null;
 }
 
 class TrocarPlanoDto {
@@ -222,6 +228,7 @@ export class AdminController {
       trialEndsAt: data(dto.trialEndsAt),
       accessEndsAt: data(dto.accessEndsAt),
       status: dto.status,
+      motivo: dto.motivo,
     });
   }
 
