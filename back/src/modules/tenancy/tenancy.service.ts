@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { TenancyRepository } from './tenancy.repository';
 import { AuthRepository } from '../auth/auth.repository';
 import { BillingService } from '../billing/billing.service';
 import { VocabularyService } from '../../verticals/vocabulary.service';
 import { FeatureService } from '../../verticals/feature.service';
+import { subscriptionAllows } from '../billing/subscription-access';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import type { AuthUser } from '../../common/auth/auth.types';
 
 @Injectable()
@@ -14,6 +17,7 @@ export class TenancyService {
     private readonly billing: BillingService,
     private readonly vocabulary: VocabularyService,
     private readonly features: FeatureService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async me(user: AuthUser) {
@@ -41,6 +45,16 @@ export class TenancyService {
     const vocab = this.vocabulary.vocab(vertical, vocabOverrides);
     const features = await this.features.ligadas(user.tenantId, vertical, modules);
 
+    // Situação da assinatura, com a DECISÃO já tomada aqui.
+    //
+    // O app recebe `podeLer`/`podeEscrever` prontos em vez do status cru: a
+    // régua (status + `BILLING_ENFORCE_SUBSCRIPTION`) mora num lugar só, e a
+    // tela não precisa saber o que `past_due` significa nem se a cobrança está
+    // sendo aplicada. Reimplementar isso no Flutter seria garantir que um dia
+    // as duas versões discordam — e a que o cliente vê é a errada.
+    const assinatura = await this.billing.getSubscriptionBrief(user.tenantId);
+    const enforce = this.env.BILLING_ENFORCE_SUBSCRIPTION;
+
     return {
       user: {
         id: u?.id,
@@ -61,6 +75,13 @@ export class TenancyService {
       role: user.role,
       permissions,
       modules,
+      assinatura: {
+        status: assinatura.status,
+        acessoAte: assinatura.currentPeriodEnd,
+        testeAte: assinatura.trialEndsAt,
+        podeLer: subscriptionAllows(assinatura.status ?? 'active', false, enforce),
+        podeEscrever: subscriptionAllows(assinatura.status ?? 'active', true, enforce),
+      },
       vertical,
       vocab,
       features,

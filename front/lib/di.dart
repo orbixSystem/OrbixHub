@@ -27,6 +27,7 @@ import 'core/theme/theme_controller.dart';
 import 'features/auth/data/auth_repository_impl.dart';
 import 'features/auth/domain/auth_repository.dart';
 import 'features/auth/presentation/session_controller.dart';
+import 'features/billing/presentation/revalidacao_de_acesso.dart';
 import 'features/support/data/support_repository_impl.dart';
 import 'features/support/domain/support_repository.dart';
 import 'features/support/domain/support_models.dart';
@@ -137,6 +138,9 @@ final dioProvider = Provider<Dio>((ref) {
       refreshService: ref.read(tokenRefreshServiceProvider),
       onSessionExpired: () {
         ref.read(sessionControllerProvider.notifier).expire();
+      },
+      onForbidden: () {
+        ref.read(revalidacaoDeAcessoProvider.notifier).talvezRevalidar();
       },
     ),
   );

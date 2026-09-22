@@ -2,12 +2,13 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
-import { BillingRepository } from './billing.repository';
+import { BillingRepository, type SubscriptionStatus } from './billing.repository';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment/payment-gateway';
 
 export interface PlanView {
@@ -124,6 +125,118 @@ export class BillingService {
     });
   }
 
+  /**
+   * Ajuste manual da assinatura, feito pela Orbix no painel administrativo.
+   *
+   * Existe para o que a cobrança automática ainda não cobre: estender um teste
+   * que acabou, dar prazo a quem prometeu pagar amanhã, encerrar um contrato.
+   * Enquanto o Mercado Pago não estiver integrado, é o único jeito de mexer
+   * nessas datas sem SQL na mão em produção.
+   *
+   * A situação se ajusta sozinha quando a data volta a fazer sentido: estender
+   * o teste de quem já tinha caído devolve `trialing`, e dar prazo novo a um
+   * inadimplente devolve `active`. Sem isso, editar a data não destravava nada
+   * — o acesso é decidido pelo STATUS, e ele tinha ficado para trás.
+   */
+  async ajustarAssinatura(
+    tenantId: string,
+    ajuste: {
+      trialEndsAt?: Date | null;
+      accessEndsAt?: Date | null;
+      status?: SubscriptionStatus;
+    },
+  ): Promise<AssinaturaDetalhada | null> {
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const atual = await this.repo.getSubscription();
+      if (!atual) throw new NotFoundException('Este ambiente não tem assinatura.');
+
+      const agora = new Date();
+      const futuro = (d?: Date | null) => d instanceof Date && d > agora;
+
+      // Acesso pago vence o teste: quem mandou PIX e ganhou 30 dias vira
+      // `active`, mesmo que estivesse `trialing` com o teste já vencido. Sem
+      // isto o cliente pagava, a data ia para frente, e o job da meia-noite o
+      // derrubava assim mesmo — porque o teste dele continuava vencido.
+      let status = ajuste.status ?? (atual.status as SubscriptionStatus);
+      if (!ajuste.status) {
+        if (futuro(ajuste.accessEndsAt)) status = 'active';
+        else if (futuro(ajuste.trialEndsAt)) status = 'trialing';
+      }
+
+      const salvo = await this.repo.ajustarAssinatura({
+        status,
+        ...(ajuste.trialEndsAt !== undefined ? { trial_ends_at: ajuste.trialEndsAt } : {}),
+        ...(ajuste.accessEndsAt !== undefined
+          ? { current_period_end: ajuste.accessEndsAt }
+          : {}),
+      });
+      if (!salvo) return null;
+
+      await this.audit.log(tenantId, null, 'subscription_change', 'ajuste_manual', {
+        por: 'orbix-admin',
+        de: {
+          status: atual.status,
+          trialEndsAt: atual.trial_ends_at,
+          accessEndsAt: atual.current_period_end,
+        },
+        para: {
+          status: salvo.status,
+          trialEndsAt: salvo.trial_ends_at,
+          accessEndsAt: salvo.current_period_end,
+        },
+      });
+
+      return {
+        planKey: salvo.plan.key,
+        planName: salvo.plan.name,
+        planPriceCents: salvo.plan.price_cents,
+        billingPeriod: salvo.plan.billing_period,
+        status: salvo.status,
+        trialEndsAt: salvo.trial_ends_at,
+        currentPeriodStart: salvo.current_period_start,
+        currentPeriodEnd: salvo.current_period_end,
+        canceledAt: salvo.canceled_at,
+      };
+    });
+  }
+
+  /**
+   * Troca o plano do ambiente pelo painel administrativo da Orbix.
+   *
+   * Difere do `changePlan` do cliente numa coisa que importa: **preserva a
+   * situação atual**. O caminho do cliente força `active`, porque quem clica
+   * lá está assinando; aqui quem clica é a Orbix ajustando o cadastro, e
+   * forçar `active` encerraria em silêncio o teste de quem ainda está testando.
+   *
+   * Os módulos são recalculados pelo plano novo (`reconcile`), que é o efeito
+   * que o cliente sente na hora: menu e permissões mudam no próximo `/me`.
+   */
+  async trocarPlanoPeloAdmin(
+    tenantId: string,
+    planKey: string,
+  ): Promise<AssinaturaDetalhada | null> {
+    const plan = await this.assertSubscribablePlan(planKey);
+
+    await this.tenant.runWithTenant(tenantId, async () => {
+      const atual = await this.repo.getSubscription();
+      if (!atual) throw new NotFoundException('Este ambiente não tem assinatura.');
+
+      await this.repo.upsertSubscription(tenantId, plan.id, {
+        status: atual.status as SubscriptionStatus,
+      });
+      await this.repo.reconcile(tenantId, plan.id);
+    });
+
+    // Ator nulo: quem mexeu foi a Orbix, não um usuário deste tenant — e a FK
+    // de ator aponta para `users` do próprio tenant.
+    await this.audit.log(tenantId, null, 'subscription_change', 'plano_alterado', {
+      por: 'orbix-admin',
+      planKey: plan.key,
+    });
+
+    return this.assinaturaDoTenant(tenantId);
+  }
+
   /** Enabled module keys for a server-resolved tenant. Used by /me and the guard path. */
   async getEnabledModules(tenantId: string): Promise<string[]> {
     return this.tenant.runWithTenant(tenantId, async () => {
@@ -171,6 +284,27 @@ export class BillingService {
       this.repo.getSubscription(),
     );
     return sub?.status ?? null;
+  }
+
+  /**
+   * Situação e até quando o acesso vale, numa consulta só.
+   *
+   * O painel lista ambientes e precisa dos dois juntos — "ativa" sem a data
+   * não responde a pergunta que quem atende faz ("até quando ele tem?"), e
+   * buscar a data numa segunda chamada por ambiente multiplicaria as idas ao
+   * banco pela lista inteira.
+   */
+  async getSubscriptionBrief(
+    tenantId: string,
+  ): Promise<{ status: string | null; currentPeriodEnd: Date | null; trialEndsAt: Date | null }> {
+    const sub = await this.tenant.runWithTenant(tenantId, () =>
+      this.repo.getSubscription(),
+    );
+    return {
+      status: sub?.status ?? null,
+      currentPeriodEnd: sub?.current_period_end ?? null,
+      trialEndsAt: sub?.trial_ends_at ?? null,
+    };
   }
 
   /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */

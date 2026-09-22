@@ -24,6 +24,9 @@ export type AuditAction =
   | 'support_session'
   // Ambiente criado pelo sistema de admin, nao pelo cadastro self-service.
   | 'tenant_provision'
+  // A Orbix trocou o nicho do ambiente. Fica no audit DO TENANT: muda o
+  // vocabulário que o cliente vê, e ele pode perguntar por que mudou.
+  | 'tenant_vertical_changed'
   | 'customer_delete'
   | 'subject_delete'
   | 'inventory_item_create'

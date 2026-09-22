@@ -15,6 +15,8 @@ import type { AuthUser } from '../../common/auth/auth.types';
 function makeService(opts: {
   tenant?: Record<string, unknown> | null;
   features?: string[];
+  status?: string;
+  enforce?: boolean;
 } = {}) {
   const tenant =
     opts.tenant === undefined
@@ -38,6 +40,11 @@ function makeService(opts: {
   } as unknown as AuthRepository;
   const billing = {
     getEnabledModules: jest.fn(async () => ['os', 'customers']),
+    getSubscriptionBrief: jest.fn(async () => ({
+      status: opts.status ?? 'active',
+      currentPeriodEnd: null,
+      trialEndsAt: null,
+    })),
   } as unknown as BillingService;
   const ligadas = jest.fn(async () => opts.features ?? ['os.trackingLink']);
   const features = { ligadas } as unknown as FeatureService;
@@ -48,6 +55,7 @@ function makeService(opts: {
     billing,
     new VocabularyService(new VerticalRegistry()),
     features,
+    { BILLING_ENFORCE_SUBSCRIPTION: opts.enforce ?? true } as never,
   );
   return { svc, ligadas };
 }
@@ -55,6 +63,33 @@ function makeService(opts: {
 const user: AuthUser = { userId: 'u1', tenantId: 't1', role: 'owner', jti: 'j' };
 
 describe('TenancyService.me', () => {
+  /**
+   * O /me é o que a tela do cliente lê para decidir se mostra o aviso de
+   * bloqueio. Se ele mentir, o app deixa alguém trabalhar num sistema que o
+   * backend vai barrar a cada gravação — o pior dos dois mundos.
+   */
+  it('past_due deixa ler e barra escrever', async () => {
+    const { svc } = makeService({ status: 'past_due' });
+    const me = (await svc.me(user)) as { assinatura: Record<string, unknown> };
+    expect(me.assinatura.podeLer).toBe(true);
+    expect(me.assinatura.podeEscrever).toBe(false);
+  });
+
+  it('canceled barra tudo', async () => {
+    const { svc } = makeService({ status: 'canceled' });
+    const me = (await svc.me(user)) as { assinatura: Record<string, unknown> };
+    expect(me.assinatura.podeLer).toBe(false);
+    expect(me.assinatura.podeEscrever).toBe(false);
+  });
+
+  /** Com a cobrança desligada, nada bloqueia — é o padrão em produção hoje. */
+  it('sem BILLING_ENFORCE_SUBSCRIPTION, canceled ainda passa', async () => {
+    const { svc } = makeService({ status: 'canceled', enforce: false });
+    const me = (await svc.me(user)) as { assinatura: Record<string, unknown> };
+    expect(me.assinatura.podeLer).toBe(true);
+    expect(me.assinatura.podeEscrever).toBe(true);
+  });
+
   it('assembles user, activeTenant, role, permissions, modules, memberships', async () => {
     const { svc } = makeService();
     const me = await svc.me(user);

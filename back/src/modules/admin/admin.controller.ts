@@ -9,7 +9,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength, IsBoolean } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  IsBoolean,
+} from 'class-validator';
 import { Public } from '../../common/auth/decorators';
 import { AdminTokenGuard } from './admin-token.guard';
 import { AdminService } from './admin.service';
@@ -38,6 +47,23 @@ class ToggleModuloDto {
 class ToggleFeatureDto {
   @IsString() @MaxLength(128) key!: string;
   @IsBoolean() enabled!: boolean;
+}
+
+class NichoDto {
+  /** `null` volta para o pacote padrão — por isso não é `@IsString()` puro. */
+  @IsOptional() @IsString() @MaxLength(64) vertical?: string | null;
+}
+
+class AjusteAssinaturaDto {
+  /** ISO 8601. `null` apaga a data; ausente não mexe nela. */
+  @IsOptional() @IsISO8601() trialEndsAt?: string | null;
+  @IsOptional() @IsISO8601() accessEndsAt?: string | null;
+  @IsOptional() @IsIn(['trialing', 'active', 'past_due', 'canceled'])
+  status?: 'trialing' | 'active' | 'past_due' | 'canceled';
+}
+
+class TrocarPlanoDto {
+  @IsString() @MaxLength(64) planKey!: string;
 }
 
 class CnpjDto {
@@ -127,6 +153,13 @@ export class AdminController {
 
   // ------------------------------------------------------ módulos e features
 
+  /** Troca o nicho: muda vocabulário e padrões, não mexe em dado gravado. */
+  @Patch('tenants/:id')
+  @HttpCode(200)
+  alterarNicho(@Param('id') id: string, @Body() dto: NichoDto) {
+    return this.admin.alterarNicho(id, dto.vertical ?? null);
+  }
+
   @Get('tenants/:id/modules')
   modulos(@Param('id') id: string) {
     return this.settings.listar(id);
@@ -153,6 +186,43 @@ export class AdminController {
   @Get('tenants/:id/billing')
   cobranca(@Param('id') id: string) {
     return this.billing.assinaturaDoTenant(id);
+  }
+
+  /**
+   * Catálogo de planos comerciais. O painel nunca traz plano fixo no código —
+   * quem define o que existe, o que custa e o que libera é o Hub.
+   */
+  @Get('plans')
+  planos() {
+    return this.billing.getPlans();
+  }
+
+  /**
+   * Troca o plano do ambiente. Preserva a situação atual da assinatura: quem
+   * está em teste continua em teste, com os módulos do plano novo.
+   */
+  @Patch('tenants/:id/plan')
+  @HttpCode(200)
+  trocarPlano(@Param('id') id: string, @Body() dto: TrocarPlanoDto) {
+    return this.billing.trocarPlanoPeloAdmin(id, dto.planKey);
+  }
+
+  /**
+   * Ajusta prazo de teste e validade do acesso.
+   *
+   * `undefined` não mexe no campo; `null` apaga a data. Distinguir os dois
+   * importa: "não mandei" e "quero sem data" são pedidos diferentes.
+   */
+  @Patch('tenants/:id/billing')
+  @HttpCode(200)
+  ajustarCobranca(@Param('id') id: string, @Body() dto: AjusteAssinaturaDto) {
+    const data = (v: string | null | undefined) =>
+      v === undefined ? undefined : v === null ? null : new Date(v);
+    return this.billing.ajustarAssinatura(id, {
+      trialEndsAt: data(dto.trialEndsAt),
+      accessEndsAt: data(dto.accessEndsAt),
+      status: dto.status,
+    });
   }
 
   /**

@@ -79,6 +79,9 @@ _Me _$MeFromJson(Map<String, dynamic> json) => _Me(
           ?.map((e) => Membership.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const <Membership>[],
+  assinatura: json['assinatura'] == null
+      ? null
+      : Assinatura.fromJson(json['assinatura'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$MeToJson(_Me instance) => <String, dynamic>{
@@ -91,7 +94,29 @@ Map<String, dynamic> _$MeToJson(_Me instance) => <String, dynamic>{
   'vocab': instance.vocab,
   'features': instance.features,
   'memberships': instance.memberships.map((e) => e.toJson()).toList(),
+  'assinatura': instance.assinatura?.toJson(),
 };
+
+_Assinatura _$AssinaturaFromJson(Map<String, dynamic> json) => _Assinatura(
+  status: json['status'] as String?,
+  acessoAte: json['acessoAte'] == null
+      ? null
+      : DateTime.parse(json['acessoAte'] as String),
+  testeAte: json['testeAte'] == null
+      ? null
+      : DateTime.parse(json['testeAte'] as String),
+  podeLer: json['podeLer'] as bool? ?? true,
+  podeEscrever: json['podeEscrever'] as bool? ?? true,
+);
+
+Map<String, dynamic> _$AssinaturaToJson(_Assinatura instance) =>
+    <String, dynamic>{
+      'status': instance.status,
+      'acessoAte': instance.acessoAte?.toIso8601String(),
+      'testeAte': instance.testeAte?.toIso8601String(),
+      'podeLer': instance.podeLer,
+      'podeEscrever': instance.podeEscrever,
+    };
 
 _Tokens _$TokensFromJson(Map<String, dynamic> json) => _Tokens(
   accessToken: json['accessToken'] as String,

@@ -2680,3 +2680,108 @@ ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_amount_chk
 ALTER TABLE cash_entry DROP CONSTRAINT IF EXISTS cash_entry_discount_nonneg;
 ALTER TABLE cash_entry ADD CONSTRAINT cash_entry_discount_nonneg
   CHECK (discount >= 0);
+-- ============================================================
+-- 0057 — acesso vencido (aditivo, idempotente)
+-- ============================================================
+-- Companheira de billing_find_expired_trials().
+--
+-- Sem ela, `current_period_end` era enfeite: o acesso só caía quando o TESTE
+-- vencia, e um contrato encerrado seguia valendo para sempre. Agora o painel
+-- administrativo pode dar prazo (ou tirar) e a data significa alguma coisa.
+--
+-- `canceled` fica de FORA de propósito: já é o estado final, e reprocessá-lo
+-- todo dia só geraria auditoria repetida sobre quem já está bloqueado.
+CREATE OR REPLACE FUNCTION billing_find_expired_access()
+RETURNS TABLE (tenant_id uuid, subscription_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT s.tenant_id, s.id FROM subscription s
+  WHERE s.status = 'active'
+    AND s.current_period_end IS NOT NULL
+    AND s.current_period_end < now()
+$$;
+REVOKE ALL ON FUNCTION billing_find_expired_access() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION billing_find_expired_access() TO app_user;
+-- ============================================================
+-- 0058 — planos comerciais: Essencial e Profissional
+-- ============================================================
+--
+-- Antes existiam `trial` e `pro`, e os dois liberavam os MESMOS 8 módulos — o
+-- plano era etiqueta, não régua: ninguém tinha motivo para subir. Agora a
+-- diferença é o que o cliente pode fazer:
+--
+--   Essencial    — a operação inteira: OS, clientes, estoque, caixa, despesas,
+--                  venda avulsa. Oficina pequena roda completa aqui.
+--   Profissional — acrescenta relatórios e nota fiscal, que é o que aparece
+--                  quando o negócio cresce (gestão e obrigação fiscal).
+--
+-- `trial` continua liberando tudo de propósito: o teste tem que mostrar o
+-- produto inteiro, senão o cliente decide sem ter visto o que está comprando.
+
+INSERT INTO plan (key, name, price_cents, billing_period)
+VALUES ('essencial', 'Essencial', 9900, 'monthly')
+ON CONFLICT (key) DO UPDATE
+  SET name = EXCLUDED.name,
+      price_cents = EXCLUDED.price_cents,
+      billing_period = EXCLUDED.billing_period;
+
+INSERT INTO plan (key, name, price_cents, billing_period)
+VALUES ('profissional', 'Profissional', 21900, 'monthly')
+ON CONFLICT (key) DO UPDATE
+  SET name = EXCLUDED.name,
+      price_cents = EXCLUDED.price_cents,
+      billing_period = EXCLUDED.billing_period;
+
+-- Módulos do Essencial.
+INSERT INTO plan_module (plan_id, module_id)
+SELECT p.id, m.id
+FROM plan p, module m
+WHERE p.key = 'essencial'
+  AND m.key IN ('os', 'customers', 'inventory', 'cashier', 'expenses', 'sale')
+ON CONFLICT (plan_id, module_id) DO NOTHING;
+
+-- Módulos do Profissional: os do Essencial + relatórios + nota fiscal.
+INSERT INTO plan_module (plan_id, module_id)
+SELECT p.id, m.id
+FROM plan p, module m
+WHERE p.key = 'profissional'
+  AND m.key IN ('os', 'customers', 'inventory', 'cashier', 'expenses', 'sale',
+                'report', 'invoice')
+ON CONFLICT (plan_id, module_id) DO NOTHING;
+
+-- Aposenta o `pro`. Só sai se NINGUÉM o assina — a condição existe para o
+-- baseline continuar seguro de rodar em qualquer banco, inclusive um onde
+-- alguém tenha assinado o `pro` depois desta migration nascer.
+DELETE FROM plan_module
+WHERE plan_id IN (
+  SELECT p.id FROM plan p
+  WHERE p.key = 'pro'
+    AND NOT EXISTS (SELECT 1 FROM subscription s WHERE s.plan_id = p.id)
+);
+DELETE FROM plan p
+WHERE p.key = 'pro'
+  AND NOT EXISTS (SELECT 1 FROM subscription s WHERE s.plan_id = p.id);
+-- ============================================================
+-- 0059 — carência depois do vencimento
+-- ============================================================
+--
+-- A régua combinada com o dono: vencido, o cliente fica em SOMENTE LEITURA por
+-- alguns dias; passada a carência sem pagar, o acesso fecha de vez até o
+-- pagamento.
+--
+-- Isso existe porque cortar tudo no dia do vencimento é hostil com quem
+-- esqueceu o boleto — e nunca cortar é hostil com quem paga em dia. A carência
+-- dá tempo de regularizar sem tirar do cliente a consulta ao que é dele.
+--
+-- A janela é contada a partir da PRÓPRIA data de vencimento (fim do acesso
+-- pago, ou fim do teste), e não de quando o job rodou: assim o resultado não
+-- depende de o job ter falhado num dia nem de a máquina ter ficado fora do ar.
+CREATE OR REPLACE FUNCTION billing_find_grace_expired(dias int)
+RETURNS TABLE (tenant_id uuid, subscription_id uuid)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT s.tenant_id, s.id FROM subscription s
+  WHERE s.status = 'past_due'
+    AND COALESCE(s.current_period_end, s.trial_ends_at) IS NOT NULL
+    AND COALESCE(s.current_period_end, s.trial_ends_at) < now() - make_interval(days => dias)
+$$;
+REVOKE ALL ON FUNCTION billing_find_grace_expired(int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION billing_find_grace_expired(int) TO app_user;
