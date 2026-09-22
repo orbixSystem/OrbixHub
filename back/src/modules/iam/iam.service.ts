@@ -104,7 +104,11 @@ export class IamService {
     return this.tenant.runWithTenant(tenantId, async () => {
       const db = this.tenant.getClient();
       const m = await db.membership.findFirst({
-        where: { role: { name: 'owner' }, status: 'active' },
+        // `key`, NAO `name`: em `role`, `key` e o identificador ('owner') e
+        // `name` e o rotulo que aparece na tela ('Dono'). Procurar por `name`
+        // nao casa com nada — e como a consulta devolve vazio em vez de
+        // estourar, o efeito e um dono que simplesmente nao existe.
+        where: { role: { key: 'owner' }, status: 'active' },
         include: { users: true },
         orderBy: { created_at: 'asc' },
       });

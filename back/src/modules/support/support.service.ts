@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { MailerService } from '../../common/mailer/mailer.service';
+import { IamService } from '../iam/iam.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { SupportRepository } from './support.repository';
@@ -61,6 +62,7 @@ export class SupportService {
     private readonly tenancy: TenancyService,
     private readonly audit: AuditService,
     private readonly events: EventEmitter2,
+    private readonly iam: IamService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -254,7 +256,7 @@ export class SupportService {
     body: string,
     autor: string,
   ): Promise<SupportMessageView> {
-    await this.assertTicketDoTenant(tenantId, ticketId);
+    const ticket = await this.assertTicketDoTenant(tenantId, ticketId);
     const texto = this.validarCorpo(body);
 
     const criada = await this.repo.criarMensagem(tenantId, {
@@ -272,7 +274,50 @@ export class SupportService {
       autor,
     });
     this.avisar(tenantId, ticketId, 'mensagem', true);
+    // ...e por e-mail. O aviso em tempo real so alcanca quem esta com o app
+    // ABERTO; quem pediu ajuda e foi cuidar da oficina nao volta sozinho para
+    // conferir. Pior: um tenant bloqueado nem consegue navegar ate a tela de
+    // suporte. Sem o e-mail, a resposta fica esperando alguem adivinhar que
+    // ela chegou.
+    await this.avisarClienteDaResposta(tenantId, ticket.subject, texto);
     return toView(criada);
+  }
+
+  /**
+   * Manda a resposta da Orbix para o DONO do ambiente.
+   *
+   * Best-effort, como o aviso na outra direcao: a mensagem ja esta gravada, e
+   * derrubar a resposta do atendente porque o SMTP piscou seria trocar um
+   * problema pequeno por um grande.
+   */
+  private async avisarClienteDaResposta(
+    tenantId: string,
+    assunto: string,
+    texto: string,
+  ): Promise<void> {
+    try {
+      const dono = await this.iam.donoDoTenant(tenantId);
+      if (!dono) return;
+
+      await this.mailer.sendMessage({
+        to: dono.email,
+        subject: `Resposta da Orbix — ${assunto}`,
+        fromName: 'OrbixHub — Suporte',
+        text:
+          `A Orbix respondeu no seu chamado "${assunto}":
+
+${texto}
+
+` +
+          `Voce pode responder por aqui ou pelo sistema, em Suporte.`,
+        html:
+          `<p>A Orbix respondeu no seu chamado <strong>${escapeHtml(assunto)}</strong>:</p>` +
+          `<blockquote style="border-left:3px solid #ccc;padding-left:12px;white-space:pre-wrap">${escapeHtml(texto)}</blockquote>` +
+          `<p>Voce pode responder este e-mail ou abrir o sistema, em <strong>Suporte</strong>.</p>`,
+      });
+    } catch (err) {
+      this.logger.warn(`[support] aviso ao cliente falhou: ${String(err)}`);
+    }
   }
 
   /**
