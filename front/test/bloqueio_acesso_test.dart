@@ -68,6 +68,37 @@ void main() {
     expect(find.text('Entendi, continuar'), findsNothing);
   });
 
+  /// Bloqueio posto à mão pela Orbix: o acesso pago ainda está em dia, e a data
+  /// não explica nada. Mostrá-la dizia "bloqueado agora" e "vence daqui a três
+  /// semanas" na mesma tela, e o cliente ia esperar a data em vez de ligar.
+  testWidgets('bloqueio manual não anuncia uma data de vencimento futura', (
+    tester,
+  ) async {
+    final futuro = DateTime.now().add(const Duration(days: 21));
+    await tester.pumpWidget(
+      _emTela(
+        BloqueioTotalView(
+          me: Me(
+            user: const User(id: 'u1', email: 'a@b.c', fullName: 'Dono Teste'),
+            activeTenant: const Tenant(id: 't1', slug: 's1', name: 'Oficina Teste'),
+            role: 'owner',
+            assinatura: Assinatura(
+              status: 'canceled',
+              acessoAte: futuro,
+              podeLer: false,
+              podeEscrever: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Acesso bloqueado'), findsOneWidget);
+    expect(find.textContaining('vence'), findsNothing);
+    expect(find.textContaining('venceu'), findsNothing);
+  });
+
   testWidgets('bloqueio de escrita avisa e deixa seguir', (tester) async {
     await tester.pumpWidget(_emTela(AvisoDeEscritaView(me: _me(podeEscrever: false))));
     await tester.pump();
