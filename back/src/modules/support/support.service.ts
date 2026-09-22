@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENV } from '../../common/config/config.module';
 import type { Env } from '../../common/config/env.schema';
 import { MailerService } from '../../common/mailer/mailer.service';
+import { IamService } from '../iam/iam.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { SupportRepository } from './support.repository';
@@ -61,6 +62,7 @@ export class SupportService {
     private readonly tenancy: TenancyService,
     private readonly audit: AuditService,
     private readonly events: EventEmitter2,
+    private readonly iam: IamService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -254,7 +256,7 @@ export class SupportService {
     body: string,
     autor: string,
   ): Promise<SupportMessageView> {
-    await this.assertTicketDoTenant(tenantId, ticketId);
+    const ticket = await this.assertTicketDoTenant(tenantId, ticketId);
     const texto = this.validarCorpo(body);
 
     const criada = await this.repo.criarMensagem(tenantId, {
@@ -272,7 +274,68 @@ export class SupportService {
       autor,
     });
     this.avisar(tenantId, ticketId, 'mensagem', true);
+    // ...e por e-mail. O aviso em tempo real so alcanca quem esta com o app
+    // ABERTO; quem pediu ajuda e foi cuidar da oficina nao volta sozinho para
+    // conferir. Pior: um tenant bloqueado nem consegue navegar ate a tela de
+    // suporte. Sem o e-mail, a resposta fica esperando alguem adivinhar que
+    // ela chegou.
+    await this.avisarClienteDaResposta(tenantId, ticket, texto);
     return toView(criada);
+  }
+
+  /**
+   * Manda a resposta da Orbix para QUEM ABRIU o chamado.
+   *
+   * Quem abriu é quem está esperando. Mandar para o dono em vez dele seria
+   * responder para a pessoa errada: numa oficina, quem escreve para o suporte
+   * costuma ser o mecânico ou o caixa, e o dono pode nem saber que existe
+   * chamado.
+   *
+   * E o dono NÃO entra em cópia de propósito. Copiar o patrão em toda dúvida
+   * de funcionário é ruído para ele e constrangimento para quem perguntou —
+   * "como cancelo uma OS" não é assunto de sócio. Cobrança é o contrário, e por
+   * isso o e-mail de bloqueio vai para o dono: lá o assunto é dinheiro, e a
+   * decisão é dele.
+   *
+   * O dono fica como ÚLTIMO recurso: chamado antigo de alguém que saiu da
+   * oficina não pode virar resposta perdida.
+   *
+   * Best-effort, como o aviso na outra direção: a mensagem já está gravada, e
+   * derrubar a resposta do atendente porque o SMTP piscou seria trocar um
+   * problema pequeno por um grande.
+   */
+  private async avisarClienteDaResposta(
+    tenantId: string,
+    ticket: { subject: string; created_by: string | null },
+    texto: string,
+  ): Promise<void> {
+    try {
+      const assunto = ticket.subject;
+      const destino =
+        (ticket.created_by
+          ? await this.iam.membroDoTenant(tenantId, ticket.created_by)
+          : null) ?? (await this.iam.donoDoTenant(tenantId));
+      if (!destino) return;
+
+      await this.mailer.sendMessage({
+        to: destino.email,
+        subject: `Resposta da Orbix — ${assunto}`,
+        fromName: 'OrbixHub — Suporte',
+        text:
+          `A Orbix respondeu no seu chamado "${assunto}":
+
+${texto}
+
+` +
+          `Voce pode responder por aqui ou pelo sistema, em Suporte.`,
+        html:
+          `<p>A Orbix respondeu no seu chamado <strong>${escapeHtml(assunto)}</strong>:</p>` +
+          `<blockquote style="border-left:3px solid #ccc;padding-left:12px;white-space:pre-wrap">${escapeHtml(texto)}</blockquote>` +
+          `<p>Voce pode responder este e-mail ou abrir o sistema, em <strong>Suporte</strong>.</p>`,
+      });
+    } catch (err) {
+      this.logger.warn(`[support] aviso ao cliente falhou: ${String(err)}`);
+    }
   }
 
   /**

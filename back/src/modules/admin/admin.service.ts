@@ -7,6 +7,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AuthRepository } from '../auth/auth.repository';
 import { PasswordService } from '../../common/crypto/password.service';
 import { BillingService } from '../billing/billing.service';
+import { IamService } from '../iam/iam.service';
 import { VerticalRegistry } from '../../verticals/vertical.registry';
 import { normalizeCnpj, isValidCnpj } from '../auth/cnpj';
 import { validateSlug } from '../auth/slug';
@@ -96,6 +97,7 @@ export class AdminService {
     private readonly verticais: VerticalRegistry,
     private readonly audit: AuditService,
     private readonly tenantCtx: TenantContext,
+    private readonly iam: IamService,
   ) {}
 
   /**
@@ -271,18 +273,17 @@ export class AdminService {
    * aqui devolve `null` em vez de derrubar a listagem: o cadastro comercial
    * sem contato ainda é melhor que nenhum cadastro.
    */
+  /**
+   * O dono do ambiente. Delega ao IAM, que e o dono de `membership`.
+   *
+   * Antes esta consulta era repetida aqui — e repetida ERRADA: procurava
+   * `role.name = 'owner'` quando `name` e o rotulo ('Dono') e o identificador
+   * e `key`. Como o `catch` devolvia `null`, o painel mostrava "sem contato"
+   * para todo mundo e ninguem desconfiou de bug.
+   */
   private async dono(tenantId: string): Promise<TenantResumo['owner']> {
     try {
-      return await this.tenantCtx.runWithTenant(tenantId, async () => {
-        const db = this.tenantCtx.getClient();
-        const m = await db.membership.findFirst({
-          where: { role: { name: 'owner' }, status: 'active' },
-          include: { users: true },
-          orderBy: { created_at: 'asc' },
-        });
-        if (!m?.users) return null;
-        return { name: m.users.full_name ?? null, email: m.users.email_normalized };
-      });
+      return await this.iam.donoDoTenant(tenantId);
     } catch {
       return null;
     }

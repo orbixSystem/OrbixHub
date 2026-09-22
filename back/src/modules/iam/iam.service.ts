@@ -104,9 +104,40 @@ export class IamService {
     return this.tenant.runWithTenant(tenantId, async () => {
       const db = this.tenant.getClient();
       const m = await db.membership.findFirst({
-        where: { role: { name: 'owner' }, status: 'active' },
+        // `key`, NAO `name`: em `role`, `key` e o identificador ('owner') e
+        // `name` e o rotulo que aparece na tela ('Dono'). Procurar por `name`
+        // nao casa com nada — e como a consulta devolve vazio em vez de
+        // estourar, o efeito e um dono que simplesmente nao existe.
+        where: { role: { key: 'owner' }, status: 'active' },
         include: { users: true },
         orderBy: { created_at: 'asc' },
+      });
+      if (!m?.users) return null;
+      return {
+        name: m.users.full_name ?? null,
+        email: m.users.email_normalized,
+      };
+    });
+  }
+
+  /**
+   * Nome e e-mail de um membro ATIVO do tenant. Service público, como
+   * [donoDoTenant].
+   *
+   * A checagem de membership ativa não é formalidade: é o que impede a resposta
+   * de um chamado de sair para o e-mail de alguém que já foi desligado da
+   * oficina — e que pode ter aberto o chamado meses atrás.
+   */
+  async membroDoTenant(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ name: string | null; email: string } | null> {
+    if (!userId) return null;
+    return this.tenant.runWithTenant(tenantId, async () => {
+      const db = this.tenant.getClient();
+      const m = await db.membership.findFirst({
+        where: { user_id: userId, status: 'active' },
+        include: { users: true },
       });
       if (!m?.users) return null;
       return {
