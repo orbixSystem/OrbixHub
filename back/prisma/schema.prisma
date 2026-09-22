@@ -741,6 +741,12 @@ model subscription {
   current_period_start     DateTime? @db.Timestamptz(6)
   current_period_end       DateTime? @db.Timestamptz(6)
   canceled_at              DateTime? @db.Timestamptz(6)
+  /// O texto que o CLIENTE lê — a mesma frase na tela de bloqueio e no e-mail.
+  block_reason             String?
+  blocked_at               DateTime? @db.Timestamptz(6)
+  /// A data que o aviso de vencimento anunciou (não um "já avisei"): é o que
+  /// faz o aviso sair uma vez POR PRAZO.
+  aviso_vencimento_para    DateTime? @db.Timestamptz(6)
   created_at               DateTime  @default(now()) @db.Timestamptz(6)
   updated_at               DateTime  @default(now()) @db.Timestamptz(6)
   plan                     plan      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

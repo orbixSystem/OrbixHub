@@ -105,6 +105,7 @@ _Assinatura _$AssinaturaFromJson(Map<String, dynamic> json) => _Assinatura(
   testeAte: json['testeAte'] == null
       ? null
       : DateTime.parse(json['testeAte'] as String),
+  motivo: json['motivo'] as String?,
   podeLer: json['podeLer'] as bool? ?? true,
   podeEscrever: json['podeEscrever'] as bool? ?? true,
 );
@@ -114,6 +115,7 @@ Map<String, dynamic> _$AssinaturaToJson(_Assinatura instance) =>
       'status': instance.status,
       'acessoAte': instance.acessoAte?.toIso8601String(),
       'testeAte': instance.testeAte?.toIso8601String(),
+      'motivo': instance.motivo,
       'podeLer': instance.podeLer,
       'podeEscrever': instance.podeEscrever,
     };

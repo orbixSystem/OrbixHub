@@ -1,3 +1,10 @@
+/** O correio de cobrança não é o assunto destes testes. */
+const correioFalso = () => ({
+  avisoDeVencimento: jest.fn(async () => true),
+  acessoVencido: jest.fn(async () => true),
+  acessoBloqueado: jest.fn(async () => true),
+});
+
 import { BadRequestException } from '@nestjs/common';
 import { BillingService } from './billing.service';
 
@@ -14,7 +21,7 @@ function build(overrides: { repo?: object; gateway?: object } = {}) {
   const audit = { log: jest.fn() } as never;
   const gateway = { verifySignature: jest.fn(() => true), ...(overrides.gateway ?? {}) } as never;
   const env = {} as never;
-  const svc = new BillingService(tenant, repo as never, env, audit, gateway);
+  const svc = new BillingService(tenant, repo as never, env, audit, gateway, correioFalso() as never);
   return { svc, repo, gateway, audit };
 }
 

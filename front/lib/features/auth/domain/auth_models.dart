@@ -113,6 +113,10 @@ abstract class Assinatura with _$Assinatura {
 
     /// Fim do período de teste.
     DateTime? testeAte,
+
+    /// Por que o acesso foi bloqueado, do jeito que o cliente lê. Vem do
+    /// servidor pronto — é o MESMO texto que foi no e-mail.
+    String? motivo,
     @Default(true) bool podeLer,
     @Default(true) bool podeEscrever,
   }) = _Assinatura;
