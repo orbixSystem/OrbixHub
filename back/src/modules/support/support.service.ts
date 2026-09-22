@@ -279,28 +279,46 @@ export class SupportService {
     // conferir. Pior: um tenant bloqueado nem consegue navegar ate a tela de
     // suporte. Sem o e-mail, a resposta fica esperando alguem adivinhar que
     // ela chegou.
-    await this.avisarClienteDaResposta(tenantId, ticket.subject, texto);
+    await this.avisarClienteDaResposta(tenantId, ticket, texto);
     return toView(criada);
   }
 
   /**
-   * Manda a resposta da Orbix para o DONO do ambiente.
+   * Manda a resposta da Orbix para QUEM ABRIU o chamado.
    *
-   * Best-effort, como o aviso na outra direcao: a mensagem ja esta gravada, e
+   * Quem abriu é quem está esperando. Mandar para o dono em vez dele seria
+   * responder para a pessoa errada: numa oficina, quem escreve para o suporte
+   * costuma ser o mecânico ou o caixa, e o dono pode nem saber que existe
+   * chamado.
+   *
+   * E o dono NÃO entra em cópia de propósito. Copiar o patrão em toda dúvida
+   * de funcionário é ruído para ele e constrangimento para quem perguntou —
+   * "como cancelo uma OS" não é assunto de sócio. Cobrança é o contrário, e por
+   * isso o e-mail de bloqueio vai para o dono: lá o assunto é dinheiro, e a
+   * decisão é dele.
+   *
+   * O dono fica como ÚLTIMO recurso: chamado antigo de alguém que saiu da
+   * oficina não pode virar resposta perdida.
+   *
+   * Best-effort, como o aviso na outra direção: a mensagem já está gravada, e
    * derrubar a resposta do atendente porque o SMTP piscou seria trocar um
    * problema pequeno por um grande.
    */
   private async avisarClienteDaResposta(
     tenantId: string,
-    assunto: string,
+    ticket: { subject: string; created_by: string | null },
     texto: string,
   ): Promise<void> {
     try {
-      const dono = await this.iam.donoDoTenant(tenantId);
-      if (!dono) return;
+      const assunto = ticket.subject;
+      const destino =
+        (ticket.created_by
+          ? await this.iam.membroDoTenant(tenantId, ticket.created_by)
+          : null) ?? (await this.iam.donoDoTenant(tenantId));
+      if (!destino) return;
 
       await this.mailer.sendMessage({
-        to: dono.email,
+        to: destino.email,
         subject: `Resposta da Orbix — ${assunto}`,
         fromName: 'OrbixHub — Suporte',
         text:
