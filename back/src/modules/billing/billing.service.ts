@@ -10,7 +10,7 @@ import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository, type SubscriptionStatus } from './billing.repository';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment/payment-gateway';
-import { CobrancaMailService } from './cobranca-mail.service';
+import { CobrancaMailService, DIAS_DE_AVISO } from './cobranca-mail.service';
 
 export interface PlanView {
   key: string;
@@ -214,6 +214,15 @@ export class BillingService {
         await this.correio.acessoBloqueado(tenantId, salvo.block_reason);
       }
 
+      // Se a data que acabou de ser gravada já cai na janela de aviso, avisa
+      // AGORA. Sem isto o aviso só sairia no job da meia-noite: quem atende
+      // punha o vencimento para daqui a dois dias, não acontecia nada, e a
+      // conclusão óbvia — a única disponível — era que o e-mail não funciona.
+      //
+      // O job continua existindo como rede: é ele que pega o dia em que o
+      // prazo entra na janela sozinho, sem ninguém mexer em nada.
+      await this.talvezAvisarDoVencimento(salvo);
+
       return {
         planKey: salvo.plan.key,
         planName: salvo.plan.name,
@@ -340,6 +349,31 @@ export class BillingService {
       trialEndsAt: sub?.trial_ends_at ?? null,
       motivo: sub?.block_reason ?? null,
     };
+  }
+
+  /**
+   * Manda o aviso de vencimento se a data recém-salva já estiver a menos de
+   * [DIAS_DE_AVISO] dias — e se este vencimento ainda não tiver sido avisado.
+   *
+   * A trava é a mesma do job (`aviso_vencimento_para` = a data anunciada), então
+   * salvar a mesma data cinco vezes manda um e-mail só. Marca DEPOIS de enviar:
+   * marcar antes trocaria "avisei" por "tentei".
+   */
+  private async talvezAvisarDoVencimento(salvo: {
+    tenant_id: string;
+    status: string;
+    current_period_end: Date | null;
+    aviso_vencimento_para: Date | null;
+  }): Promise<void> {
+    const vence = salvo.current_period_end;
+    if (salvo.status !== 'active' || !vence) return;
+
+    const dias = Math.ceil((vence.getTime() - Date.now()) / 86_400_000);
+    if (dias < 0 || dias > DIAS_DE_AVISO) return;
+    if (salvo.aviso_vencimento_para?.getTime() === vence.getTime()) return;
+
+    const enviou = await this.correio.avisoDeVencimento(salvo.tenant_id, dias);
+    if (enviou) await this.repo.marcarAvisoEnviado(vence);
   }
 
   /** Catálogo de módulos com o estado do tenant (para a tela de configuração). */

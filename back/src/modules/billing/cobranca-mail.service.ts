@@ -11,6 +11,15 @@ import {
 import { IamService } from '../iam/iam.service';
 
 /**
+ * Quantos dias antes do vencimento o aviso sai.
+ *
+ * Mora aqui, e não no job, porque DOIS caminhos a usam: o job da meia-noite e o
+ * ajuste de data feito pelo painel, que avisa na hora quando a data ja cai na
+ * janela.
+ */
+export const DIAS_DE_AVISO = 15;
+
+/**
  * Os e-mails de cobrança, num lugar só.
  *
  * Existe porque DOIS caminhos avisam o cliente — o job da meia-noite e o
