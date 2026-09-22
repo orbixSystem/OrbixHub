@@ -5,7 +5,7 @@ import type { Env } from '../../common/config/env.schema';
 import { TenantContext } from '../../common/database/tenant-context';
 import { AuditService } from '../../common/audit/audit.service';
 import { BillingRepository } from './billing.repository';
-import { CobrancaMailService } from './cobranca-mail.service';
+import { CobrancaMailService, DIAS_DE_AVISO } from './cobranca-mail.service';
 
 /** O texto que o cliente lê quando foi o RELÓGIO que bloqueou, não uma pessoa. */
 export const MOTIVO_VENCIMENTO =
@@ -13,8 +13,6 @@ export const MOTIVO_VENCIMENTO =
 export const MOTIVO_CARENCIA =
   'Acesso vencido há mais de 3 dias — pagamento não identificado.';
 
-/** Quantos dias antes do vencimento o aviso sai. */
-export const DIAS_DE_AVISO = 15;
 
 /**
  * O que vence, todo dia à meia-noite, em duas etapas.
