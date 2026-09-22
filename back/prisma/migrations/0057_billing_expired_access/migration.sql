@@ -1,4 +1,4 @@
--- 0054 — acesso vencido: a companheira de billing_find_expired_trials().
+-- 0057 — acesso vencido: a companheira de billing_find_expired_trials().
 --
 -- Sem ela, `current_period_end` era enfeite: o acesso só caía quando o TESTE
 -- vencia, e um contrato encerrado seguia valendo para sempre. Agora o painel

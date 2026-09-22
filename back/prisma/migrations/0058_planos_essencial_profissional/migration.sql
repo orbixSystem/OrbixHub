@@ -1,4 +1,4 @@
--- 0055 — planos comerciais: Essencial e Profissional (aditivo, idempotente)
+-- 0058 — planos comerciais: Essencial e Profissional (aditivo, idempotente)
 --
 -- Antes existiam `trial` e `pro`, e os dois liberavam os MESMOS 8 módulos — o
 -- plano era etiqueta, não régua: ninguém tinha motivo para subir. Agora a
