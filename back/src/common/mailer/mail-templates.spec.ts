@@ -5,6 +5,7 @@ import {
   renderLayout,
   renderTrackingLinkEmail,
   renderVerificationEmail,
+  renderAvisoDeVencimento,
 } from './mail-templates';
 
 describe('mail-templates', () => {
@@ -126,5 +127,26 @@ describe('mail-templates', () => {
       expect(mail.text).toContain('Corpo do e-mail');
       expect(mail.text).not.toContain('<b>');
     });
+  });
+});
+
+describe('e-mails de cobrança — WhatsApp', () => {
+  const base = { empresa: 'Oficina do Zé', url: 'https://hub.exemplo.com', dias: 3 };
+
+  it('com numero configurado, vira link wa.me clicavel', () => {
+    const mail = renderAvisoDeVencimento({ ...base, whatsapp: '5562982744756' });
+    expect(mail.html).toContain('https://wa.me/5562982744756');
+    expect(mail.text).toContain('wa.me/5562982744756');
+  });
+
+  /** Sem canal e melhor que um link que abre conversa com ninguem. */
+  it('sem numero, nao inventa botao', () => {
+    const mail = renderAvisoDeVencimento(base);
+    expect(mail.html).not.toContain('wa.me');
+  });
+
+  it('aceita numero com mascara e manda so os digitos', () => {
+    const mail = renderAvisoDeVencimento({ ...base, whatsapp: '+55 (62) 98274-4756' });
+    expect(mail.html).toContain('https://wa.me/5562982744756');
   });
 });
