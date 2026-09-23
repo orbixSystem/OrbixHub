@@ -54,6 +54,17 @@ export const envSchema = z.object({
   // `openssl rand -base64 32`.
   ADMIN_API_TOKEN: z.string().min(32).optional(),
   SUPPORT_EMAIL: z.string().email().optional(),
+  /**
+   * WhatsApp do suporte, só dígitos com DDI e DDD (ex.: 5562982744756).
+   *
+   * Vai como botão nos e-mails de cobrança. Ausente = o botão não aparece, e o
+   * e-mail continua válido: melhor sem canal do que com um link que abre uma
+   * conversa com ninguém.
+   */
+  SUPPORT_WHATSAPP: z
+    .string()
+    .regex(/^[0-9]{10,15}$/, 'só dígitos, com DDI e DDD')
+    .optional(),
   BILLING_WEBHOOK_SECRET: z.string().min(16).default('dev_billing_webhook_secret_change_me'),
   // Autocadastro de ambiente (`POST /auth/register`). Default FALSE: o ambiente
   // nasce pelo Orbix Admin, com CNPJ conferido e cadastro comercial junto.

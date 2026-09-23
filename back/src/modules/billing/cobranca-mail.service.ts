@@ -46,22 +46,26 @@ export class CobrancaMailService {
   /** Aviso ANTES de vencer. Devolve se saiu — quem chama só marca se sim. */
   avisoDeVencimento(tenantId: string, dias: number): Promise<boolean> {
     return this.enviar(tenantId, (empresa, url) =>
-      renderAvisoDeVencimento({ empresa, url, dias }),
+      renderAvisoDeVencimento({ empresa, url, dias, whatsapp: this.zap }),
     );
   }
 
   /** Venceu: modo consulta. */
   acessoVencido(tenantId: string): Promise<boolean> {
     return this.enviar(tenantId, (empresa, url) =>
-      renderAcessoVencido({ empresa, url }),
+      renderAcessoVencido({ empresa, url, whatsapp: this.zap }),
     );
   }
 
   /** Bloqueado — automático ou pela mão de alguém. O motivo vai no corpo. */
   acessoBloqueado(tenantId: string, motivo: string | null): Promise<boolean> {
     return this.enviar(tenantId, (empresa, url) =>
-      renderAcessoBloqueado({ empresa, url, motivo }),
+      renderAcessoBloqueado({ empresa, url, motivo, whatsapp: this.zap }),
     );
+  }
+
+  private get zap(): string | undefined {
+    return this.env.SUPPORT_WHATSAPP;
   }
 
   private async enviar(

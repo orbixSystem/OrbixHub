@@ -253,6 +253,28 @@ export interface CobrancaMailInput {
   dias?: number;
   /** O motivo, quando o acesso foi bloqueado. */
   motivo?: string | null;
+  /** WhatsApp do suporte, só dígitos. Ausente = sem o botão. */
+  whatsapp?: string | null;
+}
+
+/**
+ * Linha com o WhatsApp, quando há um configurado.
+ *
+ * Vai como LINK e não como número solto: quem lê no celular abre a conversa num
+ * toque, e quem lê no computador ainda vê o número. Um e-mail de cobrança que
+ * obriga a copiar um telefone à mão perde a pessoa no meio do caminho.
+ */
+function linhaDoWhatsapp(numero?: string | null): string | null {
+  const digitos = (numero ?? '').replace(/\D/g, '');
+  if (!digitos) return null;
+  const url = `https://wa.me/${digitos}`;
+  // O texto do link é o PRÓPRIO endereço: a versão texto do e-mail passa por
+  // `stripTags`, e um rótulo como "fale conosco" viraria uma frase sem contato
+  // nenhum para quem lê em texto puro.
+  return (
+    `Prefere WhatsApp? <a href="${url}" style="color:${BRAND};font-weight:bold;">` +
+    `${url}</a>`
+  );
 }
 
 /**
@@ -270,6 +292,7 @@ const LINHA_SUPORTE =
  * e tratá-lo como inadimplente é a forma mais rápida de perdê-lo.
  */
 export function renderAvisoDeVencimento(input: CobrancaMailInput): RenderedMail {
+  const zap = linhaDoWhatsapp(input.whatsapp);
   const dias = input.dias ?? 0;
   const quando =
     dias <= 0 ? 'hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`;
@@ -281,6 +304,7 @@ export function renderAvisoDeVencimento(input: CobrancaMailInput): RenderedMail 
       'Para continuar usando o sistema sem interrupção, faça o pagamento antes dessa data.',
       'Passado o vencimento, o sistema fica em modo consulta — você continua vendo tudo, mas não consegue criar nem alterar nada.',
       LINHA_SUPORTE,
+      ...(zap ? [zap] : []),
     ],
     ctaLabel: 'Abrir o OrbixHub',
     ctaUrl: input.url,
@@ -289,6 +313,7 @@ export function renderAvisoDeVencimento(input: CobrancaMailInput): RenderedMail 
 
 /** O acesso venceu: modo consulta. Ainda dá para trabalhar olhando. */
 export function renderAcessoVencido(input: CobrancaMailInput): RenderedMail {
+  const zap = linhaDoWhatsapp(input.whatsapp);
   return renderLayout({
     heading: 'Seu acesso venceu — o sistema está em modo consulta',
     paragraphs: [
@@ -296,6 +321,7 @@ export function renderAcessoVencido(input: CobrancaMailInput): RenderedMail {
       'Você continua vendo tudo — ordens, clientes, estoque, relatórios —, mas não consegue criar nem alterar nada até o pagamento ser confirmado.',
       'Seus dados continuam guardados e voltam exatamente como estavam assim que o acesso for liberado.',
       LINHA_SUPORTE,
+      ...(zap ? [zap] : []),
     ],
     ctaLabel: 'Abrir o OrbixHub',
     ctaUrl: input.url,
@@ -309,6 +335,7 @@ export function renderAcessoVencido(input: CobrancaMailInput): RenderedMail {
  * pessoa vai fazer de qualquer jeito. Sem ele, o e-mail só antecipa o telefonema.
  */
 export function renderAcessoBloqueado(input: CobrancaMailInput): RenderedMail {
+  const zap = linhaDoWhatsapp(input.whatsapp);
   const motivo = (input.motivo ?? '').trim();
 
   return renderLayout({
@@ -318,6 +345,7 @@ export function renderAcessoBloqueado(input: CobrancaMailInput): RenderedMail {
       ...(motivo ? [`<strong>Motivo:</strong> ${escapeHtml(motivo)}`] : []),
       'Seus dados continuam guardados e voltam exatamente como estavam assim que o acesso for liberado.',
       LINHA_SUPORTE,
+      ...(zap ? [zap] : []),
     ],
     ctaLabel: 'Abrir o OrbixHub',
     ctaUrl: input.url,
