@@ -1,3 +1,4 @@
+import { MonthlySummaryJob } from '../report/monthly/monthly-summary.job';
 import { AdminController } from './admin.controller';
 import type { AdminService } from './admin.service';
 import type { TenantSettingsService } from '../../verticals/tenant-settings.service';
@@ -31,8 +32,20 @@ function montar() {
     criarLink: jest.fn(async () => ({}) as never),
   } as unknown as SupportSessionService;
 
+  const resumoMensal = {
+    gerarParaTodos: jest.fn(async () => ({ gerados: 0, falhas: 0 })),
+  } as unknown as MonthlySummaryJob;
+
   return {
-    ctrl: new AdminController(admin, settings, support, cnpj, billing, sessao),
+    ctrl: new AdminController(
+      admin,
+      settings,
+      support,
+      cnpj,
+      billing,
+      sessao,
+      resumoMensal,
+    ),
     settings,
     support,
     sessao,

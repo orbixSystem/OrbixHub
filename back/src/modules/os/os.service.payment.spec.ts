@@ -12,6 +12,10 @@ import type { AuthUser } from '../../common/auth/auth.types';
  */
 class FakeCashierService extends CashierService {
 
+  async totaisDoPeriodo() {
+    return { entrou: 0, saiu: 0 };
+  }
+
   async receivedBySale() {
     return new Map<string, { recebido: number; desconto: number }>();
   }

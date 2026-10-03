@@ -800,6 +800,7 @@ model tenant {
   tenant_module               tenant_module[]
   users                       users[]
   business_hours              business_hours[]
+  report_monthly_summaries report_monthly_summary[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1020,4 +1021,29 @@ model support_message {
   ticket         support_ticket? @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenant_id, created_at], map: "idx_support_message_tenant_time")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+///
+/// Resumo mensal dos relatórios: um fato datado, não uma consulta. O texto foi
+/// escrito uma vez sobre o mês que fechou; regerar produziria outro texto (o
+/// modelo não é determinístico) e o dono veria o "mesmo" relatório mudar
+/// sozinho. `metrics`/`signals` em jsonb preservam a régua da época — normalizar
+/// em colunas reescreveria o passado a cada métrica nova.
+model report_monthly_summary {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  /// Primeiro dia do mês analisado (2026-09-01 = resumo de setembro).
+  period       DateTime @db.Date
+  metrics      Json
+  signals      Json
+  narrative    Json
+  ai_model     String
+  /// 'ok' = veio do modelo; 'fallback' = texto montado sem IA.
+  ai_status    String   @default("ok")
+  generated_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  tenant       tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_id, period], map: "report_monthly_summary_tenant_period_key")
 }

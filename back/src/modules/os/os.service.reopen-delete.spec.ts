@@ -56,6 +56,10 @@ class FakeCashier extends CashierService {
   ) {
     super();
   }
+  async totaisDoPeriodo() {
+    return { entrou: 0, saiu: 0 };
+  }
+
   async receivedBySale() {
     return new Map<string, { recebido: number; desconto: number }>();
   }

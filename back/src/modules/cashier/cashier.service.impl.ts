@@ -858,6 +858,15 @@ export class CashierServiceImpl extends CashierService {
     );
   }
 
+  /** Totais do período para o resumo mensal (contrato `CashierService`). */
+  async totaisDoPeriodo(range: { from: Date; to: Date }) {
+    const rows = await this.tenant.withTenantTx(() =>
+      this.repo.summaryByMethod(range),
+    );
+    const all = pickAll(shapeMethodTotals(rows));
+    return { entrou: all.in, saiu: all.out };
+  }
+
   async getCashSummary(_user: AuthUser, query: SummaryQueryDto) {
     const p = { from: parseDate(query.from), to: parseDate(query.to) };
     const [methodRows, categoryRows, originRows, descontos] =

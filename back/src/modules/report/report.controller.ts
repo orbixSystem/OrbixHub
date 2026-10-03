@@ -14,6 +14,11 @@ import { ModuleAccessGuard } from '../billing/module-access.guard';
 import { RequiresModule } from '../billing/requires-module.decorator';
 import { resolveRange } from '../../common/metrics/range';
 import { ReportService } from './report.service';
+import { MonthlySummaryRepository } from './monthly/monthly-summary.repository';
+import {
+  MonthlySummaryService,
+  inicioDoMes,
+} from './monthly/monthly-summary.service';
 import {
   ReportCustomersExportQueryDto,
   ReportCustomersQueryDto,
@@ -37,7 +42,43 @@ import {
 @RequiresModule('report')
 @Permissions('report.read')
 export class ReportController {
-  constructor(private readonly report: ReportService) {}
+  constructor(
+    private readonly report: ReportService,
+    private readonly mensal: MonthlySummaryService,
+    private readonly resumos: MonthlySummaryRepository,
+  ) {}
+
+  /**
+   * A VISÃO do mês: KPIs com variação contra o mês anterior e os sinais
+   * apurados. Calculado na hora — é o que permite abrir o relatório do mês
+   * CORRENTE, que nenhum resumo gravado cobre (ele só existe depois de o mês
+   * fechar).
+   *
+   * Mesma função que alimenta o resumo mensal, de propósito: dois caminhos
+   * calculando "o faturamento do mês" divergiriam no primeiro ajuste, e o
+   * número da tela passaria a discordar do texto que o acompanha.
+   */
+  @Get('overview')
+  overview(@CurrentUser() user: AuthUser, @Query('mes') mes?: string) {
+    return this.mensal.calcular(user.tenantId, refDoMes(mes));
+  }
+
+  /**
+   * O resumo escrito de um mês fechado. Sem `mes`, o mais recente.
+   *
+   * Devolve também os meses disponíveis: é o que o seletor da tela usa para não
+   * oferecer um mês que nunca foi gerado.
+   */
+  @Get('monthly')
+  async monthly(@Query('mes') mes?: string) {
+    const [resumo, periodos] = await Promise.all([
+      mes
+        ? this.resumos.buscar(inicioDoMes(refDoMes(mes)))
+        : this.resumos.maisRecente(),
+      this.resumos.periodosDisponiveis(),
+    ]);
+    return { resumo, periodos };
+  }
 
   /**
    * Despesas por categoria no período — "para onde vai o dinheiro".
@@ -300,4 +341,17 @@ export class ReportController {
     );
     return new StreamableFile(buf);
   }
+}
+
+
+/**
+ * "2026-09" → uma data dentro daquele mês. Sem o parâmetro, o mês corrente.
+ *
+ * Mês inválido cai no corrente em vez de estourar: o parâmetro vem da URL, e um
+ * relatório não deveria quebrar porque alguém editou a barra de endereços.
+ */
+function refDoMes(mes?: string): Date {
+  if (!mes || !/^\d{4}-\d{2}$/.test(mes)) return new Date();
+  const d = new Date(`${mes}-01T12:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
 }

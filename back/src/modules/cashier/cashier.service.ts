@@ -108,6 +108,21 @@ export abstract class CashierService {
    * cliente é o `report`, perguntando aos módulos donos. É a costura que
    * mantém a independência: nenhum dos três lê tabela do outro.
    */
+  /**
+   * Σ do que ENTROU e do que SAIU no período — os dois números que fecham o
+   * caixa do mês.
+   *
+   * Porta estreita para o `report`: ele monta o resumo mensal e precisa do
+   * resultado do caixa, mas não pode ler `cash_entry` (regra 1). Desconto fica
+   * de fora de propósito, pelo mesmo motivo do `receivedBySale`: ele fecha
+   * dívida sem entrar dinheiro, e somá-lo faria o resumo anunciar caixa que
+   * não existe.
+   */
+  abstract totaisDoPeriodo(range: {
+    from: Date;
+    to: Date;
+  }): Promise<{ entrou: number; saiu: number }>;
+
   abstract receivedBySale(range?: {
     from?: Date;
     to?: Date;

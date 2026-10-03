@@ -21,6 +21,7 @@ import {
 } from 'class-validator';
 import { Public } from '../../common/auth/decorators';
 import { AdminTokenGuard } from './admin-token.guard';
+import { MonthlySummaryJob } from '../report/monthly/monthly-summary.job';
 import { AdminService } from './admin.service';
 import { TenantSettingsService } from '../../verticals/tenant-settings.service';
 import { SupportService } from '../support/support.service';
@@ -109,7 +110,34 @@ export class AdminController {
     private readonly cnpj: CnpjLookupService,
     private readonly billing: BillingService,
     private readonly sessaoSuporte: SupportSessionService,
+    private readonly resumoMensal: MonthlySummaryJob,
   ) {}
+
+  /**
+   * Dispara a geração do resumo mensal fora do dia 1º.
+   *
+   * Existe porque um job que só roda por relógio é um job que ninguém consegue
+   * verificar: sem isto, conferir uma mudança no texto custaria esperar virar o
+   * mês. Fica aqui, atrás do `ADMIN_API_TOKEN`, e não na UI — o dono não pediu
+   * um botão de regerar, e dar um a ele seria dar também um jeito de queimar
+   * cota de API.
+   *
+   * `mes` opcional ("2026-09") escolhe o mês analisado; sem ele, o anterior ao
+   * de hoje — exatamente o que o cron faria.
+   */
+  @Post('report/monthly/run')
+  @HttpCode(200)
+  gerarResumoMensal(@Body() body: { mes?: string }) {
+    const agora = body?.mes
+      ? new Date(`${body.mes}-01T00:00:00.000Z`)
+      : new Date();
+    // O job recebe "agora" e analisa o mês ANTERIOR; para pedir setembro,
+    // passa-se outubro.
+    const ref = body?.mes
+      ? new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() + 1, 1))
+      : agora;
+    return this.resumoMensal.gerarParaTodos(ref);
+  }
 
   /**
    * `q` busca por nome, slug, razão social ou CNPJ; `ids` traz um conjunto
