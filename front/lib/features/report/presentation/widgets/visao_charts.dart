@@ -167,43 +167,58 @@ class ParaOndeFoiChart extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 42,
-                sections: [
-                  for (var i = 0; i < itens.length; i++)
-                    PieChartSectionData(
-                      value: itens[i].total.toDouble(),
-                      color: cores[i % cores.length],
-                      radius: 26,
-                      showTitle: false,
-                    ),
-                ],
-              ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final rosca = PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 42,
+              sections: [
+                for (var i = 0; i < itens.length; i++)
+                  PieChartSectionData(
+                    value: itens[i].total.toDouble(),
+                    color: cores[i % cores.length],
+                    radius: 26,
+                    showTitle: false,
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 4,
-            child: SingleChildScrollView(
-              child: NeuChartLegend(
-                items: [
-                  for (var i = 0; i < itens.length; i++)
-                    NeuLegendItem(
-                      color: cores[i % cores.length],
-                      label: itens[i].categoria,
-                      value: formatMoney(itens[i].total),
-                    ),
-                ],
+          );
+          final legenda = NeuChartLegend(
+            items: [
+              for (var i = 0; i < itens.length; i++)
+                NeuLegendItem(
+                  color: cores[i % cores.length],
+                  label: itens[i].categoria,
+                  value: formatMoney(itens[i].total),
+                ),
+            ],
+          );
+
+          // No celular a legenda vai PARA BAIXO da rosca. Lado a lado, ela fica
+          // com menos de 150px e "Ferramentas R$ 1.200,00" não cabe em
+          // nenhuma — espremer categoria e valor é perder a única coisa que a
+          // legenda faz.
+          if (c.maxWidth < 460) {
+            return Column(
+              children: [
+                Expanded(child: rosca),
+                const SizedBox(height: 14),
+                legenda,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(flex: 3, child: rosca),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 4,
+                child: SingleChildScrollView(child: legenda),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

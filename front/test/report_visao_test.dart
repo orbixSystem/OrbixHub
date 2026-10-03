@@ -9,7 +9,7 @@ import 'package:orbixhub_front/features/report/domain/report_repository.dart';
 import 'package:orbixhub_front/features/report/presentation/report_providers.dart';
 import 'package:orbixhub_front/features/report/presentation/report_tabs.dart';
 import 'package:orbixhub_front/features/report/presentation/tabs/visao_tab.dart';
-import 'package:orbixhub_front/features/report/presentation/widgets/kpi_card.dart';
+import 'package:orbixhub_front/features/report/presentation/widgets/livro_do_mes.dart';
 
 /// A aba "Visão": a tela que Relatórios abre.
 ///
@@ -108,24 +108,23 @@ void main() {
     });
   });
 
-  group('a seta do KPI segue o NEGÓCIO, não a direção', () {
-    testWidgets('faturamento subindo é verde; despesa subindo é vermelha',
+  group('a variação segue o NEGÓCIO, não a direção', () {
+    testWidgets('faturamento, despesa e fiado sobem — só um é boa notícia',
         (t) async {
       await _montar(t);
 
-      final cards = t.widgetList<KpiCard>(find.byType(KpiCard)).toList();
-      final faturado = cards.firstWhere((c) => c.kpi.chave == 'faturado');
-      final despesas = cards.firstWhere((c) => c.kpi.chave == 'despesas');
-      final fiado = cards.firstWhere((c) => c.kpi.chave == 'aReceber');
+      final livro = t.widget<LivroDoMes>(find.byType(LivroDoMes));
+      final porChave = {for (final k in livro.kpis) k.chave: k};
 
-      // Os três SUBIRAM. Só um é boa notícia.
-      expect(faturado.kpi.variacao!.pct, greaterThan(0));
-      expect(despesas.kpi.variacao!.pct, greaterThan(0));
-      expect(fiado.kpi.variacao!.pct, greaterThan(0));
+      expect(porChave['faturado']!.variacao!.pct, greaterThan(0));
+      expect(porChave['despesas']!.variacao!.pct, greaterThan(0));
+      expect(porChave['aReceber']!.variacao!.pct, greaterThan(0));
 
-      expect(faturado.kpi.variacaoEhBoa, isTrue);
-      expect(despesas.kpi.variacaoEhBoa, isFalse);
-      expect(fiado.kpi.variacaoEhBoa, isFalse);
+      // Pintar toda alta de verde faria a tela comemorar o que o dono precisa
+      // cortar.
+      expect(porChave['faturado']!.variacaoEhBoa, isTrue);
+      expect(porChave['despesas']!.variacaoEhBoa, isFalse);
+      expect(porChave['aReceber']!.variacaoEhBoa, isFalse);
     });
 
     test('queda de despesa é boa notícia', () {
@@ -158,7 +157,6 @@ void main() {
         (t) async {
       await _montar(t);
 
-      expect(find.text('O mês em uma página'), findsOneWidget);
       expect(
         find.textContaining('Setembro fechou 12% acima de agosto'),
         findsOneWidget,
@@ -168,36 +166,43 @@ void main() {
       expect(find.textContaining('Combine prazo de pagamento'), findsOneWidget);
     });
 
-    testWidgets('diz QUEM escreveu o texto', (t) async {
+    testWidgets('assina quem escreveu, no pé da página', (t) async {
       await _montar(t);
       // Creditar à IA um texto que ela não escreveu seria mentir sobre o
       // produto — e um dia alguém compara dois meses e percebe.
-      expect(find.text('Escrito por IA'), findsOneWidget);
+      expect(
+        find.textContaining('Escrito por inteligência artificial'),
+        findsOneWidget,
+      );
+      // E deixa claro de onde vieram os valores.
+      expect(find.textContaining('Nenhum valor vem do modelo'), findsOneWidget);
     });
 
-    testWidgets('marca como "Resumo automático" quando não houve IA', (t) async {
-      final repo = _ResumoSemIa();
-      await _montar(t, repo: repo);
-      expect(find.text('Resumo automático'), findsOneWidget);
-      expect(find.text('Escrito por IA'), findsNothing);
+    testWidgets('sem IA, o sistema assina o próprio texto', (t) async {
+      await _montar(t, repo: _ResumoSemIa());
+      expect(
+        find.textContaining('Escrito pelo próprio sistema'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Escrito por inteligência artificial'),
+        findsNothing,
+      );
     });
 
     testWidgets('mês sem resumo explica a ausência em vez de ficar vazio',
         (t) async {
       await _montar(t, repo: _SemResumo());
 
-      expect(
-        find.textContaining('chega quando o mês fechar'),
-        findsOneWidget,
-      );
+      expect(find.text('O mês ainda está em andamento'), findsOneWidget);
       // E os números continuam lá: eles não dependem de nada externo.
-      expect(find.byType(KpiCard), findsWidgets);
+      expect(find.byType(LivroDoMes), findsOneWidget);
     });
 
     testWidgets('mostra os sinais mesmo sem resumo escrito', (t) async {
       await _montar(t, repo: _SemResumo());
       // O dono não deveria esperar o dia 1º para descobrir que o fiado dobrou.
-      expect(find.text('O que merece atenção'), findsOneWidget);
+      expect(find.textContaining('merecem atenção'), findsOneWidget);
       expect(
         find.text('O fiado cresceu mais que o faturamento'),
         findsOneWidget,
@@ -207,8 +212,8 @@ void main() {
     testWidgets('falha ao buscar o texto não esconde os números', (t) async {
       await _montar(t, repo: _ResumoQueFalha());
 
-      expect(find.byType(KpiCard), findsWidgets);
-      expect(find.text('O mês em uma página'), findsNothing);
+      expect(find.byType(LivroDoMes), findsOneWidget);
+      expect(find.textContaining('Setembro fechou'), findsNothing);
     });
   });
 }

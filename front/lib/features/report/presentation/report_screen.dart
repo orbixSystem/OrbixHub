@@ -323,15 +323,27 @@ class _SecoesDaAba extends StatelessWidget {
             Divider(color: neu.line, height: 1),
             const SizedBox(height: 24),
           ],
+          // Duas linhas em vez de "Grupo · Rótulo": o ponto médio junta duas
+          // informações de níveis diferentes numa linha só e obriga o olho a
+          // separá-las de novo. O módulo-fonte é contexto; o relatório é o
+          // título.
           Text(
-            '${specs[i].group} · ${specs[i].label}',
+            specs[i].group,
             style: TextStyle(
-              color: neu.ink,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+              color: neu.inkFaint,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 2),
+          Text(
+            specs[i].label,
+            style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                  color: neu.ink,
+                  letterSpacing: -0.3,
+                ),
+          ),
+          const SizedBox(height: 16),
           _ReportContent(me: me, spec: specs[i]),
         ],
       ],

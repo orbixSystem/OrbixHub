@@ -1,0 +1,274 @@
+import 'package:flutter/material.dart';
+
+import '../../../../core/ui/ui.dart';
+import '../../domain/monthly_models.dart';
+import 'motion.dart';
+
+/// O mês como DOCUMENTO, não como cartão de dashboard.
+///
+/// Quem lê isto passou o mês com a mão no motor e senta uma vez para descobrir
+/// se o trabalho virou dinheiro. O que serve a essa pessoa é uma página escrita
+/// — uma frase que abre, o parágrafo que a sustenta, e no fim a assinatura de
+/// quem escreveu. Um cartão com tarja em caixa alta no topo seria mais um
+/// bloco de interface; aqui o conteúdo é o próprio objeto.
+///
+/// A medida da prosa é limitada a ~68 caracteres. Texto de relatório correndo
+/// a largura inteira de um monitor não é lido, é escaneado — e este é
+/// justamente o pedaço que precisa ser lido.
+class DocumentoDoMes extends StatelessWidget {
+  const DocumentoDoMes({super.key, required this.resumo});
+
+  final ResumoMensal resumo;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final n = resumo.narrativa;
+    final texto = Theme.of(context).textTheme;
+
+    return NeuCard(
+      padding: EdgeInsets.fromLTRB(
+        context.isMobile ? 20 : 30,
+        context.isMobile ? 24 : 30,
+        context.isMobile ? 20 : 30,
+        22,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            resumo.periodo.rotulo.replaceFirst('/', ' de '),
+            style: TextStyle(
+              color: neu.inkFaint,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          // A frase do mês, em Sora e em corpo de manchete. É o único lugar da
+          // tela com esse peso: a ousadia inteira do módulo está gasta aqui.
+          SurgeSuave(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620),
+              child: Text(
+                n.titulo,
+                style: texto.displaySmall!.copyWith(
+                  color: neu.ink,
+                  fontSize: context.isMobile ? 25 : 31,
+                  height: 1.18,
+                  letterSpacing: -0.7,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FioQueDesenha(cor: neu.line),
+          const SizedBox(height: 18),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Text(
+              n.leitura,
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 15.5,
+                height: 1.68,
+              ),
+            ),
+          ),
+          if (n.recomendacoes.isNotEmpty) ...[
+            const SizedBox(height: 26),
+            _ParaEsteMes(itens: n.recomendacoes),
+          ],
+          const SizedBox(height: 24),
+          _Assinatura(resumo: resumo),
+        ],
+      ),
+    );
+  }
+}
+
+/// As ações do mês que começa.
+///
+/// Ficam no documento (e não numa caixa à parte) porque são a conclusão do
+/// texto — é para elas que a leitura caminha. Numeradas, porque aqui a ordem
+/// é real: a primeira é a que o sinal mais grave pediu.
+class _ParaEsteMes extends StatelessWidget {
+  const _ParaEsteMes({required this.itens});
+
+  final List<String> itens;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 620),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Para este mês',
+            style: TextStyle(
+              color: neu.ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < itens.length; i++)
+            Padding(
+              padding: EdgeInsets.only(bottom: i == itens.length - 1 ? 0 : 11),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 22,
+                    child: Text(
+                      '${i + 1}.',
+                      style: TextStyle(
+                        color: neu.accent,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: kTabular,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      itens[i],
+                      style: TextStyle(
+                        color: neu.ink,
+                        fontSize: 14.5,
+                        height: 1.55,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A assinatura, no pé da página.
+///
+/// Um documento diz quem o escreveu e quando — e é mais honesto no fim, depois
+/// da leitura, do que num selo no topo disputando atenção com a manchete.
+/// Quando o texto foi montado pelo sistema, ele assina como tal: creditar à IA
+/// um texto que ela não escreveu é mentir sobre o produto.
+class _Assinatura extends StatelessWidget {
+  const _Assinatura({required this.resumo});
+
+  final ResumoMensal resumo;
+
+  static const _meses = [
+    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+  ];
+
+  String get _quando {
+    final d = DateTime.tryParse(resumo.generatedAt)?.toLocal();
+    if (d == null) return '';
+    final dia = d.day == 1 ? '1º' : '${d.day}';
+    final hora =
+        '${d.hour.toString().padLeft(2, '0')}h${d.minute.toString().padLeft(2, '0')}';
+    return 'em $dia de ${_meses[d.month - 1]}, às $hora';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    final ia = resumo.escritoPorIa;
+    final quando = _quando;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1, right: 8),
+          child: Icon(
+            ia ? Icons.auto_awesome_rounded : Icons.calculate_outlined,
+            size: 14,
+            color: neu.inkFaint,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            ia
+                ? 'Escrito por inteligência artificial sobre os números '
+                    'apurados pelo sistema${quando.isEmpty ? '' : ', $quando'}. '
+                    'Nenhum valor vem do modelo.'
+                : 'Escrito pelo próprio sistema a partir dos números do '
+                    'mês${quando.isEmpty ? '' : ', $quando'}.',
+            style: TextStyle(
+              color: neu.inkFaint,
+              fontSize: 12.5,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// O lugar do documento enquanto o mês não fechou.
+///
+/// Não é erro nem vazio: é o estado normal de um mês em andamento. Dizer isso
+/// com todas as letras evita a leitura óbvia e errada — "a IA não funcionou" —
+/// e aproveita para explicar quando o texto chega, que é informação que o dono
+/// ainda não tem.
+class DocumentoAindaNaoEscrito extends StatelessWidget {
+  const DocumentoAindaNaoEscrito({super.key, required this.rotuloDoMes});
+
+  final String rotuloDoMes;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return NeuCard(
+      padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rotuloDoMes.replaceFirst('/', ' de '),
+            style: TextStyle(
+              color: neu.inkFaint,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Text(
+              'O mês ainda está em andamento',
+              style: Theme.of(context).textTheme.headlineSmall!.copyWith(
+                    color: neu.ink,
+                    height: 1.2,
+                    letterSpacing: -0.4,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          FioQueDesenha(cor: neu.line),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Text(
+              'A leitura escrita chega no primeiro dia do próximo mês, com o '
+              'mês fechado, e você recebe um aviso. Os números abaixo já são '
+              'de agora.',
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 15,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

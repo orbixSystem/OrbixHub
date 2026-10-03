@@ -3,19 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/ui/ui.dart';
-import '../../domain/monthly_models.dart';
 import '../report_providers.dart';
-import '../widgets/kpi_card.dart';
-import '../widgets/resumo_mes_card.dart';
+import '../widgets/documento_do_mes.dart';
+import '../widgets/livro_do_mes.dart';
+import '../widgets/sinais_do_mes.dart';
 import '../widgets/visao_charts.dart';
 
 /// A leitura do mês — a tela que Relatórios abre.
 ///
-/// A ordem é a de quem vai decidir alguma coisa: primeiro o que aconteceu (o
-/// texto), depois os números que o sustentam, depois o que merece atenção, e
-/// por fim os gráficos que mostram o ritmo. O menu lateral de nove relatórios
-/// pedia o contrário — que o dono soubesse o que procurar antes de ver
-/// qualquer coisa.
+/// A página é um documento: a frase que abre, os números que a sustentam, o
+/// que saiu da curva e, por último, os gráficos como evidência. A ordem é a de
+/// quem vai decidir alguma coisa. O menu de nove relatórios pedia o contrário —
+/// que o dono soubesse o que procurar antes de ver qualquer coisa.
 class VisaoTab extends ConsumerWidget {
   const VisaoTab({super.key});
 
@@ -25,7 +24,7 @@ class VisaoTab extends ConsumerWidget {
     final resumoAsync = ref.watch(resumoMensalProvider);
 
     return visaoAsync.when(
-      loading: () => const _Carregando(),
+      loading: () => const _Preparando(),
       error: (e, _) => _Erro(
         mensagem: e is AppException ? e.message : 'Não foi possível carregar.',
         onRetry: () => ref.invalidate(visaoMensalProvider),
@@ -33,27 +32,25 @@ class VisaoTab extends ConsumerWidget {
       data: (visao) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // O texto primeiro. Se o mês ainda não fechou, a ausência do resumo
-          // é explicada em vez de virar um buraco na tela.
           resumoAsync.when(
-            loading: () => const _CarregandoResumo(),
-            // Falha ao buscar o texto não pode esconder os números: eles são a
-            // parte que não depende de nada externo.
+            loading: () => const _DocumentoCarregando(),
+            // Falha ao buscar o texto não pode esconder os números: eles não
+            // dependem de nada externo.
             error: (_, _) => const SizedBox.shrink(),
             data: (pagina) {
               final resumo = pagina.resumo;
               return resumo == null
-                  ? ResumoAindaNaoGerado(rotuloDoMes: visao.periodo.rotulo)
-                  : ResumoMesCard(resumo: resumo);
+                  ? DocumentoAindaNaoEscrito(rotuloDoMes: visao.periodo.rotulo)
+                  : DocumentoDoMes(resumo: resumo);
             },
           ),
-          const SizedBox(height: 18),
-          _GradeDeKpis(kpis: visao.kpis),
+          const SizedBox(height: 16),
+          LivroDoMes(kpis: visao.kpis, serie: visao.graficos.serieDiaria),
           if (visao.sinais.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            _Sinais(sinais: visao.sinais),
+            const SizedBox(height: 16),
+            SinaisDoMes(sinais: visao.sinais),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           FaturamentoDoMesChart(serie: visao.graficos.serieDiaria),
           const SizedBox(height: 16),
           ParaOndeFoiChart(fatias: visao.graficos.despesasPorCategoria),
@@ -63,155 +60,78 @@ class VisaoTab extends ConsumerWidget {
   }
 }
 
-/// Os números do mês. Quatro por linha no desktop, dois no celular — a conta
-/// que mantém o cartão legível sem virar coluna estreita.
-class _GradeDeKpis extends StatelessWidget {
-  const _GradeDeKpis({required this.kpis});
-
-  final List<KpiMensal> kpis;
-
-  @override
-  Widget build(BuildContext context) {
-    if (kpis.isEmpty) return const SizedBox.shrink();
-    return LayoutBuilder(
-      builder: (context, c) {
-        final colunas = c.maxWidth >= 1000
-            ? 4
-            : c.maxWidth >= 640
-                ? 3
-                : 2;
-        const gap = 14.0;
-        final largura = (c.maxWidth - gap * (colunas - 1)) / colunas;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (var i = 0; i < kpis.length; i++)
-              SizedBox(
-                width: largura,
-                child: KpiCard(kpi: kpis[i], destaque: i == 0),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// O que saiu da curva, direto dos sinais apurados no servidor.
+/// A espera, com o texto certo.
 ///
-/// Repete o que o texto já disse, de propósito: o texto é para ler, esta lista
-/// é para bater o olho. E quando o resumo ainda não existe (mês corrente), é
-/// ela quem entrega o alerta — o dono não deveria esperar o dia 1º para
-/// descobrir que o fiado dobrou.
-class _Sinais extends StatelessWidget {
-  const _Sinais({required this.sinais});
-
-  final List<SinalMensal> sinais;
+/// "Carregando" não diz nada; aqui o sistema está somando o mês inteiro em
+/// cinco módulos, e dizer isso faz a espera parecer trabalho — que é o que é.
+class _Preparando extends StatelessWidget {
+  const _Preparando();
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    return NeuCard(
-      padding: const EdgeInsets.all(18),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 72),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: neu.accent),
+          ),
+          const SizedBox(height: 16),
           Text(
-            'O que merece atenção',
+            'Fechando as contas do mês',
             style: TextStyle(
               color: neu.inkMuted,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
-          for (var i = 0; i < sinais.length; i++) ...[
-            if (i > 0) Divider(height: 20, color: neu.line),
-            _LinhaSinal(sinal: sinais[i]),
-          ],
         ],
       ),
     );
   }
 }
 
-class _LinhaSinal extends StatelessWidget {
-  const _LinhaSinal({required this.sinal});
-
-  final SinalMensal sinal;
+class _DocumentoCarregando extends StatelessWidget {
+  const _DocumentoCarregando();
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    final cor = sinal.ehCritico
-        ? neu.danger
-        : sinal.ehAlerta
-            ? neu.warning
-            : neu.info;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(
-            sinal.ehCritico
-                ? Icons.error_outline_rounded
-                : sinal.ehAlerta
-                    ? Icons.warning_amber_rounded
-                    : Icons.info_outline_rounded,
-            size: 18,
-            color: cor,
+    // Esqueleto com a forma do que vem: duas linhas de manchete e três de
+    // prosa. Um spinner no lugar de um texto não prepara o olho para nada.
+    Widget barra(double largura, double altura) => Container(
+          width: largura,
+          height: altura,
+          decoration: BoxDecoration(
+            color: neu.line,
+            borderRadius: BorderRadius.circular(4),
           ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                sinal.titulo,
-                style: TextStyle(
-                  color: neu.ink,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                sinal.detalhe,
-                style: TextStyle(
-                  color: neu.inkMuted,
-                  fontSize: 13.5,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        );
+    return NeuCard(
+      padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          barra(96, 11),
+          const SizedBox(height: 16),
+          barra(420, 21),
+          const SizedBox(height: 10),
+          barra(300, 21),
+          const SizedBox(height: 22),
+          barra(double.infinity, 1),
+          const SizedBox(height: 18),
+          barra(540, 11),
+          const SizedBox(height: 9),
+          barra(560, 11),
+          const SizedBox(height: 9),
+          barra(380, 11),
+        ],
+      ),
     );
   }
-}
-
-class _Carregando extends StatelessWidget {
-  const _Carregando();
-
-  @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: CircularProgressIndicator()),
-      );
-}
-
-class _CarregandoResumo extends StatelessWidget {
-  const _CarregandoResumo();
-
-  @override
-  Widget build(BuildContext context) => const NeuCard(
-        padding: EdgeInsets.all(28),
-        child: Center(child: CircularProgressIndicator()),
-      );
 }
 
 class _Erro extends StatelessWidget {
@@ -224,17 +144,24 @@ class _Erro extends StatelessWidget {
   Widget build(BuildContext context) {
     final neu = context.neu;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
+      padding: const EdgeInsets.symmetric(vertical: 64),
       child: Column(
         children: [
-          Icon(Icons.error_outline, color: neu.danger, size: 28),
-          const SizedBox(height: 10),
-          Text(
-            mensagem,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: neu.inkMuted, fontSize: 14),
+          Icon(Icons.error_outline_rounded, color: neu.danger, size: 26),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Text(
+              mensagem,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: neu.inkMuted,
+                fontSize: 14.5,
+                height: 1.5,
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           NeuButton(
             label: 'Tentar de novo',
             kind: NeuButtonKind.secondary,
