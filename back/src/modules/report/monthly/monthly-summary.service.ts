@@ -6,7 +6,10 @@ import {
   ResumoPayload,
 } from '../../../common/ai/ai-text.gateway';
 import { TenantContext } from '../../../common/database/tenant-context';
-import { MonthlyAggregatesService } from './monthly-aggregates.service';
+import {
+  GraficosDoMes,
+  MonthlyAggregatesService,
+} from './monthly-aggregates.service';
 import { MonthlySummaryRepository, ResumoMensal } from './monthly-summary.repository';
 import { calcularMetricasMensais, MetricasMensais } from './monthly-metrics';
 
@@ -111,13 +114,21 @@ export class MonthlySummaryService {
    * relatório passaria a discordar do texto que o acompanha.
    */
   async calcular(tenantId: string, ref: Date): Promise<MetricasMensais> {
+    return (await this.calcularComGraficos(tenantId, ref)).metricas;
+  }
+
+  /** A visão completa da TELA: números, sinais e os dados dos gráficos. */
+  async calcularComGraficos(
+    tenantId: string,
+    ref: Date,
+  ): Promise<{ metricas: MetricasMensais; graficos: GraficosDoMes }> {
     const atual = janelaDoMes(ref);
     const anterior = janelaDoMes(mesAnterior(ref));
 
-    const [mes, mesAnteriorNumeros] = await this.tenant.runWithTenant(
+    const [doMes, mesAnteriorNumeros] = await this.tenant.runWithTenant(
       tenantId,
       async () => [
-        await this.agregados.coletar(tenantId, atual),
+        await this.agregados.coletarComGraficos(tenantId, atual),
         // Sem o saldo de fiado: "a receber" é foto do agora, não do mês
         // passado. Comparar a foto de hoje com ela mesma daria variação zero e
         // esconderia justamente o sinal de fiado crescendo.
@@ -127,15 +138,16 @@ export class MonthlySummaryService {
       ],
     );
 
-    return calcularMetricasMensais({
+    const metricas = calcularMetricasMensais({
       periodo: {
         de: atual.from.toISOString().slice(0, 10),
         ate: atual.to.toISOString().slice(0, 10),
         rotulo: atual.rotulo,
       },
-      mes,
+      mes: doMes.numeros,
       anterior: mesAnteriorNumeros,
     });
+    return { metricas, graficos: doMes.graficos };
   }
 }
 

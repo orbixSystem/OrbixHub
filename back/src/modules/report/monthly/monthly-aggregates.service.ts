@@ -11,6 +11,20 @@ import { ReceivablesService } from '../../receivables/receivables.service';
 import { SaleService } from '../../sale/sale.service';
 import { NumerosDoMes } from './monthly-metrics';
 
+/**
+ * O que os GRÁFICOS do mês precisam — separado dos números que a regra usa.
+ *
+ * Não entra em `NumerosDoMes` de propósito: a regra pura decide sinais, e dar a
+ * ela uma série diária que ela ignora convidaria alguém a usá-la ali sem
+ * cobrir com teste.
+ */
+export interface GraficosDoMes {
+  /** Faturamento por dia do mês, para a linha. */
+  serieDiaria: Array<{ dia: string; valor: number }>;
+  /** Para onde foi o dinheiro — já vem em `NumerosDoMes`, repetido aqui por clareza. */
+  despesasPorCategoria: Array<{ categoria: string; total: number }>;
+}
+
 export interface Janela {
   from: Date;
   to: Date;
@@ -53,6 +67,14 @@ export class MonthlyAggregatesService {
     janela: Janela,
     opcoes: { incluirSaldoAtual: boolean } = { incluirSaldoAtual: true },
   ): Promise<NumerosDoMes> {
+    return (await this.coletarComGraficos(tenantId, janela, opcoes)).numeros;
+  }
+
+  async coletarComGraficos(
+    tenantId: string,
+    janela: Janela,
+    opcoes: { incluirSaldoAtual: boolean } = { incluirSaldoAtual: true },
+  ): Promise<{ numeros: NumerosDoMes; graficos: GraficosDoMes }> {
     const modulos = await this.billing.getEnabledModules(tenantId);
     const tem = (k: string) => modulos.includes(k);
 
@@ -96,16 +118,27 @@ export class MonthlyAggregatesService {
       ? await this.os.metricsSummary({ from: janela.from, to: janela.to })
       : null;
 
-    return {
+    // Série do mês: OS e venda somadas por dia. Dois gráficos lado a lado
+    // (um de OS, outro de venda) obrigariam o dono a somar de cabeça.
+    const porDia = new Map<string, number>();
+    for (const d of receita?.byDay ?? []) {
+      porDia.set(d.day, (porDia.get(d.day) ?? 0) + d.revenue);
+    }
+    for (const d of vendas) {
+      porDia.set(d.day, (porDia.get(d.day) ?? 0) + d.revenue);
+    }
+    const despesasPorCategoria = (despesas?.rows ?? []).map((r) => ({
+      categoria: r.categoryName,
+      total: round2(r.previsto),
+    }));
+
+    const numeros: NumerosDoMes = {
       faturado: round2(faturadoOs + faturadoVendas),
       transacoes: transacoesOs + transacoesVendas,
       recebido: caixa.entrou,
       saiu: caixa.saiu,
       despesas: round2(despesas?.totals?.previsto ?? 0),
-      despesasPorCategoria: (despesas?.rows ?? []).map((r) => ({
-        categoria: r.categoryName,
-        total: round2(r.previsto),
-      })),
+      despesasPorCategoria,
       aReceber: fiado.aReceber,
       aReceberVencido: fiado.vencido,
       // Contagem pelos GRUPOS de status (fonte única em `os-status.ts`), nunca
@@ -118,6 +151,16 @@ export class MonthlyAggregatesService {
       clientesAtendidos: clientes?.active ?? 0,
       estoqueValor: estoque?.stockValue ?? 0,
       estoqueAbaixoMinimo: estoque?.belowMin ?? 0,
+    };
+
+    return {
+      numeros,
+      graficos: {
+        serieDiaria: [...porDia.entries()]
+          .map(([dia, valor]) => ({ dia, valor: round2(valor) }))
+          .sort((a, b) => a.dia.localeCompare(b.dia)),
+        despesasPorCategoria,
+      },
     };
   }
 

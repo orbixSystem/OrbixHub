@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../domain/monthly_models.dart';
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 
@@ -350,4 +351,181 @@ class FakeReportRepository implements ReportRepository {
         ReportMemberOption(id: 'm1', name: 'João Mecânico'),
         ReportMemberOption(id: 'm2', name: 'Ana Atendente'),
       ];
+
+  // --- Visão do mês e resumo ------------------------------------------------
+  //
+  // Um mês com HISTÓRIA, não números redondos: cresceu 12%, mas o crescimento
+  // foi fiado e a despesa subiu mais que a receita. É o cenário que a tela
+  // precisa saber mostrar — três setas verdes não provam nada sobre o layout,
+  // nem sobre a honestidade das cores.
+
+  static const _kpis = <KpiMensal>[
+    KpiMensal(
+      chave: 'faturado',
+      rotulo: 'Faturamento',
+      valor: 48200,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 43000, pct: 12.1),
+    ),
+    KpiMensal(
+      chave: 'recebido',
+      rotulo: 'Entrou no caixa',
+      valor: 41100,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 38000, pct: 8.2),
+    ),
+    KpiMensal(
+      chave: 'despesas',
+      rotulo: 'Despesas',
+      valor: 31300,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 24100, pct: 29.9),
+      maiorEhMelhor: false,
+    ),
+    KpiMensal(
+      chave: 'resultado',
+      rotulo: 'Resultado do caixa',
+      valor: 9800,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 13900, pct: -29.5),
+    ),
+    KpiMensal(
+      chave: 'aReceber',
+      rotulo: 'A receber',
+      valor: 7100,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 1730, pct: 310.4),
+      maiorEhMelhor: false,
+    ),
+    KpiMensal(
+      chave: 'ticket',
+      rotulo: 'Ticket médio',
+      valor: 602.5,
+      formato: 'dinheiro',
+      variacao: VariacaoMensal(anterior: 662, pct: -9),
+    ),
+    KpiMensal(
+      chave: 'osConcluidas',
+      rotulo: 'OS concluídas',
+      valor: 80,
+      variacao: VariacaoMensal(anterior: 65, pct: 23.1),
+    ),
+    KpiMensal(
+      chave: 'clientesNovos',
+      rotulo: 'Clientes novos',
+      valor: 12,
+      variacao: VariacaoMensal(anterior: 9, pct: 33.3),
+    ),
+  ];
+
+  static const _sinais = <SinalMensal>[
+    SinalMensal(
+      chave: 'fiado_crescendo',
+      severidade: 'alerta',
+      titulo: 'O fiado cresceu mais que o faturamento',
+      detalhe: 'Parte do crescimento do mês ainda não virou dinheiro em caixa.',
+      numeros: {'aReceber': 7100, 'pctFiado': 310.4, 'pctFaturado': 12.1},
+    ),
+    SinalMensal(
+      chave: 'despesa_subindo',
+      severidade: 'alerta',
+      titulo: 'As despesas subiram mais que o faturamento',
+      detalhe: 'O custo de operar cresceu acima do que a oficina produziu.',
+      numeros: {'despesas': 31300, 'pctDespesa': 29.9, 'pctFaturado': 12.1},
+    ),
+    SinalMensal(
+      chave: 'estoque_abaixo_minimo',
+      severidade: 'info',
+      titulo: '4 itens abaixo do mínimo',
+      detalhe: 'Peça que falta na hora do serviço vira OS parada.',
+      numeros: {'itens': 4, 'valorEstoque': 22300},
+    ),
+  ];
+
+  static const _periodo = PeriodoMensal(
+    de: '2026-09-01',
+    ate: '2026-09-30',
+    rotulo: 'Setembro/2026',
+  );
+
+  /// Um mês com ritmo irregular de propósito: picos na segunda semana e um
+  /// buraco no fim — é o que o gráfico de linha existe para mostrar.
+  static const _graficos = GraficosDoMes(
+    serieDiaria: [
+      PontoDiario(dia: '2026-09-01', valor: 1850),
+      PontoDiario(dia: '2026-09-02', valor: 2400),
+      PontoDiario(dia: '2026-09-03', valor: 980),
+      PontoDiario(dia: '2026-09-04', valor: 3100),
+      PontoDiario(dia: '2026-09-05', valor: 2750),
+      PontoDiario(dia: '2026-09-08', valor: 4200),
+      PontoDiario(dia: '2026-09-09', valor: 3850),
+      PontoDiario(dia: '2026-09-10', valor: 5100),
+      PontoDiario(dia: '2026-09-11', valor: 2300),
+      PontoDiario(dia: '2026-09-12', valor: 3400),
+      PontoDiario(dia: '2026-09-15', valor: 2900),
+      PontoDiario(dia: '2026-09-16', valor: 1750),
+      PontoDiario(dia: '2026-09-17', valor: 2100),
+      PontoDiario(dia: '2026-09-18', valor: 3650),
+      PontoDiario(dia: '2026-09-19', valor: 2480),
+      PontoDiario(dia: '2026-09-22', valor: 1200),
+      PontoDiario(dia: '2026-09-23', valor: 890),
+      PontoDiario(dia: '2026-09-24', valor: 1540),
+      PontoDiario(dia: '2026-09-25', valor: 980),
+      PontoDiario(dia: '2026-09-26', valor: 780),
+    ],
+    despesasPorCategoria: [
+      FatiaCategoria(categoria: 'Peças', total: 16400),
+      FatiaCategoria(categoria: 'Salários', total: 7200),
+      FatiaCategoria(categoria: 'Aluguel', total: 3800),
+      FatiaCategoria(categoria: 'Energia', total: 1900),
+      FatiaCategoria(categoria: 'Ferramentas', total: 1200),
+      FatiaCategoria(categoria: 'Impostos', total: 800),
+    ],
+  );
+
+  @override
+  Future<VisaoMensal> overview({String? mes}) async => const VisaoMensal(
+        periodo: _periodo,
+        kpis: _kpis,
+        sinais: _sinais,
+        graficos: _graficos,
+      );
+
+  @override
+  Future<ResumoMensalPagina> resumoMensal({String? mes}) async =>
+      const ResumoMensalPagina(
+        resumo: ResumoMensal(
+          period: '2026-09-01',
+          periodo: _periodo,
+          kpis: _kpis,
+          sinais: _sinais,
+          narrativa: NarrativaMensal(
+            titulo: 'Setembro fechou 12% acima de agosto, mas no fiado',
+            leitura:
+                'A oficina faturou R\$ 48.200 em setembro, 12% a mais que em '
+                'agosto, e concluiu 80 ordens. O dinheiro que entrou no caixa '
+                'subiu menos (8%), porque boa parte das vendas do mês ficou '
+                'anotada: o valor a receber passou de R\$ 1.730 para '
+                'R\$ 7.100. As despesas cresceram 30%, bem acima do '
+                'faturamento, e o resultado do caixa caiu para R\$ 9.800.',
+            alertas: [
+              'O fiado cresceu mais que o faturamento: parte do crescimento do '
+                  'mês ainda não virou dinheiro em caixa.',
+              'As despesas subiram 30% contra 12% do faturamento.',
+              '4 itens de estoque estão abaixo do mínimo.',
+            ],
+            recomendacoes: [
+              'Combine prazo de pagamento na hora de fiar: sem data, a dívida '
+                  'não entra em nenhuma fila de cobrança.',
+              'Abra as despesas por categoria e confira o que cresceu acima do '
+                  'normal em setembro.',
+              'Reponha os 4 itens abaixo do mínimo antes que uma OS pare '
+                  'esperando peça.',
+            ],
+          ),
+          aiModel: 'gemini-flash-latest',
+          generatedAt: '2026-10-01T04:03:00.000Z',
+        ),
+        periodos: ['2026-09-01', '2026-08-01', '2026-07-01'],
+      );
 }

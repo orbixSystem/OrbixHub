@@ -4,9 +4,11 @@ import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
 import '../../dashboard/domain/dashboard_models.dart';
 import '../../dashboard/presentation/period_controller.dart';
+import '../domain/monthly_models.dart';
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
+import 'report_tabs.dart';
 
 /// Injetado em `di.dart` com a impl real (dio). Tests sobrescrevem com o fake.
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
@@ -34,6 +36,53 @@ class SelectedReportController extends Notifier<ReportKind?> {
 
   void select(ReportKind kind) => state = kind;
 }
+
+/// Aba aberta em Relatórios. Começa na Visão: é a tela que responde sem
+/// ninguém escolher nada.
+final selectedTabProvider = NotifierProvider<SelectedTabController, ReportTab>(
+  SelectedTabController.new,
+);
+
+class SelectedTabController extends Notifier<ReportTab> {
+  @override
+  ReportTab build() => ReportTab.visao;
+
+  void select(ReportTab tab) => state = tab;
+}
+
+/// Mês analisado, no formato "2026-09". `null` = mês corrente.
+///
+/// Separado do seletor de período do dashboard de propósito: a leitura mensal é
+/// de MÊS FECHADO — um intervalo "últimos 30 dias" não tem mês anterior com que
+/// se comparar, e a comparação é metade do valor desta tela.
+final mesSelecionadoProvider =
+    NotifierProvider<MesSelecionadoController, String?>(
+  MesSelecionadoController.new,
+);
+
+class MesSelecionadoController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? mes) => state = mes;
+}
+
+/// A leitura do mês (KPIs + sinais), calculada no servidor.
+final visaoMensalProvider = FutureProvider<VisaoMensal>((ref) {
+  final mes = ref.watch(mesSelecionadoProvider);
+  return ref.watch(reportRepositoryProvider).overview(mes: mes);
+});
+
+/// O resumo ESCRITO do mês fechado, com os meses disponíveis.
+///
+/// Separado da visão porque as duas falham de formas diferentes: um mês
+/// corrente simplesmente não tem resumo (ele nasce no dia 1º), e isso não é
+/// erro — a tela mostra os números e explica que o texto vem quando o mês
+/// fechar.
+final resumoMensalProvider = FutureProvider<ResumoMensalPagina>((ref) {
+  final mes = ref.watch(mesSelecionadoProvider);
+  return ref.watch(reportRepositoryProvider).resumoMensal(mes: mes);
+});
 
 /// Opções de ordenação do relatório operacional de OS (chave = contrato com o
 /// backend; rótulo PT-BR). `recent` é o default.

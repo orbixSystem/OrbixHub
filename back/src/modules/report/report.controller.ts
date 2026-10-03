@@ -59,8 +59,12 @@ export class ReportController {
    * número da tela passaria a discordar do texto que o acompanha.
    */
   @Get('overview')
-  overview(@CurrentUser() user: AuthUser, @Query('mes') mes?: string) {
-    return this.mensal.calcular(user.tenantId, refDoMes(mes));
+  async overview(@CurrentUser() user: AuthUser, @Query('mes') mes?: string) {
+    const { metricas, graficos } = await this.mensal.calcularComGraficos(
+      user.tenantId,
+      refDoMes(mes),
+    );
+    return { ...metricas, graficos };
   }
 
   /**
