@@ -159,6 +159,19 @@ export const envSchema = z.object({
   // Token de leitura do repositório PRIVADO (secret — nunca vai para o app;
   // o cliente recebe só a URL assinada que o servidor resolve).
   GITHUB_RELEASES_TOKEN: z.string().optional(),
+  // --- IA (resumo mensal dos relatórios) ---
+  // Chave ÚNICA da Orbix: o cliente não configura nada. Ausente = o resumo
+  // mensal continua existindo, montado sem IA (NoopAiGateway) — a feature nunca
+  // depende de um provedor estar de pé.
+  GEMINI_API_KEY: z.string().optional(), // secret — nunca enviado ao front
+  // O id do modelo vem do env porque o catálogo do Google muda de nome e de
+  // faixa gratuita sem avisar; fixá-lo no código é agendar uma quebra futura.
+  GEMINI_MODEL: z.string().default('gemini-flash-latest'),
+  GEMINI_BASE_URL: z.string().default('https://generativelanguage.googleapis.com'),
+  // Curto de propósito: o job roda num laço por tenant, de madrugada. Provedor
+  // lento não pode segurar a fila — o texto de fallback já está pronto.
+  GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
   // 'minio' = S3-compatible (MinIO em dev / S3 em prod).
