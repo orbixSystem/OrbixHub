@@ -53,5 +53,10 @@ import { MonthlySummaryService } from './monthly/monthly-summary.service';
     // despercebida.
     { provide: AI_TEXT_GATEWAY, useClass: GeminiTextGateway },
   ],
+  // Só o job sai daqui, e só para o gatilho administrativo
+  // (`POST /admin/report/monthly/run`) poder chamá-lo fora do dia 1º.
+  // O resto fica dentro: quem quiser um relatório pede pela rota, não
+  // injetando o service de outro módulo.
+  exports: [MonthlySummaryJob],
 })
 export class ReportModule {}
