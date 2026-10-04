@@ -78,7 +78,7 @@ export class MonthlyAggregatesService {
     const modulos = await this.billing.getEnabledModules(tenantId);
     const tem = (k: string) => modulos.includes(k);
 
-    const [receita, vendas, caixa, despesas, clientes, estoque, fiado] =
+    const [receita, vendas, caixa, despesas, clientes, estoque, fiado, fiadoDoMes] =
       await Promise.all([
         tem('os')
           ? this.os.revenueSeries(janela)
@@ -101,6 +101,12 @@ export class MonthlyAggregatesService {
         tem('cashier') && opcoes.incluirSaldoAtual
           ? this.saldoAReceber(tenantId)
           : Promise.resolve({ aReceber: 0, vencido: 0 }),
+        // O fiado GERADO no mês é consultado sempre, inclusive para o mês de
+        // comparação: diferente do saldo (uma foto do agora), ele é um fato
+        // daquele mês e é o que torna "o fiado cresceu" uma frase verificável.
+        tem('cashier')
+          ? this.fiadoGeradoEm(tenantId, janela)
+          : Promise.resolve(0),
       ]);
 
     const faturadoOs = receita?.total ?? 0;
@@ -141,6 +147,7 @@ export class MonthlyAggregatesService {
       despesasPorCategoria,
       aReceber: fiado.aReceber,
       aReceberVencido: fiado.vencido,
+      fiadoDoMes,
       // Contagem pelos GRUPOS de status (fonte única em `os-status.ts`), nunca
       // por uma lista repetida aqui: o workflow já foi de 7 para 11 estados, e
       // uma cópia desatualizada faria o resumo contar errado em silêncio.
@@ -162,6 +169,27 @@ export class MonthlyAggregatesService {
         despesasPorCategoria,
       },
     };
+  }
+
+  /**
+   * Quanto do que foi vendido NAQUELE mês continua em aberto.
+   *
+   * O saldo total é uma foto do agora e não serve para comparar dois meses — o
+   * mês passado não tem uma foto própria que se consiga reconstruir. Este
+   * recorte, sim: olha os títulos ainda em aberto e separa os que NASCERAM na
+   * janela. É o que responde "quanto do meu mês ficou anotado".
+   */
+  private async fiadoGeradoEm(tenantId: string, janela: Janela): Promise<number> {
+    const ator = { tenantId, userId: 'job', role: 'owner', jti: 'job' } as AuthUser;
+    const { items } = await this.receivables.listOpenTitles(ator);
+    const de = janela.from.getTime();
+    const ate = janela.to.getTime();
+    const total = items.reduce((acc, t) => {
+      const criado = t.createdAt ? new Date(t.createdAt).getTime() : NaN;
+      if (Number.isNaN(criado) || criado < de || criado > ate) return acc;
+      return acc + t.balance;
+    }, 0);
+    return round2(total);
   }
 
   /**

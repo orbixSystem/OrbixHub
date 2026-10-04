@@ -31,6 +31,7 @@ const base: NumerosDoMes = {
   ],
   aReceber: 5000,
   aReceberVencido: 500,
+  fiadoDoMes: 1200,
   osConcluidas: 80,
   osCanceladas: 4,
   osAbertas: 10,
@@ -120,9 +121,13 @@ describe('sinais — o que merece atenção', () => {
   it('fiado crescendo MAIS que a receita', () => {
     // O caso clássico: o mês "cresceu", mas o crescimento foi fiado. Faturar
     // sem receber é o jeito mais comum de uma oficina quebrar vendendo bem.
+    //
+    // Compara o fiado GERADO em cada mês. O saldo total (`aReceber`) é uma foto
+    // do agora: o mês anterior chegaria sempre zerado, a variação viria `null`
+    // e este alerta — o mais importante do relatório — nunca dispararia.
     const r = calcular(
-      { faturado: 55000, aReceber: 15000 },
-      { faturado: 50000, aReceber: 5000 },
+      { faturado: 55000, fiadoDoMes: 15000 },
+      { faturado: 50000, fiadoDoMes: 5000 },
     );
     const s = sinal(r, 'fiado_crescendo')!;
     expect(s).toBeDefined();
@@ -131,8 +136,8 @@ describe('sinais — o que merece atenção', () => {
 
   it('fiado crescendo junto com a receita NÃO é alerta', () => {
     const r = calcular(
-      { faturado: 60000, aReceber: 6000 },
-      { faturado: 50000, aReceber: 5000 },
+      { faturado: 60000, fiadoDoMes: 6000 },
+      { faturado: 50000, fiadoDoMes: 5000 },
     );
     expect(sinal(r, 'fiado_crescendo')).toBeUndefined();
   });
@@ -141,8 +146,8 @@ describe('sinais — o que merece atenção', () => {
     // 50 → 200 reais é +300%, e não é notícia. Sem piso absoluto, o resumo
     // gritaria por qualquer troco e o dono aprenderia a ignorar os alertas.
     const r = calcular(
-      { faturado: 50000, aReceber: 200 },
-      { faturado: 50000, aReceber: 50 },
+      { faturado: 50000, fiadoDoMes: 200 },
+      { faturado: 50000, fiadoDoMes: 50 },
     );
     expect(sinal(r, 'fiado_crescendo')).toBeUndefined();
   });
@@ -207,6 +212,7 @@ describe('sinais — o que merece atenção', () => {
         despesasPorCategoria: [],
         aReceber: 0,
         aReceberVencido: 0,
+        fiadoDoMes: 0,
         osConcluidas: 0,
         osCanceladas: 0,
         osAbertas: 0,
@@ -231,6 +237,17 @@ describe('sinais — o que merece atenção', () => {
     expect(severidades.indexOf('critico')).toBeLessThan(
       severidades.indexOf('info'),
     );
+  });
+
+  it('o SALDO de fiado não dispara alerta — só o fiado gerado no mês', () => {
+    // O saldo é a mesma foto nos dois meses, então não há o que comparar. Se a
+    // regra olhasse para ele, o alerta nunca sairia (variação a partir de zero
+    // é `null`) ou sairia sempre, conforme o acaso do dia da consulta.
+    const r = calcular(
+      { faturado: 50000, aReceber: 90000, fiadoDoMes: 1000 },
+      { faturado: 50000, aReceber: 0, fiadoDoMes: 1000 },
+    );
+    expect(sinal(r, 'fiado_crescendo')).toBeUndefined();
   });
 
   it('mês saudável não inventa problema', () => {

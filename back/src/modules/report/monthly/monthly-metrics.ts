@@ -29,10 +29,24 @@ export interface NumerosDoMes {
   /** Despesas do mês, pelo VENCIMENTO. */
   despesas: number;
   despesasPorCategoria: Array<{ categoria: string; total: number }>;
-  /** Saldo em aberto (fiado) no fim do mês. */
+  /**
+   * Saldo em aberto AGORA — a foto do fiado, não um fato do mês.
+   *
+   * Por ser uma foto, não serve para comparar dois meses: o mês passado não
+   * tem um "saldo de então" que a gente consiga reconstruir.
+   */
   aReceber: number;
   /** Parte do `aReceber` já vencida. */
   aReceberVencido: number;
+  /**
+   * Quanto do que foi vendido NAQUELE mês continua em aberto.
+   *
+   * Este sim é um fato do mês, e é o que permite comparar: "em agosto ficaram
+   * R$ 1.700 anotados; em setembro, R$ 7.100". Sem ele o alerta de fiado
+   * crescendo nunca dispararia — o saldo do mês anterior chegaria sempre zero,
+   * e a regra (corretamente) se recusa a calcular variação a partir de zero.
+   */
+  fiadoDoMes: number;
   osConcluidas: number;
   osCanceladas: number;
   osAbertas: number;
@@ -231,13 +245,15 @@ function detectarSinais(mes: NumerosDoMes, anterior: NumerosDoMes | null): Sinal
 
   if (anterior) {
     const cresceuFaturado = variacao(mes.faturado, anterior.faturado);
-    const cresceuFiado = variacao(mes.aReceber, anterior.aReceber);
+    // Compara o fiado GERADO em cada mês, não o saldo de hoje: o saldo é uma
+    // foto do agora e o mês passado não tem uma foto própria.
+    const cresceuFiado = variacao(mes.fiadoDoMes, anterior.fiadoDoMes);
 
     // Faturar sem receber é o jeito mais comum de uma oficina quebrar vendendo
     // bem — e é invisível num relatório de faturamento.
     if (
       cresceuFiado &&
-      mes.aReceber > PISO_FIADO &&
+      mes.fiadoDoMes > PISO_FIADO &&
       cresceuFiado.pct > (cresceuFaturado?.pct ?? 0) &&
       cresceuFiado.pct > 0
     ) {
@@ -248,8 +264,8 @@ function detectarSinais(mes: NumerosDoMes, anterior: NumerosDoMes | null): Sinal
         detalhe:
           'Parte do crescimento do mês ainda não virou dinheiro em caixa.',
         numeros: {
-          aReceber: mes.aReceber,
-          aReceberAnterior: anterior.aReceber,
+          fiadoDoMes: mes.fiadoDoMes,
+          fiadoDoMesAnterior: anterior.fiadoDoMes,
           pctFiado: cresceuFiado.pct,
           pctFaturado: cresceuFaturado?.pct ?? 0,
         },
