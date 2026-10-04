@@ -88,71 +88,100 @@ class DonutCard extends StatelessWidget {
     ];
     final paleta = neu.glyphs;
 
-    Color cor(int i) => itens[i].cor ?? paleta[i % paleta.length];
 
-    final rosca = PieChart(
-      PieChartData(
-        sectionsSpace: 2,
-        centerSpaceRadius: compacto ? 30 : 42,
-        sections: [
-          for (var i = 0; i < itens.length; i++)
-            PieChartSectionData(
-              value: itens[i].valor,
-              color: cor(i),
-              radius: compacto ? 18 : 26,
-              showTitle: false,
-            ),
-        ],
-      ),
-    );
+    Color corDe(int i) => itens[i].cor ?? paleta[i % paleta.length];
+
+    // A ROSCA ACOMPANHA O ESPAÇO.
+    //
+    // Antes o raio era fixo (68px) e o card media 460px de altura: sobrava
+    // metade do card vazia com uma rosquinha perdida no canto. Agora o
+    // diâmetro sai do lado disponível, e o card pede só a altura que a rosca
+    // precisa — o gráfico passa a ocupar o espaço que tem, em vez de o espaço
+    // mandar nele.
+    Widget roscaCom(double lado) {
+      final raioExterno = lado / 2;
+      final furo = raioExterno * 0.52;
+      return PieChart(
+        PieChartData(
+          sectionsSpace: 2,
+          centerSpaceRadius: furo,
+          sections: [
+            for (var i = 0; i < itens.length; i++)
+              PieChartSectionData(
+                value: itens[i].valor,
+                color: corDe(i),
+                radius: raioExterno - furo,
+                showTitle: false,
+              ),
+          ],
+        ),
+      );
+    }
+
     final legenda = NeuChartLegend(
       items: [
         for (var i = 0; i < itens.length; i++)
           NeuLegendItem(
-            color: cor(i),
+            color: corDe(i),
             label: itens[i].rotulo,
             value: itens[i].texto,
           ),
       ],
     );
 
-    return NeuChartCard(
-      title: titulo,
-      aspect: compacto ? 2.4 : 1.6,
-      minHeight: compacto ? 150 : 220,
-      maxHeight: compacto ? 220 : 460,
-      trailing: total == null
-          ? null
-          : Text(
-              total!,
-              style: TextStyle(
-                color: neu.ink,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-      child: LayoutBuilder(
-        builder: (context, c) {
-          if (c.maxWidth < 460) {
-            return Column(
-              children: [
-                Expanded(child: rosca),
-                const SizedBox(height: 14),
-                legenda,
-              ],
-            );
-          }
-          return Row(
+    final lado = compacto ? 148.0 : 208.0;
+
+    return NeuCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              Expanded(flex: 3, child: rosca),
-              const SizedBox(width: 16),
               Expanded(
-                flex: 4,
-                child: SingleChildScrollView(child: legenda),
+                child: Text(
+                  titulo,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
+              if (total != null)
+                Text(
+                  total!,
+                  style: TextStyle(
+                    color: neu.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, c) {
+              // Estreito: rosca em cima, legenda embaixo. Lado a lado a legenda
+              // fica com menos de 150px e "Ferramentas R$ 1.200,00" não cabe —
+              // espremer rótulo e valor é perder a única coisa que ela faz.
+              if (c.maxWidth < 460) {
+                return Column(
+                  children: [
+                    SizedBox(height: lado, child: roscaCom(lado)),
+                    const SizedBox(height: 18),
+                    legenda,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(width: lado, height: lado, child: roscaCom(lado)),
+                  const SizedBox(width: 30),
+                  Expanded(child: legenda),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }

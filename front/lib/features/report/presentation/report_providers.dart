@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
-import '../../dashboard/domain/dashboard_models.dart';
-import '../../dashboard/presentation/period_controller.dart';
 import '../domain/monthly_models.dart';
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
@@ -16,11 +14,28 @@ final reportRepositoryProvider = Provider<ReportRepository>((ref) {
       'reportRepositoryProvider must be overridden in di.dart');
 });
 
-/// Converte o `MetricsRange` do seletor de período (reusado do dashboard) no
-/// `ReportRange` desta feature. Reage à seleção de período.
+/// O período de TODOS os relatórios — derivado do mês escolhido no topo.
+///
+/// Antes vinha do seletor do dashboard, e o resultado era uma tela com duas
+/// respostas para "quando": o cabeçalho dizia "Setembro/2026" e a aba abaixo
+/// mostrava os últimos 30 dias. Os números não batiam entre as abas, e não
+/// havia como o usuário saber qual dos dois estava certo.
+///
+/// Mês corrente vai até AGORA, não até o fim do mês: somar os dias que ainda
+/// não aconteceram achataria qualquer média.
 final reportRangeProvider = Provider<ReportRange>((ref) {
-  final MetricsRange r = ref.watch(metricsRangeProvider);
-  return ReportRange(from: r.from, to: r.to);
+  final mes = ref.watch(mesSelecionadoProvider);
+  final agora = DateTime.now();
+  if (mes == null) {
+    return ReportRange(from: DateTime(agora.year, agora.month, 1), to: agora);
+  }
+  final partes = mes.split('-');
+  final ano = int.tryParse(partes.first) ?? agora.year;
+  final m = partes.length > 1 ? (int.tryParse(partes[1]) ?? agora.month) : agora.month;
+  final inicio = DateTime(ano, m, 1);
+  // Último instante do mês: dia 0 do mês seguinte é o último dia deste.
+  final fim = DateTime(ano, m + 1, 0, 23, 59, 59, 999);
+  return ReportRange(from: inicio, to: fim.isAfter(agora) ? agora : fim);
 });
 
 /// Relatório selecionado no seletor. Default: o primeiro disponível (definido na

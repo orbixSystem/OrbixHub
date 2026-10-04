@@ -15,11 +15,11 @@ import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/session_state.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
-import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
     show osStatuses, osStatusLabel, OsStatusChip;
 import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../domain/report_models.dart';
+import 'widgets/charts/barras_por_dia.dart';
 import 'widgets/charts/donut_card.dart';
 import 'widgets/charts/ranking_barras.dart';
 import '../domain/report_repository.dart';
@@ -125,7 +125,10 @@ class _Cabecalho extends ConsumerWidget {
         ),
       ],
     );
-    if (aba != ReportTab.visao) return titulo;
+    // O seletor de mês aparece em TODAS as abas, porque agora ele governa
+    // todas. Escondê-lo fora da Visão deixaria o usuário vendo números de
+    // setembro numa aba sem nada na tela dizendo que o mês é setembro — nem
+    // como trocá-lo sem voltar.
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -326,27 +329,11 @@ class _SecoesDaAba extends StatelessWidget {
             Divider(color: neu.line, height: 1),
             const SizedBox(height: 24),
           ],
-          // Duas linhas em vez de "Grupo · Rótulo": o ponto médio junta duas
-          // informações de níveis diferentes numa linha só e obriga o olho a
-          // separá-las de novo. O módulo-fonte é contexto; o relatório é o
-          // título.
-          Text(
-            specs[i].group,
-            style: TextStyle(
-              color: neu.inkFaint,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            specs[i].label,
-            style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                  color: neu.ink,
-                  letterSpacing: -0.3,
-                ),
-          ),
-          const SizedBox(height: 16),
+          // SEM cabeçalho de seção: cada aba tem um relatório só, e ele já traz
+          // o próprio título junto dos botões de exportação. Dois títulos
+          // seguidos dizendo a mesma coisa ("Despesas · Por categoria" e
+          // "Despesas por categoria") é ruído que o olho precisa descartar
+          // antes de chegar ao conteúdo.
           _ReportContent(me: me, spec: specs[i]),
         ],
       ],
@@ -382,7 +369,11 @@ class _FiltersBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final usesPeriod = kind != ReportKind.inventoryPosition;
+    // O período NÃO é mais escolhido aqui: quem manda é o seletor de mês do
+    // cabeçalho, e ele governa todas as abas. Dois controles de tempo na mesma
+    // tela faziam o cabeçalho dizer "Setembro" enquanto a aba mostrava os
+    // últimos 30 dias — números diferentes para a mesma pergunta, sem nada que
+    // dissesse qual valia.
     final filters = ref.watch(reportFiltersProvider);
 
     final member = _MemberFilter(
@@ -403,13 +394,12 @@ class _FiltersBar extends ConsumerWidget {
       onChanged: (v) => ref.read(reportFiltersProvider.notifier).setLimit(v),
     );
 
-    // Mobile: layout enxuto — presets em chips (PeriodSelector) e os campos
-    // pareados em 2 colunas, sem itens soltos empilhados com muito respiro.
+    // Mobile: os campos pareados em 2 colunas, sem itens soltos empilhados
+    // com muito respiro.
     if (context.isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (usesPeriod) const PeriodSelector(),
           if (kind == ReportKind.osOperational) ...[
             const SizedBox(height: 12),
             Row(
@@ -448,7 +438,6 @@ class _FiltersBar extends ConsumerWidget {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (usesPeriod) const PeriodSelector(),
         if (kind == ReportKind.osOperational) ...[
           member,
           status,
@@ -783,16 +772,17 @@ class _AsyncReport<T> extends StatelessWidget {
             // Cabeçalho do relatório: título à esquerda, ações de export à direita.
             // Quebra para baixo em telas estreitas (Wrap com alinhamento entre as
             // extremidades).
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 12,
-              spacing: 16,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                // `Expanded` no título: num `Wrap`, `spaceBetween` não empurra nada,
+                // porque ele se dimensiona pelo conteúdo — os botões ficavam
+                // colados no título em vez de na borda do card.
+                Expanded(child: Text(
                   table.title,
                   style: Theme.of(context).textTheme.titleLarge,
-                ),
+                ),),
+                const SizedBox(width: 16),
                 _ExportButtons(table: table, company: company, period: period),
               ],
             ),
@@ -849,16 +839,17 @@ class _InventoryReport extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 12,
-              spacing: 16,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                // `Expanded` no título: num `Wrap`, `spaceBetween` não empurra nada,
+                // porque ele se dimensiona pelo conteúdo — os botões ficavam
+                // colados no título em vez de na borda do card.
+                Expanded(child: Text(
                   'Posição de estoque',
                   style: Theme.of(context).textTheme.titleLarge,
-                ),
+                ),),
+                const SizedBox(width: 16),
                 _ServerExportButtons(company: company),
               ],
             ),
@@ -1174,16 +1165,17 @@ class _CashFlowReport extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 12,
-              spacing: 16,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                // `Expanded` no título: num `Wrap`, `spaceBetween` não empurra nada,
+                // porque ele se dimensiona pelo conteúdo — os botões ficavam
+                // colados no título em vez de na borda do card.
+                Expanded(child: Text(
                   'Caixa — recebido por forma',
                   style: Theme.of(context).textTheme.titleLarge,
-                ),
+                ),),
+                const SizedBox(width: 16),
                 _ExportButtons(table: table, company: company, period: period),
               ],
             ),
@@ -1332,6 +1324,17 @@ class _DataTableCard extends StatefulWidget {
 }
 
 class _DataTableCardState extends State<_DataTableCard> {
+  /// Controlador PRÓPRIO da rolagem vertical da tabela. Sem ele, a barra e a
+  /// lista podem acabar presas ao scroll da página, e o gesto vai parar no
+  /// lugar errado.
+  final _vertical = ScrollController();
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    super.dispose();
+  }
+
   int? _sortCol;
   bool _asc = true;
 
@@ -1374,15 +1377,19 @@ class _DataTableCardState extends State<_DataTableCard> {
     }
     final ordered = [...dataRows, ...totalRows];
 
-    return NeuCard(
-      padding: EdgeInsets.zero,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(NeuTokens.rCard),
-        // Ocupa a largura toda do card: força a DataTable a no mínimo a largura
-        // disponível (ela distribui o excedente entre as colunas); rola na
-        // horizontal só se o conteúdo passar da tela.
-        child: LayoutBuilder(
-          builder: (context, c) => SingleChildScrollView(
+    // Tabela longa rola DENTRO do card, com barra sempre visível.
+    //
+    // Sem teto, um relatório de 240 linhas empurra a página por três telas e
+    // tudo que vem depois (outros gráficos, o rodapé) fica inalcançável na
+    // prática. Com teto e SEM barra visível seria pior ainda: pareceria que a
+    // tabela acaba ali. Por isso `thumbVisibility` e a contagem no rodapé.
+    final longa = ordered.length > 12;
+
+    // Ocupa a largura toda do card: força a DataTable a no mínimo a largura
+    // disponível (ela distribui o excedente entre as colunas); rola na
+    // horizontal só se o conteúdo passar da tela.
+    final Widget tabela = LayoutBuilder(
+      builder: (context, c) => SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: c.maxWidth),
@@ -1444,6 +1451,44 @@ class _DataTableCardState extends State<_DataTableCard> {
               ),
             ),
           ),
+    );
+
+    return NeuCard(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (longa)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: Scrollbar(
+                  controller: _vertical,
+                  // Barra SEMPRE visível: a lição do cronograma de parcelas —
+                  // uma lista cortada por uma borda invisível parece completa,
+                  // e o conteúdo some sem avisar.
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _vertical,
+                    primary: false,
+                    child: tabela,
+                  ),
+                ),
+              )
+            else
+              tabela,
+            if (longa)
+              Container(
+                width: double.infinity,
+                color: neu.surfaceHi,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Text(
+                  '${ordered.length} linhas — role dentro da tabela para ver todas',
+                  style: TextStyle(color: neu.inkMuted, fontSize: 12.5),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -1975,17 +2020,21 @@ class _ChegadaDeClientes extends StatelessWidget {
       porDia[p.day] = (porDia[p.day] ?? 0) + p.count;
     }
     final dias = porDia.keys.toList()..sort();
-    return RankingBarras(
-      titulo: 'Clientes novos por dia',
+    final total = porDia.values.fold<int>(0, (a, b) => a + b);
+    // Série CRONOLÓGICA, não ranking: quando todos os dias têm um cliente
+    // novo, um ranking vira doze barras idênticas e não informa nada. Na linha
+    // do tempo a mesma série responde o que se quer saber — se o movimento é
+    // constante ou veio de um pico que não se repete.
+    return BarrasPorDia(
+      titulo: 'Quando os clientes novos chegaram',
       vazio: 'Nenhum cliente novo no período.',
-      limite: 12,
-      total: '${porDia.values.fold<int>(0, (a, b) => a + b)} no período',
-      itens: [
+      total: total == 1 ? '1 no mês' : '$total no mês',
+      dias: [
         for (final d in dias)
-          BarraRanking(
-            rotulo: _dayShort(d),
+          DiaDaSerie(
+            dia: d,
             valor: porDia[d]!.toDouble(),
-            texto: '${porDia[d]}',
+            texto: porDia[d] == 1 ? '1 cliente' : '${porDia[d]} clientes',
           ),
       ],
     );
@@ -2144,16 +2193,17 @@ class _OsOperationalReportState extends ConsumerState<_OsOperationalReport> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 12,
-              spacing: 16,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
+                // `Expanded` no título: num `Wrap`, `spaceBetween` não empurra nada,
+                // porque ele se dimensiona pelo conteúdo — os botões ficavam
+                // colados no título em vez de na borda do card.
+                Expanded(child: Text(
                   'OS — Operacional',
                   style: Theme.of(context).textTheme.titleLarge,
-                ),
+                ),),
+                const SizedBox(width: 16),
                 _OsExportButtons(company: widget.company),
               ],
             ),

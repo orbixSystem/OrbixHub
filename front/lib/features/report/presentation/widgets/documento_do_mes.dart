@@ -219,9 +219,21 @@ class _Assinatura extends StatelessWidget {
 /// e aproveita para explicar quando o texto chega, que é informação que o dono
 /// ainda não tem.
 class DocumentoAindaNaoEscrito extends StatelessWidget {
-  const DocumentoAindaNaoEscrito({super.key, required this.rotuloDoMes});
+  const DocumentoAindaNaoEscrito({
+    super.key,
+    required this.rotuloDoMes,
+    required this.mesCorrente,
+  });
 
   final String rotuloDoMes;
+
+  /// O mês analisado é o que está correndo agora?
+  ///
+  /// Muda o que a ausência SIGNIFICA: no mês corrente o texto ainda não existe
+  /// porque o mês não fechou; num mês passado ele não existe porque ninguém o
+  /// gerou. Dizer "o mês ainda está em andamento" sobre setembro em outubro é
+  /// falso, e quem lê para de confiar no resto da página.
+  final bool mesCorrente;
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +255,9 @@ class DocumentoAindaNaoEscrito extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: Text(
-              'O mês ainda está em andamento',
+              mesCorrente
+                  ? 'O mês ainda está em andamento'
+                  : 'Este mês não teve leitura escrita',
               style: Theme.of(context).textTheme.headlineSmall!.copyWith(
                     color: neu.ink,
                     height: 1.2,
@@ -257,9 +271,12 @@ class DocumentoAindaNaoEscrito extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: Text(
-              'A leitura escrita chega no primeiro dia do próximo mês, com o '
-              'mês fechado, e você recebe um aviso. Os números abaixo já são '
-              'de agora.',
+              mesCorrente
+                  ? 'A leitura escrita chega no primeiro dia do próximo mês, '
+                      'com o mês fechado, e você recebe um aviso. Os números '
+                      'abaixo já são de agora.'
+                  : 'O texto é escrito uma vez, nos primeiros dias do mês '
+                      'seguinte. Os números deste mês estão todos abaixo.',
               style: TextStyle(
                 color: neu.inkMuted,
                 fontSize: 15,

@@ -25,7 +25,6 @@ class LivroDoMes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (kpis.isEmpty) return const SizedBox.shrink();
-    final neu = context.neu;
     final abertura = kpis.first;
     final demais = kpis.skip(1).toList();
 
@@ -36,6 +35,13 @@ class LivroDoMes extends StatelessWidget {
         // corpo menor e coluna estreita. O alinhamento da vírgula — a razão de
         // existir a coluna — é o que NÃO pode ser sacrificado.
         final compacto = c.maxWidth < 400;
+        // Em tela larga o livro vira DUAS colunas de lançamentos.
+        //
+        // Numa coluna só, a 1240px, o rótulo fica na borda esquerda e o valor
+        // na direita: o olho atravessa um palmo de vazio para ligar "Despesas"
+        // a "R$ 31.300,00", e erra de linha. Duas colunas encurtam esse
+        // caminho pela metade e ainda cabem na altura da tela.
+        final duasColunas = c.maxWidth >= 920;
         return NeuCard(
           padding: EdgeInsets.fromLTRB(compacto ? 16 : 22, 20, compacto ? 16 : 22, 8),
           child: Column(
@@ -43,14 +49,51 @@ class LivroDoMes extends StatelessWidget {
             children: [
               _Abertura(kpi: abertura, serie: serie),
               const SizedBox(height: 18),
-              for (final k in demais) ...[
-                Divider(height: 1, thickness: _fio(context), color: neu.line),
-                _Linha(kpi: k, compacto: compacto),
-              ],
+              if (duasColunas)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _Coluna(kpis: _metade(demais, 0))),
+                    const SizedBox(width: 36),
+                    Expanded(child: _Coluna(kpis: _metade(demais, 1))),
+                  ],
+                )
+              else
+                _Coluna(kpis: demais, compacto: compacto),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Divide a lista ao meio, preservando a ordem de leitura: a primeira metade
+/// na coluna da esquerda, a segunda na direita.
+List<KpiMensal> _metade(List<KpiMensal> todos, int qual) {
+  final corte = (todos.length / 2).ceil();
+  return qual == 0 ? todos.sublist(0, corte) : todos.sublist(corte);
+}
+
+/// Uma coluna de lançamentos, com o fio entre eles.
+class _Coluna extends StatelessWidget {
+  const _Coluna({required this.kpis, this.compacto = false});
+
+  final List<KpiMensal> kpis;
+  final bool compacto;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final k in kpis) ...[
+          Divider(height: 1, thickness: _fio(context), color: neu.line),
+          _Linha(kpi: k, compacto: compacto),
+        ],
+      ],
     );
   }
 }
@@ -111,11 +154,18 @@ class _Abertura extends StatelessWidget {
         ),
         if (serie.length > 2) ...[
           const SizedBox(height: 14),
-          SizedBox(
-            height: 38,
-            child: Sparkline(
-              valores: [for (final p in serie) p.valor.toDouble()],
-              cor: neu.accent,
+          // Largura limitada: esticada por 1240px, a linha do mês perde
+          // amplitude e vira um rabisco decorativo ao lado do número. Num
+          // traço curto a variação do mês volta a ser visível — e é só isso
+          // que ela precisa mostrar aqui; o gráfico grande fica mais abaixo.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SizedBox(
+              height: 44,
+              child: Sparkline(
+                valores: [for (final p in serie) p.valor.toDouble()],
+                cor: neu.accent,
+              ),
             ),
           ),
         ],

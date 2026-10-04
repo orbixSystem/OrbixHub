@@ -40,7 +40,10 @@ class VisaoTab extends ConsumerWidget {
             data: (pagina) {
               final resumo = pagina.resumo;
               return resumo == null
-                  ? DocumentoAindaNaoEscrito(rotuloDoMes: visao.periodo.rotulo)
+                  ? DocumentoAindaNaoEscrito(
+                      rotuloDoMes: visao.periodo.rotulo,
+                      mesCorrente: ref.watch(mesSelecionadoProvider) == null,
+                    )
                   : DocumentoDoMes(resumo: resumo);
             },
           ),

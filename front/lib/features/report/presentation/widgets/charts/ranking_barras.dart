@@ -82,7 +82,13 @@ class RankingBarras extends StatelessWidget {
 
     return NeuCard(
       padding: const EdgeInsets.all(20),
-      child: Column(
+      // Barra de 1240px é tinta demais para comparar quatro itens: a diferença
+      // entre 60% e 70% de uma barra enorme some, e o olho ainda percorre a
+      // tela inteira de volta até o rótulo. Num traço de ~820px a proporção
+      // continua clara e a leitura cabe num golpe de vista.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _Titulo(titulo: titulo, total: total),
@@ -101,6 +107,7 @@ class RankingBarras extends StatelessWidget {
               ),
             ),
         ],
+        ),
       ),
     );
   }
