@@ -11,7 +11,16 @@ import 'report_catalog.dart';
 /// "como foi o mês" sem ninguém escolher nada; as outras três agrupam os
 /// detalhamentos por assunto, do jeito que a pergunta nasce ("quanto entrou?",
 /// "como foi a oficina?", "quem são meus clientes?").
-enum ReportTab { visao, dinheiro, operacao, clientes }
+enum ReportTab {
+  visao,
+  faturamento,
+  caixa,
+  despesas,
+  ordens,
+  equipe,
+  clientes,
+  estoque,
+}
 
 class ReportTabSpec {
   const ReportTabSpec({
@@ -33,22 +42,32 @@ class ReportTabSpec {
 
 /// Em que aba cada relatório mora. Fora da função de montagem para que a
 /// resposta seja a mesma em qualquer lugar que precise dela.
+/// Uma aba por assunto, e só um relatório por aba.
+///
+/// Antes três abas abrigavam oito relatórios empilhados, e a página de
+/// "Dinheiro" rolava por três tabelas inteiras. Assunto por assunto a página
+/// termina na altura da tela — e escolher uma aba é mais barato que rolar
+/// procurando onde o próximo relatório começa.
 const Map<ReportKind, ReportTab> _abaDoRelatorio = {
-  ReportKind.revenue: ReportTab.dinheiro,
-  ReportKind.cashFlow: ReportTab.dinheiro,
-  ReportKind.expenses: ReportTab.dinheiro,
-  ReportKind.osOperational: ReportTab.operacao,
-  ReportKind.team: ReportTab.operacao,
-  ReportKind.topItems: ReportTab.operacao,
-  ReportKind.inventoryPosition: ReportTab.operacao,
+  ReportKind.revenue: ReportTab.faturamento,
+  ReportKind.cashFlow: ReportTab.caixa,
+  ReportKind.expenses: ReportTab.despesas,
+  ReportKind.osOperational: ReportTab.ordens,
+  ReportKind.topItems: ReportTab.ordens,
+  ReportKind.team: ReportTab.equipe,
+  ReportKind.inventoryPosition: ReportTab.estoque,
   ReportKind.customers: ReportTab.clientes,
 };
 
 const _ordem = [
   (ReportTab.visao, 'Visão', Icons.insights_rounded),
-  (ReportTab.dinheiro, 'Dinheiro', Icons.payments_outlined),
-  (ReportTab.operacao, 'Operação', Icons.build_outlined),
+  (ReportTab.faturamento, 'Faturamento', Icons.trending_up_rounded),
+  (ReportTab.caixa, 'Caixa', Icons.point_of_sale_outlined),
+  (ReportTab.despesas, 'Despesas', Icons.receipt_long_outlined),
+  (ReportTab.ordens, 'Ordens', Icons.build_outlined),
+  (ReportTab.equipe, 'Equipe', Icons.groups_outlined),
   (ReportTab.clientes, 'Clientes', Icons.people_alt_outlined),
+  (ReportTab.estoque, 'Estoque', Icons.inventory_2_outlined),
 ];
 
 /// As abas que este usuário deve ver, derivadas SOMENTE do `/me`.

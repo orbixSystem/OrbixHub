@@ -18,7 +18,10 @@ import '../../dashboard/presentation/widgets/metric_card.dart'
 import '../../dashboard/presentation/widgets/period_selector.dart';
 import '../../os/presentation/os_status.dart'
     show osStatuses, osStatusLabel, OsStatusChip;
+import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../domain/report_models.dart';
+import 'widgets/charts/donut_card.dart';
+import 'widgets/charts/ranking_barras.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
 import 'report_tabs.dart';
@@ -670,6 +673,23 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(expensesReportProvider),
           tableOf: expensesTable,
           isEmpty: (r) => r.rows.isEmpty,
+          // "Para onde vai o dinheiro" é uma pergunta de COMPOSIÇÃO, e é
+          // exatamente o que um donut responde de um olhar. A tabela continua
+          // embaixo, ordenada pelo maior gasto, para quem precisa do número.
+          chartOf: (r) => DonutCard(
+            titulo: 'Para onde foi o dinheiro',
+            total: formatMoney(r.totals.previsto),
+            vazio: 'Nenhuma despesa no período.',
+            fatias: [
+              for (final linha in r.rows)
+                FatiaDonut(
+                  rotulo: linha.categoryName,
+                  valor: linha.previsto.toDouble(),
+                  texto: formatMoney(linha.previsto),
+                  cor: _corDaCategoria(context, linha.categoryColor),
+                ),
+            ],
+          ),
           summaryOf: (r) => [
             ('Previsto no período', formatMoney(r.totals.previsto)),
             ('Já pago', formatMoney(r.totals.pago)),
@@ -701,6 +721,19 @@ class _ReportBody extends ConsumerWidget {
 /// período selecionado. O faturamento é obrigatório (módulo `os`); clientes e
 /// estoque só entram quando o tenant tem esses módulos. Sem tabela/export — é um
 /// dashboard. Respeita o seletor de período (via `revenueReportProvider` etc.).
+/// A cor que a categoria de despesa já tem no produto ("#E53935").
+///
+/// Usar a mesma cor da categoria em todo lugar é o que impede o donut de dizer
+/// uma coisa e a tela de Despesas outra. Cor inválida ou ausente cai na paleta
+/// do design system.
+Color? _corDaCategoria(BuildContext context, String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  final limpo = hex.replaceAll('#', '').trim();
+  if (limpo.length != 6) return null;
+  final v = int.tryParse(limpo, radix: 16);
+  return v == null ? null : Color(0xFF000000 | v);
+}
+
 /// Rótulo curto de um dia da série ('YYYY-MM-DD' → 'dd/MM') para eixos.
 String _dayShort(String day) {
   final parts = day.split('-');
@@ -712,23 +745,6 @@ String _dayShort(String day) {
 String _clip(String s, int max) =>
     s.length > max ? '${s.substring(0, max)}…' : s;
 
-class _ChartEmpty extends StatelessWidget {
-  const _ChartEmpty();
-
-  static const message = 'Sem dados no período.';
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        message,
-        style: TextStyle(color: context.neu.inkMuted, fontSize: 14),
-      ),
-    );
-  }
-}
-
-/// Corpo de carregamento de um gráfico (spinner centralizado).
 class _AsyncReport<T> extends StatelessWidget {
   const _AsyncReport({
     required this.async,
@@ -855,6 +871,26 @@ class _InventoryReport extends ConsumerWidget {
             if (empty)
               const _Empty(message: 'Sem itens em estoque.')
             else ...[
+              // Onde o dinheiro está parado. Uma tabela de centenas de itens
+              // não responde "o que concentra meu capital" — e é por aí que se
+              // começa quando falta caixa.
+              RankingBarras(
+                titulo: 'Maior valor parado',
+                total: formatMoney(data.stockValue),
+                vazio: 'Nenhum item com valor em estoque.',
+                itens: [
+                  for (final r in data.rows)
+                    BarraRanking(
+                      rotulo: r.name,
+                      valor: r.stockValue.toDouble(),
+                      texto: formatMoney(r.stockValue),
+                      detalhe: r.belowMin
+                          ? 'abaixo do mínimo · ${r.currentStock} em estoque'
+                          : '${r.currentStock} em estoque',
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
               _DataTableCard(table: inventoryTable(data, includeTotal: false)),
               const SizedBox(height: 12),
               _InventoryPager(report: data),
@@ -1171,8 +1207,26 @@ class _CashFlowReport extends ConsumerWidget {
             const SizedBox(height: 18),
             if (empty)
               const _Empty(message: 'Sem movimento no período.')
-            else
+            else ...[
+              // De que é feito o "recebido". A tabela abaixo tem os mesmos
+              // números, mas responder "quase tudo é pix" exige comparar linha
+              // por linha nela — e é a primeira pergunta que o dono faz.
+              DonutCard(
+                titulo: 'Como o dinheiro entrou',
+                total: formatMoney(s.totalIn),
+                vazio: 'Nenhuma entrada no período.',
+                fatias: [
+                  for (final m in s.byMethod)
+                    FatiaDonut(
+                      rotulo: methodLabel(m.method),
+                      valor: m.inAmount.toDouble(),
+                      texto: formatMoney(m.inAmount),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
               _DataTableCard(table: table),
+            ],
           ],
         );
       },
@@ -1876,84 +1930,117 @@ class _TopItemsChart extends StatelessWidget {
 
 /// Composição dos clientes novos no período por tipo (rosca PF × PJ) — aba
 /// "Clientes". Parte-do-todo com legenda; cor por tipo (glyphs fixos).
-class _CustomersChart extends StatelessWidget {
-  const _CustomersChart({required this.series});
+/// Os dois gráficos de clientes, lado a lado no desktop.
+///
+/// A composição PF/PJ é um detalhe — informa, mas não muda o que se faz hoje —,
+/// então fica num card pequeno. O que vale a área maior é a CHEGADA ao longo do
+/// período: ela mostra se o movimento de clientes novos é constante ou se veio
+/// de um pico (uma promoção, uma indicação) que não vai se repetir.
+class _GraficosDeClientes extends StatelessWidget {
+  const _GraficosDeClientes({required this.series});
 
-  /// Série agregada no servidor (novos por dia/tipo) — cobre o período INTEIRO,
-  /// independente das linhas paginadas na tela.
+  final List<CustomersSeriesPoint> series;
+
+  @override
+  Widget build(BuildContext context) {
+    final chegada = _ChegadaDeClientes(series: series);
+    final composicao = _ComposicaoDeClientes(series: series);
+    if (context.isMobile) {
+      return Column(
+        children: [chegada, const SizedBox(height: 16), composicao],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 3, child: chegada),
+        const SizedBox(width: 16),
+        Expanded(flex: 2, child: composicao),
+      ],
+    );
+  }
+}
+
+/// Clientes novos por dia do período.
+class _ChegadaDeClientes extends StatelessWidget {
+  const _ChegadaDeClientes({required this.series});
+
+  final List<CustomersSeriesPoint> series;
+
+  @override
+  Widget build(BuildContext context) {
+    // A série vem quebrada por tipo; para a chegada só interessa o total do dia.
+    final porDia = <String, int>{};
+    for (final p in series) {
+      porDia[p.day] = (porDia[p.day] ?? 0) + p.count;
+    }
+    final dias = porDia.keys.toList()..sort();
+    return RankingBarras(
+      titulo: 'Clientes novos por dia',
+      vazio: 'Nenhum cliente novo no período.',
+      limite: 12,
+      total: '${porDia.values.fold<int>(0, (a, b) => a + b)} no período',
+      itens: [
+        for (final d in dias)
+          BarraRanking(
+            rotulo: _dayShort(d),
+            valor: porDia[d]!.toDouble(),
+            texto: '${porDia[d]}',
+          ),
+      ],
+    );
+  }
+}
+
+/// Pessoa física × pessoa jurídica entre os clientes novos.
+class _ComposicaoDeClientes extends StatelessWidget {
+  const _ComposicaoDeClientes({required this.series});
+
   final List<CustomersSeriesPoint> series;
 
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
-    // Conta por tipo entre os clientes novos do período (soma a série).
-    var pf = 0, pj = 0, other = 0;
+    var pf = 0, pj = 0, outros = 0;
     for (final p in series) {
-      switch (p.type) {
-        case 'pf':
+      // O servidor manda 'PF'/'PJ' em MAIÚSCULAS (é o que o CHECK da tabela
+      // aceita). A comparação aqui era minúscula, então tudo caía em "Outros"
+      // e o donut mostrava uma fatia só — parecia quebrado porque estava.
+      switch (p.type.toUpperCase()) {
+        case 'PF':
           pf += p.count;
-        case 'pj':
+        case 'PJ':
           pj += p.count;
         default:
-          other += p.count;
+          outros += p.count;
       }
     }
-    final slices = <(String, int, Color)>[
-      if (pf > 0) ('Pessoa física', pf, neu.glyphs[0]),
-      if (pj > 0) ('Pessoa jurídica', pj, neu.glyphs[1]),
-      if (other > 0) ('Outros', other, neu.glyphs[4]),
-    ];
-    if (slices.isEmpty) {
-      return const NeuChartCard(
-        title: 'Novos clientes por tipo',
-        child: _ChartEmpty(),
-      );
-    }
-    final total = slices.fold<int>(0, (a, s) => a + s.$2);
-
-    return NeuChartCard(
-      title: 'Novos clientes por tipo',
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: ChartSemantics(
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
-                  sections: [
-                    for (final s in slices)
-                      PieChartSectionData(
-                        value: s.$2.toDouble(),
-                        color: s.$3,
-                        title: total > 0 && s.$2 / total >= 0.12
-                            ? '${s.$2}'
-                            : '',
-                        radius: 44,
-                        titleStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 4,
-            child: NeuChartLegend(
-              items: [
-                for (final s in slices)
-                  NeuLegendItem(color: s.$3, label: s.$1, value: '${s.$2}'),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final total = pf + pj + outros;
+    return DonutCard(
+      titulo: 'Pessoa física × jurídica',
+      compacto: true,
+      total: total > 0 ? '$total' : null,
+      vazio: 'Nenhum cliente novo no período.',
+      fatias: [
+        FatiaDonut(
+          rotulo: 'Pessoa física',
+          valor: pf.toDouble(),
+          texto: '$pf',
+          cor: neu.glyphs[2],
+        ),
+        FatiaDonut(
+          rotulo: 'Pessoa jurídica',
+          valor: pj.toDouble(),
+          texto: '$pj',
+          cor: neu.glyphs[1],
+        ),
+        FatiaDonut(
+          rotulo: 'Sem tipo',
+          valor: outros.toDouble(),
+          texto: '$outros',
+          cor: neu.glyphs[4],
+        ),
+      ],
     );
   }
 }
@@ -2250,7 +2337,7 @@ class _CustomersReportState extends ConsumerState<_CustomersReport> {
             ),
             const SizedBox(height: 18),
             if (!empty) ...[
-              _CustomersChart(series: state.series),
+              _GraficosDeClientes(series: state.series),
               const SizedBox(height: 18),
             ],
             // Melhores clientes: dinheiro e recorrência, lado a lado no

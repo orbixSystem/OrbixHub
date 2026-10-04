@@ -74,7 +74,10 @@ void main() {
       );
       final abas = abasDisponiveis(semClientes).map((a) => a.tab);
       expect(abas, isNot(contains(ReportTab.clientes)));
-      expect(abas, contains(ReportTab.operacao));
+      expect(abas, isNot(contains(ReportTab.estoque)));
+      // As de OS continuam, porque o módulo está no plano.
+      expect(abas, contains(ReportTab.ordens));
+      expect(abas, contains(ReportTab.faturamento));
     });
 
     test('sem o módulo report, nenhuma aba — nem a Visão', () {
@@ -97,6 +100,17 @@ void main() {
         modules: ['report', 'os'],
       );
       expect(abasDisponiveis(mecanico), isEmpty);
+    });
+
+    test('cada aba tem um assunto só — páginas curtas', () {
+      // Três abas com oito relatórios empilhados faziam a página de "Dinheiro"
+      // rolar por três tabelas inteiras. Assunto por assunto, a página termina
+      // na altura da tela.
+      final abas = abasDisponiveis(_me());
+      for (final a in abas) {
+        expect(a.secoes.length, lessThanOrEqualTo(2),
+            reason: 'a aba ${a.label} empilha ${a.secoes.length} relatórios');
+      }
     });
 
     test('cada relatório mora em UMA aba só', () {
