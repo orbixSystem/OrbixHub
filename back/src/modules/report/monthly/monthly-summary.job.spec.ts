@@ -13,7 +13,9 @@ function montar(
   tenants: Array<{ tenant_id: string; tenant_name: string }>,
   opcoes: { quebraEm?: string; avisoQuebraEm?: string } = {},
 ) {
-  const prisma = { $queryRaw: jest.fn(async () => tenants) };
+  const prisma = {
+    $queryRaw: jest.fn(async (..._args: unknown[]) => tenants),
+  };
   const gerados: string[] = [];
   const summary = {
     gerarParaTenant: jest.fn(async (tenantId: string, _ref: Date, _nome: string) => {
@@ -29,10 +31,13 @@ function montar(
       avisados.push(tenantId);
     }),
   };
+  // Sem pausa entre tenants no teste: o respiro existe para a cota do
+  // provedor, e esperar 5s por oficina aqui só tornaria a suíte lenta.
   const job = new MonthlySummaryJob(
     prisma as never,
     summary as never,
     notifier as never,
+    { GEMINI_INTERVALO_MS: 0, GEMINI_ORCAMENTO_DIARIO: 50 } as never,
   );
   return { job, summary, notifier, gerados, avisados, prisma };
 }
@@ -85,6 +90,49 @@ describe('MonthlySummaryJob', () => {
     // para um relatório que o dono talvez já tenha lido.
     expect(gerados).toContain('t2');
     expect(r).toEqual({ gerados: 3, falhas: 0 });
+  });
+
+  it('respeita a pausa entre oficinas (cota do provedor é por minuto)', async () => {
+    // Sem isto, 31 oficinas viram 31 chamadas em sequência e, da décima em
+    // diante, tudo volta 429 — todo mundo recebe o texto automático. Foi o que
+    // aconteceu na primeira execução real.
+    const { job, gerados } = montar(TRES);
+    (job as unknown as {
+      env: { GEMINI_INTERVALO_MS: number; GEMINI_ORCAMENTO_DIARIO: number };
+    }).env = { GEMINI_INTERVALO_MS: 30, GEMINI_ORCAMENTO_DIARIO: 50 };
+
+    const inicio = Date.now();
+    await job.gerarParaTodos(new Date('2026-10-01T04:00:00Z'));
+
+    expect(gerados).toHaveLength(3);
+    // Duas pausas para três oficinas (a primeira não espera).
+    expect(Date.now() - inicio).toBeGreaterThanOrEqual(55);
+  });
+
+  it('para no orçamento do dia e deixa o resto para amanhã', async () => {
+    // A faixa gratuita do provedor é de 20 requisições por DIA. Sem teto, uma
+    // base maior que isso faria as últimas oficinas receberem o texto
+    // automático todo mês — e ninguém notaria, porque o resumo chega assim
+    // mesmo. A esteira roda de novo amanhã e pega de onde parou.
+    const { job, gerados } = montar(TRES);
+    (job as unknown as {
+      env: { GEMINI_INTERVALO_MS: number; GEMINI_ORCAMENTO_DIARIO: number };
+    }).env = { GEMINI_INTERVALO_MS: 0, GEMINI_ORCAMENTO_DIARIO: 2 };
+
+    const r = await job.gerarParaTodos(new Date('2026-10-01T04:00:00Z'));
+
+    expect(gerados).toEqual(['t1', 't2']);
+    expect(r).toEqual({ gerados: 2, falhas: 0 });
+  });
+
+  it('pergunta ao banco só por quem AINDA não tem o resumo do mês', async () => {
+    // Quem já tem — inclusive o automático — não é refeito: reescrever amanhã
+    // o texto que o dono leu hoje faria o relatório mudar sozinho.
+    const { job, prisma } = montar(TRES);
+    await job.gerarParaTodos(new Date('2026-10-01T04:00:00Z'));
+
+    const sql = String(prisma.$queryRaw.mock.calls[0][0]);
+    expect(sql).toContain('report_find_tenants_missing_monthly_summary');
   });
 
   it('sem tenants elegíveis, não chama nada', async () => {

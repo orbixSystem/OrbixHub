@@ -12,17 +12,27 @@ export interface ResumoPayload {
   objeto: string;
   kpis: Array<{
     rotulo: string;
-    valor: number;
-    formato: 'dinheiro' | 'numero';
-    variacaoPct: number | null;
-    maiorEhMelhor: boolean;
+    /**
+     * O valor JÁ ESCRITO em português ("R$ 48.200,00", "80"). O modelo copia
+     * esta string; ele não formata.
+     *
+     * Formatar é calcular: separador de milhar, centavos e o "R$" são decisões
+     * que um modelo erra em silêncio — e um relatório que diz "faturou 48200"
+     * não é lido por ninguém que tenha oficina.
+     */
+    valor: string;
+    /** "subiu 12,1%" / "caiu 29,5%" / null quando não há comparação. */
+    variacao: string | null;
+    /** A variação é boa para o negócio? Null quando não há comparação. */
+    variacaoBoa: boolean | null;
   }>;
   sinais: Array<{
     chave: string;
     severidade: 'critico' | 'alerta' | 'info';
     titulo: string;
     detalhe: string;
-    numeros: Record<string, number>;
+    /** Também já escritos: {"A receber": "R$ 7.100,00", "Alta do fiado": "310%"}. */
+    numeros: Record<string, string>;
   }>;
 }
 

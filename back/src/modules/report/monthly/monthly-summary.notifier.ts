@@ -29,12 +29,16 @@ export class MonthlySummaryNotifier {
 
   async avisar(tenantId: string, resumo: ResumoMensal): Promise<void> {
     // Porta pública do módulo de notificações — nunca a tabela dele.
+    //
+    // `refId` fica de FORA: a coluna é `uuid`, e o mês ("2026-09-01") não é um.
+    // Mandá-lo ali fazia o insert estourar em "Error creating UUID" e o aviso
+    // simplesmente não chegava — o resumo existia e ninguém era avisado. O mês
+    // vai no título, que é onde o leitor precisa dele de qualquer forma.
     await this.notifications.notify(tenantId, {
       type: 'report_monthly_summary',
       title: `Seu resumo de ${resumo.periodo.rotulo} está pronto`,
       body: resumo.narrativa.titulo,
       refType: 'report_month',
-      refId: resumo.period,
     });
 
     const donos = await this.tenant.runWithTenant(tenantId, async () => {

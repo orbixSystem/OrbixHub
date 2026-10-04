@@ -151,7 +151,14 @@ export class MonthlySummaryService {
   }
 }
 
-/** O que vai para o modelo: rótulos e números, sem nada que ele possa somar. */
+/**
+ * O que vai para o modelo: tudo JÁ ESCRITO em português.
+ *
+ * Formatar é calcular — separador de milhar, centavos, o "R$", "subiu" ou
+ * "caiu" são decisões que um modelo erra em silêncio. Com o texto pronto, ele
+ * copia; e um relatório que diria "faturou 48200" passa a dizer
+ * "faturou R$ 48.200,00", que é como alguém com oficina escreve.
+ */
 export function paraPayload(
   empresa: string,
   m: MetricasMensais,
@@ -163,17 +170,76 @@ export function paraPayload(
     objeto,
     kpis: m.kpis.map((k) => ({
       rotulo: k.rotulo,
-      valor: k.valor,
-      formato: k.formato,
-      variacaoPct: k.variacao?.pct ?? null,
-      maiorEhMelhor: k.maiorEhMelhor,
+      valor: k.formato === 'dinheiro' ? dinheiro(k.valor) : inteiro(k.valor),
+      variacao: k.variacao === null ? null : movimento(k.variacao.pct),
+      variacaoBoa:
+        k.variacao === null || k.variacao.pct === 0
+          ? null
+          : k.variacao.pct > 0
+            ? k.maiorEhMelhor
+            : !k.maiorEhMelhor,
     })),
     sinais: m.sinais.map((s) => ({
       chave: s.chave,
       severidade: s.severidade,
       titulo: s.titulo,
       detalhe: s.detalhe,
-      numeros: s.numeros,
+      numeros: numerosEscritos(s.numeros),
     })),
   };
+}
+
+const dinheiro = (v: number): string =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const inteiro = (v: number): string => v.toLocaleString('pt-BR');
+
+const porcento = (v: number): string =>
+  `${Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+
+const movimento = (pct: number): string =>
+  pct === 0 ? 'ficou igual' : `${pct > 0 ? 'subiu' : 'caiu'} ${porcento(pct)}`;
+
+/**
+ * Os números do sinal, escritos — e com rótulo em português.
+ *
+ * As chaves cruas (`pctFiado`, `aReceberAnterior`) são nomes de programador: o
+ * modelo acabaria repetindo-as no texto, e "o pctFiado foi de 310" não é
+ * português.
+ */
+function numerosEscritos(n: Record<string, number>): Record<string, string> {
+  const rotulos: Record<string, [string, 'dinheiro' | 'pct' | 'inteiro']> = {
+    recebido: ['Entrou no caixa', 'dinheiro'],
+    saiu: ['Saiu do caixa', 'dinheiro'],
+    resultado: ['Resultado do caixa', 'dinheiro'],
+    aReceber: ['A receber', 'dinheiro'],
+    aReceberAnterior: ['A receber no mês anterior', 'dinheiro'],
+    vencido: ['Já vencido', 'dinheiro'],
+    pctVencido: ['Parte vencida', 'pct'],
+    despesas: ['Despesas', 'dinheiro'],
+    despesasAnterior: ['Despesas no mês anterior', 'dinheiro'],
+    pctDespesa: ['Alta das despesas', 'pct'],
+    pctFiado: ['Alta do fiado', 'pct'],
+    pctFaturado: ['Alta do faturamento', 'pct'],
+    ticket: ['Ticket médio', 'dinheiro'],
+    ticketAnterior: ['Ticket médio anterior', 'dinheiro'],
+    pct: ['Variação', 'pct'],
+    canceladas: ['Ordens canceladas', 'inteiro'],
+    concluidas: ['Ordens concluídas', 'inteiro'],
+    itens: ['Itens', 'inteiro'],
+    valorEstoque: ['Valor em estoque', 'dinheiro'],
+    faturado: ['Faturamento', 'dinheiro'],
+    osConcluidas: ['Ordens concluídas', 'inteiro'],
+  };
+  const out: Record<string, string> = {};
+  for (const [chave, valor] of Object.entries(n)) {
+    const [rotulo, tipo] = rotulos[chave] ?? [chave, 'inteiro'];
+    out[rotulo] =
+      tipo === 'dinheiro'
+        ? dinheiro(valor)
+        : tipo === 'pct'
+          ? porcento(valor)
+          : inteiro(valor);
+  }
+  return out;
 }

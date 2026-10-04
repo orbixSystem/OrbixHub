@@ -2899,3 +2899,20 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
 $$;
 REVOKE ALL ON FUNCTION report_find_tenants_for_monthly_summary() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION report_find_tenants_for_monthly_summary() TO app_user;
+
+CREATE OR REPLACE FUNCTION report_find_tenants_missing_monthly_summary(p_period date)
+RETURNS TABLE (tenant_id uuid, tenant_name text)
+LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE AS $$
+  SELECT DISTINCT t.id, t.name
+  FROM tenant t
+  JOIN tenant_module tm ON tm.tenant_id = t.id AND tm.enabled = true
+  JOIN module m ON m.id = tm.module_id AND m.key = 'report' AND m.retired_at IS NULL
+  JOIN subscription s ON s.tenant_id = t.id AND s.status <> 'canceled'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM report_monthly_summary r
+    WHERE r.tenant_id = t.id AND r.period = p_period
+  )
+  ORDER BY t.name
+$$;
+REVOKE ALL ON FUNCTION report_find_tenants_missing_monthly_summary(date) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION report_find_tenants_missing_monthly_summary(date) TO app_user;

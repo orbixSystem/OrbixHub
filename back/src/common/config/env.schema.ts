@@ -171,6 +171,17 @@ export const envSchema = z.object({
   // Curto de propósito: o job roda num laço por tenant, de madrugada. Provedor
   // lento não pode segurar a fila — o texto de fallback já está pronto.
   GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  // Pausa ENTRE tenants no job mensal. A cota do provedor é por MINUTO, e o
+  // job varre todas as oficinas de uma vez: sem respiro, a partir da décima
+  // chamada tudo vira 429 e todo mundo recebe o texto automático. 5s = no
+  // máximo 12 por minuto, que cabe na faixa gratuita com folga.
+  GEMINI_INTERVALO_MS: z.coerce.number().int().min(0).default(5000),
+  // Quantos resumos escrever por DIA. A faixa gratuita do provedor é de 20
+  // requisições diárias POR MODELO; 18 deixa margem para uma retentativa e
+  // para qualquer outra chamada no mesmo projeto. O job roda nos primeiros
+  // dias do mês e atende quem ainda falta, então uma base maior que o
+  // orçamento é coberta em dois ou três dias — e não fica sem texto.
+  GEMINI_ORCAMENTO_DIARIO: z.coerce.number().int().min(1).default(18),
 
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);

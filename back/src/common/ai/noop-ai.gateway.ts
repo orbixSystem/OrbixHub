@@ -6,23 +6,7 @@ import {
   ResumoPayload,
 } from './ai-text.gateway';
 
-const dinheiro = (v: number): string =>
-  v.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  });
-
-const valorDe = (k: ResumoPayload['kpis'][number]): string =>
-  k.formato === 'dinheiro' ? dinheiro(k.valor) : String(k.valor);
-
-/** "subiu 12%" / "caiu 4%" / "" quando não há com o que comparar. */
-function movimento(pct: number | null): string {
-  if (pct === null || pct === 0) return '';
-  const verbo = pct > 0 ? 'subiu' : 'caiu';
-  return `${verbo} ${Math.abs(pct).toLocaleString('pt-BR')}%`;
-}
-
+// Os valores já chegam escritos ("R$ 48.200,00"): aqui só se costura frase.
 /**
  * O resumo SEM IA — e é ele que roda quando não há chave, quando a API está
  * fora, quando estoura o timeout ou quando a resposta volta imprestável.
@@ -69,16 +53,15 @@ export function montarNarrativa(payload: ResumoPayload): Narrativa {
 
   const frases: string[] = [];
   if (faturado) {
-    const m = movimento(faturado.variacaoPct);
     frases.push(
-      m
-        ? `O faturamento de ${payload.periodo} foi de ${valorDe(faturado)}, e ${m} em relação ao mês anterior.`
-        : `O faturamento de ${payload.periodo} foi de ${valorDe(faturado)}.`,
+      faturado.variacao
+        ? `O faturamento de ${payload.periodo} foi de ${faturado.valor}, e ${faturado.variacao} em relação ao mês anterior.`
+        : `O faturamento de ${payload.periodo} foi de ${faturado.valor}.`,
     );
   }
   if (recebido && resultado) {
     frases.push(
-      `Entraram ${valorDe(recebido)} no caixa e o resultado do mês ficou em ${valorDe(resultado)}.`,
+      `Entraram ${recebido.valor} no caixa e o resultado do mês ficou em ${resultado.valor}.`,
     );
   }
   const criticos = payload.sinais.filter((s) => s.severidade === 'critico');
@@ -102,10 +85,14 @@ function tituloDoMes(
   payload: ResumoPayload,
   faturado: ResumoPayload['kpis'][number] | undefined,
 ): string {
-  const pct = faturado?.variacaoPct ?? null;
-  if (pct === null) return `Resumo de ${payload.periodo}`;
-  if (pct > 0) return `${payload.periodo} fechou ${pct}% acima do mês anterior`;
-  if (pct < 0) return `${payload.periodo} fechou ${Math.abs(pct)}% abaixo do mês anterior`;
+  const v = faturado?.variacao;
+  if (!v) return `Resumo de ${payload.periodo}`;
+  if (v.startsWith('subiu')) {
+    return `${payload.periodo} fechou acima do mês anterior: o faturamento ${v}`;
+  }
+  if (v.startsWith('caiu')) {
+    return `${payload.periodo} fechou abaixo do mês anterior: o faturamento ${v}`;
+  }
   return `${payload.periodo} repetiu o mês anterior`;
 }
 

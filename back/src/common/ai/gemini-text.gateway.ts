@@ -40,7 +40,7 @@ export class GeminiTextGateway implements AiTextGateway {
     }
 
     try {
-      const texto = await this.chamar(chave, modelo, payload);
+      const texto = await this.chamarComRetentativa(chave, modelo, payload);
       const narrativa = interpretar(texto);
       if (!narrativa) {
         this.logger.warn('Resposta do modelo sem o formato esperado; usando o resumo automático.');
@@ -52,6 +52,38 @@ export class GeminiTextGateway implements AiTextGateway {
         `Falha ao gerar o resumo com IA (${e instanceof Error ? e.message : String(e)}); usando o resumo automático.`,
       );
       return { narrativa: montarNarrativa(payload), status: 'fallback', modelo: 'resumo-automatico' };
+    }
+  }
+
+  /**
+   * Tenta até três vezes quando o erro é PASSAGEIRO.
+   *
+   * 503 ("alta demanda") e 429 (cota de minuto) acontecem de verdade — vi os
+   * dois numa tarde de testes. Sem retentativa, um pico de dez segundos no
+   * provedor custa o texto do mês inteiro de uma oficina, que só seria
+   * reescrito no mês seguinte.
+   *
+   * Erro de verdade (chave errada, modelo inexistente) não é retentado: repetir
+   * não vai consertar, e três chamadas erradas demoram três vezes mais para
+   * chegar ao fallback.
+   */
+  private async chamarComRetentativa(
+    chave: string,
+    modelo: string,
+    payload: ResumoPayload,
+  ): Promise<string> {
+    const esperas = [1500, 5000];
+    for (let tentativa = 0; ; tentativa++) {
+      try {
+        return await this.chamar(chave, modelo, payload);
+      } catch (e) {
+        const passageiro = e instanceof HttpStatusError && e.passageiro;
+        if (!passageiro || tentativa >= esperas.length) throw e;
+        this.logger.log(
+          `Modelo indisponível (HTTP ${(e as HttpStatusError).status}); nova tentativa em ${esperas[tentativa]}ms.`,
+        );
+        await new Promise((r) => setTimeout(r, esperas[tentativa]));
+      }
     }
   }
 
@@ -86,7 +118,7 @@ export class GeminiTextGateway implements AiTextGateway {
         }),
       });
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        throw new HttpStatusError(res.status);
       }
       const json = (await res.json()) as {
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -98,17 +130,44 @@ export class GeminiTextGateway implements AiTextGateway {
   }
 }
 
+/** Erro HTTP do provedor, com a informação de que vale ou não tentar de novo. */
+class HttpStatusError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+
+  /** 429 = cota por minuto; 503 = alta demanda; 500/502/504 = tropeço do lado de lá. */
+  get passageiro(): boolean {
+    return [429, 500, 502, 503, 504].includes(this.status);
+  }
+}
+
 const INSTRUCAO = `Você escreve o relatório mensal de uma oficina para o dono dela, em português do Brasil.
 
 Receberá um JSON com os números do mês e os sinais já apurados pelo sistema.
 
-Regras invioláveis:
-- NUNCA invente, estime ou calcule números. Use apenas os valores do JSON, exatamente como estão.
+NÚMEROS
+- Todo valor já vem ESCRITO ("R$ 48.200,00", "subiu 12,1%", "80"). Copie exatamente como está.
+- Nunca calcule, estime, arredonde nem reescreva um número. Não transforme "R$ 48.200,00" em "48200" nem em "48,2 mil".
 - Não cite nenhum número que não esteja no JSON.
-- Comente apenas os sinais presentes em "sinais". Não deduza problemas que não estão lá.
-- Escreva como quem conversa com um dono de oficina: direto, sem jargão de consultoria, sem "insights", "KPIs" ou "sinergia".
-- Cada recomendação precisa ser uma ação que caiba na semana dele.
-- Se não houver sinais, diga que o mês correu bem — não procure problema.`;
+
+O TÍTULO
+- Diz o que ACONTECEU no mês, numa frase curta (até 12 palavras), como a manchete de uma notícia.
+- Quando houver uma tensão nos números — cresceu mas no fiado, vendeu mais e sobrou menos — é ela que vira título.
+- Nunca use o formato de rótulo ("Resumo de setembro", "Relatório mensal", "Análise do mês").
+
+A LEITURA
+- De 2 a 4 frases, contando o mês: o que entrou, o que saiu, o que sobrou e o que chama atenção.
+- Escreva como quem conversa com um dono de oficina: direto, sem jargão. Nada de "insights", "KPIs", "performance", "sinergia", "otimizar".
+
+ALERTAS
+- Um por sinal recebido, explicando o que ele significa na prática. Não deduza problemas que não estão na lista.
+
+RECOMENDAÇÕES
+- De 2 a 3 ações concretas para o mês que começa, cada uma do tamanho de uma tarefa que cabe numa tarde.
+- Comece cada uma por um verbo no infinitivo.
+
+Se a lista de sinais vier vazia, diga que o mês correu bem — não procure problema.`;
 
 /**
  * Saída estruturada. Só campos de texto: não existe aqui um lugar onde uma

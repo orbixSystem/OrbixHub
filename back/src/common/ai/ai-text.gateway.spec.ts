@@ -14,27 +14,25 @@ const payload: ResumoPayload = {
   empresa: 'Oficina do Zé',
   periodo: 'Setembro/2026',
   objeto: 'Veículo',
+  // Já escritos: é assim que chegam ao modelo, porque formatar é calcular.
   kpis: [
     {
       rotulo: 'Faturamento',
-      valor: 55000,
-      formato: 'dinheiro',
-      variacaoPct: 12,
-      maiorEhMelhor: true,
+      valor: 'R\$ 55.000,00',
+      variacao: 'subiu 12%',
+      variacaoBoa: true,
     },
     {
       rotulo: 'Entrou no caixa',
-      valor: 41000,
-      formato: 'dinheiro',
-      variacaoPct: 8,
-      maiorEhMelhor: true,
+      valor: 'R\$ 41.000,00',
+      variacao: 'subiu 8%',
+      variacaoBoa: true,
     },
     {
       rotulo: 'Resultado do caixa',
-      valor: 9800,
-      formato: 'dinheiro',
-      variacaoPct: -4,
-      maiorEhMelhor: true,
+      valor: 'R\$ 9.800,00',
+      variacao: 'caiu 4%',
+      variacaoBoa: false,
     },
   ],
   sinais: [
@@ -43,7 +41,11 @@ const payload: ResumoPayload = {
       severidade: 'alerta',
       titulo: 'O fiado cresceu mais que o faturamento',
       detalhe: 'Parte do crescimento do mês ainda não virou dinheiro em caixa.',
-      numeros: { aReceber: 15000, pctFiado: 200, pctFaturado: 12 },
+      numeros: {
+        'A receber': 'R\$ 15.000,00',
+        'Alta do fiado': '200%',
+        'Alta do faturamento': '12%',
+      },
     },
   ],
 };
@@ -69,21 +71,25 @@ describe('resumo sem IA (o piso do produto)', () => {
     // dos valores recebidos, nunca de uma conta feita na hora.
     const n = montarNarrativa(payload);
     const texto = [n.titulo, n.leitura, ...n.alertas].join(' ');
-    expect(texto).toContain('55.000');
-    expect(texto).toContain('12%');
+    expect(texto).toContain('R\$ 55.000,00');
+    expect(texto).toContain('subiu 12%');
   });
 
   it('mês sem movimento tem um texto próprio, não uma lista de quedas', async () => {
     const parado: ResumoPayload = {
       ...payload,
-      kpis: payload.kpis.map((k) => ({ ...k, valor: 0, variacaoPct: -100 })),
+      kpis: payload.kpis.map((k) => ({
+        ...k,
+        valor: 'R\$ 0,00',
+        variacao: 'caiu 100%',
+      })),
       sinais: [
         {
           chave: 'sem_movimento',
           severidade: 'info',
           titulo: 'Mês sem movimento registrado',
           detalhe: 'Não houve faturamento no período.',
-          numeros: { faturado: 0 },
+          numeros: { Faturamento: 'R\$ 0,00' },
         },
       ],
     };
