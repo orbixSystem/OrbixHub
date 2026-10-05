@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ENV } from '../../../common/config/config.module';
 import { Env } from '../../../common/config/env.schema';
@@ -120,6 +125,40 @@ export class MonthlySummaryJob {
       this.logger.warn(`${falhas} resumo(s) não puderam ser gerados.`);
     }
     return { gerados, falhas };
+  }
+
+  /**
+   * Gera o resumo do mês anterior a [agora] para UMA oficina.
+   *
+   * A esteira atende por ordem alfabética e com orçamento diário: numa base
+   * com mil tenants, uma oficina específica pode levar semanas para ser
+   * alcançada — e não há como verificar o texto dela antes disso. Este caminho
+   * existe para isso, atrás do token administrativo, e passa exatamente pelos
+   * mesmos passos (gerar, gravar, avisar) para não virar um segundo caminho
+   * que diverge do primeiro no primeiro ajuste.
+   */
+  async gerarParaUm(
+    tenantId: string,
+    agora: Date,
+  ): Promise<{ gerados: number; falhas: number }> {
+    const ref = mesAnterior(agora);
+    const [tenant] = await this.prisma.$queryRaw<Array<{ name: string }>>`
+      SELECT name FROM tenant WHERE id = ${tenantId}::uuid
+    `;
+    if (!tenant) throw new NotFoundException('Oficina não encontrada.');
+
+    try {
+      const resumo = await this.summary.gerarParaTenant(tenantId, ref, tenant.name);
+      await this.notifier.avisar(tenantId, resumo).catch((e: unknown) => {
+        this.logger.warn(
+          `Resumo de ${tenantId} gerado, mas o aviso falhou: ${msg(e)}`,
+        );
+      });
+      return { gerados: 1, falhas: 0 };
+    } catch (e) {
+      this.logger.warn(`Falha ao gerar o resumo de ${tenantId}: ${msg(e)}`);
+      return { gerados: 0, falhas: 1 };
+    }
   }
 }
 

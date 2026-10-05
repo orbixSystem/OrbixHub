@@ -41,7 +41,7 @@ export class GeminiTextGateway implements AiTextGateway {
 
     try {
       const texto = await this.chamarComRetentativa(chave, modelo, payload);
-      const narrativa = interpretar(texto);
+      const narrativa = interpretar(texto, payload);
       if (!narrativa) {
         this.logger.warn('Resposta do modelo sem o formato esperado; usando o resumo automático.');
         return { narrativa: montarNarrativa(payload), status: 'fallback', modelo: 'resumo-automatico' };
@@ -160,12 +160,27 @@ A LEITURA
 - De 2 a 4 frases, contando o mês: o que entrou, o que saiu, o que sobrou e o que chama atenção.
 - Escreva como quem conversa com um dono de oficina: direto, sem jargão. Nada de "insights", "KPIs", "performance", "sinergia", "otimizar".
 
+DESTAQUES
+- De 2 a 4 números que valem um comentário, escolhidos entre os KPIs recebidos.
+- Em "kpi" vá o RÓTULO EXATO do KPI, copiado do JSON ("Faturamento", "Ticket médio"). Rótulo que não exista é descartado.
+- Em "comentario", uma frase curta dizendo o que aquele número significa para a oficina. NÃO repita o valor: ele já aparece ao lado.
+- Prefira os números que mudaram, para melhor ou para pior, aos que ficaram parados.
+
+O QUE FOI BEM
+- De 1 a 3 pontos que sustentaram o mês. Se não houver nenhum, devolva lista vazia — não invente elogio.
+
+O QUE PREOCUPA
+- De 1 a 3 pontos que podem estragar o mês que vem. Baseie-se nos sinais e nos KPIs que pioraram.
+
 ALERTAS
 - Um por sinal recebido, explicando o que ele significa na prática. Não deduza problemas que não estão na lista.
 
 RECOMENDAÇÕES
 - De 2 a 3 ações concretas para o mês que começa, cada uma do tamanho de uma tarefa que cabe numa tarde.
 - Comece cada uma por um verbo no infinitivo.
+
+FECHAMENTO
+- Uma ou duas frases olhando para o mês que começa. Sem promessa, sem previsão numérica: o que observar.
 
 Se a lista de sinais vier vazia, diga que o mês correu bem — não procure problema.`;
 
@@ -178,10 +193,36 @@ const SCHEMA = {
   properties: {
     titulo: { type: 'string' },
     leitura: { type: 'string' },
+    destaques: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          // `kpi` é um RÓTULO, não um valor: o modelo aponta qual número
+          // comentar e o sistema busca a cifra. Um campo numérico aqui seria o
+          // primeiro lugar onde uma alucinação se hospedaria.
+          kpi: { type: 'string' },
+          comentario: { type: 'string' },
+        },
+        required: ['kpi', 'comentario'],
+      },
+    },
+    oQueFoiBem: { type: 'array', items: { type: 'string' } },
+    oQuePreocupa: { type: 'array', items: { type: 'string' } },
     alertas: { type: 'array', items: { type: 'string' } },
     recomendacoes: { type: 'array', items: { type: 'string' } },
+    fechamento: { type: 'string' },
   },
-  required: ['titulo', 'leitura', 'alertas', 'recomendacoes'],
+  required: [
+    'titulo',
+    'leitura',
+    'destaques',
+    'oQueFoiBem',
+    'oQuePreocupa',
+    'alertas',
+    'recomendacoes',
+    'fechamento',
+  ],
 } as const;
 
 /**
@@ -189,7 +230,10 @@ const SCHEMA = {
  * chamador então usa o resumo automático. Melhor um texto nosso que um texto
  * pela metade.
  */
-export function interpretar(texto: string): Narrativa | null {
+export function interpretar(
+  texto: string,
+  payload?: ResumoPayload,
+): Narrativa | null {
   if (!texto.trim()) return null;
   let bruto: unknown;
   try {
@@ -207,10 +251,36 @@ export function interpretar(texto: string): Narrativa | null {
   const leitura = str(o.leitura);
   // Título e leitura são o mínimo de um resumo; sem eles não há o que mostrar.
   if (!titulo || !leitura) return null;
+
+  // Destaque só vale se apontar para um KPI que REALMENTE foi enviado. Sem
+  // esta peneira, um rótulo inventado chegaria à tela como um número vazio —
+  // ou, pior, como um número buscado por nome parecido.
+  const rotulos = new Set((payload?.kpis ?? []).map((k) => k.rotulo));
+  const destaques = Array.isArray(o.destaques)
+    ? o.destaques
+        .map((d) => {
+          const item = (typeof d === 'object' && d !== null ? d : {}) as Record<
+            string,
+            unknown
+          >;
+          return { kpi: str(item.kpi), comentario: str(item.comentario) };
+        })
+        .filter(
+          (d) =>
+            d.kpi.length > 0 &&
+            d.comentario.length > 0 &&
+            (rotulos.size === 0 || rotulos.has(d.kpi)),
+        )
+    : [];
+
   return {
     titulo,
     leitura,
+    destaques,
+    oQueFoiBem: lista(o.oQueFoiBem),
+    oQuePreocupa: lista(o.oQuePreocupa),
     alertas: lista(o.alertas),
     recomendacoes: lista(o.recomendacoes),
+    fechamento: str(o.fechamento),
   };
 }

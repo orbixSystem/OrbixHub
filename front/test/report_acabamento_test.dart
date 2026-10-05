@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbixhub_front/core/theme/app_theme.dart';
 import 'package:orbixhub_front/features/report/data/fake_report_repository.dart';
 import 'package:orbixhub_front/features/report/presentation/report_providers.dart';
+import 'package:orbixhub_front/features/report/presentation/tabs/resumo_tab.dart';
 import 'package:orbixhub_front/features/report/presentation/tabs/visao_tab.dart';
 import 'package:orbixhub_front/features/report/domain/monthly_models.dart';
 import 'package:orbixhub_front/features/report/presentation/widgets/livro_do_mes.dart';
@@ -83,7 +84,6 @@ void main() {
     expect(t.binding.hasScheduledFrame, isFalse);
     // E o conteúdo todo está lá — movimento reduzido não é versão pobre.
     expect(find.byType(Sparkline), findsOneWidget);
-    expect(find.textContaining('Setembro fechou'), findsOneWidget);
     expect(_valorDeAbertura('R\$ 48.200,00'), findsOneWidget);
   });
 
@@ -191,9 +191,33 @@ void main() {
     expect(t.takeException(), isNull,
         reason: 'nenhum overflow pode sobrar num celular de 360px');
     expect(find.byType(LivroDoMes), findsOneWidget);
-    expect(find.textContaining('Setembro fechou'), findsOneWidget);
     // E o valor continua legível, não espremido a zero pelo FittedBox.
     expect(_valorDeAbertura('R\$ 48.200,00'), findsOneWidget);
+  });
+
+  testWidgets('o relatório escrito cabe num celular de 360px', (t) async {
+    // A página mais densa de texto do módulo: manchete em corpo grande, grade
+    // de números, duas colunas de balanço e trilhos coloridos. É onde um
+    // layout quebra primeiro quando a tela encolhe.
+    t.view.physicalSize = const Size(360, 5200);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        reportRepositoryProvider.overrideWithValue(FakeReportRepository()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        home: const Scaffold(body: SingleChildScrollView(child: ResumoTab())),
+      ),
+    ));
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull,
+        reason: 'nenhum overflow pode sobrar num celular de 360px');
+    expect(find.textContaining('Setembro fechou'), findsOneWidget);
+    expect(find.text('O que foi bem'), findsOneWidget);
   });
 
   test('a abertura dura menos de um segundo', () {

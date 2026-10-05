@@ -52,15 +52,22 @@ class SelectedReportController extends Notifier<ReportKind?> {
   void select(ReportKind kind) => state = kind;
 }
 
-/// Aba aberta em Relatórios. Começa na Visão: é a tela que responde sem
-/// ninguém escolher nada.
-final selectedTabProvider = NotifierProvider<SelectedTabController, ReportTab>(
+/// Aba aberta em Relatórios. Começa no relatório escrito do mês.
+///
+/// `autoDispose` de propósito: Relatórios SEMPRE abre na mesma página — a
+/// leitura do mês em palavras. Guardado, o provider devolvia o usuário à
+/// última aba que ele tinha aberto dias antes, e quem voltasse para "ver como
+/// foi o mês" caía numa tabela de estoque sem entender por quê. Trocar de aba
+/// durante a visita continua funcionando: enquanto a tela existe, alguém está
+/// observando.
+final selectedTabProvider =
+    NotifierProvider.autoDispose<SelectedTabController, ReportTab>(
   SelectedTabController.new,
 );
 
 class SelectedTabController extends Notifier<ReportTab> {
   @override
-  ReportTab build() => ReportTab.visao;
+  ReportTab build() => ReportTab.resumo;
 
   void select(ReportTab tab) => state = tab;
 }
@@ -506,4 +513,36 @@ final cashierRecebidoReportProvider =
         from: range.fromIso,
         to: range.toIso,
       );
+});
+
+/// Os mais vendidos do painel de Ordens, por tipo.
+///
+/// Dedicado, e não o `topItemsReportProvider`: aquele obedece ao filtro de
+/// tipo da tabela, e o painel precisa mostrar serviço E peça lado a lado. Com
+/// o mesmo provider, escolher "peças" na tabela esvaziaria o card de serviços
+/// sem nada na tela explicando por quê.
+final painelTopItensProvider = FutureProvider.autoDispose
+    .family<TopItemsReport, String>((ref, kind) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(reportRepositoryProvider).topItems(
+        range: range,
+        kind: kind,
+        limit: 8,
+      );
+});
+
+/// A página do painel de Estoque.
+///
+/// Página grande de propósito (e separada da tabela, que pagina de 50 em 50):
+/// o painel precisa ordenar o estoque por valor e por risco, e um ranking
+/// feito sobre as cinquenta primeiras linhas alfabéticas não é um ranking — é
+/// uma amostra que se parece com um. 200 é o teto que o endpoint aceita; acima
+/// disso o painel avisa que está lendo uma parte.
+const painelEstoqueLimite = 200;
+
+final painelEstoqueProvider =
+    FutureProvider.autoDispose<InventoryReport>((ref) {
+  return ref
+      .read(reportRepositoryProvider)
+      .inventory(page: 1, pageSize: painelEstoqueLimite);
 });

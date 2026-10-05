@@ -2,9 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import { Env } from '../../common/config/env.schema';
 import { Prisma } from '@prisma/client';
 import type { AuthUser } from '../../common/auth/auth.types';
 import { TenantContext } from '../../common/database/tenant-context';
@@ -86,6 +89,7 @@ export class CashierServiceImpl extends CashierService {
     private readonly repo: CashierRepository,
     private readonly billing: BillingService,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env: Env,
   ) {
     super();
   }
@@ -856,6 +860,31 @@ export class CashierServiceImpl extends CashierService {
     return this.tenant.withTenantTx(() =>
       this.repo.receivedBySale(range ?? {}),
     );
+  }
+
+  /** Movimento diário do caixa (contrato `CashierService`). */
+  async movimentoPorDia(range: { from: Date; to: Date }) {
+    const linhas = await this.tenant.withTenantTx(() =>
+      // Fuso da aplicação: o mesmo que a venda usa para agrupar por dia, senão
+      // os dois gráficos do mesmo mês discordariam na virada da meia-noite.
+      this.repo.movimentoPorDia(range, this.env.APP_TIMEZONE),
+    );
+    return linhas.map((l) => ({
+      dia: l.dia,
+      entrou: round2(Number(l.entrou)),
+      saiu: round2(Number(l.saiu)),
+    }));
+  }
+
+  /** Entradas por forma de pagamento (contrato `CashierService`). */
+  async recebidoPorForma(range: { from: Date; to: Date }) {
+    const rows = await this.tenant.withTenantTx(() =>
+      this.repo.summaryByMethod(range),
+    );
+    return shapeMethodTotals(rows)
+      .filter((m) => m.in > 0)
+      .map((m) => ({ forma: m.method, total: m.in }))
+      .sort((a, b) => b.total - a.total);
   }
 
   /** Totais do período para o resumo mensal (contrato `CashierService`). */

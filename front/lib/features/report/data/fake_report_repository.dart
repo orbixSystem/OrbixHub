@@ -481,6 +481,42 @@ class FakeReportRepository implements ReportRepository {
       FatiaCategoria(categoria: 'Ferramentas', total: 1200),
       FatiaCategoria(categoria: 'Impostos', total: 800),
     ],
+    movimentoPorDia: [
+      MovimentoDiario(dia: '2026-09-01', entrou: 1620, saiu: 940),
+      MovimentoDiario(dia: '2026-09-02', entrou: 2210, saiu: 310),
+      MovimentoDiario(dia: '2026-09-03', entrou: 860, saiu: 1480),
+      MovimentoDiario(dia: '2026-09-04', entrou: 2980, saiu: 420),
+      MovimentoDiario(dia: '2026-09-05', entrou: 2510, saiu: 2300),
+      MovimentoDiario(dia: '2026-09-08', entrou: 3890, saiu: 610),
+      MovimentoDiario(dia: '2026-09-09', entrou: 3420, saiu: 380),
+      MovimentoDiario(dia: '2026-09-10', entrou: 4760, saiu: 5200),
+      MovimentoDiario(dia: '2026-09-11', entrou: 2010, saiu: 290),
+      MovimentoDiario(dia: '2026-09-12', entrou: 3180, saiu: 740),
+      MovimentoDiario(dia: '2026-09-15', entrou: 2640, saiu: 450),
+      MovimentoDiario(dia: '2026-09-16', entrou: 1490, saiu: 1860),
+      MovimentoDiario(dia: '2026-09-17', entrou: 1930, saiu: 360),
+      MovimentoDiario(dia: '2026-09-18', entrou: 3310, saiu: 520),
+      MovimentoDiario(dia: '2026-09-19', entrou: 2280, saiu: 410),
+      MovimentoDiario(dia: '2026-09-22', entrou: 1050, saiu: 2740),
+      MovimentoDiario(dia: '2026-09-23', entrou: 740, saiu: 280),
+      MovimentoDiario(dia: '2026-09-24', entrou: 1380, saiu: 330),
+      MovimentoDiario(dia: '2026-09-25', entrou: 820, saiu: 1120),
+      MovimentoDiario(dia: '2026-09-26', entrou: 690, saiu: 260),
+    ],
+    osPorStatus: [
+      FatiaStatus(status: 'entregue', total: 34),
+      FatiaStatus(status: 'em_execucao', total: 11),
+      FatiaStatus(status: 'aguardando_peca', total: 6),
+      FatiaStatus(status: 'orcamento', total: 5),
+      FatiaStatus(status: 'cancelada', total: 2),
+    ],
+    formasDePagamento: [
+      FatiaForma(forma: 'pix', total: 18400),
+      FatiaForma(forma: 'credito', total: 11200),
+      FatiaForma(forma: 'dinheiro', total: 6300),
+      FatiaForma(forma: 'debito', total: 4100),
+      FatiaForma(forma: 'fiado', total: 2600),
+    ],
   );
 
   @override
@@ -508,6 +544,36 @@ class FakeReportRepository implements ReportRepository {
                 'anotada: o valor a receber passou de R\$ 1.730 para '
                 'R\$ 7.100. As despesas cresceram 30%, bem acima do '
                 'faturamento, e o resultado do caixa caiu para R\$ 9.800.',
+            destaques: [
+              DestaqueMensal(
+                kpi: 'A receber',
+                comentario:
+                    'Quadruplicou em um mês — é dinheiro já trabalhado que '
+                    'ainda não entrou.',
+              ),
+              DestaqueMensal(
+                kpi: 'Despesas',
+                comentario:
+                    'Cresceu mais que o faturamento, e foi o que comeu o '
+                    'resultado do caixa.',
+              ),
+              DestaqueMensal(
+                kpi: 'Faturamento',
+                comentario: 'Terceiro mês seguido de alta.',
+              ),
+            ],
+            oQueFoiBem: [
+              'Faturamento: subiu 12,1%, fechando em R\$ 48.200,00.',
+              'Ordens concluídas: 80 no mês, 14% a mais que em agosto.',
+            ],
+            oQuePreocupa: [
+              'O fiado cresceu mais que o faturamento',
+              'As despesas subiram bem acima da receita',
+              'Quatro itens de estoque abaixo do mínimo',
+            ],
+            fechamento:
+                'O mês que começa pede cobrança antes de venda: o faturamento '
+                'está respondendo, o caixa é que não.',
             alertas: [
               'O fiado cresceu mais que o faturamento: parte do crescimento do '
                   'mês ainda não virou dinheiro em caixa.',

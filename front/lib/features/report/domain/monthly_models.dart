@@ -29,6 +29,9 @@ abstract class GraficosDoMes with _$GraficosDoMes {
   const factory GraficosDoMes({
     @Default(<PontoDiario>[]) List<PontoDiario> serieDiaria,
     @Default(<FatiaCategoria>[]) List<FatiaCategoria> despesasPorCategoria,
+    @Default(<MovimentoDiario>[]) List<MovimentoDiario> movimentoPorDia,
+    @Default(<FatiaStatus>[]) List<FatiaStatus> osPorStatus,
+    @Default(<FatiaForma>[]) List<FatiaForma> formasDePagamento,
   }) = _GraficosDoMes;
 
   factory GraficosDoMes.fromJson(Map<String, dynamic> json) =>
@@ -56,6 +59,44 @@ abstract class FatiaCategoria with _$FatiaCategoria {
 
   factory FatiaCategoria.fromJson(Map<String, dynamic> json) =>
       _$FatiaCategoriaFromJson(json);
+}
+
+/// Entrou e saiu do caixa no mesmo dia — duas séries, um eixo.
+@freezed
+abstract class MovimentoDiario with _$MovimentoDiario {
+  const factory MovimentoDiario({
+    /// "2026-09-17".
+    @Default('') String dia,
+    @Default(0) num entrou,
+    @Default(0) num saiu,
+  }) = _MovimentoDiario;
+
+  factory MovimentoDiario.fromJson(Map<String, dynamic> json) =>
+      _$MovimentoDiarioFromJson(json);
+}
+
+/// Quantas ordens pararam em cada status.
+@freezed
+abstract class FatiaStatus with _$FatiaStatus {
+  const factory FatiaStatus({
+    @Default('') String status,
+    @Default(0) int total,
+  }) = _FatiaStatus;
+
+  factory FatiaStatus.fromJson(Map<String, dynamic> json) =>
+      _$FatiaStatusFromJson(json);
+}
+
+/// Quanto entrou por forma de pagamento.
+@freezed
+abstract class FatiaForma with _$FatiaForma {
+  const factory FatiaForma({
+    @Default('') String forma,
+    @Default(0) num total,
+  }) = _FatiaForma;
+
+  factory FatiaForma.fromJson(Map<String, dynamic> json) =>
+      _$FatiaFormaFromJson(json);
 }
 
 @freezed
@@ -142,12 +183,34 @@ abstract class NarrativaMensal with _$NarrativaMensal {
   const factory NarrativaMensal({
     @Default('') String titulo,
     @Default('') String leitura,
+    /// Os números que o texto escolheu comentar. `kpi` é o RÓTULO de um KPI
+    /// desta mesma página — o valor vem de lá, nunca do texto.
+    @Default(<DestaqueMensal>[]) List<DestaqueMensal> destaques,
+    @Default(<String>[]) List<String> oQueFoiBem,
+    @Default(<String>[]) List<String> oQuePreocupa,
     @Default(<String>[]) List<String> alertas,
     @Default(<String>[]) List<String> recomendacoes,
+    @Default('') String fechamento,
   }) = _NarrativaMensal;
 
   factory NarrativaMensal.fromJson(Map<String, dynamic> json) =>
       _$NarrativaMensalFromJson(json);
+}
+
+/// Um número que o texto comentou.
+///
+/// Guarda só o RÓTULO do KPI; a cifra é buscada na lista de KPIs da própria
+/// página. Assim o texto nunca é a fonte de um número — nem quando foi escrito
+/// por um modelo.
+@freezed
+abstract class DestaqueMensal with _$DestaqueMensal {
+  const factory DestaqueMensal({
+    @Default('') String kpi,
+    @Default('') String comentario,
+  }) = _DestaqueMensal;
+
+  factory DestaqueMensal.fromJson(Map<String, dynamic> json) =>
+      _$DestaqueMensalFromJson(json);
 }
 
 /// O resumo gravado de um mês fechado — `GET /report/monthly`.

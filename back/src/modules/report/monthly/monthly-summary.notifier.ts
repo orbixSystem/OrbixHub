@@ -90,11 +90,20 @@ function textoDoEmail(r: ResumoMensal): string {
     'NÚMEROS DO MÊS',
     ...r.kpis.map((k) => `- ${k.rotulo}: ${valor(k)} ${seta(k)}`.trimEnd()),
   ];
+  if (r.narrativa.oQueFoiBem?.length) {
+    linhas.push('', 'O QUE FOI BEM', ...r.narrativa.oQueFoiBem.map((a) => `- ${a}`));
+  }
+  if (r.narrativa.oQuePreocupa?.length) {
+    linhas.push('', 'O QUE PREOCUPA', ...r.narrativa.oQuePreocupa.map((a) => `- ${a}`));
+  }
   if (r.narrativa.alertas.length > 0) {
     linhas.push('', 'O QUE MERECE ATENÇÃO', ...r.narrativa.alertas.map((a) => `- ${a}`));
   }
   if (r.narrativa.recomendacoes.length > 0) {
     linhas.push('', 'PARA ESTE MÊS', ...r.narrativa.recomendacoes.map((a) => `- ${a}`));
+  }
+  if (r.narrativa.fechamento) {
+    linhas.push('', r.narrativa.fechamento);
   }
   return linhas.join('\n');
 }
@@ -125,8 +134,15 @@ function htmlDoEmail(r: ResumoMensal): string {
     <h2 style="font-size:18px;margin:0 0 6px">${esc(r.narrativa.titulo)}</h2>
     <p style="color:#555;line-height:1.6;margin:0 0 18px">${esc(r.narrativa.leitura)}</p>
     <table style="border-collapse:collapse;font-size:14px">${kpis}</table>
+    ${lista('O que foi bem', r.narrativa.oQueFoiBem ?? [])}
+    ${lista('O que preocupa', r.narrativa.oQuePreocupa ?? [])}
     ${lista('O que merece atenção', r.narrativa.alertas)}
     ${lista('Para este mês', r.narrativa.recomendacoes)}
+    ${
+      r.narrativa.fechamento
+        ? `<p style="color:#555;line-height:1.6;margin:18px 0 0">${esc(r.narrativa.fechamento)}</p>`
+        : ''
+    }
   </div>`;
 }
 

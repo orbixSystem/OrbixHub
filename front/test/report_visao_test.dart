@@ -8,6 +8,7 @@ import 'package:orbixhub_front/features/report/domain/monthly_models.dart';
 import 'package:orbixhub_front/features/report/domain/report_repository.dart';
 import 'package:orbixhub_front/features/report/presentation/report_providers.dart';
 import 'package:orbixhub_front/features/report/presentation/report_tabs.dart';
+import 'package:orbixhub_front/features/report/presentation/tabs/resumo_tab.dart';
 import 'package:orbixhub_front/features/report/presentation/tabs/visao_tab.dart';
 import 'package:orbixhub_front/features/report/presentation/widgets/livro_do_mes.dart';
 
@@ -53,11 +54,35 @@ Future<void> _montar(WidgetTester t, {ReportRepository? repo}) async {
   await t.pumpAndSettle();
 }
 
+/// A primeira aba: o relatório ESCRITO. O texto mora aqui desde que a leitura
+/// em palavras e a leitura em gráficos passaram a ser duas páginas.
+Future<void> _montarResumo(WidgetTester t, {ReportRepository? repo}) async {
+  t.view.physicalSize = const Size(1200, 3600);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+
+  await t.pumpWidget(ProviderScope(
+    overrides: [
+      reportRepositoryProvider.overrideWithValue(repo ?? FakeReportRepository()),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      home: const Scaffold(
+        body: SingleChildScrollView(child: ResumoTab()),
+      ),
+    ),
+  ));
+  await t.pumpAndSettle();
+}
+
 void main() {
   group('abas disponíveis (regra pura)', () {
-    test('a Visão existe sempre que Relatórios existe', () {
+    test('o relatório escrito abre, e a visão geral vem logo atrás', () {
       final abas = abasDisponiveis(_me());
-      expect(abas.first.tab, ReportTab.visao);
+      // As duas existem sempre que Relatórios existe: são a mesma leitura do
+      // mês, uma em palavras e a outra em gráficos.
+      expect(abas.first.tab, ReportTab.resumo);
+      expect(abas[1].tab, ReportTab.visao);
       // Ela não é uma coleção de relatórios — é a leitura do mês.
       expect(abas.first.secoes, isEmpty);
     });
@@ -166,10 +191,10 @@ void main() {
     });
   });
 
-  group('a tela', () {
+  group('o relatório escrito', () {
     testWidgets('abre com o texto do mês, não com uma lista de gráficos',
         (t) async {
-      await _montar(t);
+      await _montarResumo(t);
 
       expect(
         find.textContaining('Setembro fechou 12% acima de agosto'),
@@ -181,7 +206,7 @@ void main() {
     });
 
     testWidgets('assina quem escreveu, no pé da página', (t) async {
-      await _montar(t);
+      await _montarResumo(t);
       // Creditar à IA um texto que ela não escreveu seria mentir sobre o
       // produto — e um dia alguém compara dois meses e percebe.
       expect(
@@ -193,7 +218,7 @@ void main() {
     });
 
     testWidgets('sem IA, o sistema assina o próprio texto', (t) async {
-      await _montar(t, repo: _ResumoSemIa());
+      await _montarResumo(t, repo: _ResumoSemIa());
       expect(
         find.textContaining('Escrito pelo próprio sistema'),
         findsOneWidget,
@@ -206,11 +231,31 @@ void main() {
 
     testWidgets('mês sem resumo explica a ausência em vez de ficar vazio',
         (t) async {
-      await _montar(t, repo: _SemResumo());
+      await _montarResumo(t, repo: _SemResumo());
 
       expect(find.text('O mês ainda está em andamento'), findsOneWidget);
-      // E os números continuam lá: eles não dependem de nada externo.
-      expect(find.byType(LivroDoMes), findsOneWidget);
+      // E o mês até aqui continua desenhado: os números não dependem do texto.
+      expect(find.text('O mês até aqui'), findsOneWidget);
+    });
+
+    testWidgets('diz quando foi gerado, em tempo decorrido e em data',
+        (t) async {
+      await _montarResumo(t);
+
+      // A data absoluta diz QUANDO; o "há X" diz se ainda vale. Quem abre no
+      // dia 12 precisa saber que o texto é do dia 1º sem fazer a conta.
+      expect(find.textContaining('Gerado'), findsOneWidget);
+      expect(find.textContaining('Mês analisado:'), findsOneWidget);
+    });
+
+    testWidgets('o texto vem com as seções que o tornam um relatório',
+        (t) async {
+      await _montarResumo(t);
+
+      expect(find.text('Os números do mês'), findsOneWidget);
+      expect(find.text('O que foi bem'), findsOneWidget);
+      expect(find.text('O que preocupa'), findsOneWidget);
+      expect(find.text('Para este mês'), findsOneWidget);
     });
 
     testWidgets('mostra os sinais mesmo sem resumo escrito', (t) async {
@@ -224,6 +269,7 @@ void main() {
     });
 
     testWidgets('falha ao buscar o texto não esconde os números', (t) async {
+      // A visão geral não depende do texto: ela soma os próprios números.
       await _montar(t, repo: _ResumoQueFalha());
 
       expect(find.byType(LivroDoMes), findsOneWidget);

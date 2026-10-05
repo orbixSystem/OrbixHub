@@ -1,7 +1,5 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/widgets/charts/chart_common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
@@ -25,6 +23,14 @@ import 'widgets/charts/ranking_barras.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
 import 'report_tabs.dart';
+import 'tabs/caixa_tab.dart';
+import 'tabs/clientes_tab.dart';
+import 'tabs/equipe_tab.dart';
+import 'tabs/estoque_tab.dart';
+import 'tabs/despesas_tab.dart';
+import 'tabs/faturamento_tab.dart';
+import 'tabs/ordens_tab.dart';
+import 'tabs/resumo_tab.dart';
 import 'tabs/visao_tab.dart';
 import 'report_csv.dart';
 import '../../../core/export/file_download.dart';
@@ -90,9 +96,13 @@ class ReportScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           CoachTarget(
             'relatorios.conteudo',
-            child: aba.tab == ReportTab.visao
-                ? const VisaoTab()
-                : _SecoesDaAba(me: me, aba: aba),
+            child: switch (aba.tab) {
+              // As duas primeiras abas não são coleções de relatórios: são a
+              // leitura do mês — uma em palavras, a outra em gráficos.
+              ReportTab.resumo => const ResumoTab(),
+              ReportTab.visao => const VisaoTab(),
+              _ => _SecoesDaAba(me: me, aba: aba),
+            },
           ),
         ],
       ),
@@ -118,9 +128,13 @@ class _Cabecalho extends ConsumerWidget {
         Text('Relatórios', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         Text(
-          aba == ReportTab.visao
-              ? 'Como foi o mês, o que saiu da curva e o que fazer agora.'
-              : 'Detalhamento por assunto, com exportação.',
+          switch (aba) {
+            ReportTab.resumo =>
+              'A leitura escrita do mês: o que aconteceu e o que fazer agora.',
+            ReportTab.visao =>
+              'O mesmo mês em gráficos, um de cada assunto.',
+            _ => 'Detalhamento por assunto, com exportação.',
+          },
           style: TextStyle(color: neu.inkMuted),
         ),
       ],
@@ -303,6 +317,11 @@ class _AbaChip extends StatelessWidget {
 
 /// Os relatórios de uma aba, empilhados com o próprio título.
 ///
+/// Só a TABELA e a exportação: os números de resumo e os gráficos que antes
+/// vinham aqui agora moram no painel, logo acima. Mostrar a mesma rosca duas
+/// vezes na mesma rolagem não é reforço, é ruído — e faz o dono procurar a
+/// diferença entre dois desenhos idênticos.
+///
 /// Empilhar em vez de pedir outra escolha: dentro de "Dinheiro" são três
 /// lentes do mesmo assunto, e rolar é mais barato que decidir.
 class _SecoesDaAba extends StatelessWidget {
@@ -320,9 +339,20 @@ class _SecoesDaAba extends StatelessWidget {
       ..sort((a, b) =>
           aba.secoes.indexOf(a.kind).compareTo(aba.secoes.indexOf(b.kind)));
 
+    // O painel da aba vem ANTES do detalhamento: a pergunta ("como foi o
+    // faturamento?") se responde de um olhar, e a tabela fica para quem
+    // precisa da linha exata. Abrir pela tabela obrigava a somar de cabeça.
+    final painel = _painelDaAba(aba.tab);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (painel != null) ...[
+          painel,
+          const SizedBox(height: 28),
+          Divider(color: neu.line, height: 1),
+          const SizedBox(height: 24),
+        ],
         for (var i = 0; i < specs.length; i++) ...[
           if (i > 0) ...[
             const SizedBox(height: 28),
@@ -340,6 +370,21 @@ class _SecoesDaAba extends StatelessWidget {
     );
   }
 }
+
+/// O painel denso de cada aba, quando ela tem um.
+///
+/// `null` significa "esta aba ainda abre pelo detalhamento" — e não um painel
+/// vazio, que pareceria defeito.
+Widget? _painelDaAba(ReportTab aba) => switch (aba) {
+      ReportTab.faturamento => const PainelDeFaturamento(),
+      ReportTab.caixa => const PainelDeCaixa(),
+      ReportTab.despesas => const PainelDeDespesas(),
+      ReportTab.ordens => const PainelDeOrdens(),
+      ReportTab.equipe => const PainelDeEquipe(),
+      ReportTab.clientes => const PainelDeClientes(),
+      ReportTab.estoque => const PainelDeEstoque(),
+      _ => null,
+    };
 
 class _ReportContent extends ConsumerWidget {
   const _ReportContent({required this.me, required this.spec});
@@ -620,11 +665,6 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(revenueReportProvider),
           tableOf: revenueTable,
           isEmpty: (r) => r.byDay.isEmpty,
-          chartOf: (r) => _RevenueChart(report: r),
-          summaryOf: (r) => [
-            ('Receita total', formatMoney(r.total)),
-            ('Ticket médio', formatMoney(r.avgTicket)),
-          ],
           company: _company(ref),
           period: _periodLabel(ref),
         );
@@ -634,7 +674,6 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(teamReportProvider),
           tableOf: (r) => teamTable(r, memberNames),
           isEmpty: (r) => r.rows.isEmpty,
-          chartOf: (r) => _TeamChart(report: r, names: memberNames),
           company: _company(ref),
           period: _periodLabel(ref),
         );
@@ -644,7 +683,6 @@ class _ReportBody extends ConsumerWidget {
           retry: () => ref.invalidate(topItemsReportProvider),
           tableOf: topItemsTable,
           isEmpty: (r) => r.rows.isEmpty,
-          chartOf: (r) => _TopItemsChart(report: r),
           company: _company(ref),
           period: _periodLabel(ref),
         );
@@ -665,29 +703,6 @@ class _ReportBody extends ConsumerWidget {
           // "Para onde vai o dinheiro" é uma pergunta de COMPOSIÇÃO, e é
           // exatamente o que um donut responde de um olhar. A tabela continua
           // embaixo, ordenada pelo maior gasto, para quem precisa do número.
-          chartOf: (r) => DonutCard(
-            titulo: 'Para onde foi o dinheiro',
-            total: formatMoney(r.totals.previsto),
-            vazio: 'Nenhuma despesa no período.',
-            fatias: [
-              for (final linha in r.rows)
-                FatiaDonut(
-                  rotulo: linha.categoryName,
-                  valor: linha.previsto.toDouble(),
-                  texto: formatMoney(linha.previsto),
-                  cor: _corDaCategoria(context, linha.categoryColor),
-                ),
-            ],
-          ),
-          summaryOf: (r) => [
-            ('Previsto no período', formatMoney(r.totals.previsto)),
-            ('Já pago', formatMoney(r.totals.pago)),
-            ('Em aberto', formatMoney(r.totals.emAberto)),
-            // Vencido só aparece quando existe: um "R$ 0,00" fixo em vermelho
-            // treinaria o olho a ignorar o vermelho.
-            if (r.totals.vencido > 0)
-              ('Vencido', formatMoney(r.totals.vencido)),
-          ],
           company: _company(ref),
           period: _periodLabel(ref),
         );
@@ -706,34 +721,6 @@ class _ReportBody extends ConsumerWidget {
   }
 }
 
-/// Painel BI da "Visão geral": KPIs + gráficos sobre os dados JÁ existentes do
-/// período selecionado. O faturamento é obrigatório (módulo `os`); clientes e
-/// estoque só entram quando o tenant tem esses módulos. Sem tabela/export — é um
-/// dashboard. Respeita o seletor de período (via `revenueReportProvider` etc.).
-/// A cor que a categoria de despesa já tem no produto ("#E53935").
-///
-/// Usar a mesma cor da categoria em todo lugar é o que impede o donut de dizer
-/// uma coisa e a tela de Despesas outra. Cor inválida ou ausente cai na paleta
-/// do design system.
-Color? _corDaCategoria(BuildContext context, String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  final limpo = hex.replaceAll('#', '').trim();
-  if (limpo.length != 6) return null;
-  final v = int.tryParse(limpo, radix: 16);
-  return v == null ? null : Color(0xFF000000 | v);
-}
-
-/// Rótulo curto de um dia da série ('YYYY-MM-DD' → 'dd/MM') para eixos.
-String _dayShort(String day) {
-  final parts = day.split('-');
-  if (parts.length != 3) return day;
-  return '${parts[2]}/${parts[1]}';
-}
-
-/// Trunca um rótulo para caber no eixo (com reticências).
-String _clip(String s, int max) =>
-    s.length > max ? '${s.substring(0, max)}…' : s;
-
 class _AsyncReport<T> extends StatelessWidget {
   const _AsyncReport({
     required this.async,
@@ -742,16 +729,12 @@ class _AsyncReport<T> extends StatelessWidget {
     required this.isEmpty,
     required this.company,
     required this.period,
-    this.chartOf,
-    this.summaryOf,
   });
 
   final AsyncValue<T> async;
   final VoidCallback retry;
   final ReportTable Function(T) tableOf;
   final bool Function(T) isEmpty;
-  final Widget Function(T)? chartOf;
-  final List<(String, String)> Function(T)? summaryOf;
   final DocumentCompany? company;
   final String? period;
 
@@ -787,21 +770,6 @@ class _AsyncReport<T> extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            if (summaryOf != null) ...[
-              Wrap(
-                spacing: 24,
-                runSpacing: 12,
-                children: [
-                  for (final s in summaryOf!(data))
-                    _SummaryStat(label: s.$1, value: s.$2),
-                ],
-              ),
-              const SizedBox(height: 18),
-            ],
-            if (!empty && chartOf != null) ...[
-              chartOf!(data),
-              const SizedBox(height: 18),
-            ],
             if (empty)
               const _Empty(message: 'Sem dados no período.')
             else
@@ -1765,210 +1733,6 @@ class _ExportButtons extends StatelessWidget {
           onPressed: _pdf,
         ),
       ],
-    );
-  }
-}
-
-/// Gráfico de barras do faturamento por dia (série temporal). Eixo X em dd/MM,
-/// eixo Y em R\$ abreviado; grid recessivo e tooltip no toque. Poucos pontos →
-/// barra mais larga (sem "área vazia").
-class _RevenueChart extends StatelessWidget {
-  const _RevenueChart({required this.report});
-  final RevenueReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final days = report.byDay;
-    if (days.isEmpty) return const SizedBox.shrink();
-    final maxY = days
-        .map((d) => d.revenue.toDouble())
-        .fold<double>(0, (a, b) => b > a ? b : a);
-    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
-    // Largura da barra adaptada à densidade (poucos dias → barras largas).
-    final width = days.length > 20
-        ? 6.0
-        : days.length > 10
-        ? 12.0
-        : days.length > 4
-        ? 20.0
-        : 30.0;
-
-    return NeuChartCard(
-      title: 'Evolução do faturamento',
-      child: ChartSemantics(
-        child: BarChart(
-          BarChartData(
-            maxY: top,
-            alignment: BarChartAlignment.spaceAround,
-            gridData: neuGrid(context, interval: top / 4),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: neuLeftTitles(
-                context,
-                format: neuShortMoney,
-                interval: top / 4,
-              ),
-              rightTitles: neuNoAxis,
-              topTitles: neuNoAxis,
-              bottomTitles: neuBottomTitles(
-                context,
-                count: days.length,
-                label: (i) => _dayShort(days[i].day),
-              ),
-            ),
-            barTouchData: neuBarTouch(
-              context,
-              label: (i, v) => '${_dayShort(days[i].day)}\n${formatMoney(v)}',
-            ),
-            barGroups: [
-              for (var i = 0; i < days.length; i++)
-                BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    neuBarRod(
-                      context,
-                      days[i].revenue.toDouble(),
-                      width: width,
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Gráfico de barras horizontais do faturamento por responsável.
-class _TeamChart extends StatelessWidget {
-  const _TeamChart({required this.report, required this.names});
-  final TeamReport report;
-  final Map<String, String> names;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final rows = report.rows;
-    if (rows.isEmpty) return const SizedBox.shrink();
-    final maxY = rows
-        .map((r) => r.revenue.toDouble())
-        .fold<double>(0, (a, b) => b > a ? b : a);
-    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
-
-    return NeuChartCard(
-      title: 'Faturamento por responsável',
-      child: ChartSemantics(
-        child: BarChart(
-          BarChartData(
-            maxY: top,
-            alignment: BarChartAlignment.spaceAround,
-            gridData: neuGrid(context, interval: top / 4),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: neuLeftTitles(
-                context,
-                format: neuShortMoney,
-                interval: top / 4,
-              ),
-              rightTitles: neuNoAxis,
-              topTitles: neuNoAxis,
-              bottomTitles: neuBottomTitles(
-                context,
-                count: rows.length,
-                label: (i) =>
-                    _clip(assignedLabel(rows[i].assignedTo, names), 8),
-              ),
-            ),
-            barTouchData: neuBarTouch(
-              context,
-              label: (i, v) =>
-                  '${assignedLabel(rows[i].assignedTo, names)}\n${formatMoney(v)}',
-            ),
-            barGroups: [
-              for (var i = 0; i < rows.length; i++)
-                BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    neuBarRod(
-                      context,
-                      rows[i].revenue.toDouble(),
-                      width: rows.length > 8 ? 14 : 22,
-                      color: neu.accent,
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Top produtos/serviços (barras verticais, série única por receita) — aba
-/// "Top produtos/serviços". Mostra até 12 itens (a régua fina é o filtro "Top").
-class _TopItemsChart extends StatelessWidget {
-  const _TopItemsChart({required this.report});
-  final TopItemsReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    final rows = report.rows.take(12).toList();
-    if (rows.isEmpty) return const SizedBox.shrink();
-    final maxY = rows
-        .map((r) => r.revenue.toDouble())
-        .fold<double>(0, (a, b) => b > a ? b : a);
-    final top = maxY <= 0 ? 1.0 : maxY * 1.2;
-
-    return NeuChartCard(
-      title: 'Receita por item',
-      // Barras com rótulo precisam de um piso maior que o padrão.
-      minHeight: 260,
-      child: ChartSemantics(
-        child: BarChart(
-          BarChartData(
-            maxY: top,
-            alignment: BarChartAlignment.spaceAround,
-            gridData: neuGrid(context, interval: top / 4),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: neuLeftTitles(
-                context,
-                format: neuShortMoney,
-                interval: top / 4,
-              ),
-              rightTitles: neuNoAxis,
-              topTitles: neuNoAxis,
-              bottomTitles: neuBottomTitles(
-                context,
-                count: rows.length,
-                label: (i) => _clip(rows[i].name, 8),
-                maxLabels: 12,
-              ),
-            ),
-            barTouchData: neuBarTouch(
-              context,
-              label: (i, v) => '${rows[i].name}\n${formatMoney(v)}',
-            ),
-            barGroups: [
-              for (var i = 0; i < rows.length; i++)
-                BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    neuBarRod(
-                      context,
-                      rows[i].revenue.toDouble(),
-                      width: rows.length > 8 ? 14 : 20,
-                      color: neu.accent,
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

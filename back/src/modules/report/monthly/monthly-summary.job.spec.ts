@@ -165,3 +165,59 @@ describe('janela do mês', () => {
     );
   });
 });
+
+/**
+ * O gatilho de UMA oficina.
+ *
+ * A esteira atende por ordem alfabética com orçamento diário: numa base com
+ * mil oficinas, conferir o texto de uma delas custaria esperar a vez chegar —
+ * e no banco local de desenvolvimento ela simplesmente nunca chega.
+ */
+describe('MonthlySummaryJob.gerarParaUm', () => {
+  it('gera e avisa só a oficina pedida', async () => {
+    const { job, gerados, avisados, summary } = montar([]);
+    // O job pergunta o NOME da oficina; o fake de tenants responde a isso.
+    (job as never as { prisma: { $queryRaw: jest.Mock } }).prisma.$queryRaw =
+      jest.fn(async () => [{ name: 'Oficina Demo' }]);
+
+    const r = await job.gerarParaUm('t9', new Date('2026-10-04T00:00:00Z'));
+
+    expect(r).toEqual({ gerados: 1, falhas: 0 });
+    expect(gerados).toEqual(['t9']);
+    expect(avisados).toEqual(['t9']);
+    // O mês analisado é o ANTERIOR ao "agora" recebido — a mesma regra do cron.
+    const ref = summary.gerarParaTenant.mock.calls[0][1] as Date;
+    expect(janelaDoMes(ref).rotulo).toBe('Setembro/2026');
+  });
+
+  it('oficina inexistente é erro, não um resumo vazio', async () => {
+    const { job } = montar([]);
+    (job as never as { prisma: { $queryRaw: jest.Mock } }).prisma.$queryRaw =
+      jest.fn(async () => []);
+
+    await expect(
+      job.gerarParaUm('nao-existe', new Date('2026-10-04T00:00:00Z')),
+    ).rejects.toThrow('Oficina não encontrada.');
+  });
+
+  it('falha ao gerar não derruba a chamada — ela é contada', async () => {
+    const { job } = montar([], { quebraEm: 't9' });
+    (job as never as { prisma: { $queryRaw: jest.Mock } }).prisma.$queryRaw =
+      jest.fn(async () => [{ name: 'Oficina Demo' }]);
+
+    await expect(
+      job.gerarParaUm('t9', new Date('2026-10-04T00:00:00Z')),
+    ).resolves.toEqual({ gerados: 0, falhas: 1 });
+  });
+
+  it('aviso que falha não faz o resumo já gravado contar como falha', async () => {
+    const { job, gerados } = montar([], { avisoQuebraEm: 't9' });
+    (job as never as { prisma: { $queryRaw: jest.Mock } }).prisma.$queryRaw =
+      jest.fn(async () => [{ name: 'Oficina Demo' }]);
+
+    await expect(
+      job.gerarParaUm('t9', new Date('2026-10-04T00:00:00Z')),
+    ).resolves.toEqual({ gerados: 1, falhas: 0 });
+    expect(gerados).toEqual(['t9']);
+  });
+});

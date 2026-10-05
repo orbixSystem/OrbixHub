@@ -12,6 +12,7 @@ import 'report_catalog.dart';
 /// detalhamentos por assunto, do jeito que a pergunta nasce ("quanto entrou?",
 /// "como foi a oficina?", "quem são meus clientes?").
 enum ReportTab {
+  resumo,
   visao,
   faturamento,
   caixa,
@@ -60,7 +61,11 @@ const Map<ReportKind, ReportTab> _abaDoRelatorio = {
 };
 
 const _ordem = [
-  (ReportTab.visao, 'Visão', Icons.insights_rounded),
+  // O relatório escrito abre Relatórios. É a única página que responde "como
+  // foi o mês" em palavras, para quem não vai ler gráfico nenhum — e por isso
+  // vem antes do painel, que é a mesma resposta em desenho.
+  (ReportTab.resumo, 'Relatório do mês', Icons.auto_awesome_rounded),
+  (ReportTab.visao, 'Visão geral', Icons.insights_rounded),
   (ReportTab.faturamento, 'Faturamento', Icons.trending_up_rounded),
   (ReportTab.caixa, 'Caixa', Icons.point_of_sale_outlined),
   (ReportTab.despesas, 'Despesas', Icons.receipt_long_outlined),
@@ -77,8 +82,9 @@ const _ordem = [
 ///
 /// Aba sem nenhum relatório disponível não aparece: uma oficina que não
 /// contratou clientes não deve ver uma aba "Clientes" vazia explicando que
-/// está vazia. A "Visão" é a exceção — ela existe sempre que Relatórios
-/// existe, porque é a própria leitura do mês.
+/// está vazia. O "Relatório do mês" e a "Visão geral" são as exceções — as
+/// duas existem sempre que Relatórios existe, porque são a leitura do mês
+/// (uma em palavras, a outra em gráficos).
 List<ReportTabSpec> abasDisponiveis(Me me) {
   final disponiveis = availableReports(me).map((r) => r.kind).toSet();
   if (disponiveis.isEmpty) return const [];
@@ -89,7 +95,9 @@ List<ReportTabSpec> abasDisponiveis(Me me) {
         .where((e) => e.value == tab && disponiveis.contains(e.key))
         .map((e) => e.key)
         .toList();
-    if (tab == ReportTab.visao || secoes.isNotEmpty) {
+    if (tab == ReportTab.resumo ||
+        tab == ReportTab.visao ||
+        secoes.isNotEmpty) {
       abas.add(
         ReportTabSpec(tab: tab, label: label, icon: icon, secoes: secoes),
       );

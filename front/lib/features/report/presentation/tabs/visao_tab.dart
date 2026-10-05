@@ -4,24 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/app_exception.dart';
 import '../../../../core/ui/ui.dart';
 import '../report_providers.dart';
-import '../widgets/documento_do_mes.dart';
 import '../widgets/livro_do_mes.dart';
 import '../widgets/sinais_do_mes.dart';
-import '../widgets/visao_charts.dart';
+import '../widgets/visao_painel.dart';
 
-/// A leitura do mês — a tela que Relatórios abre.
+/// A visão geral — o mesmo mês da aba anterior, em gráficos.
 ///
-/// A página é um documento: a frase que abre, os números que a sustentam, o
-/// que saiu da curva e, por último, os gráficos como evidência. A ordem é a de
-/// quem vai decidir alguma coisa. O menu de nove relatórios pedia o contrário —
-/// que o dono soubesse o que procurar antes de ver qualquer coisa.
+/// O texto escrito mora no "Relatório do mês"; aqui ficam os números que o
+/// sustentam: o livro de valores, o que saiu da curva e um gráfico de cada
+/// assunto, com o caminho para a página que trata dele por inteiro. As duas
+/// páginas respondem a mesma pergunta em linguagens diferentes — repetir o
+/// documento nas duas faria o dono reler a mesma manchete e procurar, sem
+/// achar, o que mudou da primeira para a segunda.
 class VisaoTab extends ConsumerWidget {
   const VisaoTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visaoAsync = ref.watch(visaoMensalProvider);
-    final resumoAsync = ref.watch(resumoMensalProvider);
 
     return visaoAsync.when(
       loading: () => const _Preparando(),
@@ -32,31 +32,13 @@ class VisaoTab extends ConsumerWidget {
       data: (visao) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          resumoAsync.when(
-            loading: () => const _DocumentoCarregando(),
-            // Falha ao buscar o texto não pode esconder os números: eles não
-            // dependem de nada externo.
-            error: (_, _) => const SizedBox.shrink(),
-            data: (pagina) {
-              final resumo = pagina.resumo;
-              return resumo == null
-                  ? DocumentoAindaNaoEscrito(
-                      rotuloDoMes: visao.periodo.rotulo,
-                      mesCorrente: ref.watch(mesSelecionadoProvider) == null,
-                    )
-                  : DocumentoDoMes(resumo: resumo);
-            },
-          ),
-          const SizedBox(height: 16),
           LivroDoMes(kpis: visao.kpis, serie: visao.graficos.serieDiaria),
           if (visao.sinais.isNotEmpty) ...[
             const SizedBox(height: 16),
             SinaisDoMes(sinais: visao.sinais),
           ],
           const SizedBox(height: 16),
-          FaturamentoDoMesChart(serie: visao.graficos.serieDiaria),
-          const SizedBox(height: 16),
-          ParaOndeFoiChart(fatias: visao.graficos.despesasPorCategoria),
+          PainelDaVisao(graficos: visao.graficos),
         ],
       ),
     );
@@ -91,46 +73,6 @@ class _Preparando extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentoCarregando extends StatelessWidget {
-  const _DocumentoCarregando();
-
-  @override
-  Widget build(BuildContext context) {
-    final neu = context.neu;
-    // Esqueleto com a forma do que vem: duas linhas de manchete e três de
-    // prosa. Um spinner no lugar de um texto não prepara o olho para nada.
-    Widget barra(double largura, double altura) => Container(
-          width: largura,
-          height: altura,
-          decoration: BoxDecoration(
-            color: neu.line,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-    return NeuCard(
-      padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          barra(96, 11),
-          const SizedBox(height: 16),
-          barra(420, 21),
-          const SizedBox(height: 10),
-          barra(300, 21),
-          const SizedBox(height: 22),
-          barra(double.infinity, 1),
-          const SizedBox(height: 18),
-          barra(540, 11),
-          const SizedBox(height: 9),
-          barra(560, 11),
-          const SizedBox(height: 9),
-          barra(380, 11),
         ],
       ),
     );

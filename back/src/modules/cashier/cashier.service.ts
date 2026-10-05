@@ -123,6 +123,29 @@ export abstract class CashierService {
     to: Date;
   }): Promise<{ entrou: number; saiu: number }>;
 
+  /**
+   * O movimento do caixa DIA A DIA no período.
+   *
+   * Porta estreita para o `report`: o painel precisa mostrar entrada contra
+   * saída ao longo do mês — a pergunta que um total mensal esconde, porque um
+   * mês pode fechar positivo tendo passado três semanas no vermelho.
+   */
+  abstract movimentoPorDia(range: {
+    from: Date;
+    to: Date;
+  }): Promise<Array<{ dia: string; entrou: number; saiu: number }>>;
+
+  /**
+   * Quanto entrou por FORMA de pagamento no período.
+   *
+   * Porta estreita para o `report`. Saída fica de fora: a pergunta aqui é
+   * "como o cliente paga", e uma despesa paga em dinheiro não responde isso.
+   */
+  abstract recebidoPorForma(range: {
+    from: Date;
+    to: Date;
+  }): Promise<Array<{ forma: string; total: number }>>;
+
   abstract receivedBySale(range?: {
     from?: Date;
     to?: Date;

@@ -46,10 +46,25 @@ export interface Narrativa {
   titulo: string;
   /** 2-4 frases sobre o que aconteceu. */
   leitura: string;
+  /**
+   * Os números que o texto escolhe comentar.
+   *
+   * O modelo diz QUAL kpi destacar (pelo rótulo exato que recebeu) e escreve a
+   * frase; o VALOR continua vindo do nosso lado. Um campo de número aqui seria
+   * o primeiro lugar onde uma cifra alucinada se hospedaria — e um relatório
+   * financeiro com cifra inventada queima o recurso na primeira leitura.
+   */
+  destaques: Array<{ kpi: string; comentario: string }>;
+  /** O que sustentou o mês — 1 a 3 pontos. Vazio quando não houve. */
+  oQueFoiBem: string[];
+  /** O que pode estragar o próximo — 1 a 3 pontos. */
+  oQuePreocupa: string[];
   /** O que merece atenção — um item por sinal relevante. */
   alertas: string[];
   /** 2-3 ações concretas para o mês que começa. */
   recomendacoes: string[];
+  /** Uma ou duas frases de fechamento, olhando para o mês que começa. */
+  fechamento: string;
 }
 
 export interface ResultadoNarrativa {

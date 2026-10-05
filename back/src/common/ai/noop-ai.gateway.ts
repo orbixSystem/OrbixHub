@@ -44,10 +44,15 @@ export function montarNarrativa(payload: ResumoPayload): Narrativa {
       leitura:
         'Não houve faturamento, recebimento nem ordens de serviço no período. '
         + 'Se a oficina trabalhou neste mês, os registros não chegaram ao sistema.',
+      destaques: [],
+      oQueFoiBem: [],
+      oQuePreocupa: ['O mês não tem nenhum registro para analisar.'],
       alertas: ['Nenhum lançamento no período.'],
       recomendacoes: [
         'Confira se as ordens de serviço e os recebimentos do mês foram registrados.',
       ],
+      fechamento:
+        'Com os lançamentos em dia, o relatório do mês que vem já terá o que mostrar.',
     };
   }
 
@@ -76,10 +81,67 @@ export function montarNarrativa(payload: ResumoPayload): Narrativa {
   return {
     titulo: tituloDoMes(payload, faturado),
     leitura: frases.join(' '),
+    destaques: destaquesDe(payload),
+    oQueFoiBem: oQueFoiBem(payload),
+    oQuePreocupa: payload.sinais
+      .filter((s) => s.severidade !== 'info')
+      .slice(0, 3)
+      .map((s) => s.titulo),
     alertas: payload.sinais.map((s) => `${s.titulo}. ${s.detalhe}`),
     recomendacoes: recomendacoesPara(payload),
+    fechamento: fechamentoDe(payload),
   };
 }
+
+/**
+ * Os números que valem comentário: os que MUDARAM.
+ *
+ * Um destaque de algo que ficou igual gasta a atenção do leitor sem lhe dar
+ * nada — e, repetido todo mês, ensina a pular a seção. Os que subiram para o
+ * lado errado vêm primeiro, porque são os que custam dinheiro.
+ */
+function destaquesDe(payload: ResumoPayload): Narrativa['destaques'] {
+  const comVariacao = payload.kpis.filter((k) => k.variacao !== null);
+  const ordenados = [
+    ...comVariacao.filter((k) => k.variacaoBoa === false),
+    ...comVariacao.filter((k) => k.variacaoBoa === true),
+  ];
+  // Só o PRIMEIRO carrega o adendo de "o que mais pesa": repetido em quatro
+  // linhas seguidas, ele deixa de ser leitura e vira preenchimento — e ainda
+  // afirma de três números diferentes que cada um é o que mais pesa.
+  return ordenados.slice(0, 4).map((k, i) => ({
+    kpi: k.rotulo,
+    comentario:
+      k.variacaoBoa === false && i === 0
+        ? `${maiuscula(k.variacao ?? '')} em relação ao mês anterior — é o que mais pesa contra o resultado.`
+        : `${maiuscula(k.variacao ?? '')} em relação ao mês anterior.`,
+  }));
+}
+
+/** O que sustentou o mês. Lista vazia quando não houve — elogio inventado é ruído. */
+function oQueFoiBem(payload: ResumoPayload): string[] {
+  return payload.kpis
+    .filter((k) => k.variacaoBoa === true)
+    .slice(0, 3)
+    .map((k) => `${k.rotulo}: ${k.variacao}, fechando em ${k.valor}.`);
+}
+
+function fechamentoDe(payload: ResumoPayload): string {
+  const criticos = payload.sinais.filter((s) => s.severidade === 'critico');
+  if (criticos.length > 0) {
+    return (
+      'O mês que começa pede atenção ao que está listado acima: '
+      + `${criticos[0].titulo.toLowerCase()} é o ponto que muda o resultado mais rápido.`
+    );
+  }
+  if (payload.sinais.length > 0) {
+    return 'Nenhum ponto é grave agora, mas vale acompanhar os itens acima ao longo do mês.';
+  }
+  return 'Sem pontos de atenção nos números, o mês que começa é de manter o ritmo.';
+}
+
+const maiuscula = (s: string): string =>
+  s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
 
 function tituloDoMes(
   payload: ResumoPayload,

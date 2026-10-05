@@ -157,3 +157,78 @@ describe('leitura da resposta do modelo', () => {
     expect(n?.alertas).toEqual([]);
   });
 });
+
+/**
+ * As seções que tornam o resumo um RELATÓRIO, e não um parágrafo.
+ *
+ * Elas existem porque um texto corrido é lido uma vez e esquecido: o dono
+ * precisa conseguir voltar à página e achar, sem reler, qual número mudou, o
+ * que sustentou o mês e o que pode estragar o próximo.
+ */
+describe('as seções do relatório', () => {
+  it('destaca os números que MUDARAM, começando pelos que pioraram', () => {
+    const { destaques } = montarNarrativa(payload);
+
+    expect(destaques.length).toBeGreaterThanOrEqual(2);
+    // "Resultado do caixa" caiu: é o que custa dinheiro, e vem primeiro.
+    expect(destaques[0].kpi).toBe('Resultado do caixa');
+    // O comentário NÃO repete a cifra: ela aparece ao lado, vinda do KPI.
+    expect(destaques.every((d) => !d.comentario.includes('R$'))).toBe(true);
+  });
+
+  it('separa o que foi bem do que preocupa', () => {
+    const n = montarNarrativa(payload);
+
+    expect(n.oQueFoiBem.join(' ')).toContain('Faturamento');
+    expect(n.oQuePreocupa).toContain('O fiado cresceu mais que o faturamento');
+    expect(n.fechamento).not.toBe('');
+  });
+
+  it('mês sem nada a elogiar não inventa elogio', () => {
+    const ruim: ResumoPayload = {
+      ...payload,
+      kpis: payload.kpis.map((k) => ({ ...k, variacaoBoa: false })),
+    };
+
+    expect(montarNarrativa(ruim).oQueFoiBem).toEqual([]);
+  });
+
+  it('destaque que aponta para um KPI inexistente é descartado', () => {
+    // A trava que impede o modelo de produzir número também impede que ele
+    // aponte para um número que não existe: sem a peneira, um rótulo inventado
+    // chegaria à tela como um destaque vazio.
+    const resposta = JSON.stringify({
+      titulo: 'Setembro fechou acima',
+      leitura: 'O mês foi bom.',
+      destaques: [
+        { kpi: 'Faturamento', comentario: 'Cresceu com consistência.' },
+        { kpi: 'Lucro operacional', comentario: 'Número que ninguém enviou.' },
+      ],
+      oQueFoiBem: ['Faturamento em alta'],
+      oQuePreocupa: [],
+      alertas: [],
+      recomendacoes: ['Cobrar os atrasados'],
+      fechamento: 'Seguir no ritmo.',
+    });
+
+    const n = interpretar(resposta, payload);
+
+    expect(n?.destaques).toEqual([
+      { kpi: 'Faturamento', comentario: 'Cresceu com consistência.' },
+    ]);
+  });
+
+  it('sem o payload para conferir, os destaques passam como vieram', () => {
+    // O parser é usado em teste e em produção; sem payload ele não tem como
+    // peneirar, e recusar tudo seria pior do que confiar.
+    const resposta = JSON.stringify({
+      titulo: 'T',
+      leitura: 'L',
+      destaques: [{ kpi: 'Qualquer', comentario: 'C' }],
+      alertas: [],
+      recomendacoes: [],
+    });
+
+    expect(interpretar(resposta)?.destaques).toHaveLength(1);
+  });
+});

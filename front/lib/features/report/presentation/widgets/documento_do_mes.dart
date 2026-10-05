@@ -75,12 +75,11 @@ class DocumentoDoMes extends StatelessWidget {
               ),
             ),
           ),
-          if (n.recomendacoes.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            _ParaEsteMes(itens: n.recomendacoes),
-          ],
           const SizedBox(height: 24),
-          _Assinatura(resumo: resumo),
+          // Sem a data: ela já está na faixa do topo, que é onde a pergunta
+          // "isto ainda vale?" é feita. O que fica aqui é a explicação —
+          // quem escreveu e de onde vieram os valores.
+          AssinaturaDoResumo(resumo: resumo, comData: false),
         ],
       ),
     );
@@ -92,8 +91,8 @@ class DocumentoDoMes extends StatelessWidget {
 /// Ficam no documento (e não numa caixa à parte) porque são a conclusão do
 /// texto — é para elas que a leitura caminha. Numeradas, porque aqui a ordem
 /// é real: a primeira é a que o sinal mais grave pediu.
-class _ParaEsteMes extends StatelessWidget {
-  const _ParaEsteMes({required this.itens});
+class ParaEsteMes extends StatelessWidget {
+  const ParaEsteMes({super.key, required this.itens});
 
   final List<String> itens;
 
@@ -105,15 +104,9 @@ class _ParaEsteMes extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Para este mês',
-            style: TextStyle(
-              color: neu.ink,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
+          // Sem título próprio: quem monta esta lista é uma seção que já se
+          // apresenta. Dois "Para este mês" seguidos são ruído que o olho
+          // precisa descartar antes de chegar à primeira ação.
           for (var i = 0; i < itens.length; i++)
             Padding(
               padding: EdgeInsets.only(bottom: i == itens.length - 1 ? 0 : 11),
@@ -157,10 +150,18 @@ class _ParaEsteMes extends StatelessWidget {
 /// da leitura, do que num selo no topo disputando atenção com a manchete.
 /// Quando o texto foi montado pelo sistema, ele assina como tal: creditar à IA
 /// um texto que ela não escreveu é mentir sobre o produto.
-class _Assinatura extends StatelessWidget {
-  const _Assinatura({required this.resumo});
+class AssinaturaDoResumo extends StatelessWidget {
+  const AssinaturaDoResumo({
+    super.key,
+    required this.resumo,
+    this.comData = true,
+  });
 
   final ResumoMensal resumo;
+
+  /// Repetir a data quando ela já está em outro lugar da mesma página é pedir
+  /// ao leitor que confira se as duas batem.
+  final bool comData;
 
   static const _meses = [
     'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -176,11 +177,30 @@ class _Assinatura extends StatelessWidget {
     return 'em $dia de ${_meses[d.month - 1]}, às $hora';
   }
 
+  /// "há 2 horas", "há 3 dias" — a data absoluta diz QUANDO, esta diz se o
+  /// texto ainda vale. Quem abre o relatório no dia 12 precisa saber que ele
+  /// foi escrito no dia 1º sem ter de fazer a conta.
+  static String tempoDecorrido(String iso, {DateTime? agora}) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    final diferenca = (agora ?? DateTime.now()).difference(d);
+    if (diferenca.isNegative) return 'agora';
+    final minutos = diferenca.inMinutes;
+    if (minutos < 1) return 'agora';
+    if (minutos < 60) return 'há $minutos min';
+    final horas = diferenca.inHours;
+    if (horas < 24) return 'há $horas ${horas == 1 ? 'hora' : 'horas'}';
+    final dias = diferenca.inDays;
+    if (dias < 30) return 'há $dias ${dias == 1 ? 'dia' : 'dias'}';
+    final meses = dias ~/ 30;
+    return 'há $meses ${meses == 1 ? 'mês' : 'meses'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final neu = context.neu;
     final ia = resumo.escritoPorIa;
-    final quando = _quando;
+    final quando = comData ? _quando : '';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

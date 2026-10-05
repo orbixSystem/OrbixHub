@@ -23,6 +23,12 @@ export interface GraficosDoMes {
   serieDiaria: Array<{ dia: string; valor: number }>;
   /** Para onde foi o dinheiro — já vem em `NumerosDoMes`, repetido aqui por clareza. */
   despesasPorCategoria: Array<{ categoria: string; total: number }>;
+  /** Entrou × saiu do caixa, dia a dia: um mês fecha positivo tendo passado semanas no vermelho. */
+  movimentoPorDia: Array<{ dia: string; entrou: number; saiu: number }>;
+  /** Onde as ordens pararam no fim do mês — a fila, não o faturamento. */
+  osPorStatus: Array<{ status: string; total: number }>;
+  /** Como o cliente pagou: só entradas, por forma. */
+  formasDePagamento: Array<{ forma: string; total: number }>;
 }
 
 export interface Janela {
@@ -78,8 +84,18 @@ export class MonthlyAggregatesService {
     const modulos = await this.billing.getEnabledModules(tenantId);
     const tem = (k: string) => modulos.includes(k);
 
-    const [receita, vendas, caixa, despesas, clientes, estoque, fiado, fiadoDoMes] =
-      await Promise.all([
+    const [
+      receita,
+      vendas,
+      caixa,
+      despesas,
+      clientes,
+      estoque,
+      fiado,
+      fiadoDoMes,
+      movimentoPorDia,
+      formasDePagamento,
+    ] = await Promise.all([
         tem('os')
           ? this.os.revenueSeries(janela)
           : Promise.resolve(null),
@@ -107,6 +123,12 @@ export class MonthlyAggregatesService {
         tem('cashier')
           ? this.fiadoGeradoEm(tenantId, janela)
           : Promise.resolve(0),
+        tem('cashier')
+          ? this.cashier.movimentoPorDia(janela)
+          : Promise.resolve([]),
+        tem('cashier')
+          ? this.cashier.recebidoPorForma(janela)
+          : Promise.resolve([]),
       ]);
 
     const faturadoOs = receita?.total ?? 0;
@@ -167,6 +189,12 @@ export class MonthlyAggregatesService {
           .map(([dia, valor]) => ({ dia, valor: round2(valor) }))
           .sort((a, b) => a.dia.localeCompare(b.dia)),
         despesasPorCategoria,
+        movimentoPorDia,
+        formasDePagamento,
+        osPorStatus: Object.entries(osResumo?.byStatus ?? {})
+          .map(([status, total]) => ({ status, total }))
+          .filter((s) => s.total > 0)
+          .sort((a, b) => b.total - a.total),
       },
     };
   }

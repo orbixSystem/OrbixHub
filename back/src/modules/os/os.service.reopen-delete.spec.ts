@@ -60,6 +60,14 @@ class FakeCashier extends CashierService {
     return { entrou: 0, saiu: 0 };
   }
 
+  async movimentoPorDia() {
+    return [];
+  }
+
+  async recebidoPorForma() {
+    return [];
+  }
+
   async receivedBySale() {
     return new Map<string, { recebido: number; desconto: number }>();
   }

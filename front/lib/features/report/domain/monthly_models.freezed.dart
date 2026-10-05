@@ -335,7 +335,7 @@ $GraficosDoMesCopyWith<$Res> get graficos {
 /// @nodoc
 mixin _$GraficosDoMes {
 
- List<PontoDiario> get serieDiaria; List<FatiaCategoria> get despesasPorCategoria;
+ List<PontoDiario> get serieDiaria; List<FatiaCategoria> get despesasPorCategoria; List<MovimentoDiario> get movimentoPorDia; List<FatiaStatus> get osPorStatus; List<FatiaForma> get formasDePagamento;
 /// Create a copy of GraficosDoMes
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -348,16 +348,16 @@ $GraficosDoMesCopyWith<GraficosDoMes> get copyWith => _$GraficosDoMesCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GraficosDoMes&&const DeepCollectionEquality().equals(other.serieDiaria, serieDiaria)&&const DeepCollectionEquality().equals(other.despesasPorCategoria, despesasPorCategoria));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GraficosDoMes&&const DeepCollectionEquality().equals(other.serieDiaria, serieDiaria)&&const DeepCollectionEquality().equals(other.despesasPorCategoria, despesasPorCategoria)&&const DeepCollectionEquality().equals(other.movimentoPorDia, movimentoPorDia)&&const DeepCollectionEquality().equals(other.osPorStatus, osPorStatus)&&const DeepCollectionEquality().equals(other.formasDePagamento, formasDePagamento));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(serieDiaria),const DeepCollectionEquality().hash(despesasPorCategoria));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(serieDiaria),const DeepCollectionEquality().hash(despesasPorCategoria),const DeepCollectionEquality().hash(movimentoPorDia),const DeepCollectionEquality().hash(osPorStatus),const DeepCollectionEquality().hash(formasDePagamento));
 
 @override
 String toString() {
-  return 'GraficosDoMes(serieDiaria: $serieDiaria, despesasPorCategoria: $despesasPorCategoria)';
+  return 'GraficosDoMes(serieDiaria: $serieDiaria, despesasPorCategoria: $despesasPorCategoria, movimentoPorDia: $movimentoPorDia, osPorStatus: $osPorStatus, formasDePagamento: $formasDePagamento)';
 }
 
 
@@ -368,7 +368,7 @@ abstract mixin class $GraficosDoMesCopyWith<$Res>  {
   factory $GraficosDoMesCopyWith(GraficosDoMes value, $Res Function(GraficosDoMes) _then) = _$GraficosDoMesCopyWithImpl;
 @useResult
 $Res call({
- List<PontoDiario> serieDiaria, List<FatiaCategoria> despesasPorCategoria
+ List<PontoDiario> serieDiaria, List<FatiaCategoria> despesasPorCategoria, List<MovimentoDiario> movimentoPorDia, List<FatiaStatus> osPorStatus, List<FatiaForma> formasDePagamento
 });
 
 
@@ -385,11 +385,14 @@ class _$GraficosDoMesCopyWithImpl<$Res>
 
 /// Create a copy of GraficosDoMes
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? serieDiaria = null,Object? despesasPorCategoria = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? serieDiaria = null,Object? despesasPorCategoria = null,Object? movimentoPorDia = null,Object? osPorStatus = null,Object? formasDePagamento = null,}) {
   return _then(_self.copyWith(
 serieDiaria: null == serieDiaria ? _self.serieDiaria : serieDiaria // ignore: cast_nullable_to_non_nullable
 as List<PontoDiario>,despesasPorCategoria: null == despesasPorCategoria ? _self.despesasPorCategoria : despesasPorCategoria // ignore: cast_nullable_to_non_nullable
-as List<FatiaCategoria>,
+as List<FatiaCategoria>,movimentoPorDia: null == movimentoPorDia ? _self.movimentoPorDia : movimentoPorDia // ignore: cast_nullable_to_non_nullable
+as List<MovimentoDiario>,osPorStatus: null == osPorStatus ? _self.osPorStatus : osPorStatus // ignore: cast_nullable_to_non_nullable
+as List<FatiaStatus>,formasDePagamento: null == formasDePagamento ? _self.formasDePagamento : formasDePagamento // ignore: cast_nullable_to_non_nullable
+as List<FatiaForma>,
   ));
 }
 
@@ -474,10 +477,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria,  List<MovimentoDiario> movimentoPorDia,  List<FatiaStatus> osPorStatus,  List<FatiaForma> formasDePagamento)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GraficosDoMes() when $default != null:
-return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
+return $default(_that.serieDiaria,_that.despesasPorCategoria,_that.movimentoPorDia,_that.osPorStatus,_that.formasDePagamento);case _:
   return orElse();
 
 }
@@ -495,10 +498,10 @@ return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria,  List<MovimentoDiario> movimentoPorDia,  List<FatiaStatus> osPorStatus,  List<FatiaForma> formasDePagamento)  $default,) {final _that = this;
 switch (_that) {
 case _GraficosDoMes():
-return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
+return $default(_that.serieDiaria,_that.despesasPorCategoria,_that.movimentoPorDia,_that.osPorStatus,_that.formasDePagamento);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -515,10 +518,10 @@ return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PontoDiario> serieDiaria,  List<FatiaCategoria> despesasPorCategoria,  List<MovimentoDiario> movimentoPorDia,  List<FatiaStatus> osPorStatus,  List<FatiaForma> formasDePagamento)?  $default,) {final _that = this;
 switch (_that) {
 case _GraficosDoMes() when $default != null:
-return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
+return $default(_that.serieDiaria,_that.despesasPorCategoria,_that.movimentoPorDia,_that.osPorStatus,_that.formasDePagamento);case _:
   return null;
 
 }
@@ -530,7 +533,7 @@ return $default(_that.serieDiaria,_that.despesasPorCategoria);case _:
 @JsonSerializable()
 
 class _GraficosDoMes implements GraficosDoMes {
-  const _GraficosDoMes({final  List<PontoDiario> serieDiaria = const <PontoDiario>[], final  List<FatiaCategoria> despesasPorCategoria = const <FatiaCategoria>[]}): _serieDiaria = serieDiaria,_despesasPorCategoria = despesasPorCategoria;
+  const _GraficosDoMes({final  List<PontoDiario> serieDiaria = const <PontoDiario>[], final  List<FatiaCategoria> despesasPorCategoria = const <FatiaCategoria>[], final  List<MovimentoDiario> movimentoPorDia = const <MovimentoDiario>[], final  List<FatiaStatus> osPorStatus = const <FatiaStatus>[], final  List<FatiaForma> formasDePagamento = const <FatiaForma>[]}): _serieDiaria = serieDiaria,_despesasPorCategoria = despesasPorCategoria,_movimentoPorDia = movimentoPorDia,_osPorStatus = osPorStatus,_formasDePagamento = formasDePagamento;
   factory _GraficosDoMes.fromJson(Map<String, dynamic> json) => _$GraficosDoMesFromJson(json);
 
  final  List<PontoDiario> _serieDiaria;
@@ -547,6 +550,27 @@ class _GraficosDoMes implements GraficosDoMes {
   return EqualUnmodifiableListView(_despesasPorCategoria);
 }
 
+ final  List<MovimentoDiario> _movimentoPorDia;
+@override@JsonKey() List<MovimentoDiario> get movimentoPorDia {
+  if (_movimentoPorDia is EqualUnmodifiableListView) return _movimentoPorDia;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_movimentoPorDia);
+}
+
+ final  List<FatiaStatus> _osPorStatus;
+@override@JsonKey() List<FatiaStatus> get osPorStatus {
+  if (_osPorStatus is EqualUnmodifiableListView) return _osPorStatus;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_osPorStatus);
+}
+
+ final  List<FatiaForma> _formasDePagamento;
+@override@JsonKey() List<FatiaForma> get formasDePagamento {
+  if (_formasDePagamento is EqualUnmodifiableListView) return _formasDePagamento;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_formasDePagamento);
+}
+
 
 /// Create a copy of GraficosDoMes
 /// with the given fields replaced by the non-null parameter values.
@@ -561,16 +585,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GraficosDoMes&&const DeepCollectionEquality().equals(other._serieDiaria, _serieDiaria)&&const DeepCollectionEquality().equals(other._despesasPorCategoria, _despesasPorCategoria));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GraficosDoMes&&const DeepCollectionEquality().equals(other._serieDiaria, _serieDiaria)&&const DeepCollectionEquality().equals(other._despesasPorCategoria, _despesasPorCategoria)&&const DeepCollectionEquality().equals(other._movimentoPorDia, _movimentoPorDia)&&const DeepCollectionEquality().equals(other._osPorStatus, _osPorStatus)&&const DeepCollectionEquality().equals(other._formasDePagamento, _formasDePagamento));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_serieDiaria),const DeepCollectionEquality().hash(_despesasPorCategoria));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_serieDiaria),const DeepCollectionEquality().hash(_despesasPorCategoria),const DeepCollectionEquality().hash(_movimentoPorDia),const DeepCollectionEquality().hash(_osPorStatus),const DeepCollectionEquality().hash(_formasDePagamento));
 
 @override
 String toString() {
-  return 'GraficosDoMes(serieDiaria: $serieDiaria, despesasPorCategoria: $despesasPorCategoria)';
+  return 'GraficosDoMes(serieDiaria: $serieDiaria, despesasPorCategoria: $despesasPorCategoria, movimentoPorDia: $movimentoPorDia, osPorStatus: $osPorStatus, formasDePagamento: $formasDePagamento)';
 }
 
 
@@ -581,7 +605,7 @@ abstract mixin class _$GraficosDoMesCopyWith<$Res> implements $GraficosDoMesCopy
   factory _$GraficosDoMesCopyWith(_GraficosDoMes value, $Res Function(_GraficosDoMes) _then) = __$GraficosDoMesCopyWithImpl;
 @override @useResult
 $Res call({
- List<PontoDiario> serieDiaria, List<FatiaCategoria> despesasPorCategoria
+ List<PontoDiario> serieDiaria, List<FatiaCategoria> despesasPorCategoria, List<MovimentoDiario> movimentoPorDia, List<FatiaStatus> osPorStatus, List<FatiaForma> formasDePagamento
 });
 
 
@@ -598,11 +622,14 @@ class __$GraficosDoMesCopyWithImpl<$Res>
 
 /// Create a copy of GraficosDoMes
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? serieDiaria = null,Object? despesasPorCategoria = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? serieDiaria = null,Object? despesasPorCategoria = null,Object? movimentoPorDia = null,Object? osPorStatus = null,Object? formasDePagamento = null,}) {
   return _then(_GraficosDoMes(
 serieDiaria: null == serieDiaria ? _self._serieDiaria : serieDiaria // ignore: cast_nullable_to_non_nullable
 as List<PontoDiario>,despesasPorCategoria: null == despesasPorCategoria ? _self._despesasPorCategoria : despesasPorCategoria // ignore: cast_nullable_to_non_nullable
-as List<FatiaCategoria>,
+as List<FatiaCategoria>,movimentoPorDia: null == movimentoPorDia ? _self._movimentoPorDia : movimentoPorDia // ignore: cast_nullable_to_non_nullable
+as List<MovimentoDiario>,osPorStatus: null == osPorStatus ? _self._osPorStatus : osPorStatus // ignore: cast_nullable_to_non_nullable
+as List<FatiaStatus>,formasDePagamento: null == formasDePagamento ? _self._formasDePagamento : formasDePagamento // ignore: cast_nullable_to_non_nullable
+as List<FatiaForma>,
   ));
 }
 
@@ -1135,6 +1162,809 @@ class __$FatiaCategoriaCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? categoria = null,Object? total = null,}) {
   return _then(_FatiaCategoria(
 categoria: null == categoria ? _self.categoria : categoria // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$MovimentoDiario {
+
+/// "2026-09-17".
+ String get dia; num get entrou; num get saiu;
+/// Create a copy of MovimentoDiario
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$MovimentoDiarioCopyWith<MovimentoDiario> get copyWith => _$MovimentoDiarioCopyWithImpl<MovimentoDiario>(this as MovimentoDiario, _$identity);
+
+  /// Serializes this MovimentoDiario to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MovimentoDiario&&(identical(other.dia, dia) || other.dia == dia)&&(identical(other.entrou, entrou) || other.entrou == entrou)&&(identical(other.saiu, saiu) || other.saiu == saiu));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,dia,entrou,saiu);
+
+@override
+String toString() {
+  return 'MovimentoDiario(dia: $dia, entrou: $entrou, saiu: $saiu)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $MovimentoDiarioCopyWith<$Res>  {
+  factory $MovimentoDiarioCopyWith(MovimentoDiario value, $Res Function(MovimentoDiario) _then) = _$MovimentoDiarioCopyWithImpl;
+@useResult
+$Res call({
+ String dia, num entrou, num saiu
+});
+
+
+
+
+}
+/// @nodoc
+class _$MovimentoDiarioCopyWithImpl<$Res>
+    implements $MovimentoDiarioCopyWith<$Res> {
+  _$MovimentoDiarioCopyWithImpl(this._self, this._then);
+
+  final MovimentoDiario _self;
+  final $Res Function(MovimentoDiario) _then;
+
+/// Create a copy of MovimentoDiario
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? dia = null,Object? entrou = null,Object? saiu = null,}) {
+  return _then(_self.copyWith(
+dia: null == dia ? _self.dia : dia // ignore: cast_nullable_to_non_nullable
+as String,entrou: null == entrou ? _self.entrou : entrou // ignore: cast_nullable_to_non_nullable
+as num,saiu: null == saiu ? _self.saiu : saiu // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [MovimentoDiario].
+extension MovimentoDiarioPatterns on MovimentoDiario {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _MovimentoDiario value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _MovimentoDiario() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _MovimentoDiario value)  $default,){
+final _that = this;
+switch (_that) {
+case _MovimentoDiario():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _MovimentoDiario value)?  $default,){
+final _that = this;
+switch (_that) {
+case _MovimentoDiario() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String dia,  num entrou,  num saiu)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _MovimentoDiario() when $default != null:
+return $default(_that.dia,_that.entrou,_that.saiu);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String dia,  num entrou,  num saiu)  $default,) {final _that = this;
+switch (_that) {
+case _MovimentoDiario():
+return $default(_that.dia,_that.entrou,_that.saiu);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String dia,  num entrou,  num saiu)?  $default,) {final _that = this;
+switch (_that) {
+case _MovimentoDiario() when $default != null:
+return $default(_that.dia,_that.entrou,_that.saiu);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _MovimentoDiario implements MovimentoDiario {
+  const _MovimentoDiario({this.dia = '', this.entrou = 0, this.saiu = 0});
+  factory _MovimentoDiario.fromJson(Map<String, dynamic> json) => _$MovimentoDiarioFromJson(json);
+
+/// "2026-09-17".
+@override@JsonKey() final  String dia;
+@override@JsonKey() final  num entrou;
+@override@JsonKey() final  num saiu;
+
+/// Create a copy of MovimentoDiario
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$MovimentoDiarioCopyWith<_MovimentoDiario> get copyWith => __$MovimentoDiarioCopyWithImpl<_MovimentoDiario>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$MovimentoDiarioToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MovimentoDiario&&(identical(other.dia, dia) || other.dia == dia)&&(identical(other.entrou, entrou) || other.entrou == entrou)&&(identical(other.saiu, saiu) || other.saiu == saiu));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,dia,entrou,saiu);
+
+@override
+String toString() {
+  return 'MovimentoDiario(dia: $dia, entrou: $entrou, saiu: $saiu)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$MovimentoDiarioCopyWith<$Res> implements $MovimentoDiarioCopyWith<$Res> {
+  factory _$MovimentoDiarioCopyWith(_MovimentoDiario value, $Res Function(_MovimentoDiario) _then) = __$MovimentoDiarioCopyWithImpl;
+@override @useResult
+$Res call({
+ String dia, num entrou, num saiu
+});
+
+
+
+
+}
+/// @nodoc
+class __$MovimentoDiarioCopyWithImpl<$Res>
+    implements _$MovimentoDiarioCopyWith<$Res> {
+  __$MovimentoDiarioCopyWithImpl(this._self, this._then);
+
+  final _MovimentoDiario _self;
+  final $Res Function(_MovimentoDiario) _then;
+
+/// Create a copy of MovimentoDiario
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? dia = null,Object? entrou = null,Object? saiu = null,}) {
+  return _then(_MovimentoDiario(
+dia: null == dia ? _self.dia : dia // ignore: cast_nullable_to_non_nullable
+as String,entrou: null == entrou ? _self.entrou : entrou // ignore: cast_nullable_to_non_nullable
+as num,saiu: null == saiu ? _self.saiu : saiu // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$FatiaStatus {
+
+ String get status; int get total;
+/// Create a copy of FatiaStatus
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FatiaStatusCopyWith<FatiaStatus> get copyWith => _$FatiaStatusCopyWithImpl<FatiaStatus>(this as FatiaStatus, _$identity);
+
+  /// Serializes this FatiaStatus to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FatiaStatus&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,status,total);
+
+@override
+String toString() {
+  return 'FatiaStatus(status: $status, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FatiaStatusCopyWith<$Res>  {
+  factory $FatiaStatusCopyWith(FatiaStatus value, $Res Function(FatiaStatus) _then) = _$FatiaStatusCopyWithImpl;
+@useResult
+$Res call({
+ String status, int total
+});
+
+
+
+
+}
+/// @nodoc
+class _$FatiaStatusCopyWithImpl<$Res>
+    implements $FatiaStatusCopyWith<$Res> {
+  _$FatiaStatusCopyWithImpl(this._self, this._then);
+
+  final FatiaStatus _self;
+  final $Res Function(FatiaStatus) _then;
+
+/// Create a copy of FatiaStatus
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? total = null,}) {
+  return _then(_self.copyWith(
+status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [FatiaStatus].
+extension FatiaStatusPatterns on FatiaStatus {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FatiaStatus value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FatiaStatus() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FatiaStatus value)  $default,){
+final _that = this;
+switch (_that) {
+case _FatiaStatus():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FatiaStatus value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FatiaStatus() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String status,  int total)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FatiaStatus() when $default != null:
+return $default(_that.status,_that.total);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String status,  int total)  $default,) {final _that = this;
+switch (_that) {
+case _FatiaStatus():
+return $default(_that.status,_that.total);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String status,  int total)?  $default,) {final _that = this;
+switch (_that) {
+case _FatiaStatus() when $default != null:
+return $default(_that.status,_that.total);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _FatiaStatus implements FatiaStatus {
+  const _FatiaStatus({this.status = '', this.total = 0});
+  factory _FatiaStatus.fromJson(Map<String, dynamic> json) => _$FatiaStatusFromJson(json);
+
+@override@JsonKey() final  String status;
+@override@JsonKey() final  int total;
+
+/// Create a copy of FatiaStatus
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FatiaStatusCopyWith<_FatiaStatus> get copyWith => __$FatiaStatusCopyWithImpl<_FatiaStatus>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FatiaStatusToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FatiaStatus&&(identical(other.status, status) || other.status == status)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,status,total);
+
+@override
+String toString() {
+  return 'FatiaStatus(status: $status, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FatiaStatusCopyWith<$Res> implements $FatiaStatusCopyWith<$Res> {
+  factory _$FatiaStatusCopyWith(_FatiaStatus value, $Res Function(_FatiaStatus) _then) = __$FatiaStatusCopyWithImpl;
+@override @useResult
+$Res call({
+ String status, int total
+});
+
+
+
+
+}
+/// @nodoc
+class __$FatiaStatusCopyWithImpl<$Res>
+    implements _$FatiaStatusCopyWith<$Res> {
+  __$FatiaStatusCopyWithImpl(this._self, this._then);
+
+  final _FatiaStatus _self;
+  final $Res Function(_FatiaStatus) _then;
+
+/// Create a copy of FatiaStatus
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? total = null,}) {
+  return _then(_FatiaStatus(
+status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$FatiaForma {
+
+ String get forma; num get total;
+/// Create a copy of FatiaForma
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FatiaFormaCopyWith<FatiaForma> get copyWith => _$FatiaFormaCopyWithImpl<FatiaForma>(this as FatiaForma, _$identity);
+
+  /// Serializes this FatiaForma to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FatiaForma&&(identical(other.forma, forma) || other.forma == forma)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,forma,total);
+
+@override
+String toString() {
+  return 'FatiaForma(forma: $forma, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FatiaFormaCopyWith<$Res>  {
+  factory $FatiaFormaCopyWith(FatiaForma value, $Res Function(FatiaForma) _then) = _$FatiaFormaCopyWithImpl;
+@useResult
+$Res call({
+ String forma, num total
+});
+
+
+
+
+}
+/// @nodoc
+class _$FatiaFormaCopyWithImpl<$Res>
+    implements $FatiaFormaCopyWith<$Res> {
+  _$FatiaFormaCopyWithImpl(this._self, this._then);
+
+  final FatiaForma _self;
+  final $Res Function(FatiaForma) _then;
+
+/// Create a copy of FatiaForma
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? forma = null,Object? total = null,}) {
+  return _then(_self.copyWith(
+forma: null == forma ? _self.forma : forma // ignore: cast_nullable_to_non_nullable
+as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as num,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [FatiaForma].
+extension FatiaFormaPatterns on FatiaForma {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FatiaForma value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FatiaForma() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FatiaForma value)  $default,){
+final _that = this;
+switch (_that) {
+case _FatiaForma():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FatiaForma value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FatiaForma() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String forma,  num total)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FatiaForma() when $default != null:
+return $default(_that.forma,_that.total);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String forma,  num total)  $default,) {final _that = this;
+switch (_that) {
+case _FatiaForma():
+return $default(_that.forma,_that.total);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String forma,  num total)?  $default,) {final _that = this;
+switch (_that) {
+case _FatiaForma() when $default != null:
+return $default(_that.forma,_that.total);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _FatiaForma implements FatiaForma {
+  const _FatiaForma({this.forma = '', this.total = 0});
+  factory _FatiaForma.fromJson(Map<String, dynamic> json) => _$FatiaFormaFromJson(json);
+
+@override@JsonKey() final  String forma;
+@override@JsonKey() final  num total;
+
+/// Create a copy of FatiaForma
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FatiaFormaCopyWith<_FatiaForma> get copyWith => __$FatiaFormaCopyWithImpl<_FatiaForma>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FatiaFormaToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FatiaForma&&(identical(other.forma, forma) || other.forma == forma)&&(identical(other.total, total) || other.total == total));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,forma,total);
+
+@override
+String toString() {
+  return 'FatiaForma(forma: $forma, total: $total)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FatiaFormaCopyWith<$Res> implements $FatiaFormaCopyWith<$Res> {
+  factory _$FatiaFormaCopyWith(_FatiaForma value, $Res Function(_FatiaForma) _then) = __$FatiaFormaCopyWithImpl;
+@override @useResult
+$Res call({
+ String forma, num total
+});
+
+
+
+
+}
+/// @nodoc
+class __$FatiaFormaCopyWithImpl<$Res>
+    implements _$FatiaFormaCopyWith<$Res> {
+  __$FatiaFormaCopyWithImpl(this._self, this._then);
+
+  final _FatiaForma _self;
+  final $Res Function(_FatiaForma) _then;
+
+/// Create a copy of FatiaForma
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? forma = null,Object? total = null,}) {
+  return _then(_FatiaForma(
+forma: null == forma ? _self.forma : forma // ignore: cast_nullable_to_non_nullable
 as String,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as num,
   ));
@@ -2275,7 +3105,9 @@ as Map<String, num>,
 /// @nodoc
 mixin _$NarrativaMensal {
 
- String get titulo; String get leitura; List<String> get alertas; List<String> get recomendacoes;
+ String get titulo; String get leitura;/// Os números que o texto escolheu comentar. `kpi` é o RÓTULO de um KPI
+/// desta mesma página — o valor vem de lá, nunca do texto.
+ List<DestaqueMensal> get destaques; List<String> get oQueFoiBem; List<String> get oQuePreocupa; List<String> get alertas; List<String> get recomendacoes; String get fechamento;
 /// Create a copy of NarrativaMensal
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2288,16 +3120,16 @@ $NarrativaMensalCopyWith<NarrativaMensal> get copyWith => _$NarrativaMensalCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is NarrativaMensal&&(identical(other.titulo, titulo) || other.titulo == titulo)&&(identical(other.leitura, leitura) || other.leitura == leitura)&&const DeepCollectionEquality().equals(other.alertas, alertas)&&const DeepCollectionEquality().equals(other.recomendacoes, recomendacoes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NarrativaMensal&&(identical(other.titulo, titulo) || other.titulo == titulo)&&(identical(other.leitura, leitura) || other.leitura == leitura)&&const DeepCollectionEquality().equals(other.destaques, destaques)&&const DeepCollectionEquality().equals(other.oQueFoiBem, oQueFoiBem)&&const DeepCollectionEquality().equals(other.oQuePreocupa, oQuePreocupa)&&const DeepCollectionEquality().equals(other.alertas, alertas)&&const DeepCollectionEquality().equals(other.recomendacoes, recomendacoes)&&(identical(other.fechamento, fechamento) || other.fechamento == fechamento));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,titulo,leitura,const DeepCollectionEquality().hash(alertas),const DeepCollectionEquality().hash(recomendacoes));
+int get hashCode => Object.hash(runtimeType,titulo,leitura,const DeepCollectionEquality().hash(destaques),const DeepCollectionEquality().hash(oQueFoiBem),const DeepCollectionEquality().hash(oQuePreocupa),const DeepCollectionEquality().hash(alertas),const DeepCollectionEquality().hash(recomendacoes),fechamento);
 
 @override
 String toString() {
-  return 'NarrativaMensal(titulo: $titulo, leitura: $leitura, alertas: $alertas, recomendacoes: $recomendacoes)';
+  return 'NarrativaMensal(titulo: $titulo, leitura: $leitura, destaques: $destaques, oQueFoiBem: $oQueFoiBem, oQuePreocupa: $oQuePreocupa, alertas: $alertas, recomendacoes: $recomendacoes, fechamento: $fechamento)';
 }
 
 
@@ -2308,7 +3140,7 @@ abstract mixin class $NarrativaMensalCopyWith<$Res>  {
   factory $NarrativaMensalCopyWith(NarrativaMensal value, $Res Function(NarrativaMensal) _then) = _$NarrativaMensalCopyWithImpl;
 @useResult
 $Res call({
- String titulo, String leitura, List<String> alertas, List<String> recomendacoes
+ String titulo, String leitura, List<DestaqueMensal> destaques, List<String> oQueFoiBem, List<String> oQuePreocupa, List<String> alertas, List<String> recomendacoes, String fechamento
 });
 
 
@@ -2325,13 +3157,17 @@ class _$NarrativaMensalCopyWithImpl<$Res>
 
 /// Create a copy of NarrativaMensal
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? titulo = null,Object? leitura = null,Object? alertas = null,Object? recomendacoes = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? titulo = null,Object? leitura = null,Object? destaques = null,Object? oQueFoiBem = null,Object? oQuePreocupa = null,Object? alertas = null,Object? recomendacoes = null,Object? fechamento = null,}) {
   return _then(_self.copyWith(
 titulo: null == titulo ? _self.titulo : titulo // ignore: cast_nullable_to_non_nullable
 as String,leitura: null == leitura ? _self.leitura : leitura // ignore: cast_nullable_to_non_nullable
-as String,alertas: null == alertas ? _self.alertas : alertas // ignore: cast_nullable_to_non_nullable
+as String,destaques: null == destaques ? _self.destaques : destaques // ignore: cast_nullable_to_non_nullable
+as List<DestaqueMensal>,oQueFoiBem: null == oQueFoiBem ? _self.oQueFoiBem : oQueFoiBem // ignore: cast_nullable_to_non_nullable
+as List<String>,oQuePreocupa: null == oQuePreocupa ? _self.oQuePreocupa : oQuePreocupa // ignore: cast_nullable_to_non_nullable
+as List<String>,alertas: null == alertas ? _self.alertas : alertas // ignore: cast_nullable_to_non_nullable
 as List<String>,recomendacoes: null == recomendacoes ? _self.recomendacoes : recomendacoes // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,fechamento: null == fechamento ? _self.fechamento : fechamento // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 
@@ -2416,10 +3252,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String titulo,  String leitura,  List<String> alertas,  List<String> recomendacoes)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String titulo,  String leitura,  List<DestaqueMensal> destaques,  List<String> oQueFoiBem,  List<String> oQuePreocupa,  List<String> alertas,  List<String> recomendacoes,  String fechamento)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _NarrativaMensal() when $default != null:
-return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);case _:
+return $default(_that.titulo,_that.leitura,_that.destaques,_that.oQueFoiBem,_that.oQuePreocupa,_that.alertas,_that.recomendacoes,_that.fechamento);case _:
   return orElse();
 
 }
@@ -2437,10 +3273,10 @@ return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String titulo,  String leitura,  List<String> alertas,  List<String> recomendacoes)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String titulo,  String leitura,  List<DestaqueMensal> destaques,  List<String> oQueFoiBem,  List<String> oQuePreocupa,  List<String> alertas,  List<String> recomendacoes,  String fechamento)  $default,) {final _that = this;
 switch (_that) {
 case _NarrativaMensal():
-return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);case _:
+return $default(_that.titulo,_that.leitura,_that.destaques,_that.oQueFoiBem,_that.oQuePreocupa,_that.alertas,_that.recomendacoes,_that.fechamento);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2457,10 +3293,10 @@ return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String titulo,  String leitura,  List<String> alertas,  List<String> recomendacoes)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String titulo,  String leitura,  List<DestaqueMensal> destaques,  List<String> oQueFoiBem,  List<String> oQuePreocupa,  List<String> alertas,  List<String> recomendacoes,  String fechamento)?  $default,) {final _that = this;
 switch (_that) {
 case _NarrativaMensal() when $default != null:
-return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);case _:
+return $default(_that.titulo,_that.leitura,_that.destaques,_that.oQueFoiBem,_that.oQuePreocupa,_that.alertas,_that.recomendacoes,_that.fechamento);case _:
   return null;
 
 }
@@ -2472,11 +3308,36 @@ return $default(_that.titulo,_that.leitura,_that.alertas,_that.recomendacoes);ca
 @JsonSerializable()
 
 class _NarrativaMensal implements NarrativaMensal {
-  const _NarrativaMensal({this.titulo = '', this.leitura = '', final  List<String> alertas = const <String>[], final  List<String> recomendacoes = const <String>[]}): _alertas = alertas,_recomendacoes = recomendacoes;
+  const _NarrativaMensal({this.titulo = '', this.leitura = '', final  List<DestaqueMensal> destaques = const <DestaqueMensal>[], final  List<String> oQueFoiBem = const <String>[], final  List<String> oQuePreocupa = const <String>[], final  List<String> alertas = const <String>[], final  List<String> recomendacoes = const <String>[], this.fechamento = ''}): _destaques = destaques,_oQueFoiBem = oQueFoiBem,_oQuePreocupa = oQuePreocupa,_alertas = alertas,_recomendacoes = recomendacoes;
   factory _NarrativaMensal.fromJson(Map<String, dynamic> json) => _$NarrativaMensalFromJson(json);
 
 @override@JsonKey() final  String titulo;
 @override@JsonKey() final  String leitura;
+/// Os números que o texto escolheu comentar. `kpi` é o RÓTULO de um KPI
+/// desta mesma página — o valor vem de lá, nunca do texto.
+ final  List<DestaqueMensal> _destaques;
+/// Os números que o texto escolheu comentar. `kpi` é o RÓTULO de um KPI
+/// desta mesma página — o valor vem de lá, nunca do texto.
+@override@JsonKey() List<DestaqueMensal> get destaques {
+  if (_destaques is EqualUnmodifiableListView) return _destaques;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_destaques);
+}
+
+ final  List<String> _oQueFoiBem;
+@override@JsonKey() List<String> get oQueFoiBem {
+  if (_oQueFoiBem is EqualUnmodifiableListView) return _oQueFoiBem;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_oQueFoiBem);
+}
+
+ final  List<String> _oQuePreocupa;
+@override@JsonKey() List<String> get oQuePreocupa {
+  if (_oQuePreocupa is EqualUnmodifiableListView) return _oQuePreocupa;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_oQuePreocupa);
+}
+
  final  List<String> _alertas;
 @override@JsonKey() List<String> get alertas {
   if (_alertas is EqualUnmodifiableListView) return _alertas;
@@ -2491,6 +3352,7 @@ class _NarrativaMensal implements NarrativaMensal {
   return EqualUnmodifiableListView(_recomendacoes);
 }
 
+@override@JsonKey() final  String fechamento;
 
 /// Create a copy of NarrativaMensal
 /// with the given fields replaced by the non-null parameter values.
@@ -2505,16 +3367,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _NarrativaMensal&&(identical(other.titulo, titulo) || other.titulo == titulo)&&(identical(other.leitura, leitura) || other.leitura == leitura)&&const DeepCollectionEquality().equals(other._alertas, _alertas)&&const DeepCollectionEquality().equals(other._recomendacoes, _recomendacoes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _NarrativaMensal&&(identical(other.titulo, titulo) || other.titulo == titulo)&&(identical(other.leitura, leitura) || other.leitura == leitura)&&const DeepCollectionEquality().equals(other._destaques, _destaques)&&const DeepCollectionEquality().equals(other._oQueFoiBem, _oQueFoiBem)&&const DeepCollectionEquality().equals(other._oQuePreocupa, _oQuePreocupa)&&const DeepCollectionEquality().equals(other._alertas, _alertas)&&const DeepCollectionEquality().equals(other._recomendacoes, _recomendacoes)&&(identical(other.fechamento, fechamento) || other.fechamento == fechamento));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,titulo,leitura,const DeepCollectionEquality().hash(_alertas),const DeepCollectionEquality().hash(_recomendacoes));
+int get hashCode => Object.hash(runtimeType,titulo,leitura,const DeepCollectionEquality().hash(_destaques),const DeepCollectionEquality().hash(_oQueFoiBem),const DeepCollectionEquality().hash(_oQuePreocupa),const DeepCollectionEquality().hash(_alertas),const DeepCollectionEquality().hash(_recomendacoes),fechamento);
 
 @override
 String toString() {
-  return 'NarrativaMensal(titulo: $titulo, leitura: $leitura, alertas: $alertas, recomendacoes: $recomendacoes)';
+  return 'NarrativaMensal(titulo: $titulo, leitura: $leitura, destaques: $destaques, oQueFoiBem: $oQueFoiBem, oQuePreocupa: $oQuePreocupa, alertas: $alertas, recomendacoes: $recomendacoes, fechamento: $fechamento)';
 }
 
 
@@ -2525,7 +3387,7 @@ abstract mixin class _$NarrativaMensalCopyWith<$Res> implements $NarrativaMensal
   factory _$NarrativaMensalCopyWith(_NarrativaMensal value, $Res Function(_NarrativaMensal) _then) = __$NarrativaMensalCopyWithImpl;
 @override @useResult
 $Res call({
- String titulo, String leitura, List<String> alertas, List<String> recomendacoes
+ String titulo, String leitura, List<DestaqueMensal> destaques, List<String> oQueFoiBem, List<String> oQuePreocupa, List<String> alertas, List<String> recomendacoes, String fechamento
 });
 
 
@@ -2542,13 +3404,283 @@ class __$NarrativaMensalCopyWithImpl<$Res>
 
 /// Create a copy of NarrativaMensal
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? titulo = null,Object? leitura = null,Object? alertas = null,Object? recomendacoes = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? titulo = null,Object? leitura = null,Object? destaques = null,Object? oQueFoiBem = null,Object? oQuePreocupa = null,Object? alertas = null,Object? recomendacoes = null,Object? fechamento = null,}) {
   return _then(_NarrativaMensal(
 titulo: null == titulo ? _self.titulo : titulo // ignore: cast_nullable_to_non_nullable
 as String,leitura: null == leitura ? _self.leitura : leitura // ignore: cast_nullable_to_non_nullable
-as String,alertas: null == alertas ? _self._alertas : alertas // ignore: cast_nullable_to_non_nullable
+as String,destaques: null == destaques ? _self._destaques : destaques // ignore: cast_nullable_to_non_nullable
+as List<DestaqueMensal>,oQueFoiBem: null == oQueFoiBem ? _self._oQueFoiBem : oQueFoiBem // ignore: cast_nullable_to_non_nullable
+as List<String>,oQuePreocupa: null == oQuePreocupa ? _self._oQuePreocupa : oQuePreocupa // ignore: cast_nullable_to_non_nullable
+as List<String>,alertas: null == alertas ? _self._alertas : alertas // ignore: cast_nullable_to_non_nullable
 as List<String>,recomendacoes: null == recomendacoes ? _self._recomendacoes : recomendacoes // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,fechamento: null == fechamento ? _self.fechamento : fechamento // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$DestaqueMensal {
+
+ String get kpi; String get comentario;
+/// Create a copy of DestaqueMensal
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DestaqueMensalCopyWith<DestaqueMensal> get copyWith => _$DestaqueMensalCopyWithImpl<DestaqueMensal>(this as DestaqueMensal, _$identity);
+
+  /// Serializes this DestaqueMensal to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DestaqueMensal&&(identical(other.kpi, kpi) || other.kpi == kpi)&&(identical(other.comentario, comentario) || other.comentario == comentario));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,kpi,comentario);
+
+@override
+String toString() {
+  return 'DestaqueMensal(kpi: $kpi, comentario: $comentario)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DestaqueMensalCopyWith<$Res>  {
+  factory $DestaqueMensalCopyWith(DestaqueMensal value, $Res Function(DestaqueMensal) _then) = _$DestaqueMensalCopyWithImpl;
+@useResult
+$Res call({
+ String kpi, String comentario
+});
+
+
+
+
+}
+/// @nodoc
+class _$DestaqueMensalCopyWithImpl<$Res>
+    implements $DestaqueMensalCopyWith<$Res> {
+  _$DestaqueMensalCopyWithImpl(this._self, this._then);
+
+  final DestaqueMensal _self;
+  final $Res Function(DestaqueMensal) _then;
+
+/// Create a copy of DestaqueMensal
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? kpi = null,Object? comentario = null,}) {
+  return _then(_self.copyWith(
+kpi: null == kpi ? _self.kpi : kpi // ignore: cast_nullable_to_non_nullable
+as String,comentario: null == comentario ? _self.comentario : comentario // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [DestaqueMensal].
+extension DestaqueMensalPatterns on DestaqueMensal {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DestaqueMensal value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _DestaqueMensal() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DestaqueMensal value)  $default,){
+final _that = this;
+switch (_that) {
+case _DestaqueMensal():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DestaqueMensal value)?  $default,){
+final _that = this;
+switch (_that) {
+case _DestaqueMensal() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String kpi,  String comentario)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _DestaqueMensal() when $default != null:
+return $default(_that.kpi,_that.comentario);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String kpi,  String comentario)  $default,) {final _that = this;
+switch (_that) {
+case _DestaqueMensal():
+return $default(_that.kpi,_that.comentario);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String kpi,  String comentario)?  $default,) {final _that = this;
+switch (_that) {
+case _DestaqueMensal() when $default != null:
+return $default(_that.kpi,_that.comentario);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _DestaqueMensal implements DestaqueMensal {
+  const _DestaqueMensal({this.kpi = '', this.comentario = ''});
+  factory _DestaqueMensal.fromJson(Map<String, dynamic> json) => _$DestaqueMensalFromJson(json);
+
+@override@JsonKey() final  String kpi;
+@override@JsonKey() final  String comentario;
+
+/// Create a copy of DestaqueMensal
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$DestaqueMensalCopyWith<_DestaqueMensal> get copyWith => __$DestaqueMensalCopyWithImpl<_DestaqueMensal>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$DestaqueMensalToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DestaqueMensal&&(identical(other.kpi, kpi) || other.kpi == kpi)&&(identical(other.comentario, comentario) || other.comentario == comentario));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,kpi,comentario);
+
+@override
+String toString() {
+  return 'DestaqueMensal(kpi: $kpi, comentario: $comentario)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$DestaqueMensalCopyWith<$Res> implements $DestaqueMensalCopyWith<$Res> {
+  factory _$DestaqueMensalCopyWith(_DestaqueMensal value, $Res Function(_DestaqueMensal) _then) = __$DestaqueMensalCopyWithImpl;
+@override @useResult
+$Res call({
+ String kpi, String comentario
+});
+
+
+
+
+}
+/// @nodoc
+class __$DestaqueMensalCopyWithImpl<$Res>
+    implements _$DestaqueMensalCopyWith<$Res> {
+  __$DestaqueMensalCopyWithImpl(this._self, this._then);
+
+  final _DestaqueMensal _self;
+  final $Res Function(_DestaqueMensal) _then;
+
+/// Create a copy of DestaqueMensal
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? kpi = null,Object? comentario = null,}) {
+  return _then(_DestaqueMensal(
+kpi: null == kpi ? _self.kpi : kpi // ignore: cast_nullable_to_non_nullable
+as String,comentario: null == comentario ? _self.comentario : comentario // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

@@ -124,10 +124,14 @@ export class AdminController {
    *
    * `mes` opcional ("2026-09") escolhe o mês analisado; sem ele, o anterior ao
    * de hoje — exatamente o que o cron faria.
+   *
+   * `tenantId` opcional atende UMA oficina. A esteira roda por ordem
+   * alfabética com orçamento diário: numa base com mil oficinas, conferir o
+   * texto de uma delas custaria esperar a vez dela chegar.
    */
   @Post('report/monthly/run')
   @HttpCode(200)
-  gerarResumoMensal(@Body() body: { mes?: string }) {
+  gerarResumoMensal(@Body() body: { mes?: string; tenantId?: string }) {
     const agora = body?.mes
       ? new Date(`${body.mes}-01T00:00:00.000Z`)
       : new Date();
@@ -136,7 +140,9 @@ export class AdminController {
     const ref = body?.mes
       ? new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() + 1, 1))
       : agora;
-    return this.resumoMensal.gerarParaTodos(ref);
+    return body?.tenantId
+      ? this.resumoMensal.gerarParaUm(body.tenantId, ref)
+      : this.resumoMensal.gerarParaTodos(ref);
   }
 
   /**

@@ -92,6 +92,7 @@ function makeService(iniciais: Row[] = []) {
     repo as never,
     billing as never,
     audit as never,
+     { APP_TIMEZONE: 'America/Sao_Paulo' } as never,
   );
   return { service, rows, auditadas };
 }

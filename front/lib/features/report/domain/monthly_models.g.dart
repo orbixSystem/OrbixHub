@@ -45,15 +45,36 @@ _GraficosDoMes _$GraficosDoMesFromJson(Map<String, dynamic> json) =>
               ?.map((e) => FatiaCategoria.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <FatiaCategoria>[],
+      movimentoPorDia:
+          (json['movimentoPorDia'] as List<dynamic>?)
+              ?.map((e) => MovimentoDiario.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <MovimentoDiario>[],
+      osPorStatus:
+          (json['osPorStatus'] as List<dynamic>?)
+              ?.map((e) => FatiaStatus.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <FatiaStatus>[],
+      formasDePagamento:
+          (json['formasDePagamento'] as List<dynamic>?)
+              ?.map((e) => FatiaForma.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <FatiaForma>[],
     );
 
-Map<String, dynamic> _$GraficosDoMesToJson(_GraficosDoMes instance) =>
-    <String, dynamic>{
-      'serieDiaria': instance.serieDiaria.map((e) => e.toJson()).toList(),
-      'despesasPorCategoria': instance.despesasPorCategoria
-          .map((e) => e.toJson())
-          .toList(),
-    };
+Map<String, dynamic> _$GraficosDoMesToJson(
+  _GraficosDoMes instance,
+) => <String, dynamic>{
+  'serieDiaria': instance.serieDiaria.map((e) => e.toJson()).toList(),
+  'despesasPorCategoria': instance.despesasPorCategoria
+      .map((e) => e.toJson())
+      .toList(),
+  'movimentoPorDia': instance.movimentoPorDia.map((e) => e.toJson()).toList(),
+  'osPorStatus': instance.osPorStatus.map((e) => e.toJson()).toList(),
+  'formasDePagamento': instance.formasDePagamento
+      .map((e) => e.toJson())
+      .toList(),
+};
 
 _PontoDiario _$PontoDiarioFromJson(Map<String, dynamic> json) => _PontoDiario(
   dia: json['dia'] as String? ?? '',
@@ -71,6 +92,36 @@ _FatiaCategoria _$FatiaCategoriaFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$FatiaCategoriaToJson(_FatiaCategoria instance) =>
     <String, dynamic>{'categoria': instance.categoria, 'total': instance.total};
+
+_MovimentoDiario _$MovimentoDiarioFromJson(Map<String, dynamic> json) =>
+    _MovimentoDiario(
+      dia: json['dia'] as String? ?? '',
+      entrou: json['entrou'] as num? ?? 0,
+      saiu: json['saiu'] as num? ?? 0,
+    );
+
+Map<String, dynamic> _$MovimentoDiarioToJson(_MovimentoDiario instance) =>
+    <String, dynamic>{
+      'dia': instance.dia,
+      'entrou': instance.entrou,
+      'saiu': instance.saiu,
+    };
+
+_FatiaStatus _$FatiaStatusFromJson(Map<String, dynamic> json) => _FatiaStatus(
+  status: json['status'] as String? ?? '',
+  total: (json['total'] as num?)?.toInt() ?? 0,
+);
+
+Map<String, dynamic> _$FatiaStatusToJson(_FatiaStatus instance) =>
+    <String, dynamic>{'status': instance.status, 'total': instance.total};
+
+_FatiaForma _$FatiaFormaFromJson(Map<String, dynamic> json) => _FatiaForma(
+  forma: json['forma'] as String? ?? '',
+  total: json['total'] as num? ?? 0,
+);
+
+Map<String, dynamic> _$FatiaFormaToJson(_FatiaForma instance) =>
+    <String, dynamic>{'forma': instance.forma, 'total': instance.total};
 
 _PeriodoMensal _$PeriodoMensalFromJson(Map<String, dynamic> json) =>
     _PeriodoMensal(
@@ -141,6 +192,21 @@ _NarrativaMensal _$NarrativaMensalFromJson(Map<String, dynamic> json) =>
     _NarrativaMensal(
       titulo: json['titulo'] as String? ?? '',
       leitura: json['leitura'] as String? ?? '',
+      destaques:
+          (json['destaques'] as List<dynamic>?)
+              ?.map((e) => DestaqueMensal.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <DestaqueMensal>[],
+      oQueFoiBem:
+          (json['oQueFoiBem'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
+      oQuePreocupa:
+          (json['oQuePreocupa'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
       alertas:
           (json['alertas'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -151,15 +217,29 @@ _NarrativaMensal _$NarrativaMensalFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const <String>[],
+      fechamento: json['fechamento'] as String? ?? '',
     );
 
 Map<String, dynamic> _$NarrativaMensalToJson(_NarrativaMensal instance) =>
     <String, dynamic>{
       'titulo': instance.titulo,
       'leitura': instance.leitura,
+      'destaques': instance.destaques.map((e) => e.toJson()).toList(),
+      'oQueFoiBem': instance.oQueFoiBem,
+      'oQuePreocupa': instance.oQuePreocupa,
       'alertas': instance.alertas,
       'recomendacoes': instance.recomendacoes,
+      'fechamento': instance.fechamento,
     };
+
+_DestaqueMensal _$DestaqueMensalFromJson(Map<String, dynamic> json) =>
+    _DestaqueMensal(
+      kpi: json['kpi'] as String? ?? '',
+      comentario: json['comentario'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$DestaqueMensalToJson(_DestaqueMensal instance) =>
+    <String, dynamic>{'kpi': instance.kpi, 'comentario': instance.comentario};
 
 _ResumoMensal _$ResumoMensalFromJson(Map<String, dynamic> json) =>
     _ResumoMensal(

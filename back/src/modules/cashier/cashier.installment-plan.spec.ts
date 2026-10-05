@@ -27,6 +27,7 @@ function makeService(pendentes: number) {
     {} as never,
     {} as never,
     {} as never,
+     { APP_TIMEZONE: 'America/Sao_Paulo' } as never,
   );
   return { svc, db };
 }
