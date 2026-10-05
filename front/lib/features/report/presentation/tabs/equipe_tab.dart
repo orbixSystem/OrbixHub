@@ -21,13 +21,19 @@ class PainelDeEquipe extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(teamReportProvider);
     final nomes = ref.watch(reportMembersProvider).value ?? const [];
+    final responsavel = ref.watch(reportFiltersProvider).assignedTo;
     return async.when(
       loading: () => const PainelCarregando(),
       error: (_, _) => PainelComErro(
         onRetry: () => ref.invalidate(teamReportProvider),
       ),
       data: (r) => _Painel(
-        linhas: r.rows,
+        // O recorte acontece ANTES dos cards: assim os seis contam a mesma
+        // pessoa, e a "participação na receita" mostra 100% porque é isso que
+        // uma pessoa sozinha representa do recorte — não um erro de conta.
+        linhas: responsavel == null
+            ? r.rows
+            : r.rows.where((l) => l.assignedTo == responsavel).toList(),
         nomes: {for (final m in nomes) m.id: m.name},
       ),
     );

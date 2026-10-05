@@ -520,7 +520,8 @@ class FakeReportRepository implements ReportRepository {
   );
 
   @override
-  Future<VisaoMensal> overview({String? mes}) async => const VisaoMensal(
+  Future<VisaoMensal> overview({String? mes, ReportRange? range}) async =>
+      const VisaoMensal(
         periodo: _periodo,
         kpis: _kpis,
         sinais: _sinais,

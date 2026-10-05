@@ -704,3 +704,43 @@ class PainelComErro extends StatelessWidget {
     );
   }
 }
+
+/// O aviso de que o painel NÃO aplica um filtro que está na barra.
+///
+/// Existe porque a alternativa é pior: o dono filtra por um mecânico, os
+/// gráficos continuam mostrando a oficina inteira e nada na tela diz isso.
+/// Ele some quando não há filtro que o painel ignore — um aviso permanente
+/// deixa de ser lido na segunda visita.
+class AvisoDeFiltroParcial extends StatelessWidget {
+  const AvisoDeFiltroParcial({super.key, required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final neu = context.neu;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: neu.warning.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(NeuTokens.rCard),
+        border: Border.all(color: neu.warning.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1, right: 9),
+            child: Icon(Icons.info_outline_rounded, size: 15, color: neu.warning),
+          ),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(color: neu.inkMuted, fontSize: 13, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

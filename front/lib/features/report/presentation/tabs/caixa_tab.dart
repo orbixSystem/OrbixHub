@@ -22,6 +22,7 @@ class PainelDeCaixa extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final resumo = ref.watch(cashierRecebidoReportProvider);
     final visao = ref.watch(visaoMensalProvider);
+    final metodo = ref.watch(reportFiltersProvider).metodo;
 
     return resumo.when(
       loading: () => const PainelCarregando(),
@@ -30,6 +31,7 @@ class PainelDeCaixa extends ConsumerWidget {
       ),
       data: (r) => _Painel(
         resumo: r,
+        metodo: metodo,
         // A série diária vem da mesma função que alimenta a Visão: duas
         // somas independentes do "movimento do mês" divergiriam no primeiro
         // ajuste, e a tela passaria a discordar de si mesma entre abas.
@@ -40,10 +42,17 @@ class PainelDeCaixa extends ConsumerWidget {
 }
 
 class _Painel extends StatelessWidget {
-  const _Painel({required this.resumo, required this.movimento});
+  const _Painel({
+    required this.resumo,
+    required this.movimento,
+    this.metodo,
+  });
 
   final CashSummary resumo;
   final List<MovimentoDiario> movimento;
+
+  /// Forma de pagamento escolhida na barra, ou `null` para todas.
+  final String? metodo;
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +66,23 @@ class _Painel extends StatelessWidget {
     ];
     final diasNegativos = saldoDiario.where((v) => v < 0).length;
 
-    final formas = resumo.byMethod.where((m) => m.inAmount > 0).toList()
+    // A forma escolhida recorta os totais e as composições. O que ela NÃO
+    // recorta é o movimento diário: o caixa grava a data e o valor por
+    // lançamento, mas a série por dia vem somada do servidor, sem a forma.
+    // Por isso os dois cards de linha do tempo avisam que mostram o mês
+    // inteiro, em vez de mostrar o recorte errado calados.
+    final porForma = metodo == null
+        ? resumo.byMethod
+        : resumo.byMethod.where((m) => m.method == metodo).toList();
+    final formas = porForma.where((m) => m.inAmount > 0).toList()
       ..sort((a, b) => b.inAmount.compareTo(a.inAmount));
+    final entrouTotal = metodo == null
+        ? resumo.totalIn
+        : porForma.fold<num>(0, (a, m) => a + m.inAmount);
+    final saiuTotal = metodo == null
+        ? resumo.totalOut
+        : porForma.fold<num>(0, (a, m) => a + m.outAmount);
+    final saldo = entrouTotal - saiuTotal;
     final saidas = resumo.byCategory.where((c) => c.outAmount > 0).toList()
       ..sort((a, b) => b.outAmount.compareTo(a.outAmount));
     final origens = resumo.byOrigin.where((o) => o.inAmount > 0).toList()
@@ -77,25 +101,25 @@ class _Painel extends StatelessWidget {
           itens: [
             IndicadorPainel(
               rotulo: 'Entrou',
-              valor: formatMoney(resumo.totalIn),
+              valor: formatMoney(entrouTotal),
               icone: Icons.south_west_rounded,
               detalhe: '$diasComEntrada dias com recebimento',
               cor: neu.success,
             ),
             IndicadorPainel(
               rotulo: 'Saiu',
-              valor: formatMoney(resumo.totalOut),
+              valor: formatMoney(saiuTotal),
               icone: Icons.north_east_rounded,
-              detalhe: fatiaDoTotal(resumo.totalOut, resumo.totalIn)
+              detalhe: fatiaDoTotal(saiuTotal, entrouTotal)
                   .replaceAll('do total', 'do que entrou'),
-              cor: resumo.totalOut > 0 ? neu.danger : null,
+              cor: saiuTotal > 0 ? neu.danger : null,
             ),
             IndicadorPainel(
               rotulo: 'Saldo do período',
-              valor: formatMoney(resumo.net),
+              valor: formatMoney(saldo),
               icone: Icons.account_balance_wallet_outlined,
-              detalhe: resumo.net >= 0 ? 'no azul' : 'no vermelho',
-              cor: resumo.net >= 0 ? neu.success : neu.danger,
+              detalhe: saldo >= 0 ? 'no azul' : 'no vermelho',
+              cor: saldo >= 0 ? neu.success : neu.danger,
             ),
             IndicadorPainel(
               rotulo: 'Desconto concedido',
@@ -113,7 +137,7 @@ class _Painel extends StatelessWidget {
             IndicadorPainel(
               rotulo: 'Média por dia com caixa',
               valor: formatMoney(
-                diasComEntrada == 0 ? 0 : resumo.totalIn / diasComEntrada,
+                diasComEntrada == 0 ? 0 : entrouTotal / diasComEntrada,
               ),
               icone: Icons.calendar_today_outlined,
             ),
@@ -139,8 +163,10 @@ class _Painel extends StatelessWidget {
           cards: [
             CardDeGrafico(
               titulo: 'Entrou × saiu, dia a dia',
-              subtitulo: 'O movimento real do caixa ao longo do período',
-              valor: formatMoney(resumo.net),
+              subtitulo: metodo == null
+                  ? 'O movimento real do caixa ao longo do período'
+                  : 'Todas as formas — a série por dia não separa por forma',
+              valor: formatMoney(saldo),
               info: 'Entradas e saídas registradas no caixa, sem estornos. '
                   'Um período que fecha positivo pode ter passado semanas no '
                   'vermelho — e é isso que o total esconde.',
@@ -166,8 +192,10 @@ class _Painel extends StatelessWidget {
             ),
             CardDeGrafico(
               titulo: 'Sobrou ou faltou, por dia',
-              subtitulo: 'Entrada menos saída de cada dia',
-              valor: formatMoney(resumo.net),
+              subtitulo: metodo == null
+                  ? 'Entrada menos saída de cada dia'
+                  : 'Todas as formas — a série por dia não separa por forma',
+              valor: formatMoney(saldo),
               info: 'A diferença dos dois traços do gráfico ao lado, dia a '
                   'dia. Barras para baixo são dias em que saiu mais dinheiro '
                   'do que entrou.',
@@ -186,13 +214,15 @@ class _Painel extends StatelessWidget {
             CardDeGrafico(
               titulo: 'Como o dinheiro entrou',
               subtitulo: 'Recebimentos por forma de pagamento',
-              valor: formatMoney(resumo.totalIn),
+              valor: formatMoney(entrouTotal),
               info: 'Só entradas. Serve para negociar taxa de cartão e para '
                   'saber se o pix já virou a regra da casa.',
               vazio: formas.isEmpty,
-              mensagemVazio: 'Nenhum recebimento no período.',
+              mensagemVazio: metodo == null
+                  ? 'Nenhum recebimento no período.'
+                  : 'Nenhum recebimento nesta forma de pagamento.',
               child: RoscaComCentro(
-                centroValor: compactoEmReais(resumo.totalIn),
+                centroValor: compactoEmReais(entrouTotal),
                 centroRotulo: 'recebidos',
                 fatias: [
                   for (var i = 0; i < formas.length; i++)
@@ -207,8 +237,10 @@ class _Painel extends StatelessWidget {
             ),
             CardDeGrafico(
               titulo: 'No que o caixa foi gasto',
-              subtitulo: 'Saídas por categoria de lançamento',
-              valor: formatMoney(resumo.totalOut),
+              subtitulo: metodo == null
+                  ? 'Saídas por categoria de lançamento'
+                  : 'Todas as formas — a categoria não separa por forma',
+              valor: formatMoney(saiuTotal),
               info: 'Saídas registradas no caixa, agrupadas pela categoria do '
                   'lançamento. É dinheiro que saiu da gaveta — não a despesa '
                   'prevista do mês, que mora na aba Despesas.',
@@ -228,8 +260,10 @@ class _Painel extends StatelessWidget {
             ),
             CardDeGrafico(
               titulo: 'De onde vieram os recebimentos',
-              subtitulo: 'Ordem de serviço, venda de balcão ou avulso',
-              valor: formatMoney(resumo.totalIn),
+              subtitulo: metodo == null
+                  ? 'Ordem de serviço, venda de balcão ou avulso'
+                  : 'Todas as formas — a origem não separa por forma',
+              valor: formatMoney(entrouTotal),
               info: 'A origem do lançamento. "Nenhum" é dinheiro que entrou '
                   'sem venda vinculada — aporte, acerto, devolução.',
               vazio: origens.isEmpty,
@@ -255,15 +289,15 @@ class _Painel extends StatelessWidget {
               vazio: resumo.byMethod.isEmpty,
               child: BarrasComparadas(
                 categorias: [
-                  for (final m in resumo.byMethod.take(5))
+                  for (final m in porForma.take(5))
                     methodLabel(m.method),
                 ],
                 primeira: [
-                  for (final m in resumo.byMethod.take(5))
+                  for (final m in porForma.take(5))
                     m.inAmount.toDouble(),
                 ],
                 segunda: [
-                  for (final m in resumo.byMethod.take(5))
+                  for (final m in porForma.take(5))
                     m.outAmount.toDouble(),
                 ],
                 rotuloPrimeira: 'Entrou',

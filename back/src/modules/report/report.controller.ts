@@ -16,6 +16,8 @@ import { resolveRange } from '../../common/metrics/range';
 import { ReportService } from './report.service';
 import { MonthlySummaryRepository } from './monthly/monthly-summary.repository';
 import {
+  janelaDoIntervalo,
+  janelaDoMes,
   MonthlySummaryService,
   inicioDoMes,
 } from './monthly/monthly-summary.service';
@@ -59,10 +61,21 @@ export class ReportController {
    * número da tela passaria a discordar do texto que o acompanha.
    */
   @Get('overview')
-  async overview(@CurrentUser() user: AuthUser, @Query('mes') mes?: string) {
-    const { metricas, graficos } = await this.mensal.calcularComGraficos(
+  async overview(
+    @CurrentUser() user: AuthUser,
+    @Query('mes') mes?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    // `from`/`to` vêm do seletor de período da tela; `mes` continua existindo
+    // para o resumo escrito, que é mensal por natureza. Quando os dois chegam,
+    // o intervalo ganha: ele é o que o usuário acabou de escolher.
+    const janela = intervaloValido(from, to)
+      ? janelaDoIntervalo(new Date(from!), new Date(to!))
+      : janelaDoMes(refDoMes(mes));
+    const { metricas, graficos } = await this.mensal.calcularDaJanela(
       user.tenantId,
-      refDoMes(mes),
+      janela,
     );
     return { ...metricas, graficos };
   }
@@ -354,6 +367,23 @@ export class ReportController {
  * Mês inválido cai no corrente em vez de estourar: o parâmetro vem da URL, e um
  * relatório não deveria quebrar porque alguém editou a barra de endereços.
  */
+/**
+ * Um intervalo só vale quando as duas pontas são datas e estão na ordem.
+ *
+ * Meia escolha (só o início) volta ao mês: montar uma janela com uma ponta
+ * inventada daria um relatório de um período que ninguém pediu.
+ */
+function intervaloValido(from?: string, to?: string): boolean {
+  if (!from || !to) return false;
+  const de = new Date(from);
+  const ate = new Date(to);
+  return (
+    !Number.isNaN(de.getTime()) &&
+    !Number.isNaN(ate.getTime()) &&
+    de.getTime() <= ate.getTime()
+  );
+}
+
 function refDoMes(mes?: string): Date {
   if (!mes || !/^\d{4}-\d{2}$/.test(mes)) return new Date();
   const d = new Date(`${mes}-01T12:00:00.000Z`);

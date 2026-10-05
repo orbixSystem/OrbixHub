@@ -14,7 +14,7 @@ import '../../auth/presentation/session_state.dart';
 import '../../dashboard/presentation/widgets/metric_card.dart'
     show formatMoney, MetricLoading;
 import '../../os/presentation/os_status.dart'
-    show osStatuses, osStatusLabel, OsStatusChip;
+    show OsStatusChip;
 import '../../cashier/domain/cashier_format.dart' show methodLabel;
 import '../domain/report_models.dart';
 import 'widgets/charts/barras_por_dia.dart';
@@ -32,6 +32,7 @@ import 'tabs/faturamento_tab.dart';
 import 'tabs/ordens_tab.dart';
 import 'tabs/resumo_tab.dart';
 import 'tabs/visao_tab.dart';
+import 'widgets/filtros_da_aba.dart';
 import 'report_csv.dart';
 import '../../../core/export/file_download.dart';
 import 'report_pdf.dart';
@@ -94,6 +95,13 @@ class ReportScreen extends ConsumerWidget {
             child: _AbasBar(abas: abas, selecionada: aba.tab),
           ),
           const SizedBox(height: 20),
+          // A linha de filtros, entre as abas e o conteúdo. Não aparece no
+          // relatório escrito: ele é um texto de um mês fechado, e recortá-lo
+          // por técnico deixaria a prosa falando de números fora da tela.
+          if (aba.tab != ReportTab.resumo) ...[
+            FiltrosDaAba(aba: aba.tab),
+            const SizedBox(height: 16),
+          ],
           CoachTarget(
             'relatorios.conteudo',
             child: switch (aba.tab) {
@@ -132,23 +140,27 @@ class _Cabecalho extends ConsumerWidget {
             ReportTab.resumo =>
               'A leitura escrita do mês: o que aconteceu e o que fazer agora.',
             ReportTab.visao =>
-              'O mesmo mês em gráficos, um de cada assunto.',
+              'O mesmo período em gráficos, um de cada assunto.',
             _ => 'Detalhamento por assunto, com exportação.',
           },
           style: TextStyle(color: neu.inkMuted),
         ),
       ],
     );
-    // O seletor de mês aparece em TODAS as abas, porque agora ele governa
-    // todas. Escondê-lo fora da Visão deixaria o usuário vendo números de
-    // setembro numa aba sem nada na tela dizendo que o mês é setembro — nem
-    // como trocá-lo sem voltar.
+    // O seletor de mês só fica aqui no relatório escrito, que é a única aba
+    // sem linha de filtros. Nas outras ele é o primeiro chip da barra, junto
+    // dos demais recortes — a pergunta "de quando?" é da mesma família que
+    // "de quem?" e "de qual categoria?", e separá-las em cantos opostos da
+    // tela fazia o usuário procurar o período duas vezes.
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 16,
       runSpacing: 12,
-      children: [titulo, const _SeletorDeMes()],
+      children: [
+        titulo,
+        if (aba == ReportTab.resumo) const _SeletorDeMes(),
+      ],
     );
   }
 }
@@ -405,8 +417,12 @@ class _ReportContent extends ConsumerWidget {
   }
 }
 
-/// Barra de filtros contextual por relatório. Período sempre (exceto estoque,
-/// point-in-time); técnico+status só na OS operacional; kind+limit no top-itens.
+/// Os controles que são da TABELA, não do recorte.
+///
+/// Responsável, situação e busca saíram daqui para a linha de filtros do topo,
+/// que vale para a aba inteira. O que sobra é o que só faz sentido junto do
+/// detalhamento: a ordenação da lista e o tamanho do top de itens. Deixá-los
+/// na barra de cima seria prometer que mudam a página toda.
 class _FiltersBar extends ConsumerWidget {
   const _FiltersBar({required this.kind});
 
@@ -414,22 +430,8 @@ class _FiltersBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // O período NÃO é mais escolhido aqui: quem manda é o seletor de mês do
-    // cabeçalho, e ele governa todas as abas. Dois controles de tempo na mesma
-    // tela faziam o cabeçalho dizer "Setembro" enquanto a aba mostrava os
-    // últimos 30 dias — números diferentes para a mesma pergunta, sem nada que
-    // dissesse qual valia.
     final filters = ref.watch(reportFiltersProvider);
 
-    final member = _MemberFilter(
-      value: filters.assignedTo,
-      onChanged: (v) =>
-          ref.read(reportFiltersProvider.notifier).setAssignedTo(v),
-    );
-    final status = _StatusFilter(
-      value: filters.status,
-      onChanged: (v) => ref.read(reportFiltersProvider.notifier).setStatus(v),
-    );
     final kindFilter = _KindFilter(
       value: filters.kind,
       onChanged: (v) => ref.read(reportFiltersProvider.notifier).setKind(v),
@@ -439,118 +441,36 @@ class _FiltersBar extends ConsumerWidget {
       onChanged: (v) => ref.read(reportFiltersProvider.notifier).setLimit(v),
     );
 
-    // Mobile: os campos pareados em 2 colunas, sem itens soltos empilhados
-    // com muito respiro.
-    if (context.isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (kind == ReportKind.osOperational) ...[
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: member),
-                const SizedBox(width: 12),
-                Expanded(child: status),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Expanded(child: _OsSearchField()),
-                const SizedBox(width: 12),
-                const _OsSortMenu(),
-              ],
-            ),
-          ],
-          if (kind == ReportKind.topItems) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: kindFilter),
-                const SizedBox(width: 12),
-                Expanded(child: limitFilter),
-              ],
-            ),
-          ],
-        ],
+    if (kind == ReportKind.osOperational) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.only(top: 12),
+          child: _OsSortMenu(),
+        ),
       );
     }
+    if (kind != ReportKind.topItems) return const SizedBox.shrink();
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (kind == ReportKind.osOperational) ...[
-          member,
-          status,
-          const _OsSearchField(),
-          const _OsSortMenu(),
-        ],
-        if (kind == ReportKind.topItems) ...[kindFilter, limitFilter],
-      ],
-    );
-  }
-}
-
-class _MemberFilter extends ConsumerWidget {
-  const _MemberFilter({required this.value, required this.onChanged});
-
-  final String? value;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(reportMembersProvider);
-    return membersAsync.when(
-      loading: () => const SizedBox(
-        width: 200,
-        child: LinearProgressIndicator(minHeight: 2),
-      ),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (members) => SizedBox(
-        width: 220,
-        child: DropdownButtonFormField<String?>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Técnico',
-            isDense: true,
-          ),
-          items: [
-            const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
-            for (final m in members)
-              DropdownMenuItem<String?>(value: m.id, child: Text(m.name)),
+    if (context.isMobile) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Row(
+          children: [
+            Expanded(child: kindFilter),
+            const SizedBox(width: 12),
+            Expanded(child: limitFilter),
           ],
-          onChanged: onChanged,
         ),
-      ),
-    );
-  }
-}
-
-class _StatusFilter extends StatelessWidget {
-  const _StatusFilter({required this.value, required this.onChanged});
-
-  final String? value;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String?>(
-        initialValue: value,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Status', isDense: true),
-        items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
-          for (final s in osStatuses)
-            DropdownMenuItem<String?>(value: s, child: Text(osStatusLabel(s))),
-        ],
-        onChanged: onChanged,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [kindFilter, limitFilter],
       ),
     );
   }
