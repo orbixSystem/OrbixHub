@@ -21,24 +21,55 @@ class PainelDeDespesas extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(expensesReportProvider);
     final visao = ref.watch(visaoMensalProvider);
+    final categoria = ref.watch(reportFiltersProvider).categoriaDespesa;
     return async.when(
       loading: () => const PainelCarregando(),
       error: (_, _) => PainelComErro(
         onRetry: () => ref.invalidate(expensesReportProvider),
       ),
       data: (r) => _Painel(
-        relatorio: r,
+        relatorio: _recortar(r, categoria),
+        categoria: categoria,
         movimento: visao.value?.graficos.movimentoPorDia ?? const [],
       ),
     );
   }
 }
 
+/// Aplica o filtro de categoria ANTES de qualquer card ler o relatório.
+///
+/// Recortar aqui, e não em cada card, é o que garante que os seis contem a
+/// mesma coisa: os totais do rodapé são recalculados junto, e não sobra um
+/// "previsto no período" do mês inteiro ao lado de uma rosca de uma categoria
+/// só.
+ExpensesReport _recortar(ExpensesReport r, String? categoria) {
+  if (categoria == null) return r;
+  final linhas =
+      r.rows.where((l) => l.categoryName == categoria).toList();
+  return r.copyWith(
+    rows: linhas,
+    totals: ExpensesReportTotals(
+      count: linhas.fold(0, (a, l) => a + l.count),
+      previsto: linhas.fold<num>(0, (a, l) => a + l.previsto),
+      pago: linhas.fold<num>(0, (a, l) => a + l.pago),
+      emAberto: linhas.fold<num>(0, (a, l) => a + l.emAberto),
+      vencido: linhas.fold<num>(0, (a, l) => a + l.vencido),
+    ),
+  );
+}
+
 class _Painel extends StatelessWidget {
-  const _Painel({required this.relatorio, required this.movimento});
+  const _Painel({
+    required this.relatorio,
+    required this.movimento,
+    this.categoria,
+  });
 
   final ExpensesReport relatorio;
   final List<MovimentoDiario> movimento;
+
+  /// Categoria escolhida na barra, ou `null` para todas.
+  final String? categoria;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +241,13 @@ class _Painel extends StatelessWidget {
             ),
             CardDeGrafico(
               titulo: 'Saídas do caixa, dia a dia',
-              subtitulo: 'Quando o dinheiro de fato saiu da gaveta',
+              // Este card lê o CAIXA, não a tabela de despesas: a saída de
+              // dinheiro não guarda a categoria da conta que pagou. Com um
+              // filtro ativo ele diz isso, em vez de mostrar o mês inteiro
+              // calado ao lado de cinco cards recortados.
+              subtitulo: categoria == null
+                  ? 'Quando o dinheiro de fato saiu da gaveta'
+                  : 'Todas as categorias — a saída de caixa não guarda a categoria',
               valor: formatMoney(saiu.fold<double>(0, (a, b) => a + b)),
               info: 'Despesa prevista é compromisso; isto é dinheiro saindo. '
                   'Os picos são os dias em que várias contas venceram juntas.',

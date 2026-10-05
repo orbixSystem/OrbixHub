@@ -66,7 +66,7 @@ class _Preparando extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Fechando as contas do mês',
+            'Fechando as contas do período',
             style: TextStyle(
               color: neu.inkMuted,
               fontSize: 14.5,

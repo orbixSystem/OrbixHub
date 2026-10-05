@@ -42,6 +42,72 @@ export function mesAnterior(ref: Date): Date {
   return new Date(Date.UTC(i.getUTCFullYear(), i.getUTCMonth() - 1, 1));
 }
 
+/** Uma janela qualquer, com o dia inteiro nas duas pontas. */
+export interface Janela {
+  from: Date;
+  to: Date;
+  rotulo: string;
+}
+
+/**
+ * A janela de um intervalo livre escolhido na tela.
+ *
+ * Quando o intervalo é exatamente um mês do calendário, o rótulo volta a ser
+ * "Setembro/2026": é como o dono chama aquele período, e trocar por
+ * "01/09 a 30/09" só porque o caminho até ali foi outro tornaria o mesmo mês
+ * irreconhecível de uma tela para a outra.
+ */
+export function janelaDoIntervalo(de: Date, ate: Date): Janela {
+  const from = new Date(
+    Date.UTC(de.getUTCFullYear(), de.getUTCMonth(), de.getUTCDate()),
+  );
+  const to = new Date(
+    Date.UTC(
+      ate.getUTCFullYear(),
+      ate.getUTCMonth(),
+      ate.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
+  const mes = janelaDoMes(from);
+  const ehMesInteiro =
+    from.getTime() === mes.from.getTime() && to.getTime() === mes.to.getTime();
+  return {
+    from,
+    to,
+    rotulo: ehMesInteiro ? mes.rotulo : `${diaMes(from)} a ${diaMes(to)}`,
+  };
+}
+
+/**
+ * O período de comparação: o intervalo imediatamente anterior, de mesma
+ * duração.
+ *
+ * Para um mês do calendário isso é o mês anterior — e é por isso que o caminho
+ * especial existe: fevereiro comparado com "os 28 dias anteriores" pegaria
+ * três dias de dezembro, e a frase "contra o mês anterior" deixaria de ser
+ * verdade sem nada na tela avisando.
+ */
+export function janelaAnterior(janela: Janela): Janela {
+  const mes = janelaDoMes(janela.from);
+  if (
+    janela.from.getTime() === mes.from.getTime() &&
+    janela.to.getTime() === mes.to.getTime()
+  ) {
+    return janelaDoMes(mesAnterior(janela.from));
+  }
+  const duracao = janela.to.getTime() - janela.from.getTime();
+  const to = new Date(janela.from.getTime() - 1);
+  const from = new Date(to.getTime() - duracao);
+  return { from, to, rotulo: `${diaMes(from)} a ${diaMes(to)}` };
+}
+
+const diaMes = (d: Date): string =>
+  `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+
 /**
  * Monta o resumo de um mês: coleta → regra → texto → grava.
  *
@@ -122,8 +188,22 @@ export class MonthlySummaryService {
     tenantId: string,
     ref: Date,
   ): Promise<{ metricas: MetricasMensais; graficos: GraficosDoMes }> {
-    const atual = janelaDoMes(ref);
-    const anterior = janelaDoMes(mesAnterior(ref));
+    return this.calcularDaJanela(tenantId, janelaDoMes(ref));
+  }
+
+  /**
+   * A mesma visão, para um período QUALQUER escolhido na tela.
+   *
+   * A régua de comparação é o período imediatamente anterior de mesma duração
+   * — e, quando o período é um mês do calendário, o mês anterior. Sem isso,
+   * "subiu 17%" ficaria comparando sete dias com trinta e a tela mentiria com
+   * ar de precisão.
+   */
+  async calcularDaJanela(
+    tenantId: string,
+    atual: Janela,
+  ): Promise<{ metricas: MetricasMensais; graficos: GraficosDoMes }> {
+    const anterior = janelaAnterior(atual);
 
     const [doMes, mesAnteriorNumeros] = await this.tenant.runWithTenant(
       tenantId,

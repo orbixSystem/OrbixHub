@@ -1,5 +1,11 @@
 /**
- * Regra PURA do resumo mensal: os números do mês e **o que merece atenção**.
+ * Regra PURA da leitura de um período: os números e **o que merece atenção**.
+ *
+ * Nasceu mensal e continua servindo ao resumo escrito, que é de mês fechado.
+ * Mas a tela passou a oferecer qualquer período — últimos 7 dias, um intervalo
+ * do calendário —, e a régua de comparação virou "o período anterior de mesma
+ * duração". Por isso os textos daqui falam em PERÍODO: dizer "mês anterior"
+ * numa leitura de sete dias seria uma frase errada com ar de precisão.
  *
  * É aqui que mora a inteligência do recurso — não no prompt. O modelo de
  * linguagem recebe o resultado desta função e só escreve o texto; ele não
@@ -262,7 +268,7 @@ function detectarSinais(mes: NumerosDoMes, anterior: NumerosDoMes | null): Sinal
         severidade: 'alerta',
         titulo: 'O fiado cresceu mais que o faturamento',
         detalhe:
-          'Parte do crescimento do mês ainda não virou dinheiro em caixa.',
+          'Parte do crescimento do período ainda não virou dinheiro em caixa.',
         numeros: {
           fiadoDoMes: mes.fiadoDoMes,
           fiadoDoMesAnterior: anterior.fiadoDoMes,
@@ -283,7 +289,7 @@ function detectarSinais(mes: NumerosDoMes, anterior: NumerosDoMes | null): Sinal
         severidade: 'alerta',
         titulo: 'As despesas subiram mais que o faturamento',
         detalhe:
-          'O custo de operar cresceu acima do que a oficina produziu no mês.',
+          'O custo de operar cresceu acima do que a oficina produziu no período.',
         numeros: {
           despesas: mes.despesas,
           despesasAnterior: anterior.despesas,
@@ -302,8 +308,8 @@ function detectarSinais(mes: NumerosDoMes, anterior: NumerosDoMes | null): Sinal
         severidade: 'alerta',
         titulo: 'O ticket médio caiu',
         detalhe:
-          'Cada atendimento rendeu menos que no mês anterior — mesmo volume não '
-          + 'significa mesma receita.',
+          'Cada atendimento rendeu menos que no período anterior — mesmo volume '
+          + 'não significa mesma receita.',
         numeros: { ticket, ticketAnterior, pct: cresceuTicket.pct },
       });
     }

@@ -136,10 +136,10 @@ class _Painel extends StatelessWidget {
           subtitulo: 'OS faturadas e vendas de balcão, somadas por dia',
           valor: formatMoney(totalFaturado),
           info: 'Soma do total das ordens faturadas e das vendas concluídas '
-              'em cada dia do mês selecionado. O dia de maior movimento vem '
+              'em cada dia do período. O dia de maior movimento vem '
               'destacado.',
           vazio: dias.isEmpty,
-          mensagemVazio: 'Nenhum faturamento registrado neste mês.',
+          mensagemVazio: 'Nenhum faturamento registrado no período.',
           rodape: RodapeDeCard(
             itens: [
               ('Média por dia trabalhado', formatMoney(media)),
@@ -162,7 +162,7 @@ class _Painel extends StatelessWidget {
               'Faturar não é receber: a diferença entre esta leitura e a de '
               'cima é o que ficou anotado para receber depois.',
           vazio: movimento.isEmpty,
-          mensagemVazio: 'Nenhum movimento de caixa neste mês.',
+          mensagemVazio: 'Nenhum movimento de caixa no período.',
           rodape: RodapeDeCard(
             itens: [
               ('Entrou', formatMoney(totalEntrou)),
@@ -188,11 +188,11 @@ class _Painel extends StatelessWidget {
           ),
         ),
         CardDeGrafico(
-          titulo: 'Acumulado do mês',
+          titulo: 'Acumulado do período',
           subtitulo: 'Quanto já foi faturado e quanto já entrou, somando',
           valor: formatMoney(totalFaturado),
           info: 'A mesma informação do primeiro gráfico, somada dia após dia. '
-              'A distância entre as duas curvas é o fiado do mês crescendo: '
+              'A distância entre as duas curvas é o fiado do período crescendo: '
               'ela só encosta de novo quando o cliente paga.',
           vazio: dias.isEmpty,
           rodape: RodapeDeCard(
@@ -223,13 +223,13 @@ class _Painel extends StatelessWidget {
         ),
         CardDeGrafico(
           titulo: 'Para onde foi o dinheiro',
-          subtitulo: 'Despesas do mês por categoria',
+          subtitulo: 'Despesas do período por categoria',
           valor: formatMoney(despesas.fold<num>(0, (a, f) => a + f.total)),
           info: 'Despesas previstas para o mês, agrupadas pela categoria em '
               'que foram lançadas. Saber que subiu é informação; saber que '
               'subiu em peças é o que dá para resolver.',
           vazio: despesas.isEmpty,
-          mensagemVazio: 'Nenhuma despesa registrada neste mês.',
+          mensagemVazio: 'Nenhuma despesa registrada no período.',
           atalho: AtalhoDeCard(
             rotulo: 'Abrir Despesas',
             aoTocar: () => irPara(ReportTab.despesas),
@@ -252,7 +252,7 @@ class _Painel extends StatelessWidget {
               'o cliente paga. Serve para negociar taxa de cartão e para ver '
               'se o pix já virou a regra da casa.',
           vazio: formas.isEmpty,
-          mensagemVazio: 'Nenhum recebimento neste mês.',
+          mensagemVazio: 'Nenhum recebimento no período.',
           child: RoscaComCentro(
             centroValor:
                 compactoEmReais(formas.fold<num>(0, (a, f) => a + f.total)),
@@ -268,13 +268,13 @@ class _Painel extends StatelessWidget {
         ),
         CardDeGrafico(
           titulo: 'Onde as ordens pararam',
-          subtitulo: 'A fila de trabalho no fim do mês',
+          subtitulo: 'A fila de trabalho no fim do período',
           valor: '${fila.fold<int>(0, (a, s) => a + s.total)}',
-          info: 'Quantas ordens do mês estão em cada estado. É a fila, não o '
+          info: 'Quantas ordens do período estão em cada estado. É a fila, não o '
               'faturamento: uma pilha em "aguardando peça" explica um mês '
               'fraco melhor do que qualquer total.',
           vazio: fila.isEmpty,
-          mensagemVazio: 'Nenhuma ordem neste mês.',
+          mensagemVazio: 'Nenhuma ordem no período.',
           atalho: AtalhoDeCard(
             rotulo: 'Abrir Ordens',
             aoTocar: () => irPara(ReportTab.ordens),
@@ -289,7 +289,7 @@ class _Painel extends StatelessWidget {
               'responsável aparecem agrupadas — e muitas delas significam que '
               'a atribuição não está sendo usada.',
           vazio: porReceita.isEmpty,
-          mensagemVazio: 'Nenhuma ordem atribuída neste mês.',
+          mensagemVazio: 'Nenhuma ordem atribuída no período.',
           atalho: AtalhoDeCard(
             rotulo: 'Abrir Equipe',
             aoTocar: () => irPara(ReportTab.equipe),
@@ -317,7 +317,7 @@ class _Painel extends StatelessWidget {
               'Chegada concentrada num dia costuma ser importação ou '
               'campanha; espalhada é boca a boca.',
           vazio: diasDeChegada.isEmpty,
-          mensagemVazio: 'Nenhum cliente novo neste mês.',
+          mensagemVazio: 'Nenhum cliente novo no período.',
           rodape: RodapeDeCard(
             itens: [
               ('Novos', '${clientes?.newInRange ?? 0}'),
