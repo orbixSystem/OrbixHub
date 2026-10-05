@@ -159,6 +159,30 @@ export const envSchema = z.object({
   // Token de leitura do repositório PRIVADO (secret — nunca vai para o app;
   // o cliente recebe só a URL assinada que o servidor resolve).
   GITHUB_RELEASES_TOKEN: z.string().optional(),
+  // --- IA (resumo mensal dos relatórios) ---
+  // Chave ÚNICA da Orbix: o cliente não configura nada. Ausente = o resumo
+  // mensal continua existindo, montado sem IA (NoopAiGateway) — a feature nunca
+  // depende de um provedor estar de pé.
+  GEMINI_API_KEY: z.string().optional(), // secret — nunca enviado ao front
+  // O id do modelo vem do env porque o catálogo do Google muda de nome e de
+  // faixa gratuita sem avisar; fixá-lo no código é agendar uma quebra futura.
+  GEMINI_MODEL: z.string().default('gemini-flash-latest'),
+  GEMINI_BASE_URL: z.string().default('https://generativelanguage.googleapis.com'),
+  // Curto de propósito: o job roda num laço por tenant, de madrugada. Provedor
+  // lento não pode segurar a fila — o texto de fallback já está pronto.
+  GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  // Pausa ENTRE tenants no job mensal. A cota do provedor é por MINUTO, e o
+  // job varre todas as oficinas de uma vez: sem respiro, a partir da décima
+  // chamada tudo vira 429 e todo mundo recebe o texto automático. 5s = no
+  // máximo 12 por minuto, que cabe na faixa gratuita com folga.
+  GEMINI_INTERVALO_MS: z.coerce.number().int().min(0).default(5000),
+  // Quantos resumos escrever por DIA. A faixa gratuita do provedor é de 20
+  // requisições diárias POR MODELO; 18 deixa margem para uma retentativa e
+  // para qualquer outra chamada no mesmo projeto. O job roda nos primeiros
+  // dias do mês e atende quem ainda falta, então uma base maior que o
+  // orçamento é coberta em dois ou três dias — e não fica sem texto.
+  GEMINI_ORCAMENTO_DIARIO: z.coerce.number().int().min(1).default(18),
+
   // --- Object storage (fotos da OS, etc.) ---
   // 'local' = disco (back/.storage, servido por GET /files/* — default dev, sem container);
   // 'minio' = S3-compatible (MinIO em dev / S3 em prod).

@@ -4,8 +4,6 @@
 /// mexer no backend nem em `me.modules` (o módulo continua existindo no back).
 library;
 
-import 'package:flutter/foundation.dart';
-
 /// Avisos de cobrança desligados no FRONT enquanto o fluxo de pagamento não
 /// existe de ponta a ponta.
 ///
@@ -15,13 +13,17 @@ import 'package:flutter/foundation.dart';
 /// `ModuleAccessGuard` segue valendo — isto é retirada de AVISO, não de regra.
 const bool kBillingNoticesEnabled = false;
 
-/// Nota Fiscal visível só para NÓS (dev), ainda não para o cliente real.
+/// Nota Fiscal **desligada** — anunciada como "Em breve" em todos os pontos.
 ///
-/// Mesmo mecanismo do `kDevTools`: LIGADA em debug/profile (o que rodamos aqui)
-/// e DESLIGADA em release (o build que vai para o cliente), com override
-/// explícito por `--dart-define=INVOICE_ENABLED=true|false`. Como é `const`,
-/// no build de release todo o código de NF é removido pelo tree-shaking —
-/// o cliente não vê nem alcança a tela.
+/// O default é `false` em QUALQUER build, inclusive em debug. Já foi
+/// `!kReleaseMode` (ligada para nós, desligada para o cliente) e isso custou
+/// caro na prática: o estado que o cliente vê não aparecia enquanto
+/// desenvolvíamos, então não havia como conferir os pontos de "Em breve" sem
+/// gerar um release — e a impressão era de que nada tinha sido feito. O que se
+/// sobe é o que se vê.
+///
+/// Para trabalhar NA NF (ou revisar as telas fiscais), suba com
+/// `--dart-define=INVOICE_ENABLED=true`.
 ///
 /// Com `false`, os pontos de NF continuam VISÍVEIS, mas inertes e marcados
 /// **"Em breve"**: item "Notas Fiscais" no menu, botão "Emitir nota fiscal" na
@@ -35,11 +37,5 @@ const bool kBillingNoticesEnabled = false;
 /// visibilidade, não regra de acesso (quem barra de verdade é
 /// `@RequiresModule('invoice')` + permissões).
 ///
-/// Para VER como o cliente vê durante o desenvolvimento:
-/// `flutter run --dart-define=INVOICE_ENABLED=false`.
-///
-/// Para abrir a NF ao cliente real, basta subir com
-/// `--dart-define=INVOICE_ENABLED=true` (ou trocar o default) — nada muda no
-/// servidor.
-const bool kInvoiceEnabled =
-    bool.fromEnvironment('INVOICE_ENABLED', defaultValue: !kReleaseMode);
+/// Para abrir a NF ao cliente real, troque o default — nada muda no servidor.
+const bool kInvoiceEnabled = bool.fromEnvironment('INVOICE_ENABLED');

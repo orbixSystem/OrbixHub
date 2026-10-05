@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'monthly_models.dart';
 import 'report_models.dart';
 
 /// Identificação da empresa (tenant) para o cabeçalho do PDF de export.
@@ -116,4 +117,16 @@ abstract class ReportRepository {
   /// Membros da equipe (`GET /employees`) para o filtro "técnico" dos
   /// relatórios de OS. Reusa a mesma rota/forma do dropdown da OS.
   Future<List<ReportMemberOption>> members();
+
+  /// `GET /report/overview` — a leitura do mês: KPIs com variação contra o mês
+  /// anterior e os sinais apurados. Calculado na hora, então cobre também o mês
+  /// CORRENTE (que nenhum resumo gravado cobre — ele só existe depois de o mês
+  /// fechar).
+  ///
+  /// [mes] no formato "2026-09"; sem ele, o mês corrente.
+  Future<VisaoMensal> overview({String? mes});
+
+  /// `GET /report/monthly` — o resumo ESCRITO de um mês fechado, com os meses
+  /// disponíveis para o seletor. Sem [mes], o mais recente.
+  Future<ResumoMensalPagina> resumoMensal({String? mes});
 }

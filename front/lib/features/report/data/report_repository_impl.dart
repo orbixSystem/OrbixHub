@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../domain/monthly_models.dart';
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 
@@ -320,5 +321,23 @@ class ReportRepositoryImpl implements ReportRepository {
               (m['fullName'] ?? m['name'] ?? m['email'] ?? id)?.toString();
           return ReportMemberOption(id: id ?? '', name: name ?? id ?? '');
         }).where((m) => m.id.isNotEmpty).toList();
+      });
+
+  @override
+  Future<VisaoMensal> overview({String? mes}) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/overview',
+          queryParameters: {if (mes != null && mes.isNotEmpty) 'mes': mes},
+        );
+        return VisaoMensal.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<ResumoMensalPagina> resumoMensal({String? mes}) => _guard(() async {
+        final res = await _dio.get<Object?>(
+          '/report/monthly',
+          queryParameters: {if (mes != null && mes.isNotEmpty) 'mes': mes},
+        );
+        return ResumoMensalPagina.fromJson(_asMap(res.data));
       });
 }

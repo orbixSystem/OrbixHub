@@ -4,6 +4,7 @@ import { BillingModule } from '../billing/billing.module';
 import { CryptoModule } from '../../common/crypto/crypto.module';
 import { SupportModule } from '../support/support.module';
 import { IamModule } from '../iam/iam.module';
+import { ReportModule } from '../report/report.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminTokenGuard } from './admin-token.guard';
@@ -14,7 +15,14 @@ import { AdminTokenGuard } from './admin-token.guard';
  */
 @Module({
   // VerticalsModule é @Global — TenantSettingsService entra sem import.
-  imports: [AuthModule, BillingModule, CryptoModule, SupportModule, IamModule],
+  imports: [
+    AuthModule,
+    BillingModule,
+    CryptoModule,
+    SupportModule,
+    IamModule,
+    ReportModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],
   exports: [AdminService],

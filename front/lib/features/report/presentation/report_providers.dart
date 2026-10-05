@@ -2,11 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cashier/domain/cashier_models.dart';
 import '../../cashier/presentation/cashier_providers.dart';
-import '../../dashboard/domain/dashboard_models.dart';
-import '../../dashboard/presentation/period_controller.dart';
+import '../domain/monthly_models.dart';
 import '../domain/report_models.dart';
 import '../domain/report_repository.dart';
 import 'report_catalog.dart';
+import 'report_tabs.dart';
 
 /// Injetado em `di.dart` com a impl real (dio). Tests sobrescrevem com o fake.
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
@@ -14,11 +14,28 @@ final reportRepositoryProvider = Provider<ReportRepository>((ref) {
       'reportRepositoryProvider must be overridden in di.dart');
 });
 
-/// Converte o `MetricsRange` do seletor de período (reusado do dashboard) no
-/// `ReportRange` desta feature. Reage à seleção de período.
+/// O período de TODOS os relatórios — derivado do mês escolhido no topo.
+///
+/// Antes vinha do seletor do dashboard, e o resultado era uma tela com duas
+/// respostas para "quando": o cabeçalho dizia "Setembro/2026" e a aba abaixo
+/// mostrava os últimos 30 dias. Os números não batiam entre as abas, e não
+/// havia como o usuário saber qual dos dois estava certo.
+///
+/// Mês corrente vai até AGORA, não até o fim do mês: somar os dias que ainda
+/// não aconteceram achataria qualquer média.
 final reportRangeProvider = Provider<ReportRange>((ref) {
-  final MetricsRange r = ref.watch(metricsRangeProvider);
-  return ReportRange(from: r.from, to: r.to);
+  final mes = ref.watch(mesSelecionadoProvider);
+  final agora = DateTime.now();
+  if (mes == null) {
+    return ReportRange(from: DateTime(agora.year, agora.month, 1), to: agora);
+  }
+  final partes = mes.split('-');
+  final ano = int.tryParse(partes.first) ?? agora.year;
+  final m = partes.length > 1 ? (int.tryParse(partes[1]) ?? agora.month) : agora.month;
+  final inicio = DateTime(ano, m, 1);
+  // Último instante do mês: dia 0 do mês seguinte é o último dia deste.
+  final fim = DateTime(ano, m + 1, 0, 23, 59, 59, 999);
+  return ReportRange(from: inicio, to: fim.isAfter(agora) ? agora : fim);
 });
 
 /// Relatório selecionado no seletor. Default: o primeiro disponível (definido na
@@ -34,6 +51,60 @@ class SelectedReportController extends Notifier<ReportKind?> {
 
   void select(ReportKind kind) => state = kind;
 }
+
+/// Aba aberta em Relatórios. Começa no relatório escrito do mês.
+///
+/// `autoDispose` de propósito: Relatórios SEMPRE abre na mesma página — a
+/// leitura do mês em palavras. Guardado, o provider devolvia o usuário à
+/// última aba que ele tinha aberto dias antes, e quem voltasse para "ver como
+/// foi o mês" caía numa tabela de estoque sem entender por quê. Trocar de aba
+/// durante a visita continua funcionando: enquanto a tela existe, alguém está
+/// observando.
+final selectedTabProvider =
+    NotifierProvider.autoDispose<SelectedTabController, ReportTab>(
+  SelectedTabController.new,
+);
+
+class SelectedTabController extends Notifier<ReportTab> {
+  @override
+  ReportTab build() => ReportTab.resumo;
+
+  void select(ReportTab tab) => state = tab;
+}
+
+/// Mês analisado, no formato "2026-09". `null` = mês corrente.
+///
+/// Separado do seletor de período do dashboard de propósito: a leitura mensal é
+/// de MÊS FECHADO — um intervalo "últimos 30 dias" não tem mês anterior com que
+/// se comparar, e a comparação é metade do valor desta tela.
+final mesSelecionadoProvider =
+    NotifierProvider<MesSelecionadoController, String?>(
+  MesSelecionadoController.new,
+);
+
+class MesSelecionadoController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? mes) => state = mes;
+}
+
+/// A leitura do mês (KPIs + sinais), calculada no servidor.
+final visaoMensalProvider = FutureProvider<VisaoMensal>((ref) {
+  final mes = ref.watch(mesSelecionadoProvider);
+  return ref.watch(reportRepositoryProvider).overview(mes: mes);
+});
+
+/// O resumo ESCRITO do mês fechado, com os meses disponíveis.
+///
+/// Separado da visão porque as duas falham de formas diferentes: um mês
+/// corrente simplesmente não tem resumo (ele nasce no dia 1º), e isso não é
+/// erro — a tela mostra os números e explica que o texto vem quando o mês
+/// fechar.
+final resumoMensalProvider = FutureProvider<ResumoMensalPagina>((ref) {
+  final mes = ref.watch(mesSelecionadoProvider);
+  return ref.watch(reportRepositoryProvider).resumoMensal(mes: mes);
+});
 
 /// Opções de ordenação do relatório operacional de OS (chave = contrato com o
 /// backend; rótulo PT-BR). `recent` é o default.
@@ -442,4 +513,36 @@ final cashierRecebidoReportProvider =
         from: range.fromIso,
         to: range.toIso,
       );
+});
+
+/// Os mais vendidos do painel de Ordens, por tipo.
+///
+/// Dedicado, e não o `topItemsReportProvider`: aquele obedece ao filtro de
+/// tipo da tabela, e o painel precisa mostrar serviço E peça lado a lado. Com
+/// o mesmo provider, escolher "peças" na tabela esvaziaria o card de serviços
+/// sem nada na tela explicando por quê.
+final painelTopItensProvider = FutureProvider.autoDispose
+    .family<TopItemsReport, String>((ref, kind) {
+  final range = ref.watch(reportRangeProvider);
+  return ref.read(reportRepositoryProvider).topItems(
+        range: range,
+        kind: kind,
+        limit: 8,
+      );
+});
+
+/// A página do painel de Estoque.
+///
+/// Página grande de propósito (e separada da tabela, que pagina de 50 em 50):
+/// o painel precisa ordenar o estoque por valor e por risco, e um ranking
+/// feito sobre as cinquenta primeiras linhas alfabéticas não é um ranking — é
+/// uma amostra que se parece com um. 200 é o teto que o endpoint aceita; acima
+/// disso o painel avisa que está lendo uma parte.
+const painelEstoqueLimite = 200;
+
+final painelEstoqueProvider =
+    FutureProvider.autoDispose<InventoryReport>((ref) {
+  return ref
+      .read(reportRepositoryProvider)
+      .inventory(page: 1, pageSize: painelEstoqueLimite);
 });

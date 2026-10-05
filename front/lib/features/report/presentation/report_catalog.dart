@@ -2,11 +2,6 @@ import '../../auth/domain/auth_models.dart';
 
 /// Identifica cada relatório do MVP. O builder/tabela fica na tela.
 enum ReportKind {
-  /// Visão geral (painel BI): KPIs + gráficos sobre os dados do período.
-  /// Não tem tabela/export — é um dashboard. Exige o módulo `os` (fonte
-  /// obrigatória); clientes/estoque entram só se os módulos existirem.
-  overview,
-
   /// OS operacional (linhas + status/técnico). Filtros: período, técnico, status.
   osOperational,
 
@@ -57,16 +52,11 @@ class ReportSpec {
   final String label;
 }
 
-/// Catálogo completo (ordem de exibição). Os de OS são "lentes" sobre os dados de
-/// OS — todos exigem o módulo `os`.
+/// Catálogo completo. Cada relatório é uma LENTE detalhada, com tabela e
+/// exportação; a leitura do mês não está aqui — ela é a aba "Visão"
+/// (`report_tabs.dart`), que não é um relatório a escolher e sim a tela que
+/// Relatórios abre.
 const List<ReportSpec> _allReports = [
-  // PRIMEIRO do catálogo → é a tela inicial de Relatórios (painel BI).
-  ReportSpec(
-    kind: ReportKind.overview,
-    moduleKey: 'os',
-    group: 'Visão geral',
-    label: 'Visão geral',
-  ),
   ReportSpec(
     kind: ReportKind.osOperational,
     moduleKey: 'os',
