@@ -23,18 +23,38 @@ class PainelDeEstoque extends ConsumerWidget {
     final metricas = ref.watch(inventoryMetricsProvider);
     final pecasVendidas = ref.watch(painelTopItensProvider('product'));
 
+    final situacao = ref.watch(reportFiltersProvider).estoqueSituacao;
+
     return pagina.when(
       loading: () => const PainelCarregando(),
       error: (_, _) => PainelComErro(
         onRetry: () => ref.invalidate(painelEstoqueProvider),
       ),
       data: (r) => _Painel(
-        relatorio: r,
+        relatorio: _recortar(r, situacao),
         abaixoDoMinimo: metricas.value?.belowMin ?? 0,
         maisVendidas: pecasVendidas.value?.rows ?? const [],
       ),
     );
   }
+}
+
+/// Aplica o recorte de situação sobre as linhas.
+///
+/// A busca já foi ao servidor; esta parte é de tela, porque "abaixo do
+/// mínimo" é uma comparação entre duas colunas e o endpoint de estoque não a
+/// conhece como filtro. O `stockValue` NÃO é recalculado: ele é o valor
+/// global da prateleira inteira, e reduzi-lo ao recorte faria o KPI de
+/// "dinheiro parado" diminuir sempre que alguém filtrasse.
+InventoryReport _recortar(InventoryReport r, String? situacao) {
+  if (situacao == null) return r;
+  bool cabe(InventoryReportRow l) => switch (situacao) {
+        'zerado' => l.currentStock <= 0,
+        'abaixo' => l.belowMin,
+        'ok' => !l.belowMin && l.currentStock > 0,
+        _ => true,
+      };
+  return r.copyWith(rows: r.rows.where(cabe).toList());
 }
 
 class _Painel extends StatelessWidget {

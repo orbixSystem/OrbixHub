@@ -40,7 +40,7 @@ void main() {
     for (final titulo in const [
       'Faturamento dia a dia',     // Faturamento
       'Entrou × saiu no caixa',    // Caixa
-      'Acumulado do mês',
+      'Acumulado do período',
       'Para onde foi o dinheiro',  // Despesas
       'Como o cliente pagou',
       'Onde as ordens pararam',    // Ordens

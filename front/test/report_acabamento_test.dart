@@ -7,6 +7,7 @@ import 'package:orbixhub_front/features/report/presentation/report_providers.dar
 import 'package:orbixhub_front/features/report/presentation/tabs/resumo_tab.dart';
 import 'package:orbixhub_front/features/report/presentation/tabs/visao_tab.dart';
 import 'package:orbixhub_front/features/report/domain/monthly_models.dart';
+import 'package:orbixhub_front/features/report/domain/report_models.dart';
 import 'package:orbixhub_front/features/report/presentation/widgets/livro_do_mes.dart';
 import 'package:orbixhub_front/features/report/presentation/widgets/motion.dart';
 import 'package:orbixhub_front/features/report/presentation/widgets/sparkline.dart';
@@ -130,7 +131,7 @@ void main() {
     await t.pump();
 
     // "Carregando" não diz nada; o sistema está somando o mês em cinco módulos.
-    expect(find.text('Fechando as contas do mês'), findsOneWidget);
+    expect(find.text('Fechando as contas do período'), findsOneWidget);
     await t.pumpAndSettle(const Duration(seconds: 1));
   });
 
@@ -232,8 +233,8 @@ void main() {
 /// Fake que demora — é o único jeito de ver o estado de espera.
 class _RepoLento extends FakeReportRepository {
   @override
-  Future<VisaoMensal> overview({String? mes}) async {
+  Future<VisaoMensal> overview({String? mes, ReportRange? range}) async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    return super.overview(mes: mes);
+    return super.overview(mes: mes, range: range);
   }
 }

@@ -1,4 +1,8 @@
 import {
+  janelaAnterior,
+  janelaDoIntervalo,
+} from './monthly-summary.service';
+import {
   NumerosDoMes,
   calcularMetricasMensais,
   variacao,
@@ -270,5 +274,65 @@ describe('o pacote que vai para o modelo', () => {
     const r = calcular();
     expect(Object.keys(r).sort()).toEqual(['kpis', 'periodo', 'sinais']);
     expect(r.periodo.rotulo).toBe('Setembro/2026');
+  });
+});
+
+/**
+ * As janelas de um período livre.
+ *
+ * O seletor da tela deixou de ser "qual mês" e passou a ser "qual período":
+ * últimos 7 dias, este mês, ou um intervalo escolhido no calendário. A régua
+ * de comparação muda junto — e é ela que decide se "subiu 17%" é verdade.
+ */
+describe('janelas de um período livre', () => {
+  it('um mês inteiro continua se chamando pelo nome do mês', () => {
+    const j = janelaDoIntervalo(
+      new Date('2026-09-01T00:00:00Z'),
+      new Date('2026-09-30T00:00:00Z'),
+    );
+
+    // Chegar ao mesmo setembro por outro caminho não pode torná-lo
+    // irreconhecível de uma tela para a outra.
+    expect(j.rotulo).toBe('Setembro/2026');
+    expect(j.to.toISOString()).toBe('2026-09-30T23:59:59.999Z');
+  });
+
+  it('um intervalo solto se chama pelas suas pontas', () => {
+    const j = janelaDoIntervalo(
+      new Date('2026-09-03T00:00:00Z'),
+      new Date('2026-09-09T00:00:00Z'),
+    );
+
+    expect(j.rotulo).toBe('03/09 a 09/09');
+    // As duas pontas pegam o dia inteiro: um intervalo que termina à meia-noite
+    // perderia o movimento do último dia sem nada na tela dizendo.
+    expect(j.from.toISOString()).toBe('2026-09-03T00:00:00.000Z');
+    expect(j.to.toISOString()).toBe('2026-09-09T23:59:59.999Z');
+  });
+
+  it('a comparação de um mês é o MÊS anterior, não 30 dias antes', () => {
+    const anterior = janelaAnterior(janelaDoIntervalo(
+      new Date('2026-03-01T00:00:00Z'),
+      new Date('2026-03-31T00:00:00Z'),
+    ));
+
+    // Fevereiro tem 28 dias: comparar março com "os 31 dias anteriores"
+    // pegaria três dias de janeiro, e a frase "contra o mês anterior"
+    // deixaria de ser verdade sem nada avisando.
+    expect(anterior.rotulo).toBe('Fevereiro/2026');
+    expect(anterior.from.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+  });
+
+  it('a comparação de um intervalo é o intervalo anterior de mesma duração',
+      () => {
+    const atual = janelaDoIntervalo(
+      new Date('2026-09-08T00:00:00Z'),
+      new Date('2026-09-14T00:00:00Z'),
+    );
+    const anterior = janelaAnterior(atual);
+
+    // Sete dias comparados com os sete dias imediatamente anteriores.
+    expect(anterior.rotulo).toBe('01/09 a 07/09');
+    expect(anterior.to.getTime()).toBe(atual.from.getTime() - 1);
   });
 });

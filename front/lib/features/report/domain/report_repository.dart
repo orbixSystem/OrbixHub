@@ -124,7 +124,11 @@ abstract class ReportRepository {
   /// fechar).
   ///
   /// [mes] no formato "2026-09"; sem ele, o mês corrente.
-  Future<VisaoMensal> overview({String? mes});
+  ///
+  /// `range` recorta um período QUALQUER (o seletor da tela); `mes` continua
+  /// existindo para o resumo escrito, que é mensal por natureza. Quando os
+  /// dois chegam, o intervalo ganha — é o que o usuário acabou de escolher.
+  Future<VisaoMensal> overview({String? mes, ReportRange? range});
 
   /// `GET /report/monthly` — o resumo ESCRITO de um mês fechado, com os meses
   /// disponíveis para o seletor. Sem [mes], o mais recente.

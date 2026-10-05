@@ -324,10 +324,15 @@ class ReportRepositoryImpl implements ReportRepository {
       });
 
   @override
-  Future<VisaoMensal> overview({String? mes}) => _guard(() async {
+  Future<VisaoMensal> overview({String? mes, ReportRange? range}) =>
+      _guard(() async {
         final res = await _dio.get<Object?>(
           '/report/overview',
-          queryParameters: {if (mes != null && mes.isNotEmpty) 'mes': mes},
+          queryParameters: {
+            if (range != null) 'from': range.fromIso,
+            if (range != null) 'to': range.toIso,
+            if (range == null && mes != null && mes.isNotEmpty) 'mes': mes,
+          },
         );
         return VisaoMensal.fromJson(_asMap(res.data));
       });

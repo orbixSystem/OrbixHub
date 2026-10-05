@@ -26,6 +26,14 @@ class PainelDeOrdens extends ConsumerWidget {
     final visao = ref.watch(visaoMensalProvider);
     final servicos = ref.watch(painelTopItensProvider('service'));
     final pecas = ref.watch(painelTopItensProvider('product'));
+    final f = ref.watch(reportFiltersProvider);
+    // O detalhamento consulta a OS com estes recortes; os gráficos somam o
+    // faturamento do mês, que não guarda responsável nem estado por linha.
+    final naoAplicados = <String>[
+      if (f.assignedTo != null) 'responsável',
+      if (f.status != null) 'situação',
+      if ((f.osQ ?? '').isNotEmpty) 'busca',
+    ];
 
     return ledger.when(
       loading: () => const PainelCarregando(),
@@ -33,6 +41,7 @@ class PainelDeOrdens extends ConsumerWidget {
         onRetry: () => ref.invalidate(salesLedgerReportProvider),
       ),
       data: (l) => _Painel(
+        naoAplicados: naoAplicados,
         // Só o que nasceu de ordem de serviço. `/report/revenue` soma OS e
         // balcão no mesmo número (e marca a parte do balcão como um "status"
         // chamado `venda`): usá-lo aqui faria a aba Ordens anunciar como
@@ -53,6 +62,7 @@ class PainelDeOrdens extends ConsumerWidget {
 class _Painel extends StatelessWidget {
   const _Painel({
     required this.linhas,
+    required this.naoAplicados,
     required this.porStatus,
     required this.fila,
     required this.servicos,
@@ -60,6 +70,9 @@ class _Painel extends StatelessWidget {
   });
 
   final List<SalesLedgerRow> linhas;
+
+  /// Os filtros da barra que valem só para o detalhamento abaixo.
+  final List<String> naoAplicados;
   final Map<String, CountRevenue> porStatus;
   final List<FatiaStatus> fila;
   final List<TopItemRow> servicos;
@@ -104,6 +117,17 @@ class _Painel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (naoAplicados.isNotEmpty) ...[
+          AvisoDeFiltroParcial(
+            texto: naoAplicados.length == 1
+                ? 'O filtro de ${naoAplicados.first} vale para o detalhamento '
+                    'abaixo. Os gráficos mostram o mês inteiro.'
+                : 'Os filtros de ${naoAplicados.sublist(0, naoAplicados.length - 1).join(', ')} '
+                    'e ${naoAplicados.last} valem para o detalhamento abaixo. '
+                    'Os gráficos mostram o mês inteiro.',
+          ),
+          const SizedBox(height: 14),
+        ],
         FaixaDeIndicadores(
           itens: [
             IndicadorPainel(

@@ -23,19 +23,125 @@ final reportRepositoryProvider = Provider<ReportRepository>((ref) {
 ///
 /// Mês corrente vai até AGORA, não até o fim do mês: somar os dias que ainda
 /// não aconteceram achataria qualquer média.
-final reportRangeProvider = Provider<ReportRange>((ref) {
-  final mes = ref.watch(mesSelecionadoProvider);
-  final agora = DateTime.now();
-  if (mes == null) {
-    return ReportRange(from: DateTime(agora.year, agora.month, 1), to: agora);
+/// Os atalhos de período da barra de filtros.
+///
+/// São os recortes que alguém com oficina realmente pede: "como foi hoje",
+/// "e a semana", "fecha o mês". O personalizado existe para o resto — e é o
+/// único que guarda datas; os demais se recalculam sozinhos a cada abertura,
+/// de modo que "últimos 7 dias" nunca aponta para a semana retrasada porque a
+/// aba ficou aberta desde ontem.
+enum PresetDePeriodo {
+  hoje,
+  ontem,
+  ultimos7,
+  ultimos30,
+  esteMes,
+  mesPassado,
+  esteAno,
+  personalizado,
+}
+
+/// O período escolhido: um atalho, ou um intervalo do calendário.
+class PeriodoDoRelatorio {
+  const PeriodoDoRelatorio({
+    this.preset = PresetDePeriodo.esteMes,
+    this.de,
+    this.ate,
+  });
+
+  final PresetDePeriodo preset;
+
+  /// Só preenchidos quando [preset] é `personalizado`.
+  final DateTime? de;
+  final DateTime? ate;
+
+  bool get ehPersonalizado =>
+      preset == PresetDePeriodo.personalizado && de != null && ate != null;
+
+  /// O intervalo que este período representa AGORA.
+  ///
+  /// Nenhum período passa do instante atual: somar os dias que ainda não
+  /// aconteceram achataria qualquer média, e "este mês" no dia 4 mostraria uma
+  /// oficina trabalhando trinta dias com o faturamento de quatro.
+  ReportRange intervalo([DateTime? referencia]) {
+    final agora = referencia ?? DateTime.now();
+    final hoje = DateTime(agora.year, agora.month, agora.day);
+    // Nunca além de agora.
+    ReportRange limitado(DateTime inicio, DateTime fim) => ReportRange(
+          from: inicio,
+          to: fim.isAfter(agora) ? agora : fim,
+        );
+    final fimDoDia = DateTime(hoje.year, hoje.month, hoje.day, 23, 59, 59, 999);
+
+    switch (preset) {
+      case PresetDePeriodo.hoje:
+        return limitado(hoje, fimDoDia);
+      case PresetDePeriodo.ontem:
+        final ontem = hoje.subtract(const Duration(days: 1));
+        return ReportRange(
+          from: ontem,
+          to: DateTime(ontem.year, ontem.month, ontem.day, 23, 59, 59, 999),
+        );
+      case PresetDePeriodo.ultimos7:
+        return limitado(hoje.subtract(const Duration(days: 6)), fimDoDia);
+      case PresetDePeriodo.ultimos30:
+        return limitado(hoje.subtract(const Duration(days: 29)), fimDoDia);
+      case PresetDePeriodo.esteMes:
+        return limitado(
+          DateTime(agora.year, agora.month, 1),
+          DateTime(agora.year, agora.month + 1, 0, 23, 59, 59, 999),
+        );
+      case PresetDePeriodo.mesPassado:
+        return ReportRange(
+          from: DateTime(agora.year, agora.month - 1, 1),
+          to: DateTime(agora.year, agora.month, 0, 23, 59, 59, 999),
+        );
+      case PresetDePeriodo.esteAno:
+        return limitado(DateTime(agora.year, 1, 1), fimDoDia);
+      case PresetDePeriodo.personalizado:
+        // Personalizado sem as duas pontas não é um período: volta ao padrão
+        // em vez de montar uma janela com uma ponta inventada.
+        final inicio = de;
+        final fim = ate;
+        if (inicio == null || fim == null) {
+          return const PeriodoDoRelatorio().intervalo(agora);
+        }
+        return ReportRange(
+          from: DateTime(inicio.year, inicio.month, inicio.day),
+          to: DateTime(fim.year, fim.month, fim.day, 23, 59, 59, 999),
+        );
+    }
   }
-  final partes = mes.split('-');
-  final ano = int.tryParse(partes.first) ?? agora.year;
-  final m = partes.length > 1 ? (int.tryParse(partes[1]) ?? agora.month) : agora.month;
-  final inicio = DateTime(ano, m, 1);
-  // Último instante do mês: dia 0 do mês seguinte é o último dia deste.
-  final fim = DateTime(ano, m + 1, 0, 23, 59, 59, 999);
-  return ReportRange(from: inicio, to: fim.isAfter(agora) ? agora : fim);
+}
+
+final periodoSelecionadoProvider =
+    NotifierProvider<PeriodoController, PeriodoDoRelatorio>(
+  PeriodoController.new,
+);
+
+class PeriodoController extends Notifier<PeriodoDoRelatorio> {
+  @override
+  PeriodoDoRelatorio build() => const PeriodoDoRelatorio();
+
+  void usarPreset(PresetDePeriodo p) =>
+      state = PeriodoDoRelatorio(preset: p);
+
+  void usarIntervalo(DateTime de, DateTime ate) => state = PeriodoDoRelatorio(
+        preset: PresetDePeriodo.personalizado,
+        de: de,
+        ate: ate,
+      );
+}
+
+/// O período que governa TODA aba de detalhamento e a visão geral.
+///
+/// Um controle de tempo só na tela. Antes eram dois — o seletor de mês do
+/// cabeçalho e o período de cada relatório — e eles davam respostas diferentes
+/// para "quando": o cabeçalho dizia "Setembro/2026" e a aba abaixo mostrava os
+/// últimos 30 dias. Os números não batiam entre as abas, e não havia como o
+/// usuário saber qual dos dois estava certo.
+final reportRangeProvider = Provider<ReportRange>((ref) {
+  return ref.watch(periodoSelecionadoProvider).intervalo();
 });
 
 /// Relatório selecionado no seletor. Default: o primeiro disponível (definido na
@@ -91,8 +197,11 @@ class MesSelecionadoController extends Notifier<String?> {
 
 /// A leitura do mês (KPIs + sinais), calculada no servidor.
 final visaoMensalProvider = FutureProvider<VisaoMensal>((ref) {
-  final mes = ref.watch(mesSelecionadoProvider);
-  return ref.watch(reportRepositoryProvider).overview(mes: mes);
+  // A visão segue o PERÍODO da barra, como todo o resto das abas: se ela
+  // continuasse mensal, escolher "últimos 7 dias" mudaria os gráficos de baixo
+  // e deixaria o livro de números em cima falando do mês inteiro.
+  final range = ref.watch(reportRangeProvider);
+  return ref.watch(reportRepositoryProvider).overview(range: range);
 });
 
 /// O resumo ESCRITO do mês fechado, com os meses disponíveis.
@@ -135,6 +244,10 @@ class ReportFilters {
     this.osSort = OsReportSort.recent,
     this.saleType,
     this.salePaymentStatus,
+    this.metodo,
+    this.categoriaDespesa,
+    this.estoqueQ,
+    this.estoqueSituacao,
   });
 
   /// Técnico (uuid do membro) — OS operacional.
@@ -161,6 +274,18 @@ class ReportFilters {
   /// Status de pagamento (a_receber/parcial/pago) — lente Vendas.
   final String? salePaymentStatus;
 
+  /// Forma de pagamento (pix/dinheiro/…) — aba Caixa.
+  final String? metodo;
+
+  /// Nome da categoria — aba Despesas.
+  final String? categoriaDespesa;
+
+  /// Busca por nome ou código — aba Estoque.
+  final String? estoqueQ;
+
+  /// 'abaixo' | 'zerado' | 'ok' — aba Estoque.
+  final String? estoqueSituacao;
+
   ReportFilters copyWith({
     String? assignedTo,
     bool clearAssignedTo = false,
@@ -176,6 +301,14 @@ class ReportFilters {
     bool clearSaleType = false,
     String? salePaymentStatus,
     bool clearSalePaymentStatus = false,
+    String? metodo,
+    bool clearMetodo = false,
+    String? categoriaDespesa,
+    bool clearCategoriaDespesa = false,
+    String? estoqueQ,
+    bool clearEstoqueQ = false,
+    String? estoqueSituacao,
+    bool clearEstoqueSituacao = false,
   }) =>
       ReportFilters(
         assignedTo: clearAssignedTo ? null : (assignedTo ?? this.assignedTo),
@@ -188,6 +321,14 @@ class ReportFilters {
         salePaymentStatus: clearSalePaymentStatus
             ? null
             : (salePaymentStatus ?? this.salePaymentStatus),
+        metodo: clearMetodo ? null : (metodo ?? this.metodo),
+        categoriaDespesa: clearCategoriaDespesa
+            ? null
+            : (categoriaDespesa ?? this.categoriaDespesa),
+        estoqueQ: clearEstoqueQ ? null : (estoqueQ ?? this.estoqueQ),
+        estoqueSituacao: clearEstoqueSituacao
+            ? null
+            : (estoqueSituacao ?? this.estoqueSituacao),
       );
 }
 
@@ -227,6 +368,82 @@ class ReportFiltersController extends Notifier<ReportFilters> {
   void setSalePaymentStatus(String? s) => state = (s == null || s.isEmpty)
       ? state.copyWith(clearSalePaymentStatus: true)
       : state.copyWith(salePaymentStatus: s);
+
+  void setMetodo(String? m) => state = (m == null || m.isEmpty)
+      ? state.copyWith(clearMetodo: true)
+      : state.copyWith(metodo: m);
+
+  void setCategoriaDespesa(String? c) => state = (c == null || c.isEmpty)
+      ? state.copyWith(clearCategoriaDespesa: true)
+      : state.copyWith(categoriaDespesa: c);
+
+  void setEstoqueQ(String? q) => state = (q == null || q.trim().isEmpty)
+      ? state.copyWith(clearEstoqueQ: true)
+      : state.copyWith(estoqueQ: q.trim());
+
+  void setEstoqueSituacao(String? s) => state = (s == null || s.isEmpty)
+      ? state.copyWith(clearEstoqueSituacao: true)
+      : state.copyWith(estoqueSituacao: s);
+
+  /// Devolve ao estado inicial os filtros QUE APARECEM na aba.
+  ///
+  /// Limpar tudo seria pior: o usuário vê quatro chips e aperta "limpar",
+  /// esperando limpar aqueles quatro — e silenciosamente apaga o recorte que
+  /// ele montou noutra aba e ainda não conferiu.
+  void limpar(Iterable<FiltroDeAba> quais) {
+    var novo = state;
+    for (final f in quais) {
+      novo = switch (f) {
+        FiltroDeAba.responsavel => novo.copyWith(clearAssignedTo: true),
+        FiltroDeAba.statusOs => novo.copyWith(clearStatus: true),
+        FiltroDeAba.buscaOs => novo.copyWith(clearOsQ: true),
+        FiltroDeAba.tipoVenda => novo.copyWith(clearSaleType: true),
+        FiltroDeAba.pagamento => novo.copyWith(clearSalePaymentStatus: true),
+        FiltroDeAba.metodo => novo.copyWith(clearMetodo: true),
+        FiltroDeAba.categoriaDespesa =>
+          novo.copyWith(clearCategoriaDespesa: true),
+        FiltroDeAba.buscaEstoque => novo.copyWith(clearEstoqueQ: true),
+        FiltroDeAba.situacaoEstoque =>
+          novo.copyWith(clearEstoqueSituacao: true),
+      };
+    }
+    state = novo;
+  }
+}
+
+/// Os filtros que uma aba pode mostrar.
+///
+/// O mês fica de fora: ele existe em todas as abas e nunca é "limpo" — não há
+/// relatório sem período. Os daqui são recortes opcionais.
+enum FiltroDeAba {
+  responsavel,
+  statusOs,
+  buscaOs,
+  tipoVenda,
+  pagamento,
+  metodo,
+  categoriaDespesa,
+  buscaEstoque,
+  situacaoEstoque,
+}
+
+extension FiltrosAtivos on ReportFilters {
+  /// O valor aplicado de um filtro, ou `null` quando ele está em "todos".
+  String? valorDe(FiltroDeAba f) => switch (f) {
+        FiltroDeAba.responsavel => assignedTo,
+        FiltroDeAba.statusOs => status,
+        FiltroDeAba.buscaOs => osQ,
+        FiltroDeAba.tipoVenda => saleType,
+        FiltroDeAba.pagamento => salePaymentStatus,
+        FiltroDeAba.metodo => metodo,
+        FiltroDeAba.categoriaDespesa => categoriaDespesa,
+        FiltroDeAba.buscaEstoque => estoqueQ,
+        FiltroDeAba.situacaoEstoque => estoqueSituacao,
+      };
+
+  /// Quantos dos filtros [quais] estão aplicados.
+  int ativosEntre(Iterable<FiltroDeAba> quais) =>
+      quais.where((f) => (valorDe(f) ?? '').isNotEmpty).length;
 }
 
 /// Membros da equipe (para o filtro "técnico"). autoDispose: re-busca ao reentrar.
@@ -377,9 +594,13 @@ class InventoryPageController extends Notifier<int> {
 final inventoryReportProvider =
     FutureProvider.autoDispose<InventoryReport>((ref) {
   final page = ref.watch(inventoryPageProvider);
+  // A mesma busca da barra: a tabela e o painel acima dela têm de estar
+  // olhando para a mesma prateleira.
+  final q = ref.watch(reportFiltersProvider).estoqueQ;
   return ref.read(reportRepositoryProvider).inventory(
         page: page,
         pageSize: inventoryPageSize,
+        q: q,
       );
 });
 
@@ -500,7 +721,15 @@ final customersReportListProvider = AsyncNotifierProvider.autoDispose<
 final salesLedgerReportProvider =
     FutureProvider.autoDispose<SalesLedger>((ref) {
   final range = ref.watch(reportRangeProvider);
-  return ref.read(reportRepositoryProvider).salesLedger(range: range);
+  // Os dois recortes da aba Faturamento vão ao SERVIDOR, e por isso valem
+  // para a página inteira — painel e detalhamento somam as mesmas linhas.
+  // Filtrar só a tabela deixaria o gráfico acima dela contando outra coisa.
+  final f = ref.watch(reportFiltersProvider);
+  return ref.read(reportRepositoryProvider).salesLedger(
+        range: range,
+        type: f.saleType,
+        paymentStatus: f.salePaymentStatus,
+      );
 });
 
 /// Recebido no caixa por forma de pagamento (entrou/saiu/saldo) no período —
@@ -542,7 +771,10 @@ const painelEstoqueLimite = 200;
 
 final painelEstoqueProvider =
     FutureProvider.autoDispose<InventoryReport>((ref) {
+  // A busca vai ao servidor (ele pagina); a situação é recorte de tela, feito
+  // sobre as linhas — o endpoint não conhece "abaixo do mínimo" como filtro.
+  final q = ref.watch(reportFiltersProvider).estoqueQ;
   return ref
       .read(reportRepositoryProvider)
-      .inventory(page: 1, pageSize: painelEstoqueLimite);
+      .inventory(page: 1, pageSize: painelEstoqueLimite, q: q);
 });
