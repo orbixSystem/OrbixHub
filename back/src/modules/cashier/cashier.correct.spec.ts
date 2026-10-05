@@ -70,6 +70,7 @@ function makeService(entrada: Row | null) {
     repo as never,
     billing as never,
     audit as never,
+     { APP_TIMEZONE: 'America/Sao_Paulo' } as never,
   );
   // `hasPermission` consulta cargo→permissões no banco; aqui o ator é owner.
   (service as unknown as { hasPermission: () => Promise<boolean> }).hasPermission =

@@ -8,6 +8,18 @@ import type { AuthUser } from '../../common/auth/auth.types';
 /** Fake do contrato do Caixa: "nada recebido ⇒ a_receber" (caller-passes-total). */
 class FakeCashierService extends CashierService {
 
+  async totaisDoPeriodo() {
+    return { entrou: 0, saiu: 0 };
+  }
+
+  async movimentoPorDia() {
+    return [];
+  }
+
+  async recebidoPorForma() {
+    return [];
+  }
+
   async receivedBySale() {
     return new Map<string, { recebido: number; desconto: number }>();
   }

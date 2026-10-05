@@ -34,6 +34,7 @@ function makeService(parcela: Record<string, unknown> | null) {
     {} as never,
     {} as never,
     audit as never,
+     { APP_TIMEZONE: 'America/Sao_Paulo' } as never,
   );
   return { svc, db, audit };
 }

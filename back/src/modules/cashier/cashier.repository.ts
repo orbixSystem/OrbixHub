@@ -398,6 +398,27 @@ export class CashierRepository {
     return toNum(agg._sum.discount);
   }
 
+  /**
+   * Entrou e saiu POR DIA, no fuso da aplicação.
+   *
+   * O fuso importa: sem ele o `date_trunc` usa o do servidor Postgres (UTC na
+   * imagem padrão), o dia vira das 21h às 21h e o movimento das últimas três
+   * horas aparece no dia seguinte — num gráfico diário isso é visível.
+   */
+  movimentoPorDia(p: { from: Date; to: Date }, fuso: string) {
+    const db = this.tenant.getClient();
+    return db.$queryRaw<Array<{ dia: string; entrou: number; saiu: number }>>`
+      SELECT to_char(date_trunc('day', created_at AT TIME ZONE ${fuso}), 'YYYY-MM-DD') AS dia,
+             COALESCE(SUM(amount) FILTER (WHERE direction = 'in'), 0)::float8  AS entrou,
+             COALESCE(SUM(amount) FILTER (WHERE direction = 'out'), 0)::float8 AS saiu
+      FROM cash_entry
+      WHERE reversed_at IS NULL
+        AND created_at >= ${p.from} AND created_at <= ${p.to}
+      GROUP BY 1
+      ORDER BY 1
+    `;
+  }
+
   summaryByMethod(p: { from?: Date; to?: Date }) {
     const db = this.tenant.getClient();
     return db.cash_entry.groupBy({
