@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -31,10 +32,13 @@ import {
 } from './invoice.config';
 import {
   FISCAL_GATEWAY,
+  FiscalEnvironment,
   FiscalGateway,
   FiscalIssueLine,
+  FiscalIssuer,
 } from './fiscal/fiscal-gateway';
 import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
+import { InvoiceCertificateService } from './invoice-certificate.service';
 import {
   InvoiceLineData,
   InvoiceRepository,
@@ -59,6 +63,7 @@ export interface FiscalIdentity {
   regimeTributario: string | null;
   cnae: string | null;
   email: string | null;
+  fone: string | null;
   endereco: {
     cep: string | null;
     logradouro: string | null;
@@ -67,7 +72,22 @@ export interface FiscalIdentity {
     bairro: string | null;
     municipio: string | null;
     uf: string | null;
+    /** Código IBGE (7 dígitos) do município. */
+    codigoIbge: string | null;
   };
+}
+
+/** Config fiscal como a tela vê: a config + qual provedor emite + o que falta para emitir. */
+export type InvoiceConfigView = InvoiceConfig & {
+  provider: string;
+  /** Itens que impedem a emissão (vazio = pronto). Só o provedor govbr exige. */
+  pendencias: string[];
+};
+
+/** Campo pesado (XML autorizado) fica fora das respostas de lista/detalhe. */
+function withoutXml<T extends { nfse_xml?: string | null }>(inv: T): Omit<T, 'nfse_xml'> {
+  const { nfse_xml: _xml, ...rest } = inv;
+  return rest;
 }
 
 /** Deriva o `kind` do evento de timeline a partir do status da emissão. */
@@ -123,7 +143,22 @@ export class InvoiceService {
     @Inject(ENV) private readonly env: Env,
     private readonly tenancy: TenancyService,
     private readonly nuvem: NuvemFiscalClient,
+    private readonly certificates: InvoiceCertificateService,
   ) {}
+
+  /** Emissão direta na NFS-e Nacional: o certificado fica no nosso cofre. */
+  private get isGovBr(): boolean {
+    return this.env.FISCAL_PROVIDER === 'govbr';
+  }
+
+  /**
+   * Ambiente efetivo da nota. O env do servidor é o TETO: com
+   * FISCAL_ENVIRONMENT=homologacao (dev/QA) nada vai para produção, mesmo que o
+   * tenant tenha escolhido produção na tela.
+   */
+  private effectiveEnvironment(config: InvoiceConfig): FiscalEnvironment {
+    return this.env.FISCAL_ENVIRONMENT === 'producao' ? config.ambiente : 'homologacao';
+  }
 
   /**
    * Identidade fiscal do tenant (CNPJ, razão social, IE/IM, regime, CNAE,
@@ -141,6 +176,7 @@ export class InvoiceService {
       regimeTributario: s('regimeTributario'),
       cnae: s('cnae'),
       email: s('email'),
+      fone: s('phone'),
       endereco: {
         cep: s('cep'),
         logradouro: s('logradouro'),
@@ -149,7 +185,25 @@ export class InvoiceService {
         bairro: s('bairro'),
         municipio: s('municipio'),
         uf: s('uf'),
+        codigoIbge: s('codigoIbge'),
       },
+    };
+  }
+
+  /** Config + provedor + pendências — o que GET /invoices/config devolve. */
+  async getConfigView(tenantId: string): Promise<InvoiceConfigView> {
+    const config = await this.getConfig(tenantId);
+    return this.toView(tenantId, config);
+  }
+
+  private async toView(tenantId: string, config: InvoiceConfig): Promise<InvoiceConfigView> {
+    if (!this.isGovBr) return { ...config, provider: this.env.FISCAL_PROVIDER, pendencias: [] };
+    const [identity, cert] = await Promise.all([this.getFiscalIdentity(tenantId), this.certificates.info()]);
+    return {
+      ...config,
+      certificado: { validoAte: cert?.validUntil ?? null },
+      provider: this.env.FISCAL_PROVIDER,
+      pendencias: nfsePendencias(identity, config, cert?.validUntil ?? null),
     };
   }
 
@@ -175,7 +229,7 @@ export class InvoiceService {
     } catch {
       /* auditoria best-effort */
     }
-    return merged;
+    return this.toView(user.tenantId, merged);
   }
 
   /**
@@ -184,6 +238,11 @@ export class InvoiceService {
    * transação de banco; depois só um merge/gravação da config do módulo.
    */
   async registerEmpresa(user: AuthUser): Promise<InvoiceConfig> {
+    if (this.isGovBr) {
+      throw new BadRequestException(
+        'Na emissão direta pelo governo não há cadastro em provedor: basta enviar o certificado.',
+      );
+    }
     const identity = await this.getFiscalIdentity(user.tenantId);
     await this.nuvem.upsertEmpresa(identity); // fora de tx (HTTP)
 
@@ -218,6 +277,26 @@ export class InvoiceService {
     const identity = await this.getFiscalIdentity(user.tenantId);
     if (!identity.cnpj) throw new BadRequestException('Configure o CNPJ da empresa antes do certificado');
 
+    if (this.isGovBr) {
+      // Cofre próprio: validado (senha/validade/CNPJ do titular) e guardado cifrado.
+      const info = await this.certificates.save(user.tenantId, user.userId, file.buffer, password, identity.cnpj);
+      const settings = await this.billing.getModuleSettings(user.tenantId, INVOICE_CONFIG_KEY);
+      const current = settings[INVOICE_CONFIG_KEY] as Partial<InvoiceConfig> | undefined;
+      const merged = mergeInvoiceConfig(current, { certificado: { validoAte: info.validUntil } });
+      await this.billing.setModuleSettings(user.tenantId, INVOICE_CONFIG_KEY, {
+        ...settings,
+        [INVOICE_CONFIG_KEY]: merged,
+      });
+      try {
+        await this.audit.log(user.tenantId, user.userId, 'invoice_cert_upload', identity.cnpj, {
+          validoAte: info.validUntil,
+        });
+      } catch {
+        /* auditoria best-effort */
+      }
+      return this.toView(user.tenantId, merged);
+    }
+
     const base64 = file.buffer.toString('base64'); // .pfx NUNCA persistido — vai p/ o provedor
     const r = await this.nuvem.uploadCertificate(identity.cnpj, base64, password); // fora de tx
 
@@ -248,8 +327,34 @@ export class InvoiceService {
     }
     const source = await this.resolveSource(dto);
 
-    // 2) Snapshot das linhas (serviço E produto) + totais por natureza.
-    const lines: InvoiceLineData[] = source.lines;
+    // NFS-e é nota de SERVIÇO: peça/produto não entra nela (vai em NFC-e/NF-e,
+    // documento próprio — ainda não emitido pelo sistema).
+    let lines: InvoiceLineData[] = source.lines;
+    if (documentType === 'nfse') {
+      lines = lines.filter((l) => l.kind === 'service');
+      if (lines.length === 0) {
+        throw new BadRequestException(
+          'Não há serviços para a NFS-e. Nota de produto (NFC-e/NF-e) ainda não está disponível.',
+        );
+      }
+    }
+
+    // Emitente: identidade fiscal do núcleo + config do módulo. Com emissão
+    // direta (govbr) tudo precisa estar preenchido ANTES de reservar número.
+    const [config, identity] = await Promise.all([
+      this.getConfig(user.tenantId),
+      this.getFiscalIdentity(user.tenantId),
+    ]);
+    const environment = this.effectiveEnvironment(config);
+    if (this.isGovBr) {
+      const cert = await this.certificates.info();
+      const pendencias = nfsePendencias(identity, config, cert?.validUntil ?? null);
+      if (pendencias.length) {
+        throw new BadRequestException(`Antes de emitir, complete: ${pendencias.join('; ')}.`);
+      }
+    }
+
+    // 2) Snapshot das linhas + totais por natureza.
     const serviceAmount = round2(
       lines.filter((l) => l.kind === 'service').reduce((s, l) => s + l.total, 0),
     );
@@ -271,12 +376,17 @@ export class InvoiceService {
     }
 
     // 5) Cria o rascunho + evento 'created' (transação curta).
+    const dpsSeries = config.serieNfse;
     const draft = await this.tenant.withTenantTx(async () => {
+      // Número da DPS reservado na MESMA tx do rascunho (lock por tenant/série).
+      const dpsNumber = await this.repo.nextDpsNumber(user.tenantId, environment, dpsSeries);
       const created = await this.repo.createWithLines(
         {
           tenant_id: user.tenantId,
           document_type: documentType,
-          environment: this.env.FISCAL_ENVIRONMENT,
+          environment,
+          dps_series: dpsSeries,
+          dps_number: dpsNumber,
           order_id: source.orderId,
           sale_id: source.saleId,
           order_number: source.number,
@@ -306,32 +416,53 @@ export class InvoiceService {
       unitPrice: l.unit_price,
       total: l.total,
     }));
+    const issuer: FiscalIssuer = {
+      cnpj: identity.cnpj ? identity.cnpj.replace(/\D/g, '') : null,
+      regimeTributario: identity.regimeTributario,
+      codigoMunicipio: identity.endereco.codigoIbge,
+      fone: identity.fone,
+      email: identity.email,
+      dps: { serie: dpsSeries, numero: draft.dps_number ?? 0 },
+      servico: {
+        codigoNacional: config.codigoServicoNacional || null,
+        codigoNbs: config.codigoNbs || null,
+        aliquotaIss: config.aliquotaIss,
+        percentualTributosSimples: config.percentualTributosSimples,
+      },
+      reference: source.label.charAt(0).toUpperCase() + source.label.slice(1),
+    };
     let result;
     try {
       result = await this.gateway.issue({
         tenantId: user.tenantId,
         invoiceId: draft.id,
         documentType,
-        environment: this.env.FISCAL_ENVIRONMENT,
+        environment,
         customer: { name: source.customerName, document: customerDocument },
         lines: gatewayLines,
         serviceAmount,
         productAmount,
         totalAmount,
+        issuer,
       });
     } catch (e) {
+      // Erro de validação do próprio gateway (ex.: motivo/config faltando) não é
+      // falha de comunicação: a nota volta a 'error' com a mensagem real.
+      const userMessage = e instanceof BadRequestException ? e.message : null;
       this.logger.error(`Falha na emissão da nota ${draft.id}: ${String(e)}`);
+      const reason = userMessage ?? 'Falha ao comunicar com o provedor fiscal.';
       await this.tenant.withTenantTx(async () => {
         await this.repo.updateInvoice(draft.id, {
           status: 'error',
-          rejection_reason: 'Falha ao comunicar com o provedor fiscal.',
+          rejection_reason: reason,
         });
         await this.repo.createEvent(user.tenantId, draft.id, {
           kind: 'error',
-          message: 'Falha ao comunicar com o provedor fiscal.',
+          message: reason,
           statusSnapshot: 'error',
         });
       });
+      if (userMessage) throw e;
       throw new ServiceUnavailableException(
         'Falha ao comunicar com o provedor fiscal. Tente novamente.',
       );
@@ -349,13 +480,15 @@ export class InvoiceService {
         xml_url: result.xmlUrl,
         rejection_reason: result.rejectionReason,
         authorized_at: result.status === 'authorized' ? new Date() : null,
+        nfse_xml: result.documentXml ?? null,
       });
       await this.repo.createEvent(user.tenantId, draft.id, {
         kind: issueEventKind(result.status),
         message: issueEventMessage(result.status, result.rejectionReason),
         statusSnapshot: result.status,
       });
-      return this.repo.findByIdWithLines(draft.id);
+      const inv = await this.repo.findByIdWithLines(draft.id);
+      return inv ? withoutXml(inv) : inv;
     });
 
     // Snapshot do status fiscal na venda (só p/ exibir — a nota é a autoridade).
@@ -471,7 +604,7 @@ export class InvoiceService {
         take: DEFAULT_PAGE_SIZE,
       }),
     );
-    return { items, total, page, pageSize: DEFAULT_PAGE_SIZE };
+    return { items: items.map(withoutXml), total, page, pageSize: DEFAULT_PAGE_SIZE };
   }
 
   async getOne(id: string) {
@@ -479,7 +612,7 @@ export class InvoiceService {
       const inv = await this.repo.findByIdWithLines(id);
       if (!inv) return null;
       const events = await this.repo.listEvents(id);
-      return { ...inv, events };
+      return { ...withoutXml(inv), events };
     });
     if (!invoice) throw new BadRequestException('Nota não encontrada.');
     return invoice;
@@ -492,11 +625,14 @@ export class InvoiceService {
       throw new ForbiddenException('Só é possível cancelar uma nota autorizada.');
     }
 
+    const identity = await this.getFiscalIdentity(user.tenantId);
     const result = await this.gateway.cancel({
       tenantId: user.tenantId,
       invoiceId: id,
       externalId: invoice.external_id ?? '',
       reason: dto.reason,
+      environment: invoice.environment === 'producao' ? 'producao' : 'homologacao',
+      issuerCnpj: identity.cnpj ? identity.cnpj.replace(/\D/g, '') : null,
     });
 
     const updated = await this.tenant.withTenantTx(async () => {
@@ -513,7 +649,8 @@ export class InvoiceService {
             : result.rejectionReason ?? 'Cancelamento rejeitado.',
         statusSnapshot: result.status === 'canceled' ? 'canceled' : 'authorized',
       });
-      return this.repo.findByIdWithLines(id);
+      const inv = await this.repo.findByIdWithLines(id);
+      return inv ? withoutXml(inv) : inv;
     });
 
     await this.audit.log(user.tenantId, user.userId, 'invoice_cancel', id, {
@@ -521,6 +658,32 @@ export class InvoiceService {
       status: result.status,
     });
     return updated;
+  }
+
+  /** XML autorizado da nota (o documento fiscal em si), para download. */
+  async getXml(id: string): Promise<{ filename: string; content: string }> {
+    const inv = await this.tenant.withTenantTx(() => this.repo.findById(id));
+    if (!inv) throw new NotFoundException('Nota não encontrada.');
+    if (!inv.nfse_xml) throw new NotFoundException('O XML desta nota não está disponível.');
+    return { filename: `nfse-${inv.number ?? inv.access_key ?? inv.id}.xml`, content: inv.nfse_xml };
+  }
+
+  /** PDF oficial (DANFSe) — baixado do Ambiente Nacional com o certificado do tenant. */
+  async getPdf(id: string): Promise<{ filename: string; content: Buffer }> {
+    const inv = await this.tenant.withTenantTx(() => this.repo.findById(id));
+    if (!inv) throw new NotFoundException('Nota não encontrada.');
+    if (inv.status !== 'authorized' && inv.status !== 'canceled') {
+      throw new BadRequestException('Só há PDF de nota autorizada.');
+    }
+    if (!inv.access_key || !this.gateway.downloadPdf) {
+      throw new NotFoundException('O PDF desta nota não está disponível.');
+    }
+    const content = await this.gateway.downloadPdf({
+      tenantId: inv.tenant_id,
+      environment: inv.environment === 'producao' ? 'producao' : 'homologacao',
+      accessKey: inv.access_key,
+    });
+    return { filename: `nfse-${inv.number ?? inv.access_key}.pdf`, content };
   }
 
   /**
@@ -605,4 +768,28 @@ export class InvoiceService {
     }
     await this.repo.markWebhookProcessed(eventRow.id);
   }
+}
+
+/**
+ * O que falta para emitir NFS-e direto na Sefin Nacional — em linguagem de
+ * usuário, apontando onde corrigir. Função pura (testada).
+ */
+export function nfsePendencias(
+  identity: FiscalIdentity,
+  config: InvoiceConfig,
+  certificateValidUntil: string | null,
+): string[] {
+  const out: string[] = [];
+  const cnpj = (identity.cnpj ?? '').replace(/\D/g, '');
+  if (cnpj.length !== 14) out.push('CNPJ da empresa (Configurações › Empresa)');
+  if (!identity.regimeTributario) out.push('regime tributário (Configurações › Empresa)');
+  if (!/^\d{7}$/.test(identity.endereco.codigoIbge ?? '')) {
+    out.push('código IBGE do município — busque o CEP em Configurações › Empresa');
+  }
+  if (!/^\d{6}$/.test(config.codigoServicoNacional)) out.push('código de tributação nacional do serviço');
+  if (!/^\d{9}$/.test(config.codigoNbs)) out.push('código NBS do serviço');
+  if (!/^0{0,4}\d{1,5}$/.test(config.serieNfse)) out.push('série da NFS-e (até 5 dígitos)');
+  if (!certificateValidUntil) out.push('certificado digital A1 da empresa');
+  else if (new Date(certificateValidUntil).getTime() < Date.now()) out.push('certificado digital renovado (o atual venceu)');
+  return out;
 }

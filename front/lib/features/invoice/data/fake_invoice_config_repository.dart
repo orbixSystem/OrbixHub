@@ -19,6 +19,15 @@ class FakeInvoiceConfigRepository implements InvoiceConfigRepository {
       serieNfce: patch['serieNfce'] as String? ?? _cfg.serieNfce,
       serieNfe: patch['serieNfe'] as String? ?? _cfg.serieNfe,
       idCsc: patch['idCsc'] as String? ?? _cfg.idCsc,
+      codigoServicoNacional: patch['codigoServicoNacional'] as String? ??
+          _cfg.codigoServicoNacional,
+      codigoNbs: patch['codigoNbs'] as String? ?? _cfg.codigoNbs,
+      aliquotaIss: patch.containsKey('aliquotaIss')
+          ? (patch['aliquotaIss'] as num?)?.toDouble()
+          : _cfg.aliquotaIss,
+      percentualTributosSimples: patch.containsKey('percentualTributosSimples')
+          ? (patch['percentualTributosSimples'] as num?)?.toDouble()
+          : _cfg.percentualTributosSimples,
     );
     return _cfg;
   }

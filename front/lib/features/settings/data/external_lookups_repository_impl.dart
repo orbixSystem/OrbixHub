@@ -70,6 +70,7 @@ class ExternalLookupsRepositoryImpl implements ExternalLookupsRepository {
         municipio: data['localidade'] as String?,
         uf: data['uf'] as String?,
         complemento: data['complemento'] as String?,
+        ibge: data['ibge'] as String?,
       );
     } catch (_) {
       return null;

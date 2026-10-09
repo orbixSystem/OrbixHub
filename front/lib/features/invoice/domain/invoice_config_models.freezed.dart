@@ -278,7 +278,7 @@ as String?,
 /// @nodoc
 mixin _$InvoiceFiscalConfig {
 
- String get ambiente; String get serieNfse; String get serieNfce; String get serieNfe; String get idCsc; bool get empresaRegistrada; CertificateInfo get certificado;
+ String get ambiente; String get serieNfse; String get serieNfce; String get serieNfe; String get idCsc; bool get empresaRegistrada; CertificateInfo get certificado; String get provider; List<String> get pendencias; String get codigoServicoNacional; String get codigoNbs; double? get aliquotaIss; double? get percentualTributosSimples;
 /// Create a copy of InvoiceFiscalConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -291,16 +291,16 @@ $InvoiceFiscalConfigCopyWith<InvoiceFiscalConfig> get copyWith => _$InvoiceFisca
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is InvoiceFiscalConfig&&(identical(other.ambiente, ambiente) || other.ambiente == ambiente)&&(identical(other.serieNfse, serieNfse) || other.serieNfse == serieNfse)&&(identical(other.serieNfce, serieNfce) || other.serieNfce == serieNfce)&&(identical(other.serieNfe, serieNfe) || other.serieNfe == serieNfe)&&(identical(other.idCsc, idCsc) || other.idCsc == idCsc)&&(identical(other.empresaRegistrada, empresaRegistrada) || other.empresaRegistrada == empresaRegistrada)&&(identical(other.certificado, certificado) || other.certificado == certificado));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is InvoiceFiscalConfig&&(identical(other.ambiente, ambiente) || other.ambiente == ambiente)&&(identical(other.serieNfse, serieNfse) || other.serieNfse == serieNfse)&&(identical(other.serieNfce, serieNfce) || other.serieNfce == serieNfce)&&(identical(other.serieNfe, serieNfe) || other.serieNfe == serieNfe)&&(identical(other.idCsc, idCsc) || other.idCsc == idCsc)&&(identical(other.empresaRegistrada, empresaRegistrada) || other.empresaRegistrada == empresaRegistrada)&&(identical(other.certificado, certificado) || other.certificado == certificado)&&(identical(other.provider, provider) || other.provider == provider)&&const DeepCollectionEquality().equals(other.pendencias, pendencias)&&(identical(other.codigoServicoNacional, codigoServicoNacional) || other.codigoServicoNacional == codigoServicoNacional)&&(identical(other.codigoNbs, codigoNbs) || other.codigoNbs == codigoNbs)&&(identical(other.aliquotaIss, aliquotaIss) || other.aliquotaIss == aliquotaIss)&&(identical(other.percentualTributosSimples, percentualTributosSimples) || other.percentualTributosSimples == percentualTributosSimples));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ambiente,serieNfse,serieNfce,serieNfe,idCsc,empresaRegistrada,certificado);
+int get hashCode => Object.hash(runtimeType,ambiente,serieNfse,serieNfce,serieNfe,idCsc,empresaRegistrada,certificado,provider,const DeepCollectionEquality().hash(pendencias),codigoServicoNacional,codigoNbs,aliquotaIss,percentualTributosSimples);
 
 @override
 String toString() {
-  return 'InvoiceFiscalConfig(ambiente: $ambiente, serieNfse: $serieNfse, serieNfce: $serieNfce, serieNfe: $serieNfe, idCsc: $idCsc, empresaRegistrada: $empresaRegistrada, certificado: $certificado)';
+  return 'InvoiceFiscalConfig(ambiente: $ambiente, serieNfse: $serieNfse, serieNfce: $serieNfce, serieNfe: $serieNfe, idCsc: $idCsc, empresaRegistrada: $empresaRegistrada, certificado: $certificado, provider: $provider, pendencias: $pendencias, codigoServicoNacional: $codigoServicoNacional, codigoNbs: $codigoNbs, aliquotaIss: $aliquotaIss, percentualTributosSimples: $percentualTributosSimples)';
 }
 
 
@@ -311,7 +311,7 @@ abstract mixin class $InvoiceFiscalConfigCopyWith<$Res>  {
   factory $InvoiceFiscalConfigCopyWith(InvoiceFiscalConfig value, $Res Function(InvoiceFiscalConfig) _then) = _$InvoiceFiscalConfigCopyWithImpl;
 @useResult
 $Res call({
- String ambiente, String serieNfse, String serieNfce, String serieNfe, String idCsc, bool empresaRegistrada, CertificateInfo certificado
+ String ambiente, String serieNfse, String serieNfce, String serieNfe, String idCsc, bool empresaRegistrada, CertificateInfo certificado, String provider, List<String> pendencias, String codigoServicoNacional, String codigoNbs, double? aliquotaIss, double? percentualTributosSimples
 });
 
 
@@ -328,7 +328,7 @@ class _$InvoiceFiscalConfigCopyWithImpl<$Res>
 
 /// Create a copy of InvoiceFiscalConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? ambiente = null,Object? serieNfse = null,Object? serieNfce = null,Object? serieNfe = null,Object? idCsc = null,Object? empresaRegistrada = null,Object? certificado = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? ambiente = null,Object? serieNfse = null,Object? serieNfce = null,Object? serieNfe = null,Object? idCsc = null,Object? empresaRegistrada = null,Object? certificado = null,Object? provider = null,Object? pendencias = null,Object? codigoServicoNacional = null,Object? codigoNbs = null,Object? aliquotaIss = freezed,Object? percentualTributosSimples = freezed,}) {
   return _then(_self.copyWith(
 ambiente: null == ambiente ? _self.ambiente : ambiente // ignore: cast_nullable_to_non_nullable
 as String,serieNfse: null == serieNfse ? _self.serieNfse : serieNfse // ignore: cast_nullable_to_non_nullable
@@ -337,7 +337,13 @@ as String,serieNfe: null == serieNfe ? _self.serieNfe : serieNfe // ignore: cast
 as String,idCsc: null == idCsc ? _self.idCsc : idCsc // ignore: cast_nullable_to_non_nullable
 as String,empresaRegistrada: null == empresaRegistrada ? _self.empresaRegistrada : empresaRegistrada // ignore: cast_nullable_to_non_nullable
 as bool,certificado: null == certificado ? _self.certificado : certificado // ignore: cast_nullable_to_non_nullable
-as CertificateInfo,
+as CertificateInfo,provider: null == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable
+as String,pendencias: null == pendencias ? _self.pendencias : pendencias // ignore: cast_nullable_to_non_nullable
+as List<String>,codigoServicoNacional: null == codigoServicoNacional ? _self.codigoServicoNacional : codigoServicoNacional // ignore: cast_nullable_to_non_nullable
+as String,codigoNbs: null == codigoNbs ? _self.codigoNbs : codigoNbs // ignore: cast_nullable_to_non_nullable
+as String,aliquotaIss: freezed == aliquotaIss ? _self.aliquotaIss : aliquotaIss // ignore: cast_nullable_to_non_nullable
+as double?,percentualTributosSimples: freezed == percentualTributosSimples ? _self.percentualTributosSimples : percentualTributosSimples // ignore: cast_nullable_to_non_nullable
+as double?,
   ));
 }
 /// Create a copy of InvoiceFiscalConfig
@@ -431,10 +437,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado,  String provider,  List<String> pendencias,  String codigoServicoNacional,  String codigoNbs,  double? aliquotaIss,  double? percentualTributosSimples)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _InvoiceFiscalConfig() when $default != null:
-return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado);case _:
+return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado,_that.provider,_that.pendencias,_that.codigoServicoNacional,_that.codigoNbs,_that.aliquotaIss,_that.percentualTributosSimples);case _:
   return orElse();
 
 }
@@ -452,10 +458,10 @@ return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado,  String provider,  List<String> pendencias,  String codigoServicoNacional,  String codigoNbs,  double? aliquotaIss,  double? percentualTributosSimples)  $default,) {final _that = this;
 switch (_that) {
 case _InvoiceFiscalConfig():
-return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado);case _:
+return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado,_that.provider,_that.pendencias,_that.codigoServicoNacional,_that.codigoNbs,_that.aliquotaIss,_that.percentualTributosSimples);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -472,10 +478,10 @@ return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String ambiente,  String serieNfse,  String serieNfce,  String serieNfe,  String idCsc,  bool empresaRegistrada,  CertificateInfo certificado,  String provider,  List<String> pendencias,  String codigoServicoNacional,  String codigoNbs,  double? aliquotaIss,  double? percentualTributosSimples)?  $default,) {final _that = this;
 switch (_that) {
 case _InvoiceFiscalConfig() when $default != null:
-return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado);case _:
+return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_that.idCsc,_that.empresaRegistrada,_that.certificado,_that.provider,_that.pendencias,_that.codigoServicoNacional,_that.codigoNbs,_that.aliquotaIss,_that.percentualTributosSimples);case _:
   return null;
 
 }
@@ -486,8 +492,8 @@ return $default(_that.ambiente,_that.serieNfse,_that.serieNfce,_that.serieNfe,_t
 /// @nodoc
 @JsonSerializable()
 
-class _InvoiceFiscalConfig implements InvoiceFiscalConfig {
-  const _InvoiceFiscalConfig({this.ambiente = 'homologacao', this.serieNfse = '1', this.serieNfce = '1', this.serieNfe = '1', this.idCsc = '', this.empresaRegistrada = false, this.certificado = const CertificateInfo()});
+class _InvoiceFiscalConfig extends InvoiceFiscalConfig {
+  const _InvoiceFiscalConfig({this.ambiente = 'homologacao', this.serieNfse = '1', this.serieNfce = '1', this.serieNfe = '1', this.idCsc = '', this.empresaRegistrada = false, this.certificado = const CertificateInfo(), this.provider = 'noop', final  List<String> pendencias = const <String>[], this.codigoServicoNacional = '', this.codigoNbs = '', this.aliquotaIss, this.percentualTributosSimples}): _pendencias = pendencias,super._();
   factory _InvoiceFiscalConfig.fromJson(Map<String, dynamic> json) => _$InvoiceFiscalConfigFromJson(json);
 
 @override@JsonKey() final  String ambiente;
@@ -497,6 +503,18 @@ class _InvoiceFiscalConfig implements InvoiceFiscalConfig {
 @override@JsonKey() final  String idCsc;
 @override@JsonKey() final  bool empresaRegistrada;
 @override@JsonKey() final  CertificateInfo certificado;
+@override@JsonKey() final  String provider;
+ final  List<String> _pendencias;
+@override@JsonKey() List<String> get pendencias {
+  if (_pendencias is EqualUnmodifiableListView) return _pendencias;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_pendencias);
+}
+
+@override@JsonKey() final  String codigoServicoNacional;
+@override@JsonKey() final  String codigoNbs;
+@override final  double? aliquotaIss;
+@override final  double? percentualTributosSimples;
 
 /// Create a copy of InvoiceFiscalConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -511,16 +529,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InvoiceFiscalConfig&&(identical(other.ambiente, ambiente) || other.ambiente == ambiente)&&(identical(other.serieNfse, serieNfse) || other.serieNfse == serieNfse)&&(identical(other.serieNfce, serieNfce) || other.serieNfce == serieNfce)&&(identical(other.serieNfe, serieNfe) || other.serieNfe == serieNfe)&&(identical(other.idCsc, idCsc) || other.idCsc == idCsc)&&(identical(other.empresaRegistrada, empresaRegistrada) || other.empresaRegistrada == empresaRegistrada)&&(identical(other.certificado, certificado) || other.certificado == certificado));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _InvoiceFiscalConfig&&(identical(other.ambiente, ambiente) || other.ambiente == ambiente)&&(identical(other.serieNfse, serieNfse) || other.serieNfse == serieNfse)&&(identical(other.serieNfce, serieNfce) || other.serieNfce == serieNfce)&&(identical(other.serieNfe, serieNfe) || other.serieNfe == serieNfe)&&(identical(other.idCsc, idCsc) || other.idCsc == idCsc)&&(identical(other.empresaRegistrada, empresaRegistrada) || other.empresaRegistrada == empresaRegistrada)&&(identical(other.certificado, certificado) || other.certificado == certificado)&&(identical(other.provider, provider) || other.provider == provider)&&const DeepCollectionEquality().equals(other._pendencias, _pendencias)&&(identical(other.codigoServicoNacional, codigoServicoNacional) || other.codigoServicoNacional == codigoServicoNacional)&&(identical(other.codigoNbs, codigoNbs) || other.codigoNbs == codigoNbs)&&(identical(other.aliquotaIss, aliquotaIss) || other.aliquotaIss == aliquotaIss)&&(identical(other.percentualTributosSimples, percentualTributosSimples) || other.percentualTributosSimples == percentualTributosSimples));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ambiente,serieNfse,serieNfce,serieNfe,idCsc,empresaRegistrada,certificado);
+int get hashCode => Object.hash(runtimeType,ambiente,serieNfse,serieNfce,serieNfe,idCsc,empresaRegistrada,certificado,provider,const DeepCollectionEquality().hash(_pendencias),codigoServicoNacional,codigoNbs,aliquotaIss,percentualTributosSimples);
 
 @override
 String toString() {
-  return 'InvoiceFiscalConfig(ambiente: $ambiente, serieNfse: $serieNfse, serieNfce: $serieNfce, serieNfe: $serieNfe, idCsc: $idCsc, empresaRegistrada: $empresaRegistrada, certificado: $certificado)';
+  return 'InvoiceFiscalConfig(ambiente: $ambiente, serieNfse: $serieNfse, serieNfce: $serieNfce, serieNfe: $serieNfe, idCsc: $idCsc, empresaRegistrada: $empresaRegistrada, certificado: $certificado, provider: $provider, pendencias: $pendencias, codigoServicoNacional: $codigoServicoNacional, codigoNbs: $codigoNbs, aliquotaIss: $aliquotaIss, percentualTributosSimples: $percentualTributosSimples)';
 }
 
 
@@ -531,7 +549,7 @@ abstract mixin class _$InvoiceFiscalConfigCopyWith<$Res> implements $InvoiceFisc
   factory _$InvoiceFiscalConfigCopyWith(_InvoiceFiscalConfig value, $Res Function(_InvoiceFiscalConfig) _then) = __$InvoiceFiscalConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String ambiente, String serieNfse, String serieNfce, String serieNfe, String idCsc, bool empresaRegistrada, CertificateInfo certificado
+ String ambiente, String serieNfse, String serieNfce, String serieNfe, String idCsc, bool empresaRegistrada, CertificateInfo certificado, String provider, List<String> pendencias, String codigoServicoNacional, String codigoNbs, double? aliquotaIss, double? percentualTributosSimples
 });
 
 
@@ -548,7 +566,7 @@ class __$InvoiceFiscalConfigCopyWithImpl<$Res>
 
 /// Create a copy of InvoiceFiscalConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? ambiente = null,Object? serieNfse = null,Object? serieNfce = null,Object? serieNfe = null,Object? idCsc = null,Object? empresaRegistrada = null,Object? certificado = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? ambiente = null,Object? serieNfse = null,Object? serieNfce = null,Object? serieNfe = null,Object? idCsc = null,Object? empresaRegistrada = null,Object? certificado = null,Object? provider = null,Object? pendencias = null,Object? codigoServicoNacional = null,Object? codigoNbs = null,Object? aliquotaIss = freezed,Object? percentualTributosSimples = freezed,}) {
   return _then(_InvoiceFiscalConfig(
 ambiente: null == ambiente ? _self.ambiente : ambiente // ignore: cast_nullable_to_non_nullable
 as String,serieNfse: null == serieNfse ? _self.serieNfse : serieNfse // ignore: cast_nullable_to_non_nullable
@@ -557,7 +575,13 @@ as String,serieNfe: null == serieNfe ? _self.serieNfe : serieNfe // ignore: cast
 as String,idCsc: null == idCsc ? _self.idCsc : idCsc // ignore: cast_nullable_to_non_nullable
 as String,empresaRegistrada: null == empresaRegistrada ? _self.empresaRegistrada : empresaRegistrada // ignore: cast_nullable_to_non_nullable
 as bool,certificado: null == certificado ? _self.certificado : certificado // ignore: cast_nullable_to_non_nullable
-as CertificateInfo,
+as CertificateInfo,provider: null == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable
+as String,pendencias: null == pendencias ? _self._pendencias : pendencias // ignore: cast_nullable_to_non_nullable
+as List<String>,codigoServicoNacional: null == codigoServicoNacional ? _self.codigoServicoNacional : codigoServicoNacional // ignore: cast_nullable_to_non_nullable
+as String,codigoNbs: null == codigoNbs ? _self.codigoNbs : codigoNbs // ignore: cast_nullable_to_non_nullable
+as String,aliquotaIss: freezed == aliquotaIss ? _self.aliquotaIss : aliquotaIss // ignore: cast_nullable_to_non_nullable
+as double?,percentualTributosSimples: freezed == percentualTributosSimples ? _self.percentualTributosSimples : percentualTributosSimples // ignore: cast_nullable_to_non_nullable
+as double?,
   ));
 }
 

@@ -1,7 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/error/app_exception.dart';
@@ -536,12 +538,70 @@ class _TotalRow extends StatelessWidget {
 
 // ===================== Documentos (PDF/XML) =====================
 
-/// Abre o PDF/XML da nota no navegador/app externo (url_launcher). Se falhar
-/// (URL inválida/sem app), avisa e copia o link como fallback.
-class _DocumentsSection extends StatelessWidget {
+/// PDF/XML da nota. Dois caminhos:
+/// - provedor com URL pública (`pdfUrl`/`xmlUrl`): abre no navegador/app
+///   externo (url_launcher), com o link copiado como fallback;
+/// - emissão direta pelo governo: não há URL pública (o Ambiente Nacional exige
+///   o certificado) — baixa pelo repositório (`/invoices/:id/pdf|xml`). O PDF
+///   abre no visualizador de impressão; o XML é salvo como arquivo.
+class _DocumentsSection extends ConsumerStatefulWidget {
   const _DocumentsSection({required this.invoice});
 
   final Invoice invoice;
+
+  @override
+  ConsumerState<_DocumentsSection> createState() => _DocumentsSectionState();
+}
+
+class _DocumentsSectionState extends ConsumerState<_DocumentsSection> {
+  bool _loadingPdf = false;
+  bool _loadingXml = false;
+
+  Invoice get invoice => widget.invoice;
+
+  /// Nota com documento oficial guardado no backend (sem URL pública).
+  bool get _hasServerDocs =>
+      (invoice.accessKey ?? '').isNotEmpty &&
+      (invoice.status == 'authorized' || invoice.status == 'canceled');
+
+  String get _baseName => 'nfse-${invoice.number ?? invoice.accessKey}';
+
+  Future<void> _openServerPdf() async {
+    setState(() => _loadingPdf = true);
+    try {
+      final bytes =
+          await ref.read(invoiceRepositoryProvider).downloadPdf(invoice.id);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: '$_baseName.pdf',
+      );
+    } on AppException catch (e) {
+      if (mounted) showNeuErrorSnackBar(context, e.message);
+    } finally {
+      if (mounted) setState(() => _loadingPdf = false);
+    }
+  }
+
+  Future<void> _saveServerXml() async {
+    setState(() => _loadingXml = true);
+    try {
+      final bytes =
+          await ref.read(invoiceRepositoryProvider).downloadXml(invoice.id);
+      final saved = await FilePicker.saveFile(
+        fileName: '$_baseName.xml',
+        bytes: bytes,
+        type: FileType.custom,
+        allowedExtensions: const ['xml'],
+      );
+      if (saved != null && mounted) {
+        showNeuSuccessSnackBar(context, 'XML salvo.');
+      }
+    } on AppException catch (e) {
+      if (mounted) showNeuErrorSnackBar(context, e.message);
+    } finally {
+      if (mounted) setState(() => _loadingXml = false);
+    }
+  }
 
   Future<void> _open(BuildContext context, String url) async {
     final uri = Uri.tryParse(url);
@@ -564,6 +624,32 @@ class _DocumentsSection extends StatelessWidget {
     final pdf = invoice.pdfUrl;
     final xml = invoice.xmlUrl;
     final hasAny = (pdf ?? '').isNotEmpty || (xml ?? '').isNotEmpty;
+    if (!hasAny && _hasServerDocs) {
+      return _SectionCard(
+        icon: Icons.download_rounded,
+        title: 'Documentos',
+        glyphIndex: 3,
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            NeuButton(
+              label: 'Abrir PDF',
+              icon: Icons.picture_as_pdf_outlined,
+              loading: _loadingPdf,
+              onPressed: _loadingPdf ? null : _openServerPdf,
+            ),
+            NeuButton(
+              label: 'Baixar XML',
+              icon: Icons.code_rounded,
+              kind: NeuButtonKind.secondary,
+              loading: _loadingXml,
+              onPressed: _loadingXml ? null : _saveServerXml,
+            ),
+          ],
+        ),
+      );
+    }
     return _SectionCard(
       icon: Icons.download_rounded,
       title: 'Documentos',
@@ -634,7 +720,8 @@ class _CancelSection extends StatelessWidget {
   }
 }
 
-/// Dialog que pede o motivo do cancelamento (mín. 3 chars). Retorna o motivo ou
+/// Dialog que pede o motivo do cancelamento (mín. 15 chars — exigência do
+/// leiaute da NFS-e Nacional). Retorna o motivo ou
 /// null se o usuário fechar/cancelar.
 class _CancelDialog extends StatefulWidget {
   const _CancelDialog();
@@ -666,8 +753,8 @@ class _CancelDialogState extends State<_CancelDialog> {
 
   void _submit() {
     final text = _reason.text.trim();
-    if (text.length < 3) {
-      setState(() => _error = 'Descreva o motivo (mínimo 3 caracteres).');
+    if (text.length < 15) {
+      setState(() => _error = 'Descreva o motivo (mínimo 15 caracteres).');
       return;
     }
     Navigator.of(context).pop(text);

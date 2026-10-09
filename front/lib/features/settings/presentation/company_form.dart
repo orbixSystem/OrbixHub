@@ -169,6 +169,7 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       case 'inscricaoEstadual':
       case 'inscricaoMunicipal':
       case 'numero':
+      case 'codigoIbge':
         return TextInputType.number;
       default:
         return _keyboardType(field.type);
@@ -184,6 +185,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         return [CepInputFormatter()];
       case 'inscricaoMunicipal':
         return [DigitsOnlyFormatter(14)];
+      case 'codigoIbge':
+        return [DigitsOnlyFormatter(7)];
       default:
         return null;
     }
@@ -387,6 +390,10 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
       }
       if (_textCtrl.containsKey('municipio')) {
         _textCtrl['municipio']!.text = addr.municipio ?? '';
+      }
+      // Código IBGE do município (NFS-e Nacional) — vem junto do CEP.
+      if (_textCtrl.containsKey('codigoIbge') && (addr.ibge ?? '').isNotEmpty) {
+        _textCtrl['codigoIbge']!.text = addr.ibge!;
       }
       // complemento: preenche apenas se estiver vazio
       if (_textCtrl.containsKey('complemento')) {
@@ -637,6 +644,8 @@ class _CompanyFormState extends ConsumerState<CompanyForm> {
         return 'Cidade — preenchida pelo CEP.';
       case 'uf':
         return 'Estado (UF) — preenchido pelo CEP.';
+      case 'codigoIbge':
+        return 'Código da cidade (7 dígitos) — preenchido pelo CEP. Usado na NFS-e.';
       default:
         return null;
     }

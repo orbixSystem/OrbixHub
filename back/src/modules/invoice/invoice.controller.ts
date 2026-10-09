@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -39,7 +40,7 @@ export class InvoiceController {
   @Get('config')
   @Permissions('invoice.config')
   getConfig(@CurrentUser() user: AuthUser) {
-    return this.invoice.getConfig(user.tenantId);
+    return this.invoice.getConfigView(user.tenantId);
   }
 
   @Patch('config')
@@ -78,6 +79,28 @@ export class InvoiceController {
   @Permissions('invoice.read')
   getOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoice.getOne(id);
+  }
+
+  /** XML autorizado da NFS-e (download com o token — não é URL pública). */
+  @Get(':id/xml')
+  @Permissions('invoice.read')
+  async xml(@Param('id', ParseUUIDPipe) id: string) {
+    const f = await this.invoice.getXml(id);
+    return new StreamableFile(Buffer.from(f.content, 'utf8'), {
+      type: 'application/xml; charset=utf-8',
+      disposition: `attachment; filename="${f.filename}"`,
+    });
+  }
+
+  /** DANFSe (PDF oficial), buscado no Ambiente Nacional com o certificado do tenant. */
+  @Get(':id/pdf')
+  @Permissions('invoice.read')
+  async pdf(@Param('id', ParseUUIDPipe) id: string) {
+    const f = await this.invoice.getPdf(id);
+    return new StreamableFile(f.content, {
+      type: 'application/pdf',
+      disposition: `inline; filename="${f.filename}"`,
+    });
   }
 
   @Post()

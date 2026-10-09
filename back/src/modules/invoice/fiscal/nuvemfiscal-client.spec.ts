@@ -99,6 +99,7 @@ describe('NuvemFiscalClient.upsertEmpresa', () => {
     regimeTributario: null,
     cnae: null,
     email: 'oficina@teste.com',
+    fone: null,
     endereco: {
       cep: '01000-000',
       logradouro: 'Rua Teste',
@@ -107,6 +108,7 @@ describe('NuvemFiscalClient.upsertEmpresa', () => {
       bairro: 'Centro',
       municipio: 'São Paulo',
       uf: 'SP',
+      codigoIbge: null,
     },
   };
 

@@ -891,12 +891,32 @@ model invoice {
   authorized_at     DateTime?       @db.Timestamptz(6)
   created_at        DateTime        @default(now()) @db.Timestamptz(6)
   updated_at        DateTime        @default(now()) @db.Timestamptz(6)
+  /// 0063: série/número da DPS (numeração do contribuinte, por ambiente) + XML autorizado.
+  dps_series        String?
+  dps_number        Int?
+  nfse_xml          String?
   lines             invoice_line[]
   events            invoice_event[]
 
   @@index([tenant_id, status], map: "idx_invoice_tenant_status")
   @@index([tenant_id, order_id], map: "idx_invoice_tenant_order")
   @@index([tenant_id, created_at], map: "idx_invoice_tenant_created")
+}
+
+/// 0063: cofre do certificado A1 do tenant (cifrado com FISCAL_CERT_KEY). Um por tenant.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoice_certificate {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @unique(map: "uq_invoice_certificate_tenant") @db.Uuid
+  pfx_encrypted      String
+  password_encrypted String
+  cnpj               String?
+  subject            String?
+  not_before         DateTime? @db.Timestamptz(6)
+  not_after          DateTime? @db.Timestamptz(6)
+  uploaded_by        String?   @db.Uuid
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

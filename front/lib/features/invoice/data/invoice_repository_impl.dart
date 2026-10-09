@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../../core/error/app_exception.dart';
@@ -68,5 +70,19 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           data: {'reason': reason},
         );
         return Invoice.fromJson(_asMap(res.data));
+      });
+
+  @override
+  Future<Uint8List> downloadPdf(String id) => _bytes('/invoices/$id/pdf');
+
+  @override
+  Future<Uint8List> downloadXml(String id) => _bytes('/invoices/$id/xml');
+
+  Future<Uint8List> _bytes(String path) => _guard(() async {
+        final res = await _dio.get<List<int>>(
+          path,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        return Uint8List.fromList(res.data ?? const <int>[]);
       });
 }
