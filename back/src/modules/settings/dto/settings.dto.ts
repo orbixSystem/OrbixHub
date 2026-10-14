@@ -52,6 +52,9 @@ export class UpdateCompanyDto {
   @IsOptional() @IsString() complemento?: string;
   @IsOptional() @IsString() bairro?: string;
   @IsOptional() @IsString() municipio?: string;
+  // Código IBGE (7 dígitos) do município — exigido pela NFS-e Nacional (cLocEmi).
+  // O front preenche sozinho a partir do CEP (ViaCEP devolve o código).
+  @IsOptional() @Matches(/^\d{7}$/, { message: 'codigoIbge deve ter 7 dígitos' }) codigoIbge?: string;
   @IsOptional() @IsIn(UFS, { message: 'uf inválida' }) uf?: string;
   // Aparência (também presente no UpdateAppearanceDto — PRESETS exportado e compartilhado)
   @IsOptional() @IsIn(PRESETS, { message: 'themePreset inválido' }) themePreset?: string;

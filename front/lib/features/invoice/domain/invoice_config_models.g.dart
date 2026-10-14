@@ -25,6 +25,17 @@ _InvoiceFiscalConfig _$InvoiceFiscalConfigFromJson(Map<String, dynamic> json) =>
           : CertificateInfo.fromJson(
               json['certificado'] as Map<String, dynamic>,
             ),
+      provider: json['provider'] as String? ?? 'noop',
+      pendencias:
+          (json['pendencias'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
+      codigoServicoNacional: json['codigoServicoNacional'] as String? ?? '',
+      codigoNbs: json['codigoNbs'] as String? ?? '',
+      aliquotaIss: (json['aliquotaIss'] as num?)?.toDouble(),
+      percentualTributosSimples: (json['percentualTributosSimples'] as num?)
+          ?.toDouble(),
     );
 
 Map<String, dynamic> _$InvoiceFiscalConfigToJson(
@@ -37,4 +48,10 @@ Map<String, dynamic> _$InvoiceFiscalConfigToJson(
   'idCsc': instance.idCsc,
   'empresaRegistrada': instance.empresaRegistrada,
   'certificado': instance.certificado.toJson(),
+  'provider': instance.provider,
+  'pendencias': instance.pendencias,
+  'codigoServicoNacional': instance.codigoServicoNacional,
+  'codigoNbs': instance.codigoNbs,
+  'aliquotaIss': instance.aliquotaIss,
+  'percentualTributosSimples': instance.percentualTributosSimples,
 };

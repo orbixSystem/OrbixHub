@@ -108,6 +108,7 @@ export const COMPANY_SECTION: SettingsSection = {
     { key: 'complemento', label: 'Complemento', type: 'text', group: 'Endereço' },
     { key: 'bairro', label: 'Bairro', type: 'text', group: 'Endereço' },
     { key: 'municipio', label: 'Município', type: 'text', group: 'Endereço' },
+    { key: 'codigoIbge', label: 'Código IBGE do município', type: 'text', group: 'Endereço' },
     { key: 'uf', label: 'UF', type: 'select', options: UFS, group: 'Endereço' },
     // Aparência
     { key: 'themePreset', label: 'Tema do sistema', type: 'select', options: THEME_PRESETS, group: 'Aparência' },

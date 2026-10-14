@@ -16,8 +16,13 @@ abstract class CertificateInfo with _$CertificateInfo {
 }
 
 /// Configuração fiscal do tenant (`GET/PATCH /invoices/config`). Não guarda
-/// segredos — o .pfx e o CSC em si vivem no provedor; aqui só metadados/
-/// preferências ("aponta, não invade"). Contrato real do backend: camelCase.
+/// segredos — o .pfx nunca volta do servidor; aqui só metadados/preferências.
+/// Contrato real do backend: camelCase.
+///
+/// `provider` diz QUEM emite: `govbr` = direto na NFS-e Nacional (o certificado
+/// fica cifrado no servidor e não há cadastro em provedor); outros valores =
+/// provedor/simulação. `pendencias` é a lista (do backend) do que ainda falta
+/// para emitir — vazia = pronto.
 @freezed
 abstract class InvoiceFiscalConfig with _$InvoiceFiscalConfig {
   const factory InvoiceFiscalConfig({
@@ -28,7 +33,18 @@ abstract class InvoiceFiscalConfig with _$InvoiceFiscalConfig {
     @Default('') String idCsc,
     @Default(false) bool empresaRegistrada,
     @Default(CertificateInfo()) CertificateInfo certificado,
+    @Default('noop') String provider,
+    @Default(<String>[]) List<String> pendencias,
+    @Default('') String codigoServicoNacional,
+    @Default('') String codigoNbs,
+    double? aliquotaIss,
+    double? percentualTributosSimples,
   }) = _InvoiceFiscalConfig;
+
+  const InvoiceFiscalConfig._();
+
+  /// Emissão direta pelo governo (NFS-e Nacional).
+  bool get isGovBr => provider == 'govbr';
 
   factory InvoiceFiscalConfig.fromJson(Map<String, dynamic> json) =>
       _$InvoiceFiscalConfigFromJson(json);

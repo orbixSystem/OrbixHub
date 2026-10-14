@@ -113,6 +113,26 @@ export const envSchema = z.object({
   FISCAL_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
   // HMAC do webhook fiscal (assinatura sobre o corpo cru). Secret — nunca no front.
   INVOICE_WEBHOOK_SECRET: z.string().min(16).default('dev_invoice_webhook_secret_change_me'),
+  // --- NFS-e Nacional (FISCAL_PROVIDER=govbr) ---
+  // Chave AES-256 (32 bytes em base64) que cifra o certificado A1 de cada tenant
+  // no banco. Obrigatória com govbr (o módulo recusa subir sem ela). Gerar com:
+  //   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+  // Trocar a chave torna ilegíveis os certificados já enviados (todos reenviam).
+  FISCAL_CERT_KEY: z
+    .string()
+    .optional()
+    .refine((s) => !s || Buffer.from(s, 'base64').length === 32, {
+      message: 'FISCAL_CERT_KEY deve ser 32 bytes em base64',
+    }),
+  // Endpoints oficiais. Configuráveis porque a documentação diverge sobre o
+  // prefixo /API/ — se a Sefin responder 404/E999, ajuste aqui sem deploy de código.
+  NFSE_SEFIN_URL_HOMOLOGACAO: z
+    .string()
+    .default('https://sefin.producaorestrita.nfse.gov.br/SefinNacional'),
+  NFSE_SEFIN_URL_PRODUCAO: z.string().default('https://sefin.nfse.gov.br/SefinNacional'),
+  NFSE_ADN_URL_HOMOLOGACAO: z.string().default('https://adn.producaorestrita.nfse.gov.br'),
+  NFSE_ADN_URL_PRODUCAO: z.string().default('https://adn.nfse.gov.br'),
+  NFSE_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30000),
   // --- Nuvem Fiscal (provedor BaaS fiscal; credenciais globais da plataforma) ---
   NUVEMFISCAL_CLIENT_ID: z.string().default(''),
   NUVEMFISCAL_CLIENT_SECRET: z.string().default(''),

@@ -33,6 +33,8 @@ export interface CreateInvoiceData {
   product_amount: number;
   total_amount: number;
   issued_by: string | null;
+  dps_series?: string | null;
+  dps_number?: number | null;
 }
 
 export interface InvoiceEventData {
@@ -172,6 +174,47 @@ export class InvoiceRepository {
         message: data.message ?? null,
         status_snapshot: data.statusSnapshot ?? null,
       },
+    });
+  }
+
+  /**
+   * Próximo número de DPS do tenant para (ambiente, série). O lock transacional
+   * serializa emissões concorrentes do mesmo tenant/série — sem ele duas notas
+   * simultâneas pegariam o mesmo número e uma bateria no índice único. Chamar
+   * DENTRO da tx que cria a nota.
+   */
+  async nextDpsNumber(tenantId: string, environment: string, series: string): Promise<number> {
+    const db = this.tenant.getClient();
+    const lockKey = `invoice_dps:${tenantId}:${environment}:${series}`;
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    const agg = await db.invoice.aggregate({
+      where: { environment, dps_series: series, dps_number: { not: null } },
+      _max: { dps_number: true },
+    });
+    return (agg._max.dps_number ?? 0) + 1;
+  }
+
+  // ---- cofre do certificado A1 (tenant, RLS) ----
+  findCertificate() {
+    const db = this.tenant.getClient();
+    return db.invoice_certificate.findFirst();
+  }
+
+  upsertCertificate(data: {
+    tenant_id: string;
+    pfx_encrypted: string;
+    password_encrypted: string;
+    cnpj: string | null;
+    subject: string;
+    not_before: Date;
+    not_after: Date;
+    uploaded_by: string;
+  }) {
+    const db = this.tenant.getClient();
+    return db.invoice_certificate.upsert({
+      where: { tenant_id: data.tenant_id },
+      create: data,
+      update: { ...data, updated_at: new Date() },
     });
   }
 

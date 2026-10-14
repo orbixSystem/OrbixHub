@@ -1,18 +1,27 @@
 ---
 name: orbixhub-fiscal-invoice
-description: Use when building or changing anything about Nota Fiscal / fiscal emission in OrbixHub (módulo `invoice`) — issuing NF from an OS, the abstract fiscal gateway, the fiscal webhook, invoice tables/RLS, permissions, or the fiscal config boundary. Encodes the DECIDED fiscal strategy (NFS-e via API gov.br, free), the implemented backend foundation, and how it obeys the "aponta, não invade" law.
+description: Use when building or changing anything about Nota Fiscal / fiscal emission in OrbixHub (módulo `invoice`) — issuing NF from an OS, the abstract fiscal gateway, the fiscal webhook, invoice tables/RLS, permissions, or the fiscal config boundary. Encodes the DECIDED fiscal strategy (NFS-e direct on the National API gov.br, free — GovBrNfseGateway implemented, per-tenant encrypted A1 vault), the implemented foundation, and how it obeys the "aponta, não invade" law.
 ---
 
 # OrbixHub — Módulo Fiscal / Nota Fiscal (`invoice`)
 
-> **Estado (2026-07-17 — FULL-STACK):** módulo `invoice` implementado no backend E no front.
-> Emite NF a partir de uma **OS ou de uma venda** (migration `0030_invoice_sale_source`), **online-only**,
-> via **gateway fiscal abstrato**. Feature Flutter completa (lista `/m/invoice` + detalhe `/m/invoice/:id`
-> + emissão a partir da OS e da venda + Abrir PDF/XML + cancelar). **Ainda falta:** `GovBrNfseGateway`
-> real, endpoints de config sensível (cert A1/CSC/série — hoje `fields:[]`), testes e2e, e o estado
-> desabilitado "Requer conexão" offline (camada offline ainda não construída).
+> **Estado (2026-10-08):** `GovBrNfseGateway` IMPLEMENTADO (`FISCAL_PROVIDER=govbr`): emite NFS-e
+> direto na API Nacional, com cofre de certificado A1 por tenant, numeração de DPS, cancelamento e
+> PDF/XML. XML validado contra os XSDs oficiais v1.01; unit + e2e verdes com Sefin simulada.
+> **Falta o 1º teste em homologação com certificado real** (roteiro em
+> `docs/superpowers/specs/2026-10-08-nfse-nacional-direto-design.md`). Nota de produto (NFC-e/NF-e)
+> NÃO é emitida. Ver seção "NFS-e Nacional (govbr)" abaixo.
+>
+> Histórico: em 2026-07 a spec `2026-07-16-nf-servico-produto-design.md` trocou para Nuvem Fiscal
+> (provedor pago) e implementou só cadastro de empresa/certificado lá. Em **2026-10-08 o dono
+> decidiu voltar para a API do governo** (custo zero). O código Nuvem Fiscal ficou, desligado.
 
 ## Decisões do dono (DECIDIDAS — não reabrir sem pedir)
+
+- **2026-10-08: emissão DIRETA na API NFS-e Nacional (gov.br), sem provedor pago.** Cada tenant
+  envia o **próprio e-CNPJ A1** — a API exige o certificado do contribuinte; não há procuração
+  (pedido da Fenacon jun/2026 pendente). **Certificado da Orbix/de sócio NÃO serve** para emitir
+  nota de cliente (só para testes de homologação e para as notas da própria Orbix).
 
 - **Documento MVP = NFS-e** (nota de **serviço** — mão de obra da oficina). NFC-e/NF-e de
   **produto** ficam para depois. **Mas o design é agnóstico ao tipo de documento** (`document_type`
@@ -159,14 +168,39 @@ fiscal · <status>" se já existe ativa; **auto-oferta** (`showNeuConfirm`) ao c
 Sempre `repo.issue(...)` → navega pra nota (evita o 409). Design segue `orbixhub-frontend-flutter`
 (neumorfismo, `context.neu`).
 
+## NFS-e Nacional (govbr) — IMPLEMENTADO 2026-10-08
+
+Design completo + roteiro do 1º teste: `docs/superpowers/specs/2026-10-08-nfse-nacional-direto-design.md`.
+
+- **Gateway** `fiscal/govbr/govbr-nfse-gateway.ts`, escolhido por factory em `invoice.module.ts`
+  (`govbr` exige `FISCAL_CERT_KEY` ou o servidor NÃO sobe; `nuvemfiscal` cai em Noop com warning).
+  Monta DPS (`dps-xml.ts`, funções puras na ordem do XSD 1.01) → assina (`xml-signer.ts`, XMLDSig
+  RSA-SHA1/C14N) → gzip+base64 → `POST {Sefin}/nfse` via mTLS (`nfse-http.ts`). Resposta SÍNCRONA
+  (sem webhook; `verifySignature` = false). Queda de conexão/5xx → `GET /dps/{id}` recupera a nota
+  se ela foi gerada (evita duplicidade no retry). Cancelamento = evento e101101 (motivo ≥ 15 chars).
+- **Cofre** `invoice-certificate.service.ts` + tabela `invoice_certificate` (RLS, 1 por tenant):
+  .pfx e senha cifrados AES-256-GCM (`cert-cipher.ts`). Upload valida senha, validade e
+  **CNPJ do titular == CNPJ da empresa**. Leitura do .pfx com node-forge (`a1-certificate.ts`).
+- **Service**: NFS-e leva **só linhas de serviço** (OS só com peças → 400). `nfsePendencias()`
+  (pura) bloqueia a emissão e alimenta `GET /invoices/config` (`provider`, `pendencias`). Número da
+  DPS reservado na tx do rascunho (`repo.nextDpsNumber`, advisory lock por tenant/ambiente/série).
+  `FISCAL_ENVIRONMENT` do env é TETO (homologação no servidor = nunca produção).
+  `invoice.nfse_xml` fica fora das respostas (`withoutXml`); download em `GET /invoices/:id/xml|pdf`.
+- **Config**: núcleo ganhou `codigoIbge` (front preenche pelo CEP/ViaCEP); módulo ganhou
+  `codigoServicoNacional` (cTribNac 6 díg.), `codigoNbs` (9 díg., OBRIGATÓRIO no leiaute atual),
+  `aliquotaIss`, `percentualTributosSimples`.
+- **Testes**: `fiscal/govbr/*.spec.ts` (XML, cifra, assinatura, gateway com Sefin simulada),
+  `invoice.service.spec.ts` (pendências, só-serviços, numeração), `test/invoice-govbr.e2e-spec.ts`.
+  Certificado de teste: `fiscal/govbr/test-a1.ts` (autoassinado, só p/ teste).
+
 ## PENDENTE (próximos passos)
 
-1. Endpoints de config sensível do módulo (certificado A1, série, ambiente, CSC) — hoje `fields:[]`.
-2. Testes e2e: isolamento de tenant, autorização por cargo, idempotência de webhook, guardrails
-   (OS/venda cancelada, sem itens, nota duplicada).
-3. `GovBrNfseGateway` real (quando for para produção) — nova impl do contrato (`FISCAL_PROVIDER=govbr`
-   já é aceito pelo Zod mas nada ramifica nele ainda).
-4. Estado desabilitado "Requer conexão" no front quando offline (depende da camada offline, ainda não construída).
+1. **1º teste em homologação com certificado real** — confirma prefixo de URL (`/API/`?), algoritmo
+   da assinatura (SHA-1 vs SHA-256) e regras do município. Ajustes são de env/constante.
+2. Nota de produto (NFC-e/NF-e) — Sefaz da UF (direto ou provedor só para produto).
+3. Código de serviço por item (hoje um padrão por tenant; snapshot por linha já existe).
+4. Grupo IBS/CBS (reforma tributária) — opcional no 1.01; acompanhar NTs.
+5. Estado desabilitado "Requer conexão" no front quando offline.
 
 > Ao mexer aqui, siga também a skill `orbixhub-arquitetura` (regras de ouro) e
 > `orbixhub-billing` (padrão de gateway + webhook idempotente que o invoice espelha).

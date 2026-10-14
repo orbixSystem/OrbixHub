@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../domain/invoice_models.dart';
 import '../domain/invoice_repository.dart';
 
@@ -217,4 +219,13 @@ class FakeInvoiceRepository implements InvoiceRepository {
     _invoices[idx] = canceled;
     return canceled;
   }
+
+  /// PDF mínimo válido (cabeçalho %PDF) — só para a UI ter o que abrir em dev.
+  @override
+  Future<Uint8List> downloadPdf(String id) async =>
+      Uint8List.fromList('%PDF-1.4\n%%EOF\n'.codeUnits);
+
+  @override
+  Future<Uint8List> downloadXml(String id) async =>
+      Uint8List.fromList('<NFSe><infNFSe Id="NFS$id"/></NFSe>'.codeUnits);
 }

@@ -45,11 +45,11 @@
 
 ### Nota Fiscal (módulo `invoice`)
 
-O módulo já existe no backend (emissão a partir da OS, **online-only**, via gateway
-fiscal abstrato — `NoopFiscalGateway` em dev; `GovBrNfseGateway` real futuro, API
-NFS-e Nacional gov.br). A seção de config é registrada no host quando o módulo está
-habilitado; as credenciais sensíveis abaixo terão endpoints próprios do módulo. A
-fronteira de responsabilidade segue o princípio "aponta, não invade":
+Emissão a partir da OS ou da venda, **online-only**, via gateway fiscal abstrato:
+`NoopFiscalGateway` em dev; `GovBrNfseGateway` (`FISCAL_PROVIDER=govbr`) emite NFS-e
+**direto na API NFS-e Nacional (gov.br)**, sem provedor pago — ver
+`docs/superpowers/specs/2026-10-08-nfse-nacional-direto-design.md`. A fronteira de
+responsabilidade segue o princípio "aponta, não invade":
 
 **No config da empresa (núcleo — já disponível agora):**
 Os campos abaixo são **identidade do tenant** e úteis a múltiplos módulos. Ficam em
@@ -59,17 +59,23 @@ Os campos abaixo são **identidade do tenant** e úteis a múltiplos módulos. F
 - Razão social (`legalName`)
 - Inscrição Estadual (`inscricaoEstadual`) e Municipal (`inscricaoMunicipal`)
 - Regime tributário (`regimeTributario`) e CNAE (`cnae`)
-- Endereço fiscal completo (campos `cep` → `uf`)
+- Endereço fiscal completo (campos `cep` → `uf`) + **código IBGE do município**
+  (`codigoIbge`, 7 dígitos — o front preenche pelo CEP via ViaCEP; a NFS-e exige)
 
 **No próprio módulo `invoice` (via seção registrada + endpoints próprios):**
 Dados **operacionais e sensíveis** que pertencem exclusivamente ao módulo:
 
 | Dado | Obs |
 |---|---|
-| Certificado digital A1 (`.pfx`) | sensível; armazenado criptografado; nunca exposto no settings genérico |
-| Ambiente | homologação / produção |
-| Série e numeração de NF | controle de sequência da emissão |
-| CSC / token NFC-e | credencial por ambiente |
+| Certificado digital A1 (`.pfx`) | com `govbr`: tabela própria `invoice_certificate` (RLS), `.pfx` e senha **cifrados** (AES-256-GCM, chave `FISCAL_CERT_KEY`); só metadados saem da API. `POST /invoices/config/certificate` valida senha, validade e CNPJ do titular = CNPJ da empresa |
+| Ambiente | homologação / produção — o env `FISCAL_ENVIRONMENT` é o **teto** (homologação no servidor = nunca produção) |
+| Série da NFS-e + numeração da DPS | série na config; número da DPS reservado por (tenant, ambiente, série) em `invoice.dps_number` |
+| Código de tributação nacional (`codigoServicoNacional`, 6 dígitos) e NBS (`codigoNbs`, 9 dígitos) | classificação padrão do serviço na NFS-e |
+| Alíquota do ISS / % tributos Simples | opcionais (`aliquotaIss`, `percentualTributosSimples`) |
+| CSC / token NFC-e | credencial por ambiente (nota de produto — ainda não emitida) |
+
+`GET /invoices/config` devolve também `provider` e `pendencias` (lista, em português,
+do que falta para emitir — vazia = pronto). Emitir com pendência é recusado (400).
 
 O módulo `invoice` **aponta** para `tenant.settings` (lê CNPJ, IE, endereço) mas
 **não invade** a tabela de settings do núcleo; seus dados operacionais ficam em

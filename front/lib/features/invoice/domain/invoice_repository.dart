@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'invoice_models.dart';
 
 /// Contrato do módulo Notas Fiscais. O backend é a verdade (RLS + permissões
@@ -21,4 +23,11 @@ abstract interface class InvoiceRepository {
   /// Cancela uma nota autorizada (`POST /invoices/:id/cancel`). `reason` de 3 a
   /// 255 chars. Exige `invoice.issue`. Sem hard delete — só muda o status.
   Future<Invoice> cancel(String id, String reason);
+
+  /// PDF oficial da nota (DANFSe) — `GET /invoices/:id/pdf`. Na emissão direta
+  /// pelo governo o PDF não é URL pública: o backend busca com o certificado.
+  Future<Uint8List> downloadPdf(String id);
+
+  /// XML autorizado da nota — `GET /invoices/:id/xml`.
+  Future<Uint8List> downloadXml(String id);
 }

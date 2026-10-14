@@ -1,5 +1,10 @@
 # Emissão de Nota Fiscal (serviço + produto) — Design
 
+> **SUPERADA em 2026-10-08 quanto ao provedor:** o dono decidiu emitir NFS-e **direto na API
+> NFS-e Nacional (gov.br)**, sem Nuvem Fiscal. Ver
+> `2026-10-08-nfse-nacional-direto-design.md`. A classificação fiscal e a fronteira de config
+> abaixo continuam valendo.
+
 > **Status:** RASCUNHO aguardando revisão/aprovação do dono (design apresentado via
 > brainstorming em 2026-07-16). **Nenhuma implementação iniciada.** Próximo passo após
 > aprovação: `writing-plans` → plano de implementação faseado.

@@ -1,4 +1,6 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Logger, Module, OnModuleInit } from '@nestjs/common';
+import { ENV } from '../../common/config/config.module';
+import type { Env } from '../../common/config/env.schema';
 import { BillingModule } from '../billing/billing.module';
 import { CustomersModule } from '../customers/customers.module';
 import { OrderLockRegistry } from '../os/order-lock.registry';
@@ -13,13 +15,35 @@ import { InvoiceService } from './invoice.service';
 import { InvoiceOrderLock } from './invoice-order-lock';
 import { InvoiceRepository } from './invoice.repository';
 import { INVOICE_CONFIG_KEY } from './invoice.config';
-import { FISCAL_GATEWAY } from './fiscal/fiscal-gateway';
+import { FISCAL_GATEWAY, FiscalGateway } from './fiscal/fiscal-gateway';
 import { NoopFiscalGateway } from './fiscal/noop-fiscal-gateway';
 import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
+import { GovBrNfseGateway } from './fiscal/govbr/govbr-nfse-gateway';
+import { NfseHttp } from './fiscal/govbr/nfse-http';
+import { InvoiceCertificateService } from './invoice-certificate.service';
+
+/**
+ * Escolhe o gateway pelo FISCAL_PROVIDER. `govbr` = emissão direta na NFS-e
+ * Nacional (gratuita) e exige o cofre de certificados configurado — sem a chave
+ * o servidor nem sobe, em vez de falhar só na primeira nota.
+ * `nuvemfiscal` ainda não tem emissão implementada (só cadastro) → Noop.
+ */
+function fiscalGatewayFactory(env: Env, noop: NoopFiscalGateway, govbr: GovBrNfseGateway): FiscalGateway {
+  if (env.FISCAL_PROVIDER === 'govbr') {
+    if (!env.FISCAL_CERT_KEY) {
+      throw new Error('FISCAL_PROVIDER=govbr exige FISCAL_CERT_KEY (32 bytes em base64).');
+    }
+    return govbr;
+  }
+  if (env.FISCAL_PROVIDER !== 'noop') {
+    new Logger('InvoiceModule').warn(`FISCAL_PROVIDER=${env.FISCAL_PROVIDER} sem emissão implementada — usando Noop.`);
+  }
+  return noop;
+}
 
 /**
  * Módulo Nota Fiscal — emissão a partir da OS (ONLINE-ONLY) via gateway fiscal
- * abstrato (Noop em dev; GovBrNfseGateway real futuro). Contratável
+ * abstrato (Noop em dev; GovBrNfseGateway = NFS-e Nacional direto no gov.br). Contratável
  * (@RequiresModule('invoice')). Importa BillingModule (ModuleAccessGuard),
  * OsModule e CustomersModule (services públicos — "aponta, não invade") e
  * SettingsModule (registra a própria seção de config no host). TenancyModule
@@ -41,7 +65,15 @@ import { NuvemFiscalClient } from './fiscal/nuvemfiscal-client';
     InvoiceRepository,
     InvoiceOrderLock,
     NuvemFiscalClient,
-    { provide: FISCAL_GATEWAY, useClass: NoopFiscalGateway },
+    InvoiceCertificateService,
+    NfseHttp,
+    NoopFiscalGateway,
+    GovBrNfseGateway,
+    {
+      provide: FISCAL_GATEWAY,
+      inject: [ENV, NoopFiscalGateway, GovBrNfseGateway],
+      useFactory: fiscalGatewayFactory,
+    },
   ],
   exports: [InvoiceService],
 })

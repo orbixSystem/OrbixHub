@@ -19,6 +19,7 @@ class AddressLookup {
     this.municipio,
     this.uf,
     this.complemento,
+    this.ibge,
   });
 
   final String? logradouro;
@@ -26,6 +27,9 @@ class AddressLookup {
   final String? municipio;
   final String? uf;
   final String? complemento;
+
+  /// Código IBGE (7 dígitos) do município — exigido pela NFS-e Nacional.
+  final String? ibge;
 }
 
 abstract class ExternalLookupsRepository {
